@@ -1188,6 +1188,7 @@ Each file contains records relevant to that category as part of the audit trail.
               continue;
             }
             const tempWorkbook = new ExcelJS.Workbook();
+            // @ts-ignore - Buffer type compatibility issue between Node versions
             await tempWorkbook.xlsx.load(buffers[0]);
 
             const tempWorksheet = tempWorkbook.getWorksheet(1);

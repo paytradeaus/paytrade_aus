@@ -56,7 +56,7 @@ import { SubscriptionPlanDetails } from 'src/entities/subscription-plan-details.
 import { AuditReport } from 'src/entities/audit-report.entity';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
 import { AdminDetails } from 'src/entities/admin-details.entity';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { formatCurrency } from 'src/libs/@currency-formattor/currency-formattor';
 import { generatePaymentClaimLink } from '../banking/payment-claims/payment-claims.activity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';

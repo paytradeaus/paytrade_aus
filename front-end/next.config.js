@@ -7,7 +7,6 @@ module.exports = {
   compress: true,
   optimizeFonts: true,
   experimental: {
-    appDir: true,
     missingSuspenseWithCSRBailout: false,
   },
   sassOptions: {
@@ -27,11 +26,10 @@ module.exports = {
         port: "3029",
         pathname: "/**",
       },
-    ], // Add your external image host domain here
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
   },
-  // webpack: (config) => {
-  //   config.resolve.alias.canvas = false;
-
-  //   return config;
-  // },
 };

@@ -1375,7 +1375,7 @@ type BlogCommentDto {
   """User ID of the person who posted the comment."""
   comment_by: String
 
-  """Base64 string representing the comment owner’s profile image."""
+  """Base64 string representing the comment ownerï¿½s profile image."""
   comment_owner_image_base64: String
 
   """Full name of the comment owner."""
@@ -2817,7 +2817,7 @@ input CreateCurrencyMasterInput {
   """Status of the currency entry"""
   status: String
 
-  """Currency symbol, e.g., $, €"""
+  """Currency symbol, e.g., $, ï¿½"""
   symbol: String!
 }
 
@@ -3473,7 +3473,7 @@ type CurrencyMaster {
   """Status of the currency record"""
   status: String
 
-  """Currency symbol (e.g., $, £, ¥)"""
+  """Currency symbol (e.g., $, ï¿½, ï¿½)"""
   symbol: String!
 }
 
@@ -14915,10 +14915,10 @@ type PTAdminGroup {
   """Base64 or URL string of the file content"""
   file: String
 
-  """File path of the admin’s profile document or signature"""
+  """File path of the adminï¿½s profile document or signature"""
   file_path: String
 
-  """File type of the admin’s profile document or signature"""
+  """File type of the adminï¿½s profile document or signature"""
   file_type: String
 
   """First name of the admin"""
@@ -17730,7 +17730,7 @@ type Query {
   "\n    Switches the mode of a specified user.\n    Logs the activity and records who initiated the change.\n    Applicable for Normal and Admin user modes.\n    "
   switchModeOfAnUser(
     """
-    Input containing user ID, company ID, and target mode to switch a user’s mode
+    Input containing user ID, company ID, and target mode to switch a userâ€™s mode
     """
     payload: SwitchModeOfAnUserInput!
   ): SwitchUserModeResponse!
@@ -19557,7 +19557,7 @@ input UpdateCurrencyMasterInput {
   """Status of the currency master entry"""
   status: String
 
-  """Symbol of the currency (e.g., $, €)"""
+  """Symbol of the currency (e.g., $, ï¿½)"""
   symbol: String
 }
 
