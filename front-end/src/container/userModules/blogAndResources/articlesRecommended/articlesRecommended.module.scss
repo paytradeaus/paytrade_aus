@@ -1,0 +1,328 @@
+// main container style
+.mainContainer {
+  display: grid;
+  flex-direction: column;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.homeContainerStyle {
+  height: 100%;
+  padding-top: 5rem;
+  overflow-y: auto;
+}
+
+// first row col1 styles
+
+.homeMainContent {
+  width: 35rem;
+  font-weight: 600;
+  color: black;
+  margin-left: 1%;
+  line-height: 3rem;
+  padding-bottom: 15px;
+}
+
+.homeSubContent {
+  width: 35rem;
+  font-size: 18px;
+  font-weight: normal;
+  color: #39393b;
+  margin-left: 1%;
+  line-height: 1.5rem;
+  padding-bottom: 15px;
+}
+
+.buyNowBtn {
+  background-color: rgb(29, 35, 121);
+  color: white;
+  padding: 7px 7px 7px 7px;
+  font-weight: 600;
+  margin-left: 1%;
+}
+
+// first row col2 style
+
+.homeCircleLogo {
+  margin-left: 20rem;
+}
+
+// third row styles
+
+.HomeInfoText {
+  color: #39393b;
+  text-align: center;
+  padding-top: 4rem;
+}
+
+.HomeInfoImg {
+  text-align: center;
+  padding-top: 2rem;
+}
+
+.HomeInfoTextWithBg {
+  color: #fff;
+  background-color: #1d2378;
+  border-radius: 15px;
+  max-width: 60%;
+  text-align: center;
+  margin: auto;
+  margin-bottom: 25px;
+  margin-top: 4rem;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 22px;
+}
+
+.formContentStyle {
+  color: #39393b;
+}
+
+// Eighth row styles
+
+.mt6 {
+  margin-top: 5rem;
+}
+
+// ninth row styles
+
+.contactSalesText {
+  color: #f9b05e;
+  text-transform: uppercase;
+  font-weight: normal;
+  font-size: 24px;
+}
+
+.getInTouch {
+  font-weight: 300;
+  font-size: 20px;
+  margin-bottom: 1rem;
+}
+
+.getInTouch span {
+  color: #62a3dd;
+}
+
+.homeFormStyle {
+  margin-top: 5rem;
+  margin-bottom: 15rem;
+  gap: 20rem;
+}
+
+.formButtonStyle {
+  display: grid;
+}
+
+.formButtonStyle button {
+  background: none !important;
+  border: 1px solid black;
+  color: black;
+  padding: 15px 10px;
+}
+
+.buttonStyles {
+  max-width: 180px;
+  height: 50px;
+  font-size: 14px !important;
+  margin-top: 40px;
+  margin-bottom: 45px;
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.formButtonStyle button:hover {
+  background: none !important;
+  border: 1px solid black;
+  color: black;
+}
+
+.inputLabelStyle {
+  font-size: 1rem;
+  color: #39393b;
+  text-align: center;
+}
+
+.inputStyles {
+  padding: 15px 10px;
+  border-radius: 10px;
+  border: 1px solid #39393b;
+}
+.cardsContainerView {
+  position: relative;
+}
+
+.microimage {
+  width: 597px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.categoryHead {
+  font-size: 17pt;
+  font-weight: 400;
+  color: #2496e2;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.textFieldStyles {
+  height: 5rem;
+}
+.categorySubHead {
+  text-align: center;
+  width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.commentHead {
+  font-size: 17pt;
+  font-weight: 500;
+  color: #1d2378;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  width: 80%;
+  margin-left: 5px;
+}
+.authorComment {
+  margin-bottom: 25px;
+}
+.reComment {
+  font-size: 17px;
+  margin-top: 20px;
+  color: darkgray;
+}
+.reHead {
+  font-weight: 500;
+  margin: 20px 0px 20px 0px;
+}
+.commentBlock {
+  border: 1px solid lightgrey;
+  border-radius: 5px;
+  padding: 30px 30px 35px 30px;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 24px;
+}
+.commentHeadBlock {
+  border-left: 2px solid #1d2378;
+  padding-left: 20px;
+}
+.commentHeadBlock1 {
+  border-left: 1px solid darkgray;
+  padding-left: 20px;
+}
+.btnComment {
+  width: 30%;
+  margin-top: 30px;
+}
+.categoryRecHead {
+  text-align: left;
+  margin-top: 125px;
+}
+.comment {
+  margin-top: 30px;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.authorImg {
+  border-radius: 100%;
+}
+.commentSection {
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.textFieldNameStyles {
+  max-width: 50%;
+  margin-bottom: 30px;
+  margin-top: 10px;
+}
+.rowHead {
+  margin-top: 30px;
+}
+.nameCategory {
+  display: flex;
+  justify-content: center;
+  gap: 15rem;
+  margin-top: 40px;
+  font-size: 13pt;
+}
+.boxHead {
+  margin-top: 30px;
+  padding: 30px;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  border: 1px solid #1d2378;
+  font-style: italic;
+  border-radius: 5px;
+  color: #1d2378;
+}
+.seperatorLine {
+  height: 0.25rem;
+  background: rgb(29, 35, 121);
+  width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 30px;
+}
+.shareStyles {
+  margin-top: 30px;
+  width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.authorTitle {
+  color: #2496e2;
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+    color: #39393b;
+    cursor: pointer;
+  }
+}
+.contentCategory {
+  font-size: 13pt;
+  margin-top: 45px;
+  width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.footerIcons {
+  font-size: 2rem;
+  display: flex;
+  gap: 3rem;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;
+  margin-top: 3rem;
+}
+.shareFooterIcons {
+  font-size: 2rem;
+  display: flex;
+  gap: 1rem;
+  margin-top: 20px;
+}
+.cardBlock {
+  border-radius: 5px;
+  cursor: pointer;
+}
+.headBlog {
+  max-width: 78%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.subText {
+  font-size: 14pt;
+  margin-bottom: 60px;
+  margin-top: 40px;
+  text-align: center;
+}
+@media screen and (min-width: 320px) and (max-width: 425px) {
+  .Container {
+    width: 100%;
+  }
+}

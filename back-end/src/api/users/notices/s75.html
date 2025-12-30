@@ -1,0 +1,180 @@
+<html>
+<div>
+  <style>
+    @media print {
+      @page {
+        margin: 10mm;
+      }
+
+      body {
+        margin: 0;
+        -webkit-print-color-adjust: exact;
+        font-size: 12px;
+        font-weight: 300;
+      }
+
+      .invoiceContainer {
+        page-break-after: always;
+        page-break-inside: avoid;
+        font-family: "Source Sans Pro", sans-serif;
+      }
+
+      .header,
+      .footer {
+        position: fixed;
+        width: 100%;
+        left: 0;
+        font-family: sans-serif;
+      }
+
+      .header {
+        top: 0;
+        text-align: center;
+        border-bottom: 1px solid darkgray;
+        padding: 5px;
+        z-index: 1000;
+      }
+
+      .header img {
+        float: left;
+        margin-left: 20px;
+        max-height: 50px;
+      }
+
+      .footer {
+        bottom: 0;
+        text-align: center;
+        border-top: 1px solid darkgray;
+        padding: 10px 0;
+        font-size: 12px;
+        z-index: 1000;
+      }
+
+      .content {
+        margin-top: 100px;
+        margin-bottom: 50px;
+        page-break-inside: avoid;
+      }
+
+      table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+      }
+
+      table td,
+      table th {
+        padding: 8px;
+        border: 1px solid darkgray;
+        font-size: 10px;
+      }
+
+      .tableHead {
+        background-color: #DCDDDF;
+        font-weight: bold;
+      }
+
+      .formalText {
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .signature {
+        display: flex;
+        width: 58%;
+        margin-top: 2em;
+      }
+
+      .signatureDetails {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .signRef {
+        margin-top: 3em;
+      }
+    }
+  </style>
+
+  <!-- <div class="header">
+    <img src="{{paytradeLogo}}" alt="Company Logo" />
+  </div> -->
+
+  <div class="invoiceContainer content">
+    <section>
+      <div style="font-size: 20px; font-weight: 500; margin-bottom: 3px">Supporting Statement</div>
+      <div class="formalText">
+        <!-- <strong>Supporting Statement</strong><br /><br /> -->
+        In accordance with section 75(7) of the Building Industry Fairness (Security of Payment) Act 2017, I,
+        {{fromDetails.name}}, being the head contractor (the Contractor), a director of the head contractor or a person
+        authorised by the head contractor on whose behalf this declaration is made, in relation to the contract
+        between:<br /><br />
+
+        <b>{{toDetails.name}}</b> ("the Principal") and<br />
+        <b>{{fromDetails.name}}</b> (“the Contractor”) for<br />
+        <b>{{claimDetails.contract_name}}</b> (“the Contract”),<br /><br />
+
+        declare that:<br /><br />
+
+        [1] Unless stated in paragraph [2], all subcontractor(s) for the Contractor engaged under the construction
+        contract for which this claim has been made, have been paid all amounts owed to them by the Contractor at the
+        date of giving this Payment claim no. <b>{{claimDetails.payment_claim_id}}</b>.<br /><br />
+
+        [2] The following subcontractor(s) have not been paid the full amount that is owed to them by the Contractor at
+        the date of giving this Payment claim no. <b>{{claimDetails.payment_claim_id}}</b> for the reasons set out
+        below:
+      </div>
+
+      <table>
+        <thead class="tableHead">
+          <tr>
+            <th>Subcontractor full name</th>
+            <th>Payment claim details</th>
+            <th>Date(s) of work or supply of related goods and services</th>
+            <th>Amount owed to the subcontractor ($)</th>
+            <th>Amount unpaid ($)</th>
+            <th>Reason for not paying amount owed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each claimDetails.claims}}
+          <tr>
+            <td>{{this.client_supplier_name}}</td>
+            <td>{{this.payment_claim_id}}</td>
+            <td>{{this.foramtted_contract_date}}</td>
+            <td style="text-align: right;">{{this.formatted_claim_amount}}</td>
+            <td style="text-align: right;">{{this.unpaid_amount}}</td>
+            <td>{{this.reason}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+
+      <div class="formalText" style="margin-top: 20px;">
+        * Amount owed is either the amount stated in a payment schedule, or if no payment schedule is given, the full
+        amount claimed under the payment claim. <br />
+        All other subcontractors have been paid the full amount owed to them. <br /><br />
+      </div>
+      <table style="margin-top: 30px; font-size: 12px; width: 100%; border: none;">
+          <tr>
+            <td style="width: 10%; border: none;">Signed: </td>
+            <td style="border: none;">
+              <img src="{{sign}}" alt="Authorised Signature" style="width: 120px; height: auto;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="width: 10%; border: none;">Contractor: </td>
+            <td style="border: none;">{{fromDetails.name}}</td>
+          </tr>
+          <tr>
+            <td style="width: 10%; border: none;">Date: </td>
+            <td style="border: none;">{{claimDetails.payment_claim_date}}</td>
+          </tr>
+        </table>
+    </section>
+  </div>
+</div>
+
+</html>

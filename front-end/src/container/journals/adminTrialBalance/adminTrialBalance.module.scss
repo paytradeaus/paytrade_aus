@@ -1,0 +1,183 @@
+.dataContainer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 20px 0px 0px 20px;
+  height: 100%;
+  & > header {
+    padding: 0;
+    z-index: 2;
+    flex: unset;
+    display: flex;
+    min-height: auto;
+    padding-bottom: 1rem;
+  }
+}
+.tableStyles {
+  margin-top: 2rem;
+  padding-left: 20px;
+}
+.noRecordStyle {
+  text-align: center;
+  margin-top: 3rem;
+}
+.tableSection2 {
+  .headingText {
+    background-color: #575a5d;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 20px;
+  }
+  .firstRowGreen {
+    background-color: #fdf4e4;
+    border: 2px solid #f7af37;
+  }
+}
+.headingText {
+  background-color: #a41e34;
+  color: white;
+  text-align: center;
+  padding: 20px;
+  font-size: 20px;
+}
+.alignRight {
+  text-align: right;
+}
+.alignLeft {
+  text-align: left;
+}
+.firstRowGreen {
+  background-color: #f9dfe3;
+  border: 2px solid #ad3448;
+}
+.tableBody {
+  border-right: 2px solid black;
+}
+.lastRowBorder {
+  border-top: 2px solid black; // Adjust the color and thickness as needed
+}
+
+.tableBody1 {
+  border-right: 2px solid black;
+  text-align: right;
+}
+.subHead {
+  color: black;
+  text-align: center;
+  border-bottom: 2px solid black;
+  padding: 12px;
+  font-size: 17px;
+}
+.headerAndButtonCon {
+  justify-content: space-between;
+  // padding-top: 20px;
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+  padding-bottom: 1.5rem;
+}
+.headerText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 22.142px;
+}
+.buttonStyles {
+  max-width: 120px;
+  height: 30px;
+  font-size: 14px !important;
+}
+.customSubHeaderCon {
+  justify-content: space-between;
+  flex: 1;
+  padding-right: 50px;
+  gap: 15px;
+}
+.customPopupstyles {
+  --bs-popover-zindex: 0 !important;
+}
+.textAndSelectCon {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding-left: 20px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.column {
+  flex: 1;
+  padding: 16px;
+  border: 1px solid #ddd;
+}
+.headerIconCon {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.textFieldStyles {
+  box-shadow: none !important;
+  border: 0px solid lightgray;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.textFieldStyles2 {
+  box-shadow: none !important;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+  max-width: 100% !important;
+}
+
+.controlStyles {
+  border: "1px solid red !important";
+}
+.dotsContainer {
+  display: flex;
+  width: 50px;
+  justify-content: center;
+  cursor: pointer;
+}
+.separatorStyle {
+  margin: 0px 5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notice {
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+/* Guide Report Table  */
+.tableContainer {
+  border-collapse: collapse;
+  width: 60% !important;
+  border: 1px solid black !important;
+}
+.headBorder {
+  border-bottom: 1px solid black;
+}
+.tableContainer th,
+.tableContainer td {
+  border: none;
+}
+.balanceBorder {
+  border-top: 1px solid black;
+}
+.lastRow {
+  font-weight: 700 !important;
+  border-top: 1px solid #000; /* Adjust color and thickness as needed */
+}
+.tableContainer thead {
+  border-bottom: none;
+}
+
+@media (max-width: 767px) {
+  .textAndSelectCon {
+    flex-direction: column;
+  }
+}

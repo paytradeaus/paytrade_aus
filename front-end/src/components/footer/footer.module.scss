@@ -1,0 +1,123 @@
+.footerPositionStyle {
+  // position: sticky;
+  bottom: 0;
+  left: 0;
+  background-color: #39393b;
+  height: 4rem;
+  padding: 20px 0px;
+  width: 100%;
+}
+
+.footerStyle {
+  width: 100%;
+  padding-right: 15px;
+  padding-left: 15px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.footerRow {
+  display: flex;
+  color: white;
+  font-size: 12px;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin-right: -15px;
+  margin-left: -15px;
+}
+
+.footerRight {
+  // margin-left: 15rem;
+  font-weight: 500;
+  div {
+    a {
+      font-weight: 600;
+      color: white;
+      text-decoration: none;
+    }
+  }
+}
+
+.footerUlStyle {
+  font-weight: 600;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footerSections {
+  cursor: pointer;
+  text-decoration: none;
+  color: white;
+  display: block;
+}
+
+.footerSections1 {
+  cursor: pointer;
+  text-decoration: none;
+  color: white;
+  display: none;
+}
+
+// Existing styles...
+
+@media (max-width: 768px) {
+  .footerPositionStyle {
+    height: auto; // Adjust the height or other properties as needed for larger screens
+  }
+
+  .footerRow {
+    flex-direction: row; // Ensure the row direction for larger screens
+  }
+
+  .footerRight {
+    margin-left: 0; // Resetting the margin for the right column
+  }
+
+  .footerUlStyle {
+    flex-direction: row; // Ensure horizontal alignment for list items
+    gap: 2rem; // Adjust spacing between list items
+  }
+}
+
+@media screen and (min-width: 320px) and (max-width: 425px) {
+  .footerUlStyle {
+    // flex-direction: row; // Ensure horizontal alignment for list items
+    gap: 0rem;
+    margin-top: 11px; // Adjust spacing between list items
+  }
+  .footerSections1 {
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+    display: block;
+  }
+
+  .footerSections {
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+    display: none;
+  }
+}
+
+@media screen and (min-width: 768px) and (max-width: 1025px) {
+  .footerUlStyle {
+    // flex-direction: row; // Ensure horizontal alignment for list items
+    gap: 0.5rem; // Adjust spacing between list items
+  }
+}
+
+@media screen and (min-width: 320px) and (max-width: 425px) {
+  .footerUlStyle {
+    // flex-direction: row; // Ensure horizontal alignment for list items
+    gap: 0.5rem; // Adjust spacing between list items
+  }
+}
+
+.footerPart {
+  border-left: 1px solid white;
+}

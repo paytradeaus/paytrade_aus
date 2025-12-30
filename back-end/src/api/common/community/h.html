@@ -1,0 +1,112 @@
+<table style="margin:0 auto;" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" align="center">
+    <tbody>
+        <tr>
+            <td>
+                <table style="margin:0 auto;" width="550" cellspacing="0" cellpadding="0" border="0" align="center">
+                    <tbody>
+                        <!-- Greetings -->
+                        <tr>
+                            <td
+                                style="color:#39393B;font-size:16px;text-align:left;line-height:1.5;font-weight:500;font-family:lato,Helvetica,sans-serif;">
+                                <div style="line-height:1.5;"><br></div>
+                                <div style="line-height:1.5;">Hi,</div>
+                            </td>
+                        </tr>
+
+                        <!-- Notification Message -->
+                        <tr>
+                            <td
+                                style="color:#39393B;font-size:15px;text-align:left;line-height:1.5;font-weight:450;font-family:Helvetica, sans-serif;">
+                                <div style="line-height:1.5;"><br></div>
+                                <div style="line-height:1.5;">{{your_idea_disc}} <strong>{{title}}</strong> has a new
+                                    {{response}}!</div>
+                            </td>
+                        </tr>
+
+                        <!-- Latest Comment Section -->
+                        <tr>
+                            <td
+                                style="background: #f8f9fa; padding: 15px; border-radius: 5px; color: #333; font-size: 14px; font-family: Helvetica, sans-serif;">
+                                <!-- User Avatar & Name -->
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <img src="{{ans_comm_owner_image}}"  alt="User Avatar"
+                                        style="width: 40px; height: 40px; border-radius: 50%;">
+                                    <p style="margin: 0; font-weight: bold; color: #0073b1;">{{ans_comm_owner_name}}</p>
+                                </div>
+
+                                <!-- Comment Text -->
+        
+                                <p style="margin: 5px 0;">
+                                    <a href="{{disc_idea_link}}" style="color: #555; text-decoration: none;">{{answer_comment}}</a>
+                                </p>
+
+                                <!-- Timestamp -->
+                                <p style="margin: 0; font-size: 12px; color: #777;">{{answer_comm_date}}</p>
+                                
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <img src="{{discIdea_owner_image}}" alt="User Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
+                                    <p style="margin: 0; font-weight: bold; color: #0073b1;">
+                                        <a href= {{disc_idea_link}} style="color: #0073b1; text-decoration: none;">{{author_name}}</a>
+                                    </p>
+                                </div>
+                                <p style="margin-top: 3px; font-size: 12px; color: #777;">{{discussionIdea_date}}</p>
+                        
+                                <!-- Post Content -->
+                                <p style="margin-top: 10px; font-weight: bold;">
+                                    <a href= {{disc_idea_link}} style="color: #222; font-weight: bold; text-decoration: none;">{{title}}</a>
+                                </p>
+                                <p style="margin-top: 3px;">
+                                    <a href= {{disc_idea_link}} style="color: #555; text-decoration: none;">{{content}}</a>
+                                </p>
+                        
+                                <!-- Likes & Views -->
+                                <p style="margin-top: 5px; color: #777; font-size: 13px;">
+                                    Likes: {{discussionIdea_like_count}} | Views: {{discussionIdea_view_count}}
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Older Comments -->
+                        <tr>
+                            <td style="margin-top:15px;padding-top:10px;border-top:1px solid #ddd;">
+                                <strong>Previous Comments:</strong>
+                                <ul style="list-style:none;padding:0;margin:10px 0;">
+                                    <div>
+                                        {{other_comments}}
+                                    </div>
+                                </ul>
+
+                                <div style="text-align: center; margin-top: 10px;">
+                                    <a href="{{disc_idea_link}}" 
+                                       style="display: inline-block; padding: 10px 20px; background-color: #0073b1; color: #ffffff; 
+                                              text-decoration: none; font-weight: bold; border-radius: 5px;">
+                                        View All Comments
+                                    </a>
+                                </div>
+                                
+                            </td>
+                        </tr>
+
+                        <!-- Closing Message -->
+                        <tr>
+                            <td
+                                style="margin-top:20px;color:#39393B;font-size:15px;text-align:left;font-weight:450;font-family:Helvetica, sans-serif;">
+                                <div style="line-height:1.5;"><br></div>
+                                <div style="line-height:1.5;">Have a great day.</div>
+                                <br>
+                                <div style="line-height:1.5;">Thank you.</div>
+                                <br>
+                                <div style="line-height:1.5;">The Pay Trade team</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>

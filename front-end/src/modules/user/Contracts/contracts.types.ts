@@ -1,0 +1,29 @@
+export interface IContractListDetail {
+  attachment_id?: string;
+  client_supplier_id?: string;
+  company_id?: string;
+  contract_date?: string;
+  contract_id?: string;
+  contract_name?: string;
+  contract_start_date?: string;
+  contract_status?: string;
+  defect_liability_end_date?: string;
+  id?: string;
+  initial_contract_sum?: string;
+  payment_terms?: string;
+  project_id?: string;
+  retention_type?: string;
+  project_name?: string;
+  variation_amount?: string;
+  client_supplier_role?: string;
+  contract_type?: string;
+  buyer_name?: string;
+  client_supplier_name?: string;
+  client_supplier_type?: string;
+  company_name?: string;
+  seller_name?: string;
+  payment_from_account?: string;
+  payment_to_account?: string;
+  retention_from_account?: string;
+  previous_status?: string;
+}

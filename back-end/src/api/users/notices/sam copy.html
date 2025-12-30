@@ -1,0 +1,136 @@
+@media print {
+  @page {
+    margin: 10mm;
+    background-color: #e7eef5;
+  }
+  .container {
+    background-color: #e7eef5;
+    font-family:
+      'Outfit', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial,
+      'Helvetica Neue', sans-serif;
+    font-style: normal;
+    font-size: 12px;
+  }
+  .paytrade_logo {
+    margin-top: -5px;
+    margin-left: -5px;
+    /* border: 1px solid blue; */
+    height: 100%;
+    max-height: 45px;
+  }
+  table {
+    width: 100%;
+    max-width: 1600px;
+    /* display: block; */
+    margin-right: auto;
+    margin-left: auto;
+    padding: 0 var(--space-s);
+    padding-block: 0 !important;
+    position: relative;
+    z-index: 3;
+    /* border: 2px solid #dce3ec; */
+    border-radius: 5px;
+    border-collapse: collapse;
+    /* border: 1px solid orange; */
+  }
+
+  table thead {
+    outline: none;
+    margin: 0 0 0px 0;
+    text-align: center;
+    text-transform: uppercase;
+    transition: color 0.3s ease-in-out;
+    font-weight: 600;
+    font-size: 11.5px;
+    background-color: #dce3ec;
+    border-bottom: 0px solid var(--theme-light) !important;
+    /* border: 1px solid red; */
+  }
+  th {
+    padding: 6px;
+  }
+  tbody {
+    box-shadow: none;
+    background: var(--theme-lighter);
+    text-align: center;
+    /* border: 1px solid green; */
+  }
+  tbody td {
+    padding: 6px;
+  }
+  table tr {
+    /* background-color: #f3f7fc;
+    text-align: center;
+    max-width: 100%; */
+    display: table-row;
+    vertical-align: inherit;
+    unicode-bidi: isolate;
+    border-color: inherit;
+  }
+
+  .pt_head {
+    text-align: center;
+    /* border-radius: 10px 10px 5px 5px; */
+  }
+
+  .pt_body {
+    text-align: left;
+    /* border-radius: 10px 10px 5px 5px; */
+  }
+
+  .pt_journal {
+    font-weight: bold;
+  }
+
+  .containe_block {
+    padding: 15px;
+    background-color: white;
+    /* border: 1px solid black; */
+  }
+
+  table tr:hover {
+    background-color: #e7eef5;
+  }
+
+  .alt_block {
+    background-color: #e7eef5;
+  }
+
+  table tbody tr:last-of-type {
+    border-radius: 10px;
+    box-shadow: inset 0px -1px 0px 0.5px #dce3ec;
+  }
+
+  /* Override box-shadow for Net Movement row */
+  table tbody tr.net_movement_block {
+    box-shadow: none !important;
+  }
+
+  .pt_bottom {
+    margin-bottom: 10px;
+  }
+  .flow_wrap {
+    word-wrap: break-word;
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 100px;
+    text-align: right;
+  }
+
+  .net_movement_block {
+    background-color: #1583d8;
+    border-radius: 0px 0px 5px 5px;
+    box-shadow: inset 0px -1px 0px 0.5px #1583d8;
+    color: white;
+  }
+
+  .net_movement_block:hover {
+    background-color: #1583d8;
+    border-radius: 5px;
+    color: white;
+  }
+
+  .default_table {
+    padding: 20px 0px 20px 0px;
+  }
+}

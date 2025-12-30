@@ -1,0 +1,112 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
+import { Group } from './user-details.entity';
+import { XeroIntegrationDetails } from './xero-integration-details.entity';
+import { ClientSuppliersDetails } from './client-suppliers-details.entity';
+import { MappedStatus } from 'src/libs/@paytrade-types/paytrade-types';
+import { XeroInvoicesBills } from './xero-invoices-bills.entity';
+import { XeroPayments } from './xero-payments.entity';
+
+@Entity()
+export class XeroContactDetails {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  contact_id: string;
+
+  @Column({ type: 'integer' })
+  integration_id: number;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  merge_to_contact_id: string;
+
+  @Column({ type: 'text' })
+  contact_name: string;
+
+  @Column({ type: 'varchar', length: 50 })
+  contact_status: string;
+
+  @Column({ nullable: true })
+  is_supplier: boolean;
+
+  @Column({ nullable: true })
+  is_customer: boolean;
+
+  @Column({ type: 'enum', enum: ['Manual', 'Auto', 'System'], nullable: true })
+  mapped_status: MappedStatus;
+
+  @Column({ type: 'integer', nullable: true })
+  pt_contact_id: number;
+
+  @Column({ type: 'integer', nullable: true })
+  created_by: number;
+
+  @CreateDateColumn({
+    type: 'timestamp with time zone',
+    default: () => "timezone('utc', now())",
+  })
+  created_on: Date;
+
+  @Column({ type: 'integer', nullable: true })
+  updated_by: number;
+
+  @UpdateDateColumn({
+    type: 'timestamp with time zone',
+    default: () => "timezone('utc', now())",
+  })
+  updated_on: Date;
+
+  @Column({
+    type: 'enum',
+    enum: ['SYSTEM', 'USER', 'ADMIN'],
+    default: 'SYSTEM',
+    nullable: true,
+  })
+  created_group: Group;
+
+  @Column({
+    type: 'enum',
+    enum: ['SYSTEM', 'USER', 'ADMIN'],
+    default: 'SYSTEM',
+    nullable: true,
+  })
+  updated_group: Group;
+
+  @ManyToOne(
+    () => XeroIntegrationDetails,
+    (contact) => contact.xeroContactDetails,
+  )
+  @JoinColumn({
+    name: 'integration_id',
+    referencedColumnName: 'integration_id',
+  })
+  xeroIntegrationDetails: XeroIntegrationDetails;
+
+  @ManyToOne(
+    () => ClientSuppliersDetails,
+    (contact) => contact.xeroContactDetails,
+  )
+  @JoinColumn({
+    name: 'pt_contact_id',
+    referencedColumnName: 'client_supplier_id',
+  })
+  clientSupplierDetails: ClientSuppliersDetails;
+
+  @OneToMany(() => XeroInvoicesBills, (contact) => contact.xeroContactDetails)
+  xeroInvoicesBills: XeroInvoicesBills[];
+
+  @OneToMany(() => XeroPayments, (contact) => contact.xeroContactDetails)
+  xeroPayments: XeroPayments[];
+}

@@ -1,0 +1,401 @@
+.dataContainer {
+  width: 100%;
+  padding: 10px 20px 10px 20px;
+  display: flex;
+  height: 100% !important;
+  overflow-y: auto;
+}
+.modalCloseButton {
+  margin-right: 5rem !important;
+}
+.dotsContainer {
+  display: flex;
+  width: 50px;
+  justify-content: center;
+  cursor: pointer;
+  padding-top: 5px;
+}
+
+.marginStyles {
+  margin-top: 2.6rem !important;
+}
+
+.marginStyles2 {
+  margin-top: 4.3rem !important;
+}
+
+.errorText {
+  color: red;
+  align-items: center; /* Align items vertically center */
+  font-size: 12px;
+  margin-top: 0.5rem;
+
+  .icon {
+    margin-right: 0.3rem; /* Add some spacing between the icon and text */
+    font-size: 16px;
+  }
+}
+
+.DatePickerCustomStyles {
+  height: 38px;
+  box-shadow: none !important;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+  outline: none;
+}
+
+.datePickerError {
+  border: 0.0625rem solid #f08e8b;
+  background-color: #fde5e3;
+}
+
+.endTextStyle {
+  color: black;
+  right: 0;
+  z-index: 999;
+  margin-right: 10px;
+}
+
+.plusIcon {
+  color: green;
+  cursor: pointer;
+}
+
+.firstPart {
+  width: 100%;
+  // height: 50%;
+  // background-color: #f4f5f8;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+.formStyles {
+  width: 100%;
+}
+.imgStyle {
+  width: 60px !important;
+  height: 60px !important;
+}
+
+.statusName {
+  color: #1c2475;
+  font-weight: 650;
+}
+.statusNamePre {
+  color: #1c2475;
+  font-weight: 650;
+  margin-top: 20px;
+}
+.paid {
+  color: #1c2475;
+}
+.switch {
+  width: 100% !important;
+}
+.claim {
+  width: 100%;
+}
+.claimStyles {
+  text-align: right;
+  margin-top: 1.5rem;
+}
+
+.amountName {
+  font-size: 12px;
+}
+.exampleTem {
+  font-size: 14px;
+  margin-top: 0.8rem;
+}
+.btnTemplate {
+  max-width: 35%;
+  margin-top: 20px;
+}
+.noticeBox {
+  padding: 20px;
+  border: 2px solid #1c2475;
+}
+.effect {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.headSection {
+  font-weight: 700;
+  text-align: center;
+}
+.inputField {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  background-color: #e9ecef;
+  color: black;
+}
+.inputField2 {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  width: 100%;
+}
+.inputField3 {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  background-color: #e9ecef;
+  width: 100%;
+  color: black;
+}
+.inputField4 {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  width: 100%;
+}
+.descriptionField {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  width: 100%;
+}
+.inputFieldControl2 {
+  min-height: 100px !important;
+}
+.text {
+  min-height: 38px;
+}
+// .textarea {
+//   width: 187px;
+// }
+.secondPart {
+  width: 100%;
+  background-color: white;
+  padding-top: 20px;
+}
+
+.buttonStyles3 {
+  max-width: 120px;
+  height: 35px;
+  font-size: 14px !important;
+  border: 1px solid #1c2475 !important;
+  color: #1c2475 !important;
+  background: transparent !important;
+  padding-bottom: 15px;
+  &:hover {
+    background: transparent !important;
+    color: #1c2475 !important;
+  }
+}
+.disclaimerPolicy {
+  font-size: 13px;
+  margin-bottom: 35px;
+  font-weight: 500;
+}
+.fileText {
+  color: #1c2475;
+  font-weight: 600;
+  cursor: pointer;
+}
+.removeTxt {
+  font-weight: 600;
+  color: red;
+  cursor: pointer;
+  text-align: end;
+}
+.removeTxtPre {
+  font-weight: 600;
+  color: red;
+  cursor: pointer;
+  text-align: end;
+  margin-top: 20px;
+}
+.sendStyle {
+  font-weight: 700;
+}
+.supportTxt {
+  width: 83%;
+  margin-top: 1.5rem;
+}
+.claimAmountStyles {
+  font-weight: 600;
+  font-size: 18pt;
+  max-width: fit-content;
+  display: contents;
+}
+.ViewBtnStyles {
+  color: #1c2475;
+  font-weight: 600;
+  border: none !important;
+  background-color: transparent !important;
+  :hover {
+    color: #1c2475 !important;
+    font-weight: 600;
+    border: none !important;
+    background-color: transparent !important;
+  }
+}
+.notice {
+  font-weight: 500;
+}
+.optionPart {
+  color: #40e8ff;
+  font-weight: 600;
+  margin-top: 13px;
+}
+
+.attachText {
+  font-weight: 650;
+  margin-top: 3rem;
+}
+
+.reqText {
+  margin-top: 13px;
+  font-weight: 650;
+  color: red;
+}
+.eachFielDetailsView {
+  display: flex;
+  flex-direction: column;
+  max-width: 150px;
+  position: relative;
+  border: 1px solid lightgray;
+  border-radius: 8px;
+  padding: 3px 5px;
+}
+.fileRemoveIcon {
+  position: absolute;
+  top: -3px;
+  right: -8px;
+  cursor: pointer;
+}
+.fileSelectorContainer {
+  display: inline-flex;
+  margin-top: 10px;
+  // padding: 5px 10px;
+  cursor: pointer;
+  align-items: center;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.eachFielDetailsView {
+  display: flex;
+  flex-direction: column;
+  max-width: 150px;
+  position: relative;
+  border: 1px solid lightgray;
+  border-radius: 8px;
+  padding: 3px 5px;
+}
+.sizeStyles {
+  font-weight: 400;
+  font-size: 13px;
+}
+.btn1 {
+  background: transparent !important;
+  border: none !important;
+  color: #1c2475;
+  width: 100%;
+  display: flex !important;
+  justify-content: flex-end !important;
+  font-weight: 550;
+  &:hover {
+    background: transparent !important;
+    border: none !important;
+    color: #1c2475 !important;
+  }
+}
+.radioSwitch {
+  margin-top: 0.6rem;
+}
+.claimAmt {
+  margin-top: 1.5rem !important;
+}
+.cancelStyle {
+  background-color: transparent !important;
+  // font-weight: 500 !important;
+  color: #1c2475 !important;
+  border: 1px solid #1c2475 !important;
+  width: auto !important;
+  &:hover {
+    background-color: transparent !important;
+    color: #1c2475 !important;
+    border: 1px solid #1c2475 !important;
+  }
+}
+.saveStyles {
+  background-color: #40e8ff !important;
+  color: white !important;
+  width: 100%;
+  border: none !important;
+
+  &:hover {
+    background-color: #40e8ff !important;
+    width: 100%;
+    color: white !important;
+    border: none !important;
+  }
+}
+.draftStyles {
+  background-color: transparent !important;
+  color: #1c2475 !important;
+  border: #1c2475;
+  &:hover {
+    background-color: transparent !important;
+    color: #1c2475 !important;
+    border: 1px solid #1c2475 !important;
+  }
+}
+.sendStyles {
+  background-color: #1c2475 !important;
+  color: white !important;
+  &:hover {
+    background-color: #1c2475 !important;
+    color: white !important;
+    border: none !important;
+  }
+}
+
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.gst {
+  width: 50px !important;
+}
+
+@media screen and (min-width: 319px) and (max-width: 425px) {
+  .claim {
+    width: 100%;
+  }
+  .switch1 {
+    margin-top: 0em !important;
+  }
+  .radioSwitch {
+    margin-top: 1.4rem;
+  }
+  .claimAmt {
+    margin-top: 1em !important;
+  }
+  .cancelStyle {
+    width: 100% !important;
+    margin-bottom: 20px;
+  }
+  .saveStyles {
+    margin-bottom: 20px;
+  }
+  .removeTxt {
+    font-weight: 600;
+    color: red;
+    cursor: pointer;
+    text-align: start;
+  }
+  .removeTxtPre {
+    font-weight: 600;
+    color: red;
+    cursor: pointer;
+    text-align: start;
+    margin-top: 20px;
+  }
+  .supportTxt {
+    width: 100%;
+    margin-top: 1.5rem;
+  }
+  .btnTemplate {
+    max-width: 100%;
+    margin-top: 20px;
+  }
+}

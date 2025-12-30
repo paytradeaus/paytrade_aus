@@ -1,0 +1,95 @@
+.dataContainer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 20px 20px;
+  height: 100%;
+  & > header {
+    padding: 0;
+    z-index: 2;
+    flex: unset;
+    display: flex;
+    min-height: auto;
+    padding-bottom: 1rem;
+  }
+}
+
+.headerAndButtonCon {
+  display: flex;
+  justify-content: space-between;
+  // padding-top: 20px;
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+  padding-bottom: 1.5rem;
+}
+.headerText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 22.142px;
+}
+
+.bottomText {
+  text-align: center;
+  font-weight: 700 !important;
+  color: #1c2475;
+  cursor: pointer;
+}
+
+.buttonStyles {
+  max-width: 120px;
+  height: 30px;
+  font-size: 14px !important;
+}
+.customSubHeaderCon {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+  padding-right: 20px;
+  gap: 15px;
+}
+.customPopupstyles {
+  --bs-popover-zindex: 0 !important;
+}
+.textAndSelectCon {
+  display: flex;
+  gap: 10px;
+}
+.headerIconCon {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.textFieldStyles {
+  height: 38px;
+  box-shadow: none !important;
+}
+
+.controlStyles {
+  border: "1px solid red !important";
+}
+.dotsContainer {
+  display: flex;
+  width: 50px;
+  justify-content: center;
+  cursor: pointer;
+}
+.separatorStyle {
+  margin: 0px 5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.iconStyles {
+  cursor: pointer;
+}
+
+.roleDropStyles {
+  width: 230px !important;
+}
+
+@media (max-width: 767px) {
+  .textAndSelectCon {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,47 @@
+.App {
+  font-family: sans-serif;
+  padding: 16px;
+}
+
+.Crop-Controls {
+  margin-bottom: 10px;
+}
+.Crop-Controls > * {
+  margin-bottom: 3px;
+}
+
+.button {
+  border: none !important;
+  border-radius: 0.3125rem !important;
+  background-color: #1c2475 !important;
+  color: white !important;
+  width: 15% !important;
+  padding: 0.3rem !important;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+.cropButton {
+  width: 30% !important;
+  margin-top: 0.5rem;
+  background-color: grey !important;
+  color: white !important;
+  border: 1px solid grey !important;
+  &:hover {
+    background-color: grey !important;
+    color: white !important;
+  }
+}
+.closeButton {
+  border: 1px solid #1c2475 !important;
+  background-color: white !important;
+  color: #1c2475 !important;
+  width: 15% !important;
+  padding: 0.25rem !important;
+  margin-right: 1rem !important;
+
+  &:hover {
+    background-color: white !important;
+    color: #1c2475 !important;
+  }
+}

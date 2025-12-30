@@ -1,0 +1,14 @@
+.mainContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100% !important;
+
+}
+
+.mainContainer :hover {
+  cursor: pointer;
+}
+
+ 
+
+

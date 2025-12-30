@@ -1,0 +1,22 @@
+.email {
+  color: #858585;
+  text-transform: lowercase;
+  letter-spacing: normal;
+}
+
+.verified {
+  color: #50c878;
+  text-transform: lowercase;
+  letter-spacing: normal;
+}
+
+.notVerified {
+  color: #ff0000;
+  text-transform: lowercase;
+  letter-spacing: normal;
+}
+
+.emailFormTitle {
+  letter-spacing: normal;
+  text-transform: lowercase;
+}

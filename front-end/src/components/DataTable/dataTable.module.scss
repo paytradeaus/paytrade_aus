@@ -1,0 +1,30 @@
+/* dataTable.module.scss */
+.tableContainer {
+  // Define your styles for the table container here
+  // For example:
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.customHeadCells {
+  color: red;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.customBottomText {
+  color: #1c2475;
+  font-weight: 700;
+}
+
+.customPagination {
+  color: #1c2475;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.rowHover {
+  cursor: pointer; // Add this style for row hover
+}

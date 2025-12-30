@@ -1,0 +1,32 @@
+export const sampleData = [
+  {
+    type: "Claim",
+    billableReceive: "Billable",
+    supplierClient: "XYZ Company STP Profile",
+    project: "Project Name XYZ",
+    contract: "Contract Name XYZ",
+    due: "07/04/2023",
+    claim: "$ 20,000.00",
+    status: "Status From Modal",
+  },
+  {
+    type: "Claim",
+    billableReceive: "Billable",
+    supplierClient: "XYZ Company STP Profile",
+    project: "Project Name XYZ",
+    contract: "Contract Name XYZ",
+    due: "07/04/2023",
+    claim: "$ 20,000.00",
+    status: "Status From Modal",
+  },
+  {
+    type: "Retention Claim",
+    billableReceive: "Billable",
+    supplierClient: "XYZ Company STP Profile",
+    project: "Project Name XYZ",
+    contract: "Contract Name XYZ",
+    due: "07/04/2023",
+    claim: "$ 20,000.00",
+    status: "Status From Modal",
+  },
+];

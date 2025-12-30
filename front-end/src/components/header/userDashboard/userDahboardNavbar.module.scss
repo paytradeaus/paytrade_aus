@@ -1,0 +1,219 @@
+.navbarStyle {
+  background-color: #fff;
+  font-size: 14px;
+  top: 0;
+  width: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  // min-height: 60px;
+  padding: 6px 0px 6px 8px;
+  justify-content: center;
+  height: fit-content;
+}
+.navBottomBorder {
+  border-bottom: 1px solid #45e9fe;
+  box-shadow: 0px 2px 20px rgba(1, 41, 112, 0.1);
+}
+.sbAvatar {
+  img {
+    height: 30px !important;
+  }
+  .userDahboardNavbar_sbAvatar__Arnun.sb-avatar__text {
+    width: 30px;
+    height: 30px;
+  }
+}
+.sbAvatar > div {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.navLinks {
+  background-color: #f6f6f6;
+  border-radius: 20px;
+  margin-left: 30%;
+  padding: 5px 15px 5px 15px;
+  gap: 1rem;
+}
+
+.spanStyle {
+  padding-top: 0.5rem;
+}
+
+.userSectionStyle {
+  margin-left: 30%;
+}
+.searchIconStyle {
+  width: 20px;
+  height: 20px;
+}
+
+.iconStyles {
+  // color: red;
+  width: 21px;
+  height: 21px;
+  cursor: pointer;
+}
+.listIconStyles {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+.dashBoardNavCon {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  margin-left: 132px;
+}
+.subContainer1 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.subContainer2 {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.helpIconCon {
+  display: flex;
+  gap: 5px;
+  cursor: pointer;
+}
+.endIconStyle {
+  display: flex;
+  right: 0;
+  z-index: 999;
+  width: 25px;
+  // margin-top: 12px;
+  margin-right: 5px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.hideSearchBar {
+  display: flex;
+  height: 80px;
+  padding: 20px;
+  width: 100%;
+  // border: 1px solid red;
+  & > div {
+    width: inherit;
+  }
+}
+.inputFieldControl {
+  padding-right: 30px !important;
+  border-radius: 5px !important;
+  height: 40px !important;
+  width: inherit !important;
+  display: flex !important;
+  flex: 1 !important;
+}
+
+.FlagImageStyles {
+  height: 30px;
+  width: 40px;
+  border-radius: 3px;
+}
+
+.ProfileDropDownStyles {
+  margin-top: 12px;
+  display: -webkit-inline-box;
+  gap: 5px;
+}
+
+.flexstyles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: -8px;
+}
+
+.showSearchIconStyles {
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .navLinks {
+    background-color: initial;
+    border-radius: initial;
+    margin-left: initial;
+    padding: initial;
+    gap: initial;
+  }
+  .userSectionStyle {
+    margin-left: initial;
+  }
+  .spanStyle {
+    display: none;
+  }
+  // .showTextFieldRange {
+  //   display: none;
+  // }
+}
+
+@media (min-width: 769px) {
+  .hideSearchBar {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .userRoleText {
+    display: none;
+  }
+}
+
+// @media (max-width: 425px) {
+@media (max-width: 545px) {
+  .dashBoardNavCon {
+    flex: 0;
+    gap: 20px;
+    margin-left: 0 !important;
+  }
+  .showHelpTextCon {
+    display: none;
+  }
+  .subContainer2 {
+    gap: 20px;
+  }
+}
+// @media (max-width: 375px) {
+@media (max-width: 401px) {
+  .dashBoardNavCon {
+    flex: 0;
+    gap: 20px;
+    margin-left: 0 !important;
+  }
+}
+// @media (max-width: 320px) {
+// @media (max-width: 425px) {
+@media (max-width: 361px) {
+  .dashBoardNavCon {
+    flex: 0;
+    gap: 15px;
+    margin-left: 10px;
+  }
+  .subContainer2 {
+    gap: 15px;
+  }
+}
+
+@media (max-width: 489px) {
+  .ProfileAvatarStyles {
+    display: none;
+  }
+  .ProfileDropDownStyles {
+    display: none;
+  }
+}
+
+@media screen and (min-width: 431px) and (max-width: 932px) {
+  .dashBoardNavCon {
+    flex: 0;
+    gap: 20px;
+    margin-left: 0px !important;
+  }
+}

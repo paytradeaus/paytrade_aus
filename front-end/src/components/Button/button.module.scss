@@ -1,0 +1,49 @@
+.btnStyles {
+  width: 100% !important;
+  cursor: pointer !important;
+  border-radius: 5px !important;
+  // font-weight: 600;
+  font-size: 16px;
+  padding: 5px !important;
+  border: none !important;
+  background-color: #1c2475 !important;
+  color: white !important;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+.btnStylesPlain {
+  width: 100% !important;
+  cursor: pointer !important;
+  border-radius: 5px !important;
+  font-size: 16px !important;
+  padding: 5px !important;
+  border: 1px solid #1d2378 !important;
+  background-color: #ffffff !important;
+  color: #1c2475 !important;
+  &:hover {
+    background-color: #ffffff !important;
+    color: #1c2475 !important;
+  }
+}
+// this is for reference
+
+// .primary {
+//   background-color: #1c2475 !important;
+//   border: transparent;
+//   // color: #000 !important;
+//   &:hover {
+//     background-color: #1c2475 !important;
+//     // color: #ffdf03 !important;
+//   }
+// }
+
+// .outline-primary {
+//   background-color: transparent;
+//   color: #000;
+//   border: 1px solid #000;
+//   &:hover {
+//     background-color: #000;
+//     color: #ffdf03;
+//   }
+// }

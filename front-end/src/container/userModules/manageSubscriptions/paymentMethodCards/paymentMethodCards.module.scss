@@ -1,0 +1,141 @@
+.header {
+  background-color: #eceef1 !important;
+  border-bottom: none;
+}
+
+.closeImage {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: black;
+  cursor: pointer;
+}
+
+.paymentMethodsContainer {
+  padding: 2rem;
+
+  .mainHeader {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+
+  .subHeader {
+    font-size: 1.2rem;
+    color: #6c757d;
+    margin-bottom: 2rem;
+  }
+
+  .boxContainer {
+    background-color: #fff;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    border-radius: 0.5rem;
+  }
+
+  .selectedCardBody {
+    background-color: #eaeaea !important;
+    cursor: pointer;
+  }
+  .cardBody {
+    &:hover {
+      background-color: #eaeaea;
+      cursor: pointer;
+    }
+  }
+  .updatePaymentButton {
+    width: 95% !important;
+    margin-top: 1rem;
+    background-color: #1c2475;
+    color: white;
+    &:hover {
+      background-color: #1c2475;
+      color: white;
+    }
+  }
+
+  .paymentInfoHeader {
+    margin-bottom: 2rem;
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    p {
+      font-size: 1rem;
+      color: #6c757d;
+    }
+
+    .addPaymentBtn {
+      margin-top: 1rem;
+    }
+  }
+
+  .paymentMethodList {
+    .paymentCardCol {
+      width: 100%;
+    }
+
+    .paymentCard {
+      padding: 1rem;
+      border: none;
+      width: 100%;
+
+      .paymentCardIcon {
+        margin-right: 1rem;
+        img {
+          width: 50px;
+          height: auto;
+        }
+      }
+
+      .paymentCardDetails {
+        .cardNumber {
+          font-size: 1.2rem;
+          margin: 0.5rem 0;
+        }
+
+        .cardExpiry {
+          font-size: 0.9rem;
+          color: #6c757d;
+        }
+      }
+    }
+  }
+  .cardButtonRow {
+    display: flex;
+    align-items: center;
+
+    .cardButton {
+      min-width: 8rem;
+      max-width: 10rem;
+    }
+  }
+  .activeCard {
+    cursor: default !important;
+    &:hover {
+      background-color: #212529 !important;
+    }
+  }
+  .deleteCard {
+    cursor: pointer;
+  }
+  .disableDeleteCardIcon {
+    color: grey;
+    cursor: default;
+  }
+
+  @media (max-width: 576px) {
+    .boxContainer {
+      padding: 1rem;
+    }
+
+    .paymentCard {
+      flex-direction: column;
+
+      .paymentCardIcon {
+        margin-bottom: 1rem;
+      }
+    }
+  }
+}

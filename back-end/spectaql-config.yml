@@ -1,0 +1,25 @@
+# output:
+#   dir: docs
+#   fileName: index.html
+
+# SpectaQL Configuration for PayTrade API
+introspection:
+  schemaFile: ./schema.gql
+
+info:
+  title: PayTrade API Documentation
+  description: Official client API documentation
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3030/graphql
+    description: Development API
+
+# Output configuration
+output:
+  dir: ./public # Folder for generated HTML docs
+  outputFileName: index.html # Main HTML file name
+
+theme:
+  colors:
+    primary: '#1e90ff' # Main theme color

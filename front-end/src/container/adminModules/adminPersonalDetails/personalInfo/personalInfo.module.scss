@@ -1,0 +1,104 @@
+.card {
+  max-width: 28.125rem !important;
+  border-radius: 0.375rem !important;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 0.4375rem 1.8125rem 0px !important;
+  border: 0.0625rem solid rgba(211, 211, 211, 0.596) !important;
+  padding: 1.875rem 0 !important;
+  margin: 4rem auto !important;
+}
+
+.title {
+  font-size: 1.25rem !important;
+  color: #212529 !important;
+  font-weight: 600 !important;
+
+  text-align: center !important;
+}
+.subText {
+  text-align: center !important;
+  margin-bottom: 1.5rem !important;
+  color: #6b6b6b !important;
+}
+
+.horizontalLine {
+  margin: 0.75rem 0 !important;
+  border-top: 0.0625rem solid #bababa !important;
+}
+
+.key {
+  font-weight: 500 !important;
+  font-size: 1rem !important;
+  min-width: 8rem !important;
+}
+.value {
+  font-size: 0.875rem !important;
+  color: #858585 !important;
+  font-weight: 500 !important;
+}
+.dataRow {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.3125rem 2.5rem !important;
+  overflow: hidden !important;
+}
+.dataRow2 {
+  display: flex !important;
+  // align-items: center !important;
+  padding: 0 2.5rem !important;
+  overflow: hidden !important;
+  flex-direction: column;
+}
+
+.button {
+  border: none !important;
+  border-radius: 0.3125rem !important;
+  background-color: #1c2475 !important;
+  color: white !important;
+  width: 28% !important;
+  padding: 0.25rem !important;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+
+.closeButton {
+  border: 1px solid #1c2475 !important;
+  background-color: white !important;
+  color: #1c2475 !important;
+  margin-right: 1.5rem !important;
+  &:hover {
+    background-color: white !important;
+    color: #1c2475 !important;
+  }
+}
+.profileIcon {
+  height: 3.75rem !important;
+  margin-bottom: 1rem !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+.profileImage {
+  border-radius: 2rem !important;
+}
+.placeHolderSpacing {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+  border-radius: 0.5rem !important;
+  background-color: #d3d3d3 !important;
+}
+
+.imageContainer {
+  border: 1px dashed #6fd0e0 !important;
+  border-radius: 1.25rem !important;
+  height: 6.25rem !important;
+  width: 6.25rem !important;
+  // cursor: grab;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.InfoTextStyle {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 5px 10px;
+}

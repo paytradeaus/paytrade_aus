@@ -1,0 +1,15 @@
+.tableTitleStyle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+}
+
+.checkBoxHeights {
+  display: inline-block;
+  & > input {
+    height: 16px;
+    width: 16px;
+    border-color: #39393b;
+  }
+}

@@ -1,0 +1,34 @@
+/* In this css page we can add reusable common css classes */
+.text_transform_none {
+  text-transform: none !important;
+}
+.cur_not_allowed {
+  cursor: not-allowed !important;
+}
+.p_1 {
+  padding: 1rem;
+}
+.pt_1 {
+  padding-top: 1rem;
+}
+.d_flex_justify_sb {
+  display: flex;
+  justify-content: space-between;
+}
+.visibleHidden {
+  visibility: hidden !important;
+}
+.text_underline {
+  text-decoration: underline !important;
+}
+.d_flex {
+  display: flex;
+}
+.align_center {
+  align-items: center;
+}
+.break-word {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal !important;
+}

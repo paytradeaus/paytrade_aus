@@ -1,0 +1,32 @@
+export interface IBusinessListDetail {
+  abn_number: string;
+  acn_number: string;
+  company_address: string;
+  company_email_id: string;
+  company_id: string;
+  company_name: string;
+  company_phone_no: string;
+  country: string;
+  entity_type: string;
+  expiry_date: Date | string;
+  icon_base64: string;
+  icon_file_path: string;
+  icon_file_type: string;
+  id: string;
+  is_admin_blocked: boolean;
+  is_verified: boolean;
+  latitude: number;
+  legal_company_name: string;
+  longitude: number;
+  place_id: string;
+  plan_id: string;
+  plan_name: string;
+  qbcc_number: string;
+  region: string;
+  subscription_id: string;
+  subscription_status: string;
+  tfn_number: string;
+  utr_number: string;
+  vat_number: string;
+  primary_admin_id?: number;
+}

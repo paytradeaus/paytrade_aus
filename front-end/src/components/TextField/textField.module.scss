@@ -1,0 +1,55 @@
+.groupContainer {
+  display: flex !important;
+  align-items: center !important;
+  z-index: 0;
+}
+.myFormStyle {
+  border-radius: 5px;
+  border: 1px solid lightgray;
+  height: 32px;
+}
+.labelTextStyle {
+  margin-bottom: 0.25rem;
+  color: #212529;
+  text-align: left;
+  display: block;
+}
+.errorContainer {
+  display: flex;
+  margin-top: 0.25rem;
+  padding-top: 5px;
+}
+.errorTextStyles {
+  color: red !important;
+  font-size: 12px !important;
+  margin-left: 4px;
+}
+.errorBorder {
+  border: 1px solid #f08e8b;
+  background-color: #fde5e3;
+}
+.warningIconStyle {
+  color: #ff0000;
+}
+.startAdornment {
+  padding: 0.625rem;
+}
+
+.tooltip {
+  box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2) !important;
+  opacity: 1 !important;
+  --bs-tooltip-bg: white !important;
+  // :first-child {
+  //   // border: 1px solid red !important;
+  // }
+  :nth-child(2) {
+    box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2) !important;
+    border: 1px solid darkgray !important;
+    background-color: white !important;
+    color: #000000 !important;
+    font-size: 12px !important;
+  }
+}
+.labelHint {
+  color: red;
+}

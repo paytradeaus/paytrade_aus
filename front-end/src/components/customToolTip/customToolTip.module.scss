@@ -1,0 +1,20 @@
+/* styles.css or styles.module.css */
+.popoverInner {
+  background-color: black !important; // Ensure the background is black
+  color: white;
+  font-size: 14px;
+  text-align: left;
+  max-width: 600px; /* Set a wider width to ensure the text flows horizontally */
+  white-space: normal; /* Allows text to wrap within the tooltip */
+  word-wrap: break-word; /* Ensures long words are wrapped properly */
+  border-radius: 10px;
+}
+
+.popover-arrow {
+  &::before {
+    border-top-color: black !important; // Top arrow color (for default position)
+    border-right-color: black !important; // Right arrow color (if needed)
+    border-left-color: black !important; // Left arrow color (if needed)
+    border-bottom-color: black !important; // Bottom arrow color (if needed)
+  }
+}

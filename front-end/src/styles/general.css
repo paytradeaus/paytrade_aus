@@ -1,0 +1,781 @@
+.tableDataHighlight {
+  color: #1583d8;
+}
+
+/* Base styling for table container */
+/* Ensure the table container allows horizontal scrolling */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto; /* Enable horizontal scrolling */
+}
+
+/* General scrollbar styles */
+.table-wrapper ::-webkit-scrollbar {
+  width: 12px;
+  height: 8px; /* Reducing the height of the horizontal scrollbar */
+}
+
+/* Thumb (the draggable part) */
+.table-wrapper ::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background-color: #888; /* Default thumb color */
+  border: 2px solid transparent; /* Add space inside the thumb */
+  background-clip: padding-box; /* Ensure the border doesn't overlap the thumb */
+}
+
+/* Track (the background track) */
+.table-wrapper ::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background-color: #f1f1f1; /* Default track color */
+  margin-top: 10px; /* Adds spacing above the scrollbar */
+  margin-bottom: 10px; /* Adds spacing below the scrollbar (for bottom scrollbar) */
+}
+
+.table-wrapper .table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto; /* Horizontal scroll for the table */
+  -webkit-overflow-scrolling: touch; /* For smooth scrolling on touch devices */
+}
+
+.dynamic_table_header {
+  font-size: clamp(0.6076rem, 0.6006rem + 0.035vw, 0.64rem) !important;
+  letter-spacing: 0.5px !important;
+}
+
+.dataTable {
+  width: 100%; /* Ensure table uses full width */
+  white-space: nowrap; /* Prevent text wrapping to maintain layout */
+}
+
+.dataTable th,
+.dataTable td {
+  padding: 0.3rem 1rem;
+}
+
+table.dataTable.compact tbody td {
+  padding: var(--space-3xs) var(--space-2xs) var(--space-3xs) 1rem;
+}
+
+.table-loader {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+/* Add responsiveness and better usability on smaller screens */
+@media screen and (max-width: 768px) {
+  .dataTable th,
+  .dataTable td {
+    padding: 8px; /* Reduce padding for better fit */
+  }
+}
+
+.half_screen_modal_no_grid_Data {
+  max-width: 68vw !important;
+}
+
+/* pagination */
+.pagination_container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: #eef3f8 !important;
+  letter-spacing: 1px;
+
+  .entries-per-page {
+    display: flex;
+    align-items: center;
+
+    white-space: nowrap; /* Ensures that entries per page stays on one line */
+    font-size: clamp(0.6076rem, 0.6006rem + 0.035vw, 0.64rem);
+
+    select {
+      width: 80px;
+      height: 40px;
+      border-radius: 0.25rem;
+      border: 3px solid #f3f7fb;
+      background-color: #fdfefe;
+      padding: 0px 6px 0 12px;
+      font-size: 14px;
+      margin-right: 5px;
+      line-height: 20px;
+      appearance: none; /* Removes default dropdown arrow for custom styling */
+      -webkit-appearance: none; /* Safari Fix */
+      -moz-appearance: none;
+    }
+  }
+
+  .page-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    button {
+      padding: 4px 10px;
+      border: none;
+      background: none; /* Removed background color */
+      color: #666;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0rem 0rem !important;
+      -webkit-appearance: none; /* Safari Fix */
+      -moz-appearance: none;
+      -webkit-tap-highlight-color: transparent; /* iOS Tap Highlight Fix */
+
+      &:hover:not(:disabled) {
+        color: #333;
+      }
+
+      &:disabled {
+        color: #ccc;
+        cursor: not-allowed;
+      }
+
+      /* Dark mode */
+      /* Dark mode styling */
+      .pagination_container.dark-mode & {
+        color: #888;
+
+        &:hover:not(:disabled) {
+          color: #fff;
+        }
+
+        &:disabled {
+          color: #555;
+        }
+      }
+    }
+
+    .current-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background-color: #181c25;
+      color: #d2d8e2;
+      border-radius: 4px;
+    }
+  }
+
+  .entry-info {
+    font-size: clamp(0.6076rem, 0.6006rem + 0.035vw, 0.64rem);
+    text-align: right;
+    letter-spacing: 1px;
+  }
+
+  /* Dark mode styles using [data-theme="dark"] */
+  [data-theme="dark"] & {
+    background-color: #161c21 !important;
+    color: #f5f5f5;
+    border: none !important;
+
+    .current-page {
+      background-color: #262c2f;
+      color: #dfe3eb;
+    }
+
+    .entries-per-page {
+      select {
+        background-color: #262d32;
+        color: #d0d8e0;
+        border-color: #262d32;
+      }
+    }
+
+    .page-controls {
+      button {
+        color: #888;
+
+        &:hover:not(:disabled) {
+          color: #fff;
+        }
+
+        &:disabled {
+          color: #555;
+        }
+      }
+
+      .current-page {
+        background-color: #dfe3eb;
+        color: #262c2f;
+      }
+    }
+  }
+}
+[data-theme="light"] .pagination_container .entries_per_page {
+  color: #0e1315;
+}
+[data-theme="dark"] .pagination_container .entries_per_page {
+  color: #dce3ec;
+}
+[data-theme="light"] .pagination_container .entry-info {
+  color: #0e1315;
+}
+[data-theme="dark"] .pagination_container .entry-info {
+  color: #dce3ec;
+}
+
+/* Image Uploader */
+.upload_area {
+  border: 2px dashed #ccc !important;
+  padding: 20px !important;
+  border-radius: 50% !important;
+  width: 160px !important;
+  height: 160px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+.image_place_holder {
+  margin-top: 1.5rem;
+}
+.remove_icon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+th:hover .fa_sort {
+  color: #6a6d6e;
+}
+
+/* Light Theme */
+[data-theme="light"] .fa_sort {
+  margin-left: 5px;
+  color: #747474;
+}
+
+[data-theme="light"] th:hover .fa_sort {
+  color: #2f2f2f;
+}
+
+/* Dark Theme */
+[data-theme="dark"] .fa_sort {
+  margin-left: 5px;
+  color: #6a6d6e;
+}
+
+[data-theme="dark"] th:hover .fa_sort {
+  color: #dedfe0;
+}
+
+.address-field {
+  margin-bottom: 0.8rem;
+}
+.error_wrap {
+  padding-top: 0.4rem !important;
+}
+
+.uploaded_center_aligned_image {
+  object-fit: "cover";
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.jus_end {
+  display: grid;
+  justify-content: flex-end;
+  text-decoration: none;
+}
+
+.file_wrapper {
+  width: 7.5rem;
+}
+
+/* dashboard view all activity alignment */
+.align_view_activity {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* for modal table */
+.modal_table_loader {
+  width: 96%;
+}
+
+/* select profile */
+.pt_user_customize {
+  height: 16px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* General utility classes */
+
+.dis_none {
+  display: none !important;
+}
+.dis_block {
+  display: block;
+}
+.width_30 {
+  width: 30% !important;
+}
+.file_Selector {
+  width: 15.625rem !important;
+}
+.width_100 {
+  width: 100% !important;
+}
+.width_50 {
+  width: 50% !important;
+}
+.width_20 {
+  width: 20% !important;
+}
+.width_35 {
+  width: 35% !important;
+}
+
+.text_center {
+  text-align: center !important;
+}
+.mb_1 {
+  margin-bottom: 1rem;
+}
+.mr_1 {
+  margin-right: 1rem;
+}
+.mb_0_5 {
+  margin-bottom: 0.5rem;
+}
+.mt_0_5 {
+  margin-top: 0.5rem !important;
+}
+.mr_zero_point_five {
+  margin-right: 0.5rem;
+}
+.ml_zero_point_five {
+  margin-left: 0.5rem;
+}
+
+.cur-default {
+  cursor: default !important;
+}
+
+.cu-pointer {
+  cursor: pointer;
+}
+
+.text_ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.d_flex_justify_center {
+  display: flex;
+  justify-content: center;
+}
+.d_flex_justify_end {
+  display: flex;
+  justify-content: flex-end !important;
+}
+.capitalize {
+  text-transform: uppercase !important;
+}
+
+/* payment claims */
+.paymentClaims .formArrayAddIcon {
+  margin-left: 0.5rem !important;
+}
+.paymentClaims .form_array_table_row {
+  vertical-align: top !important;
+}
+.disable_default_file_name {
+  width: 8rem !important;
+  color: transparent;
+}
+.business_signature_image {
+  background-color: #e1e1e1;
+}
+
+/*claim view details in other payments */
+.pt_claimView_other_payments {
+  margin: 0 0;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radius-outer-max);
+}
+.pt_claimView_other_payments h5 {
+  font-size: var(--step--2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin: 0;
+}
+.pt_claimView_other_payments h4 {
+  font-size: var(--step-1);
+  margin: 0 0 var(--space-3xs) 0;
+  display: inline-block;
+}
+.pt_claimView_other_payments h6 {
+  font-size: var(--step--2);
+  margin: 0;
+  letter-spacing: 1px;
+  display: inline-block;
+}
+.pt_claimView_other_payments
+  input:not(
+    [type="checkbox"],
+    .pt_claimView_other_payments [type="radio"],
+    .pt_claimView_other_payments [type="file"],
+    .pt_claimView_other_payments [type="range"]
+  ),
+.pt_claimView_other_payments select {
+  height: calc(
+    1rem * 0.4 + var(--pico-form-element-spacing-vertical) * 2 +
+      var(--pico-border-width) * 2
+  );
+  font-size: var(--step--1);
+  padding: 0 var(--space-2xs);
+  margin: var(--space-3xs) 0 var(--space-xs) 0 !important;
+  width: 100%;
+}
+/*claim view details in other payments */
+
+/* Add payment list grid style */
+.TableFontSmall {
+  font-size: unset !important;
+}
+.notice_subscribe {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.625rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.3125rem;
+  margin: 0.5rem 0;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.pt_other_payment_image {
+  background: var(--theme-lightest);
+  background-image: radial-gradient(
+    circle,
+    var(--shade-light) 10%,
+    transparent 10%
+  );
+  background-repeat: repeat;
+  background-size: 20px 20px;
+  min-height: 600px;
+  height: 100%;
+  width: calc(100% - var(--space-s) - var(--space-s));
+  padding: var(--space-s) var(--space-xs);
+  position: relative;
+  overflow: hidden;
+  top: 0;
+  left: var(--space-s);
+  display: block;
+  border-radius: var(--radius-outer-max);
+}
+
+.custom_search input {
+  border-radius: 0.25rem;
+  height: 26px !important;
+  font-size: smaller;
+  font-size: var(--step--1);
+}
+
+.loader_info {
+  color: #1583d8;
+  font-weight: 600;
+  font-size: clamp(0.875rem, 1rem + 0.25vw, 1.125rem);
+  margin-top: 0.875rem;
+  text-align: center;
+}
+
+.custom_search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.infoText {
+  color: #2085a6;
+}
+
+.successText {
+  color: #0ca148;
+}
+.notices_view_button {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.625rem;
+}
+.stripeCardElement {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  width: 100%;
+}
+.pricing_close_btn {
+  position: absolute;
+  top: 7.2rem;
+  right: 0.75rem;
+}
+
+/* fixed overlapping issue between navbar submenu and footer section */
+.footerLapping {
+  position: relative;
+  z-index: 2 !important;
+}
+.navSubmenuLapping {
+  position: relative;
+  z-index: 3 !important;
+}
+
+/* to prevent green border and tick on initialization */
+:where(input, select, textarea)[aria-invalid="false"] {
+  border: none !important;
+}
+
+[data-theme="dark"] :where(input, select, textarea)[aria-invalid="false"] {
+  border: 0.12rem solid #1a1f28 !important;
+}
+
+[data-theme="light"] :where(input, select, textarea)[aria-invalid="false"] {
+  border: 0.12rem solid #cfd5e2 !important;
+}
+
+:where(input, select, textarea)[aria-invalid="false"]:is(:active, :focus):not(
+    [type="checkbox"],
+    [type="radio"]
+  ) {
+  --pico-box-shadow: none !important;
+}
+:where(input, select, textarea):not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="date"],
+    [type="datetime-local"],
+    [type="month"],
+    [type="time"],
+    [type="week"],
+    [type="range"]
+  )[aria-invalid="false"]:not(select) {
+  background-image: none !important;
+}
+.manage_admin_groups_header {
+  font-size: clamp(0.7rem, 0.66rem + 0.035vw, 0.68rem) !important;
+}
+.nostyle_list {
+  list-style: none !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+}
+
+/* wrap lengthy sentence into two / three lines */
+.table_wrap {
+  min-width: clamp(12rem, 25vw, 22rem); /* Adjust as needed */
+  word-wrap: break-word !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.5rem !important;
+}
+
+/* iOS automatically detects phone numbers, emails, and links and applies styles, to override below styles been applied */
+/* a,
+a:link,
+a:visited {
+  text-decoration: none !important;
+  color: inherit !important;
+} */
+
+html {
+  -webkit-touch-callout: none; /* Prevents long-press linking */
+}
+
+.input-container-calender {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-container-calender .calendar-icon {
+  position: absolute;
+  right: 0.9375rem;
+  color: #666;
+  padding-bottom: 0.5rem;
+}
+.calender-component .calender-error {
+  display: block !important;
+  margin-top: -0.625rem !important;
+}
+
+/* styling for global error page */
+.error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+
+.error-page h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #dc3545; /* Red color for emphasis */
+}
+
+.error-page p {
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+}
+
+.error-page small {
+  font-size: 0.9rem;
+}
+
+.attachment_info {
+  cursor: pointer;
+  color: #1583d8;
+}
+
+/* Responsive tooltip styling */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+.signup_tooltip {
+  position: static !important;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: clamp(0.625rem, 0.55rem + 0.5vw, 0.875rem);
+  white-space: normal; /* Allow text to wrap normally */
+  word-break: break-word; /* Break long words if needed */
+  max-width: 400px; /* Maximum width for longer texts */
+  width: max-content;
+  min-width: 180px;
+  box-sizing: border-box;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 999;
+}
+
+.signup_tooltip .tooltiptext {
+  max-width: 300px !important;
+}
+
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+.signup_tooltip .tooltiptext::after {
+  left: 80% !important;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+.disableActiveComplianceRadio {
+  background-color: #9a3a34 !important;
+  border: #9a3a34 !important;
+}
+.disableInactiveComplianceRadio {
+  background-color: #585d67 !important;
+  border: #585d67 !important;
+}
+@media print {
+  footer {
+    display: none !important;
+  }
+  header {
+    display: none !important;
+  }
+  .hideOnPrint {
+    display: none !important;
+  }
+  .visibilityHiddenOnPrint {
+    visibility: hidden !important;
+  }
+}
+.claims-container {
+  max-width: 800px;
+  margin: 0 auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+}
+
+.claims-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.claims-table,
+.claims-table th,
+.claims-table td {
+  border: 1px solid #ddd;
+}
+
+.claims-table th,
+.claims-table td {
+  padding: 8px;
+  text-align: left;
+}
+
+.claims-header-row {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.claims-status-failed {
+  color: #d9534f;
+}
+
+.claims-status-success {
+  color: #5cb85c;
+}
+
+.claims-empty-cell {
+  background-color: #f9f9f9;
+}
+
+.claims-warning-text {
+  color: #f0ad4e;
+}
+.complianceSilenced {
+  color: rgb(207, 173, 80);
+}
+.paymentsErrorFont {
+  font-size: clamp(8px, 2vw, 10px) !important;
+}
+.claimsErrorFont {
+  font-size: clamp(10px, 2vw, 12px) !important;
+}
+.subscriptionContent {
+  font-size: clamp(12px, 2vw, 14px) !important;
+}

@@ -1,0 +1,28 @@
+.title {
+  font-size: 1.25rem;
+  color: #212529;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+.confirmationRadio {
+  margin: 1rem 0;
+}
+
+.SkipButtonStyles {
+  margin-top: 1rem !important;
+  color: #1d2378 !important;
+  font-weight: 500 !important;
+  border: none !important;
+  background-color: transparent !important;
+  width: 100%;
+  &:hover {
+    background-color: transparent !important;
+    color: #1d2378;
+    border: none;
+  }
+}
+.buttonStyles {
+  margin-top: 2rem;
+  width: 100%;
+}

@@ -1,0 +1,149 @@
+.header {
+  color: #393a3d;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+}
+.headButton {
+  color: #0b51c1 !important;
+}
+.accordionHead {
+  border-top: 1px solid lightgray;
+  border-bottom: 1px solid lightgray;
+}
+.accordionItem {
+  border-left: none;
+  border-right: none;
+  padding: 0.875rem 0;
+}
+.answer {
+  color: #000000;
+  font-size: 17px;
+  line-height: 1.5rem;
+  padding-left: 0;
+  padding-top: 0.5rem;
+  font-weight: 350;
+}
+.radioButton {
+  margin-top: 1rem;
+}
+.mainContainer {
+  display: grid;
+  flex-direction: column;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+.noData {
+  text-align: center;
+}
+.selectHead {
+  padding: 30px;
+  margin-top: 20px;
+  background-color: #f6f6f6;
+}
+.blockOne {
+  background-color: #f6f6f6;
+  padding: 20px;
+}
+.reqSymbol {
+  color: red;
+}
+.labelHead {
+  margin-bottom: 4px;
+}
+#tooltip {
+  background-color: red;
+}
+.customPopupstyles {
+  // padding: 20px 20px;
+  background-color: blue;
+  color: white;
+  border-radius: 4px;
+  width: 250px;
+  height: fit-content;
+  box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2);
+  border: 1px solid darkgray !important;
+}
+
+.arrow {
+  border-top-color: red !important;
+}
+
+.boxStyle {
+  text-indent: 25px;
+  margin-top: 17px;
+}
+
+.check {
+  text-indent: 25px;
+  margin-top: 17px;
+  color: #2e844a;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.unCheck {
+  text-indent: 25px;
+  margin-top: 17px;
+  color: red;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.radioText {
+  font-style: italic;
+}
+.secondPart {
+  margin-top: 40px;
+  margin-bottom: 30px;
+}
+.seperatorRule {
+  border-right: 1px solid lightgray;
+  padding-right: -60px;
+}
+
+.seperatorRule1 {
+  border-left: 1px solid lightgray;
+  padding-left: 25px;
+  margin-left: -25px;
+}
+
+.seperatorRule2 {
+  // border-left: 1px solid lightgray;
+  padding-left: 25px;
+  margin-left: -25px;
+  min-height: 530px;
+}
+
+.dividerRule{
+  border-right: 1px solid lightgray;
+  padding-right: -60px;
+}
+
+.tooltip {
+  background-color: aqua;
+  color: white;
+  border-radius: 8px;
+}
+
+.checkText {
+  font-style: italic;
+  font-size: 13px;
+  margin-left: 35px;
+}
+
+.cancelButton {
+  color: #1d2378;
+  border-radius: 1rem !important;
+  width: 17.6875rem;
+  padding: 0.3125rem !important;
+  border: 1px solid #1c2475 !important;
+  background-color: transparent !important;
+}
+.modalTitle {
+  font-size: 1.25rem !important;
+  margin-bottom: 1rem !important;
+  color: black !important;
+  text-align: center !important;
+}

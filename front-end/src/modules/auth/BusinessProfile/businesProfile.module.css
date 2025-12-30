@@ -1,0 +1,125 @@
+/* Styling for the list container */
+[data-theme="light"] .matchedCompanyList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  border-radius: 5px;
+  background-color: #fbfcfc;
+}
+
+[data-theme="dark"] .matchedCompanyList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  border-radius: 5px;
+  background-color: #1e1e1e;
+}
+
+/* Individual company item styling */
+[data-theme="light"] .matchedCompany {
+  padding: 12px;
+  margin-bottom: 0px !important;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="dark"] .matchedCompany {
+  padding: 12px;
+  margin-bottom: 0px !important;
+  background-color: #2a2a2a;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #333; /* Softer border color */
+}
+
+[data-theme="light"] .matchedCompany:hover {
+  background-color: #e0f7fa;
+  cursor: pointer;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .matchedCompany:hover {
+  background-color: #333;
+  cursor: pointer;
+  box-shadow: none; /* Remove shadow effect in dark mode */
+}
+
+/* Clicked state */
+[data-theme="light"] .clicked {
+  background-color: #d1e8e2;
+  border-left: 4px solid #4caf50;
+}
+
+[data-theme="dark"] .clicked {
+  background-color: #394c4f;
+  border-left: 4px solid #66bb6a;
+  box-shadow: none; /* Remove shadow effect in dark mode */
+}
+
+/* Company item layout */
+.companyItem {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Company details text */
+[data-theme="light"] .companyDetails {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+[data-theme="dark"] .companyDetails {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+[data-theme="light"] .companyName {
+  color: #333;
+}
+
+[data-theme="dark"] .companyName {
+  color: #e0e0e0;
+}
+
+[data-theme="light"] .companyType {
+  color: #888;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+[data-theme="dark"] .companyType {
+  color: #b0b0b0;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* Avatar icon styling */
+[data-theme="light"] .addCompanyFileStyles {
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .addCompanyFileStyles {
+  border-radius: 50%;
+  box-shadow: none; /* Remove shadow for avatar in dark mode */
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+}

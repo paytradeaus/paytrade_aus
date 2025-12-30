@@ -1,0 +1,229 @@
+/* Title Styles */
+.title {
+  font-size: 1.25rem;
+  color: #212529;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.errorAttchText {
+  display: flex;
+  justify-content: center;
+  color: red;
+  align-items: center;
+  padding-top: 5px;
+}
+
+/* Upload Area Styles */
+.UploadAreaStyles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 auto;
+  padding: 1rem;
+  max-width: 100%; /* Ensure container doesn't overflow */
+}
+
+/* Info Text Styles */
+.InfoTextStyle {
+  margin-bottom: 0.25rem;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2rem;
+}
+
+.InputStyles {
+  position: relative;
+  border: 2px dashed #444444; /* Dashed border with dark tone */
+  background-color: #1e1e1e; /* Dark grey background */
+  border-radius: 4px;
+  height: 150px;
+  width: 100%; /* Responsive width */
+  max-width: 300px; /* Cap width */
+  cursor: grab;
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+  color: #ffffff; /* White text for dark mode */
+}
+
+.InputStyles:hover {
+  background-color: #2a2a2a; /* Slightly lighter grey on hover */
+  border-color: #888888; /* Highlight border on hover */
+}
+
+/* Input Styles */
+[data-theme="light"] .InputStyles {
+  position: relative;
+  border: 2px dashed #b6b3b3; /* Dashed border */
+  background-color: #f5f5f5; /* Light grey background */
+  border-radius: 4px;
+  height: 150px;
+  width: 100%; /* Responsive width */
+  max-width: 300px; /* Cap width */
+  cursor: grab;
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+}
+
+[data-theme="light"] .InputStyles:hover {
+  background-color: #eaeaea; /* Slightly darker grey on hover */
+}
+
+/* Placeholder Styles */
+.ImagePlaceholderStyles {
+  color: #b6b3b3;
+  margin-top: 3.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 15px;
+  text-align: center;
+}
+
+/* Image Container Styles */
+.imageContainer {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  height: inherit;
+}
+
+/* Remove Icon Styles */
+.removeIcon {
+  position: absolute;
+  top: -10px;
+  right: -20px;
+  cursor: pointer;
+  border-radius: 50%; /* Add border radius for circular shape */
+  font-size: 1.2rem;
+  color: #dc3545; /* Red color for delete icon */
+  transition: color 0.2s ease-in-out;
+}
+
+.removeIcon:hover {
+  color: #a71d2a; /* Darker red on hover */
+}
+
+/* Selected File Name Styles */
+.SelectedFileName {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 15px;
+  color: #b6b3b3;
+  font-size: 0.9rem; /* Adjust font size for better scaling */
+  text-align: center;
+}
+
+[data-theme="light"] .SelectedFileName {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 15px;
+  color: #212529;
+  font-size: 0.9rem; /* Adjust font size for better scaling */
+  text-align: center;
+}
+
+/* File Icon Styles */
+.FileIcon {
+  color: #b6b3b3;
+  font-size: 1.5rem; /* Slightly larger icon */
+  margin-right: 0.5rem;
+}
+
+[data-theme="light"] .FileIcon {
+  color: #212529;
+  font-size: 1.5rem; /* Slightly larger icon */
+  margin-right: 0.5rem;
+}
+
+/* Icon Actions for View and Remove */
+.IconActions {
+  display: flex;
+  gap: 1rem; /* Space between icons */
+  margin-top: 0.5rem;
+  justify-content: center; /* Center align the icons */
+}
+
+.ViewIcon,
+.RemoveIcon {
+  cursor: pointer;
+  color: #6c757d; /* Grey */
+  font-size: 1.2rem;
+  transition: color 0.2s ease-in-out;
+}
+
+.ViewIcon:hover {
+  color: #007bff; /* Blue on hover */
+}
+
+.RemoveIcon:hover {
+  color: #dc3545; /* Red on hover */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .InputStyles {
+    height: 120px; /* Adjust for smaller screens */
+    max-width: 90%; /* Allow better scaling */
+  }
+
+  .ImagePlaceholderStyles {
+    margin-top: 2rem;
+    font-size: 0.9rem; /* Smaller text */
+  }
+
+  .removeIcon {
+    top: -5px;
+    right: -10px;
+    font-size: 1rem; /* Smaller icon */
+  }
+
+  .SelectedFileName {
+    font-size: 0.8rem; /* Adjust text size */
+  }
+
+  .IconActions {
+    gap: 0.5rem; /* Smaller gap */
+  }
+
+  .ViewIcon,
+  .RemoveIcon {
+    font-size: 1rem; /* Adjust icon size */
+  }
+}
+
+@media (max-width: 480px) {
+  .InputStyles {
+    height: 100px; /* Further scaling */
+    max-width: 100%; /* Full width for small screens */
+  }
+
+  .ImagePlaceholderStyles {
+    margin-top: 1.5rem;
+    font-size: 0.8rem; /* Smaller text */
+  }
+
+  .SelectedFileName {
+    font-size: 0.7rem; /* Adjust text size */
+  }
+}
+
+/* Icon Actions Container */
+.IconActions {
+  display: flex;
+  gap: 1rem; /* Space between buttons */
+  margin-top: 0.5rem;
+  justify-content: center; /* Center align buttons */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .IconActions {
+    gap: 0.5rem; /* Reduce gap for smaller screens */
+  }
+}

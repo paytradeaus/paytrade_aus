@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>email-header-footer-template</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+    <table style="width:100%; padding:0; margin:0; border-radius:10px; overflow:hidden; background-color:#ffffff;"
+        cellspacing="0" cellpadding="0" border="0" align="center">
+
+        <tbody>
+            <tr>
+                <table style="width:100%; padding:0; margin:0;" cellspacing="0" cellpadding="0" border="0"
+                    align="center">
+
+            </tr>
+            <tr>
+                <td>
+                    <table style="width:100%; background-color:#ffffff; padding:20px 0;" cellspacing="0" cellpadding="0"
+                        border="0" align="center">
+
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table width='100%' cellspacing='0' cellpadding='0' border='0' align='center'>
+                                        <tbody>
+                                            <tr>
+                                                <td style="padding:0; margin:0;">
+                                                    <img src="cid:{{headerCid}}"
+                                                        style="display:block; width:100%; height:auto; border-top-left-radius:10px; border-top-right-radius:10px"
+                                                        alt="PayTrade Header" />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+
+            <tr>
+                <td align="center">
+                    <table width="700" cellspacing="0" cellpadding="0" border="0" align="center"
+                        style="width:700px; table-layout:fixed; padding: 30px 0">
+                        <tr>
+                            <td align="center" style="word-break:break-word;">
+                                <div style="max-width:600px; margin:auto;">
+                                    {{{data.mailBody}}}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <table style='margin:0 auto;padding:0px 15px;' width='600' cellspacing='0' cellpadding='0'
+                        border='0' bgcolor='#ffffff' align='center' style="max-width: 350px; text-align:center;">
+                        <tbody>
+                            <tr>
+                                <td height='10'><br /></td>
+                            </tr>
+                            <tr>
+                                <td align="center">
+                                    {{!-- <table width="100%" max-width="350" cellspacing="0" cellpadding="0" border="0"
+                                        align="center" style="max-width: 350px;">
+                                        <tbody>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:5px;">
+                                                    © 2025 Carma 360 Pty Ltd
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:5px;">
+                                                    ABN – 46665189015
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:5px;">
+                                                    9 Surfside Court
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:5px;">
+                                                    Sunshine Beach
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:5px;">
+                                                    Queensland
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:10px;">
+                                                    4567
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5; padding-bottom:10px;">
+                                                    <a href="mailto:support@paytrade.app"
+                                                        style="color:#929292; text-decoration:none; font-weight:500;">support@paytrade.app</a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.5;">
+                                                    <a href="{{faqLink}}" target="_blank" rel="noopener noreferrer"
+                                                        data-ik="ik-secure"
+                                                        style="color:#929292; text-decoration:none;">Visit FAQ</a>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table> --}}
+                                    <table width="100%" max-width="350" cellspacing="0" cellpadding="0" border="0"
+                                        align="center" style="max-width: 350px;">
+                                        <tbody>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1; padding: 2px 0;">
+                                                    Pay Trade
+
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1; padding: 2px 0;">
+                                                    ABN – 46665189015
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="color:#929292; font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1; padding: 2px 0;">
+                                                     9 Surfside Court, Sunshine Beach, Queensland, 4573
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1.4; padding-top: 8px;">
+                                                    <a href="mailto:support@paytrade.app"
+                                                        style="color:#929292; text-decoration:none; font-weight:500;">support@paytrade.app</a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center"
+                                                    style="font-size:14px; font-weight:400; font-family:Lato, Helvetica, sans-serif; line-height:1; padding-top: 2px;">
+                                                    <a href="{{faqLink}}" target="_blank" rel="noopener noreferrer"
+                                                        data-ik="ik-secure"
+                                                        style="color:#929292; text-decoration:none;">Visit FAQ</a>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table style=" width:100%; background-color:#ffffff; padding:20px 0;" cellspacing="0"
+                        cellpadding="0" border="0" align="center">
+
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table width='100%' cellspacing='0' cellpadding='0' border='0' align='center'>
+                                        <tbody>
+                                            <tr>
+                                                <td style="padding:0; margin:0;">
+                                                    <img src="cid:{{footerCid}}"
+                                                        style="display:block; width:100%; height:auto; border-bottom-left-radius:10px; border-bottom-right-radius:10px"
+                                                        alt="PayTrade Header" />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+</html>

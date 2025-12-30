@@ -1,0 +1,186 @@
+.signInForm {
+  max-width: 28.125rem !important;
+  margin: 2rem auto;
+  border-radius: 0.375rem;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  border: 1px solid rgba(211, 211, 211, 0.596);
+  padding: 15px;
+}
+
+.formStyles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 auto;
+  padding: 1rem;
+}
+
+.contractsIconStyles {
+  height: 60px;
+  width: 100px;
+  margin-bottom: 1rem;
+}
+
+.headingFlexStyles {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.SubHeading {
+  width: 100%;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+}
+
+.disabledTextField {
+  background-color: white;
+  pointer-events: none;
+  // opacity: 0.6;
+}
+
+.textFieldStyles {
+  width: 100%;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.IdValueSubHeading {
+  width: 100%;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+  font-weight: 400;
+}
+
+.DateSubHeading {
+  width: 100%;
+  margin-bottom: 1rem;
+  font-weight: 495;
+}
+
+.fileSelectorContainer {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
+  align-items: center;
+  border: 1px solid lightgray;
+  border-radius: 8px;
+}
+.selectedFile {
+  background-color: lightgray;
+  color: gray;
+  cursor: default;
+}
+
+.title {
+  font-size: 1.25rem;
+  color: #212529;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.buttonStyles {
+  margin-top: 2rem;
+  width: 100%;
+}
+
+.SecondButtonStyles {
+  width: 100%;
+  margin-top: 1rem !important;
+  color: white !important;
+  font-weight: 500 !important;
+  border: 1px solid #71ecfc !important;
+  background-color: #71ecfc !important;
+}
+
+.SecondButtonStyles:hover {
+  background-color: #71ecfc !important;
+}
+
+.SkipButtonStyles {
+  margin-top: 1rem !important;
+  color: #1d2378 !important;
+  font-weight: 500 !important;
+  border: none !important;
+  background-color: transparent !important;
+}
+
+.SkipButtonStyles:hover {
+  background-color: transparent !important;
+  color: #1d2378;
+  border: none;
+}
+
+.inputFieldControl {
+  padding-right: 30px !important;
+  border-radius: 5px !important;
+}
+
+.inputError {
+  border: 1px solid red; /* Red border for input */
+  background-color: #ffe6e6; /* Light red background color */
+}
+
+.crossiconsSyles {
+  color: red;
+}
+
+.endIconStyle {
+  display: flex;
+  right: 0;
+  z-index: 999;
+  width: 25px;
+  margin-right: 5px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.errorText {
+  color: red;
+  align-items: center; /* Align items vertically center */
+  font-size: 12px;
+  margin-top: 0.5rem;
+
+  .icon {
+    margin-right: 0.5rem; /* Add some spacing between the icon and text */
+  }
+}
+
+.editIcon {
+  color: #858585;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.DropdownStyles {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+.customPopupStyles {
+  --bs-popover-zindex: 0 !important;
+}
+.actionDots {
+  display: flex;
+  width: 3.125rem;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fileContent {
+  display: flex;
+  align-items: center;
+}
+.fileIcon {
+  cursor: pointer;
+}
+.breadcrumb {
+  padding: 1.25rem 1.25rem 0 1.25rem;
+}
+.breadcrumbSeparator {
+  margin: 0px 0.3125rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}

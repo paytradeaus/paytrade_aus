@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Template</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#ffffff; font-family:Arial, sans-serif;">
+
+  <!-- Full-width Wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+    style="margin:0; padding:0; border:0; width:100%;">
+    <tr>
+      <td style="margin:0; padding:0;">
+
+        <!-- Header Image (full width and responsive) -->
+        <img src="cid:{{headerCid}}" alt="Header" width="100%"
+          style="display:block; width:100% !important; height:auto !important; border:0; margin:0; padding:0;" />
+
+        <!-- Body Content (fluid) -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+          style="margin:0; padding:20px;">
+          <tr>
+            <td style="font-size:14px; color:#333333; line-height:1.6;">
+              {{{data.mailBody}}}
+            </td>
+          </tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0; padding:0;">
+          <tr>
+            <td style="margin:0; padding:0; line-height:0;">
+              <img src="cid:{{footerCid}}" alt="Footer" width="100%"
+                style="display:block; width:100% !important; height:auto !important; border:0; margin:0; padding:0;" />
+            </td>
+          </tr>
+        </table>
+
+        <!-- Footer Info (centered) -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+          style="margin:0; padding:20px 10px;">
+          <tr>
+            <td style="font-size:14px; color:#929292; line-height:1.6; text-align:center;">
+              Pay Trade<br />
+              ABN – 46665189015<br />
+              9 Surfside Court, Sunshine Beach, Queensland, 4567<br />
+              <a href="mailto:support@paytrade.app"
+                style="color:#929292; text-decoration:none;">support@paytrade.app</a><br />
+              <a href="{{faqLink}}" target="_blank" rel="noopener noreferrer"
+                style="color:#929292; text-decoration:none;">Visit FAQ</a>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+  <!-- Full-width Footer Image (responsive) -->
+  {{!-- <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0; padding:0;">
+    <tr>
+      <td style="margin:0; padding:0; line-height:0;">
+        <img src="cid:{{footerCid}}" alt="Footer" width="100%"
+          style="display:block; width:100% !important; height:auto !important; border:0; margin:0; padding:0;" />
+      </td>
+    </tr>
+  </table> --}}
+
+</body>
+
+</html>

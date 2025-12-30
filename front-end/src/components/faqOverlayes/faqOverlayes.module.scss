@@ -1,0 +1,204 @@
+.popoverStyle {
+  padding: 20px 20px;
+  border-radius: 4px;
+  width: auto;
+  height: fit-content;
+  box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2);
+  border: 1px solid darkgray !important;
+}
+.popover {
+  --bs-popover-zindex: 1070;
+  --bs-popover-max-width: 1550px;
+}
+
+.popoverBodyStyles {
+  display: flex;
+  gap: 30px;
+  padding: 0px;
+}
+.eachSection {
+  display: flex;
+  flex-direction: column;
+}
+.popoverElementsList {
+  list-style: none;
+  padding-left: 0px;
+  margin: 0px;
+}
+.popoverHeading {
+  font-weight: 500;
+}
+.cursor {
+  cursor: pointer;
+}
+.cursor2 {
+  cursor: pointer;
+  width: 60px;
+}
+.sectionSeparator {
+  background-color: lightgray;
+  width: 1px;
+}
+.helpContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 11px;
+}
+.profileContainer {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 20px 25px;
+  width: 250px;
+}
+
+.profileEmailStyle {
+  font-size: 11px;
+}
+.subText {
+  color: #1c2475;
+  cursor: pointer;
+  text-decoration: none;
+}
+.profileLine {
+  border-bottom: 1px solid lightgray;
+  width: 100%;
+  margin-bottom: 14px;
+}
+.marginB7 {
+  margin-bottom: 7px;
+}
+.profileBtn {
+  height: 35px !important;
+  background-color: #e3e5e8 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  &:hover {
+    background-color: #e3e5e8 !important;
+  }
+}
+.tablePopover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0px;
+}
+.tableSeparator {
+  background-color: lightgray !important;
+  width: 100% !important;
+  height: 1px;
+}
+.tableListCon {
+  padding: 0px !important;
+  border-radius: 4px;
+  width: auto;
+  height: fit-content;
+  box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2);
+  border: 1px solid darkgray !important;
+}
+.tableOptionsCon {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px;
+}
+.deleteTextCon {
+  display: flex;
+  padding: 11px;
+  color: #ff0000;
+}
+
+.confirmationModalTitle {
+  position: absolute;
+  color: black;
+  top: 3rem;
+}
+
+@media screen and (min-width: 320px) and (max-width: 767px) {
+  .popoverBodyStyles {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0px;
+  }
+  .sectionSeparator {
+    background-color: lightgray !important;
+    width: 100% !important;
+    height: 1px;
+  }
+  .popoverElementsList {
+    list-style: none;
+    padding-left: 10px;
+    margin-bottom: 5px;
+  }
+}
+
+// user
+
+.UserProfileContainer {
+  align-items: center;
+  flex-direction: column;
+  width: 250px;
+}
+
+.popoverHeading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 10px 15px;
+}
+
+.userProfileBtn {
+  height: 30px !important;
+  background-color: #e3e5e8 !important;
+  border: none !important;
+  color: #1c2475 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px !important;
+  &:hover {
+    background-color: #e3e5e8 !important;
+  }
+}
+
+.userAvatarStyles {
+  margin-top: 5px !important;
+  margin-left: 5px !important;
+}
+
+.userMarginB7 {
+  margin-bottom: 7px;
+  margin-left: 15px;
+}
+
+// company
+
+.companyProfileBtn {
+  height: 30px !important;
+  background-color: #e3e5e8 !important;
+  border: none !important;
+  color: #1c2475 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px !important;
+  width: inherit;
+  &:hover {
+    background-color: #e3e5e8 !important;
+  }
+}
+
+.companyMarginB7 {
+  margin-left: 15px;
+  font-size: 14px;
+  color: lightgrey;
+  font-weight: 500;
+  padding: 20px 0px 0px 0px;
+}

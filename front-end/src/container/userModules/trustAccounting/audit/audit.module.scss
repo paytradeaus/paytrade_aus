@@ -1,0 +1,141 @@
+.dataContainer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  //   padding: 20px 20px;
+  height: 100%;
+  & > header {
+    padding: 0;
+    z-index: 2;
+    flex: unset;
+    display: flex;
+    min-height: auto;
+    padding-bottom: 1rem;
+  }
+}
+.link {
+  color: #39393b; /* Initial text color */
+  text-decoration: none; /* No underline initially */
+  cursor: pointer;
+  transition: color 0.3s ease, background-color 0.3s ease; /* Smooth transition for color and background-color */
+
+  &:hover {
+    color: #007bff; /* Change color on hover */
+    background-color: #f0f0f0; /* Add background color on hover */
+  }
+}
+.datePickerIcon {
+  display: flex;
+  gap: 20px;
+}
+.btnStyles {
+  background: #1c2475 !important;
+  width: 100%;
+  &:hover {
+    background: #1c2475 !important;
+  }
+}
+.headerAndButtonCon {
+  justify-content: space-between;
+  // padding-top: 20px;
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+  padding-bottom: 1.5rem;
+}
+.headerText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 22.142px;
+}
+.buttonStyles {
+  max-width: 120px;
+  height: 30px;
+  font-size: 14px !important;
+}
+.customSubHeaderCon {
+  justify-content: space-between;
+  flex: 1;
+  padding-right: 50px;
+  gap: 15px;
+}
+.customPopupstyles {
+  --bs-popover-zindex: 0 !important;
+}
+.textAndSelectCon {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.column {
+  flex: 1;
+  padding: 16px;
+  border: 1px solid #ddd;
+}
+.headerIconCon {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.textFieldStyles {
+  box-shadow: none !important;
+  border: 0px solid lightgray;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.textFieldStyles2 {
+  box-shadow: none !important;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+  max-width: 100% !important;
+}
+
+.controlStyles {
+  border: "1px solid red !important";
+}
+.dotsContainer {
+  display: flex;
+  width: 50px;
+  justify-content: center;
+  cursor: pointer;
+}
+.separatorStyle {
+  margin: 0px 5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notice {
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 767px) {
+  .textAndSelectCon {
+    flex-direction: column;
+  }
+}
+.resetButton {
+  background-color: #f0f0f0; /* Example background color */
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-left: 10px; /* Add spacing if needed */
+
+  &:hover {
+    background-color: #e0e0e0; /* Change on hover */
+  }
+}
+
+.iconSpacing {
+  margin-right: 5px; /* Adjust spacing as needed */
+  vertical-align: middle; /* Aligns the icon with the text */
+}

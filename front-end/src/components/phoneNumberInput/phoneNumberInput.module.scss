@@ -1,0 +1,36 @@
+// .PhoneInputInput {
+//   flex: 1 1;
+//   min-width: 0;
+//   border-left: none !important;
+//   border: 1px solid red;
+// }
+
+.errorText {
+  color: red;
+  display: flex; /* Make the container flex to align icon and text horizontally */
+  align-items: center; /* Align items vertically center */
+  font-size: 12px;
+  margin-top: 0.5rem;
+
+  .icon {
+    margin-right: 0.5rem; /* Add some spacing between the icon and text */
+  }
+}
+
+.crossiconsSyles {
+  color: red;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+.crossiconsAddressSyles {
+  color: red;
+  position: absolute;
+  right: 42px;
+  top: 12px;
+}
+
+.PhoneContainerStyle {
+  position: relative;
+}

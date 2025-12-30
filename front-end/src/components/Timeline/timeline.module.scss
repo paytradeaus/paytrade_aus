@@ -1,0 +1,186 @@
+.timelineContainer {
+  padding-right: 1.25rem;
+  padding-left: 1.25rem;
+  background-color: #f4f5f8;
+}
+
+.timeline {
+  position: relative;
+  margin: 0 auto;
+  padding: 20px 0;
+  max-width: 800px;
+  list-style: none;
+}
+
+.timeline:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e9ecef;
+  left: 50%;
+  margin-left: -1px;
+}
+
+.timelineEventWrapper {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.timelineEvent {
+  position: relative;
+  width: 45%;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.timelineEvent:before,
+.timelineEvent:after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.timelineEvent:before {
+  left: 100%;
+  border-width: 10px;
+  border-color: transparent transparent transparent #ddd;
+}
+
+.timelineEvent:after {
+  left: 100%;
+  border-width: 9px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.timelineEvent:nth-child(even) {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.timelineEvent:nth-child(even):before,
+.timelineEvent:nth-child(even):after {
+  left: auto;
+  right: 100%;
+  border-color: transparent #ddd transparent transparent;
+}
+
+.timelineEvent:nth-child(even):after {
+  border-color: transparent #fff transparent transparent;
+}
+
+.timelineEvent:hover {
+  background: #f1f1f1;
+}
+.bodyContent {
+  background-color: #f0f0f0;
+  margin-left: 50px;
+  padding: 10px 10px 0px 10px;
+  margin-bottom: 0.625rem;
+  width: 93.5%;
+  border-radius: 5px;
+}
+.expandIcon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.icon {
+  display: inline-block;
+  color: #1c2475;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 50%;
+  text-align: center;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  background-color: #0b5dd731;
+  // background: linear-gradient(to right, #1c2475, #50e5ff);
+}
+.headSection {
+  background-color: #f4e8e4;
+  font-weight: 600;
+}
+.subText {
+  position: relative;
+  width: 94%;
+}
+.headText {
+  width: 98%;
+  margin-top: 0em;
+  margin-bottom: 0.2em;
+  line-height: 1.6;
+  padding: 0em 0em 0em 5em;
+  font-weight: 600;
+  font-size: 16px;
+}
+.subList {
+  padding: 0em 0em 0em 6.7em;
+  font-size: 14px;
+  font-weight: 400;
+}
+.test {
+  color: red;
+}
+.statusBlock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2em 0em 2em 6.5em;
+}
+.statusBlockOne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0em 0em 2em 6.5em;
+}
+.statusText {
+  font-size: 14.5px;
+  color: #1d2379;
+  font-weight: 650;
+}
+.statusbtn {
+  background-color: #1c2475 !important;
+  width: max-content;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+.text {
+  padding: 0em 0em 0em 5.8em;
+  font-size: 14.3px;
+  font-weight: 400;
+}
+.text1 {
+  padding: 0em 0em 0em 5.8em;
+  font-size: 14.3px;
+  font-weight: 400;
+  margin-top: 1em;
+}
+.text2 {
+  padding: 0em 0em 0em 5.8em;
+  font-size: 14.3px;
+  font-weight: 400;
+  margin-top: 1em;
+}
+.remain {
+  font-weight: 650;
+}
+.status {
+  font-weight: 500;
+  color: #1c2475;
+  padding-right: 0.5rem;
+}
+.hintText {
+  color: #4672b1;
+  font-weight: 400;
+  font-size: 0.9375rem;
+}

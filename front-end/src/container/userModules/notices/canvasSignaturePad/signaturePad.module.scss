@@ -1,0 +1,39 @@
+/* styles.module.css */
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.sigContainer {
+  display: flex !important;
+  width: 100% !important;
+
+  height: 100% !important;
+  overflow: auto !important;
+}
+
+.sigPad {
+  width: 100% !important;
+  min-height: 12.5rem !important;
+  // height: 100% !important;
+  overflow: auto !important;
+  border: 2px dashed #6fd0e0 !important;
+  border-radius: 10px !important;
+}
+
+.disabledSigPad {
+  border: 2px dashed #d3d3d3 !important;
+  border-radius: 10px !important;
+}
+
+.buttons {
+  margin: 5px;
+}
+
+.sigImage {
+  margin-top: 10px;
+  border: 1px solid #000;
+}
+.fileRemoveIcon {
+  cursor: pointer !important;
+}

@@ -1,0 +1,81 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Email Template</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#ffffff; font-family:Arial, sans-serif;">
+
+  <!-- Wrapper Table -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center">
+
+        <!-- Inner Container -->
+        <table width="650" cellpadding="0" cellspacing="0" border="0"
+          style="width:650px; background-color:#ffffff; border-collapse:collapse;">
+
+          <!-- Header Image (Inside Table for Outlook) -->
+          <tr>
+            <td width="100%" align="center" style="padding:0; margin:0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <img src="cid:{{headerCid}}" alt="PayTrade Header" width="700"
+                      style="display:block; max-width:650px; width:100%; height:auto;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Email Body Content -->
+          <tr>
+            <td style="padding:30px; font-size:14px; color:#333333; 
+             text-align:left; line-height:1.6; 
+             mso-line-height-rule:exactly;">
+              {{{data.mailBody}}}
+            </td>
+          </tr>
+
+          <!-- Footer Info -->
+          <tr>
+            <td align="center"
+              style="padding:20px 10px; font-size:14px; color:#929292; font-family:Arial, sans-serif; text-align:center; line-height:1.6;">
+             Pay Trade<br />
+              ABN – 46665189015<br />
+              9 Surfside Court, Sunshine Beach, Queensland, 4567<br />
+              <a href="mailto:support@paytrade.app"
+                style="color:#929292; text-decoration:none;">support@paytrade.app</a><br />
+              <a href="{{faqLink}}" target="_blank" rel="noopener noreferrer"
+                style="color:#929292; text-decoration:none;">Visit FAQ</a>
+            </td>
+          </tr>
+
+          <!-- Footer Image (Inside Table for Outlook) -->
+          <tr>
+            <td width="100%" align="center" style="padding:0; margin:0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <img src="cid:{{footerCid}}" alt="PayTrade Footer" width="650"
+                      style="display:block; max-width:650px; width:100%; height:auto;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>

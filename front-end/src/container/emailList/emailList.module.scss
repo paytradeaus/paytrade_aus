@@ -1,0 +1,218 @@
+.mainCon {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  font-size: 15px;
+}
+.headerText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 22.142px;
+  margin-bottom: 1rem;
+}
+
+.secondHeaderText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 19.142px;
+  margin-bottom: 1rem;
+  margin-top: 2rem !important;
+}
+
+.thirdHeaderText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 17.142px;
+  margin-bottom: 1rem;
+  margin-top: 2rem !important;
+}
+
+.fromStyle {
+  font-weight: 500 !important;
+}
+
+.desc {
+  margin-bottom: 4px;
+}
+
+.previewBoxStyle {
+  margin-top: 1rem;
+  border: 1px solid lightgray;
+  padding: 20px;
+}
+
+.paymentId {
+  border: 1px solid lightgray;
+  margin-top: 1rem;
+  padding: 10px;
+  height: 17.9rem;
+}
+
+.formStyle {
+  width: 100%;
+  flex: auto;
+}
+.textFieldStyles {
+  margin-bottom: 0.5rem;
+}
+.categoryField {
+  width: 278px;
+  margin-bottom: 20px;
+}
+.emailFieldStyles {
+  width: 300px !important;
+}
+.textContainer {
+  width: 300px;
+}
+.textScrollStyles {
+  height: 5em;
+}
+
+.formFieldStyle {
+  width: 70%;
+}
+
+.editorFile {
+  height: 18rem;
+}
+
+.endIconStyle {
+  display: flex;
+  right: 0;
+  z-index: 999;
+  width: 25px;
+  margin-right: 5px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.phoneNumberStyles {
+  width: 100%;
+  position: relative;
+  & > div > div > div > input {
+    min-height: 40px !important;
+  }
+  & > div > div > svg {
+    top: 12px;
+  }
+}
+.googlFiledStyles {
+  width: 100%;
+  // position: relative;
+  & > div > div > div {
+    min-height: 40px !important;
+  }
+}
+
+.labelStyle {
+  margin-bottom: 0.25rem;
+}
+
+.errorContainer {
+  display: flex;
+  margin-top: 0.25rem;
+  padding-top: 5px;
+}
+.errorTextStyles {
+  color: red !important;
+  font-size: 12px !important;
+  margin-left: 4px;
+}
+
+.warningIconStyle {
+  color: #ff0000;
+}
+
+.formStyles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 auto;
+  padding: 1rem;
+}
+.footerText {
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.colorTextStyle {
+  color: #2496e2;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btnTwo {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: flex-end;
+}
+
+.btnContainer {
+  margin-top: 3em;
+}
+
+.saveBtnStyle {
+  max-width: 250px;
+  justify-content: flex-end;
+}
+
+.modalPopup {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+}
+
+.sendPopup {
+  width: 100px !important;
+}
+
+.cancelPopup {
+  width: 100px !important;
+  background: none !important;
+  border: 1px solid #1c2475;
+  color: #1c2475;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+
+.printBtnStyle {
+  width: 120px !important;
+  background-color: transparent !important;
+  color: #1c2475 !important;
+  border: 1px solid #1c2475 !important;
+  justify-content: flex-end;
+  &:hover {
+    background-color: #1c2475 !important;
+    color: #ffffff !important;
+  }
+}
+.cancelBtnStyle {
+  width: 120px !important;
+  background-color: transparent !important;
+  color: #1c2475 !important;
+  border: 1px solid #1c2475 !important;
+  justify-content: flex-start;
+  &:hover {
+    background-color: #1c2475 !important;
+    color: #ffffff !important;
+  }
+}
+.separatorStyle {
+  margin: 0px 5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .formStyle {
+    width: 100%;
+  }
+  .eachFieldBottom {
+    margin-bottom: 0.5rem;
+  }
+}

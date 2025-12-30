@@ -1,0 +1,173 @@
+.card {
+  max-width: 28.125rem !important;
+  border-radius: 0.375rem !important;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 0.4375rem 1.8125rem 0px !important;
+  border: 0.0625rem solid rgba(211, 211, 211, 0.596) !important;
+  padding: 1.875rem 0rem 1rem 0rem !important;
+}
+
+.title {
+  font-size: 1.25rem !important;
+  color: #212529 !important;
+  font-weight: 600 !important;
+  margin-bottom: 1.5rem !important;
+  padding: 0 1.5rem !important;
+  text-align: center !important;
+}
+
+.horizontalLine {
+  margin: 0.75rem 0rem !important;
+  border-top: 0.0625rem solid #bababa !important;
+}
+
+.key {
+  font-size: 1rem !important;
+  width: 7.5rem !important;
+  font-weight: 500 !important;
+}
+
+.subHeading {
+  font-size: 1.25rem !important;
+  width: 7.5rem !important;
+  font-weight: 500 !important;
+}
+
+.value {
+  font-size: 0.875rem !important;
+  color: #858585 !important;
+  font-weight: 500 !important;
+}
+
+.value2 {
+  font-size: 0.875rem !important;
+  color: #858585 !important;
+  font-weight: 500 !important;
+  display: flex;
+  align-items: center;
+  padding-left: 10px !important;
+}
+
+.value3 {
+  font-size: 0.875rem !important;
+  color: #858585 !important;
+  font-weight: 500 !important;
+  display: flex;
+  align-items: center;
+  padding-left: 10px !important;
+}
+
+.dataRow {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.5rem 1.5rem !important;
+}
+.profileHead {
+  font-weight: 500 !important;
+  padding: 0.5rem 1.5rem !important;
+}
+.button {
+  border: none !important;
+  border-radius: 0.3125rem !important;
+  background-color: #1c2475 !important;
+  color: white !important;
+  width: 28% !important;
+  padding: 0.25rem !important;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+}
+
+.closeButton {
+  border: 1px solid #1c2475 !important;
+  background-color: white !important;
+  color: #1c2475 !important;
+  margin-right: 1.5rem !important;
+  &:hover {
+    background-color: white !important;
+    color: #1c2475 !important;
+  }
+}
+
+.emailStatus {
+  color: #50c878 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  padding-left: 0.25rem !important;
+}
+
+.disabledEmailStatus {
+  color: #858585 !important;
+}
+
+.row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-right: 1rem !important;
+  // cursor: pointer !important;
+}
+
+.editIcon {
+  color: #858585 !important;
+  font-weight: 600 !important;
+}
+
+.headerIcon {
+  height: 3.75rem !important;
+  margin-bottom: 1rem !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+.PreviousButtonStyles {
+  margin-top: 1rem !important;
+  font-weight: 500 !important;
+  border-radius: 20px !important;
+  border: 1px solid #1c2475 !important;
+  background-color: #1c2475 !important;
+  color: white !important;
+  padding: 7px 150px 7px 150px !important;
+  &:hover {
+    background-color: #1c2475 !important;
+  }
+  &:disabled {
+    // Add styles for the disabled state here
+    background-color: #ccc !important;
+    color: #464242 !important;
+    cursor: not-allowed !important;
+    pointer-events: all !important;
+    border: transparent !important;
+    &:hover {
+      background-color: #ccc !important;
+    }
+  }
+}
+
+.btnAlignStyles {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-direction: column !important;
+}
+
+.cancelButton {
+  border: none !important;
+  border-radius: 5px !important;
+  background-color: transparent !important;
+  color: #1d2378 !important;
+  width: 100% !important;
+  padding: 0.3125rem !important;
+  margin-top: 1rem !important;
+  margin-bottom: 1rem !important;
+  font-weight: 500 !important;
+  &:hover {
+    background-color: transparent !important;
+  }
+}
+
+.errorMessage {
+  color: red !important;
+  font-size: 14px !important;
+  margin-bottom: 10px !important;
+  font-weight: 500 !important;
+}

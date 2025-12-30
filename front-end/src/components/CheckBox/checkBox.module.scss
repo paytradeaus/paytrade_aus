@@ -1,0 +1,11 @@
+.myCheckBox {
+  font-size: 12px;
+  color: #212529;
+  gap: 8px;
+  > input[type="checkbox"] {
+    cursor: pointer !important;
+  }
+}
+.label {
+  cursor: pointer;
+}

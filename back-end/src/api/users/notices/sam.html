@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <style></style>
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Paytrade</title>
+    <meta name="description" content="Project Trust Software" />
+    <!-- VIEWPORT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <script>
+      var viewport = document.createElement('meta');
+      viewport.setAttribute('name', 'viewport');
+      if (screen.width < 480) {
+        viewport.setAttribute('content', 'width=480');
+      } else {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1');
+      }
+      document.head.appendChild(viewport);
+    </script>
+    <!-- CSS –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <link rel="stylesheet" href="css/datatables.min.css" />
+    <link rel="stylesheet" href="css/pico.min.css" />
+    <!-- <link rel="stylesheet" href="css/paytrade.css" /> -->
+  </head>
+
+  <body class="container">
+    <div class="paytrade_logo">
+      <img src="{{paytradeLogo}}" alt="df" style="width: 160px" /> <br /><br />
+    </div>
+    <div
+      style="
+        font-style: italic;
+        text-align: center;
+        font-size: 14px;
+        margin-left: 1px;
+        margin-bottom: 15px;
+      "
+    >
+      <b style="text-transform: uppercase">{{pdfTitle}}</b>
+    </div>
+    <div
+      style="
+        text-align: left;
+        font-size: 13px;
+        margin-left: 1px;
+        margin-bottom: 15px;
+      "
+    >
+      <b>{{subTitle}}</b>
+    </div>
+    <div>{{generateTable data}}</div>
+
+    <div w3-include-html="includes/popups.html"></div>
+
+    <!-- JQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- Minimal theme switcher -->
+    <script src="js/minimal-theme-switcher.js"></script>
+
+    <!-- Modal -->
+    <script src="js/modal.js"></script>
+
+    <!-- ysEditor -->
+    <script src="js/yseditor.js"></script>
+
+    <!-- Side Menu -->
+    <script src="js/sidemenu.js"></script>
+
+    <!-- DataTables -->
+    <script src="js/dataTables.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="js/paytrade.js"></script>
+
+    <script>
+      includeHTML();
+    </script>
+  </body>
+</html>

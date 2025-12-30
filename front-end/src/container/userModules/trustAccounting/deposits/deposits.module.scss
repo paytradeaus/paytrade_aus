@@ -1,0 +1,251 @@
+.dataContainer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  //   padding: 20px 20px;
+  // height: 100%;
+  & > header {
+    padding: 0;
+    z-index: 2;
+    flex: unset;
+    display: flex;
+    min-height: auto;
+    padding-bottom: 1rem;
+  }
+}
+.DatePickerCustomStyles {
+  height: 38px;
+  box-shadow: none !important;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+  outline: none;
+  max-width: 100% !important;
+}
+.noRecordStyle {
+  text-align: center;
+  margin-top: 3rem;
+}
+.headingText {
+  background-color: #e7eef4;
+  // color: white;
+  text-align: center;
+  padding: 12px;
+  font-size: 20px;
+  width: 100%;
+}
+
+.datepickerCustom {
+  display: flex;
+  gap: 40px;
+}
+.bsbStyle {
+  background-color: #bbbdbf;
+}
+
+.correspondingStyle {
+  max-width: 10%;
+  background-color: #7fdfff;
+}
+.transactionStyle {
+  width: 30% !important;
+}
+.tableSection2 {
+  margin-top: 2rem;
+}
+
+.table {
+  border: 2px solid white; // White border
+  background-color: #e7eef4; // Background color
+  width: 100%;
+  border-collapse: collapse;
+}
+.subHead {
+  color: red;
+}
+.table th,
+.table td {
+  border: 2px solid white; // White border for cells
+  padding: 8px;
+  background-color: #e7eef4 !important;
+}
+
+.table th {
+  background-color: #d3e4f1; // Slightly darker background for header cells
+}
+
+.text-center {
+  text-align: center;
+}
+
+.lastRowBorder {
+  border-bottom: 2px solid #ffffff;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.firstRowGreen {
+  background-color: #dff2d8;
+}
+
+.lastRowBorder {
+  border-bottom: 2px solid #ffffff;
+}
+.headTab {
+  color: #000000de !important;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu",
+    "Helvetica Neue", sans-serif;
+  border-top: 1px solid black !important;
+  border-bottom: 1px solid black !important;
+  // text-align: center;
+}
+.boldLastColumn {
+  font-weight: 700; // Always bold for the last column
+}
+.bodyTab {
+  border: none !important; // Removes the top border from each cell, eliminating the border between rows
+  color: #000000de !important;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu",
+    "Helvetica Neue", sans-serif;
+}
+.tableHeader {
+  border: 1px solid black !important;
+}
+.headTab1 {
+  color: #000000de !important;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu",
+    "Helvetica Neue", sans-serif;
+  text-align: center;
+  border: none !important;
+  // text-align: center;
+}
+.headerAndButtonCon {
+  justify-content: space-between;
+  // padding-top: 20px;
+  position: sticky;
+  z-index: 2;
+  background: #fff;
+  padding-bottom: 1.5rem;
+}
+.headerText {
+  color: #39393b;
+  font-weight: 700 !important;
+  font-size: 22.142px;
+}
+.buttonStyles {
+  max-width: 120px;
+  height: 30px;
+  font-size: 14px !important;
+}
+.customSubHeaderCon {
+  justify-content: space-between;
+  flex: 1;
+  padding-right: 50px;
+  gap: 15px;
+  display: flex;
+  align-items: baseline;
+}
+.customPopupstyles {
+  --bs-popover-zindex: 0 !important;
+}
+.textAndSelectCon {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+.alignRight {
+  text-align: right;
+}
+.lastRow {
+  border: none !important;
+  font-weight: 700 !important;
+}
+.lastRowOpening {
+  border-bottom: none !important;
+}
+.firstRowOpening {
+  border-bottom: none !important;
+  color: #000000de !important;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Ubuntu",
+    "Helvetica Neue", sans-serif;
+}
+.column {
+  flex: 1;
+  padding: 16px;
+  border: 1px solid #ddd;
+}
+.headerIconCon {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.textFieldStyles {
+  box-shadow: none !important;
+  border: 0px solid lightgray;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.textFieldStyles2 {
+  box-shadow: none !important;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+  max-width: 100% !important;
+}
+
+.controlStyles {
+  border: "1px solid red !important";
+}
+.dotsContainer {
+  display: flex;
+  width: 50px;
+  justify-content: center;
+  cursor: pointer;
+}
+.separatorStyle {
+  margin: 0px 5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notice {
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 767px) {
+  .textAndSelectCon {
+    flex-direction: column;
+  }
+}
+.resetButton {
+  background-color: #f0f0f0; /* Example background color */
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-left: 10px; /* Add spacing if needed */
+
+  &:hover {
+    background-color: #e0e0e0; /* Change on hover */
+  }
+}
+
+.iconSpacing {
+  margin-right: 5px; /* Adjust spacing as needed */
+  vertical-align: middle; /* Aligns the icon with the text */
+}
