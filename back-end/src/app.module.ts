@@ -114,11 +114,15 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
       //dataSourceOptions
       {
         type: 'postgres',
-        host: process.env.DATABASE_HOST,
-        port: parseInt(process.env.DATABASE_PORT, 10),
-        username: process.env.DATABASE_USER,
-        password: process.env.DATABASE_PASSWORD,
-        database: process.env.DATABASE_NAME,
+        ...(process.env.DATABASE_URL
+          ? { url: process.env.DATABASE_URL }
+          : {
+              host: process.env.DATABASE_HOST,
+              port: parseInt(process.env.DATABASE_PORT, 10),
+              username: process.env.DATABASE_USER,
+              password: process.env.DATABASE_PASSWORD,
+              database: process.env.DATABASE_NAME,
+            }),
         entities: [
           'dist/**/*.entity{.ts,.js}',
           // UserDetails,

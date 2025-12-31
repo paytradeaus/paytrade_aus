@@ -9,11 +9,7 @@ packages = ["redis", "libuuid", "cairo", "pango", "giflib", "libjpeg", "libpng",
 [userenv]
 
 [userenv.shared]
-DATABASE_HOST = "helium"
-DATABASE_PORT = "5432"
 DATABASE_USER = "postgres"
-DATABASE_PASSWORD = "password"
-DATABASE_NAME = "heliumdb"
 PORT = "3001"
 NODE_ENV = "development"
 REDIS_HOST = "127.0.0.1"
