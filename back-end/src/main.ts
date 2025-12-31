@@ -121,7 +121,7 @@ async function bootstrap() {
 
   await app.init();
 
-  await app.listen(process.env.PORT);
+  await app.listen(process.env.PORT, '0.0.0.0');
   console.log(`PayTrade Service is listening to port ${process.env.PORT}!`);
 }
 bootstrap();

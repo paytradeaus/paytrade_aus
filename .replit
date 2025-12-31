@@ -4,7 +4,18 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["redis", "libuuid", "cairo", "pango", "giflib", "libjpeg", "libpng", "pixman", "pkg-config", "util-linux"]
+packages = [
+  "redis",
+  "libuuid",
+  "cairo",
+  "pango",
+  "giflib",
+  "libjpeg",
+  "libpng",
+  "pixman",
+  "pkg-config",
+  "util-linux",
+]
 
 [userenv]
 
@@ -81,5 +92,13 @@ outputType = "console"
 
 [deployment]
 deploymentTarget = "vm"
-run = ["sh", "-c", "bash -c  \"cd back-end && node dist/main.js &; cd front-end && npm run start\""]
-build = ["sh", "-c", "bash -c \"cd front-end && npm install && npm run build && cd ../back-end && npm install && npm run build\""]
+run = [
+  "sh",
+  "-c",
+  "bash -c  \"cd back-end && node dist/main.js &; cd front-end && npm run start\"",
+]
+build = [
+  "sh",
+  "-c",
+  "bash -c \"cd front-end && npm install && npm run build && cd ../back-end && npm install && npm run build\"",
+]
