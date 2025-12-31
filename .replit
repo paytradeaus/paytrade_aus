@@ -81,5 +81,5 @@ outputType = "console"
 
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "redis-server --daemonize yes && cd back-end && node dist/main.js &; cd front-end && npm run start"]
-build = ["bash", "-c", "cd front-end && npm run build && cd ../back-end && npm run build"]
+run = ["sh", "-c", "bash -c  cd back-end && node dist/main.js &; cd front-end && npm run start"]
+build = ["sh", "-c", "bash -c cd front-end && npm install && npm run build && cd ../back-end && npm install && npm run build"]
