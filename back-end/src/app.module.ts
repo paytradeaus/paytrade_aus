@@ -162,7 +162,14 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
           // ...bankingEntitiesToInject,
         ],
         // autoLoadEntities: true,
-        synchronize: true, //need to remove in prod else data will be lost -- false
+        synchronize: process.env.NODE_ENV !== 'production',
+        ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+        extra: {
+          max: 5,
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 30000,
+          query_timeout: 30000,
+        },
       },
     ),
     GraphQLModule.forRoot<ApolloDriverConfig>({
