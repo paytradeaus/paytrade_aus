@@ -20,10 +20,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const cors = require('cors');
 const corsOptions = {
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  accessControlAllowOrigin: '*',
-  accessControlAllowCredentials: true,
+  origin: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'apollo-require-preflight'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
 async function bootstrap() {

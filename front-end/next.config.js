@@ -12,6 +12,14 @@ module.exports = {
   sassOptions: {
     includePaths: [path.join(__dirname, "styles")],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/graphql',
+        destination: 'http://127.0.0.1:3001/graphql',
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
