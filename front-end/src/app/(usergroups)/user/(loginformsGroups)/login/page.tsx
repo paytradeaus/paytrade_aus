@@ -1,13 +1,7 @@
-import UserLoginPage from "@/container/userLogin/userLoginPage";
-
-import React from "react";
+import UserLoginHome from "@/modules/auth/UserLoginHome";
 
 const UserLogin = () => {
-  return (
-    <div>
-      <UserLoginPage></UserLoginPage>
-    </div>
-  );
+  return <UserLoginHome />;
 };
 
 export default UserLogin;
