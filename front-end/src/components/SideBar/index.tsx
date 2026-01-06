@@ -1,3 +1,5 @@
+"use client";
+
 import { setDisplayResponsiveSidebar } from "@/redux/slices/sidebar";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { AppRoutes } from "@/shared/constant/appRoutes";
