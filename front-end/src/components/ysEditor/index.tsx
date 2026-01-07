@@ -15,7 +15,7 @@ interface YsEditorProps {
 }
 
 const YsEditor = React.forwardRef<any, YsEditorProps>((props, ref) => {
-  const { id = "yseditor", style } = props;
+  const { id = "yseditor", style, onChange, value } = props;
   const editorRef = useRef<any>(null);
   const scriptLoaded = useRef(false);
   const editorInitialized = useRef(false);
