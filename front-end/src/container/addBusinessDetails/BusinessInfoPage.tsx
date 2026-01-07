@@ -178,7 +178,7 @@ const BusinessInfoPage = () => {
     );
   }, []);
 
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Basic",
     label: "Basic",
   });

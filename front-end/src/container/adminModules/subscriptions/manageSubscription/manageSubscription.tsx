@@ -48,7 +48,7 @@ const ManageProfiles = () => {
   const [page, setPage] = useState(1);
   const [userData, setUserData] = useState<SubscribedUser[]>([]);
   const [search, setSearch] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [popupMessage, setPopupMessage] = useState({

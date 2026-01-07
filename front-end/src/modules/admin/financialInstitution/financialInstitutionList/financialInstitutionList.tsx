@@ -36,7 +36,7 @@ export default function AdminFinancialInstitutionList() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [emptySearchField, setEmptySearchField] = useState(false);
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
   const isAnyFilterActive = statusType?.value || search;
   const [currencyListData, setCurrencyListData] = useState<BankAccount[]>([]);
   const [sortValues, setSortValues] = useState<any>("");

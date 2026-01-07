@@ -114,7 +114,7 @@ const AddFinancialInstitution = (props: any) => {
   const { setLoader, setLoaderInfo }: any = useLoaderContext();
   const [isLoading, setIsLoading] = useState(false);
   const [statusOptionsData, setStatusOptionsData] = useState("Active");
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

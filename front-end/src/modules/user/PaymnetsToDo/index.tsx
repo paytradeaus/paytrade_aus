@@ -78,7 +78,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [paymentsListData, setPaymentsListData] = useState<PaymentData[]>([]);
-  const [singleSelectedData, setSingleSelectedData] = useState({
+  const [selectedData, setSingleSelectedData] = useState({
     label: "All",
     value: "",
   });

@@ -31,7 +31,7 @@ const AddGroups = (props: any) => {
   const params = useParams();
   const [modifiedData, setModifiedData] = useState<any>([]);
 
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

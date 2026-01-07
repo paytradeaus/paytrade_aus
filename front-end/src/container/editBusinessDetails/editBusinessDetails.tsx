@@ -147,7 +147,7 @@ const EditBusinessDetails = (props: any) => {
     formik.setFieldValue("SubscriptionType", singleSelectedData || null); // Update value if singleSelectedData or defaultValue changes
   }, []);
 
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Basic",
     label: "Basic",
   });
@@ -299,7 +299,7 @@ const EditBusinessDetails = (props: any) => {
             ABN: businessObject?.ABN || businessProfileObj?.ABN || "",
             TFN: businessObject?.TFN || businessProfileObj?.TFN || "",
             Subscription: businessObject?.Subscription || "",
-            SubscriptionType: singleSelectedData,
+            SubscriptionType: selectedData,
             TrustTrainingRecord: totalMessage,
             CookiePreferences: businessProfileObj?.CookiePreferences || "",
           });

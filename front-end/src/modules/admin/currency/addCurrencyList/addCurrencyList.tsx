@@ -86,13 +86,13 @@ const AddCurrency = (props: any) => {
   const { setLoader, setLoaderInfo }: any = useLoaderContext();
   const [isLoading, setIsLoading] = useState(false);
   const [statusOptionsData, setStatusOptionsData] = useState("Active");
-  // const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  // const [selectedData, setSingleSelectedData] = useState<any>({
   //   value: "Active",
   //   label: "Active",
   // });
   const [displayClosePageConfirmation, setDisplayClosePageConfirmation] =
     useState(false);
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

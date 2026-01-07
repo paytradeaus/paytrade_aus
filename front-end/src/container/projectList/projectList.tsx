@@ -89,10 +89,10 @@ const ProjectList = () => {
   const [search, setSearch] = useState("");
   const [date, setDate] = useState("");
   const [filter, setFilter] = useState<UserData[]>([]);
-  // const [singleSelectedData, setSingleSelectedData] = useState();
+  // const [selectedData, setSingleSelectedData] = useState();
   const [activeTab, setActiveTab] = useState("Current");
   const routePath = usePathname();
-  const [singleSelectedData, setSingleSelectedData] =
+  const [selectedData, setSingleSelectedData] =
     useState<OptionType | null>(null);
   const [selectedValue, setSelectedValue] = useState<OptionType | null>(null);
   // const [selectedValue, setSelectedValue] = useState("");

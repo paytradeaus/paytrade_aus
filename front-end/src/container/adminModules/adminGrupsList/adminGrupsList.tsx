@@ -37,7 +37,7 @@ const AdminGroups = () => {
 
   const [groupData, setGroupData] = useState<IGroupsData[]>([]);
   const [search, setSearch] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [printDocumentData, setPrintDocumentData] = useState<any>([]);

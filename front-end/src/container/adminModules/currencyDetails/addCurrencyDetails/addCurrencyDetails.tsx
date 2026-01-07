@@ -27,7 +27,7 @@ const AddCurrencyDetails = (props: any) => {
   const routePath = usePathname();
   const router = useRouter();
   const [timeKey, setTimeKey] = useState(new Date().getTime());
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

@@ -21,7 +21,7 @@ export interface CustomSubHeaderProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   activeInterestTab: string;
   handleInterestStatusChange: (selectedValue: SelectOption) => void;
-  singleSelectedData: SelectOption;
+  selectedData: SelectOption;
   handleActivityChange: (selectedValue: SelectOption) => void;
   singleActivyDate: SelectOption;
   isCustomDate: boolean;
@@ -39,7 +39,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
   onInputChange,
   activeInterestTab,
   handleInterestStatusChange,
-  singleSelectedData,
+  selectedData,
   handleActivityChange,
   singleActivyDate,
   isCustomDate,

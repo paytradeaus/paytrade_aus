@@ -44,7 +44,7 @@ const validationSchema = Yup.object().shape({
 });
 
 const CompanyAddUserPage = (props: any) => {
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
   const [userValues, setuserValues] = useState<any>({});
   const [userData, setUserData] = useState<any>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);

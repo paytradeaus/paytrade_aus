@@ -42,7 +42,7 @@ const PaymentToDoList = () => {
   const [perPage, setPerPage] = useState(RowsPerPageInTable);
   const [page, setPage] = useState(1);
   const [paymentsListData, setPaymentsListData] = useState<PaymentData[]>([]);
-  const [singleSelectedData, setSingleSelectedData] = useState({
+  const [selectedData, setSingleSelectedData] = useState({
     label: "All",
     value: "",
   });

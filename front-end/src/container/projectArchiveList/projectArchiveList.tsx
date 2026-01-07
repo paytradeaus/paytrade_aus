@@ -73,7 +73,7 @@ const ProjectArchiveList = () => {
   const [data, setData] = useState<UserData[]>(sampleData);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<UserData[]>(sampleData);
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   // const [singleActivyDate, setSingleActivyDate] = useState<any>({
   //   value: "This Month",
   //   label: "This Month",

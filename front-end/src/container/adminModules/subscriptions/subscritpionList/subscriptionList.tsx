@@ -47,7 +47,7 @@ const SubscriptionsList = ({ isArchive = false }) => {
   const [userData, setUserData] = useState<SubscriptionPlan[]>([]);
 
   const [search, setSearch] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [popupMessage, setPopupMessage] = useState({

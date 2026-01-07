@@ -18,7 +18,7 @@ type CustomSubHeaderProps = {
   options: Option[];
   onInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleSelectChange: (selectedValue: Option | null) => void;
-  singleSelectedData: Option | null;
+  selectedData: Option | null;
   userData: any[];
   handlePrintPDF: () => void;
   downloadExcel: () => void;
@@ -31,7 +31,7 @@ const CustomSubHeader: FC<CustomSubHeaderProps> = ({
   options,
   onInputChange,
   handleSelectChange,
-  singleSelectedData,
+  selectedData,
   userData,
   handlePrintPDF,
   downloadExcel,

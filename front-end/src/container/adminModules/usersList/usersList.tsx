@@ -73,7 +73,7 @@ const UsersList = () => {
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(RowsPerPageInTable);
   const [page, setPage] = useState(1);
-  const [singleSelectedData, setSingleSelectedData] = useState<any>(null);
+  const [selectedData, setSingleSelectedData] = useState<any>(null);
   const [actionData, setActionData] = useState<any>();
   const [popUpHeaderMsg, setPopUpHeaderMsg] = useState("");
   const [loading, setLoading] = useState<boolean>(false);

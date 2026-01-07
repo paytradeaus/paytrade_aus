@@ -9,7 +9,7 @@ interface CustomSubHeaderProps {
   onInputChange: (e: { target: { value: string } }) => void;
   options: { value: string; label: string }[];
   handleSelectChange: (selectedValue: any) => void;
-  singleSelectedData: any;
+  selectedData: any;
   printDocumentData: any[];
   handlePrintPDF: () => void;
   downloadExcel: () => void;
@@ -18,7 +18,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
   search,
   onInputChange,
   options,
-  singleSelectedData,
+  selectedData,
   handleSelectChange,
   printDocumentData,
   handlePrintPDF,
@@ -35,7 +35,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
       />
       <SearchableSelect
         options={options}
-        selectedData={singleSelectedData}
+        selectedData={selectedData}
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"

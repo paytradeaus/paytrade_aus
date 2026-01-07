@@ -41,7 +41,7 @@ const MultipleUserAccessPage = () => {
   const [userData, setUserData] = useState<UserType[]>([]);
   const [search, setSearch] = useState("");
   const [filterData, setFilterData] = useState<UserType[]>([]);
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   const [openPlanModal, setOpenPlanModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [actionData, setActionData] = useState<any>();

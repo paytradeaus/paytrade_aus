@@ -36,7 +36,7 @@ const AddAdminUser = (props: any) => {
   const [groupOptions, setGroupOptions] = useState([]);
   const [multiSelectedData, setMultiSelectedData] = useState([]);
   const [timeKey, setTimeKey] = useState(new Date().getTime());
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

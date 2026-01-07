@@ -43,7 +43,7 @@ const validationSchema = Yup.object().shape({
   UserType: Yup.string().required("User type is required"),
 });
 const AddEditUsers = (props: any) => {
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
   const [userValues, setuserValues] = useState<any>({});
   const [userData, setUserData] = useState<any>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);

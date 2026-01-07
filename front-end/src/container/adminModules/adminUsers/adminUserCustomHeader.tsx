@@ -9,7 +9,7 @@ interface CustomSubHeaderProps {
   onInputChange: (e: { target: { value: string } }) => void;
   options: { value: string; label: string }[];
   handleSelectChange: (selectedValue: any) => void;
-  singleSelectedData: any;
+  selectedData: any;
   printDocumentData: any[];
   handlePrintPDF: () => void;
   downloadExcel: () => void;
@@ -20,7 +20,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
   onInputChange,
   options,
   handleSelectChange,
-  singleSelectedData,
+  selectedData,
   printDocumentData,
   handlePrintPDF,
   downloadExcel,

@@ -37,7 +37,7 @@ const RequestPage = () => {
   const [userData, setUserData] = useState<InvitationItem[]>([]);
   const [search, setSearch] = useState("");
   const [filterData, setFilterData] = useState<InvitationItem[]>([]);
-  const [singleSelectedData, setSingleSelectedData] = useState();
+  const [selectedData, setSingleSelectedData] = useState();
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [activeTab, setActiveTab] = useState("Requests"); // Set the default active tab

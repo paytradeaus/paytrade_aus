@@ -17,7 +17,7 @@ interface CustomHeaderProps {
   selectedPlanData: any;
   options: { value: string; label: string }[];
   handleSelectChange: (selectedValue: any) => void;
-  singleSelectedData: any;
+  selectedData: any;
   printDocumentData: any[];
   handlePrintPDF: () => void;
   downloadExcel: () => void;
@@ -33,7 +33,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   selectedPlanData,
   options,
   handleSelectChange,
-  singleSelectedData,
+  selectedData,
   printDocumentData,
   handlePrintPDF,
   downloadExcel,

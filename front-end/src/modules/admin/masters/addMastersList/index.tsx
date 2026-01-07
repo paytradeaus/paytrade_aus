@@ -92,7 +92,7 @@ const AddMasters = (props: any) => {
   const [masterOptionsData, setMasterOptionsData] = useState<any>();
   const [statusOptionsData, setStatusOptionsData] = useState("Active");
   const [companyId, setCompanyId] = useState<number | null>(null);
-  const [singleSelectedData, setSingleSelectedData] = useState<any>({
+  const [selectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

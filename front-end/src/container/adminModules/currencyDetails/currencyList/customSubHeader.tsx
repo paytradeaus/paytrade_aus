@@ -16,14 +16,14 @@ interface CustomSubHeaderProps {
   handleSelectChange: (selectedValue: CategoryOption | null) => void;
   resetFilters: () => void;
   isAnyFilterActive: boolean; // Determine if filters are active
-  singleSelectedData: CategoryOption | null;
+  selectedData: CategoryOption | null;
 }
 const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
   search,
   onInputChange,
   options,
   handleSelectChange,
-  singleSelectedData,
+  selectedData,
   resetFilters,
   isAnyFilterActive, // Check if any filter is active
 }) => {

@@ -38,7 +38,7 @@ const FinancialInstitutionList = () => {
   const [page, setPage] = useState(1);
   const [userData, setUserData] = useState<BankAccount[]>([]);
   const [search, setSearch] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [popupMessage, setPopupMessage] = useState({

@@ -87,7 +87,7 @@ const AddBusinessProfiles = (props: any) => {
   const router = useRouter();
   const [cropImage, setCropImage] = useState<any>();
   const [editBase64url, setEditBase64url] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
 
   const [clearImageName, setClearImageName] = useState(false);
   const [displayImage, setDisplayImage] = useState<any>([]);

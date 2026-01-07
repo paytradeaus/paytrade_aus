@@ -49,7 +49,7 @@ const ToDoList = (props: any) => {
   const [contractOpt, setContractOpt] = useState<any>([]);
   const [selectedContract, setSelectedContract] = useState<any>();
   const [contractId, setContractId] = useState("");
-  const [singleSelectedData, setSingleSelectedData] = useState({
+  const [selectedData, setSingleSelectedData] = useState({
     label: "All",
     value: "",
   });

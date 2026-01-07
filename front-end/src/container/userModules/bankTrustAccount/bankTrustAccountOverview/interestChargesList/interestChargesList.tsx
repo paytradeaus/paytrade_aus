@@ -41,7 +41,7 @@ const InterestChargeList = (props: any) => {
     (state: RootState) => state.dashBoard.screenDetails
   );
   const [isCustomDate, setIsCustomDate] = useState(false);
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
 
   const [activityLogStartDate, setActivityLogStartDate] = useState(
     new Date(new Date().setHours(0, 0, 0, 0))

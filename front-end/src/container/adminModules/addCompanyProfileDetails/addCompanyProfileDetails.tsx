@@ -44,7 +44,7 @@ const AddCompanyProfileDetails = (props: any) => {
   const params = useParams();
   const { accessTokenId, decodeTokenData } = useTokenDetails();
   const { setLoader }: any = useLoaderContext();
-  const [singleSelectedData, setSingleSelectedData] = useState<any>();
+  const [selectedData, setSingleSelectedData] = useState<any>();
   const [timeKey, setTimeKey] = useState(new Date().getTime());
   const [editData, setEditData] = useState<any>({});
   const [wrongIdCheck, setWrongIdCheck] = useState(false);
