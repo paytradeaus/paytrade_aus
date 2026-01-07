@@ -64,7 +64,7 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
     onBlur && onBlur(e);
   };
 
-  const phoneChange = (data: string) => {
+  const phoneChange = (data?: string) => {
     const phoneNumberString = data ? String(data).trim() : "";
     formik.setFieldValue(name, phoneNumberString);
     onChange?.(phoneNumberString);
