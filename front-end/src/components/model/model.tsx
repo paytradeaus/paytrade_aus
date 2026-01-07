@@ -263,7 +263,7 @@ export const AppModal: React.FC<AppModalProps> = ({
               <SearchableSelect
                 options={select.options}
                 label={select.label}
-                singleSelectedData={select.value}
+                selectedData={select.value}
                 onChange={(value: SelectedValueProps) => select.onChange(value)}
                 disabled={select.disabled}
                 placeholder={select.placeholder}
