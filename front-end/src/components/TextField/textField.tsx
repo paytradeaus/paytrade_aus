@@ -17,10 +17,10 @@ interface CustomInputProps extends FormControlProps {
   startingData?: ReactNode;
   endingDataStyles?: string;
   startingDataStyles?: string;
-  maxLength?: Number;
+  maxLength?: number;
   onEndIconClick?: () => void;
   onBodyClick?: () => void;
-  rows?: Number;
+  rows?: number;
   autoComplete?: string;
   displayStartAdornment?: boolean;
   startAdornmentIcon?: string;
