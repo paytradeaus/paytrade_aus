@@ -268,8 +268,8 @@ export const AppModal: React.FC<AppModalProps> = ({
                 disabled={select.disabled}
                 placeholder={select.placeholder}
                 controlStyles={customStyles}
-                renderKey={select.renderKey || "label"}
-                valueKey={select.valueKey || "value"}
+                renderKey="label"
+                valueKey="value"
               />
             </div>
           )}
