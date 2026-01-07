@@ -10,6 +10,8 @@ interface YsEditorProps {
   id?: string;
   ref?: React.Ref<any>;
   style?: React.CSSProperties;
+  onChange?: (data: any) => void;
+  value?: string;
 }
 
 const YsEditor = React.forwardRef<any, YsEditorProps>((props, ref) => {
