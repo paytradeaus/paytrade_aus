@@ -96,7 +96,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Dates"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
           className={styles.textFieldStyles}
         />
         {isCustomDate && (

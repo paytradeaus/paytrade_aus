@@ -396,7 +396,7 @@ const OtherPayment = (props: any) => {
               <SearchableSelect
                 label="Payment Type *"
                 options={paymentTypeOptions}
-                singleSelectedData={selectedValue}
+                selectedData={selectedValue}
                 onChange={handlePaymentTypeChange}
                 disabled={isEdit || isView || claimType ? true : false}
                 placeholder="Select..."

@@ -161,7 +161,7 @@ const List = () => {
             onChange={handleSelectChange}
             disabled={false}
             placeholder="Page Type"
-            singleSelectedData={selectedPageType}
+            selectedData={selectedPageType}
           />
           {isAnyFilterActive && (
             <div>

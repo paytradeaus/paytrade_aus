@@ -68,7 +68,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleInterestStatusChange}
           disabled={false}
           placeholder="All Status"
-          singleSelectedData={singleSelectedData}
+          selectedData={singleSelectedData}
           className={styles.textFieldStyles3}
         />
       )}
@@ -77,7 +77,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
         onChange={handleActivityChange}
         disabled={false}
         placeholder="select option"
-        singleSelectedData={singleActivyDate}
+        selectedData={singleActivyDate}
         className={styles.textFieldStyles}
       />
 

@@ -245,7 +245,7 @@ const AddItems = (props: any) => {
             <SearchableSelect
               key={timeKey}
               options={statusOptions}
-              singleSelectedData={selectedItemStatus}
+              selectedData={selectedItemStatus}
               onChange={(selectedOption) => {
                 formik.handleChange("Item_Status")(selectedOption?.value || "");
                 setSelectedItemStatus({

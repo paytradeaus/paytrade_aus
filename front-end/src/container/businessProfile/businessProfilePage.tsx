@@ -366,7 +366,7 @@ const BusinessProfilePage = () => {
                   options={options}
                   key={timeKey}
                   label="Entity type *"
-                  singleSelectedData={selectedEntityTypeData}
+                  selectedData={selectedEntityTypeData}
                   onChange={(selectedOption) => {
                     setSelectedEntityTypeData(selectedOption);
                     formik?.setFieldValue("EntityType", selectedOption);

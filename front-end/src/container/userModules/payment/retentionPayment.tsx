@@ -1833,7 +1833,7 @@ const RetentionPayment = (props: any) => {
                   placeholder="Select project"
                   options={projectOpt}
                   controlStyles={customStyles}
-                  singleSelectedData={projectOptionsData}
+                  selectedData={projectOptionsData}
                   onChange={(selectedOption) => {
                     formik.handleChange("ProjectId")(
                       selectedOption?.value || ""
@@ -1882,7 +1882,7 @@ const RetentionPayment = (props: any) => {
                       selectedToggle === "Retention claim"
                     }
                     controlStyles={customStyles}
-                    singleSelectedData={formik.values.ContractId}
+                    selectedData={formik.values.ContractId}
                     onChange={(selectedOption) => {
                       formik.setFieldValue("ContractId", selectedOption || {});
                       setContractOptionsData(selectedOption);
@@ -1922,7 +1922,7 @@ const RetentionPayment = (props: any) => {
                       selectedToggle === "Retention claim"
                     }
                     controlStyles={customStyles}
-                    singleSelectedData={formik.values.ContractId}
+                    selectedData={formik.values.ContractId}
                     onChange={(selectedOption) => {
                       formik.setFieldValue("ContractId", selectedOption || {});
                       setContractOptionsData(selectedOption);
@@ -1973,7 +1973,7 @@ const RetentionPayment = (props: any) => {
                     key={timeKey}
                     options={searchableSelectOptions}
                     label="Supplier (3rd Party) *"
-                    singleSelectedData={selectedPlan}
+                    selectedData={selectedPlan}
                     placeholder="Please select supplier"
                     // onChange={(selectedOption: any) =>
                     //   formik.setFieldValue("Supplier", selectedOption || {})
@@ -2263,7 +2263,7 @@ const RetentionPayment = (props: any) => {
                         options={paymentoOptions}
                         // disabled={true}
                         label="Payment To Account *"
-                        singleSelectedData={formik.values.PaymentToAccount}
+                        selectedData={formik.values.PaymentToAccount}
                         placeholder="Select an account"
                         onChange={(selectedOption) => {
                           formik.setFieldValue(

@@ -195,7 +195,7 @@ const Variations = ({ isArchived, overViewDetails = {} }: any) => {
             onChange={(value: any) => handleSelectChange(PROJECT, value)}
             disabled={false}
             placeholder="Projects"
-            singleSelectedData={selectedProject}
+            selectedData={selectedProject}
             className={styles.dropdown}
           />
         )}
@@ -205,7 +205,7 @@ const Variations = ({ isArchived, overViewDetails = {} }: any) => {
             onChange={(value: any) => handleSelectChange(CONTRACT, value)}
             disabled={false}
             placeholder="Contracts"
-            singleSelectedData={selectedContract}
+            selectedData={selectedContract}
           />
         )}
         {!isArchived &&
@@ -215,7 +215,7 @@ const Variations = ({ isArchived, overViewDetails = {} }: any) => {
               onChange={(value: any) => handleSelectChange(STATUS, value)}
               disabled={false}
               placeholder="Status"
-              singleSelectedData={selectedStatus}
+              selectedData={selectedStatus}
             />
           )}
         {isAnyFilterActive && (

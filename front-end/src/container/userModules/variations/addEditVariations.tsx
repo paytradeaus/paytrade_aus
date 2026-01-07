@@ -471,7 +471,7 @@ function AddEditVariations() {
                 key={timeKey}
                 options={availableProjects}
                 label="Project Name *"
-                singleSelectedData={formik.values.project_name}
+                selectedData={formik.values.project_name}
                 placeholder="Select project"
                 onChange={(selectedOption) => {
                   handleProjectChange(selectedOption);
@@ -492,7 +492,7 @@ function AddEditVariations() {
                 options={availableContracts}
                 label="Contract Name *"
                 placeholder="Select contract"
-                singleSelectedData={formik.values.contract_name}
+                selectedData={formik.values.contract_name}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("contract_name", selectedOption);
                 }}
@@ -601,7 +601,7 @@ function AddEditVariations() {
                 options={variationStatusOptions}
                 label="Status *"
                 placeholder="Please select the current status"
-                singleSelectedData={formik.values.variation_status}
+                selectedData={formik.values.variation_status}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("variation_status", selectedOption);
                 }}

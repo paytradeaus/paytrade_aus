@@ -35,7 +35,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
       />
       <SearchableSelect
         options={options}
-        singleSelectedData={singleSelectedData}
+        selectedData={singleSelectedData}
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"

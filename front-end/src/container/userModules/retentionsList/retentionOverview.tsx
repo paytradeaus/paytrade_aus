@@ -452,7 +452,7 @@ const RetentionListsOverview = (props: any) => {
               onChange={handleProjectChange}
               disabled={false}
               placeholder="Select Project"
-              singleSelectedData={selectedProject}
+              selectedData={selectedProject}
               className={styles.textFieldStyles}
             />
           ))}
@@ -462,7 +462,7 @@ const RetentionListsOverview = (props: any) => {
             onChange={handleContractChange}
             disabled={false}
             placeholder="Select Contract"
-            singleSelectedData={selectedContract}
+            selectedData={selectedContract}
             className={styles.textFieldStyles}
           />
         )}
@@ -472,7 +472,7 @@ const RetentionListsOverview = (props: any) => {
             onChange={handleStatusChange}
             disabled={false}
             placeholder="Select Status"
-            singleSelectedData={selectedStatusName}
+            selectedData={selectedStatusName}
             className={styles.textFieldStyles}
           />
         )}

@@ -514,7 +514,7 @@ const AddSubscription = (props: any) => {
                 <SearchableSelect
                   key={timeKey}
                   options={planTypes}
-                  singleSelectedData={planTypeData}
+                  selectedData={planTypeData}
                   onChange={(selectedOption) =>
                     onPlanTypeChange(selectedOption)
                   }
@@ -595,7 +595,7 @@ const AddSubscription = (props: any) => {
                 <SearchableSelect
                   key={timeKey}
                   options={statusOptions}
-                  singleSelectedData={formik?.values?.plan_status}
+                  selectedData={formik?.values?.plan_status}
                   onChange={(selectedOption) =>
                     formik.setFieldValue("plan_status", selectedOption)
                   }

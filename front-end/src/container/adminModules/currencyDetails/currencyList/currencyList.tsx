@@ -247,7 +247,7 @@ const CurrencyList = () => {
             onInputChange={onInputChange}
             options={options}
             handleSelectChange={handleSelectChange}
-            singleSelectedData={singleSelectedData}
+            selectedData={singleSelectedData}
             resetFilters={resetFilters} // Pass reset function to child
             isAnyFilterActive={isAnyFilterActive} // Pass filter active state to child
           />

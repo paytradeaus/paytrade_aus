@@ -42,7 +42,7 @@ const CommentsListSubHeader: React.FC<CommentsListSubHeaderProps> = ({
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Activity Range"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
         />
         {isCustomDate && (
           <>

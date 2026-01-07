@@ -441,7 +441,7 @@ const Deposit = () => {
             options={accountList}
             onChange={setSelectedAccountName}
             placeholder="Account Name"
-            singleSelectedData={selectedAccountName}
+            selectedData={selectedAccountName}
             className={styles.textFieldStyles}
           />
 
@@ -449,7 +449,7 @@ const Deposit = () => {
             options={transactionsDateOptions}
             onChange={handleActivityChange}
             placeholder="Dates"
-            singleSelectedData={singleActivityDate}
+            selectedData={singleActivityDate}
             className={styles.textFieldStyles}
           />
 

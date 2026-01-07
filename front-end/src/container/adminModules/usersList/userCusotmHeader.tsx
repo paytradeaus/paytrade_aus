@@ -53,7 +53,7 @@ const CustomSubHeader: FC<CustomSubHeaderProps> = ({
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Status"
-          singleSelectedData={singleSelectedData}
+          selectedData={singleSelectedData}
         />
         {/* Conditionally show Reset Button only when any filter is active */}
         {isAnyFilterActive && (

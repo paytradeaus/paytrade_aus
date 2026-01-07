@@ -426,7 +426,7 @@ const ProjectArchiveList = () => {
         />
         <SearchableSelect
           options={roleOptions}
-          singleSelectedData={singleSelectedData}
+          selectedData={singleSelectedData}
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Select Role"
@@ -437,7 +437,7 @@ const ProjectArchiveList = () => {
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Activity Range"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
         />
         {isCustomDate && (
           <>

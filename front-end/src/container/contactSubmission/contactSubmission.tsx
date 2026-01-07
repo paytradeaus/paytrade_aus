@@ -228,7 +228,7 @@ function ContactSubmission() {
             disabled={false}
             placeholder="Status"
             className={styles.dropdown}
-            singleSelectedData={selectedStatus}
+            selectedData={selectedStatus}
           />
           <SearchableSelect
             options={filterByDuration}
@@ -236,7 +236,7 @@ function ContactSubmission() {
             disabled={false}
             placeholder="Activity Range"
             className={styles.dropdown}
-            singleSelectedData={selectedDuration}
+            selectedData={selectedDuration}
           />
           {isCustomDate && (
             <>

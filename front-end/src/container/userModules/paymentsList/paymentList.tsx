@@ -641,7 +641,7 @@ const PaymentLists = (props: any) => {
           onChange={handlePaymentChange}
           disabled={false}
           placeholder="Payment Type"
-          singleSelectedData={selectedPayment}
+          selectedData={selectedPayment}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
@@ -649,7 +649,7 @@ const PaymentLists = (props: any) => {
           onChange={handleClaimChange}
           disabled={false}
           placeholder="Payment Claim Type"
-          singleSelectedData={selectedClaim}
+          selectedData={selectedClaim}
           className={styles.textFieldStyles}
         />
         {overViewDetails?.overViewType !== overviewModeType.PROJECTS &&
@@ -659,7 +659,7 @@ const PaymentLists = (props: any) => {
               onChange={handleProjectChange}
               disabled={false}
               placeholder="Projects"
-              singleSelectedData={selectedProject}
+              selectedData={selectedProject}
               className={styles.textFieldStyles}
             />
           )}
@@ -669,7 +669,7 @@ const PaymentLists = (props: any) => {
             onChange={handleContractChange}
             disabled={false}
             placeholder="Contracts"
-            singleSelectedData={selectedContract}
+            selectedData={selectedContract}
             className={styles.textFieldStyles}
           />
         )}
@@ -684,7 +684,7 @@ const PaymentLists = (props: any) => {
               ? "Suppliers"
               : "Clients/Suppliers"
           }
-          singleSelectedData={selectedClient}
+          selectedData={selectedClient}
           className={styles.textFieldStyles}
         />
         {isAnyFilterActive && (

@@ -318,7 +318,7 @@ export default function BankStatementOverview({ bankDetailsData }: any) {
                     onChange={handleDurationChange}
                     disabled={false}
                     placeholder="select option"
-                    singleSelectedData={selectedDateOption}
+                    selectedData={selectedDateOption}
                   />
                 </Col>
                 <Col xs={12} sm={12} md={6} lg={7} xl={6}>

@@ -252,7 +252,7 @@ const AddCategories = (props: any) => {
                 options={clientListOpt}
                 label="Master Type *"
                 placeholder="Select the Master Type"
-                singleSelectedData={clientListOptData}
+                selectedData={clientListOptData}
                 controlStyles={customStyles}
                 onChange={(selectedOption) => {
                   formik.handleChange("MasterType")(
@@ -273,7 +273,7 @@ const AddCategories = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={options}
-                singleSelectedData={singleSelectedData}
+                selectedData={singleSelectedData}
                 onChange={(selectedOption) => {
                   formik.handleChange("Status")(selectedOption.value);
                   setSingleSelectedData(selectedOption);

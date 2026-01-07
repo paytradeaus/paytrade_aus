@@ -579,7 +579,7 @@ const CompanyAddUserPage = (props: any) => {
                 key={timeKey}
                 options={options}
                 label="User type *"
-                singleSelectedData={singleSelectedData}
+                selectedData={singleSelectedData}
                 onChange={(option) => {
                   formik.handleChange("UserType")(option.value);
                   setSingleSelectedData(option);

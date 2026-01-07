@@ -182,7 +182,7 @@ const Emails = () => {
           onChange={handleModuleChange}
           disabled={false}
           placeholder="Module"
-          singleSelectedData={selectedModule}
+          selectedData={selectedModule}
         />
         {isAnyFilterActive && (
           <div>

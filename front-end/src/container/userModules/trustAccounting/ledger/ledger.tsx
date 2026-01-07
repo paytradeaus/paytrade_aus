@@ -620,7 +620,7 @@ const Ledger = () => {
             onChange={handleAccountChange} // Updated to use handleAccountChange
             disabled={false}
             placeholder="Select Trust Account"
-            singleSelectedData={selectedAccountName}
+            selectedData={selectedAccountName}
             className={styles.textFieldStyles}
           />
 
@@ -629,7 +629,7 @@ const Ledger = () => {
             onChange={handleActivityChange}
             disabled={false}
             placeholder="Dates"
-            singleSelectedData={singleActivityDate}
+            selectedData={singleActivityDate}
             className={styles.textFieldStyles}
           />
 

@@ -1062,7 +1062,7 @@ const AddEditContracts = (props: any) => {
                       key={timeKey}
                       options={clientSupplierOptions}
                       label="Client/Supplier *"
-                      singleSelectedData={clientSupplierSelectedData}
+                      selectedData={clientSupplierSelectedData}
                       placeholder="Select client or supplier"
                       onChange={(selectedOption) => {
                         MakePaymentReset();
@@ -1102,7 +1102,7 @@ const AddEditContracts = (props: any) => {
                       key={timeKey}
                       options={roleOptions}
                       label="Client/Supplier role *"
-                      singleSelectedData={clientRoleSelectedData}
+                      selectedData={clientRoleSelectedData}
                       onChange={(selectedOption) => {
                         formik.setFieldValue(
                           "ClientSupplierRole",
@@ -1125,7 +1125,7 @@ const AddEditContracts = (props: any) => {
                       key={timeKey}
                       options={projectOptions}
                       label="Project name *"
-                      singleSelectedData={projectSelectedData}
+                      selectedData={projectSelectedData}
                       onChange={(selectedOption) =>
                         handleProjectChange(selectedOption)
                       }
@@ -1185,7 +1185,7 @@ const AddEditContracts = (props: any) => {
                     <SearchableSelect
                       key={timeKey}
                       options={retentionOptions}
-                      singleSelectedData={retentionSelectedData}
+                      selectedData={retentionSelectedData}
                       placeholder="Select retention type"
                       onChange={(selectedOption) => {
                         MakePaymentReset();

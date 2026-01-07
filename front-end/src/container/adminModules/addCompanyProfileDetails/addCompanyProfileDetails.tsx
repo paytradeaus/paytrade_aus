@@ -630,7 +630,7 @@ const AddCompanyProfileDetails = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={entityOptions}
-                singleSelectedData={singleSelectedData}
+                selectedData={singleSelectedData}
                 onChange={(option) => {
                   setSingleSelectedData(option);
                   formik.handleChange("EntityType")(option.value);
@@ -753,7 +753,7 @@ const AddCompanyProfileDetails = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={options}
-                singleSelectedData={blockedOptions}
+                selectedData={blockedOptions}
                 onChange={(option) => {
                   setBlockedOPtions(option);
                   formik.handleChange("AdminBlocked")(option.value);

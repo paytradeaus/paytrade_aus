@@ -223,7 +223,7 @@ export default function DelegationList(props: any) {
           }}
           disabled={false}
           placeholder="Company Profile"
-          singleSelectedData={companySelectedData}
+          selectedData={companySelectedData}
           className={styles.textFieldStyles3}
         />
         <SearchableSelect
@@ -232,7 +232,7 @@ export default function DelegationList(props: any) {
             handleSelectChange(name, "account_name");
           }}
           disabled={false}
-          singleSelectedData={selectedAccountName}
+          selectedData={selectedAccountName}
           placeholder="Account Name"
           className={styles.textFieldStyles3}
         />

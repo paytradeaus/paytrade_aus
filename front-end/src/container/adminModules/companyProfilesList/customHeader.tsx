@@ -53,7 +53,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"
-        singleSelectedData={singleselectedStatus}
+        selectedData={singleselectedStatus}
         className={styles.textFieldStyles2}
       />
       <SearchableSelect
@@ -61,7 +61,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
         onChange={handlePlanChange}
         disabled={false}
         placeholder="Subscription"
-        singleSelectedData={singleselectedPlan}
+        selectedData={singleselectedPlan}
         className={styles.textFieldStyles2}
       />
       {isAnyFilterActive && (

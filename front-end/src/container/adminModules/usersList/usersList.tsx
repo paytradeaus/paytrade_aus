@@ -494,7 +494,7 @@ const UsersList = () => {
             options={options}
             onInputChange={onInputChange}
             handleSelectChange={handleSelectChange}
-            singleSelectedData={singleSelectedData}
+            selectedData={singleSelectedData}
             userData={userData}
             handlePrintPDF={handlePrintPDF}
             downloadExcel={downloadExcel}

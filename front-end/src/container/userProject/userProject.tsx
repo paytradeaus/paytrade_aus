@@ -573,7 +573,7 @@ const Projects = (props: any) => {
                 key={timeKey}
                 options={roleOptions}
                 disabled={isEdit}
-                singleSelectedData={formik.values.role}
+                selectedData={formik.values.role}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("role", selectedOption);
                   setRoleSelectedData(selectedOption);
@@ -669,7 +669,7 @@ const Projects = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={retentionOptions}
-                singleSelectedData={formik.values.retention}
+                selectedData={formik.values.retention}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("retention", selectedOption);
                   setRetentionSelectedData(selectedOption);
@@ -733,7 +733,7 @@ const Projects = (props: any) => {
                 key={timeKey}
                 options={ptaOptions}
                 placeholder="Is the project eligible for a PTA?"
-                singleSelectedData={formik.values.pta}
+                selectedData={formik.values.pta}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("pta", selectedOption);
                   setPtaSelectedData(selectedOption);
@@ -764,7 +764,7 @@ const Projects = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={rtaOptions}
-                singleSelectedData={formik.values.rta}
+                selectedData={formik.values.rta}
                 onChange={(selectedOption) => {
                   formik.setFieldValue("rta", selectedOption);
                   setRtaSelectedData(selectedOption);
@@ -796,7 +796,7 @@ const Projects = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={statusOptions}
-                singleSelectedData={formik.values.project}
+                selectedData={formik.values.project}
                 onChange={handleStatusChange}
                 placeholder="Please select the project current status"
                 controlStyles={customStyles}

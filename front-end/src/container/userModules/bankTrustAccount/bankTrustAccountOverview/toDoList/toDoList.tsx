@@ -401,7 +401,7 @@ const ToDoList = (props: any) => {
           onChange={handleProjectChange}
           disabled={false}
           placeholder="Select Project"
-          singleSelectedData={selectedProject}
+          selectedData={selectedProject}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
@@ -409,14 +409,14 @@ const ToDoList = (props: any) => {
           onChange={handleContractChange}
           disabled={false}
           placeholder="Select Contract"
-          singleSelectedData={selectedContract}
+          selectedData={selectedContract}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
           options={filter_paid_options}
           onChange={handleSelectChange}
           placeholder="Status"
-          singleSelectedData={singleSelectedData}
+          selectedData={singleSelectedData}
           className={styles.textFieldStyles}
         />
       </div>

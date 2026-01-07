@@ -36,7 +36,7 @@ const CustomSubHeader: React.FC<{
         onChange={handleActivityChange}
         disabled={false}
         placeholder="select option"
-        singleSelectedData={singleActivyDate}
+        selectedData={singleActivyDate}
       />
       {isCustomDate && (
         <>

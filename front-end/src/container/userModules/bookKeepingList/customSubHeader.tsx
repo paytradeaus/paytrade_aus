@@ -142,7 +142,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleContractChange}
           disabled={false}
           placeholder="Account Name"
-          singleSelectedData={selectedBank}
+          selectedData={selectedBank}
           className={styles.textFieldStyles3}
         />
 
@@ -151,7 +151,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Dates"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
           className={styles.textFieldStyles}
         />
 

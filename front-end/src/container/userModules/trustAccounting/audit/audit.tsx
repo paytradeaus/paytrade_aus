@@ -476,7 +476,7 @@ const Audit = () => {
           disabled={false}
           placeholder="Account Name"
           className={styles.textFieldStyles}
-          singleSelectedData={selectedAccountName}
+          selectedData={selectedAccountName}
         />
         <SearchableSelect
           options={AccountTypeList}
@@ -484,13 +484,13 @@ const Audit = () => {
           disabled={false}
           placeholder="Account Type"
           className={styles.textFieldStyles}
-          singleSelectedData={selectedAccountType}
+          selectedData={selectedAccountType}
         />
         <SearchableSelect
           options={DateOptions}
           onChange={handleActivityChange}
           placeholder="Dates"
-          singleSelectedData={singleActivityDate}
+          selectedData={singleActivityDate}
           className={styles.textFieldStyles}
         />
         <div className={styles.datePickerIcon}>

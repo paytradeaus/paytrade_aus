@@ -235,14 +235,14 @@ const UserActivityLogsList = () => {
             onChange={handleEventChange}
             disabled={false}
             placeholder="Event categories"
-            singleSelectedData={singleEventType}
+            selectedData={singleEventType}
           />
           <SearchableSelect
             options={filterByDuration}
             onChange={handleActivityChange}
             disabled={false}
             placeholder="Activity Range"
-            singleSelectedData={singleActivyDate}
+            selectedData={singleActivyDate}
           />
         </div>
         {isCustomDate && (

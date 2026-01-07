@@ -50,7 +50,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleTypeChange}
           disabled={false}
           placeholder="Select Account Type"
-          singleSelectedData={bankAccountTypeData}
+          selectedData={bankAccountTypeData}
           className={styles.textFieldStyles2}
         />
         {/* Conditionally show Reset Button only when any filter is active */}

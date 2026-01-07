@@ -204,7 +204,7 @@ const FaqDetails = () => {
                     }
                     disabled={false}
                     placeholder="Select category"
-                    singleSelectedData={formik.values.category}
+                    selectedData={formik.values.category}
                   />
                 </Col>
                 <Col className={styles.eachFieldBottom}>
@@ -213,7 +213,7 @@ const FaqDetails = () => {
                       { value: "Active", label: "Active" },
                       { value: "Inactive", label: "Inactive" },
                     ]}
-                    singleSelectedData={formik.values.status}
+                    selectedData={formik.values.status}
                     onChange={(selectedOption) => {
                       formik.setFieldValue("status", selectedOption);
                     }}

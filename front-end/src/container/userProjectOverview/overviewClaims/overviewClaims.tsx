@@ -352,7 +352,7 @@ const OverviewClaims = (props: any) => {
                   }
                 }}
                 disabled={false}
-                singleSelectedData={selectedProjectName}
+                selectedData={selectedProjectName}
                 placeholder="Select Project"
                 className={customStyles.dropdown}
               />
@@ -375,7 +375,7 @@ const OverviewClaims = (props: any) => {
                     }
                   }}
                   disabled={false}
-                  singleSelectedData={selectedContractName}
+                  selectedData={selectedContractName}
                   placeholder="Select Contract"
                   className={customStyles.dropdown}
                 />
@@ -395,7 +395,7 @@ const OverviewClaims = (props: any) => {
               onChange={handleStatusChange}
               disabled={false}
               placeholder="Select Status"
-              singleSelectedData={selectedStatusName}
+              selectedData={selectedStatusName}
               className={customStyles.dropdown}
             />
           </Col>

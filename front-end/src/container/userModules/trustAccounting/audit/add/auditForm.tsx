@@ -701,7 +701,7 @@ export default function AuditForm(props: any) {
                 disabled={isView || isEdit}
                 label="Account *"
                 placeholder="Select trust account"
-                singleSelectedData={formik?.values?.AccountName}
+                selectedData={formik?.values?.AccountName}
                 className={customStyles.textFieldStyles}
                 isRequired={
                   !!(!formik.values.AccountName && formik.touched.AccountName)
@@ -776,7 +776,7 @@ export default function AuditForm(props: any) {
             <div className={customStyles.textFieldStyles}>
               <SearchableSelect
                 options={returnOptions}
-                singleSelectedData={formik.values.NilReturn}
+                selectedData={formik.values.NilReturn}
                 label="Nil Return *"
                 onChange={handleSelectChange}
                 disabled={!selectedAccount || isView}

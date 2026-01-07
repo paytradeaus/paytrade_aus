@@ -405,7 +405,7 @@ function AddEditBankStatement(props: any) {
                   <div className={styles.DropdownStyles}>
                     <SearchableSelect
                       options={bankAccountName}
-                      singleSelectedData={formik?.values?.account_name}
+                      selectedData={formik?.values?.account_name}
                       onChange={(option) =>
                         formik.setFieldValue("account_name", option)
                       }

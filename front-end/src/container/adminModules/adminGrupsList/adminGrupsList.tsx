@@ -271,7 +271,7 @@ const AdminGroups = () => {
             search={search}
             onInputChange={onInputChange}
             options={options}
-            singleSelectedData={singleSelectedData}
+            selectedData={singleSelectedData}
             handleSelectChange={handleSelectChange}
             printDocumentData={printDocumentData}
             handlePrintPDF={handlePrintPDF}

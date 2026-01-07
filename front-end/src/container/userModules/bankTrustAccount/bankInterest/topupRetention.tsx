@@ -475,7 +475,7 @@ const TopupRetention = (props: any) => {
                   data?.payment_id ||
                   screenDetails?.fromScreen === "bankOverView"
                 }
-                singleSelectedData={selectedValue}
+                selectedData={selectedValue}
                 options={trustAccountList}
                 isRequired={
                   !formik.values.accountId && formik.touched.accountId
@@ -505,7 +505,7 @@ const TopupRetention = (props: any) => {
                   setProjectId(selectedOption?.data?.project_id);
                 }}
                 disabled={data?.payment_id}
-                singleSelectedData={projectSelectedValue}
+                selectedData={projectSelectedValue}
                 options={projectListData}
                 isRequired={
                   !formik.values.project && formik.touched.project
@@ -528,7 +528,7 @@ const TopupRetention = (props: any) => {
                     selectedOption?.value || ""
                   );
                 }}
-                singleSelectedData={supplierSelectedValue}
+                selectedData={supplierSelectedValue}
                 disabled={data?.payment_id || !projectId}
                 options={supplierListData}
                 isRequired={

@@ -168,7 +168,7 @@ function Compliance() {
                 onChange={(selectedValue) => setSelectedCompany(selectedValue)}
                 placeholder="Company Profile"
                 className={styles.textFieldStyles}
-                singleSelectedData={selectedCompany}
+                selectedData={selectedCompany}
               />
             </Col>
 
@@ -178,7 +178,7 @@ function Compliance() {
                 onChange={(selectedValue) => setSelectedProject(selectedValue)}
                 placeholder="Project Name"
                 className={styles.textFieldStyles}
-                singleSelectedData={selectedProject}
+                selectedData={selectedProject}
               />
             </Col>
 
@@ -188,7 +188,7 @@ function Compliance() {
                 onChange={(selectedValue) => setSelectedAccount(selectedValue)}
                 placeholder="Account Name"
                 className={styles.textFieldStyles}
-                singleSelectedData={selectedAccount}
+                selectedData={selectedAccount}
               />
             </Col>
             <Col lg="3" md="6">
@@ -199,7 +199,7 @@ function Compliance() {
                 }
                 placeholder="Account Type"
                 className={styles.textFieldStyles}
-                singleSelectedData={selectedAccountType}
+                selectedData={selectedAccountType}
               />
             </Col>
           </Row>
@@ -211,7 +211,7 @@ function Compliance() {
                   onChange={(selectedValue) => setSelectedPta(selectedValue)}
                   placeholder="PTA Status"
                   className={styles.textFieldStyles}
-                  singleSelectedData={selectedPta}
+                  selectedData={selectedPta}
                 />
               </Col>
               <Col lg="3" md="6">
@@ -220,7 +220,7 @@ function Compliance() {
                   onChange={(selectedValue) => setSelectedRta(selectedValue)}
                   placeholder="RTA Status"
                   className={styles.textFieldStyles}
-                  singleSelectedData={selectedRta}
+                  selectedData={selectedRta}
                 />
               </Col>
               <Col lg="3" md="6">

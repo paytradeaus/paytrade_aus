@@ -657,7 +657,7 @@ export default function ClientsAndSuppliersForm() {
           <div className={customStyles.textFieldStyles}>
             <SearchableSelect
               options={clientAndSupplierOptions}
-              singleSelectedData={formik.values.client_supplier_type}
+              selectedData={formik.values.client_supplier_type}
               onChange={(selectedOption) => {
                 formik.setFieldValue("client_supplier_type", selectedOption);
               }}
@@ -677,7 +677,7 @@ export default function ClientsAndSuppliersForm() {
           <div className={customStyles.textFieldStyles}>
             <SearchableSelect
               options={relatedEntityOptions}
-              singleSelectedData={formik.values.related_entity}
+              selectedData={formik.values.related_entity}
               onChange={(selectedOption) => {
                 formik.setFieldValue("related_entity", selectedOption);
               }}
@@ -714,7 +714,7 @@ export default function ClientsAndSuppliersForm() {
           <div className={customStyles.textFieldStyles}>
             <SearchableSelect
               options={entityTypeOptions}
-              singleSelectedData={formik.values.entity_type}
+              selectedData={formik.values.entity_type}
               onChange={(selectedOption) => {
                 formik.setFieldValue("entity_type", selectedOption);
               }}
@@ -963,7 +963,7 @@ export default function ClientsAndSuppliersForm() {
           <div className={customStyles.textFieldStyles}>
             <SearchableSelect
               options={clientSupplierStatus}
-              singleSelectedData={formik.values.client_supplier_status}
+              selectedData={formik.values.client_supplier_status}
               onChange={(selectedOption) => {
                 formik.setFieldValue("client_supplier_status", selectedOption);
               }}

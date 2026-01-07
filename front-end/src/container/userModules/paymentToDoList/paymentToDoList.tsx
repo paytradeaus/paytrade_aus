@@ -474,7 +474,7 @@ const PaymentToDoList = () => {
           onChange={handleProjectChange}
           disabled={false}
           placeholder="Select Project"
-          singleSelectedData={selectedProject}
+          selectedData={selectedProject}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
@@ -482,7 +482,7 @@ const PaymentToDoList = () => {
           onChange={handleContractChange}
           disabled={false}
           placeholder="Select Contract"
-          singleSelectedData={selectedContract}
+          selectedData={selectedContract}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
@@ -490,7 +490,7 @@ const PaymentToDoList = () => {
           onChange={handleFromAccChange}
           disabled={false}
           placeholder="Select from Account"
-          singleSelectedData={selectedFromAcc}
+          selectedData={selectedFromAcc}
           className={styles.textFieldStyles}
         />
         {activeTab === "Not Paid" && (
@@ -498,7 +498,7 @@ const PaymentToDoList = () => {
             options={filter_paid_options}
             onChange={handleSelectChange}
             placeholder="Status"
-            singleSelectedData={singleSelectedData}
+            selectedData={singleSelectedData}
             className={styles.textFieldStyles}
           />
         )}

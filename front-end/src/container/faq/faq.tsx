@@ -348,14 +348,14 @@ function Content() {
             onChange={handleCategorySelectChange}
             disabled={false}
             placeholder="Category"
-            singleSelectedData={categorySelection}
+            selectedData={categorySelection}
           />
           <SearchableSelect
             options={statusOptions}
             onChange={handleStatusSelectChange}
             disabled={false}
             placeholder="Status"
-            singleSelectedData={statusSelection}
+            selectedData={statusSelection}
           />
           {isAnyFilterActive && (
             <div>

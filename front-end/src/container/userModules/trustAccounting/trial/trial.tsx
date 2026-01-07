@@ -319,7 +319,7 @@ const TrialBalanceStatement = () => {
                     setSelectedAccountName(data);
                   }}
                   placeholder="Account Name"
-                  singleSelectedData={selectedAccountName}
+                  selectedData={selectedAccountName}
                   className={styles.textFieldStyles}
                 />
               </Col>

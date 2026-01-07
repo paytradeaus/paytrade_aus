@@ -601,7 +601,7 @@ const ReconcialiationForm = (props: any) => {
               disabled={isView || isEdit}
               label="Account *"
               placeholder="Select trust account"
-              singleSelectedData={formik?.values?.AccountName}
+              selectedData={formik?.values?.AccountName}
               className={customStyles.textFieldStyles}
               isRequired={
                 !!(!formik.values.AccountName && formik.touched.AccountName)

@@ -613,7 +613,7 @@ const UnderPaymentForm = (props: any) => {
                   data?.payment_id ||
                   screenDetails?.fromScreen === "bankOverView"
                 }
-                singleSelectedData={selectedValue}
+                selectedData={selectedValue}
                 options={trustAccountList}
                 isRequired={
                   !formik.values.accountId && formik.touched.accountId
@@ -636,7 +636,7 @@ const UnderPaymentForm = (props: any) => {
             <Col lg={4}>
               <SearchableSelect
                 label="Project *"
-                singleSelectedData={projectSelectedValue}
+                selectedData={projectSelectedValue}
                 onChange={(selectedOption) => {
                   formik.handleChange("project")(selectedOption?.value || "");
                   formik.handleChange("clientSupplier")("");
@@ -675,7 +675,7 @@ const UnderPaymentForm = (props: any) => {
                   setPaymentSelectedData(null);
                   setSupplierSelectedValue(selectedOption);
                 }}
-                singleSelectedData={supplierSelectedValue}
+                selectedData={supplierSelectedValue}
                 disabled={data?.payment_id || !projectId}
                 options={supplierListData}
                 isRequired={
@@ -702,7 +702,7 @@ const UnderPaymentForm = (props: any) => {
                   setPaymentSelectedData(null);
                   setPaymentClaimSelectedData(selectedOption);
                 }}
-                singleSelectedData={paymentClaimSelectedData}
+                selectedData={paymentClaimSelectedData}
                 disabled={
                   data?.client_supplier_id || !formik?.values?.clientSupplier
                 }
@@ -729,7 +729,7 @@ const UnderPaymentForm = (props: any) => {
                   );
                   setPaymentSelectedData(selectedOption);
                 }}
-                singleSelectedData={paymentSelectedData}
+                selectedData={paymentSelectedData}
                 disabled={
                   data?.payment_claim_id || !formik?.values?.paymentClaimId
                 }

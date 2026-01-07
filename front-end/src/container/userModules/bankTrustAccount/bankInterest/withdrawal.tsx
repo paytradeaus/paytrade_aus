@@ -605,7 +605,7 @@ const WithdrawalForm = (props: any) => {
               <SearchableSelect
                 key={accountError}
                 label="Payment From Account *"
-                singleSelectedData={fromSelectedValue}
+                selectedData={fromSelectedValue}
                 onChange={(selectedOption) => {
                   formik.handleChange("fromAccount")(
                     selectedOption?.value || ""
@@ -666,7 +666,7 @@ const WithdrawalForm = (props: any) => {
             <Col lg={4}>
               <SearchableSelect
                 label="Payment To Account *"
-                singleSelectedData={toSelectedValue}
+                selectedData={toSelectedValue}
                 onChange={(selectedOption) => {
                   handleSelectToAccount(selectedOption);
                 }}

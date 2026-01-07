@@ -530,7 +530,7 @@ const AddUserDetails = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={statusOptions}
-                singleSelectedData={singleselectedStatus}
+                selectedData={singleselectedStatus}
                 onChange={(selectedOption) => {
                   setSingleSelectedStatus(selectedOption);
                   formik.handleChange("Status")(selectedOption.value);

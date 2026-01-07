@@ -54,14 +54,14 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         onChange={handlePlanChange}
         disabled={false}
         placeholder="Plan"
-        singleSelectedData={selectedPlanData}
+        selectedData={selectedPlanData}
       />
       {/* <SearchableSelect
         options={options}
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"
-        singleSelectedData={singleSelectedData}
+        selectedData={singleSelectedData}
       /> */}
       {isAnyFilterActive && (
         <div>

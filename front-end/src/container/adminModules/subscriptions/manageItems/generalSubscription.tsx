@@ -359,7 +359,7 @@ const GeneralSubscription = (props: any) => {
               onChange={handleStatusChange}
               disabled={false}
               placeholder="Select Status"
-              singleSelectedData={selectedStatusName}
+              selectedData={selectedStatusName}
               className={styles.textFieldStyles}
             />
           )}

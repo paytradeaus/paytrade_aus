@@ -505,7 +505,7 @@ const Contracts = (props: any) => {
             }}
             disabled={false}
             placeholder="Select project"
-            singleSelectedData={selectedProjectName}
+            selectedData={selectedProjectName}
           />
         </div>
         {isAnyFilterActive && (
@@ -520,7 +520,7 @@ const Contracts = (props: any) => {
           onChange={handleActivityChange}
           disabled={false}
           placeholder="select option"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
         />
         {isCustomDate && (
           <>

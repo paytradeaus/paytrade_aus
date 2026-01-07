@@ -125,7 +125,7 @@ const EmailList = () => {
           disabled={false}
           placeholder="Email Type"
           className={styles.categoryField}
-          singleSelectedData={formik.values.category}
+          selectedData={formik.values.category}
         />
       </Row> */}
       <Row>

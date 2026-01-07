@@ -148,7 +148,7 @@ const RetentionSummary = ({ openModal, onClose, retentionsClaimData }: any) => {
               onChange={handleStatusChange}
               disabled={false}
               placeholder="Select Status"
-              singleSelectedData={selectedStatusName}
+              selectedData={selectedStatusName}
               className={styles.statusStyles}
             />
           </div>

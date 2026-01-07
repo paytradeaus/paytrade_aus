@@ -237,7 +237,7 @@ const PaymentDetailsPage = (props: any) => {
                           type: account?.account_type,
                         }))}
                         placeholder="Select"
-                        singleSelectedData={paymentFromSelectedData}
+                        selectedData={paymentFromSelectedData}
                         onChange={(selectedOption) => {
                           const value = selectedOption?.value;
                           if (value != null) {
@@ -265,7 +265,7 @@ const PaymentDetailsPage = (props: any) => {
                             value: account?.bank_account_id,
                             type: account?.account_type,
                           }))}
-                          singleSelectedData={retentioinFromSelectedData}
+                          selectedData={retentioinFromSelectedData}
                           placeholder="Select"
                           onChange={(selectedOption) => {
                             const value = selectedOption?.value;
@@ -304,7 +304,7 @@ const PaymentDetailsPage = (props: any) => {
                       value: account?.bank_account_id,
                       type: account?.account_type,
                     }))}
-                    singleSelectedData={paymentToSelectedData}
+                    selectedData={paymentToSelectedData}
                     placeholder="Select"
                     onChange={(selectedOption) => {
                       const value = selectedOption?.value;

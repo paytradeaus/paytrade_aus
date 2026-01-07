@@ -270,7 +270,7 @@ export default function AccountDetails() {
               <div className={customStyles.textFieldStyles}>
                 <SearchableSelect
                   options={accountTypeOptions}
-                  singleSelectedData={formik.values.account_type}
+                  selectedData={formik.values.account_type}
                   onChange={(selectedOption) => {
                     formik.setFieldValue("account_type", selectedOption);
                   }}

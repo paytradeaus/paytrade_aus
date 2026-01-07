@@ -403,7 +403,7 @@ const ManageProfiles = () => {
           options={companyOptions}
           onChange={handleCompanyChange}
           disabled={false}
-          singleSelectedData={selectedCompany}
+          selectedData={selectedCompany}
           placeholder="Company Profile"
           className={styles.textFieldStyles}
         />
@@ -412,7 +412,7 @@ const ManageProfiles = () => {
           onChange={handleStatusChange}
           disabled={false}
           placeholder="Select Status"
-          singleSelectedData={selectedStatusName}
+          selectedData={selectedStatusName}
           className={styles.textFieldStyles}
         />
 
@@ -420,7 +420,7 @@ const ManageProfiles = () => {
           options={subscriptionDateOptions}
           onChange={handleActivityChange}
           placeholder="Dates"
-          singleSelectedData={singleActivityDate}
+          selectedData={singleActivityDate}
           className={styles.textFieldStyles}
         />
 

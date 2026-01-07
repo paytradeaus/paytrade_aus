@@ -356,7 +356,7 @@ export default function NoticesList(props: any) {
           }}
           disabled={false}
           placeholder="Company Profile"
-          singleSelectedData={companySelectedData}
+          selectedData={companySelectedData}
           className={styles.textFieldStyles3}
         />
         <SearchableSelect
@@ -365,7 +365,7 @@ export default function NoticesList(props: any) {
             handleSelectChange(name, "account_name");
           }}
           disabled={false}
-          singleSelectedData={selectedAccountName}
+          selectedData={selectedAccountName}
           placeholder="Account Name"
           className={styles.textFieldStyles3}
         />
@@ -376,7 +376,7 @@ export default function NoticesList(props: any) {
           }}
           disabled={false}
           placeholder="Notices Type"
-          singleSelectedData={selectedNoticesType}
+          selectedData={selectedNoticesType}
           className={styles.textFieldStyles3}
         />
         {!isArchived && (
@@ -386,7 +386,7 @@ export default function NoticesList(props: any) {
               handleSelectChange(status, "status");
             }}
             disabled={false}
-            singleSelectedData={selectedStatus}
+            selectedData={selectedStatus}
             placeholder="Status"
             className={styles.textFieldStyles}
           />
@@ -396,7 +396,7 @@ export default function NoticesList(props: any) {
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Dates"
-          singleSelectedData={singleActivityDate}
+          selectedData={singleActivityDate}
           className={styles.textFieldStyles}
         />
 

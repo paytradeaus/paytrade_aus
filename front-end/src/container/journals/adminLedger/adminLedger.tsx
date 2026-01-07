@@ -411,7 +411,7 @@ const AdminLedger = () => {
                   }
                   disabled={false}
                   placeholder="Select Trust Account"
-                  singleSelectedData={selectedAccountName}
+                  selectedData={selectedAccountName}
                   className={styles.textFieldStyles}
                 />
               </Col> */}
@@ -421,7 +421,7 @@ const AdminLedger = () => {
                 onChange={handleActivityChange}
                 disabled={false}
                 placeholder="Dates"
-                singleSelectedData={singleActivityDate}
+                selectedData={singleActivityDate}
                 className={styles.textFieldStyles}
               />
             </Col>

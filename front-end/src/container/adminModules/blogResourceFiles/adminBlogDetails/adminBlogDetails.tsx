@@ -311,7 +311,7 @@ const BlogDetails = (props: any) => {
                 <SearchableSelect
                   key={timeKey}
                   options={categoryOptions}
-                  singleSelectedData={selectCategoryData}
+                  selectedData={selectCategoryData}
                   onChange={(selectedOption) => {
                     formik.handleChange("category")(selectedOption.value);
                     setSelectCategoryData(selectedOption);
@@ -395,7 +395,7 @@ const BlogDetails = (props: any) => {
                 <SearchableSelect
                   key={timeKey}
                   options={statusOptions}
-                  singleSelectedData={selectedStatusData}
+                  selectedData={selectedStatusData}
                   onChange={(selectedOption) => {
                     formik.handleChange("Status")(selectedOption.value);
                     setSelectedStatusData(selectedOption);

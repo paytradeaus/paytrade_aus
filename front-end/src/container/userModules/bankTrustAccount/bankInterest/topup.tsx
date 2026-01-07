@@ -495,7 +495,7 @@ const TopupForm = (props: any) => {
                   data?.payment_id ||
                   screenDetails?.fromScreen === "bankOverView"
                 }
-                singleSelectedData={selectedValue}
+                selectedData={selectedValue}
                 options={trustAccountList}
                 isRequired={
                   !formik.values.accountId && formik.touched.accountId

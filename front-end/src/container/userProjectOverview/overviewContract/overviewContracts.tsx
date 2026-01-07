@@ -465,7 +465,7 @@ const OverviewContracts = ({ selectedContract }: any) => {
           onChange={handleActivityChange}
           disabled={false}
           placeholder="select option"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
         />
         {isCustomDate && (
           <>

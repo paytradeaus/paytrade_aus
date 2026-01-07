@@ -570,7 +570,7 @@ export default function RetentionForms({
                   onChange={handleAccountSelection}
                   disabled={isViewMode || retentionDisable}
                   placeholder={"Select account"}
-                  singleSelectedData={formik?.values?.retention_account}
+                  selectedData={formik?.values?.retention_account}
                 />
                 <div className={customStyles.errorText}>
                   {formik.touched.retention_account &&

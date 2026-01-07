@@ -303,34 +303,34 @@ const Journals = () => {
           options={companyOptions}
           onChange={handleCompanyChange}
           disabled={false}
-          singleSelectedData={selectedCompany}
+          selectedData={selectedCompany}
           placeholder="Company Profile"
         />
         <SearchableSelect
           options={accountOptions}
           onChange={handleNameChange}
-          singleSelectedData={selectedAccName}
+          selectedData={selectedAccName}
           disabled={false}
           placeholder="Account Name"
         />
         <SearchableSelect
           options={accountTypeOptions}
           onChange={handleTypeChange}
-          singleSelectedData={selectedAccType}
+          selectedData={selectedAccType}
           disabled={false}
           placeholder="Account Type"
         />
         <SearchableSelect
           options={statusOptions}
           onChange={handleStatusChange}
-          singleSelectedData={selectedStatus}
+          selectedData={selectedStatus}
           disabled={false}
           placeholder="Status"
         />
         <SearchableSelect
           options={check}
           onChange={handleCheckChange}
-          singleSelectedData={selectedCheck}
+          selectedData={selectedCheck}
           disabled={false}
           placeholder="Balance Check"
         />

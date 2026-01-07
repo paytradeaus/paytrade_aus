@@ -1087,7 +1087,7 @@ const AddBankTrustAccount = (props: any) => {
                 options={projectOpt}
                 label="Project *"
                 placeholder="Select the Project"
-                singleSelectedData={projectOptionsData}
+                selectedData={projectOptionsData}
                 controlStyles={customStyles}
                 onChange={(selectedOption) => {
                   formik.handleChange("ProjectName")(
@@ -1116,7 +1116,7 @@ const AddBankTrustAccount = (props: any) => {
                 options={clientListOpt}
                 label="Client *"
                 placeholder="Select the Client"
-                singleSelectedData={clientListOptData}
+                selectedData={clientListOptData}
                 controlStyles={customStyles}
                 onChange={(selectedOption) => {
                   formik.handleChange("ClientName")(
@@ -1460,7 +1460,7 @@ const AddBankTrustAccount = (props: any) => {
                         <SearchableSelect
                           key={timeKey}
                           options={bankAccountTypes}
-                          singleSelectedData={bankAccountTypeData}
+                          selectedData={bankAccountTypeData}
                           onChange={(option) => {
                             setBankAccountTypeData(option);
                             formik.handleChange("BankAccountType")(
@@ -1517,7 +1517,7 @@ const AddBankTrustAccount = (props: any) => {
                           options={financialInstituteOpt}
                           label="Financial Institution *"
                           placeholder="Select Financial Institution"
-                          singleSelectedData={financialInstituteData}
+                          selectedData={financialInstituteData}
                           controlStyles={customStyles}
                           onChange={(selectedOption) => {
                             formik.setFieldValue("AccountNumber", "");
@@ -1595,7 +1595,7 @@ const AddBankTrustAccount = (props: any) => {
                             <SearchableSelect
                               key={timeKey}
                               options={cashAccounts}
-                              singleSelectedData={
+                              selectedData={
                                 formik?.values?.associated_cash_account_id
                               }
                               onChange={(selectedOption: any) => {
@@ -1689,7 +1689,7 @@ const AddBankTrustAccount = (props: any) => {
                             options={DelegateOptions}
                             label="Delegate Powers"
                             placeholder="Select Delegated Powers"
-                            singleSelectedData={delegateTypeData}
+                            selectedData={delegateTypeData}
                             onChange={(selectedOption) =>
                               handleDelegateStatus(selectedOption)
                             }

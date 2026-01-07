@@ -249,14 +249,14 @@ const BillingHistory = (props: any) => {
           onChange={handleStatusChange}
           disabled={false}
           placeholder="Select Status"
-          singleSelectedData={selectedStatusName}
+          selectedData={selectedStatusName}
           className={styles.textFieldStyles}
         />
         <SearchableSelect
           options={subscriptionDateOptions}
           onChange={handleActivityChange}
           placeholder="Dates"
-          singleSelectedData={singleActivityDate}
+          selectedData={singleActivityDate}
           className={styles.textFieldStyles}
         />
 

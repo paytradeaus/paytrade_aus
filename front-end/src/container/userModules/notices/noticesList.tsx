@@ -317,7 +317,7 @@ export default function NoticesList(props: any) {
             handleSelectChange(name, "account_name");
           }}
           disabled={false}
-          singleSelectedData={selectedAccountName}
+          selectedData={selectedAccountName}
           placeholder="Account Name"
           className={styles.textFieldStyles3}
         />
@@ -331,7 +331,7 @@ export default function NoticesList(props: any) {
               handleSelectChange(project, "project_name");
             }}
             disabled={false}
-            singleSelectedData={selectedProjectName}
+            selectedData={selectedProjectName}
             placeholder="Project Name"
             className={styles.textFieldStyles3}
           />
@@ -342,7 +342,7 @@ export default function NoticesList(props: any) {
             handleSelectChange(v, "notice_type");
           }}
           disabled={false}
-          singleSelectedData={selectedNoticesType}
+          selectedData={selectedNoticesType}
           placeholder="Notices Type"
           className={styles.textFieldStyles3}
         />
@@ -353,7 +353,7 @@ export default function NoticesList(props: any) {
               handleSelectChange(status, "status");
             }}
             disabled={false}
-            singleSelectedData={selectedStatus}
+            selectedData={selectedStatus}
             placeholder="Status"
             className={styles.textFieldStyles}
           />

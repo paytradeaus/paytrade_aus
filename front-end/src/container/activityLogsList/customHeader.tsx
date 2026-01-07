@@ -60,7 +60,7 @@ const CustomSubHeader: React.FC<{
           onChange={handleEventChange}
           disabled={false}
           placeholder="Event categories"
-          singleSelectedData={singleEventType}
+          selectedData={singleEventType}
           className={styles.textFieldStyles2}
         />
         <SearchableSelect
@@ -68,7 +68,7 @@ const CustomSubHeader: React.FC<{
           onChange={handleActivityChange}
           disabled={false}
           placeholder="Activity Range"
-          singleSelectedData={singleActivyDate}
+          selectedData={singleActivyDate}
           className={styles.textFieldStyles}
         />
       </div>

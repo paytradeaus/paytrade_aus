@@ -62,7 +62,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           disabled={false}
           placeholder="Category"
           className={styles.textFieldStyles}
-          singleSelectedData={categorySelectedData}
+          selectedData={categorySelectedData}
         />
         <SearchableSelect
           options={statusOptions}
@@ -70,7 +70,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           disabled={false}
           placeholder="Status"
           className={styles.textFieldStyles}
-          singleSelectedData={statusSelectedData}
+          selectedData={statusSelectedData}
         />
         <SearchableSelect
           options={authorOptions}
@@ -78,7 +78,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           disabled={false}
           placeholder="Author"
           className={styles.textFieldStyles}
-          singleSelectedData={authorSelectedData}
+          selectedData={authorSelectedData}
         />
         {isAnyFilterActive && (
           <div>

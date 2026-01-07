@@ -111,7 +111,7 @@ function ViewList() {
           disabled={true}
           placeholder="Page Type"
           className={styles.categoryField}
-          singleSelectedData={{
+          selectedData={{
             label: formik?.values?.pageType,
             value: formik?.values?.pageType,
           }}

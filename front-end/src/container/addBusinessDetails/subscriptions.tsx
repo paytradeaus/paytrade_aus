@@ -50,7 +50,7 @@ export default function Subscriptions() {
           // key={timeKey}
           options={subscriptionPlans}
           label="Subscription *"
-          singleSelectedData={selectedPlan}
+          selectedData={selectedPlan}
           placeholder="Select subscription plan"
           onChange={(selectedOption) => setSelectedPlan(selectedOption)}
         />

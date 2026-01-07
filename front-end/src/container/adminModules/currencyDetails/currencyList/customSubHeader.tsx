@@ -42,7 +42,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Status"
-          singleSelectedData={singleSelectedData}
+          selectedData={singleSelectedData}
         />
         {isAnyFilterActive && (
           <div>

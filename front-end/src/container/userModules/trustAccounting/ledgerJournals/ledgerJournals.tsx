@@ -705,7 +705,7 @@ const LedgerJournals = (props: any) => {
             options={accountList}
             onChange={handleAccountChange} // Updated to use handleAccountChange
             placeholder="Account Name"
-            singleSelectedData={selectedAccountName}
+            selectedData={selectedAccountName}
             disabled={isFromBankOverView}
           />
         </div>
@@ -715,7 +715,7 @@ const LedgerJournals = (props: any) => {
             options={transactionsDateOptions}
             onChange={handleActivityChange}
             placeholder="Dates"
-            singleSelectedData={singleActivityDate}
+            selectedData={singleActivityDate}
           />
         </div>
 

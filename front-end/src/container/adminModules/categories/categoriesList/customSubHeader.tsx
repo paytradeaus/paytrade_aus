@@ -41,7 +41,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
         disabled={false}
         placeholder="Master Type"
         className={styles.textFieldStyles}
-        singleSelectedData={categorySelectedData}
+        selectedData={categorySelectedData}
       />
       {isAnyFilterActive && (
         <div>

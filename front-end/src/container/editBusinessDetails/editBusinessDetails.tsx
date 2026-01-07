@@ -857,7 +857,7 @@ const EditBusinessDetails = (props: any) => {
                         options={options}
                         key={timeKey}
                         label="Entity type *"
-                        singleSelectedData={formik.values.EntityType}
+                        selectedData={formik.values.EntityType}
                         onChange={(option) => {
                           formik.setFieldValue("EntityType", option);
                           updateBusinessProfileValues("EntityType", option);
@@ -1070,7 +1070,7 @@ const EditBusinessDetails = (props: any) => {
                         key={timeKey}
                         options={subscriptionPlans}
                         label="Subscription type"
-                        singleSelectedData={singleSelectedData}
+                        selectedData={singleSelectedData}
                         onChange={(option) => {
                           setSingleSelectedData(option);
                           formik.setFieldValue("SubscriptionType", option); // Set the value in Formik

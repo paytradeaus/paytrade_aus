@@ -216,7 +216,7 @@ function ContactSubmissionUpdate() {
                       }
                       disabled={false}
                       placeholder="Select status"
-                      singleSelectedData={formik.values.status}
+                      selectedData={formik.values.status}
                       isRequired={
                         !!(!formik.values.status && formik.touched.status)
                       }

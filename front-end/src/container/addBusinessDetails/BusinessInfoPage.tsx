@@ -541,7 +541,7 @@ const BusinessInfoPage = () => {
                   <SearchableSelect
                     options={options}
                     label="Entity type *"
-                    singleSelectedData={formik.values.EntityType}
+                    selectedData={formik.values.EntityType}
                     onChange={(option) => {
                       formik.setFieldValue("EntityType", option);
                       updateBusinessProfileValues("EntityType", option);
@@ -747,7 +747,7 @@ const BusinessInfoPage = () => {
                   <SearchableSelect
                     options={subscriptionPlans}
                     label="Subscription type"
-                    singleSelectedData={formik.values.SubscriptionType}
+                    selectedData={formik.values.SubscriptionType}
                     onChange={(option) => {
                       setSingleSelectedData(option);
                       formik.setFieldValue("SubscriptionType", option); // Set the value in Formik

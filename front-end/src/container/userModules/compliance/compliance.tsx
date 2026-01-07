@@ -143,7 +143,7 @@ export default function Compliances({
     //               setSelectedProject(selectedOption)
     //             }
     //             disabled={false}
-    //             singleSelectedData={selectedProject}
+    //             selectedData={selectedProject}
     //             placeholder="Project Name"
     //           />
     //         </Col>
@@ -157,7 +157,7 @@ export default function Compliances({
     //           }
     //           disabled={false}
     //           placeholder="Account Name"
-    //           singleSelectedData={selectedBankAccount}
+    //           selectedData={selectedBankAccount}
     //         />
     //       </Col>
     //       <Col lg={2}>
@@ -168,7 +168,7 @@ export default function Compliances({
     //           }
     //           disabled={false}
     //           placeholder="Account Type"
-    //           singleSelectedData={selectedAccountType}
+    //           selectedData={selectedAccountType}
     //         />
     //       </Col>
     //       <Col>
@@ -178,7 +178,7 @@ export default function Compliances({
     //             onChange={handleDurationChange}
     //             disabled={false}
     //             placeholder="select option"
-    //             singleSelectedData={selectedDateOption}
+    //             selectedData={selectedDateOption}
     //           />
     //         </Col>
     //         <Col lg={3}>
@@ -268,7 +268,7 @@ export default function Compliances({
                 setSelectedProject(selectedOption)
               }
               disabled={false}
-              singleSelectedData={selectedProject}
+              selectedData={selectedProject}
               placeholder="Project Name"
             />
           )}
@@ -281,7 +281,7 @@ export default function Compliances({
             }
             disabled={false}
             placeholder="Account Name"
-            singleSelectedData={selectedBankAccount}
+            selectedData={selectedBankAccount}
           />
         </div>
         <div>
@@ -292,7 +292,7 @@ export default function Compliances({
             }
             disabled={false}
             placeholder="Account Type"
-            singleSelectedData={selectedAccountType}
+            selectedData={selectedAccountType}
           />
         </div>
         <div>
@@ -301,7 +301,7 @@ export default function Compliances({
             onChange={handleDurationChange}
             disabled={false}
             placeholder="select option"
-            singleSelectedData={selectedDateOption}
+            selectedData={selectedDateOption}
           />
         </div>
         <div>

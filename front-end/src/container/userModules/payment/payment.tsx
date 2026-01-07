@@ -2126,7 +2126,7 @@ function Payment(props: any) {
                   placeholder="Select project"
                   options={projectOpt}
                   controlStyles={customStyles}
-                  singleSelectedData={projectOptionsData}
+                  selectedData={projectOptionsData}
                   onChange={(selectedOption) => {
                     formik.handleChange("ProjectId")(
                       selectedOption?.value || ""
@@ -2178,7 +2178,7 @@ function Payment(props: any) {
                     ScreenType === "Contracts"
                   }
                   controlStyles={customStyles}
-                  singleSelectedData={formik.values.ContractId}
+                  selectedData={formik.values.ContractId}
                   onChange={(selectedOption) => {
                     formik.setFieldValue("ContractId", selectedOption || {});
 

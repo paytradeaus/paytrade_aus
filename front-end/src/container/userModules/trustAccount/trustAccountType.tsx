@@ -479,7 +479,7 @@ export default function TrustAccountType() {
                   <SearchableSelect
                     label=""
                     options={subcontractorOptions}
-                    singleSelectedData={formik?.value?.contractPrice}
+                    selectedData={formik?.value?.contractPrice}
                     disabled={false}
                     placeholder="--Select--"
                     onChange={(option) => {
@@ -506,7 +506,7 @@ export default function TrustAccountType() {
                       }}
                       disabled={!formik?.values?.contractPrice}
                       placeholder="--Select--"
-                      singleSelectedData={formik?.values?.subContractor}
+                      selectedData={formik?.values?.subContractor}
                     />
                   </div>
                   <div className="mt-4">
@@ -525,7 +525,7 @@ export default function TrustAccountType() {
                         !formik?.values?.subContractor
                       }
                       placeholder="--Select--"
-                      singleSelectedData={formik?.values?.contractDate}
+                      selectedData={formik?.values?.contractDate}
                     />
                   </div>
                   <div className="mt-4">
@@ -545,7 +545,7 @@ export default function TrustAccountType() {
                         !formik?.values?.contractDate
                       }
                       placeholder="--Select--"
-                      singleSelectedData={formik?.values?.contractingParty}
+                      selectedData={formik?.values?.contractingParty}
                     />
                   </div>
                   <div className="mt-4">
@@ -566,7 +566,7 @@ export default function TrustAccountType() {
                         !formik?.values?.contractingParty
                       }
                       placeholder="--Select--"
-                      singleSelectedData={formik?.values?.contractValue}
+                      selectedData={formik?.values?.contractValue}
                     />
                   </div>
                 </div>
@@ -594,7 +594,7 @@ export default function TrustAccountType() {
                         handleRetentionSelectChange("cashRetentions", option);
                       }}
                       placeholder="Select an Option"
-                      singleSelectedData={formik?.values?.cashRetentions}
+                      selectedData={formik?.values?.cashRetentions}
                     />
                   </div>
                   <div className="mt-4">
@@ -617,7 +617,7 @@ export default function TrustAccountType() {
                       }}
                       disabled={!formik?.values?.cashRetentions}
                       placeholder="Select an Option"
-                      singleSelectedData={formik?.values?.headContract}
+                      selectedData={formik?.values?.headContract}
                     />
                   </div>
                   <div className="mt-4">
@@ -636,7 +636,7 @@ export default function TrustAccountType() {
                         !formik?.values?.headContract
                       }
                       placeholder="Select an Option"
-                      singleSelectedData={formik?.values?.whoAreYou}
+                      selectedData={formik?.values?.whoAreYou}
                     />
                   </div>
                 </div>
