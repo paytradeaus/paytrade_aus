@@ -50,6 +50,7 @@
     "react-phone-number-input": "^3.4.9",
     "react-redux": "^9.1.2",
     "react-select": "^5.8.3",
+    "react-share": "^5.2.2",
     "react-signature-canvas": "^1.0.6",
     "react-simple-wysiwyg": "^3.2.0",
     "react-spinners": "^0.14.1",
