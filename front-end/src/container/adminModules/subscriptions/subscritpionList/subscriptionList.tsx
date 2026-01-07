@@ -392,7 +392,7 @@ const SubscriptionsList = ({ isArchive = false }) => {
             selectedPlanData={selectedPlanData}
             options={statusOptions}
             handleSelectChange={handleSelectChange}
-            selectedData={singleSelectedData}
+            selectedData={selectedData}
             printDocumentData={printDocumentData}
             handlePrintPDF={handlePrintPDF}
             downloadExcel={downloadExcel}

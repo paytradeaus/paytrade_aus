@@ -413,7 +413,7 @@ const InterestChargeList = (props: any) => {
             onInputChange={onInputChange}
             activeInterestTab={activeInterestTab}
             handleInterestStatusChange={handleInterestStatusChange}
-            selectedData={singleSelectedData}
+            selectedData={selectedData}
             handleActivityChange={handleActivityChange}
             singleActivyDate={singleActivyDate}
             isCustomDate={isCustomDate}

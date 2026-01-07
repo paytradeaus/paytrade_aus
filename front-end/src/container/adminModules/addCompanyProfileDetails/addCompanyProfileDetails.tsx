@@ -630,7 +630,7 @@ const AddCompanyProfileDetails = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={entityOptions}
-                selectedData={singleSelectedData}
+                selectedData={selectedData}
                 onChange={(option) => {
                   setSingleSelectedData(option);
                   formik.handleChange("EntityType")(option.value);

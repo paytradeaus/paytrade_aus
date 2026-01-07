@@ -621,7 +621,7 @@ const AddAdminUser = (props: any) => {
 
                         <SearchableSelect
                           options={options}
-                          selectedData={singleSelectedData}
+                          selectedData={selectedData}
                           onChange={(selectedOption) => {
                             formik.handleChange("Status")(selectedOption.value);
                             setSingleSelectedData(selectedOption);

@@ -61,7 +61,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"
-        selectedData={singleSelectedData}
+        selectedData={selectedData}
       /> */}
       {isAnyFilterActive && (
         <div>

@@ -344,7 +344,7 @@ const AdminUsers = () => {
             onInputChange={onInputChange}
             options={options}
             handleSelectChange={handleSelectChange}
-            selectedData={singleSelectedData}
+            selectedData={selectedData}
             printDocumentData={printDocumentData}
             handlePrintPDF={handlePrintPDF}
             downloadExcel={downloadExcel}

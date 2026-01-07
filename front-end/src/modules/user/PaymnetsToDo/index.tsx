@@ -938,7 +938,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                   options={filter_paid_options}
                   onChange={handleSelectChange}
                   control={InputType.SELECT}
-                  value={singleSelectedData}
+                  value={selectedData}
                   renderKey="label"
                   valueKey="value"
                 />

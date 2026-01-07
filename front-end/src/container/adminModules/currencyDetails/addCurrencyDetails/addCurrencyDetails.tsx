@@ -306,7 +306,7 @@ const AddCurrencyDetails = (props: any) => {
               <SearchableSelect
                 key={timeKey}
                 options={options}
-                selectedData={singleSelectedData}
+                selectedData={selectedData}
                 onChange={(selectedOption) => {
                   formik.handleChange("Status")(selectedOption.value);
                   setSingleSelectedData(selectedOption);

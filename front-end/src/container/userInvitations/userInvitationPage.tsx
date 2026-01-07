@@ -313,7 +313,7 @@ const UserInvitationPage = () => {
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Status"
-          selectedData={singleSelectedData}
+          selectedData={selectedData}
         /> */}
       </div>
       <div className={styles.headerIconCon}>

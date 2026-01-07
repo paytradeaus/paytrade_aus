@@ -144,7 +144,7 @@ const EditBusinessDetails = (props: any) => {
   ];
 
   useEffect(() => {
-    formik.setFieldValue("SubscriptionType", singleSelectedData || null); // Update value if singleSelectedData or defaultValue changes
+    formik.setFieldValue("SubscriptionType", selectedData || null); // Update value if singleSelectedData or defaultValue changes
   }, []);
 
   const [selectedData, setSingleSelectedData] = useState<any>({
@@ -1070,7 +1070,7 @@ const EditBusinessDetails = (props: any) => {
                         key={timeKey}
                         options={subscriptionPlans}
                         label="Subscription type"
-                        selectedData={singleSelectedData}
+                        selectedData={selectedData}
                         onChange={(option) => {
                           setSingleSelectedData(option);
                           formik.setFieldValue("SubscriptionType", option); // Set the value in Formik

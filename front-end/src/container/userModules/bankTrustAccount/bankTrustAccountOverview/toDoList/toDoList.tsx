@@ -416,7 +416,7 @@ const ToDoList = (props: any) => {
           options={filter_paid_options}
           onChange={handleSelectChange}
           placeholder="Status"
-          selectedData={singleSelectedData}
+          selectedData={selectedData}
           className={styles.textFieldStyles}
         />
       </div>

@@ -229,7 +229,7 @@ const ProjectList = () => {
     setSelectedValue(null); // Reset the selected value if needed
   };
   const isAnyFilterActive =
-    search !== "" || singleSelectedData !== null || selectedValue !== null;
+    search !== "" || selectedData !== null || selectedValue !== null;
   const renderTabSwitch = () => {
     switch (activeTab) {
       case "Current":
@@ -487,7 +487,7 @@ const ProjectList = () => {
         />
         <SearchableSelect
           options={roleOptions}
-          selectedData={singleSelectedData}
+          selectedData={selectedData}
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Select Role"

@@ -39,7 +39,7 @@ const CustomSubHeader: React.FC<CustomSubHeaderProps> = ({
         onChange={handleSelectChange}
         disabled={false}
         placeholder="Status"
-        selectedData={singleSelectedData}
+        selectedData={selectedData}
       />
     </div>
     {printDocumentData?.length > 0 && (

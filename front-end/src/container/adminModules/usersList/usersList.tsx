@@ -90,7 +90,7 @@ const UsersList = () => {
 
   // Check if either the search input or the selected filter has been changed
   const isAnyFilterActive =
-    search !== "" || singleSelectedData !== null || selectedValue !== null;
+    search !== "" || selectedData !== null || selectedValue !== null;
   useEffect(() => {
     const delayedSearch = debounce(() => {
       setDebouncedSearch(search);
@@ -494,7 +494,7 @@ const UsersList = () => {
             options={options}
             onInputChange={onInputChange}
             handleSelectChange={handleSelectChange}
-            selectedData={singleSelectedData}
+            selectedData={selectedData}
             userData={userData}
             handlePrintPDF={handlePrintPDF}
             downloadExcel={downloadExcel}

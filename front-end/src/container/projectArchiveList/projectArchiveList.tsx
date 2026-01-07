@@ -426,7 +426,7 @@ const ProjectArchiveList = () => {
         />
         <SearchableSelect
           options={roleOptions}
-          selectedData={singleSelectedData}
+          selectedData={selectedData}
           onChange={handleSelectChange}
           disabled={false}
           placeholder="Select Role"

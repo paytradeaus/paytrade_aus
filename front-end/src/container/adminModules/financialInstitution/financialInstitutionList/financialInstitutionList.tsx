@@ -246,7 +246,7 @@ const FinancialInstitutionList = () => {
             onInputChange={onInputChange}
             options={options}
             handleSelectChange={handleSelectChange}
-            selectedData={singleSelectedData}
+            selectedData={selectedData}
             resetFilters={resetFilters} // Pass reset function to child
             isAnyFilterActive={isAnyFilterActive} // Pass filter active state to child
           />

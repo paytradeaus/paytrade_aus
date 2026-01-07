@@ -288,7 +288,7 @@ const AddGroups = (props: any) => {
                 <SearchableSelect
                   key={timeKey}
                   options={options}
-                  selectedData={singleSelectedData}
+                  selectedData={selectedData}
                   onChange={(selectedOption) => {
                     setSingleSelectedData(selectedOption);
                     formik.handleChange("Status")(selectedOption.value);
