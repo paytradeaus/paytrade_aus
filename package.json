@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "install:all": "cd front-end && npm install --legacy-peer-deps && cd ../back-end && npm install",
-    "build": "cd front-end && npm install --legacy-peer-deps && npm run build && cd ../back-end && npm install && npm run build",
+    "postinstall": "cd front-end && npm install --legacy-peer-deps && cd ../back-end && npm install --legacy-peer-deps",
+    "install:all": "cd front-end && npm install --legacy-peer-deps && cd ../back-end && npm install --legacy-peer-deps",
+    "build": "cd front-end && npm run build && cd ../back-end && npm run build",
     "start": "cd back-end && node dist/main.js & cd front-end && npm run start",
     "dev": "concurrently \"cd back-end && npm run start:dev\" \"cd front-end && npm run dev\""
   },
