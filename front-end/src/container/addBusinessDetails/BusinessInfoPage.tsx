@@ -174,7 +174,7 @@ const BusinessInfoPage = () => {
       "SubscriptionType",
       businessProfileObj?.SubscriptionType
         ? businessProfileObj?.SubscriptionType
-        : singleSelectedData || null
+        : selectedData || null
     );
   }, []);
 
