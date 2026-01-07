@@ -54,15 +54,16 @@
     "react-simple-wysiwyg": "^3.2.0",
     "react-spinners": "^0.14.1",
     "react-toastify": "^10.0.6",
+    "sass": "^1.97.2",
     "sharp": "^0.34.1",
     "slugify": "^1.6.6",
     "socket.io-client": "^4.8.1",
     "styled-components": "^6.2.0",
     "uninstall": "^0.0.0",
+    "uploader": "^3.48.3",
     "uuid": "^11.0.3",
     "xlsx-js-style": "^1.2.0",
-    "yup": "^1.4.0",
-    "sass": "^1.97.2"
+    "yup": "^1.4.0"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.12",
