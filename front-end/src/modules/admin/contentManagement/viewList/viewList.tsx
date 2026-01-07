@@ -9,7 +9,7 @@ import { useLoaderContext } from "@/context/useLoader";
 import { useParams, useRouter } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
 import { AppRoutes } from "@/shared/constant/appRoutes";
-import CustomEditor from "@/components/Editor/Editor";
+import CustomEditor from "@/components/ysEditor";
 import BreadCrumbs from "@/components/BreadCrumbs";
 
 interface Option {

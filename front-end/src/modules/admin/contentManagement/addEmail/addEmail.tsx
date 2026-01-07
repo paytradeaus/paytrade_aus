@@ -9,7 +9,7 @@ import { useParams, useRouter } from "next/navigation";
 import { omit, isEqual, some } from "lodash";
 import BaseModal from "@/components/BaseModal";
 import { AppRoutes } from "@/shared/constant/appRoutes";
-import CustomEditor from "@/components/Editor/Editor";
+import CustomEditor from "@/components/ysEditor";
 import { fetchEmailTemplate, updateMailTemplate } from "./addEmail.function";
 
 interface Option {

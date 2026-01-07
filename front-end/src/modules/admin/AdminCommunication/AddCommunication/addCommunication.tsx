@@ -12,7 +12,7 @@ import { useFormik } from "formik";
 import debounce from "lodash/debounce";
 import BaseModal from "@/components/BaseModal";
 import AsyncSelect from "react-select/async";
-import CustomEditor from "@/components/Editor/Editor";
+import CustomEditor from "@/components/ysEditor";
 import { useTokenDetails } from "@/hooks";
 import { multipleFileUploadApi } from "@/app/api/commonApi";
 import { AppRoutes } from "@/shared/constant/appRoutes";
