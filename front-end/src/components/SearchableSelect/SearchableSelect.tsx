@@ -19,8 +19,8 @@ interface SearchableSelectProps {
   selectedData?: any;
   multiSelectedData?: any;
   className?: any;
-  renderKey: string;
-  valueKey: string;
+  renderKey?: string;
+  valueKey?: string;
   required?: boolean;
   name?: string;
   miniSelect?: boolean;
@@ -44,8 +44,8 @@ const SearchableSelect: FC<SearchableSelectProps> = ({
   className,
   required,
   name,
-  renderKey,
-  valueKey,
+  renderKey = "label",
+  valueKey = "value",
   miniSelect,
   secondLabel,
   onSecondLabelClick = () => {},
