@@ -15,7 +15,11 @@ import { Roles } from "@/shared/constant/role";
 import _ from "lodash";
 import { useTokenDetails } from "@/hooks";
 
-export default function Sidebar() {
+interface SidebarProps {
+  isMainBar?: boolean;
+}
+
+export default function Sidebar({ isMainBar = true }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { decodeTokenData } = useTokenDetails();
