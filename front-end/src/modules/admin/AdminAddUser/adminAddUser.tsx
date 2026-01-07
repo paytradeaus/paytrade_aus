@@ -25,7 +25,7 @@ import { AppRoutes } from "@/shared/constant/appRoutes";
 import { CheckUserExistence } from "@/network/apolloClient";
 import BreadCrumbs from "@/components/BreadCrumbs";
 import FormikControl from "@/components/FormikControl";
-import PhoneInputField from "@/components/PhoneNumberInput";
+import PhoneInputField from "@/components/phoneNumberInput";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import CustomButton from "@/components/CustomButton/CustomButton";

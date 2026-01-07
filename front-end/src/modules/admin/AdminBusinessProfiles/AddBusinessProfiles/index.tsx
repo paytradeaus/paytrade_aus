@@ -53,7 +53,7 @@ import {
   entityType,
   options,
 } from "@/modules/user/BusinessProfile/BusinessProfile.constant";
-import PhoneInputField from "@/components/PhoneNumberInput";
+import PhoneInputField from "@/components/phoneNumberInput";
 import AsyncSelect from "react-select/async";
 import ImageUploader from "@/components/ImageUploader";
 import ImageCropper from "@/components/ImageCropper";

@@ -11,7 +11,7 @@ import {
 } from "@/shared/constant/general";
 import Image from "next/image";
 import { entityType } from "./BusinessProfile.constant";
-import PhoneInputField from "@/components/PhoneNumberInput";
+import PhoneInputField from "@/components/phoneNumberInput";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import ImageUploader from "@/components/ImageUploader";
 import {
