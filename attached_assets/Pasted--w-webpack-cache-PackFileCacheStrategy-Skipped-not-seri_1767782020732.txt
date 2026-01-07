@@ -1,0 +1,29 @@
+
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/custom.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 2 items } -> webpack/lib/ModuleWarning -> Warning
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/theme.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 1 items } -> webpack/lib/ModuleWarning -> Warning
+
+ ⚠ Compiled with warnings
+
+
+   Linting and checking validity of types ...
+
+ ⨯ ESLint must be installed in order to run during builds: npm install --save-dev eslint
+
+Failed to compile.
+
+
+./src/modules/admin/AdminAddUser/adminAddUser.tsx:28:29
+Type error: Cannot find module '@/components/PhoneNumberInput' or its corresponding type declarations.
+
+  26 | import BreadCrumbs from "@/components/BreadCrumbs";
+  27 | import FormikControl from "@/components/FormikControl";
+> 28 | import PhoneInputField from "@/components/PhoneNumberInput";
+     |                             ^
+  29 | import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
+  30 | import GooglePlacesInput from "@/components/GooglePlaces";
+  31 | import CustomButton from "@/components/CustomButton/CustomButton";
+
