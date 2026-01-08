@@ -89,5 +89,5 @@ outputType = "console"
 
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "cd /home/runner/workspace/back-end && npm run start:prod & sleep 10 && cd /home/runner/workspace/front-end && npm run start"]
+run = ["bash", "/home/runner/workspace/start-production.sh"]
 build = ["bash", "-c", "cd /home/runner/workspace/back-end && rm -rf dist && npm run build && cd /home/runner/workspace/front-end && npm run build"]
