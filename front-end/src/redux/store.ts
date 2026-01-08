@@ -32,6 +32,10 @@ const store = configureStore({
   },
 });
 
+// Function to create store (for Next.js App Router compatibility)
+export const makeStore = () => store;
+export type AppStore = ReturnType<typeof makeStore>;
+
 // Infer the `RootState` and `AppDispatch` types from the store itself
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
