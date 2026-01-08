@@ -43,7 +43,7 @@ import {
   CheckBlogResourceNameExistence,
   getEmbedUrlFromBrowserUrl,
 } from "../../AdminBlog/addBlog/addEditBlog.function";
-import AttachmentUpload from "@/components/AttachmentUpload";
+import AttachmentUpload from "@/components/attachmentUpload";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { addEditStatusOptions } from "../../AdminBlog/BlogList/blogList.constant";
 import { useLoaderContext } from "@/context/useLoader";
