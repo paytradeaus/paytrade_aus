@@ -1,4 +1,3 @@
-"use client";
 import Home from "@/app/page";
 import { Metadata } from "next";
 export const metadata: Metadata = {

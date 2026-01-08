@@ -1,4 +1,3 @@
-"use client";
 import Home from "@/app/page";
 import { getList } from "@/modules/admin/AdminCommunity/community.functions";
 import { categoryListAndCount } from "@/modules/general/Community/community.functions";

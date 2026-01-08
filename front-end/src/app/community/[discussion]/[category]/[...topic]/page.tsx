@@ -1,4 +1,3 @@
-"use client";
 import Home from "@/app/page";
 import { getDiscussionIdeaById } from "@/modules/general/Community/community.functions";
 import { slugifyString } from "@/utils";
