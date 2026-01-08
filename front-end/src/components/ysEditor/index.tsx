@@ -12,10 +12,11 @@ interface YsEditorProps {
   style?: React.CSSProperties;
   onChange?: (data: any) => void;
   value?: string;
+  disabled?: boolean;
 }
 
 const YsEditor = React.forwardRef<any, YsEditorProps>((props, ref) => {
-  const { id = "yseditor", style, onChange, value } = props;
+  const { id = "yseditor", style, onChange, value, disabled } = props;
   const editorRef = useRef<any>(null);
   const scriptLoaded = useRef(false);
   const editorInitialized = useRef(false);
