@@ -29,6 +29,9 @@ const outfit = Outfit({
 
 export const metadata: Metadata = seoMetadata.default;
 
+// Force dynamic rendering for all pages to avoid useContext errors during static generation
+export const dynamic = 'force-dynamic';
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 0.9,
