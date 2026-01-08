@@ -89,5 +89,5 @@ outputType = "console"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "redis-server --daemonize yes && cd /home/runner/workspace/back-end && npm run start:prod & cd /home/runner/workspace/front-end && npm run start"]
+run = ["bash", "-c", "cd /home/runner/workspace/back-end && npm run start:prod & cd /home/runner/workspace/front-end && npm run start"]
 build = ["bash", "-c", "cd front-end && npm run build"]
