@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import SubscriptionsList from "@/container/adminModules/subscriptions/subscritpionList/subscriptionList";
 

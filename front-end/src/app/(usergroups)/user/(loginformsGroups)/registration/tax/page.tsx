@@ -1,3 +1,4 @@
+"use client";
 import TaxDetailsPage from "@/container/taxDetailsPage/taxDetailsPage";
 import React from "react";
 

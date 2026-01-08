@@ -1,3 +1,4 @@
+"use client";
 import Communication from "@/container/communication/communication";
 
 import React from "react";

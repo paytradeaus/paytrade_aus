@@ -1,3 +1,4 @@
+"use client";
 //default imports
 
 import AccountDetails from "@/container/userModules/clientsAndSuppliers/accountDetails";

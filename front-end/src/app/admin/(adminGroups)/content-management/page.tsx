@@ -1,3 +1,4 @@
+"use client";
 import Content from "@/container/content/content";
 
 import React from "react";

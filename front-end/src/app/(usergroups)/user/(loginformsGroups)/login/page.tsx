@@ -1,3 +1,4 @@
+"use client";
 import UserLoginHome from "@/modules/auth/UserLoginHome";
 
 const UserLogin = () => {

@@ -1,3 +1,4 @@
+"use client";
 import TrialBalanceStatement from "@/container/journals/adminTrialBalance/adminTrialBalance";
 import React from "react";
 

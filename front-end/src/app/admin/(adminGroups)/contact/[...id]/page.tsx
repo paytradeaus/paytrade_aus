@@ -1,3 +1,4 @@
+"use client";
 import ContactSubmissionUpdate from "@/container/contactSubmissionUpdate/contactSubmissionUpdate";
 import React from "react";
 

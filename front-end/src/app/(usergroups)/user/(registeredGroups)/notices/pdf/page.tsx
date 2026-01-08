@@ -1,3 +1,4 @@
+"use client";
 // import NoticesViewType from "@/container/userModules/notices/noticesView/noticesView";
 // import InvoicePdf from "@/container/userModules/notices/pdfGeneration/invoicePDF";
 // import TrustAccountNillNotices from "@/container/userModules/notices/pdfGeneration/nilNoticeTa5";

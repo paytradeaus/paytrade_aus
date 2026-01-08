@@ -1,3 +1,4 @@
+"use client";
 import ComplianceOverview from "@/container/userModules/compliance/complianceOverview";
 import React from "react";
 

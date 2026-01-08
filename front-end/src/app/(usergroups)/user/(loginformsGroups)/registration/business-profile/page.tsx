@@ -1,3 +1,4 @@
+"use client";
 import BusinessProfilePage from "@/container/businessProfile/businessProfilePage";
 import React from "react";
 

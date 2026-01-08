@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import CompanyProfileList from "@/container/adminModules/companyProfilesList/companyProfilesList";
 

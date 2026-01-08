@@ -1,3 +1,4 @@
+"use client";
 import TrustRecordFilePage from "@/container/trustRecordFile/trustRecordFilePage";
 import React from "react";
 

@@ -1,3 +1,4 @@
+"use client";
 import RetentionPayment from "@/container/userModules/payment/retentionPayment";
 
 function RetentionPaymentPage() {

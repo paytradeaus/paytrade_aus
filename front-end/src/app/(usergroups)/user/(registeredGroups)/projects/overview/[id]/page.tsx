@@ -1,3 +1,4 @@
+"use client";
 import ProjectOverview from "@/container/userProjectOverview/userProjectOverview";
 import React from "react";
 

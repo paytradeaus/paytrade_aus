@@ -1,3 +1,4 @@
+"use client";
 import Compliances from "@/container/userModules/compliance/compliance";
 import React from "react";
 

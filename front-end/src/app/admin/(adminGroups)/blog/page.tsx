@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import BlogList from "@/container/adminModules/blogResourceFiles/adminBlog/adminBlog";
 

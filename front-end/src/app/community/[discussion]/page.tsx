@@ -1,3 +1,4 @@
+"use client";
 import Home from "@/app/page";
 import { getList } from "@/modules/general/Community/community.functions";
 import { slugifyString } from "@/utils";

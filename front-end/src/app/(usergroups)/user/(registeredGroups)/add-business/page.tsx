@@ -1,3 +1,4 @@
+"use client";
 
 import BusinessInfoPage from "@/container/addBusinessDetails/BusinessInfoPage";
 import React from "react";

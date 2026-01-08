@@ -1,3 +1,4 @@
+"use client";
 
 import EditBusinessDetails from "@/container/editBusinessDetails/editBusinessDetails";
 import dynamic from "next/dynamic";

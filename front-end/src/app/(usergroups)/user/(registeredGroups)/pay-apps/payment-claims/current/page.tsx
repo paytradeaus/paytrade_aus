@@ -1,3 +1,4 @@
+"use client";
 import PayApps from "@/container/userModules/payApps/payApps";
 import React from "react";
 

@@ -1,3 +1,4 @@
+"use client";
 //default imports
 //import from reactstrap components
 //import from customized components

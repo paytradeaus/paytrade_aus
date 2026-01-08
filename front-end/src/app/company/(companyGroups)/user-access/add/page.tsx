@@ -1,3 +1,4 @@
+"use client";
 import CompanyAddUserPage from "@/container/companyAddUser/companyAddUserPage";
 import React from "react";
 

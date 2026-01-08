@@ -1,3 +1,4 @@
+"use client";
 import LegalBusinessPage from "@/container/legalBusinessPage/legalBusinessPage";
 import React from "react";
 

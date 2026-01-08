@@ -1,3 +1,4 @@
+"use client";
 import Projects from "@/container/userProject/userProject";
 
 function UserProjectPage() {

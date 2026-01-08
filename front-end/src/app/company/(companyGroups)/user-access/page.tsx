@@ -1,3 +1,4 @@
+"use client";
 import MultipleUserAccessPage from "@/container/multipleUserAccess/multipleUserAccessPage";
 import React from "react";
 

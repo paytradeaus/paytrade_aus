@@ -1,3 +1,4 @@
+"use client";
 import ProjectArchiveList from "@/container/projectArchiveList/projectArchiveList";
 import React from "react";
 

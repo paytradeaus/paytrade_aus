@@ -1,3 +1,4 @@
+"use client";
 import Compliance from "@/container/compliance/compliance";
 
 import React from "react";

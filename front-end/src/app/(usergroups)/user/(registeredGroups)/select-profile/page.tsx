@@ -1,3 +1,4 @@
+"use client";
 import { ChooseProfilePage } from "@/container/chooseProfile/chooseProfile";
 import React from "react";
 

@@ -1,3 +1,4 @@
+"use client";
 import PersonalInfoPage from "@/container/adminModules/adminPersonalDetails/adminPersonalDetailsHome";
 import React from "react";
 

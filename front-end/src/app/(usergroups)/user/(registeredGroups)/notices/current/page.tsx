@@ -1,3 +1,4 @@
+"use client";
 import NoticesList from "@/container/userModules/notices/noticesList";
 
 function NoticesListPage() {

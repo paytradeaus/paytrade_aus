@@ -1,3 +1,4 @@
+"use client";
 import AddEditContracts from "@/container/contracts/addEditContracts";
 
 function AddEditContractsPage() {

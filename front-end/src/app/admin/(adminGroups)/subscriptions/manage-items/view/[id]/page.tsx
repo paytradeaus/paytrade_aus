@@ -1,3 +1,4 @@
+"use client";
 import AddItems from "@/container/adminModules/subscriptions/manageItems/addItems/addItems";
 import React from "react";
 

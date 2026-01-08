@@ -1,3 +1,4 @@
+"use client";
 // import NoticesViewType from "@/container/userModules/notices/noticesView/noticesView";
 
 import NoticesViewHome from "@/container/userModules/notices/noticesView/noticeViewHomes";

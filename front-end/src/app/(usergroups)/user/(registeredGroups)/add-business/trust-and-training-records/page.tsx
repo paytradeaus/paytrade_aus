@@ -1,3 +1,4 @@
+"use client";
 import TrustAndTraining from "@/container/trustandtraining/trustAndTraining";
 import React from "react";
 

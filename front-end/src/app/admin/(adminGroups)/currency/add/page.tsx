@@ -1,3 +1,4 @@
+"use client";
 import AddCurrencyDetails from "@/container/adminModules/currencyDetails/addCurrencyDetails/addCurrencyDetails";
 import React from "react";
 

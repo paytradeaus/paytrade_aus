@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import AddCategories from "@/container/adminModules/categories/addCategories/addCategories";
 

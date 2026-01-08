@@ -1,3 +1,4 @@
+"use client";
 import PayApps from "@/container/userModules/payApps/payApps";
 
 function PayAppsPage() {

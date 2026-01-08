@@ -1,3 +1,4 @@
+"use client";
 import { Metadata } from "next";
 import Home from "../../page";
 import { slugifyString } from "@/utils";

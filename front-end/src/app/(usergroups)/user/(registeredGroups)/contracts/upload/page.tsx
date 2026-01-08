@@ -1,3 +1,4 @@
+"use client";
 import UploadContract from "@/container/contracts/uploadContract/uploadContract";
 
 import React from "react";

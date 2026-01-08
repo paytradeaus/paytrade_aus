@@ -1,3 +1,4 @@
+"use client";
 //default imports
 import React from "react";
 //import from reactstrap components

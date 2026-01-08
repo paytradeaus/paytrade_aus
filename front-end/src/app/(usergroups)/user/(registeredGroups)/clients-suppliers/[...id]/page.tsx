@@ -1,3 +1,4 @@
+"use client";
 import ClientsAndSuppliersForm from "@/container/userModules/clientsAndSuppliers/clientsAndSuppliersForm";
 import React from "react";
 //import from reactstrap components and icons

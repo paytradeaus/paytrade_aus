@@ -1,3 +1,4 @@
+"use client";
 import UserProfileUploadPage from "@/container/userUpload/userUploadPage";
 import React from "react";
 

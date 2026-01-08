@@ -1,3 +1,4 @@
+"use client";
 import { ExistedProfilePage } from "@/container/existedProfiles/existedProfiles";
 import React from "react";
 

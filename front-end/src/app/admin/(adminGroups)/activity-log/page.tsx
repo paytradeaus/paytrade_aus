@@ -1,3 +1,4 @@
+"use client";
 import ActivityLogsList from "@/container/activityLogsList/activityLogsList";
 import React from "react";
 

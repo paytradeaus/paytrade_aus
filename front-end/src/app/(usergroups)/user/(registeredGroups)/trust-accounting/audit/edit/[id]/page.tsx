@@ -1,3 +1,4 @@
+"use client";
 import AuditForm from "@/container/userModules/trustAccounting/audit/add/auditForm";
 import React from "react";
 

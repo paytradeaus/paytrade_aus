@@ -1,3 +1,4 @@
+"use client";
 import AdminLoginPage from "@/container/adminLogin/adminLoginPage";
 import React from "react";
 

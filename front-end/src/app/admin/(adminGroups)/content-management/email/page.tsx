@@ -1,3 +1,4 @@
+"use client";
 import Emails from "@/container/email/email";
 
 import React from "react";

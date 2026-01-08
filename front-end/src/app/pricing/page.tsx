@@ -1,3 +1,4 @@
+"use client";
 import RenderSubscriptionPricing from "@/modules/general/RenderSubscriptionPricing";
 import seoMetadata from "@/utils/seoMetadata";
 import { Metadata } from "next";

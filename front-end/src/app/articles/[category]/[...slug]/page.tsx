@@ -1,3 +1,4 @@
+"use client";
 import { setMetadata } from "@/modules/general/Blogs/Blogs.functions";
 import { Metadata } from "next";
 import Home from "../../../page";

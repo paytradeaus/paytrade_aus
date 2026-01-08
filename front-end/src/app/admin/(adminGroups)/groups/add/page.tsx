@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import AddGroups from "@/container/adminModules/addGroups/addGroups";
 

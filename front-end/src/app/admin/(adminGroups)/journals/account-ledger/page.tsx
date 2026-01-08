@@ -1,3 +1,4 @@
+"use client";
 import AdminLedger from "@/container/journals/adminLedger/adminLedger";
 import React from "react";
 

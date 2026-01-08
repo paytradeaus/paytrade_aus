@@ -1,3 +1,4 @@
+"use client";
 import UserSignupPage from "@/container/userModules/userSignup/userSignupPage";
 import React from "react";
 

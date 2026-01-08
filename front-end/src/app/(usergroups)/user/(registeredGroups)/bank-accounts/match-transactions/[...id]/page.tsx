@@ -1,3 +1,4 @@
+"use client";
 import MatchTransactions from "@/container/userModules/bankTrustAccount/bankTrustAccountOverview/matchTransactions/matchTransactions";
 
 function MatchTransactionsPage() {

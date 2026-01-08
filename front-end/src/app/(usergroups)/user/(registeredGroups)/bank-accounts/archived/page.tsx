@@ -1,3 +1,4 @@
+"use client";
 import BankTrustAccountList from "@/container/userModules/bankTrustAccount/bankTrustAccountList/bankTrustAccountList";
 
 const BankTrustAccountListPage = () => {

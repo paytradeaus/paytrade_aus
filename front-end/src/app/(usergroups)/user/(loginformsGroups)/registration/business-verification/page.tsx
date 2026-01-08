@@ -1,3 +1,4 @@
+"use client";
 import BusinessVerificationPage from "@/container/businessVerification/BusinessVerification";
 import React from "react";
 

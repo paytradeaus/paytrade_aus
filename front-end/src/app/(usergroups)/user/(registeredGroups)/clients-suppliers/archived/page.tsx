@@ -1,3 +1,4 @@
+"use client";
 //default imports
 
 import ClientsAndSuppliers from "@/container/userModules/clientsAndSuppliers";

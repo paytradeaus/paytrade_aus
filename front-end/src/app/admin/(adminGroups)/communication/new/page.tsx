@@ -1,3 +1,4 @@
+"use client";
 import SendEmailTemplate from "@/container/adminModules/sendEmailTemplate/sendEmailTemplate";
 import React from "react";
 

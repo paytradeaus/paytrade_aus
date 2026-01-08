@@ -1,3 +1,4 @@
+"use client";
 import UserVerificationPage from "@/container/userVerification/userVerificationPage";
 import React from "react";
 

@@ -1,3 +1,4 @@
+"use client";
 import UserInvitationPage from "@/container/userInvitations/userInvitationPage";
 import React from "react";
 

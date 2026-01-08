@@ -1,3 +1,4 @@
+"use client";
 import ViewBusinessProfile from "@/container/viewBusinessProfile/viewBusinessProfile";
 import React from "react";
 

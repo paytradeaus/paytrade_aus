@@ -1,3 +1,4 @@
+"use client";
 import BankAccountsOverview from "@/container/userModules/bankTrustAccount/bankTrustAccountOverview/bankTrustAccountOverview";
 
 function UserBankTrustPage() {

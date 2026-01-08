@@ -1,3 +1,4 @@
+"use client";
 import Payment from "@/container/userModules/payment/payment";
 
 function PaymentPage() {

@@ -1,3 +1,4 @@
+"use client";
 import DelegationList from "@/container/adminModules/delegationList/delegationList";
 
 function DelegationListPage() {

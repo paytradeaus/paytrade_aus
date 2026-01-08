@@ -1,3 +1,4 @@
+"use client";
 import EmailAndPasswordHome from "@/container/adminModules/adminPersonalDetails/emailAndpasswordDetails/emailAndPasswordHome";
 import React from "react";
 
