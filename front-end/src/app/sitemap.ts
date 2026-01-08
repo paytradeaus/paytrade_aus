@@ -4,47 +4,73 @@ import { slugifyString } from "@/utils";
 import { type MetadataRoute } from "next";
 
 async function getBlog() {
-  const data = await listAllPublishedBlogResources({
-    listBlogResourceInput: {
-      contentType: "Blog",
-    },
-  });
-  return data?.blogResources || [];
+  try {
+    const data = await listAllPublishedBlogResources({
+      listBlogResourceInput: {
+        contentType: "Blog",
+      },
+    });
+    return data?.blogResources || [];
+  } catch (error) {
+    console.warn('Failed to fetch blogs for sitemap:', error);
+    return [];
+  }
 }
 
 async function getResource() {
-  const data = await listAllPublishedBlogResources({
-    listBlogResourceInput: {
-      contentType: "Resource",
-    },
-  });
-  return data?.blogResources || [];
+  try {
+    const data = await listAllPublishedBlogResources({
+      listBlogResourceInput: {
+        contentType: "Resource",
+      },
+    });
+    return data?.blogResources || [];
+  } catch (error) {
+    console.warn('Failed to fetch resources for sitemap:', error);
+    return [];
+  }
 }
 
 async function getHowToGuides() {
-  const data = await listAllPublishedBlogResources({
-    listBlogResourceInput: {
-      contentType: "howToGuide",
-    },
-  });
-  return data?.blogResources || [];
+  try {
+    const data = await listAllPublishedBlogResources({
+      listBlogResourceInput: {
+        contentType: "howToGuide",
+      },
+    });
+    return data?.blogResources || [];
+  } catch (error) {
+    console.warn('Failed to fetch how-to guides for sitemap:', error);
+    return [];
+  }
 }
 
 async function getDiscussion() {
-  const data = await getList({
-    listDiscussionIdeasInput: {
-      cmtyContentType: "Discussion",
-    },
-  });
-  return data?.discussionIdeas || [];
+  try {
+    const data = await getList({
+      listDiscussionIdeasInput: {
+        cmtyContentType: "Discussion",
+      },
+    });
+    return data?.discussionIdeas || [];
+  } catch (error) {
+    console.warn('Failed to fetch discussions for sitemap:', error);
+    return [];
+  }
 }
+
 async function getProductIdea() {
-  const data = await getList({
-    listDiscussionIdeasInput: {
-      cmtyContentType: "Idea",
-    },
-  });
-  return data?.discussionIdeas || [];
+  try {
+    const data = await getList({
+      listDiscussionIdeasInput: {
+        cmtyContentType: "Idea",
+      },
+    });
+    return data?.discussionIdeas || [];
+  } catch (error) {
+    console.warn('Failed to fetch product ideas for sitemap:', error);
+    return [];
+  }
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
