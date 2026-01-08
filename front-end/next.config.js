@@ -6,7 +6,6 @@ module.exports = {
   swcMinify: true,
   compress: true,
   optimizeFonts: true,
-  output: 'standalone',
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
@@ -16,14 +15,6 @@ module.exports = {
   webpack: (config) => {
     config.resolve.alias['@'] = path.join(__dirname, 'src');
     return config;
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/graphql',
-        destination: 'http://127.0.0.1:3001/graphql',
-      },
-    ];
   },
   images: {
     remotePatterns: [
