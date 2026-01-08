@@ -179,6 +179,7 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
       sortSchema: true,
       playground: false,
       introspection: true,
+      csrfPrevention: false,
       plugins:
         process.env.NODE_ENV === 'production'
           ? []
