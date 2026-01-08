@@ -90,4 +90,4 @@ outputType = "console"
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "cd /home/runner/workspace/back-end && npm run start:prod & cd /home/runner/workspace/front-end && npm run start"]
-build = ["bash", "-c", "cd back-end && npm run build && cd ../front-end && npm run build"]
+build = ["bash", "-c", "cd /home/runner/workspace/back-end && npm run build && cd /home/runner/workspace/front-end && npm run build"]
