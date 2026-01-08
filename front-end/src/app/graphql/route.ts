@@ -41,3 +41,13 @@ async function proxyRequest(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return proxyRequest(request);
 }
+
+export async function GET() {
+  return NextResponse.json(
+    { 
+      message: 'GraphQL endpoint is active. Use POST method with a GraphQL query.',
+      example: { query: '{ __typename }' }
+    },
+    { status: 200 }
+  );
+}
