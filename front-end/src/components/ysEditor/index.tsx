@@ -13,6 +13,8 @@ interface YsEditorProps {
   onChange?: (data: any) => void;
   value?: string;
   disabled?: boolean;
+  label?: string;
+  [key: string]: any;
 }
 
 const YsEditor = React.forwardRef<any, YsEditorProps>((props, ref) => {
