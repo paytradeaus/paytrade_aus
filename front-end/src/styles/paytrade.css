@@ -292,7 +292,7 @@ body #fader {
   transform: translate(-50%, -50%);
   padding: 0;
   text-align: center;
-  background-image: url("../../public/images/favicon.png");
+  background-image: url("/images/favicon.png");
   background-position: center;
   background-size: contain;
   background-repeat: no-repeat;
@@ -1820,22 +1820,22 @@ table a {
 }
 
 .backdrop1 {
-  background-image: url("../../public/images/pt1.jpg");
+  background-image: url("/images/pt1.jpg");
 }
 .backdrop2 {
-  background-image: url("../../public/images/pt2.jpg");
+  background-image: url("/images/pt2.jpg");
 }
 .backdrop3 {
-  background-image: url("../../public/images/pt3.jpg");
+  background-image: url("/images/pt3.jpg");
 }
 .backdrop4 {
-  background-image: url("../../public/images/pt4.jpg");
+  background-image: url("/images/pt4.jpg");
 }
 .backdrop5 {
-  background-image: url("../../public/images/pt5.jpg");
+  background-image: url("/images/pt5.jpg");
 }
 .backdrop6 {
-  background-image: url("../../public/images/pt6.jpg");
+  background-image: url("/images/pt6.jpg");
 }
 
 .pt_smallbgimage {
@@ -2621,7 +2621,7 @@ a.pt_selectbox:hover p {
 
 .pt_herobox {
   background: var(--oceangradient);
-  background-image: url("../../public/images/pt5.jpg");
+  background-image: url("/images/pt5.jpg");
   background-position: center center;
   background-size: cover;
   border-radius: var(--radius-outer-max);
