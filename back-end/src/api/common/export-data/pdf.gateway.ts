@@ -6,13 +6,13 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway(parseInt(process.env.WEBSOCKET_PORT, 10) || 4300, {
+@WebSocketGateway({
   cors: {
     origin: '*',
     credentials: true,
   },
   transports: ['websocket', 'polling'],
-  namespace: '/socket.io/',
+  path: '/socket.io/',
 })
 export class ExportDataGateway
   implements OnGatewayConnection, OnGatewayDisconnect

@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const path = require("path");
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:3001";
+
 module.exports = {
   reactStrictMode: false,
   swcMinify: true,
@@ -15,6 +17,14 @@ module.exports = {
   webpack: (config) => {
     config.resolve.alias['@'] = path.join(__dirname, 'src');
     return config;
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/socket.io/:path*',
+        destination: `${BACKEND_URL}/socket.io/:path*`,
+      },
+    ];
   },
   images: {
     remotePatterns: [
