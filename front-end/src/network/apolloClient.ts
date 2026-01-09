@@ -5,11 +5,12 @@ import { gql } from "@apollo/client";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import { ERROR, SUCCESS } from "@/app/message";
 import { getCookie } from "cookies-next";
+import { getGraphQLUri } from "@/utils/graphqlUri";
 
 const SOMETHING_WENT_WRONG = "Something went wrong !";
 
 const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URI,
+  uri: getGraphQLUri(),
 });
 
 const authLink = setContext((_, { headers }) => {

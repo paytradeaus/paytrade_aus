@@ -8,6 +8,7 @@ import {
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { getCookie } from "cookies-next";
+import { getGraphQLUri } from "@/utils/graphqlUri";
 
 // types.ts
 export interface AdminLogInUserData {
@@ -44,7 +45,7 @@ export interface IAddAdminData {
 }
 
 const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URI,
+  uri: getGraphQLUri(),
 });
 
 const authLink = setContext((_, { headers }) => {

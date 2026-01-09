@@ -2,6 +2,7 @@
 import { SOMETHING_WENT_WRONG } from "@/common/constants/messages";
 import { ApolloClient, InMemoryCache, gql } from "@apollo/client";
 import { toast } from "react-toastify";
+import { getGraphQLUri } from "@/utils/graphqlUri";
 
 // types.ts
 export interface CheckUserResponse {
@@ -22,7 +23,7 @@ export interface CheckUserDetailsResponse {
 }
 
 const client = new ApolloClient({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URI,
+  uri: getGraphQLUri(),
   cache: new InMemoryCache(),
 });
 
