@@ -88,6 +88,6 @@ waitForPort = 3001
 outputType = "console"
 
 [deployment]
-deploymentTarget = "vm"
-run = ["bash", "/home/runner/workspace/start-production.sh"]
-build = ["bash", "-c", "cd /home/runner/workspace/back-end && rm -rf dist && npm run build && cd /home/runner/workspace/front-end && npm run build && rm -rf .next/cache"]
+deploymentTarget = "autoscale"
+run = ["bash", "start-production.sh"]
+build = ["bash", "-c", "cd front-end && npm run build && cd ../back-end && npm run build"]
