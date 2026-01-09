@@ -2,5 +2,7 @@ export const getGraphQLUri = (): string => {
   if (typeof window !== 'undefined') {
     return '/graphql';
   }
-  return process.env.NEXT_PUBLIC_GRAPHQL_URI || 'http://127.0.0.1:3001/graphql';
+  return process.env.BACKEND_URL 
+    ? `${process.env.BACKEND_URL}/graphql`
+    : 'http://127.0.0.1:3001/graphql';
 };
