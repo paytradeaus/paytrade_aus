@@ -1,9 +1,8 @@
 #!/bin/bash
 
-echo "Starting Redis..."
-redis-server --daemonize yes
+export NODE_ENV=production
 
-echo "Starting backend..."
+echo "Starting backend with Upstash Redis..."
 cd /home/runner/workspace/back-end && npm run start:prod &
 
 echo "Waiting for backend to be ready on port 3001..."
@@ -16,5 +15,5 @@ for i in {1..30}; do
   sleep 2
 done
 
-echo "Starting frontend..."
+echo "Starting frontend on port 5000..."
 cd /home/runner/workspace/front-end && exec npm run start
