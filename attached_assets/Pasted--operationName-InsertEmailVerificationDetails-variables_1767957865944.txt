@@ -1,0 +1,14 @@
+{
+    "operationName": "InsertEmailVerificationDetails",
+    "variables": {
+        "createEmailVerificationInput": {
+            "first_name": "Ayeshu",
+            "last_name": "Raja",
+            "mail_type": "Verify_User",
+            "type": "Send",
+            "verification_code": "",
+            "recaptcha_token": "0cAFcWeA57l2JH7iYEfZ5urGTDq04wCQVqCugLqPBVKAbAQBiHTTK29iPWvcpU6MnJLdWAuzDRDyPBOZmGs9CanClOVcxhaQlodzPfnqIDCRr7f3TV_zhn9r47_4-c6QlOFVNZd7hUgemKbiRTVHC7bvor6Xm-TB_yvqWFyuqlxOsmrO8EPJctCHFO4r_kGjnhCHR4mg-bPuacYluOxfx4p8jRpP-wjEdHt1_WllX8WAibkZABz_S69aKjNZWCe_VDp6ZMN133l27sMMppsYNmuzhUkX79PDLOS1_Tu8mpebHTuD-c35XhwskbMPULk0lKvMdSlLJTywgUvqyW-vQZP-GsS2Pl_LS2fXlwzIm2FAVM_TM3RVP-_JzwexdrDtMQC9TD12PXbts1c4YrGTTn6LKi-YP8VPDa3hn1H6WSzQmtjjTDn0Y9CYqqtlSZJaJIPJWun7bRaGidfnaha6Pow84RPmw7b7zeNz2hR8FnlX0KFXfZ8VFDaC8ioIW6tlmhbvrfWSUtq7akTwksHhXISsdEO9NnqGCwJFt700lZM4WZ4VJAXLIXt5C6oTULciaJKcvhbgzM8WfDvtfFUxPqQLGqENinqgNCl6M5fRWv8SKylr3DuXZTUlAjb9KajdCXZKa-v2SG_eYhliysb_YIQ9BBwUw874xAyGEMbDZ500FX3rqwKpBbbNID2LPyUMlAnB09S353VuyO2ai_f3MnifhMG4rKU0gDOC2AP-8Vqxk9Q7zmlpdCS9T3Az0B1hbSrHhFy7fzb-_DpG2paLCEF2T02YUFQbUxefeg9JS7T7WzFlM52d9I-rCf3MtvwMZ0E_Ke39uilUMBYdVzM5S4eTpNoR6D06KC_LnPcbikdyFGIk5Kyq_sJpOfSLYq2aJ-8McAeqk2UQeH62aqcroXahw1hCL5hRSQJhs6Ap1o85iXuNWi2X7XqMAKmJlRnnrWo5IGgHfKpdqOWjuD-fpMQzO6rp9HWvmsL2VJJ_DFdS0U7Jb4___S0ihPqSehAQDWFSW23jZh6mgMySeB9lQ1VMnIhF83gUIL5wN6ILA7DKlGWYFYd3LcuR71bhalahvEJ-OqLcnE-n_wBKVwI-zhLi6Wce9oY6dpq96uXv8Q3I5M-lxDI0fgA2nwzIGwujiRsiRnZwUROO3OR0Ng50yc6uDTqiNWarawRjeXdJwpztCCYf2cUmzUT41iwOPuWqMbEZwIlkT6e0BYYVAUYXZAZT5SOZS4lFS-h8Gjf4-KozzKeeTBOri7jvY04KNkzQHcvG7pAu1HYTWx1xAt_ejNbYyv4kmERl_GSB4RJwWvrUyhsIoVsNx-Py07QD-hKg9-oUssaSk4kQ97cyf5DRmRpnrbm_wwjmHw-ZXm9eImEEJYWYmyCMw4ch4s9D2Znx0N-y2x1atpLUDA2RXYwguPtv-FifLwdyy7qAGZzwSzH7IWYJ_QJjdBKXKTQG-8tILva-0BmpMI2z-AB01sZCKAuOZaVR_kU18rjaPoHCjZrFVKENHYPPfPAbscoxog_vX4xhcvFMktU-CkSCm8oq3h5ImxZC9RYCFPRgimnJ2xAijXX-3tHsJVwbwQB1kh_xnWjZq40m5HT6WjSXpVsrvzs6HvCMrqr-HE2hZ6d1nkbuyTH0dCyB9XI8r3C_8pqgAyfmafCtF0f93X"
+        }
+    },
+    "query": "mutation InsertEmailVerificationDetails($createEmailVerificationInput: CreateEmailVerificationInput!) {\n  insertEmailVerificationDetails(\n    createEmailVerificationInput: $createEmailVerificationInput\n  ) {\n    message\n    status\n    __typename\n  }\n}"
+}

@@ -87,9 +87,9 @@ const UserProfileUploadPage: React.FC = () => {
   async function handleSkipClick() {
     try {
       const details = {
-        // created_by: userDetails?.userDetails.Email,
+        // created_by: userDetails?.userDetails.email,
         // created_on: getCurrentUtcTime(),
-        email_id: userDetails?.userDetails.Email,
+        email_id: userDetails?.userDetails.email,
         first_name: userDetails?.userDetails.FirstName,
         last_name: userDetails?.userDetails.LastName,
         mail_type: "Verify_User",
@@ -124,9 +124,9 @@ const UserProfileUploadPage: React.FC = () => {
       }
 
       const details = {
-        // created_by: userDetails?.userDetails.Email,
+        // created_by: userDetails?.userDetails.email,
         // created_on: getCurrentUtcTime(),
-        email_id: userDetails?.userDetails.Email,
+        email_id: userDetails?.userDetails.email,
         first_name: userDetails?.userDetails.FirstName,
         last_name: userDetails?.userDetails.LastName,
         mail_type: "Verify_User",
