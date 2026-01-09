@@ -211,6 +211,10 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
       rootPath: join('assets'),
       serveRoot: '/assets',
     }),
+    ServeStaticModule.forRoot({
+      rootPath: join('uploads'),
+      serveRoot: '/uploads',
+    }),
     BullModule.forRoot({
       connection: process.env.REDIS_URL
         ? {
