@@ -135,17 +135,19 @@ export default function AuthLayout({ children }: any) {
                   ></button>
                   <h4>Privacy Policy</h4>
                 </header>
-                <p>
-                  Effective Date: [Insert Date]
-                  <br />
-                  PT is committed to protecting the privacy and security of your
-                  personal information. This Privacy Policy describes how PT
-                  collects, uses, and discloses information we receive from
-                  users of our website, products, and services.
-                  <br />
-                  Information We Collect We may collect the following types of
-                  information:
-                  <br />
+                <div>
+                  <p>
+                    Effective Date: [Insert Date]
+                    <br />
+                    PT is committed to protecting the privacy and security of your
+                    personal information. This Privacy Policy describes how PT
+                    collects, uses, and discloses information we receive from
+                    users of our website, products, and services.
+                  </p>
+                  <p>
+                    <b>Information We Collect</b> - We may collect the following types of
+                    information:
+                  </p>
                   <ul>
                     <li>
                       Personal Information: When you interact with our website,
@@ -166,10 +168,12 @@ export default function AuthLayout({ children }: any) {
                       settings.
                     </li>
                   </ul>
-                  <b>How We Use Your Information</b>
-                  <br />
-                  We may use the information we collect htmlFor the following
-                  purposes:
+                  <p>
+                    <b>How We Use Your Information</b>
+                    <br />
+                    We may use the information we collect for the following
+                    purposes:
+                  </p>
                   <ul>
                     <li>
                       To provide and improve our website, products, and
@@ -191,18 +195,19 @@ export default function AuthLayout({ children }: any) {
                       illegal activities.
                     </li>
                   </ul>
-                  <b>How We Share Your Information</b>
-                  <br />
-                  We may share your information with third parties htmlFor the
-                  following purposes:
-                  <br />
+                  <p>
+                    <b>How We Share Your Information</b>
+                    <br />
+                    We may share your information with third parties for the
+                    following purposes:
+                  </p>
                   <ul>
                     <li>
                       With service providers who help us operate our website,
                       products, and services.
                     </li>
                     <li>
-                      With third parties htmlFor marketing, advertising, or
+                      With third parties for marketing, advertising, or
                       analytics purposes.
                     </li>
                     <li>
@@ -214,32 +219,37 @@ export default function AuthLayout({ children }: any) {
                       assets.
                     </li>
                   </ul>
-                  Your Choices
-                  <br />
-                  You may choose not to provide certain information, but this
-                  may limit your ability to use certain features of our website,
-                  products, or services. You can opt out of receiving marketing
-                  communications from us by following the instructions provided
-                  in those communications.
-                  <br />
-                  Data Security
-                  <br />
-                  We take reasonable measures to protect your personal
-                  information from unauthorized access, use, or disclosure.
-                  However, no method of transmission over the internet or
-                  electronic storage is 100% secure.
-                  <br />
-                  Changes to This Privacy Policy
-                  <br />
-                  We may update this Privacy Policy from time to time. We will
-                  notify you of any changes by posting the new Privacy Policy on
-                  this page.
-                  <br />
-                  Contact Us
-                  <br />
-                  If you have any questions about this Privacy Policy, please
-                  contact us at [Insert Contact Information].
-                </p>
+                  <p>
+                    <b>Your Choices</b>
+                    <br />
+                    You may choose not to provide certain information, but this
+                    may limit your ability to use certain features of our website,
+                    products, or services. You can opt out of receiving marketing
+                    communications from us by following the instructions provided
+                    in those communications.
+                  </p>
+                  <p>
+                    <b>Data Security</b>
+                    <br />
+                    We take reasonable measures to protect your personal
+                    information from unauthorized access, use, or disclosure.
+                    However, no method of transmission over the internet or
+                    electronic storage is 100% secure.
+                  </p>
+                  <p>
+                    <b>Changes to This Privacy Policy</b>
+                    <br />
+                    We may update this Privacy Policy from time to time. We will
+                    notify you of any changes by posting the new Privacy Policy on
+                    this page.
+                  </p>
+                  <p>
+                    <b>Contact Us</b>
+                    <br />
+                    If you have any questions about this Privacy Policy, please
+                    contact us at [Insert Contact Information].
+                  </p>
+                </div>
                 <footer>
                   <button
                     role="button"
@@ -264,27 +274,30 @@ export default function AuthLayout({ children }: any) {
                   ></button>
                   <h4>Cookie Policy</h4>
                 </header>
-                <p>
-                  Effective Date: [Insert Date]
-                  <br />
-                  This Cookie Policy explains how PT (&quotwe&quot,
-                  &quotus&quot, or &quotour&quot) uses cookies and similar
-                  technologies to recognize you when you visit our website
-                  <br />
-                  What Are Cookies
-                  <br />
-                  Cookies are small text files that are stored on your computer
-                  or mobile device when you visit a website. They allow the
-                  website to recognize your device and store information about
-                  your preferences or past actions.
-                  <br />
-                  How We Use Cookies
-                  <br />
-                  We use cookies htmlFor the following purposes:
-                  <br />
+                <div>
+                  <p>
+                    Effective Date: [Insert Date]
+                    <br />
+                    This Cookie Policy explains how PT (&quot;we&quot;,
+                    &quot;us&quot;, or &quot;our&quot;) uses cookies and similar
+                    technologies to recognize you when you visit our website.
+                  </p>
+                  <p>
+                    <b>What Are Cookies</b>
+                    <br />
+                    Cookies are small text files that are stored on your computer
+                    or mobile device when you visit a website. They allow the
+                    website to recognize your device and store information about
+                    your preferences or past actions.
+                  </p>
+                  <p>
+                    <b>How We Use Cookies</b>
+                    <br />
+                    We use cookies for the following purposes:
+                  </p>
                   <ul>
                     <li>
-                      Essential Cookies: These cookies are necessary htmlFor the
+                      Essential Cookies: These cookies are necessary for the
                       operation of our website. They enable basic functions like
                       page navigation and access to secure areas of the website.
                     </li>
@@ -302,32 +315,37 @@ export default function AuthLayout({ children }: any) {
                       advertising campaigns.
                     </li>
                   </ul>
-                  Your Choice
-                  <br />
-                  You can choose to accept or decline cookies. Most web browsers
-                  automatically accept cookies, but you can usually modify your
-                  browser settings to decline cookies if you prefer. However,
-                  this may prevent you from taking full advantage of the
-                  website.
-                  <br />
-                  Third-Party Cookies
-                  <br />
-                  We may also use third-party services that use cookies to help
-                  us analyze how our website is used and to provide advertising.
-                  These third parties may also place cookies on your device when
-                  you visit our website.
-                  <br />
-                  Changes to This Cookie Policy
-                  <br />
-                  We may update this Cookie Policy from time to time. We will
-                  notify you of any changes by posting the new Cookie Policy on
-                  this page.
-                  <br />
-                  Contact Us
-                  <br />
-                  If you have any questions about this Cookie Policy, please
-                  contact us at [Insert Contact Information].
-                </p>
+                  <p>
+                    <b>Your Choice</b>
+                    <br />
+                    You can choose to accept or decline cookies. Most web browsers
+                    automatically accept cookies, but you can usually modify your
+                    browser settings to decline cookies if you prefer. However,
+                    this may prevent you from taking full advantage of the
+                    website.
+                  </p>
+                  <p>
+                    <b>Third-Party Cookies</b>
+                    <br />
+                    We may also use third-party services that use cookies to help
+                    us analyze how our website is used and to provide advertising.
+                    These third parties may also place cookies on your device when
+                    you visit our website.
+                  </p>
+                  <p>
+                    <b>Changes to This Cookie Policy</b>
+                    <br />
+                    We may update this Cookie Policy from time to time. We will
+                    notify you of any changes by posting the new Cookie Policy on
+                    this page.
+                  </p>
+                  <p>
+                    <b>Contact Us</b>
+                    <br />
+                    If you have any questions about this Cookie Policy, please
+                    contact us at [Insert Contact Information].
+                  </p>
+                </div>
                 <footer>
                   <button
                     role="button"
