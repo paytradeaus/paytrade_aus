@@ -56,7 +56,6 @@
     "react-spinners": "^0.14.1",
     "react-toastify": "^10.0.6",
     "react-uploader": "^3.43.0",
-    "sass": "^1.97.2",
     "sharp": "^0.34.1",
     "slugify": "^1.6.6",
     "socket.io-client": "^4.8.1",
@@ -74,6 +73,8 @@
     "@types/react-dom": "^18",
     "@types/react-signature-canvas": "^1.0.6",
     "eslint": "^9.39.2",
+    "postcss-scss": "^4.0.9",
+    "sass": "^1.97.2",
     "typescript": "^5"
   }
 }
