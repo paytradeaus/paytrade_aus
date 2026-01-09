@@ -15,6 +15,5 @@ for i in {1..30}; do
   sleep 2
 done
 
-FRONTEND_PORT=${PORT:-5000}
-echo "Starting frontend on port $FRONTEND_PORT..."
-cd /home/runner/workspace/front-end && exec npm run start -- -p $FRONTEND_PORT
+echo "Starting frontend on port 5000..."
+cd /home/runner/workspace/front-end && exec npm run start
