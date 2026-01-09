@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Starting Redis..."
+redis-server --daemonize yes
+
 echo "Starting backend..."
 cd /home/runner/workspace/back-end && npm run start:prod &
 
