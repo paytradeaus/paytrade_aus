@@ -99,6 +99,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { SupportWebhooksModule } from './api/common/support-webhooks/support-webhooks.module';
 import { SupportModule } from './api/support/support.module';
 import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue.module';
+import { ObjectStorageModule } from './libs/@object-storage';
 
 @Module({
   imports: [
@@ -274,6 +275,7 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
     SupportWebhooksModule,
     SupportModule,
     EmailQueueModule,
+    ObjectStorageModule,
   ],
   providers: [
     AppService,
