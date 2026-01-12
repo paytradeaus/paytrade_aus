@@ -5,8 +5,8 @@ import { CommunicationEmails } from 'src/entities/communication-emails.entity';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
 import { MasterTypes, categoryStatus } from 'src/entities/master-types.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
-import { readFileSync } from 'fs';
 import { FetchAllSystemEmailsInput } from './dto/fetch-all-system-emails.input';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { SendSystemEmailInput } from './dto/create-communication-management.input';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 // import { EmailQueueProducer } from 'src/libs/@email-services/email-queuers/producer';
@@ -54,6 +54,7 @@ export class CommunicationManagementService {
     private activityLogService: ActivityLogService,
     // private emailQueuerProducer: EmailQueueProducer,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('ADMIN_SERVICE');
   }
@@ -198,11 +199,15 @@ export class CommunicationManagementService {
             ],
           });
           if (attachmentDetails && attachmentDetails.file_path) {
-            const image = await readFileSync(attachmentDetails.file_path, {
-              encoding: 'base64',
-            });
-            const attachmentImage = `data: ${attachmentDetails.file_type};base64,${image}`;
-            attachments.push({ ...attachmentDetails, attachmentImage });
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(attachmentDetails.file_path);
+              if (fileBuffer) {
+                const attachmentImage = `data: ${attachmentDetails.file_type};base64,${fileBuffer.toString('base64')}`;
+                attachments.push({ ...attachmentDetails, attachmentImage });
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
           }
         }
       }

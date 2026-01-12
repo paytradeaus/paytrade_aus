@@ -20,8 +20,8 @@ import { AddBlogCommentInput } from './dto/add-blog-comment.dto';
 import { ManageBlogCommentInput } from './dto/manage-blog-comment.dto';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
-import { readFileSync } from 'fs';
 import { ListBlogCommentsInput } from './dto/list-blog-comments.dto';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { SortingOrder } from '../pt-admin/dto/add-admin.dto';
 import { extract } from '@extractus/oembed-extractor'
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
@@ -46,6 +46,7 @@ export class PtContentsService {
     @InjectRepository(UserDetails) private userDetails: Repository<UserDetails>,
     @InjectRepository(FileAttachments)
     private fileAttachments: Repository<FileAttachments>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('CONTENTS_SERVICE');
   }
@@ -454,11 +455,13 @@ export class PtContentsService {
           commentOwner.first_name + ' ' + commentOwner.last_name;
         if (commentOwnerImage.file_path) {
           try {
-            const image = readFileSync(commentOwnerImage.file_path, {
-              encoding: 'base64',
-            });
-            const userImg = `data:${commentOwnerImage.file_type};base64,${image}`;
-            comment.comment_owner_image_base64 = userImg;
+            const fileBuffer = await this.objectStorageService.downloadFile(commentOwnerImage.file_path);
+            if (fileBuffer) {
+              const userImg = `data:${commentOwnerImage.file_type};base64,${fileBuffer.toString('base64')}`;
+              comment.comment_owner_image_base64 = userImg;
+            } else {
+              comment.comment_owner_image_base64 = null;
+            }
           } catch {
             comment.comment_owner_image_base64 = null;
           }

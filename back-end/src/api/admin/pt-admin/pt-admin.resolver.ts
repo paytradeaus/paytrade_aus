@@ -32,7 +32,7 @@ import { handleError } from 'src/api/common/error-handler';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
@@ -60,6 +60,7 @@ export class PtAdminResolver {
     // private emailQueueProducer: EmailQueueProducer,
     private authService: AuthService,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('ADMIN_RESOLVER');
   }
@@ -824,10 +825,14 @@ export class PtAdminResolver {
       const admin = await this.ptAdminService.getAdminById(id);
       let file;
       if (admin.fileAttachments && admin.fileAttachments.file_path) {
-        const image = readFileSync(admin.fileAttachments.file_path, {
-          encoding: 'base64',
-        });
-        file = `data:${admin.fileAttachments.file_type};base64,${image}`;
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(admin.fileAttachments.file_path);
+          if (fileBuffer) {
+            file = `data:${admin.fileAttachments.file_type};base64,${fileBuffer.toString('base64')}`;
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
         admin.fileAttachments.file_path =
           process.env.UPLOAD_BASE_URL +
           admin.fileAttachments.file_path.replace(/\\/g, '/');

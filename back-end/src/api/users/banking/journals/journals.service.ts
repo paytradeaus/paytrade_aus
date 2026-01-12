@@ -42,7 +42,7 @@ import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { NoticeDetails } from 'src/entities/notices-details.entity';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
 import { GetFileRes } from '../../file-upload/response/get-file.response';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -71,6 +71,7 @@ export class JournalsService {
     private noticesRepo: Repository<NoticeDetails>,
     @InjectRepository(FileAttachments)
     private readonly fileAttachments: Repository<FileAttachments>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('JOURNALS_SERVICE');
   }
@@ -2358,8 +2359,10 @@ export class JournalsService {
       for (const file of files) {
         let base64Data: string = null;
         try {
-          const fileBuffer = readFileSync(file.file_path);
-          base64Data = `data:${file.file_type};base64,${fileBuffer.toString('base64')}`;
+          const fileBuffer = await this.objectStorageService.downloadFile(file.file_path);
+          if (fileBuffer) {
+            base64Data = `data:${file.file_type};base64,${fileBuffer.toString('base64')}`;
+          }
         } catch (err) {
           this.logger.warn(
             `File read failed at ${file.file_path}: ${err.message}`,

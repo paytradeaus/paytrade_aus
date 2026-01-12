@@ -42,7 +42,7 @@ import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-a
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { generatePaymentClaimLink } from './payment-claims.activity';
 import { HolidayDetails } from 'src/entities/holiday-details.entity';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import {
   FetchAllPaymentClaims,
   FetchSubContractorClaim,
@@ -109,6 +109,7 @@ export class PaymentClaimsService {
     readonly complianceService: CompliancesService,
     private readonly noticeService: NoticesService,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('PAYMENT_CLAIMS_SERVICE');
   }
@@ -496,8 +497,14 @@ export class PaymentClaimsService {
 
       const fileType = 'application/pdf';
       let base64Data: string = null;
-      const fileBuffer = readFileSync(st5Template.notice_template.file_path);
-      base64Data = `data:${fileType};base64,${fileBuffer.toString('base64')}`;
+      try {
+        const fileBuffer = await this.objectStorageService.downloadFile(st5Template.notice_template.file_path);
+        if (fileBuffer) {
+          base64Data = `data:${fileType};base64,${fileBuffer.toString('base64')}`;
+        }
+      } catch (fileError) {
+        this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+      }
 
       // const file_base_64 = await readFileSync(st5Template.notice_template.file_path, {
       //   encoding: 'base64',

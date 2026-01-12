@@ -140,14 +140,43 @@ export class ObjectStorageService {
     }
   }
 
-  async downloadFile(objectPath: string): Promise<Buffer | null> {
+  private normalizeObjectPath(filePath: string): string {
+    if (!filePath) return filePath;
+    let normalized = filePath.replace(/\\/g, '/');
+    
+    const uploadBaseUrl = process.env.UPLOAD_BASE_URL || '';
+    if (uploadBaseUrl && normalized.startsWith(uploadBaseUrl)) {
+      normalized = normalized.substring(uploadBaseUrl.length);
+    }
+    
     try {
-      this.logger.log(`Downloading file from object storage: ${objectPath}`);
+      const url = new URL(normalized);
+      normalized = url.pathname;
+    } catch (e) {
+    }
+    
+    if (normalized.startsWith('/')) {
+      normalized = normalized.substring(1);
+    }
+    if (normalized.startsWith('uploads/')) {
+      normalized = normalized.substring('uploads/'.length);
+    }
+    
+    return normalized;
+  }
+
+  async downloadFile(objectPath: string): Promise<Buffer | null> {
+    if (!objectPath) return null;
+    
+    const normalizedPath = this.normalizeObjectPath(objectPath);
+    
+    try {
+      this.logger.log(`Downloading file from object storage: ${normalizedPath}`);
       
-      const result = await this.client.downloadAsBytes(objectPath);
+      const result = await this.client.downloadAsBytes(normalizedPath);
       
       if (result.ok) {
-        this.logger.log(`File downloaded successfully: ${objectPath}`);
+        this.logger.log(`File downloaded successfully: ${normalizedPath}`);
         const value = result.value;
         if (Array.isArray(value) && value.length > 0 && Buffer.isBuffer(value[0])) {
           return value[0];

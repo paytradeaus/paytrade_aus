@@ -24,7 +24,7 @@ import {
   updateNoticesInput,
   updateNoticesMailInput,
 } from './notices.input';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import {
   BankAccounts,
   PaymentClaimInvoices,
@@ -127,8 +127,28 @@ export class NoticesService {
     private readonly genDocNoticeServices: NoticeGenDocService,
     private readonly paymentGatewayService: PaymentGatewayService,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('PAYMENTS_SERVICE');
+  }
+
+  private async addFileBase64FromStorage(
+    filePath: string | null,
+    file_type: string | null,
+  ): Promise<string | null> {
+    if (!filePath || !file_type) {
+      return null;
+    }
+    try {
+      const fileBuffer = await this.objectStorageService.downloadFile(filePath);
+      if (fileBuffer) {
+        return `data:${file_type};base64,${fileBuffer.toString('base64')}`;
+      }
+      return null;
+    } catch (error) {
+      this.logger.error(`Failed to read file from storage: ${error.message}`);
+      return null;
+    }
   }
 
   private log(message: string) {
@@ -581,22 +601,6 @@ export class NoticesService {
         sorting_field,
       } = data;
 
-      const addFileBase64 = (
-        filePath: string | null,
-        file_type: string | null,
-      ) => {
-        if (!filePath || !file_type) {
-          return null;
-        }
-        try {
-          const fileDetails = readFileSync(filePath, { encoding: 'base64' });
-          const fileBase64 = `data:${file_type};base64,${fileDetails}`;
-          return fileBase64;
-        } catch (error) {
-          return null;
-        }
-      };
-
       const queryBuilder = await this.noticesRepo
         .createQueryBuilder('notices')
         .select([
@@ -955,7 +959,7 @@ export class NoticesService {
         const isFileGenerated =
           subscription === 'Basic'
             ? true
-            : !!filePath && !!addFileBase64(filePath, fileType);
+            : !!filePath && !!(await this.addFileBase64FromStorage(filePath, fileType));
 
         // New key: true if generation failed or file missing
         v.notice_document_gen_failed = !isFileGenerated;
@@ -4244,22 +4248,6 @@ export class NoticesService {
         return filePath ? UPLOAD_BASE_URL + filePath.replace(/\\/g, '/') : null;
       };
 
-      const addFileBase64 = (
-        filePath: string | null,
-        file_type: string | null,
-      ) => {
-        if (!filePath || !file_type) {
-          return null;
-        }
-        try {
-          const fileDetails = readFileSync(filePath, { encoding: 'base64' });
-          const fileBase64 = `data:${file_type};base64,${fileDetails}`;
-          return fileBase64;
-        } catch (error) {
-          return null;
-        }
-      };
-
       let supportFileIds: string[] = [];
       if (
         fetchedNoticetDetails?.supporting_file_attachment_ids &&
@@ -4291,18 +4279,20 @@ export class NoticesService {
           .orderBy({ 'f.uploaded_on': 'DESC' })
           .getRawMany();
 
-        supportDocs = fetchedFileAttachments.map((f) => ({
-          id: f.id,
-          file_name: f.custom_file_name ?? f.file_name,
-          file_type: f.file_type,
-          attachment_type: f.attachment_type,
-          file_path: f.file_path,
-          file: addFileBase64(f.file_path, f.file_type),
-        }));
+        for (const f of fetchedFileAttachments) {
+          supportDocs.push({
+            id: f.id,
+            file_name: f.custom_file_name ?? f.file_name,
+            file_type: f.file_type,
+            attachment_type: f.attachment_type,
+            file_path: addFilePath(f.file_path),
+            file: await this.addFileBase64FromStorage(f.file_path, f.file_type),
+          });
+        }
       }
 
       let s75File: Record<string, any> = {};
-      let supportingFile: Record<string, any> = {};
+      let supportingFile: any[] = [];
 
       if (
         fetchedNoticetDetails?.notice_type === 'Client Payment Claim Notice'
@@ -4351,12 +4341,26 @@ export class NoticesService {
           ? true
           : !!fileToCheck &&
             !!addFilePath(fileToCheck) &&
-            !!addFileBase64(
+            !!(await this.addFileBase64FromStorage(
               fileToCheck,
               isQbccNoticeType
                 ? fetchedNoticetDetails.qbccNotice_file_type
                 : fetchedNoticetDetails.uploadedNotice_file_type,
-            );
+            ));
+
+      const noticeTemplateFile = await this.addFileBase64FromStorage(
+        fetchedNoticetDetails.notice_template_file_path,
+        fetchedNoticetDetails.notice_template_file_type,
+      );
+      const uploadedNoticeFile = await this.addFileBase64FromStorage(
+        fetchedNoticetDetails.uploadedNotice_file_path,
+        fetchedNoticetDetails.uploadedNotice_file_type,
+      );
+      const qbccNoticeFile = await this.addFileBase64FromStorage(
+        fetchedNoticetDetails.qbccNotice_file_path,
+        fetchedNoticetDetails.qbccNotice_file_type,
+      );
+      const s75FileBase64 = await this.addFileBase64FromStorage(s75File?.file_path, s75File?.file_type);
 
       const fetchedNoticeDetailsMapped = {
         id: fetchedNoticetDetails.id,
@@ -4373,23 +4377,10 @@ export class NoticesService {
           file_path: addFilePath(
             fetchedNoticetDetails.notice_template_file_path,
           ),
-          file: addFileBase64(
-            fetchedNoticetDetails.notice_template_file_path,
-            fetchedNoticetDetails.notice_template_file_type,
-          ),
+          file: noticeTemplateFile,
         },
 
-        supportDoc:
-          supportingFile && Object.keys(supportingFile)?.length
-            ? supportingFile.map((f) => ({
-                id: f.id,
-                file_name: f.custom_file_name ?? f.file_name,
-                file_type: f.file_type,
-                attachment_type: f.attachment_type,
-                file_path: addFilePath(f.file_path),
-                file: addFileBase64(f.file_path, f.file_type),
-              }))
-            : [],
+        supportDoc: supportingFile || [],
 
         uploadedNotice: {
           id: fetchedNoticetDetails.uploadedNotice_id,
@@ -4399,10 +4390,7 @@ export class NoticesService {
           file_path: addFilePath(
             fetchedNoticetDetails.uploadedNotice_file_path,
           ),
-          file: addFileBase64(
-            fetchedNoticetDetails.uploadedNotice_file_path,
-            fetchedNoticetDetails.uploadedNotice_file_type,
-          ),
+          file: uploadedNoticeFile,
         },
         qbccNotice: {
           id: fetchedNoticetDetails.qbccNotice_id,
@@ -4410,10 +4398,7 @@ export class NoticesService {
           file_type: fetchedNoticetDetails.qbccNotice_file_type,
           attachment_type: fetchedNoticetDetails.qbccNotice_attachment_type,
           file_path: addFilePath(fetchedNoticetDetails.qbccNotice_file_path),
-          file: addFileBase64(
-            fetchedNoticetDetails.qbccNotice_file_path,
-            fetchedNoticetDetails.qbccNotice_file_type,
-          ),
+          file: qbccNoticeFile,
         },
         s75_file: {
           id: s75File?.id,
@@ -4421,7 +4406,7 @@ export class NoticesService {
           file_type: s75File?.file_type,
           attachment_type: s75File?.attachment_type,
           file_path: addFilePath(s75File?.file_path),
-          file: addFileBase64(s75File?.file_path, s75File?.file_type),
+          file: s75FileBase64,
         },
         ViewType: view_type,
         status: fetchedNoticetDetails.status,
@@ -4598,22 +4583,6 @@ export class NoticesService {
         return filePath ? UPLOAD_BASE_URL + filePath.replace(/\\/g, '/') : null;
       };
 
-      const addFileBase64 = (
-        filePath: string | null,
-        file_type: string | null,
-      ) => {
-        if (!filePath || !file_type) {
-          return null;
-        }
-        try {
-          const fileDetails = readFileSync(filePath, { encoding: 'base64' });
-          const fileBase64 = `data:${file_type};base64,${fileDetails}`;
-          return fileBase64;
-        } catch (error) {
-          return null;
-        }
-      };
-
       let supportFileIds: string[] = [];
       let supportDocs: any[] = [];
 
@@ -4642,14 +4611,16 @@ export class NoticesService {
           .orderBy({ 'f.uploaded_on': 'DESC' })
           .getRawMany();
 
-        supportDocs = fetchedFileAttachments?.map((f) => ({
-          id: f.id,
-          file_name: f.custom_file_name ?? f.file_name,
-          file_type: f.file_type,
-          attachment_type: f.attachment_type,
-          file_path: addFilePath(f.file_path),
-          file: addFileBase64(f.file_path, f.file_type),
-        }));
+        for (const f of fetchedFileAttachments) {
+          supportDocs.push({
+            id: f.id,
+            file_name: f.custom_file_name ?? f.file_name,
+            file_type: f.file_type,
+            attachment_type: f.attachment_type,
+            file_path: addFilePath(f.file_path),
+            file: await this.addFileBase64FromStorage(f.file_path, f.file_type),
+          });
+        }
       }
 
       const fetchedNoticeMailDetailsMapped = {
@@ -4671,7 +4642,7 @@ export class NoticesService {
           file_path: addFilePath(
             fetchedNoticetMailDetails.uploadedNotice_file_path,
           ),
-          file: addFileBase64(
+          file: await this.addFileBase64FromStorage(
             fetchedNoticetMailDetails.uploadedNotice_file_path,
             fetchedNoticetMailDetails.uploadedNotice_file_type,
           ),
@@ -5033,22 +5004,6 @@ export class NoticesService {
       const useRepo = (repo) =>
         manager ? manager.getRepository(repo.target) : repo;
 
-      const addFileBase64 = (
-        filePath: string | null,
-        file_type: string | null,
-      ) => {
-        if (!filePath || !file_type) {
-          return null;
-        }
-        try {
-          const fileDetails = readFileSync(filePath, { encoding: 'base64' });
-          const fileBase64 = `data:${file_type};base64,${fileDetails}`;
-          return fileBase64;
-        } catch (error) {
-          return null;
-        }
-      };
-
       const notice = await useRepo(this.noticesRepo)
         .createQueryBuilder('notice')
         .leftJoinAndSelect('notice.clientSupplierDetails', 'client')
@@ -5081,7 +5036,7 @@ export class NoticesService {
           select: ['file_path', 'file_type'],
         });
 
-        logoBase64 = addFileBase64(
+        logoBase64 = await this.addFileBase64FromStorage(
           logoDetails.file_path,
           logoDetails.file_type,
         );
@@ -6704,22 +6659,6 @@ export class NoticesService {
       let notice_file = null;
 
       if (data.view_preview === true) {
-        const addFileBase64 = (
-          filePath: string | null,
-          file_type: string | null,
-        ) => {
-          if (!filePath || !file_type) {
-            return null;
-          }
-          try {
-            const fileDetails = readFileSync(filePath, { encoding: 'base64' });
-            const fileBase64 = `data:${file_type};base64,${fileDetails}`;
-            return fileBase64;
-          } catch (error) {
-            return null;
-          }
-        };
-
         const UPLOAD_BASE_URL = process.env.UPLOAD_BASE_URL;
 
         const addFilePath = (filePath: string | null) => {
@@ -6729,11 +6668,6 @@ export class NoticesService {
         };
 
         const notice_file_id = notice_mail.noticeDetails.uploaded_notice?.id;
-
-        // const fetch_notice_file = await this.fileAttachments.findOne({
-        //   where: { id: notice_file_id },
-        //   select: ['id', 'file_path', 'file_name', 'file_type'],
-        // });
 
         if (notice_file_id) {
           const fetch_notice_file = await fileRepo
@@ -6755,7 +6689,7 @@ export class NoticesService {
                 ? fetch_notice_file.custom_file_name
                 : fetch_notice_file.file_name,
               file_path: addFilePath(fetch_notice_file.file_path),
-              file: addFileBase64(
+              file: await this.addFileBase64FromStorage(
                 fetch_notice_file.file_path,
                 fetch_notice_file.file_type,
               ),

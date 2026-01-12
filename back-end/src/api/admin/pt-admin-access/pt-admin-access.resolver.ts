@@ -16,8 +16,8 @@ import { PTCompanyResponse } from './response/pt-company.response';
 import { UpdateCompanyDetailsInput } from './dto/ptadmin-update-company.dto';
 import { AdminCreateUserInput } from './dto/ptadmin-add-user.dto';
 import { AdminCreateCompanyInput } from './dto/ptadmin-add-company.dto';
-import { readFileSync } from 'fs';
 import { handleError } from 'src/api/common/error-handler';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { PtContentsService } from '../pt-contents/pt-contents.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
@@ -59,6 +59,7 @@ export class PtAdminAccessResolver {
     private readonly activityLogService: ActivityLogService,
     private readonly emailServices: EmailService,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('ADMIN_RESOLVER');
   }
@@ -485,11 +486,15 @@ export class PtAdminAccessResolver {
         await this.ptAdminAccessService.getCompanyById(company_id);
 
       if (company.icon_file_path) {
-        const image = readFileSync(company.icon_file_path, {
-          encoding: 'base64',
-        });
-        const icon = `data:${company.icon_file_type};base64,${image}`;
-        company.icon_base64 = icon;
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(company.icon_file_path);
+          if (fileBuffer) {
+            const icon = `data:${company.icon_file_type};base64,${fileBuffer.toString('base64')}`;
+            company.icon_base64 = icon;
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       return framedResponse(
         'SUCCESS',

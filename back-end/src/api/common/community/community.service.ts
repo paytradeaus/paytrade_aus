@@ -26,7 +26,7 @@ import {
   ListCommunityFlagsInput,
   ListDiscussionIdeaInput,
 } from './dto/list-discussion-idea.dto';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { linkExtensions } from '../activity-log/link-extensions';
 import { SortingOrder } from 'src/api/admin/pt-admin/dto/add-admin.dto';
 import { join } from 'path';
@@ -53,6 +53,7 @@ export class CommunityService {
     private userDetails: Repository<UserDetails>,
     @InjectRepository(FileAttachments)
     private fileAttachments: Repository<FileAttachments>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {}
 
   async create(decoded: any, addDiscussionIdeaInput: AddDiscussionIdeaInput) {
@@ -194,17 +195,6 @@ export class CommunityService {
       );
     }
 
-    // Function to convert file to base64
-    const getFileBase64 = (filePath: string, fileType: string) => {
-      try {
-        const image = readFileSync(filePath, { encoding: 'base64' });
-        return `data:${fileType};base64,${image}`;
-      } catch (error) {
-        console.error('Error reading file:', error);
-        return null;
-      }
-    };
-
     const discIdeaAuthor = result.author ?? result.admin_author;
 
     let authorImageBase64 = null;
@@ -215,6 +205,18 @@ export class CommunityService {
       });
     }
 
+    let authorImageFile = null;
+    if (authorImageBase64?.file_path && authorImageBase64?.file_type) {
+      try {
+        const fileBuffer = await this.objectStorageService.downloadFile(authorImageBase64.file_path);
+        if (fileBuffer) {
+          authorImageFile = `data:${authorImageBase64.file_type};base64,${fileBuffer.toString('base64')}`;
+        }
+      } catch (error) {
+        console.error('Error reading file:', error);
+      }
+    }
+
     const formattedAuthor = discIdeaAuthor
       ? {
           id: discIdeaAuthor.id,
@@ -222,13 +224,7 @@ export class CommunityService {
           last_name: discIdeaAuthor.last_name,
           is_admin: !!result.admin_author,
           email_id: discIdeaAuthor.email_id,
-          author_image_base64:
-            authorImageBase64?.file_path && authorImageBase64?.file_type
-              ? getFileBase64(
-                  authorImageBase64.file_path,
-                  authorImageBase64.file_type,
-                )
-              : null,
+          author_image_base64: authorImageFile,
         }
       : null;
 
@@ -299,16 +295,6 @@ export class CommunityService {
 
   async listAnswerComments(token: any, payload: getAnsCommentInput) {
     let answer_comment_attachment;
-
-    const getFileBase64 = (filePath: string, fileType: string) => {
-      try {
-        const image = readFileSync(filePath, { encoding: 'base64' });
-        return `data:${fileType};base64,${image}`;
-      } catch (error) {
-        console.error('Error reading file:', error);
-        return null;
-      }
-    };
 
     // Fetch paginated comments
     const queryBuilder =
@@ -488,10 +474,14 @@ export class CommunityService {
             where: { id: commentOwner.profile_id },
           });
           if (commentOwnerImage) {
-            answer_comment_owner_image_base64 = getFileBase64(
-              commentOwnerImage.file_path,
-              commentOwnerImage.file_type,
-            );
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(commentOwnerImage.file_path);
+              if (fileBuffer) {
+                answer_comment_owner_image_base64 = `data:${commentOwnerImage.file_type};base64,${fileBuffer.toString('base64')}`;
+              }
+            } catch (error) {
+              console.error('Error reading file:', error);
+            }
             answer_comment_owner_image_url =
               process.env.UPLOAD_BASE_URL +
               commentOwnerImage.file_path.replace(/\\/g, '/');
@@ -1025,16 +1015,6 @@ export class CommunityService {
     if (!discussionIdea) {
       throw new Error(`Discussion / Idea does not exist.`);
     }
-
-    const getFileBase64 = (filePath: string, fileType: string) => {
-      try {
-        const image = readFileSync(filePath, { encoding: 'base64' });
-        return `data:${fileType};base64,${image}`;
-      } catch (error) {
-        console.error('Error reading file:', error);
-        return null;
-      }
-    };
 
     const query = this.voteLikesFlags
       .createQueryBuilder('voteFlag')

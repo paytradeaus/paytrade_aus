@@ -71,8 +71,12 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Added CORS headers (Cross-Origin-Resource-Policy: cross-origin) for Next.js Image Optimization
 - Added rewrites in next.config.js for all file folder paths to proxy to backend
 - Created fileUrl.ts utility for normalizing file paths in frontend
-- **Fixed readFileSync to use ObjectStorageService** - Replaced all local filesystem reads in resolvers/services with ObjectStorageService.downloadFile() for profile photos, company logos, contracts, variations, and file attachments
-  - Updated: signup.resolver.ts, user-access.resolver.ts, file-upload.resolver.ts, variations.resolver.ts, contract-details.resolver.ts, read-file-attachments.service.ts
+- **Fixed readFileSync to use ObjectStorageService** - Comprehensive migration of all local filesystem reads to ObjectStorageService.downloadFile() for production deployment
+  - Phase 1: signup.resolver.ts, user-access.resolver.ts, file-upload.resolver.ts, variations.resolver.ts, contract-details.resolver.ts, read-file-attachments.service.ts
+  - Phase 2: notices.service.ts (5+ calls), journals.resolver.ts (2 calls), journals.service.ts (1 call), transactions.service.ts (1 call), payment-claims.service.ts (1 call), community.service.ts (3 calls), pt-admin.resolver.ts (1 call), pt-admin-access.resolver.ts (1 call), pt-contents.service.ts (1 call), communication-management.service.ts (1 call)
+  - Created reusable addFileBase64FromStorage() helper in notices.service.ts
+  - Added normalizeObjectPath() in ObjectStorageService to handle various path formats (leading slashes, "uploads/" prefix)
+  - Pattern: `const fileBuffer = await objectStorageService.downloadFile(filePath); if (fileBuffer) { base64 = fileBuffer.toString('base64'); }`
 
 ## File Serving Architecture
 - Database stores file paths as `{folder}/{filename}` (e.g., `company_logo/image.jpg`)
@@ -80,6 +84,12 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - next.config.js rewrites proxy all file folder requests to the backend
 - DirectFileServeController validates folder against allowlist and serves from Object Storage
 - File folders: profile_photo, admin_profile_photo, company_logo, communication, trust_training_records, blog_banner, resources, notice-templates, notices, recieved-notices, notices_supporting_docs, contracts, variations, bank_statements, retention_trust_certificates, transaction_csv_file_attachments, optional_attachments, compulsory_attachments, optional_supporting_statement_attachments, audit_reports, generated_aba_files, Admin_holiday, misc
+
+## Object Storage Migration Notes
+- ObjectStorageModule is @Global(), making ObjectStorageService injectable in any module without explicit import
+- ObjectStorageService.downloadFile() normalizes paths automatically (strips leading "/", strips "uploads/" prefix)
+- Remaining non-critical readFileSync calls (not user files): email.service.ts (email templates), write-to-image.mjs (JSON config)
+- All PDF-related secrets need production values: NEXT_PUBLIC_SOCKET_URL, NEXT_PUBLIC_WEB_SOCKET_BASED_PDF_FILE_DOWNLOAD_TO_GET_URL
 
 ## Notes
 - The application requires various third-party API keys (Stripe, email services, etc.) for full functionality

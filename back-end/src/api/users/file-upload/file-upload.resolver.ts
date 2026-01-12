@@ -4,7 +4,6 @@ import { FileUploadResponse } from './response/file-upload.response';
 import { CreateFileUploadInput } from './dto/create-file-upload.input';
 import {
   createWriteStream,
-  readFileSync,
   unlink,
   existsSync,
   mkdirSync,

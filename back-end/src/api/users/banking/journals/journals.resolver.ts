@@ -46,7 +46,7 @@ import { JournalsService } from './journals.service';
 import { formatCurrency } from 'src/libs/@currency-formattor/currency-formattor';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 import { handleError } from 'src/api/common/error-handler';
-import { readFileSync } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
@@ -63,6 +63,7 @@ export class JournalsResolver {
     private readonly journalsService: JournalsService,
     private readonly complianceService: CompliancesService,
     private activityLogService: ActivityLogService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('JOURNALS_RESOLVER');
   }
@@ -1339,10 +1340,14 @@ export class JournalsResolver {
         `Response recieved while leaving the client: ${JSON.stringify(auditDetails)}`,
       );
       if (auditDetails && auditDetails !== null && auditDetails.file_path) {
-        const image = readFileSync(auditDetails.file_path, {
-          encoding: 'base64',
-        });
-        auditDetails['file'] = `data:${auditDetails.file_type};base64,${image}`;
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(auditDetails.file_path);
+          if (fileBuffer) {
+            auditDetails['file'] = `data:${auditDetails.file_type};base64,${fileBuffer.toString('base64')}`;
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       if (auditDetails) {
         return framedResponse(
@@ -1402,14 +1407,18 @@ export class JournalsResolver {
         auditDetails.data &&
         auditDetails.data.report_list
       ) {
-        auditDetails.data.report_list.forEach((element) => {
+        for (const element of auditDetails.data.report_list) {
           if (element.file_path) {
-            const image = readFileSync(element.file_path, {
-              encoding: 'base64',
-            });
-            element['file'] = `data:${element.file_type};base64,${image}`;
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+              if (fileBuffer) {
+                element['file'] = `data:${element.file_type};base64,${fileBuffer.toString('base64')}`;
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
           }
-        });
+        }
       }
       return auditDetails;
     } catch (error) {

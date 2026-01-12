@@ -32,7 +32,8 @@ import {
   TransactionDetails,
 } from 'src/entities/transaction-details.entity';
 import { parse } from 'csv-parse';
-import { createReadStream, readFileSync } from 'fs';
+import { createReadStream } from 'fs';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { csvTemplateFileDetailsResponse } from './transactions.response';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
@@ -80,6 +81,7 @@ export class TransactionsService {
     private activityLogService: ActivityLogService,
     private readonly paymentClaimsService: PaymentClaimsService,
     private readonly statusService: StatusService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('TRANSACTIONS_SERVICE');
   }
@@ -127,9 +129,15 @@ export class TransactionsService {
       const filePath =
         'uploads/transaction_csv_file_attachments/1724393403446-32446637-csv_upload_template.csv';
       const fileType = 'text/csv';
-      const file_base_64 = await readFileSync(filePath, {
-        encoding: 'base64',
-      });
+      let file_base_64 = '';
+      try {
+        const fileBuffer = await this.objectStorageService.downloadFile(filePath);
+        if (fileBuffer) {
+          file_base_64 = fileBuffer.toString('base64');
+        }
+      } catch (fileError) {
+        this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+      }
       const csvTemplate = `data: ${fileType};base64,${file_base_64}`;
 
       const template_details = {
