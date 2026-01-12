@@ -29,7 +29,7 @@ import FormikControl from "@/components/FormikControl";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import BaseModal from "@/components/BaseModal";
 import BreadCrumbs from "@/components/BreadCrumbs";
-import CustomEditor from "@/components/Editor/Editor";
+import CustomEditor from "@/components/editor/editor";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import TabSwitch from "@/components/TabSwitch";
 import {
@@ -43,7 +43,7 @@ import {
   CheckBlogResourceNameExistence,
   getEmbedUrlFromBrowserUrl,
 } from "../../AdminBlog/addBlog/addEditBlog.function";
-import AttachmentUpload from "@/components/AttachmentUpload";
+import AttachmentUpload from "@/components/attachmentUpload";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { addEditStatusOptions } from "../../AdminBlog/BlogList/blogList.constant";
 import { useLoaderContext } from "@/context/useLoader";

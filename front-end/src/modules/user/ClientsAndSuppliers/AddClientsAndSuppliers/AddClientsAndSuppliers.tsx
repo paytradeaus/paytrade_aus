@@ -24,7 +24,7 @@ import {
   relatedEntityTypeOptions,
   statusTypeOptions,
 } from "./AddClientsAndSuppliers.constant";
-import PhoneInputField from "@/components/PhoneNumberInput";
+import PhoneInputField from "@/components/phoneNumberInput";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import {
   setAddTrustRecord,

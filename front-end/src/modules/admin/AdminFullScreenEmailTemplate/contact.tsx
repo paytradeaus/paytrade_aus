@@ -8,7 +8,7 @@ import debounce from "lodash/debounce";
 import { AdminListAllUsers } from "../Users/users.functions";
 import BaseModal from "@/components/BaseModal";
 import AsyncSelect from "react-select/async";
-import CustomEditor from "@/components/Editor/Editor";
+import CustomEditor from "@/components/editor/editor";
 import { useTokenDetails } from "@/hooks";
 import { FileUploadResponseData } from "./contact.types";
 import { multipleFileUploadApi } from "@/app/api/commonApi";

@@ -2,7 +2,7 @@
 import { InactivityDetector } from "@/components/InactivityDetector/InactivityDetector";
 import Footer from "@/components/MemberFooter";
 import Navbar from "@/components/MemberNavbar";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/SideBar";
 import { showErrorToast } from "@/components/Toaster";
 import { useLoaderContext } from "@/context/useLoader";
 import { useIsClient, useTokenDetails } from "@/hooks";

@@ -1,6 +1,6 @@
 "use client";
 import GooglePlacesInput from "@/components/GooglePlaces";
-import PhoneInputField from "@/components/PhoneNumberInput";
+import PhoneInputField from "@/components/phoneNumberInput";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { useRouter } from "next/navigation";
 import { useFormik } from "formik";
