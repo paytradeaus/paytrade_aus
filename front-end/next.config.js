@@ -19,6 +19,21 @@ module.exports = {
     return config;
   },
   async rewrites() {
+    const fileFolders = [
+      'profile_photo', 'admin_profile_photo', 'company_logo', 'communication',
+      'trust_training_records', 'blog_banner', 'resources', 'notice-templates',
+      'notices', 'recieved-notices', 'notices_supporting_docs', 'contracts',
+      'variations', 'bank_statements', 'retention_trust_certificates',
+      'transaction_csv_file_attachments', 'optional_attachments', 'compulsory_attachments',
+      'optional_supporting_statement_attachments', 'audit_reports', 'generated_aba_files',
+      'Admin_holiday', 'misc'
+    ];
+    
+    const fileFolderRewrites = fileFolders.map(folder => ({
+      source: `/${folder}/:path*`,
+      destination: `${BACKEND_URL}/${folder}/:path*`,
+    }));
+
     return [
       {
         source: '/graphql',
@@ -48,6 +63,7 @@ module.exports = {
         source: '/assets/:path*',
         destination: `${BACKEND_URL}/assets/:path*`,
       },
+      ...fileFolderRewrites,
     ];
   },
   images: {

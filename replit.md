@@ -65,6 +65,19 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Created ObjectStorageService wrapper in `back-end/src/libs/@object-storage/`
 - Added FileServeController to serve files from Object Storage at `/uploads/:folder/:filename`
 - Fixed stream handling in file-upload.resolver.ts to consume stream once
+- Added DirectFileServeController with catch-all route for serving files directly (e.g., `/company_logo/:filename`)
+- Added @Public() decorator to file serving controllers to bypass authentication
+- Fixed Object Storage buffer conversion for proper file downloads
+- Added CORS headers (Cross-Origin-Resource-Policy: cross-origin) for Next.js Image Optimization
+- Added rewrites in next.config.js for all file folder paths to proxy to backend
+- Created fileUrl.ts utility for normalizing file paths in frontend
+
+## File Serving Architecture
+- Database stores file paths as `{folder}/{filename}` (e.g., `company_logo/image.jpg`)
+- Frontend uses these paths directly as image sources with leading slash
+- next.config.js rewrites proxy all file folder requests to the backend
+- DirectFileServeController validates folder against allowlist and serves from Object Storage
+- File folders: profile_photo, admin_profile_photo, company_logo, communication, trust_training_records, blog_banner, resources, notice-templates, notices, recieved-notices, notices_supporting_docs, contracts, variations, bank_statements, retention_trust_certificates, transaction_csv_file_attachments, optional_attachments, compulsory_attachments, optional_supporting_statement_attachments, audit_reports, generated_aba_files, Admin_holiday, misc
 
 ## Notes
 - The application requires various third-party API keys (Stripe, email services, etc.) for full functionality
