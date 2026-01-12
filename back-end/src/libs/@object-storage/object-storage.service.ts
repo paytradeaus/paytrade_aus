@@ -148,8 +148,15 @@ export class ObjectStorageService {
       
       if (result.ok) {
         this.logger.log(`File downloaded successfully: ${objectPath}`);
-        const bytes = result.value as unknown as Uint8Array;
-        return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const value = result.value;
+        if (Array.isArray(value) && value.length > 0 && Buffer.isBuffer(value[0])) {
+          return value[0];
+        }
+        if (Buffer.isBuffer(value)) {
+          return value;
+        }
+        const bytes = value as unknown as Uint8Array;
+        return Buffer.from(bytes);
       } else {
         this.logger.error(`Failed to download file: ${result.error}`);
         return null;
