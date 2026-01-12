@@ -18,6 +18,7 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - **Database**: PostgreSQL with TypeORM
 - **Queue**: BullMQ with Redis
 - **Authentication**: JWT with Passport
+- **File Storage**: Replit Object Storage (bucket: `paytrade_uploads`)
 
 ## Project Structure
 ```
@@ -60,6 +61,10 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Replaced `canvas` with `@napi-rs/canvas` for better compatibility
 - Set up PostgreSQL database connection
 - Configured Redis for BullMQ job queues
+- Migrated file uploads from local filesystem to Replit Object Storage
+- Created ObjectStorageService wrapper in `back-end/src/libs/@object-storage/`
+- Added FileServeController to serve files from Object Storage at `/uploads/:folder/:filename`
+- Fixed stream handling in file-upload.resolver.ts to consume stream once
 
 ## Notes
 - The application requires various third-party API keys (Stripe, email services, etc.) for full functionality
