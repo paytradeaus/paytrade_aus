@@ -33,7 +33,7 @@ import FormikControl from "@/components/FormikControl";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import BaseModal from "@/components/BaseModal";
 import BreadCrumbs from "@/components/BreadCrumbs";
-import CustomEditor from "@/components/ysEditor";
+import CustomEditor from "@/components/Editor/Editor";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import TabSwitch from "@/components/TabSwitch";
 import CommentsList from "./commentsList";

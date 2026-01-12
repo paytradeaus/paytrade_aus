@@ -16,7 +16,7 @@ import {
 import * as Yup from "yup";
 import moment from "moment";
 
-import PhoneInputField from "@/components/phoneNumberInput";
+import PhoneInputField from "@/components/PhoneNumberInput";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import { convertCanvasToFile, handleSelectedImage } from "@/utils";
 import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";
@@ -114,7 +114,7 @@ const AddFinancialInstitution = (props: any) => {
   const { setLoader, setLoaderInfo }: any = useLoaderContext();
   const [isLoading, setIsLoading] = useState(false);
   const [statusOptionsData, setStatusOptionsData] = useState("Active");
-  const [selectedData, setSingleSelectedData] = useState<any>({
+  const [singleSelectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });

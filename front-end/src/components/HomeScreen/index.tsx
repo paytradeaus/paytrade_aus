@@ -191,7 +191,7 @@ export default function HomeScreenPage() {
             <div className="pt_hometopimage">
               <img
                 alt={"Dashboard mockup"}
-                src="/images/mockupshots.png"
+                src="images/mockupshots.png"
                 className="mockupshots"
               />
               <div className="blurblobriver"></div>

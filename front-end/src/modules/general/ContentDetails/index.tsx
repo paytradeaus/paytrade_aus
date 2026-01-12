@@ -9,7 +9,7 @@ import {
   postComment,
 } from "../Blogs/Blogs.functions";
 import moment from "moment";
-import CustomEditor from "@/components/ysEditor";
+import CustomEditor from "@/components/Editor/Editor";
 import { useTokenDetails } from "@/hooks";
 import { useRouter } from "next/navigation";
 import DefaultImage from "../../../../public/images/blogimage1.png";

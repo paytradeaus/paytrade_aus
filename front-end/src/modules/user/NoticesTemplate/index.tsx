@@ -4,7 +4,7 @@ import FormikControl from "@/components/FormikControl";
 import { buttonType, InputType } from "@/shared/constant/general";
 import * as Yup from "yup";
 import { useFormik } from "formik";
-import CustomEditor from "@/components/ysEditor";
+import CustomEditor from "@/components/Editor/Editor";
 import {
   FetchDetailsOfANoticeMail,
   SentMailForANotice,

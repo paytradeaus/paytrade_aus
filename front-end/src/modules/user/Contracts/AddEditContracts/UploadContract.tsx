@@ -8,7 +8,7 @@ import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import BaseModal from "@/components/BaseModal";
 import FormikControl from "@/components/FormikControl";
 import { InputType } from "@/shared/constant/general";
-import AttachmentUpload from "@/components/attachmentUpload";
+import AttachmentUpload from "@/components/AttachmentUpload";
 import { format } from "date-fns";
 
 const UploadContract = (props: any) => {

@@ -1,5 +1,3 @@
-"use client";
-
 import { setDisplayResponsiveSidebar } from "@/redux/slices/sidebar";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { AppRoutes } from "@/shared/constant/appRoutes";
@@ -15,11 +13,7 @@ import { Roles } from "@/shared/constant/role";
 import _ from "lodash";
 import { useTokenDetails } from "@/hooks";
 
-interface SidebarProps {
-  isMainBar?: boolean;
-}
-
-export default function Sidebar({ isMainBar = true }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { decodeTokenData } = useTokenDetails();

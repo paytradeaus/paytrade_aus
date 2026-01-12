@@ -4,7 +4,7 @@ import React, { useState } from "react";
 
 import BaseModal from "@/components/BaseModal";
 import { uploadFile } from "@/shared/constant/general";
-import AttachmentUpload from "@/components/attachmentUpload";
+import AttachmentUpload from "@/components/AttachmentUpload";
 import { fileButtonType } from "../../Notices/notices.constants";
 
 function UploadBankStatement(props: any) {

@@ -22,7 +22,7 @@ import {
 import * as Yup from "yup";
 import moment from "moment";
 
-import PhoneInputField from "@/components/phoneNumberInput";
+import PhoneInputField from "@/components/PhoneNumberInput";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import { convertCanvasToFile, handleSelectedImage } from "@/utils";
 import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";

@@ -26,7 +26,7 @@ import Image from "next/image";
 import FormikControl from "@/components/FormikControl";
 import GooglePlacesInput from "@/components/GooglePlaces";
 import { isValidPhoneNumber } from "react-phone-number-input";
-import PhoneInputField from "@/components/phoneNumberInput";
+import PhoneInputField from "@/components/PhoneNumberInput";
 import ImageUploader from "@/components/ImageUploader";
 import ImageCropper from "@/components/ImageCropper";
 import { AppRoutes } from "@/shared/constant/appRoutes";

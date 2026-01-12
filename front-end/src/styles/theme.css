@@ -316,8 +316,8 @@ details summary[role="button"]:not(.outline)::after {
 
 [data-theme="light"],
 :root:not([data-theme="dark"]) {
-  --logo: url("/images/logolight.svg");
-  --plogo: url("/images/plogolight.png");
+  --logo: url("../../public/images/logolight.svg");
+  --plogo: url("../../public/images/plogolight.png");
   --box: var(--wind-lighter);
   --boxgradient: linear-gradient(
     174deg,
@@ -482,8 +482,8 @@ details summary[role="button"]:not(.outline)::after {
 
 @media only screen and (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --logo: url("/images/logodark.svg");
-    --plogo: url("/images/plogodark.png");
+    --logo: url("../../public/images/logodark.svg");
+    --plogo: url("../../public/images/plogodark.png");
     --box: var(--cave-lighter);
     --boxgradient: linear-gradient(
       174deg,
@@ -652,8 +652,8 @@ details summary[role="button"]:not(.outline)::after {
   }
 }
 [data-theme="dark"] {
-  --logo: url("/images/logodark.svg");
-  --plogo: url("/images/plogodark.png");
+  --logo: url("../../public/images/logodark.svg");
+  --plogo: url("../../public/images/plogodark.png");
   --box: var(--cave-lighter);
   --boxgradient: linear-gradient(
     174deg,

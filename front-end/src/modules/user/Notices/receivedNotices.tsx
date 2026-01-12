@@ -12,7 +12,7 @@ import {
 } from "./notices.functions";
 import { getCookie } from "cookies-next";
 import BaseModal from "@/components/BaseModal";
-import AttachmentUpload from "@/components/attachmentUpload";
+import AttachmentUpload from "@/components/AttachmentUpload";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import { buttonType } from "@/shared/constant/general";
 import { singleUploadApi } from "@/app/api/commonApi";

@@ -39,7 +39,7 @@ const AddAdminUser = (props: any) => {
   const [groupOptions, setGroupOptions] = useState([]);
   const [multiSelectedData, setMultiSelectedData] = useState([]);
   const [timeKey, setTimeKey] = useState(new Date().getTime());
-  const [selectedData, setSingleSelectedData] = useState<any>({
+  const [singleSelectedData, setSingleSelectedData] = useState<any>({
     value: "Active",
     label: "Active",
   });
@@ -620,7 +620,7 @@ const AddAdminUser = (props: any) => {
 
                         <SearchableSelect
                           options={options}
-                          selectedData={selectedData}
+                          selectedData={singleSelectedData}
                           onChange={(selectedOption) => {
                             formik.handleChange("Status")(selectedOption.value);
                             setSingleSelectedData(selectedOption);

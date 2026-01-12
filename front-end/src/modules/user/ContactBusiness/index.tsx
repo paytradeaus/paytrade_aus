@@ -12,7 +12,7 @@ import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { useCustomDebounce } from "@/hooks";
 import { CheckCompanyEmailExistence } from "@/network/apolloClient";
 import GooglePlacesInput from "@/components/GooglePlaces";
-import PhoneInputField from "@/components/phoneNumberInput";
+import PhoneInputField from "@/components/PhoneNumberInput";
 import FormikControl from "@/components/FormikControl";
 import { buttonType, InputType } from "@/shared/constant/general";
 import CustomButton from "@/components/CustomButton/CustomButton";

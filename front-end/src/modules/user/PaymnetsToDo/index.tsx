@@ -78,7 +78,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [paymentsListData, setPaymentsListData] = useState<PaymentData[]>([]);
-  const [selectedData, setSingleSelectedData] = useState({
+  const [singleSelectedData, setSingleSelectedData] = useState({
     label: "All",
     value: "",
   });
@@ -948,7 +948,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                   options={filter_paid_options}
                   onChange={handleSelectChange}
                   control={InputType.SELECT}
-                  value={selectedData}
+                  value={singleSelectedData}
                   renderKey="label"
                   valueKey="value"
                 />
