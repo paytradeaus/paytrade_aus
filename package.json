@@ -11,5 +11,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@replit/object-storage": "^1.0.0"
   }
 }
