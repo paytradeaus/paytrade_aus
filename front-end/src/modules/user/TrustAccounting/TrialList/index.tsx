@@ -66,7 +66,9 @@ export default function UserTrialList(props: any) {
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [selectedAccountName, setSelectedAccountName] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
   const [activityLogStartDate, setActivityLogStartDate] = useState<Date | null>(
     auditDateISO ? new Date(auditDateISO) : new Date()
   );
@@ -79,7 +81,7 @@ export default function UserTrialList(props: any) {
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [accountList, setAccountList] = useState<any>();
   const isAnyFilterActive =
-    selectedDate?.toDateString() !== new Date().toDateString() ||
+    selectedDate !== new Date().toISOString().split("T")[0] ||
     selectedAccountName?.value !==
       ((accountList?.length &&
         accountList.find(
@@ -106,7 +108,7 @@ export default function UserTrialList(props: any) {
       setActivityLogStartDate(
         auditDateISO ? new Date(auditDateISO) : new Date()
       );
-      setSelectedDate(new Date());
+      setSelectedDate(new Date().toISOString().split("T")[0]);
     }
   };
 
@@ -344,8 +346,8 @@ export default function UserTrialList(props: any) {
                   const selectedValue: any = e;
                   if (selectedValue) {
                     const newDate = new Date(selectedValue);
-                    handleDateChange(newDate, true);
-                    setSelectedDate(newDate); // Ensure `selectedDate` is updated
+                    handleDateChange(selectedValue, true);
+                    setSelectedDate(selectedValue); // Ensure `selectedDate` is updated
                   }
                 }}
                 maxDate={getDatePickerFormat()}

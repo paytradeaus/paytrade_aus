@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { GetActivityLogList } from "./userActivityLog.functions";
+import { GetActivityLogList, GetEventGroup } from "./userActivityLog.functions";
 import { format, isValid } from "date-fns";
 import { getCookie } from "cookies-next";
 import { useTokenDetails } from "@/hooks";
@@ -62,24 +62,25 @@ export default function UserActivityLog() {
   const [printDocumentData, setPrintDocumentData] = useState<any>([]);
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
+  const [eventOptions, setEventOptions] = useState<any[]>([]);
 
-  const eventOptions = [
-    { label: "All", value: "" },
-    { label: "Bank accounts", value: "Bank accounts" },
-    { label: "Client/Supplier", value: "Client/Supplier" },
-    { label: "Contracts", value: "Contracts" },
-    { label: "Variations", value: "Variations" },
-    { label: "Manage business", value: "Manage business" },
-    { label: "Manage users", value: "Manage users" },
-    { label: "Notices", value: "Notices" },
-    { label: "Payment claims", value: "Payment claims" },
-    { label: "Payments", value: "Payments" },
-    { label: "Projects", value: "Projects" },
-    { label: "Signed in/out", value: "Signed in/out" },
-    { label: "Subscriptions", value: "Subscriptions" },
-    { label: "Journals", value: "Journals" },
-    { label: "Bookkeeping", value: "Book keeping" },
-  ];
+  // const eventOptions = [
+  //   { label: "All", value: "" },
+  //   { label: "Bank accounts", value: "Bank accounts" },
+  //   { label: "Client/Supplier", value: "Client/Supplier" },
+  //   { label: "Contracts", value: "Contracts" },
+  //   { label: "Variations", value: "Variations" },
+  //   { label: "Manage business", value: "Manage business" },
+  //   { label: "Manage users", value: "Manage users" },
+  //   { label: "Notices", value: "Notices" },
+  //   { label: "Payment claims", value: "Payment claims" },
+  //   { label: "Payments", value: "Payments" },
+  //   { label: "Projects", value: "Projects" },
+  //   { label: "Signed in/out", value: "Signed in/out" },
+  //   { label: "Subscriptions", value: "Subscriptions" },
+  //   { label: "Journals", value: "Journals" },
+  //   { label: "Bookkeeping", value: "Book keeping" },
+  // ];
 
   const resetFilters = () => {
     setSingleEventType(""); // Reset Event categories filter
@@ -109,8 +110,31 @@ export default function UserActivityLog() {
   ]);
 
   useEffect(() => {
+    fetchEventOptions();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
   }, [eventType, activityDate, activityLogEndDate, activityLogStartDate]);
+
+  const fetchEventOptions = async () => {
+    try {
+      const response = await GetEventGroup(); // 👈 call your API here
+      const list = response || [];
+      // Convert into dropdown format
+      const formattedOptions = [
+        { label: "All", value: "" }, // Add "All" at first like before
+        ...list.map((item: any) => ({
+          label: item?.name,
+          value: item?.name,
+        })),
+      ];
+
+      setEventOptions(formattedOptions);
+    } catch (error) {
+      console.error("Error fetching event options:", error);
+    }
+  };
 
   const getAllActivityLogList = async (page: number, rowsPerPage: number) => {
     setLoading(true);

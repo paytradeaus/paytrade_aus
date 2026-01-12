@@ -4,7 +4,7 @@ import CustomButton from "@/components/CustomButton/CustomButton";
 import ToggleInputGroup from "@/components/Inputs/ToggleInputGroup";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { buttonType, InputType, uploadFile } from "@/shared/constant/general";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import {
   attachmentType,
@@ -65,6 +65,10 @@ export default function UpdateBasicNotices({
   const [disabledSaveBtn, setDisabledSaveBtn] = useState(false);
   const [historyData, setHistoryData] = useState([]);
 
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.includes("/admin");
+  const hasNoticeSource = !!noticeData?.source_type;
+
   useEffect(() => {
     if (apiData?.notice_id) {
       patchNoticesData();
@@ -93,8 +97,8 @@ export default function UpdateBasicNotices({
         setNoticeData(apiData);
 
         setSentCheckBox(
-          noticeData?.status === "Sent" ||
-            noticeData?.status === "Sent - Onboarded" ||
+          apiData?.status === "Sent" ||
+            apiData?.status === "Sent - Onboarded" ||
             false
         );
 
@@ -212,8 +216,8 @@ export default function UpdateBasicNotices({
 
   function truncateName(file: any, isDeleteHidden?: boolean) {
     const fileName = file?.name || file?.file_name;
-    return fileName?.length > 35 && !isDeleteHidden
-      ? fileName.slice(0, 35).concat("...")
+    return fileName?.length > 50 && !isDeleteHidden
+      ? fileName.slice(0, 50).concat("...")
       : fileName;
   }
 
@@ -448,7 +452,7 @@ export default function UpdateBasicNotices({
               <h5>
                 <b>Notice ID:</b> {noticeData?.notice_id}
               </h5>
-              <h5>
+              {/* <h5>
                 Status:{" "}
                 <b
                   className={
@@ -459,6 +463,24 @@ export default function UpdateBasicNotices({
                   }
                 >
                   {noticeData?.status ? noticeData?.status.toUpperCase() : ""}
+                </b>
+              </h5> */}
+              <h5>
+                Status:{" "}
+                <b
+                  className={
+                    noticeData?.status === "Draft" ||
+                    noticeData?.status === "Not Sent" ||
+                    noticeData?.notice_document_gen_failed === true
+                      ? "invalid"
+                      : "valid"
+                  }
+                >
+                  {noticeData?.status
+                    ? noticeData?.notice_document_gen_failed === true
+                      ? `${noticeData?.status} – Notice Attachment Failed`
+                      : noticeData?.status.toUpperCase()
+                    : ""}
                 </b>
               </h5>
             </div>
@@ -561,13 +583,27 @@ export default function UpdateBasicNotices({
                 <div className="mb_1">
                   <h5 className=" mb_0_5">Notice Source</h5>
                   <p
-                    onClick={() => routeToNoticesSource(noticeData)}
+                    onClick={() => {
+                      if (!isAdminRoute && noticeData?.source_type) {
+                        routeToNoticesSource(noticeData);
+                      }
+                    }}
                     style={{
-                      cursor: noticeData?.source_type ? "pointer" : "default",
-                      textDecoration: noticeData?.source_type
-                        ? "underline"
-                        : "none",
-                      color: noticeData?.source_type ? "#1583d8" : "#333",
+                      cursor:
+                        !isAdminRoute && noticeData?.source_type
+                          ? "pointer"
+                          : "default",
+                      textDecoration:
+                        !isAdminRoute && noticeData?.source_type
+                          ? "underline"
+                          : "none",
+                      color:
+                        !isAdminRoute && hasNoticeSource
+                          ? "#1583db" // keep blue
+                          : isAdminRoute && hasNoticeSource
+                          ? "var(--text-disabled)" // disabled in admin
+                          : "var(--text-primary)", // normal text
+
                       marginTop: "0.8rem",
                       fontSize: "12px",
                     }}
@@ -649,45 +685,47 @@ export default function UpdateBasicNotices({
                             ? [qbccNoticeDocument]
                             : []),
                           ...(s75Document?.id ? [s75Document] : []),
-                        ].map((fileObj: any, index: number) => (
-                          <Fragment key={fileObj?.id}>
-                            <div className="pt_itemwithremove mb_1">
-                              <span>{truncateName(fileObj, !isArchived)}</span>
+                        ].map((fileObj: any, index: number) => {
+                          return (
+                            <Fragment key={fileObj?.id}>
+                              <div className="pt_itemwithremove mb_1">
+                                <span>{truncateName(fileObj, isArchived)}</span>
 
-                              <div>
-                                <div className="notices_view_button">
-                                  <a
-                                    className="downloadfile mr_zero_point_five"
-                                    onClick={() => handleViewFile(fileObj)}
-                                  >
-                                    <button
-                                      className="secondary smallbutton"
-                                      type="button"
+                                <div>
+                                  <div className="notices_view_button">
+                                    <a
+                                      className="downloadfile mr_zero_point_five"
+                                      onClick={() => handleViewFile(fileObj)}
                                     >
-                                      <i className="fa-light fa-eye"></i>View
-                                    </button>
-                                  </a>
+                                      <button
+                                        className="secondary smallbutton"
+                                        type="button"
+                                      >
+                                        <i className="fa-light fa-eye"></i>View
+                                      </button>
+                                    </a>
 
-                                  {!isArchived &&
-                                    fileObj?.id !== s75Document?.id && (
-                                      <a className="downloadfile">
-                                        <button
-                                          className="contrast smallbutton"
-                                          onClick={() =>
-                                            handleDeleteFiles(fileObj)
-                                          }
-                                          type="button"
-                                        >
-                                          <i className="fa-light fa-trash"></i>
-                                          Delete
-                                        </button>
-                                      </a>
-                                    )}
+                                    {!isArchived &&
+                                      fileObj?.id !== s75Document?.id && (
+                                        <a className="downloadfile">
+                                          <button
+                                            className="contrast smallbutton"
+                                            onClick={() =>
+                                              handleDeleteFiles(fileObj)
+                                            }
+                                            type="button"
+                                          >
+                                            <i className="fa-light fa-trash"></i>
+                                            Delete
+                                          </button>
+                                        </a>
+                                      )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </Fragment>
-                        ))}
+                            </Fragment>
+                          );
+                        })}
                     </div>
                     <div>
                       <h5>Sent History</h5>

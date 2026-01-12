@@ -32,6 +32,7 @@ export const actionButtonType = {
   DELEGATE_NOW: "DELEGATE_NOW",
   UPLOAD_CERTIFICATE: "UPLOAD_CERTIFICATE",
   NONE: "NONE",
+  VIEW_PAYMENTS: "VIEW_PAYMENTS",
 };
 
 export const getButtonType = (buttonType: string) => {
@@ -73,6 +74,8 @@ export const getButtonType = (buttonType: string) => {
       return "Delegate Now";
     case actionButtonType.UPLOAD_CERTIFICATE:
       return "Upload Certificate";
+    case actionButtonType.VIEW_PAYMENTS:
+      return "View Payments";
 
     case actionButtonType.NONE:
       return "";

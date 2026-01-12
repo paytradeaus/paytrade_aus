@@ -244,7 +244,7 @@ const InterestWithdrawalForm = (props: any) => {
         payment_from_account: Number(values?.fromAccount),
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
-        payment_date: dateStringToUtcConversion(values?.paymentDate),
+        payment_date: values?.paymentDate || null,
         is_paid_confirmed: values?.confirmPaid,
       };
       try {

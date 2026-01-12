@@ -54,12 +54,15 @@ import {
   DeleteOverPaymentInXero,
   DeleteOverPaymentRefundInXero,
   checkAndCreateOverPaymentAndRefunds,
+  CreateOrUpdateProjectInPaytrade,
+  CreateOrUpdateContractInPaytrade,
 } from "./syncLog.functions";
 import { fetchAllRetentionInPaymentsList } from "@/modules/user/RetentionList/retentionList.functions";
 import { fetchSubContractorClaimsByHeadContractor } from "@/modules/user/AddUpdateClaims/AddUpdateClaims.function";
 import {
   createContactInPaytradeFromXeroData,
   createContactInPaytradeThroughWebhookFromXeroData,
+  CreateOrUpdateContactInPaytrade,
 } from "@/modules/user/ClientsAndSuppliers/AddClientsAndSuppliers/AddClientsAndSuppliers.functions";
 import { createProjectInPaytradeFromXeroData } from "@/modules/user/Projects/ProjectList/projects.functions";
 import { createContractInPaytradeFromXeroData } from "@/modules/user/Contracts/contracts.functions";
@@ -87,6 +90,8 @@ export const handleResolveByErrorCodeMap = async (
       break;
     }
     case "WH_OVERPAYMENT_ACCOUNT_NOT_FOUND":
+    case "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_FOUND":
+    case "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_MAPPED":
     case "WH_OVERPAYMENT_ACCOUNT_NOT_MAPPED": {
       await syncAllBankAccountsByCompanyId({
         companyId,
@@ -205,9 +210,14 @@ export const handleResolveByErrorCodeMap = async (
       setShowManualMapping(true);
       break;
     }
+    case "SCHEDULER_CONTACT_NAME_EXISTS_AND_MAPPED":
     case "WH_CONTACT_NAME_EXISTS_AND_MAPPED":
+    case "SCHEDULER_CONTACT_NAME_EXISTS_BUT_UNMAPPED":
     case "WH_CONTACT_NAME_EXISTS_BUT_UNMAPPED": {
-      if (viewLogData?.error_code === "WH_CONTACT_NAME_EXISTS_AND_MAPPED") {
+      if (
+        viewLogData?.error_code === "WH_CONTACT_NAME_EXISTS_AND_MAPPED" ||
+        viewLogData?.error_code === "SCHEDULER_CONTACT_NAME_EXISTS_AND_MAPPED"
+      ) {
         await unMappingContact({
           contactId: viewLogData?.api_payload?.unmapping_contact_id,
         });
@@ -271,6 +281,7 @@ export const handleResolveByErrorCodeMap = async (
     }
     case "XP_ADD_BILL_CLIENT_SUPPLIER_NOT_MAPPED":
     case "XP_ADD_INVOICE_CLIENT_SUPPLIER_NOT_MAPPED":
+    case "SCHEDULER_CONTACT_NOT_MAPPED":
     case "WH_CONTACT_NOT_MAPPED": {
       const data = await getPaytradeContactListsForCompany({
         payload: { company_id: companyId },
@@ -294,7 +305,9 @@ export const handleResolveByErrorCodeMap = async (
     case "XP_ADD_BILL_CONTRACT_NOT_MAPPED":
     case "XP_ADD_INVOICE_CONTRACT_NOT_MAPPED":
     case "WH_CONTRACT_NOT_MAPPED":
+    case "SCHEDULER_CONTRACT_NOT_MAPPED":
     case "CONTRACT_NAME_EXISTS_BUT_UNMAPPED":
+    case "SCHEDULER_CONTRACT_NAME_EXISTS_BUT_UNMAPPED":
     case "CONTRACT_NAME_EXISTS_AND_MAPPED": {
       let contract_name =
         Array.isArray(viewLogData?.xero_records) &&
@@ -321,10 +334,43 @@ export const handleResolveByErrorCodeMap = async (
       setShowManualMapping(true);
       break;
     }
+
+    case "SCHEDULER_CONTRACT_NAME_EXISTS_AND_MAPPED": {
+      await unMappingContract({
+        contractId: viewLogData?.api_payload?.unmapping_contract_id,
+      });
+      let contract_name =
+        Array.isArray(viewLogData?.xero_records) &&
+        typeof viewLogData?.xero_records[0] === "object"
+          ? viewLogData?.xero_records[0]?.lineItems?.[0]?.tracking?.find(
+              (t: any) => t?.name === "Contract"
+            )?.option || ""
+          : "";
+      contract_name =
+        contract_name ||
+        viewLogData?.paytrade_records?.[0]?.contract_name ||
+        "";
+      const data = await getPaytradeContractListsForCompany({
+        payload: { company_id: companyId },
+      });
+      setModelConfigSelect({
+        title: "Contract mapping",
+        placeHolder: "Select contracts",
+        renderKey: "contract_name",
+        valueKey: "contract_id",
+        description: `Map <b>${contract_name}</b> to:`,
+        options: data?.contract_list || [],
+      });
+      setShowManualMapping(true);
+      break;
+    }
+
     case "XP_ADD_INVOICE_PROJECT_NOT_MAPPED":
     case "XP_ADD_BILL_PROJECT_NOT_MAPPED":
     case "WH_PROJECT_NOT_MAPPED":
+    case "SCHEDULER_PROJECT_NOT_MAPPED":
     case "PROJECT_NAME_EXISTS_BUT_UNMAPPED":
+    case "SCHEDULER_PROJECT_NAME_EXISTS_BUT_UNMAPPED":
     case "PROJECT_NAME_EXISTS_AND_MAPPED": {
       let project_name =
         Array.isArray(viewLogData?.xero_records) &&
@@ -349,6 +395,35 @@ export const handleResolveByErrorCodeMap = async (
       setShowManualMapping(true);
       break;
     }
+
+    case "SCHEDULER_PROJECT_NAME_EXISTS_AND_MAPPED": {
+      await unMappingProject({
+        projectId: viewLogData?.api_payload?.unmapping_project_id,
+      });
+      let project_name =
+        Array.isArray(viewLogData?.xero_records) &&
+        typeof viewLogData?.xero_records[0] === "object"
+          ? viewLogData?.xero_records[0]?.lineItems?.[0]?.tracking?.find(
+              (t: any) => t?.name === "Project"
+            )?.option || ""
+          : "";
+      project_name =
+        project_name || viewLogData?.paytrade_records?.[0]?.project_name || "";
+      const data = await GetPaytradeProjectListsForCompany({
+        payload: { company_id: companyId },
+      });
+      setModelConfigSelect({
+        title: "Project mapping",
+        placeHolder: "Select project",
+        renderKey: "project_name",
+        valueKey: "project_id",
+        description: `Map <b>${project_name}</b> to:`,
+        options: data?.project_list || [],
+      });
+      setShowManualMapping(true);
+      break;
+    }
+
     case "DELETE_CONTACT_NOT_MAPPED": {
       const data = await getXeroContactListsForCompany({
         payload: { company_id: companyId },
@@ -824,6 +899,8 @@ export const handleResolveByErrorCodeMap = async (
     case "XP_ADD_BILL_MULTIPLE_RETENTIONS_IDENTIFIED":
     case "XP_ADD_INVOICE_MULTIPLE_RETENTIONS_IDENTIFIED":
     case "WH_RETENTION_LIST_UNIDENTIFIED":
+    case "SCHEDULER_RETENTION_LIST_UNIDENTIFIED":
+    case "SCHEDULER_MUTIPLE_RETENTIONS_IDENTIFIED":
     case "WH_MUTIPLE_RETENTIONS_IDENTIFIED": {
       const retentionList = await fetchAllRetentionInPaymentsList({
         company_id: companyId,
@@ -1080,7 +1157,9 @@ export const handleResolveByErrorCodeMap = async (
       setShowManualMapping(true);
       break;
     }
+    case "SCHEDULER_PAYMENT_ACCOUNT_NOT_MAPPED":
     case "WH_PAYMENT_ACCOUNT_NOT_MAPPED":
+    case "SCHEDULER_RETENTION_ACCOUNT_NOT_MAPPED":
     case "WH_RETENTION_ACCOUNT_NOT_MAPPED": {
       const data = await GetPaytradeBankAccountsListsForCompany({
         payload: { company_id: companyId },
@@ -1111,6 +1190,8 @@ export const handleManualMappingLogic = async (
   try {
     switch (viewLogData.error_code) {
       case "WH_OVERPAYMENT_ACCOUNT_NOT_FOUND":
+      case "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_FOUND":
+      case "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_MAPPED":
       case "WH_OVERPAYMENT_ACCOUNT_NOT_MAPPED": {
         const response = await manualMappingBankAccounts({
           payload: {
@@ -1128,6 +1209,7 @@ export const handleManualMappingLogic = async (
             paymentClaimId: null,
             projectId: null,
             syncId: viewLogData?.id ?? null,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         }
         break;
@@ -1438,6 +1520,26 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+      case "SCHEDULER_CONTACT_NAME_EXISTS_BUT_UNMAPPED":
+      case "SCHEDULER_CONTACT_NAME_EXISTS_AND_MAPPED": {
+        const response = await manualMappingContact({
+          payload: {
+            pt_contact_id: manualMapData?.contact_id,
+            contact_id: viewLogData?.api_payload?.contact_id,
+          },
+        });
+        if (response) {
+          await CreateOrUpdateContactInPaytrade({
+            syncId: viewLogData?.id ?? null,
+            companyId: Number(localStorage.getItem("companyId")),
+            contactId: viewLogData?.api_payload?.contact_id,
+            tenantId: viewLogData?.api_payload?.tenant_id,
+            contactStatus: viewLogData?.api_payload?.contact_status,
+          });
+        }
+        break;
+      }
+      case "SCHEDULER_CONTACT_NOT_MAPPED":
       case "WH_CONTACT_NOT_MAPPED": {
         const response = await manualMappingContact({
           payload: {
@@ -1452,6 +1554,7 @@ export const handleManualMappingLogic = async (
             invoiceId: viewLogData?.api_payload?.invoice_id || null,
             tenantId: viewLogData?.api_payload?.tenant_id || null,
             syncId: viewLogData?.id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         }
         break;
@@ -1472,6 +1575,7 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+      case "SCHEDULER_CONTRACT_NOT_MAPPED":
       case "WH_CONTRACT_NOT_MAPPED": {
         const response = await manualMappingContract({
           payload: {
@@ -1486,6 +1590,7 @@ export const handleManualMappingLogic = async (
             invoiceId: viewLogData?.api_payload?.invoice_id || null,
             tenantId: viewLogData?.api_payload?.tenant_id || null,
             syncId: viewLogData?.id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         }
         break;
@@ -1507,6 +1612,7 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+      case "SCHEDULER_PROJECT_NOT_MAPPED":
       case "WH_PROJECT_NOT_MAPPED": {
         const project_id = viewLogData?.api_payload?.project_id;
         const response = await manualMappingProject({
@@ -1522,6 +1628,7 @@ export const handleManualMappingLogic = async (
             invoiceId: viewLogData?.api_payload?.invoice_id || null,
             tenantId: viewLogData?.api_payload?.tenant_id || null,
             syncId: viewLogData?.id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         }
         break;
@@ -1546,6 +1653,26 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+
+      case "SCHEDULER_PROJECT_NAME_EXISTS_BUT_UNMAPPED": {
+        const project_id = viewLogData?.api_payload?.project_id;
+        const response = await manualMappingProject({
+          payload: {
+            pt_project_id: manualMapData?.project_id,
+            project_id: project_id,
+          },
+        });
+        if (response) {
+          await CreateOrUpdateProjectInPaytrade({
+            companyId: +(localStorage.getItem("companyId") || 0),
+            syncId: viewLogData?.id,
+            projectId: viewLogData?.api_payload?.project_id,
+            projectStatus: viewLogData?.api_payload?.project_status,
+          });
+        }
+        break;
+      }
+
       case "PROJECT_NAME_EXISTS_AND_MAPPED": {
         await unMappingProject({
           projectId: viewLogData?.api_payload?.unmapping_project_id,
@@ -1569,6 +1696,26 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+
+      case "SCHEDULER_PROJECT_NAME_EXISTS_AND_MAPPED": {
+        const project_id = viewLogData?.api_payload?.project_id;
+        const response = await manualMappingProject({
+          payload: {
+            pt_project_id: manualMapData?.project_id,
+            project_id: project_id,
+          },
+        });
+        if (response) {
+          await CreateOrUpdateProjectInPaytrade({
+            companyId: +(localStorage.getItem("companyId") || 0),
+            syncId: viewLogData?.id,
+            projectId: viewLogData?.api_payload?.project_id,
+            projectStatus: viewLogData?.api_payload?.project_status,
+          });
+        }
+        break;
+      }
+
       case "ADD_CONTRACT_ALREADY_MAPPED_TO_XERO": {
         const response = await manualMappingContract({
           payload: {
@@ -1610,7 +1757,7 @@ export const handleManualMappingLogic = async (
         });
         const response = await manualMappingContract({
           payload: {
-            contract_id: viewLogData?.api_payload?.unmapping_contract_id,
+            contract_id: viewLogData?.api_payload?.contract_id,
             pt_contract_id: manualMapData?.contract_id,
           },
         });
@@ -1627,6 +1774,25 @@ export const handleManualMappingLogic = async (
         }
         break;
       }
+      case "SCHEDULER_CONTRACT_NAME_EXISTS_BUT_UNMAPPED":
+      case "SCHEDULER_CONTRACT_NAME_EXISTS_AND_MAPPED": {
+        const response = await manualMappingContract({
+          payload: {
+            contract_id: viewLogData?.api_payload?.contract_id,
+            pt_contract_id: manualMapData?.contract_id,
+          },
+        });
+        if (response) {
+          await CreateOrUpdateContractInPaytrade({
+            companyId: +(localStorage.getItem("companyId") || 0),
+            syncId: viewLogData?.id,
+            contractId: viewLogData?.api_payload?.contract_id,
+            contractStatus: viewLogData?.api_payload?.contract_status,
+          });
+        }
+        break;
+      }
+
       case "EDIT_BILL_CONTRACT_NOT_MAPPED":
       case "EDIT_INVOICE_CONTRACT_NOT_MAPPED": {
         const contract_id =
@@ -1778,7 +1944,9 @@ export const handleManualMappingLogic = async (
         });
         break;
       }
+      case "SCHEDULER_RETENTION_LIST_UNIDENTIFIED":
       case "WH_RETENTION_LIST_UNIDENTIFIED":
+      case "SCHEDULER_MUTIPLE_RETENTIONS_IDENTIFIED":
       case "WH_MUTIPLE_RETENTIONS_IDENTIFIED": {
         await CreateClaimInPaytrade({
           associatedRetentionSubPaymentId:
@@ -1787,6 +1955,7 @@ export const handleManualMappingLogic = async (
           invoiceId: viewLogData?.api_payload?.invoice_id || null,
           tenantId: viewLogData?.api_payload?.tenant_id || null,
           syncId: viewLogData?.id,
+          syncRunType: viewLogData?.api_payload?.sync_run_type || null,
         });
         break;
       }
@@ -2283,6 +2452,7 @@ export const handleManualMappingLogic = async (
           });
         break;
       }
+      case "SCHEDULER_PAYMENT_ACCOUNT_NOT_MAPPED":
       case "WH_PAYMENT_ACCOUNT_NOT_MAPPED": {
         const response = await manualMappingBankAccounts({
           payload: {
@@ -2297,9 +2467,11 @@ export const handleManualMappingLogic = async (
             invoiceId: viewLogData?.api_payload?.invoice_id || null,
             tenantId: viewLogData?.api_payload?.tenant_id || null,
             syncId: viewLogData?.id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         break;
       }
+      case "SCHEDULER_RETENTION_ACCOUNT_NOT_MAPPED":
       case "WH_RETENTION_ACCOUNT_NOT_MAPPED": {
         const response = await manualMappingBankAccounts({
           payload: {
@@ -2314,6 +2486,7 @@ export const handleManualMappingLogic = async (
             invoiceId: viewLogData?.api_payload?.invoice_id || null,
             tenantId: viewLogData?.api_payload?.tenant_id || null,
             syncId: viewLogData?.id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         break;
       }
@@ -2334,6 +2507,7 @@ export const commentsTableResolve = async (
 ) => {
   switch (viewLogData?.error_code) {
     case "WH_MISSING_NON_PAID_REASONS":
+    case "SCHEDULER_MISSING_NON_PAID_REASONS":
     case "XP_ADD_INVOICE_MISSING_NON_PAID_REASONS": {
       const responseData = await fetchSubContractorClaimsByHeadContractor({
         project_id: viewLogData?.api_payload?.project_id,
@@ -2392,7 +2566,9 @@ export const uploadAttachment = async (
 ) => {
   switch (viewLogData?.error_code) {
     case "WH_MISSING_SUPPORTING_ATTACHMENTS":
+    case "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS":
     case "XP_ADD_INVOICE_MISSING_SUPPORTING_ATTACHMENTS":
+    case "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS":
     case "WH_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS": {
       setOpenAttachmentModel(true);
       break;
@@ -2408,6 +2584,8 @@ export const overpayment = async (
 ) => {
   switch (viewLogData?.error_code) {
     case "WH_OVERPAYMENT_MISSING_FIELDS":
+    case "SCHEDULER_OVERPAYMENT_MISSING_FIELDS":
+    case "SCHEDULER_OVERPAYMENT_REFUND_MISSING_FIELDS":
     case "WH_OVERPAYMENT_REFUND_MISSING_FIELDS": {
       setOpenOverpayment(true);
       break;
@@ -2422,6 +2600,7 @@ export const textareaErrorCode = async (
   setOpenTextareaModel: any
 ) => {
   switch (viewLogData?.error_code) {
+    case "SCHEDULER_MISSING_WITHHOLD_REASON_PAYMENTS":
     case "WH_MISSING_WITHHOLD_REASON_PAYMENTS": {
       setOpenTextareaModel(true);
       break;

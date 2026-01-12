@@ -33,17 +33,26 @@ export const AdminListAllUsers = async (
                 country
                 created_on
                 email_id
+                expiry_date
                 first_name
+                free_plan_reason
                 id
                 is_admin_contacted
+                is_free_plan_eligible
                 last_name
                 latitude
                 longitude
                 occupation
                 place_id
+                plan_id
+                plan_name
                 position_title
                 region
+                subscription_id
+                subscription_status
                 user_address
+                user_company_id
+                user_company_name
                 user_id
                 user_phone_no
                 user_role

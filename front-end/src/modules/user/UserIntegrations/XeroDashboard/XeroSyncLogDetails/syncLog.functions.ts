@@ -23,12 +23,17 @@ export async function CreateBankAccountsInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createAccountInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createAccountInXero?.message);
+    const res = response?.data?.createAccountInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createAccountInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -55,12 +60,19 @@ export async function EditAccountInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.editAccountInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.editAccountInXero?.message);
+    const res = response?.data?.editAccountInXero;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.editAccountInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -90,12 +102,18 @@ export async function DeleteAccountInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.deleteAccountInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.deleteAccountInXero?.message);
+    const res = response?.data?.deleteAccountInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteAccountInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -129,12 +147,17 @@ export async function CreateContactInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createContactInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createContactInXero?.message);
+    const res = response?.data?.createContactInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createContactInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -161,12 +184,19 @@ export async function CreateProjectInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createProjectInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createProjectInXero?.message);
+    const res = response?.data?.createProjectInXero;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createProjectInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -193,12 +223,17 @@ export async function CreateContractInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createContractInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createContractInXero?.message);
+    const res = response?.data?.createContractInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createContractInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -228,12 +263,17 @@ export async function EditContactInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.editContactInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.editContactInXero?.message);
+    const res = response?.data?.editContactInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.editContactInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -266,12 +306,17 @@ export async function DeleteContactInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.deleteContactInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.deleteContactInXero?.message);
+    const res = response?.data?.deleteContactInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteContactInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -298,12 +343,19 @@ export async function DeleteProjectInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.deleteProjectInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.deleteProjectInXero?.message);
+    const res = response?.data?.deleteProjectInXero;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteProjectInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -331,12 +383,17 @@ export async function DeleteContractInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.deleteContractInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.deleteContractInXero?.message);
+    const res = response?.data?.deleteContractInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteContractInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -370,14 +427,17 @@ export async function CreateInvoiceOrBillInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.createInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createInvoiceOrBillInXero?.message);
+    const res = response?.data?.createInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -411,14 +471,17 @@ export async function EditInvoiceOrBillInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.editInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.editInvoiceOrBillInXero?.message);
+    const res = response?.data?.editInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.editInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -452,14 +515,17 @@ export async function DeleteInvoiceOrBillInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.deleteInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.deleteInvoiceOrBillInXero?.message);
+    const res = response?.data?.deleteInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -535,19 +601,17 @@ export async function SyncAllInvoicesOrBillsByCompanyId(
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.syncAllInvoicesOrBillsByCompanyId;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.syncAllInvoicesOrBillsByCompanyId?.message
-      );
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(
-        response?.data?.syncAllInvoicesOrBillsByCompanyId?.message
-      );
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -613,26 +677,47 @@ export async function CreateClaimInPaytrade(
   try {
     const response = await apolloClient.query({
       query: gql`
-        mutation CreateClaimInPaytrade(
-          $invoiceId: String!
-          $tenantId: String!
-          $associatedRetentionSubPaymentId: Float
-          $retentionId: Float
-          $syncId: String
-        ) {
-          createClaimInPaytrade(
-            invoice_id: $invoiceId
-            tenant_id: $tenantId
-            associated_retention_sub_payment_id: $associatedRetentionSubPaymentId
-            retention_id: $retentionId
-            sync_id: $syncId
-          ) {
+        mutation CreateClaimInPaytrade($payload: CreateClaimInput!) {
+          createClaimInPaytrade(payload: $payload) {
+            data {
+              contact_id
+              contact_name
+              due_date
+              id
+              invoice_id
+              mapped_status
+              status
+              total_amount
+              type
+              xero_invoice_id
+            }
             message
             status
           }
         }
       `,
-      variables: postData,
+      // variables: postData,
+      variables: {
+        payload: {
+          tenant_id: postData?.tenantId || null,
+          invoice_id: postData?.invoiceId || null,
+          bank_transfer_id: postData?.bankTransferId || null,
+          retention_id: postData?.retentionId || null,
+          associated_retention_sub_payment_id:
+            postData?.associatedRetentionSubPaymentId || null,
+
+          credit_note_id: postData?.creditNoteId || null,
+
+          claims_with_reason: postData?.claimsWithReason || [],
+
+          compulsory_attachment_ids: postData?.compulsoryAttachmentIds ?? null,
+
+          withhold_payment_reason: postData?.withholdPaymentReason || null,
+
+          sync_id: postData?.syncId,
+          sync_run_type: postData?.syncRunType || null,
+        },
+      },
       fetchPolicy: "no-cache",
     });
 
@@ -656,28 +741,47 @@ export async function CreateClaimInPaytradeReason(
   try {
     const response = await apolloClient.query({
       query: gql`
-        mutation CreateClaimInPaytrade(
-          $withholdPaymentReason: String
-          $tenantId: String!
-          $syncId: String
-          $invoiceId: String!
-          $associatedRetentionSubPaymentId: Float
-          $retentionId: Float
-        ) {
-          createClaimInPaytrade(
-            withhold_payment_reason: $withholdPaymentReason
-            tenant_id: $tenantId
-            sync_id: $syncId
-            invoice_id: $invoiceId
-            associated_retention_sub_payment_id: $associatedRetentionSubPaymentId
-            retention_id: $retentionId
-          ) {
+        mutation CreateClaimInPaytrade($payload: CreateClaimInput!) {
+          createClaimInPaytrade(payload: $payload) {
+            data {
+              contact_id
+              contact_name
+              due_date
+              id
+              invoice_id
+              mapped_status
+              status
+              total_amount
+              type
+              xero_invoice_id
+            }
             message
             status
           }
         }
       `,
-      variables: postData,
+      // variables: postData,
+      variables: {
+        payload: {
+          tenant_id: postData?.tenantId || null,
+          invoice_id: postData?.invoiceId || null,
+          bank_transfer_id: postData?.bankTransferId || null,
+          retention_id: postData?.retentionId || null,
+          associated_retention_sub_payment_id:
+            postData?.associatedRetentionSubPaymentId || null,
+
+          credit_note_id: postData?.creditNoteId || null,
+
+          claims_with_reason: postData?.claimsWithReason || [],
+
+          compulsory_attachment_ids: postData?.compulsoryAttachmentIds ?? null,
+
+          withhold_payment_reason: postData?.withholdPaymentReason || null,
+
+          sync_id: postData?.syncId,
+          sync_run_type: postData?.syncRunType || null,
+        },
+      },
       fetchPolicy: "no-cache",
     });
 
@@ -707,12 +811,17 @@ export async function CreatePaymentInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createPaymentInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (response?.data?.createPaymentInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createPaymentInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.createPaymentInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -741,15 +850,17 @@ export async function CreateOverPaymentRefundInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createOverPaymentRefundInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.createOverPaymentRefundInXero?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createOverPaymentRefundInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.createOverPaymentRefundInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -777,14 +888,18 @@ export async function SyncAllPaymentsByCompanyId(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.syncAllPaymentsByCompanyId;
 
-    if (
-      response?.data?.syncAllPaymentsByCompanyId?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.syncAllPaymentsByCompanyId?.message);
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.syncAllPaymentsByCompanyId?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -809,14 +924,17 @@ export async function CreateOverPaymentInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createOverPaymentInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.createOverPaymentInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createOverPaymentInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.createOverPaymentInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -841,46 +959,23 @@ export async function DeletePaymentInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.deletePaymentInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (response?.data?.deletePaymentInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.deletePaymentInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.deletePaymentInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
     showErrorToast(error);
     return false;
   } finally {
-    return false;
-  }
-}
-
-export async function GetOrganisation(): Promise<any> {
-  try {
-    const response = await apolloClient.query({
-      query: gql`
-        query GetOrganisation {
-          getOrganisation {
-            data {
-              short_code
-            }
-            message
-            status
-          }
-        }
-      `,
-      variables: {},
-      fetchPolicy: "no-cache",
-    });
-    if (response?.data?.getOrganisation?.status === ApiResponse.SUCCESS) {
-      return response?.data?.getOrganisation?.data?.short_code;
-    } else {
-      return false;
-    }
-  } catch (error: any) {
-    showErrorToast(error);
     return false;
   }
 }
@@ -899,14 +994,17 @@ export async function CreateCreditNotesInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createCreditNotesInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.createCreditNotesInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createCreditNotesInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.createCreditNotesInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -931,14 +1029,17 @@ export async function DeleteCreditNotesInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.deleteCreditNotesInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.deleteCreditNotesInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.deleteCreditNotesInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteCreditNotesInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -963,14 +1064,17 @@ export async function DeleteOverPaymentInXero(postData: any): Promise<any> {
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.deleteOverPaymentInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.deleteOverPaymentInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.deleteOverPaymentInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteOverPaymentInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -999,15 +1103,17 @@ export async function DeleteOverPaymentRefundInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.deleteOverPaymentRefundInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (
-      response?.data?.deleteOverPaymentRefundInXero?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.deleteOverPaymentRefundInXero?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       return true;
     } else {
-      showErrorToast(response?.data?.deleteOverPaymentRefundInXero?.message);
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {
@@ -1024,30 +1130,47 @@ export async function CreateClaimInPaytradeForTable(
   try {
     const response = await apolloClient.query({
       query: gql`
-        mutation CreateClaimInPaytrade(
-          $associatedRetentionSubPaymentId: Float
-          $claimsWithReason: [ClaimReasonInput!]
-          $compulsoryAttachmentIds: [String!]
-          $invoiceId: String!
-          $retentionId: Float
-          $syncId: String
-          $tenantId: String!
-        ) {
-          createClaimInPaytrade(
-            associated_retention_sub_payment_id: $associatedRetentionSubPaymentId
-            claims_with_reason: $claimsWithReason
-            compulsory_attachment_ids: $compulsoryAttachmentIds
-            invoice_id: $invoiceId
-            retention_id: $retentionId
-            sync_id: $syncId
-            tenant_id: $tenantId
-          ) {
+        mutation CreateClaimInPaytrade($payload: CreateClaimInput!) {
+          createClaimInPaytrade(payload: $payload) {
+            data {
+              contact_id
+              contact_name
+              due_date
+              id
+              invoice_id
+              mapped_status
+              status
+              total_amount
+              type
+              xero_invoice_id
+            }
             message
             status
           }
         }
       `,
-      variables: postData,
+      // variables: postData,
+      variables: {
+        payload: {
+          tenant_id: postData?.tenantId || null,
+          invoice_id: postData?.invoiceId || null,
+          bank_transfer_id: postData?.bankTransferId || null,
+          retention_id: postData?.retentionId || null,
+          associated_retention_sub_payment_id:
+            postData?.associatedRetentionSubPaymentId || null,
+
+          credit_note_id: postData?.creditNoteId || null,
+
+          claims_with_reason: postData?.claimsWithReason || [],
+
+          compulsory_attachment_ids: postData?.compulsoryAttachmentIds ?? null,
+
+          withhold_payment_reason: postData?.withholdPaymentReason || null,
+
+          sync_id: postData?.syncId,
+          sync_run_type: postData?.syncRunType || null,
+        },
+      },
       fetchPolicy: "no-cache",
     });
     if (response?.data?.createClaimInPaytrade?.status === ApiResponse.SUCCESS) {
@@ -1123,31 +1246,30 @@ export async function checkAndCreateOverPaymentAndRefunds(
     const response = await apolloClient.query({
       query: gql`
         mutation CheckAndCreateOverPaymentAndRefunds(
-          $contactId: String!
-          $tenantId: String!
-          $syncId: String
-          $projectId: Float
-          $paymentClaimId: Float
-          $associatedPaymentId: Float
-          $associatedOverpaymentId: Float
-          $overpaymentId: String
+          $payload: CreateOverpaymentInput!
         ) {
-          checkAndCreateOverPaymentAndRefunds(
-            contact_id: $contactId
-            tenant_id: $tenantId
-            sync_id: $syncId
-            project_id: $projectId
-            payment_claim_id: $paymentClaimId
-            associated_payment_id: $associatedPaymentId
-            associated_overpayment_id: $associatedOverpaymentId
-            overpayment_id: $overpaymentId
-          ) {
+          checkAndCreateOverPaymentAndRefunds(payload: $payload) {
             message
             status
           }
         }
       `,
-      variables: postData,
+      // variables: postData,
+      variables: {
+        payload: {
+          contact_id: postData?.contactId || null,
+          tenant_id: postData?.tenantId || null,
+          project_id: postData?.projectId || null,
+          payment_claim_id: postData?.paymentClaimId || null,
+          overpayment_id: postData?.overpaymentId || null,
+          associated_payment_id: postData?.associatedPaymentId || null,
+          associated_overpayment_id: postData?.associatedOverpaymentId || null,
+          is_under_payment: postData?.isUnderPayment || null,
+          under_payment_amount: postData?.underPaymentAmount || null,
+          sync_id: postData?.syncId || null,
+          sync_run_type: postData?.syncRunType || null,
+        },
+      },
       fetchPolicy: "no-cache",
     });
 
@@ -1168,5 +1290,155 @@ export async function checkAndCreateOverPaymentAndRefunds(
   } catch (error: any) {
     showErrorToast(error);
     return false;
+  }
+}
+
+export async function GetOrganisation(): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetOrganisation {
+          getOrganisation {
+            data {
+              short_code
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {},
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.getOrganisation;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      return res?.data?.short_code;
+    } else {
+      return false;
+    }
+  } catch (error: any) {
+    showErrorToast(error);
+    return false;
+  }
+}
+
+export async function CreateOrUpdateProjectInPaytrade(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation CreateOrUpdateProjectInPaytrade(
+          $companyId: Float!
+          $payload: CreateProjectInput
+          $projectId: String
+          $projectStatus: String
+          $syncId: String
+        ) {
+          createOrUpdateProjectInPaytrade(
+            company_id: $companyId
+            payload: $payload
+            project_id: $projectId
+            project_status: $projectStatus
+            sync_id: $syncId
+          ) {
+            data {
+              id
+              mapped_status
+              project_id
+              project_name
+              project_status
+              xero_project_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.createOrUpdateProjectInPaytrade?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        response?.data?.createOrUpdateProjectInPaytrade?.message
+      );
+      return true;
+    } else {
+      showErrorToast(response?.data?.createOrUpdateProjectInPaytrade?.message);
+      return false;
+    }
+  } catch (error: any) {
+    showErrorToast(error?.message || error);
+    return false;
+  } finally {
+    setLoading && setLoading(false);
+  }
+}
+
+export async function CreateOrUpdateContractInPaytrade(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation CreateOrUpdateContractInPaytrade(
+          $companyId: Float!
+          $contractId: String
+          $contractStatus: String
+          $payload: CreateContractDetailInput
+          $syncId: String
+        ) {
+          createOrUpdateContractInPaytrade(
+            company_id: $companyId
+            contract_id: $contractId
+            contract_status: $contractStatus
+            payload: $payload
+            sync_id: $syncId
+          ) {
+            data {
+              contract_id
+              contract_name
+              contract_status
+              id
+              mapped_status
+              xero_contract_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.createOrUpdateContractInPaytrade?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        response?.data?.createOrUpdateContractInPaytrade?.message
+      );
+      return true;
+    } else {
+      showErrorToast(response?.data?.createOrUpdateContractInPaytrade?.message);
+      return false;
+    }
+  } catch (error: any) {
+    showErrorToast(error?.message || error);
+    return false;
+  } finally {
+    setLoading && setLoading(false);
   }
 }

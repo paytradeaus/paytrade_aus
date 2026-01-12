@@ -746,7 +746,7 @@ export default function ReconciliationList(props: any) {
         >
           <h4 className="text_center width_100">
             Are you sure you wish to move the reconciliation record to the
-            archive with status updated to deleted?
+            archive with status updated to delete?
           </h4>
         </BaseModal>
       )}

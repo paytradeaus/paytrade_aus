@@ -7,6 +7,8 @@ import {
   CreateContractInXero,
   CreateCreditNotesInXero,
   CreateInvoiceOrBillInXero,
+  CreateOrUpdateContractInPaytrade,
+  CreateOrUpdateProjectInPaytrade,
   CreateOverPaymentRefundInXero,
   CreatePaymentInXero,
   CreateProjectInXero,
@@ -25,6 +27,11 @@ import {
 } from "./syncLog.functions";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import CryptoJS from "crypto-js";
+import { viewXeroSyncLog } from "../../integration.functions";
+import {
+  createContactInPaytradeThroughWebhookFromXeroData,
+  CreateOrUpdateContactInPaytrade,
+} from "@/modules/user/ClientsAndSuppliers/AddClientsAndSuppliers/AddClientsAndSuppliers.functions";
 
 const xeroEditBillUrl = (invoiceId: string) =>
   "https://go.xero.com/AccountsPayable/View.aspx?InvoiceID=" +
@@ -35,6 +42,13 @@ const xeroEditInvoiceUrl = async (invoiceId: string) => {
   try {
     const short_code = await GetOrganisation();
     return `https://go.xero.com/app/${short_code}/invoicing/edit/${invoiceId}`;
+  } catch {}
+};
+
+const xeroContactRestoreUrl = async (contactId: string) => {
+  try {
+    const short_code = await GetOrganisation();
+    return `https://go.xero.com/app/${short_code}/contacts/contact/${contactId}`;
   } catch {}
 };
 
@@ -124,6 +138,28 @@ export async function resolveList(data: any) {
     }
     case "SYNC_ADD_BILL_TO_XERO":
     case "SYNC_ADD_INVOICE_TO_XERO": {
+      const err = data?.error_message ?? "";
+
+      // 🔍 Partial match keywords
+      const errorKeywords = [
+        "Account code",
+        "not a valid code",
+        "TaxType code NONE",
+        "cannot be used for this type of transaction",
+      ];
+
+      // 🔥 Check if any keyword exists inside the error message
+      const hasInvalidAccountOrTaxError = errorKeywords.some((keyword) =>
+        err.includes(keyword)
+      );
+
+      if (hasInvalidAccountOrTaxError) {
+        console.log("⚠️ Invalid account/tax error detected");
+
+        return {
+          redirectTo: `/user/integrations/xero/settings?syncId=${data?.id}`,
+        };
+      }
       await CreateInvoiceOrBillInXero({
         paymentClaimId: +data?.api_payload?.payment_claim_id,
         syncId: data?.id,
@@ -140,14 +176,16 @@ export async function resolveList(data: any) {
         redirectTo: `/user/claims/edit/${data?.api_payload?.payment_claim_id}?syncId=${data?.id}`,
       };
     }
+    case "SCHEDULER_PROJECT_MISSING_FIELDS":
     case "PROJECT_MISSING_FIELDS": {
       return {
-        redirectTo: `/user/projects/add?syncId=${data?.id}`,
+        redirectTo: `/user/projects/add?syncId=${data?.id}&errorCode=${data?.error_code}`,
       };
     }
+    case "SCHEDULER_CONTRACT_MISSING_FIELDS":
     case "CONTRACT_MISSING_FIELDS": {
       return {
-        redirectTo: `/user/contracts/add?projectid=&projectname=&projectrole=&overview=&syncId=${data?.id}`,
+        redirectTo: `/user/contracts/add?projectid=&projectname=&projectrole=&overview=&syncId=${data?.id}&errorCode=${data?.error_code}`,
       };
     }
     case "DELETE_INVOICE_NOT_UPDATED":
@@ -206,19 +244,34 @@ export async function resolveList(data: any) {
       return false;
     }
     case "WH_ATLEAST_ONE_LINE_ITEM":
+    case "SCHEDULER_ATLEAST_ONE_LINE_ITEM":
     case "WH_TRACKING_ID_MISSING":
+    case "SCHEDULER_TRACKING_ID_MISSING":
     case "WH_VALID_LINE_ITEM":
+    case "SCHEDULER_VALID_LINE_ITEM":
     case "WH_CONTACT_NOT_FOUND":
+    case "SCHEDULER_CONTACT_NOT_FOUND":
     case "WH_CONTRACT_NOT_FOUND":
+    case "SCHEDULER_CONTRACT_NOT_FOUND":
+    case "SCHEDULER_PROJECT_NOT_FOUND":
     case "WH_PROJECT_NOT_FOUND":
     case "WH_MISMATCH_IN_CONTACT":
+    case "SCHEDULER_MISMATCH_IN_CONTACT":
     case "WH_MISMATCH_IN_PROJECT":
+    case "SCHEDULER_MISMATCH_IN_PROJECT":
     case "WH_CONTRACT_NOT_IN_PROGRESS":
+    case "SCHEDULER_CONTRACT_NOT_IN_PROGRESS":
     case "WH_MUST_BE_2_LINES":
+    case "SCHEDULER_MUST_BE_2_LINES":
     case "WH_CONTRACT_SIZE_EXCEEDS":
+    case "SCHEDULER_CONTRACT_SIZE_EXCEEDS":
     case "WH_RESOURCE_NOT_FOUND":
+    case "SCHEDULER_RESOURCE_NOT_FOUND":
     case "WH_CLAIM_RECEIVED_DATE_IN_FUTURE":
+    case "SCHEDULER_CLAIM_RECEIVED_DATE_IN_FUTURE":
+    case "SCHEDULER_CLAIM_DUE_DATE_IN_PAST":
     case "WH_CLAIM_SENT_DATE_IN_FUTURE":
+    case "SCHEDULER_CLAIM_SENT_DATE_IN_FUTURE":
     case "WH_CLAIM_DUE_DATE_IN_PAST": {
       const response = await CreateClaimInPaytrade({
         associatedRetentionSubPaymentId: null,
@@ -226,6 +279,7 @@ export async function resolveList(data: any) {
         invoiceId: data?.api_payload?.invoice_id || null,
         tenantId: data?.api_payload?.tenant_id || null,
         syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
       });
       if (!response) {
         if (data?.api_payload?.type == "bill") {
@@ -240,20 +294,26 @@ export async function resolveList(data: any) {
       return false;
     }
     case "WH_MULTIPLE_CREDIT_NOTES_IDENTIFIED":
-    case "WH_PAYMENT_CANNOT_CREATE":
+    case "SCHEDULER_MULTIPLE_CREDIT_NOTES_IDENTIFIED":
     case "WH_PAYMENT_NOT_FOUND":
+    case "SCHEDULER_PAYMENT_NOT_FOUND":
     case "WH_PAYMENT_ACCOUNT_NOT_FOUND":
     case "WH_MULTIPLE_RETENTIONS_IDENTIFIED":
+    case "SCHEDULER_PAYMENT_ACCOUNT_NOT_FOUND":
+    case "SCHEDULER_MULTIPLE_RETENTIONS_IDENTIFIED":
     case "WH_NO_BANK_TRANSFER_IDENTIFIED":
+    case "SCHEDULER_NO_BANK_TRANSFER_IDENTIFIED":
     case "WH_RETENTION_ACCOUNT_NOT_FOUND":
-    case "WH_MULTIPLE_CREDIT_NOTES_IDENTIFIED":
-    case "WH_PAYMENT_CANNOT_CREATE": {
+    case "SCHEDULER_RETENTION_ACCOUNT_NOT_FOUND":
+    case "SCHEDULER_MULTIPLE_CREDIT_NOTES_IDENTIFIED":
+    case "WH_MULTIPLE_CREDIT_NOTES_IDENTIFIED": {
       const response = await CreateClaimInPaytrade({
         associatedRetentionSubPaymentId: null,
         retentionId: null,
         invoiceId: data?.api_payload?.invoice_id || null,
         tenantId: data?.api_payload?.tenant_id || null,
         syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
       });
       if (!response) {
         if (data?.api_payload?.type == "bill") {
@@ -262,11 +322,128 @@ export async function resolveList(data: any) {
       }
       return false;
     }
+    case "SCHEDULER_PAYMENT_CANNOT_CREATE":
+    case "WH_PAYMENT_CANNOT_CREATE": {
+      const { api_payload, id, xero_records } = data || {};
+      const record = xero_records?.[0] || {};
+      const response = await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: api_payload?.invoice_id || null,
+        tenantId: api_payload?.tenant_id || null,
+        syncId: id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      if (response) break;
+      const companyId = localStorage.getItem("companyId") || 0;
+      const { payment_account, retention_account } = record;
+      const accountId = payment_account || retention_account;
+      if (accountId) {
+        const redirectTo = `/user/bank-accounts/overview/${accountId}/${companyId}`;
+        return { redirectTo };
+      }
+
+      break;
+    }
+    case "SCHEDULER_PAYMENT_CANNOT_BE_DELETED":
+    case "WH_PAYMENT_CANNOT_BE_DELETED": {
+      const record = data?.xero_records?.[0];
+      // Extract payment ID safely
+      const paymentId = record?.checkedPayments?.[0]?.payment_id;
+
+      // Extract claim
+      const isDelete = data?.api_payload?.delete_paytrade_only;
+
+      const isUnmapping = data?.api_payload?.unmapping_payment_id;
+
+      // --- Unmatch Payment Routing ---
+      const unmatchData = record?.unmatchTransactions?.[0] ?? null;
+
+      const paymenttype = data?.api_payload?.payment_type;
+
+      // List of special payment types
+      const otherPayments = [
+        "Interest Received",
+        "Bank Charge Applied",
+        "Bank Charge Top Up",
+        "Interest Withdrawal",
+        "Top Up",
+        "Top Up Retention",
+        "Overpayment refund from supplier",
+        "Overpayment refund to client",
+        "Overpayment to supplier",
+        "Underpayment to supplier",
+        "Overpayment from client",
+        "Underpayment from client",
+        "Withdrawal",
+      ];
+
+      const claimParam = isDelete ? `&delete=${isDelete}` : "";
+      const unmatchParam =
+        isUnmapping !== undefined && isUnmapping !== null && isUnmapping !== 0
+          ? `&unmapid=${isUnmapping}`
+          : "";
+
+      // 👉 If payment type matches any otherPayments → redirect to interest-charges edit
+      if (otherPayments.includes(paymenttype)) {
+        return {
+          redirectTo: `/user/bank-accounts/overview/interest-charges/edit/${paymentId}?${claimParam}${unmatchParam}&syncId=${data?.id}`,
+        };
+      }
+
+      // 👉 Else normal payment redirection
+      // 👉 1. Payment redirect (if payment exists)
+      if (paymentId) {
+        return {
+          redirectTo: `/user/claims/payments/add?payment=${paymentId}&mode=view${claimParam}${unmatchParam}&syncId=${data?.id}`,
+        };
+      }
+
+      if (unmatchData) {
+        const matchedTxn = unmatchData?.matched_transactions?.[0];
+
+        if (matchedTxn) {
+          // 🔐 Encrypt the data like you showed
+          const encryptedData = CryptoJS.AES.encrypt(
+            JSON.stringify({
+              TransactionIDS: [matchedTxn],
+              bankAccountId: unmatchData?.account_id,
+              triggerFrom: "xeroWebhooks",
+            }),
+            "transactions-IDS" // secret key (same as your example)
+          ).toString();
+
+          return {
+            redirectTo: `/user/bank-accounts/unmatch-transactions/${encryptedData}?syncId=${data?.id}&errorCode=${data?.error_code}`,
+          };
+        }
+      }
+
+      return false;
+    }
+    case "SCHEDULER_NO_RETENTIONS_IDENTIFIED":
     case "WH_NO_RETENTIONS_IDENTIFIED": {
-      window.open(
-        xeroBankAccountURl(data?.api_payload?.transfer_bank_account_id),
-        "_blank"
-      );
+      await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: data?.api_payload?.invoice_id || null,
+        tenantId: data?.api_payload?.tenant_id || null,
+        syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      const viewLogData = await viewXeroSyncLog({
+        viewXeroSyncLogId: data?.id,
+      });
+      if (
+        viewLogData.error_code == "WH_NO_RETENTIONS_IDENTIFIED" ||
+        viewLogData?.error_code == "SCHEDULER_NO_RETENTIONS_IDENTIFIED"
+      ) {
+        window.open(
+          xeroBankAccountURl(data?.api_payload?.transfer_bank_account_id),
+          "_blank"
+        );
+        return false;
+      }
       return false;
     }
     case "CONTACT_NAME_EXISTS":
@@ -379,15 +556,23 @@ export async function resolveList(data: any) {
       };
     }
     case "WH_MISSING_PROJECT_CATEGORY_ID":
+    case "SCHEDULER_MISSING_PROJECT_CATEGORY_ID":
     case "WH_MISSING_CONTRACT_CATEGORY_ID":
+    case "SCHEDULER_MISSING_CONTRACT_CATEGORY_ID":
     case "WH_PROJECT_CATEGORY_ID_MISMATCH":
+    case "SCHEDULER_PROJECT_CATEGORY_ID_MISMATCH":
     case "WH_CONTRACT_CATEGORY_ID_MISMATCH":
+    case "SCHEDULER_CONTRACT_CATEGORY_ID_MISMATCH":
     case "WH_MISSING_ACCOUNT_FIELDS":
+    case "SCHEDULER_MISSING_ACCOUNT_FIELDS":
     case "WH_ACCOUNT_FIELDS_MISMATCH":
+    case "SCHEDULER_ACCOUNT_FIELDS_MISMATCH":
     case "WH_MISSING_TAX_FIELDS":
+    case "SCHEDULER_MISSING_TAX_FIELDS":
+    case "SCHEDULER_TAX_FIELDS_MISMATCH":
     case "WH_TAX_FIELDS_MISMATCH": {
       return {
-        redirectTo: `/user/integrations/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&tenantId=${data?.api_payload?.tenant_id}`,
+        redirectTo: `/user/integrations/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&tenantId=${data?.api_payload?.tenant_id}&synctype=${data?.api_payload?.sync_run_type}`,
       };
     }
     case "PD_MISSING_PROJECT_TRACKING_CATEGORY_ID":
@@ -408,9 +593,10 @@ export async function resolveList(data: any) {
           queryString,
       };
     }
+    case "SCHEDULER_BANK_MISSING_FIELDS":
     case "BANK_MISSING_FIELDS": {
       return {
-        redirectTo: `/user/bank-accounts/add?syncId=${data?.id}`,
+        redirectTo: `/user/bank-accounts/add?syncId=${data?.id}&errorCode=${data?.error_code}`,
       };
     }
     case "PD_ADD_PAYMENT_TO_XERO": {
@@ -428,6 +614,34 @@ export async function resolveList(data: any) {
       });
       return false;
     }
+    case "SCHEDULER_PROJECT_NAME_CANNOT_BE_EDITED":
+    case "SCHEDULER_PROJECT_CANNOT_BE_DELETED": {
+      const response = await CreateOrUpdateProjectInPaytrade({
+        companyId: +(localStorage.getItem("companyId") || 0),
+        syncId: data?.id,
+        projectId: data?.api_payload?.project_id,
+        projectStatus: data?.api_payload?.project_status,
+      });
+      if (!response) {
+        window.open("https://go.xero.com/Setup/Tracking.aspx", "_blank");
+      }
+      return false;
+    }
+    case "SCHEDULER_CONTRACT_NAME_CANNOT_BE_EDITED":
+    case "SCHEDULER_CONTRACT_CANNOT_BE_DELETED": {
+      const response = await CreateOrUpdateContractInPaytrade({
+        companyId: +(localStorage.getItem("companyId") || 0),
+        syncId: data?.id,
+        contractId: data?.api_payload?.contract_id,
+        contractStatus: data?.api_payload?.contract_status,
+      });
+      if (!response) {
+        window.open("https://go.xero.com/Setup/Tracking.aspx", "_blank");
+      }
+      return false;
+    }
+
+    case "SCHEDULER_OVERPAYMENT_UNFOUND":
     case "WH_OVERPAYMENT_UNFOUND": {
       await checkAndCreateOverPaymentAndRefunds({
         contactId: data?.api_payload?.contact_id ?? null,
@@ -439,15 +653,18 @@ export async function resolveList(data: any) {
         paymentClaimId: data?.api_payload?.payment_claim_id ?? null,
         projectId: data?.api_payload?.project_id ?? null,
         syncId: data?.id ?? null,
+        syncRunType: data?.api_payload?.sync_run_type || null,
       });
       return false;
     }
     case "CONTACT_MISSING_FIELDS":
+    case "SCHEDULER_CONTACT_MISSING_FIELDS":
     case "WH_CONTACT_MISSING_FIELDS": {
       return {
         redirectTo: `${AppRoutes.USER_ADD_CLIENTS_AND_SUPPLIERS}?syncId=${data?.id}`,
       };
     }
+    case "SCHEDULER_OVERPAYMENT_REFUND_CANNOT_BE_DELETED":
     case "WH_OVERPAYMENT_REFUND_CANNOT_BE_DELETED": {
       if (data?.api_payload?.transaction_id) {
         const encryptedData = CryptoJS.AES.encrypt(
@@ -472,7 +689,39 @@ export async function resolveList(data: any) {
           paymentClaimId: data?.api_payload?.payment_claim_id ?? null,
           projectId: data?.api_payload?.project_id ?? null,
           syncId: data?.id ?? null,
+          syncRunType: data?.api_payload?.sync_run_type || null,
         });
+      }
+      return false;
+    }
+    case "WH_CONTACT_CANNOT_BE_DELETED": {
+      const response = await createContactInPaytradeThroughWebhookFromXeroData({
+        syncId: data?.id ?? null,
+        companyId: Number(localStorage.getItem("companyId")),
+        contactId: data?.api_payload?.contact_id,
+        tenantId: data?.api_payload?.tenant_id,
+      });
+      if (!response || response?.status === false) {
+        window.open(
+          await xeroContactRestoreUrl(data?.api_payload?.contact_id),
+          "_blank"
+        );
+      }
+      return false;
+    }
+    case "SCHEDULER_CONTACT_CANNOT_BE_DELETED": {
+      const response = await CreateOrUpdateContactInPaytrade({
+        syncId: data?.id ?? null,
+        companyId: Number(localStorage.getItem("companyId")),
+        contactId: data?.api_payload?.contact_id,
+        tenantId: data?.api_payload?.tenant_id,
+        contactStatus: data?.api_payload?.contact_status,
+      });
+      if (!response || response?.status === false) {
+        window.open(
+          await xeroContactRestoreUrl(data?.api_payload?.contact_id),
+          "_blank"
+        );
       }
       return false;
     }

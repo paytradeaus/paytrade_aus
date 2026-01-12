@@ -19,16 +19,24 @@ export async function getSubscriptionDetailsByCompanyId(): Promise<any> {
               card_type
               company_id
               company_name
+              coupon_id
+              coupon_name
+              coupon_status
+              duration
+              duration_in_months
               expiry_date
               expiry_month
               expiry_year
+              free_plan_reason
               has_annual_billing
               has_upgrade_plans
               id
               is_default
+              is_free_plan_eligible
               last_four_digits
               name_on_card
               payment_method_id
+              percent_off
               plan_id
               plan_items {
                 description
@@ -498,5 +506,51 @@ export async function updateDelegatePowers(payload: any): Promise<any> {
     }
   } catch (error: any) {
     return false;
+  }
+}
+
+export async function ValidateCouponService(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query ValidateCoupon($coupon: String!, $companyId: Float) {
+          validateCoupon(coupon: $coupon, company_id: $companyId) {
+            data {
+              coupon_id
+              coupon_name
+              coupon_status
+              created_by
+              created_on
+              duration
+              duration_in_months
+              id
+              percent_off
+              stripe_coupon_id
+              updated_by
+              updated_on
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    if (response?.data?.validateCoupon?.status === ApiResponse.SUCCESS) {
+      return response?.data?.validateCoupon?.data; // Return coupon data
+    } else {
+      showErrorToast(response?.data?.validateCoupon?.message);
+      return false;
+    }
+  } catch (error: any) {
+    showErrorToast(error?.message || error);
+    return false;
+  } finally {
+    setLoading && setLoading(false);
   }
 }

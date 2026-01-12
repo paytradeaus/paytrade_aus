@@ -17,6 +17,7 @@ import OverviewClaims from "./OverviewClaims";
 import { overviewModeType } from "../../PaymentsList/PaymentList.constants";
 import NoticesList from "../../Notices";
 import { useProjectOverviewContext } from "./ProjectOverviewContext";
+import PayApps from "../../PayApps";
 
 export default function ProjectOverview() {
   const { activeTab }: any = useProjectOverviewContext();

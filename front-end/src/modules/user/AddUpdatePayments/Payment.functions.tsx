@@ -37,6 +37,8 @@ export async function fetchPayments(postData: any): Promise<any> {
               formatted_retention_amount
               formatted_retention_amount_with_gst
               retention_amount_with_gst
+              outstanding_retention_amount
+              formatted_outstanding_retention_amount
               defect_liability_end_date
               gst_summary
               has_claim_retention
@@ -653,6 +655,8 @@ export const deletePayment = async (data: any): Promise<any> => {
       response &&
       response?.data?.changeStatusOfAPayment?.status === ApiResponse.ERROR
     ) {
+      showErrorToast(response?.data?.changeStatusOfAPayment?.message);
+
       return false;
     }
   } catch (error: any) {

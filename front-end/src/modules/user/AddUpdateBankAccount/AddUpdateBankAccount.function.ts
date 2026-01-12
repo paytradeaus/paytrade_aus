@@ -622,3 +622,66 @@ export const CreateAccountInPaytrade = async (
     return false;
   }
 };
+
+export const CreateOrUpdateAccountInPaytrade = async (
+  data: any,
+  successMsg: string,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation CreateOrUpdateAccountInPaytrade(
+          $accountId: String!
+          $accountStatus: String!
+          $companyId: Float!
+          $payload: AddBankAccountInput
+          $syncId: String
+        ) {
+          createOrUpdateAccountInPaytrade(
+            account_id: $accountId
+            account_status: $accountStatus
+            company_id: $companyId
+            payload: $payload
+            sync_id: $syncId
+          ) {
+            data {
+              account_id
+              account_name
+              account_number
+              account_status
+              bsb_number
+              description
+              id
+              mapped_status
+              xero_bank_account_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+    });
+
+    const res = response?.data?.createOrUpdateAccountInPaytrade;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(successMsg || " This bank account has been added.");
+      return res?.data?.account_id;
+    }
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res?.message);
+      return false;
+    }
+    if (res?.status === "WARNING") {
+      showWarningToast(res?.message);
+      return false;
+    }
+  } catch (error: any) {
+    return false;
+  }
+};

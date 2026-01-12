@@ -13,6 +13,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   createContactInPaytradeFromXeroData,
   createContactInPaytradeThroughWebhookFromXeroData,
+  CreateOrUpdateContactInPaytrade,
   postAddClientSuppliersFormData,
   updateClientSuppliersById,
 } from "./AddClientsAndSuppliers.functions";
@@ -183,6 +184,18 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
             companyId: Number(localStorage.getItem("companyId")),
             contactId: syncLogData?.api_payload?.contact_id,
             tenantId: syncLogData?.api_payload?.tenant_id,
+          });
+        } else if (
+          syncLogData?.error_code === "SCHEDULER_CONTACT_MISSING_FIELDS"
+        ) {
+          // 🔹 Scheduler-specific flow
+          return CreateOrUpdateContactInPaytrade({
+            payload: { ...addPostData?.createClientSuppliersDetailInput },
+            syncId,
+            companyId: Number(localStorage.getItem("companyId")),
+            contactId: syncLogData?.api_payload?.contact_id,
+            contactStatus: syncLogData?.api_payload?.contact_status,
+            // tenantId: syncLogData?.api_payload?.tenant_id,
           });
         }
         return "";

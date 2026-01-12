@@ -61,6 +61,7 @@ import { ApiResponse } from "@/shared/constant/messages";
 import { useCustomDebounce } from "@/hooks";
 import { getSubscriptionDetailsByCompanyId } from "../../Subscriptions/subscriptions.function";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
+import { CreateOrUpdateProjectInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 interface Option {
   value: string;
   label: string;
@@ -105,6 +106,7 @@ const AddProjects = (props: any) => {
   const queryParams = useSearchParams();
   const quickAddProject: any = queryParams.get("quick-add");
   const syncId = queryParams.get("syncId");
+  const errorCode = queryParams.get("errorCode");
   const [displayClosePageConfirmation, setDisplayClosePageConfirmation] =
     useState(false);
   const [userLimit, setUserLimit] = useState<number | null>(null);
@@ -435,47 +437,55 @@ const AddProjects = (props: any) => {
               getSubscriptionDetailsByCompanyId(),
             ]
           );
+          // ⭐ NEW: Free plan override
+          const isFreePlanEligible =
+            subscriptionResponse?.is_free_plan_eligible === true;
 
-          activeProjectsCount = projectListResponse?.total_count || 0;
+          // ⭐ If free plan → skip ALL restrictions
+          if (isFreePlanEligible) {
+            // Free plan: skip validations silently
+          } else {
+            activeProjectsCount = projectListResponse?.total_count || 0;
 
-          projectsItem =
-            subscriptionResponse?.plan_items?.find(
-              (item: any) => item.item_name === "Projects"
-            ) || null;
+            projectsItem =
+              subscriptionResponse?.plan_items?.find(
+                (item: any) => item.item_name === "Projects"
+              ) || null;
 
-          if (!projectsItem) {
-            setModalHeading("Upgrade Subscription");
-            setModalBodyContent(
-              "You need to upgrade your subscription to add or update multiple projects."
-            );
-            setOpenPlanModal(true);
-            setLoader(false);
-            setLoaderInfo("");
-            setIsLoading(false);
-            return;
-          }
+            if (!projectsItem) {
+              setModalHeading("Upgrade Subscription");
+              setModalBodyContent(
+                "You need to upgrade your subscription to add or update multiple projects."
+              );
+              setOpenPlanModal(true);
+              setLoader(false);
+              setLoaderInfo("");
+              setIsLoading(false);
+              return;
+            }
 
-          if (projectsItem.limit_type === "Numeric") {
-            if (projectsItem.is_unlimited) {
-              // ✅ Unlimited projects allowed → skip validation
-            } else {
-              // Limited → validate against limit_value
-              projectLimit = Number(projectsItem?.limit_value ?? 0);
+            if (projectsItem.limit_type === "Numeric") {
+              if (projectsItem.is_unlimited) {
+                // ✅ Unlimited projects allowed → skip validation
+              } else {
+                // Limited → validate against limit_value
+                projectLimit = Number(projectsItem?.limit_value ?? 0);
 
-              if (activeProjectsCount >= projectLimit) {
-                setModalHeading("Upgrade Subscription");
-                setModalBodyContent(
-                  `You already have ${activeProjectsCount} active project${
-                    activeProjectsCount === 1 ? "" : "s"
-                  }. Your current subscription allows a maximum of ${projectLimit} project${
-                    projectLimit === 1 ? "" : "s"
-                  }. To add more projects, please upgrade your subscription.`
-                );
-                setOpenPlanModal(true);
-                setLoader(false);
-                setLoaderInfo("");
-                setIsLoading(false);
-                return;
+                if (activeProjectsCount >= projectLimit) {
+                  setModalHeading("Upgrade Subscription");
+                  setModalBodyContent(
+                    `You already have ${activeProjectsCount} active project${
+                      activeProjectsCount === 1 ? "" : "s"
+                    }. Your current subscription allows a maximum of ${projectLimit} project${
+                      projectLimit === 1 ? "" : "s"
+                    }. To add more projects, please upgrade your subscription.`
+                  );
+                  setOpenPlanModal(true);
+                  setLoader(false);
+                  setLoaderInfo("");
+                  setIsLoading(false);
+                  return;
+                }
               }
             }
           }
@@ -570,16 +580,40 @@ const AddProjects = (props: any) => {
             site_address: placeDetails?.fullAddress,
             company_id: companyId,
           };
-          const response = syncId
-            ? await createProjectInPaytradeFromXeroData({
-                ...projectInput,
-                syncId,
-                project_id: syncLogData?.api_payload?.project_id,
-              })
-            : await insertProjectDetails(projectInput);
+          // const response = syncId
+          //   ? await createProjectInPaytradeFromXeroData({
+          //       ...projectInput,
+          //       syncId,
+          //       project_id: syncLogData?.api_payload?.project_id,
+          //     })
+          //   : await insertProjectDetails(projectInput);
+          let response;
+
+          if (syncId && errorCode === "SCHEDULER_PROJECT_MISSING_FIELDS") {
+            // 🔥 New flow
+            response = await CreateOrUpdateProjectInPaytrade({
+              payload: projectInput,
+              companyId: Number(localStorage.getItem("companyId")),
+              projectId: syncLogData?.api_payload?.project_id,
+              projectStatus: syncLogData?.api_payload?.project_status,
+              syncId,
+            });
+          } else if (syncId) {
+            // 🟡 Usual sync support
+            response = await createProjectInPaytradeFromXeroData({
+              ...projectInput,
+              syncId,
+              project_id: syncLogData?.api_payload?.project_id,
+            });
+          } else {
+            // 🟢 Manual project create
+            response = await insertProjectDetails(projectInput);
+          }
           if (response) {
             const insertedProjectId = response?.project_id;
-            showSuccessToast("This project has been added.");
+            if (!syncId) {
+              showSuccessToast("This project has been added.");
+            }
             setLoader(false);
             setLoaderInfo("");
             setIsLoading(false);

@@ -48,6 +48,9 @@ export default function Attachments() {
     setReasonsData,
     noticesAutomated,
     isEditable,
+    claimStatus,
+    claimData,
+    isFree,
   }: any = useAddUpdateClaimsContext();
 
   // Get userMode from Redux
@@ -80,6 +83,8 @@ export default function Attachments() {
 
   useEffect(() => {
     const shouldFetch =
+      // !isViewMode &&
+      // (claimStatus === "Draft" || !claimStatus) &&
       userMode !== "Onboarding" &&
       formik?.values?.claim_type === "Receivable" &&
       projectRole === "Head Contractor" &&
@@ -91,6 +96,7 @@ export default function Attachments() {
       const payload = {
         project_id: formik?.values?.projectId || null,
         page,
+        claim_id: claimData?.payment_claim_id || null,
       };
 
       fetchS75Claims(
@@ -107,6 +113,8 @@ export default function Attachments() {
     clientRole,
     isReasonDataLoaded,
     page,
+    isViewMode,
+    claimStatus,
   ]);
 
   const handleDownload = async () => {
@@ -140,8 +148,9 @@ export default function Attachments() {
     }
     const payload = {
       project_id: formik?.values?.projectId || null,
-      page: page,
-      items_per_page: perPage,
+      page: null,
+      items_per_page: null,
+      claim_id: claimData?.payment_claim_id || null,
     };
 
     fetchS75Claims(
@@ -165,7 +174,14 @@ export default function Attachments() {
     try {
       setLoader(true);
 
-      const response = await fetchSubContractorClaimsByHeadContractor(payload);
+      const finalPayload = {
+        ...payload,
+        claim_id: payload?.claim_id || null, // ✅ ensure it always exists
+      };
+
+      const response = await fetchSubContractorClaimsByHeadContractor(
+        finalPayload
+      );
 
       if (response) {
         const responseData = JSON.parse(JSON.stringify(response)); // safe deep copy
@@ -197,7 +213,7 @@ export default function Attachments() {
               unpaid_amount_sort: unpaidAmountValue,
               status: truncateText(claim?.list_status),
               payment_claim_id: claim?.payment_claim_id,
-              user_input: "", // 👈 initialize editable field
+              user_input: claim?.unpaid_reason || "", // ✅ auto-fill if backend sent unpaid_reason
               __index__: index, // 👈 used to update specific row later
               user_input_error: "",
             };
@@ -205,6 +221,9 @@ export default function Attachments() {
         );
         onDataSet(parsedClaims || []);
         setGenerateClaimCount(responseData.total_count || 0);
+        // ✅ NEW LOGIC BELOW
+        const hasAnyReason = parsedClaims?.some((row: any) => !!row.user_input);
+        setIsReasonDataLoaded(hasAnyReason);
       } else {
         console.warn("Failed to fetch subcontractor claims.");
       }
@@ -253,7 +272,7 @@ export default function Attachments() {
 
     const payload = updatedData.map((item: any) => ({
       payment_claim_id: item.payment_claim_id,
-      reason: item.user_input,
+      reason: item.user_input.trim(), // ✅ always send latest user_input
     }));
 
     try {
@@ -315,6 +334,9 @@ export default function Attachments() {
 
     if (isPremiumUser && values?.claim_type === "Receivable") {
       return false; // Premium user does NOT need supporting doc for Receivable
+    }
+    if (isFree && values?.claim_type === "Receivable") {
+      return false; // free plan user does NOT need supporting doc for Receivable
     }
 
     if (!isPremiumUser && (condition1 || condition2)) {
@@ -412,25 +434,28 @@ export default function Attachments() {
             )}
 
           {/* S75 Document (separate handler) */}
-          {formik?.values?.claim_type === "Receivable" && mode != "add" && (
-            <div className="flex items-center justify-between ">
-              <MultipleFileHandler
-                titleName="Generated S75 Document"
-                required={false} // not compulsory, uploaded optionally
-                // afterFileChange={(modifiedFiles: any) =>
-                //   setS75Attachments(modifiedFiles)
-                // }
-                filesToAccept={`${uploadFile.pdf}, ${uploadFile.word}`}
-                existingFiles={compulsoryAttachments?.filter((file: any) =>
-                  file.file_name?.includes("S75")
-                )}
-                // fileNameTruncateSize={10}
-                disableChooseFileBtn={isViewMode || mode != "add"}
-                hideDeleteButton={isViewMode || mode != "add"}
-                handleDeleteFile={(modifiedFiles: any) => {}}
-              />
-            </div>
-          )}
+          {formik?.values?.claim_type === "Receivable" &&
+            formik?.values?.cash_retention_type === "Claim" &&
+            mode != "add" &&
+            compulsoryAttachments.length > 0 && (
+              <div className="flex items-center justify-between ">
+                <MultipleFileHandler
+                  titleName="Generated S75 Document"
+                  required={false} // not compulsory, uploaded optionally
+                  // afterFileChange={(modifiedFiles: any) =>
+                  //   setS75Attachments(modifiedFiles)
+                  // }
+                  filesToAccept={`${uploadFile.pdf}, ${uploadFile.word}`}
+                  existingFiles={compulsoryAttachments?.filter((file: any) =>
+                    file.file_name?.includes("S75")
+                  )}
+                  // fileNameTruncateSize={10}
+                  disableChooseFileBtn={isViewMode || mode != "add"}
+                  hideDeleteButton={isViewMode || mode != "add"}
+                  handleDeleteFile={(modifiedFiles: any) => {}}
+                />
+              </div>
+            )}
 
           {/* Optional Supporting Statement only for Billables */}
           {formik?.values?.claim_type === "Billable" && (
@@ -502,7 +527,8 @@ export default function Attachments() {
       {userMode !== "Onboarding" &&
         projectRole === "Head Contractor" &&
         clientRole === "Principal" &&
-        formik?.values?.claim_type === "Receivable" && (
+        formik?.values?.claim_type === "Receivable" &&
+        formik?.values?.cash_retention_type === "Claim" && (
           <div className="pt_attachments mb_1">
             <div className="grid">
               <>
@@ -569,12 +595,14 @@ export default function Attachments() {
                         >
                           <i
                             className={`fa-light ${
-                              !isReasonDataLoaded
-                                ? "fa-square-plus"
-                                : "fa-pen-to-square"
+                              generateClaimData?.some((r: any) => r.user_input)
+                                ? "fa-pen-to-square"
+                                : "fa-square-plus"
                             }`}
                           />
-                          {!isReasonDataLoaded ? "Add reason" : "Edit reason"}
+                          {generateClaimData?.some((r: any) => r.user_input)
+                            ? "Edit reason"
+                            : "Add reason"}
                         </button>
                       </p>
                     </div>
@@ -599,7 +627,7 @@ export default function Attachments() {
                     <label>
                       <input
                         type="checkbox"
-                        disabled={isViewMode}
+                        disabled={isViewMode || loader}
                         name="paidDeclaration"
                         onChange={(e) =>
                           formik.setFieldValue(
@@ -607,7 +635,11 @@ export default function Attachments() {
                             e.target.checked
                           )
                         }
-                        checked={formik.values.paidDeclaration}
+                        checked={
+                          isViewMode
+                            ? true // ✅ Auto-check when view mode
+                            : formik.values.paidDeclaration
+                        }
                       />{" "}
                       In accordance with section 75(7) of the Building Industry
                       Fairness (Security of Payment) Act 2017 I,{" "}

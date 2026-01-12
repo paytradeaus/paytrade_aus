@@ -196,13 +196,25 @@ export default function BankAccountDetailsTab() {
                     </div>
                   </td>
                   <td className="setPro">
-                    <div className="pt_infolistdata alignBox">
+                    <div
+                      className="pt_infolistdata alignBox"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column", // <-- Forces value below title
+                        alignItems: "flex-start",
+                      }}
+                    >
                       <h6
                         className="tooltip"
                         title={
                           "Under the BIF Act, a progress payment or final payment must be paid by the date stated in the construction contract (due date), or if the contract does not state a due date within 10 business days after the payment claim is given to the respondent. For some contracts, the due date stated in a contract cannot be greater than the following maximum timeframes set out under the QBCC Act, otherwise they become void and the default timeframe of 10 business days applies: subcontracts or construction management trade contracts the maximum payment term is 25 business days commercial building contracts the maximum payment term is 15 business days. A person given a payment claim, the respondent, must respond to all payment claims."
                         }
                         data-placement="top"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                        }}
                       >
                         PAYMENT TERMS{" "}
                         <i className="fa-light fa-circle-info inftc"></i>

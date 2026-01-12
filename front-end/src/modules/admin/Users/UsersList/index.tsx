@@ -45,6 +45,7 @@ import { setAppUserDetails } from "@/redux/slices/userRegistrationSlice";
 import { useTokenDetails } from "@/hooks";
 import { Roles } from "@/shared/constant/role";
 import { connectWebSocket } from "@/utils";
+import { UpdateBusinessFreeAccess } from "../../AdminBusinessProfiles/AddBusinessProfiles/AddBusinessProfile.function";
 
 export default function UsersList() {
   const router = useRouter();
@@ -53,11 +54,13 @@ export default function UsersList() {
   const { decodeTokenData } = useTokenDetails();
 
   const [usersListData, setUsersListData] = useState<IUserListDetail[]>([]);
+  const [skipFetch, setSkipFetch] = useState(false);
 
   const [searchValue, setSearchValue] = useState("");
 
   const [statusType, setStatusType] = useState("");
   const [totalRows, setTotalRows] = useState(0);
+  const [freePlanModel, setFreePlanModal] = useState(false);
   const [tableLoader, setTableLoader] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
@@ -80,7 +83,11 @@ export default function UsersList() {
   };
 
   useEffect(() => {
-    fetchUsersLists();
+    if (!skipFetch) {
+      fetchUsersLists();
+    } else {
+      setSkipFetch(false); // reset after skipping one cycle
+    }
   }, [searchValue, statusType, currentPage, entriesPerPage, sortValues]);
 
   const validationSchema = Yup.object().shape({
@@ -188,6 +195,37 @@ export default function UsersList() {
       },
       displayByDefault: true,
     },
+    {
+      label: "Enable Free Premium Access",
+      icon: "fa-light fa-badge-check",
+      onClick: (row: IUserListDetail) => {
+        setActionData({
+          ...row,
+        });
+
+        setPopUpHeaderMsg(
+          "Are you sure you want to make this user eligible for the free premium access?"
+        );
+        setFreePlanModal(true);
+      },
+      conditionalApiDisplayKey: "allowfreeplan",
+    },
+    {
+      label: "Disable Free Premium Access",
+      icon: "fa-light fa-circle-xmark",
+      style: "primary",
+      onClick: (row: IUserListDetail) => {
+        setActionData({
+          ...row,
+        });
+
+        setPopUpHeaderMsg(
+          "Are you sure you want to remove free premium access from this user profile?"
+        );
+        setFreePlanModal(true);
+      },
+      conditionalApiDisplayKey: "freeplanallowed",
+    },
     ...(decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE
       ? [
           {
@@ -199,7 +237,7 @@ export default function UsersList() {
                 option: "Login as user",
                 userId: row?.user_id,
               });
-
+              setSkipFetch(true); // PREVENT table refresh
               setPopUpHeaderMsg(`Please enter admin password`);
               setOpenModal(!openModal);
             },
@@ -245,6 +283,8 @@ export default function UsersList() {
               uncontacted: listObj?.is_admin_contacted,
               block: listObj?.user_status !== "Blocked",
               unblock: listObj?.user_status === "Blocked",
+              allowfreeplan: !listObj?.is_free_plan_eligible,
+              freeplanallowed: listObj?.is_free_plan_eligible,
             },
           };
         });
@@ -471,6 +511,25 @@ export default function UsersList() {
     setSearchValue(value);
   }
 
+  async function handleOptionSelection() {
+    setLoader(true);
+
+    let payload = {
+      is_free_plan_eligible: !actionData?.is_free_plan_eligible,
+      company_id: actionData?.user_company_id,
+    };
+
+    const response = await UpdateBusinessFreeAccess(payload);
+    if (response) {
+      fetchUsersLists();
+      // showSuccessToast("FAQ list updated successfully");
+    } else {
+      showErrorToast("Business list update failed");
+    }
+    setFreePlanModal(false);
+    setLoader(false);
+  }
+
   return (
     <div className="container-fluid">
       <div className="pt_title">
@@ -532,7 +591,7 @@ export default function UsersList() {
                 handleDownloadPrintPDF={() => {
                   handleDownloadPdfFile();
                 }}
-                disabledPDF={disableExcelBtn}
+                disabledPDF={disablePDFBtn}
               />
             </div>
           </div>
@@ -595,6 +654,7 @@ export default function UsersList() {
           onClose={() => {
             setOpenModal(false);
             setDisabledBtn(false);
+            setSearchValue("");
             formik.resetForm();
             formik.setFieldValue("password", "");
           }}
@@ -685,6 +745,24 @@ export default function UsersList() {
               )}
             </>
           )}
+        </BaseModal>
+      )}
+      {freePlanModel && (
+        <BaseModal
+          modalId="FreePlanModal"
+          displayModal={freePlanModel}
+          onClose={() => {
+            setFreePlanModal(false);
+          }}
+          onConfirm={async () => {
+            handleOptionSelection();
+            return true;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName="Yes"
+        >
+          {/* Modal heading can be placed here if needed */}
+          <div className="text_center">{popUpHeaderMsg}</div>
         </BaseModal>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
   fetchFiltersForAdminNotices,
   getNoticesListServices,
   NoticesListType,
+  RegenerateNotice,
 } from "./notices.functions";
 import GridExportActions from "@/components/GridExportActions";
 import { AppRoutes } from "@/shared/constant/appRoutes";
@@ -41,6 +42,8 @@ import { overviewModeType } from "../PaymentsList/PaymentList.constants";
 import { projectOverviewTabs } from "../Projects/ProjectOverview/ProjectOverview.constant";
 import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import Link from "next/link";
+import { useLoaderContext } from "@/context/useLoader";
+import BaseModal from "@/components/BaseModal";
 
 export default function NoticesList({ overViewDetails = {} }: any) {
   const { data: overviewData, isArchived = false } = overViewDetails;
@@ -50,6 +53,7 @@ export default function NoticesList({ overViewDetails = {} }: any) {
   const routedFrom = searchParams.get("routedFrom");
 
   const router = useRouter();
+  const { setLoader, setLoaderInfo }: any = useLoaderContext();
   const [selectedValue, setSelectedValue] = useState("");
   const [page, setPage] = useState(1);
   const [projectOpt, setProjectOpt] = useState<any>([]);
@@ -83,6 +87,10 @@ export default function NoticesList({ overViewDetails = {} }: any) {
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
   const dispatch = useDispatch();
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
+  const [displayResendNoticeModal, setDisplayResendNoticeModal] =
+    useState<boolean>(false);
+  const [actionData, setActionData] = useState<any>();
+
   const shouldHideExport =
     noticesListData.length === 0 || activeTab === "Received";
 
@@ -280,15 +288,38 @@ export default function NoticesList({ overViewDetails = {} }: any) {
             notice_source: notices?.notice_source,
             project_id: notices?.project_id,
             project_name: notices?.project_name,
+            // status: (
+            //   <span
+            //     style={{
+            //       color: notices?.status === "Not Sent" ? "red" : "",
+            //     }}
+            //   >
+            //     {notices?.status}
+            //   </span>
+            // ),
+            // 👇 Modify this part
             status: (
               <span
                 style={{
-                  color: notices?.status === "Not Sent" ? "red" : "",
+                  color:
+                    notices?.status === "Not Sent" ||
+                    notices?.notice_document_gen_failed === true
+                      ? "red"
+                      : "",
                 }}
               >
-                {notices?.status}
+                {notices?.notice_document_gen_failed === true
+                  ? `${notices?.status || ""} – Notice Attachment Failed`
+                  : notices?.status}
               </span>
             ),
+            notice_list_icons: {
+              regenerate_notice:
+                notices?.status === "Not Sent" ||
+                notices?.notice_document_gen_failed === true
+                  ? true
+                  : false,
+            },
           };
         }
       );
@@ -299,6 +330,24 @@ export default function NoticesList({ overViewDetails = {} }: any) {
     } finally {
       setLoading(false);
       setDisableExcelBtn(false);
+    }
+  };
+
+  const regenerateNotice = async () => {
+    setLoader(true);
+    setLoaderInfo("Regenerate notice...");
+    try {
+      const response = await RegenerateNotice(actionData?.notice_id);
+
+      if (response) {
+        fetchData(page, perPage);
+      }
+
+      setLoader(false);
+      setLoaderInfo("");
+    } catch (error) {
+      setLoader(false);
+      setLoaderInfo("");
     }
   };
 
@@ -390,6 +439,17 @@ export default function NoticesList({ overViewDetails = {} }: any) {
 
         router.push(routePath);
       },
+      displayByDefault: true,
+    },
+    {
+      label: "Regenerate notice",
+      icon: "fa-solid fa-repeat",
+      style: buttonType.SECONDARY,
+      onClick: (row: any) => {
+        setActionData(row);
+        setDisplayResendNoticeModal(true);
+      },
+      conditionalApiDisplayKey: "regenerate_notice",
     },
   ];
 
@@ -668,11 +728,26 @@ export default function NoticesList({ overViewDetails = {} }: any) {
                 ? NoticespdfheaderNames.filter(
                     (header) => header.title !== "Notice Source"
                   )
-                : NoticespdfheaderNames
+                : NoticespdfheaderNames?.map((mapHeader) => ({
+                    ...mapHeader,
+                    title:
+                      mapHeader?.title === "View"
+                        ? "Actions"
+                        : mapHeader?.title,
+                  }))
             }
             gridData={noticesListData.length > 0 ? noticesListData : []}
-            gridActions={activeTab === "Archived" ? [] : actions}
-            displayAllStaticActions
+            gridActions={
+              activeTab === "Archived"
+                ? []
+                : activeTab === "Received"
+                ? actions?.filter(
+                    (action) => action?.label !== "Regenerate notice"
+                  )
+                : actions
+            }
+            dynamicApiGridIconsKey="notice_list_icons"
+            // displayAllStaticActions
             onRowClick={(data: any) => handleRowView(data)}
             onTableDataClick={(rowData: any) => routeToNoticesSource(rowData)}
             showLoader={loading}
@@ -696,6 +771,25 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           />
         </div>
       </div>
+      {displayResendNoticeModal && (
+        <BaseModal
+          modalId={"resend notice"}
+          displayModal={displayResendNoticeModal}
+          onHeaderIconClose={() => setDisplayResendNoticeModal(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => setDisplayResendNoticeModal(false)}
+          onConfirm={() => {
+            regenerateNotice();
+            return true;
+          }}
+          firstButtonName="No"
+          secondButtonName="Yes"
+        >
+          <h4 className="text_center">
+            Are you sure you want to regenerate the notice document?
+          </h4>
+        </BaseModal>
+      )}
     </div>
   );
 }

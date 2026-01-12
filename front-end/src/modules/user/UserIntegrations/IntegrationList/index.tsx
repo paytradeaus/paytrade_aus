@@ -64,16 +64,18 @@ export default function IntegrationList({
     const fetchSubscription = async () => {
       try {
         const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
-
+        // 🔹 FREE PLAN CHECK
+        const isFreePlanEligible =
+          subscriptionResponse?.is_free_plan_eligible === true;
         // 🔹 Check Xero integration
         const xeroItem =
           subscriptionResponse?.plan_items?.find(
             (item: any) => item.item_name === "Xero Integration"
           ) || null;
 
-        const isXeroAllowed =
+        let isXeroAllowed =
           xeroItem && String(xeroItem.limit_value).toLowerCase() === "true";
-        setXeroAllowed(!!isXeroAllowed);
+        // setXeroAllowed(!!isXeroAllowed);
 
         // 🔹 Check Bank feeds (Adatree)
         const adatreeItem =
@@ -81,9 +83,18 @@ export default function IntegrationList({
             (item: any) => item.item_name === "Bank Feeds"
           ) || null;
 
-        const isAdatreeAllowed =
+        let isAdatreeAllowed =
           adatreeItem &&
           String(adatreeItem.limit_value).toLowerCase() === "true";
+        // setAdatreeAllowed(!!isAdatreeAllowed);
+        // 🔥 FREE PLAN OVERRIDE → ALWAYS ALLOW
+        if (isFreePlanEligible) {
+          isXeroAllowed = true;
+          isAdatreeAllowed = true;
+        }
+
+        // 🔹 Set final allowed states
+        setXeroAllowed(!!isXeroAllowed);
         setAdatreeAllowed(!!isAdatreeAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);

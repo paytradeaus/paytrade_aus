@@ -50,7 +50,6 @@ export default function AddPaymentSection({ props }: any) {
     isNextPayment,
     noticesAutomated,
   }: any = usePaymentsContext();
-
   const queryParams = useSearchParams();
 
   const ImportScreen: any = queryParams.get("screen");
@@ -66,6 +65,10 @@ export default function AddPaymentSection({ props }: any) {
 
   const [displayRetentionConfirmation, setDisplayRetentionConfirmation] =
     useState(false);
+  const [displayDefectDateConfirmation, setDisplayDefectDateConfirmation] =
+    useState(false);
+  const [displayRtaPending, setDisplayRtaPending] = useState(false);
+
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const dispatch = useAppDispatch();
@@ -88,6 +91,18 @@ export default function AddPaymentSection({ props }: any) {
     typeof window !== "undefined" ? localStorage.getItem("userMode") : null;
 
   const userMode = reduxUserMode || localStorageUserMode;
+
+  const shouldForceNoRetention =
+    (formik?.values?.payment_type === "Part" ||
+      formik?.values?.payment_type === tabTypes.PAY_LESS_PART) &&
+    patchData?.cash_retention === true &&
+    Number(patchData?.outstanding_retention_amount) <= 0;
+
+  useEffect(() => {
+    if (shouldForceNoRetention) {
+      formik.setFieldValue("cash_retention", tabTypes.NO_RETENTION);
+    }
+  }, [shouldForceNoRetention]);
 
   useEffect(() => {
     populateTotalAmount();
@@ -241,7 +256,8 @@ export default function AddPaymentSection({ props }: any) {
     reverseFieldValue: boolean,
     value?: any
   ) {
-    const { cash_retention } = formik.values;
+    const { cash_retention, payment_type, outstanding_retention_amount } =
+      formik.values;
     const dynamicValue =
       value ??
       (reverseFieldValue && cash_retention === tabTypes.RETENTION
@@ -249,6 +265,19 @@ export default function AddPaymentSection({ props }: any) {
         : tabTypes.RETENTION);
 
     await formik?.setFieldValue("cash_retention", dynamicValue);
+
+    // 🧩 New condition check for RTA pending
+    const shouldForceNoRetention =
+      (payment_type === tabTypes.PART ||
+        payment_type === tabTypes.PAY_LESS_PART) &&
+      patchData?.cash_retention === true &&
+      Number(patchData?.outstanding_retention_amount) > 0;
+
+    // 🧠 New popup if condition matches
+    if (shouldForceNoRetention) {
+      setDisplayRtaPending(true); // your custom popup state handler
+      return; // stop further execution so old logic doesn't trigger
+    }
 
     if (
       (patchData?.retention_type === contractRetentionType.none &&
@@ -265,7 +294,24 @@ export default function AddPaymentSection({ props }: any) {
   }
 
   async function onRetentionConfirmation() {
-    const { payment_type, claim_amount, payless_amount } = formik.values;
+    const {
+      payment_type,
+      claim_amount,
+      payless_amount,
+      outstanding_retention_amount,
+      cash_retention,
+    } = formik.values;
+
+    // if (
+    //   payment_type === "Part" &&
+    //   patchData?.cash_retention === true &&
+    //   Number(outstanding_retention_amount) <= 0 &&
+    //   cash_retention === tabTypes.NO_RETENTION
+    // ) {
+    //   await formik.setFieldValue("cash_retention", tabTypes.NO_RETENTION);
+    //   setDisplayRetentionConfirmation(false); // ✅ Close popup
+    //   return;
+    // }
     if (
       payment_type === tabTypes.PAY_LESS_PART ||
       payment_type === tabTypes.PART ||
@@ -295,7 +341,6 @@ export default function AddPaymentSection({ props }: any) {
           formatDollars((+replaceDollarSymbol(payless_amount)).toFixed(2))
         : ""
     );
-
     setDisplayRetentionConfirmation(false);
   }
 
@@ -512,6 +557,7 @@ export default function AddPaymentSection({ props }: any) {
       payment_type,
       outstanding_amount,
       payment_to,
+      outstanding_retention_amount,
     } = formik.values;
 
     const safeNumber = (value: any) => {
@@ -522,6 +568,9 @@ export default function AddPaymentSection({ props }: any) {
     const concatValue =
       safeNumber(payment_amount) + safeNumber(retention_amount);
 
+    const outstandingConcatValue =
+      safeNumber(payment_amount) + safeNumber(outstanding_retention_amount);
+
     let claimAmount = 0;
     if (payment_type === tabTypes.FULL || payment_type === tabTypes.PART) {
       claimAmount = claim_amount;
@@ -531,8 +580,21 @@ export default function AddPaymentSection({ props }: any) {
     ) {
       claimAmount = +replaceDollarSymbol(payless_amount);
     }
+    // 🧩 New condition for forcing No Retention
+    const shouldForceNoRetention =
+      (payment_type === tabTypes.PART ||
+        payment_type === tabTypes.PAY_LESS_PART) &&
+      patchData?.cash_retention === true &&
+      Number(patchData?.outstanding_retention_amount) <= 0;
 
-    if (
+    // 🧠 Disable Save button logic
+    if (shouldForceNoRetention) {
+      // 🔸 New condition: when forcing no retention
+      setDisableSaveButton(
+        Number(outstandingConcatValue?.toFixed(2)) >
+          Number(outstanding_amount?.toFixed(2))
+      );
+    } else if (
       payment_type === tabTypes.FULL ||
       payment_type === tabTypes.PAY_LESS_FULL
     ) {
@@ -558,12 +620,21 @@ export default function AddPaymentSection({ props }: any) {
             Number(outstanding_amount?.toFixed(2))
       );
     } // 👉 Override condition
+    // 🧩 Override total_amount logic
     if (
       payment_type === tabTypes.PAY_LESS_ZERO ||
       payment_to === tabTypes.THIRD_PARTY
     ) {
+      // 🔸 Case 1: Pay Zero or 3rd Party → Blank total
       formik?.setFieldValue("total_amount", "");
+    } else if (shouldForceNoRetention) {
+      // 🔸 Case 2: Force No Retention → Use outstanding amount instead
+      formik?.setFieldValue(
+        "total_amount",
+        Number(outstandingConcatValue)?.toFixed(2)
+      );
     } else {
+      // 🔸 Default case
       formik?.setFieldValue("total_amount", concatValue?.toFixed(2));
     }
   }
@@ -697,6 +768,19 @@ export default function AddPaymentSection({ props }: any) {
     return formatDate(new Date(updatedUTC), DateFormat.YYYY_MM_DD);
   }
 
+  function formatToYYYYMMDD(dateInput: string | Date): string {
+    if (!dateInput) return "";
+
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return ""; // handle invalid date safely
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // months are 0-based
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
   return (
     <Fragment>
       <div className="pt_expandtable pt_payment">
@@ -736,18 +820,35 @@ export default function AddPaymentSection({ props }: any) {
                     type="radio"
                     name="claim_type"
                     options={retentionSwitchOptions}
+                    // selectedValue={
+                    //   formik?.values?.has_claim_retention
+                    //     ? formik?.values?.cash_retention
+                    //     : tabTypes.NO_RETENTION
+                    // }
+                    // onChange={(e) => {
+                    //   return handleRetentionTypeChange(false, e?.target?.value);
+                    // }}
+                    // disabled={
+                    //   isViewMode ||
+                    //   ImportScreen === "import" ||
+                    //   !formik?.values?.has_claim_retention
+                    // }
                     selectedValue={
-                      formik?.values?.has_claim_retention
+                      shouldForceNoRetention
+                        ? tabTypes.NO_RETENTION
+                        : formik?.values?.has_claim_retention
                         ? formik?.values?.cash_retention
                         : tabTypes.NO_RETENTION
                     }
-                    onChange={(e) =>
-                      handleRetentionTypeChange(false, e?.target?.value)
-                    }
+                    onChange={(e) => {
+                      if (shouldForceNoRetention) return; // prevent user change
+                      handleRetentionTypeChange(false, e?.target?.value);
+                    }}
                     disabled={
                       isViewMode ||
                       ImportScreen === "import" ||
-                      !formik?.values?.has_claim_retention
+                      !formik?.values?.has_claim_retention ||
+                      shouldForceNoRetention
                     }
                   />
                 </div>
@@ -1044,9 +1145,46 @@ export default function AddPaymentSection({ props }: any) {
                             }
                             customizeErrorFont={"paymentsErrorFont"}
                             selected={formik.values.payment_date}
-                            onChange={(selectedDate: string) =>
-                              formik.setFieldValue("payment_date", selectedDate)
-                            }
+                            // onChange={(selectedDate: string) =>
+                            //   formik.setFieldValue("payment_date", selectedDate)
+                            // }
+                            onChange={(selectedDate: string) => {
+                              if (!selectedDate) return;
+
+                              // 🧩 Skip validation for Onboarding mode
+                              if (userMode === "Onboarding") {
+                                formik.setFieldValue(
+                                  "payment_date",
+                                  selectedDate
+                                );
+                                return;
+                              }
+
+                              const defectDate =
+                                patchData?.defect_liability_end_date
+                                  ? paymentLiabilityDate(
+                                      patchData.defect_liability_end_date
+                                    )
+                                  : null;
+
+                              const chosenDate = formatToYYYYMMDD(selectedDate);
+                              // 🧠 Validation: check if selected < defect liability end date
+                              if (
+                                tabType === routedFrom.RETENTION_CLAIM_ONE &&
+                                defectDate &&
+                                chosenDate < defectDate
+                              ) {
+                                // Show warning modal and clear invalid date
+                                formik.setFieldValue("payment_date", null); // instantly clear
+                                setDisplayDefectDateConfirmation(true);
+                                return;
+                              }
+                              // ✅ Valid date, update formik value
+                              formik.setFieldValue(
+                                "payment_date",
+                                selectedDate
+                              );
+                            }}
                             error={
                               formik?.touched?.payment_date &&
                               formik?.errors?.payment_date
@@ -1054,15 +1192,7 @@ export default function AddPaymentSection({ props }: any) {
                             format={DD_MM_YYYY}
                             value={formik?.values?.payment_date}
                             disabled={isViewMode}
-                            minDate={
-                              userMode === "Onboarding"
-                                ? undefined
-                                : tabType === routedFrom.RETENTION_CLAIM_ONE
-                                ? paymentLiabilityDate(
-                                    patchData?.defect_liability_end_date
-                                  )
-                                : ""
-                            }
+                            minDate={userMode === "Onboarding" ? undefined : ""}
                           />
                         </td>
                         {/* Place both checkboxes at the end */}
@@ -1159,12 +1289,12 @@ export default function AddPaymentSection({ props }: any) {
                         control={InputType.TEXT_AREA}
                         renderKey="label"
                         valueKey="value"
-                        error={formik.errors.withHoldReson}
-                        showError={
-                          formik.errors.withHoldReson &&
-                          formik.touched.withHoldReson
-                        }
-                        smallTextAreaError
+                        // error={formik.errors.withHoldReson}
+                        // showError={
+                        //   formik.errors.withHoldReson &&
+                        //   formik.touched.withHoldReson
+                        // }
+                        // smallTextAreaError
                       />
                     </div>
                   </div>
@@ -1326,6 +1456,40 @@ export default function AddPaymentSection({ props }: any) {
           </div>
         </BaseModal>
       )}
+      {displayDefectDateConfirmation && (
+        <BaseModal
+          displayModal={displayDefectDateConfirmation}
+          onClose={() => {
+            formik.setFieldValue("payment_date", ""); // clear when closed
+            setDisplayDefectDateConfirmation(false);
+          }}
+          firstButtonName={"Close"}
+          hideSecondButton
+          hideHeaderCloseIcon
+          onConfirm={() => {
+            formik.setFieldValue("payment_date", ""); // clear when closed
+            setDisplayDefectDateConfirmation(false);
+          }}
+        >
+          <h4 className="text_center">
+            A payment to self can only be carried out for retention payments
+            after the Latent defect period has ended.
+          </h4>
+        </BaseModal>
+      )}
+
+      {displayRtaPending && (
+        <BaseModal
+          displayModal={displayDefectDateConfirmation}
+          onClose={() => setDisplayRtaPending(false)}
+          firstButtonName={"Close"}
+          hideSecondButton
+          onConfirm={() => setDisplayRtaPending(false)}
+        >
+          <h4 className="text_center">RTA payment amount is pending.</h4>
+        </BaseModal>
+      )}
+
       {ImportScreen === "import" && displayImportModal && (
         <dialog id="import-modal" open>
           <article>
@@ -1395,9 +1559,14 @@ export default function AddPaymentSection({ props }: any) {
   );
 }
 function RenderDynamicAttachments() {
-  const { formik, noticesAutomated }: any = usePaymentsContext();
+  const { formik, noticesAutomated, isFree }: any = usePaymentsContext();
 
   function checkIsAttachmentCompulsory() {
+    // If free plan → attachment NOT required
+    if (isFree === true) {
+      return false;
+    }
+    // Existing conditions
     if (
       formik?.values?.claim_type === tabTypes.BILLABLES &&
       (formik?.values?.payment_type !== tabTypes.FULL ||

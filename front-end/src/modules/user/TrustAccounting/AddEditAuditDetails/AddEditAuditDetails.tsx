@@ -91,6 +91,8 @@ export default function AddEditAuditDetails(props: any) {
   const [showDeleteGeneratedModal, setShowDeleteGeneratedModal] =
     useState(false);
   const selectedCompanyId = Number(getCookie("companyId")) || 0;
+  const [isFreePlanEligible, setIsFreePlanEligible] = useState(false);
+
   const [isOriginalFileDeleted, setIsOriginalFileDeleted] = useState(false);
   const [accountList, setAccountList] = useState([]);
   const [accountNumber, setAccountNumber] = useState("");
@@ -177,16 +179,27 @@ export default function AddEditAuditDetails(props: any) {
       try {
         const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
 
+        // 🔹 FREE PLAN OVERRIDE
+        const freePlan = subscriptionResponse?.is_free_plan_eligible === true;
+        setIsFreePlanEligible(freePlan);
+
         // 🔹 Check Audit Export
         const auditExportItem =
           subscriptionResponse?.plan_items?.find(
             (item: any) => item.item_name === "Audit export"
           ) || null;
 
-        const isAuditExportAllowed =
+        let isAuditExportAllowed =
           auditExportItem &&
           String(auditExportItem.limit_value).toLowerCase() === "true";
 
+        // setAuditExportAllowed(!!isAuditExportAllowed);
+        // 🔥 If free plan → ALWAYS allow audit export
+        if (freePlan) {
+          isAuditExportAllowed = true;
+        }
+
+        // 🔹 Set final boolean state
         setAuditExportAllowed(!!isAuditExportAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);
@@ -561,6 +574,7 @@ export default function AddEditAuditDetails(props: any) {
 
     //condition to show upgrade subscription modal
     if (
+      !isFreePlanEligible &&
       subscriptionPlanName === SubscriptionPlanTypes.BASIC &&
       !skipSubscriptionUpgrade &&
       values?.NilReturn?.value === "Yes"
@@ -1576,26 +1590,27 @@ export default function AddEditAuditDetails(props: any) {
                               handleViewFile(formik?.values?.AuditReport[0])
                             }
                           />
-                          {!isView && (
-                            <button
-                              className="contrast smallbutton"
-                              onClick={() => {
-                                if (isEdit) {
-                                  setDisplayConfirmationModal(true);
-                                  return;
-                                }
-                                formik?.setFieldValue("AuditReport", null);
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.value = "";
-                                }
-                              }}
-                            >
-                              <i
-                                className="fa-light fa-xmark"
-                                style={{ margin: 0 }}
-                              ></i>
-                            </button>
-                          )}
+                          {!isView &&
+                            Object.keys(generatedFile).length === 0 && (
+                              <button
+                                className="contrast smallbutton"
+                                onClick={() => {
+                                  if (isEdit) {
+                                    setDisplayConfirmationModal(true);
+                                    return;
+                                  }
+                                  formik?.setFieldValue("AuditReport", null);
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = "";
+                                  }
+                                }}
+                              >
+                                <i
+                                  className="fa-light fa-xmark"
+                                  style={{ margin: 0 }}
+                                ></i>
+                              </button>
+                            )}
                         </div>
                       </div>
                     </>

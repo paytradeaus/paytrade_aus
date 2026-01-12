@@ -42,6 +42,11 @@ import { DD_MM_YYYY } from "@/shared/constant/identificationNumbers";
 import ClaimSummaryViewForOtherPayments from "../claimSummaryView";
 import PaymentSummaryViews from "../paymentSummaryView";
 import ShowPaymentTxnTable from "../showingPaymentTransactions";
+import {
+  unMappingPayments,
+  viewXeroSyncLog,
+} from "../../UserIntegrations/integration.functions";
+import { CreateClaimInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 const OverPaymentRefundToClient = (props: any) => {
   const queryParams = useSearchParams();
@@ -61,6 +66,9 @@ const OverPaymentRefundToClient = (props: any) => {
 
   const router = useRouter();
   const { setLoader }: any = useLoaderContext();
+  const deleteParam: any = queryParams.get("delete");
+  const unmapidParam: any = queryParams.get("unmapid");
+  const syncId: any = queryParams.get("syncId");
 
   const [selectedValue, setSelectedValue] = useState<any>("");
   const [interestOpenModal, setInterestOpenModal] = useState(false);
@@ -332,7 +340,7 @@ const OverPaymentRefundToClient = (props: any) => {
         project_id: Number(values?.project),
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
-        payment_date: dateStringToUtcConversion(values?.paymentDate),
+        payment_date: values?.paymentDate || null,
         payment_claim_id: Number(values?.paymentClaimId),
         associated_payment_id: Number(values?.associatedPaymentId),
         associated_overpayment_id: Number(values?.overpayment),
@@ -363,7 +371,7 @@ const OverPaymentRefundToClient = (props: any) => {
       const payload = {
         companyId: companyId,
       };
-      const response = await GetProjectList(companyId);
+      const response = await GetProjectList(payload);
 
       if (response.length > 0) {
         const customProjectOption = response.map((data: any) => ({
@@ -640,15 +648,37 @@ const OverPaymentRefundToClient = (props: any) => {
   };
 
   const handleUpdatePayment = async (status: any) => {
+    let syncData: any = null;
+
+    async function createClaim() {
+      await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: syncData?.api_payload?.invoice_id || null,
+        tenantId: syncData?.api_payload?.tenant_id || null,
+        syncId: syncData?.id,
+        syncRunType: syncData?.api_payload?.sync_run_type || null,
+      });
+    }
     try {
-      const payload = {
+      const payload: any = {
         is_paid_confirmed: status,
         is_received_confirmed: false,
         payment_id: data?.payment_id,
         is_retention_confirmed: false,
       };
+      // include delete flag (if needed)
+      if (deleteParam === "true") {
+        payload.delete_paytrade_only = true;
+      }
       const response = await UpdateInterestChargesPaymentStatus(payload);
       if (response) {
+        // Fetch sync log for claim creation
+        if (syncId) {
+          syncData = await viewXeroSyncLog({
+            viewXeroSyncLogId: syncId,
+          });
+        }
         dispatch(
           setScreenDetails({
             ...screenDetails,
@@ -657,6 +687,15 @@ const OverPaymentRefundToClient = (props: any) => {
             mainActiveTab: "Interest and Charges",
           })
         );
+        // --- CASE A: If unmapid exists → run unmap first
+        if (unmapidParam) {
+          await unMappingPayments({ paymentId: unmapidParam });
+        }
+
+        // --- CASE B: ALWAYS create claim (unmap or no unmap)
+        if (syncId) {
+          await createClaim();
+        }
         // need to change once overview done
         router.back();
         // const companyId = Number(localStorage.getItem("companyId"));

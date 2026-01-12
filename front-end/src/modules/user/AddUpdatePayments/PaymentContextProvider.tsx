@@ -43,6 +43,11 @@ import {
   setPayments,
 } from "@/redux/slices/subscribeRouteBackDetails";
 import { showErrorToast } from "@/components/Toaster";
+import {
+  unMappingPayments,
+  viewXeroSyncLog,
+} from "../UserIntegrations/integration.functions";
+import { CreateClaimInPaytrade } from "../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 const PaymentsContext: any = createContext(null);
 
@@ -55,6 +60,7 @@ export const PaymentsProvider = ({ children }: any) => {
   //useState and useEffect Management
   const [optionalFiles, setOptionalFiles] = useState<File[]>([]);
   const [selectedClaim, setSelectedClaim] = useState<any>(null);
+  const [isFree, setIsFree] = useState(false);
   const [subscriptionPlanName, setSubscriptionPlanName] =
     useState<string>("Basic"); //company or user's current subscription plan
   const [retentionDisable, setRetentionAccountDisable] = useState(false);
@@ -104,6 +110,10 @@ export const PaymentsProvider = ({ children }: any) => {
   const overviewProjectId = queryParams.get("overviewProjectId");
   const overViewPage: any = queryParams.get("overview-type");
   const beneficiaryType: any = queryParams.get("beneficiary");
+
+  const deleteParam: any = queryParams.get("delete");
+  const unmapidParam: any = queryParams.get("unmapid");
+  const syncId: any = queryParams.get("syncId");
   const paymentType = getCookie("PaymentType");
   const [isViewMode] = useState(
     screenMode === VIEW || screenMode === VIEW_ARCHIVE
@@ -128,7 +138,7 @@ export const PaymentsProvider = ({ children }: any) => {
 
   const formik: any = useFormik({
     initialValues: initialValues,
-    validationSchema: paymentsSchema(noticesAutomated),
+    validationSchema: paymentsSchema(),
     onSubmit: () => handleSubmit(),
   });
 
@@ -557,6 +567,11 @@ export const PaymentsProvider = ({ children }: any) => {
   }
 
   function navigateTo(actionType?: string) {
+    if (syncId) {
+      router.back();
+      setLoader(false);
+      return;
+    }
     if (ImportScreen === "import") {
       handleRoute(AppRoutes?.USER_PAY_APPS);
     } else if (previousPage) {
@@ -596,6 +611,16 @@ export const PaymentsProvider = ({ children }: any) => {
         return;
       }
 
+      // Safely parse numbers from payment and outstanding amounts
+      const parseAmount = (amount: string | number | undefined): number => {
+        if (amount === undefined || amount === null) return 0;
+        if (typeof amount === "number") return amount;
+        // Remove anything that's not a digit or decimal point
+        return Number(amount.replace(/[^0-9.]/g, "")) || 0;
+      };
+
+      const paymentAmount = parseAmount(values?.payment_amount);
+      const outstandingAmount = parseAmount(values?.outstanding_amount);
       // 1️⃣ Check for mandatory memo
       const isWithholdingRequired =
         values?.claim_type === tabTypes.BILLABLES &&
@@ -603,16 +628,21 @@ export const PaymentsProvider = ({ children }: any) => {
           values?.payment_to === tabTypes.THIRD_PARTY) &&
         noticesAutomated;
 
-      if (isWithholdingRequired && !values?.withHoldReson?.trim()) {
+      if (
+        isWithholdingRequired &&
+        paymentAmount !== outstandingAmount &&
+        !values?.withHoldReson?.trim()
+      ) {
         // show error toast
         showErrorToast("Reason for withholding payment is required");
         return; // prevent submission
       }
 
       const triggerNotices =
-        values?.is_paid_confirmed ||
-        values?.payment_to === "3rd Party" ||
-        values?.payment_type === "Pay - Zero";
+        (values?.is_paid_confirmed ||
+          values?.payment_to === "3rd Party" ||
+          values?.payment_type === "Pay - Zero") &&
+        values?.claim_type !== "Receivable";
 
       //condition to show upgrade subscription modal
       if (
@@ -707,9 +737,7 @@ export const PaymentsProvider = ({ children }: any) => {
         ? {
             retention_account: values?.retention_account?.value,
             retention_amount: +replaceDollarSymbol(values?.retention_amount),
-            retention_release_date: dateStringToUtcConversion(
-              values?.retention_release_date
-            ),
+            retention_release_date: values?.retention_release_date || null,
             is_retention_confirmed:
               values?.claim_type === tabTypes?.BILLABLES
                 ? values?.is_retention_confirmed
@@ -769,7 +797,7 @@ export const PaymentsProvider = ({ children }: any) => {
           ),
 
           payment_amount: +replaceDollarSymbol(values?.payment_amount) || null,
-          payment_date: dateStringToUtcConversion(values?.payment_date),
+          payment_date: values?.payment_date || null,
 
           ...additionalPostDataModification(),
         },
@@ -832,6 +860,20 @@ export const PaymentsProvider = ({ children }: any) => {
   async function updateChangedCheckbox() {
     if (disableSaveButton) return; // Prevent multiple trigger
     setDisableSaveButton(true);
+    setLoader(true);
+
+    let syncData: any = null;
+    // ✅ MOVE helper function here (outside block → allowed in ES5)
+    async function createClaim() {
+      await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: syncData?.api_payload?.invoice_id || null,
+        tenantId: syncData?.api_payload?.tenant_id || null,
+        syncId: syncData?.id,
+        syncRunType: syncData?.api_payload?.sync_run_type || null,
+      });
+    }
     try {
       const {
         claim_type,
@@ -840,8 +882,7 @@ export const PaymentsProvider = ({ children }: any) => {
         payment_type,
         payment_to,
       } = formik.values;
-      setLoader(true);
-      const postData = {
+      const postData: any = {
         payload: {
           is_paid_confirmed:
             claim_type === tabTypes.BILLABLES ? is_paid_confirmed : null,
@@ -851,8 +892,18 @@ export const PaymentsProvider = ({ children }: any) => {
           payment_id: patchData?.payment_id,
         },
       };
+      // 🌟 If `delete=true` → include delete flag in payload
+      if (deleteParam === "true") {
+        postData.payload.delete_paytrade_only = true;
+      }
+
       const response = await updatePayments(postData);
-      //patchData?.payment_from_account_type
+      // Fetch syncLog data early so we can use it later
+      if (syncId) {
+        syncData = await viewXeroSyncLog({
+          viewXeroSyncLogId: syncId,
+        });
+      }
       if (response) {
         if (
           is_paid_confirmed ||
@@ -892,8 +943,22 @@ export const PaymentsProvider = ({ children }: any) => {
             return;
           }
         }
+
+        // --- CASE A: UNMAP ---
+        if (unmapidParam) {
+          await unMappingPayments({ paymentId: unmapidParam });
+          setLoaderInfo("");
+          navigateTo();
+          return;
+        }
+
+        // --- CASE B: NORMAL FLOW ---
+        if (syncId) {
+          await createClaim();
+        }
         setLoaderInfo("");
         navigateTo();
+        return;
       }
       setLoader(false);
     } catch {
@@ -1001,6 +1066,8 @@ export const PaymentsProvider = ({ children }: any) => {
         setDelegateAuthorityAllowed,
         noticesAutomated,
         setNoticesAutomated,
+        isFree,
+        setIsFree,
       }}
     >
       {children}

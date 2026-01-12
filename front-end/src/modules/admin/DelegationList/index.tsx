@@ -220,7 +220,7 @@ export default function DelegationList() {
         </div>
         <div className="pt_filteroptions">
           <SearchableSelect
-            placeholder="Select a company profile"
+            placeholder="Select a business profile"
             name="Company"
             options={companyOptions}
             onChange={(selected: any) => {

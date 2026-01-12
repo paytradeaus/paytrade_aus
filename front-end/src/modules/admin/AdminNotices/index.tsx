@@ -409,7 +409,7 @@ export default function AdminNotices({ archiveMode }: any) {
           </div>
           <div className="pt_filteroptions">
             <SearchableSelect
-              placeholder="Select a company"
+              placeholder="Select a business"
               name="bankAccounts"
               options={companyDropdownOptions}
               onChange={(value: any) => handleCompanyChange(value)}

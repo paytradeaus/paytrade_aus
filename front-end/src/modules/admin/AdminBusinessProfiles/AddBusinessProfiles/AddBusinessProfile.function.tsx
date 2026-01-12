@@ -72,7 +72,7 @@ export const AdminGetCompanyById = async (
 
 export const AdminUpdateCompany = async (
   data: any,
-  successMsg: string,
+  successMsg?: string,
   setLoading?: Function
 ): Promise<any> => {
   try {
@@ -133,6 +133,53 @@ export const AdminUpdateCompany = async (
   } catch (error: any) {
     showErrorToast(error.message || SOMETHING_WENT_WRONG);
     console.error("GraphQL Error:", error);
+    return false;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const UpdateBusinessFreeAccess = async (
+  data: any,
+  successMsg?: string,
+  setLoading?: Function
+): Promise<boolean> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation UpdateBusinessFreeAccess(
+          $payload: UpdateBusinessFreeAccessInput!
+        ) {
+          updateBusinessFreeAccess(payload: $payload) {
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        payload: {
+          ...data,
+        },
+      },
+      fetchPolicy: "no-cache",
+    });
+
+    if (response?.data?.updateBusinessFreeAccess?.status === SUCCESS) {
+      showSuccessToast(
+        successMsg || response?.data?.updateBusinessFreeAccess?.message
+      );
+      return true;
+    }
+
+    if (response?.data?.updateBusinessFreeAccess?.status === ERROR) {
+      showErrorToast(response?.data?.updateBusinessFreeAccess?.message);
+      return false;
+    }
+
+    return false; // fallback
+  } catch (error: any) {
+    console.error("GraphQL Error:", error);
+    showErrorToast(error?.message || SOMETHING_WENT_WRONG);
     return false;
   } finally {
     setLoading && setLoading(false);

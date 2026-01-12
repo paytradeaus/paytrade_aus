@@ -1,6 +1,6 @@
 // Define headers dynamically
 const pdfHeaders = [
-  "Company Name",
+  "Business Name",
   "Subscription Name",
   "Subscribed Amount",
   "Start Date",
@@ -21,7 +21,7 @@ const pdfDataRow = [
 
 //constant for subscription headers list
 const subscriptionProfileHeaders = [
-  { title: "Company Name", dataKey: "company_name" },
+  { title: "Business Name", dataKey: "company_name" },
   { title: "Subscription Plan", dataKey: "plan_name" },
   { title: "Subscribed Amount", dataKey: "subscribed_amount" },
   { title: "Start Date", dataKey: "start_date" },

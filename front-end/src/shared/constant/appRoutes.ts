@@ -175,6 +175,14 @@ export const AppRoutes = {
   ADMIN_VIEW_SUBSCRIPTION_ITEMS: "/admin/subscriptions/manage-items/view",
   ADMIN_EDIT_SUBSCRIPTION_ITEMS: "/admin/subscriptions/manage-items/edit",
   ADMIN_SUBSCRIPTION_PROFILES: "/admin/subscriptions/manage-profiles",
+  ADMIN_SUBSCRIPTION_CURRENT_COUPON:
+    "/admin/subscriptions/manage-coupons/current",
+  ADMIN_SUBSCRIPTION_ARCHIVED_COUPON:
+    "/admin/subscriptions/manage-coupons/archived",
+  ADMIN_SUBSCRIPTION_ADD_COUPON: "/admin/subscriptions/manage-coupons/add",
+  ADMIN_SUBSCRIPTION_VIEW_COUPON: "/admin/subscriptions/manage-coupons/view",
+  ADMIN_SUBSCRIPTION_EDIT_COUPON: "/admin/subscriptions/manage-coupons/edit",
+
   ADMIN_SUBSCRIPTION_BILLING_AND_HISTORY:
     "/admin/subscriptions/billing-history",
 

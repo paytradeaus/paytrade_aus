@@ -64,3 +64,36 @@ export const GetActivityLogList = async (
     setLoading && setLoading(false);
   }
 };
+
+export const GetEventGroup = async (setLoading?: Function): Promise<any> => {
+  try {
+    setLoading && setLoading(true);
+
+    const response = await apolloClient.query({
+      query: gql`
+        query GetEventGroup {
+          getEventGroup {
+            message
+            status
+            data {
+              total_count
+              list {
+                name
+              }
+            }
+          }
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+
+    // return only the list array for easier usage
+    return response?.data?.getEventGroup?.data?.list || [];
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return [];
+  } finally {
+    setLoading && setLoading(false);
+  }
+};

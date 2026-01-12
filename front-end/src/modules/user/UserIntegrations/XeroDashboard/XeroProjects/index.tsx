@@ -716,7 +716,7 @@ export default function XeroProjects() {
             handleManualMappingProject();
             return true;
           }}
-          title="Contact Mapping"
+          title="Project Mapping"
         >
           <br />
           <p className="text_center">

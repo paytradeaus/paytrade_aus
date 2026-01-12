@@ -228,6 +228,10 @@ export default function BusinessVerification() {
       }
       if (ApiResponse?.status) {
         toast.success("This Business has been added.");
+        // 🧹 Remove xeroIntegrationId if it exists
+        if (localStorage.getItem("xeroIntegrationId")) {
+          localStorage.removeItem("xeroIntegrationId");
+        }
         // You can perform other actions or navigate based on the response
         localStorage.setItem("companyId", ApiResponse?.data?.company_id);
         setCookie("companyId", ApiResponse?.data?.company_id);

@@ -35,6 +35,7 @@ import {
 } from "../../PayApps/payApps.constant";
 import {
   buttonType,
+  filterByDuration,
   InputType,
   OVERVIEW_TABS,
 } from "@/shared/constant/general";
@@ -55,6 +56,7 @@ import {
 import { ProjectOptions } from "next/dist/build/swc";
 import ProjectOverview from "./ProjectOverview";
 import { projectOverviewTabs } from "./ProjectOverview.constant";
+import { format, isValid } from "date-fns";
 
 interface RowData {
   id: string;
@@ -92,9 +94,26 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
   const [projectOptions, setProjectOptions] = useState<ProjectOptions[]>([]);
   const [actionData, setActionData] = useState<any>();
 
+  const [singleActivyDate, setSingleActivyDate] = useState<any>({
+    value: "All",
+    label: "All dates",
+  });
+  const [activityLogStartDate, setActivityLogStartDate] = useState<
+    Date | null | any
+  >(new Date().toISOString().split("T")[0]);
+
+  const [activityLogEndDate, setActivityLogEndDate] = useState<
+    Date | null | any
+  >(new Date().toISOString().split("T")[0]);
+  const [isCustomDate, setIsCustomDate] = useState(false);
+  const [activityDate, setActivityDate] = useState("");
+
   const [selectedStatus, setSelectedStatus] = useState(
     isArchived ? "Archived" : ""
   );
+  const [searchValue, setSearchValue] = useState("");
+
+  const [emptySearchField, setEmptySearchField] = useState(false);
 
   const [selectedStatusName, setSelectedStatusName] = useState<any>(null);
   const [paymentclaimGridData, setPaymentClaimGridData] = useState<any>([]);
@@ -145,18 +164,27 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
   //     ? selectedContract
   //     : Number(selectedContractId) || null;
   const resetFilters = () => {
+    setEmptySearchField(true);
     setSelectedStatus("");
     setSelectedStatusName(null);
     setSelectedContractId(null);
     setSelectedProjectId(null);
     setSelectedProjectName(null);
+    setSingleActivyDate({ value: "All", label: "All" }); // Reset Activity Range filter
+    setActivityDate(""); // Reset activityDate state
+    setIsCustomDate(false); // Reset custom date state
+    const today = new Date().toISOString().split("T")[0];
+    setActivityLogStartDate(today); // Reset start date to today
+    setActivityLogEndDate(today); // Reset end date to today
   };
 
   const isAnyFilterActive =
     selectedStatusName !== null ||
     selectedContractId !== null ||
     selectedProjectId !== null ||
-    selectedProjectName !== null;
+    selectedProjectName !== null ||
+    searchValue !== "" ||
+    activityDate !== "";
 
   useEffect(() => {
     if (displayPaymentModel && dialogRef.current) {
@@ -266,6 +294,10 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
     activeTab,
     page,
     perPage,
+    activityDate,
+    activityLogEndDate,
+    activityLogStartDate,
+    searchValue,
   ]);
   const fetchContractsForProject = async (overviewProjectId: string) => {
     const data = {
@@ -311,6 +343,10 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
         activeTab === "Archived" ? "Archived" : selectedStatusName || null,
       sorting_field: sortValues?.sortKey || "",
       sorting_order: sortValues?.direction || "",
+      search: searchValue ?? "",
+      date_filter: activityDate === "All dates" ? null : activityDate,
+      start_date: isCustomDate ? activityLogStartDate : null,
+      end_date: isCustomDate ? activityLogEndDate : null,
     });
 
     if (response) {
@@ -444,9 +480,11 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
       label: "View all payments",
       icon: "fa-light fa-file-invoice-dollar",
       style: buttonType.SECONDARY,
-      // onClick: (row: any) => {},
+
       onClick: (row: any) => {
-        router.push(AppRoutes.USER_PAYMENTS_LIST);
+        router.push(
+          `${AppRoutes.USER_PAYMENTS_LIST}?partclaimid=${row?.payment_claim_id}`
+        );
       },
 
       conditionalApiDisplayKey: "view_all_payment",
@@ -588,6 +626,26 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
     }
   };
 
+  const handleActivityChange = (selectedValue: any) => {
+    setSingleActivyDate(selectedValue);
+    if (selectedValue === "Custom") {
+      setIsCustomDate(true);
+    } else {
+      setIsCustomDate(false);
+    }
+    setActivityDate(selectedValue); // Perform any other actions based on the selected value
+  };
+
+  function handleSearch(searchedValue: any) {
+    if (page != 1) {
+      setPage(1);
+    }
+    if (perPage != 10) {
+      setPerPage(10);
+    }
+    setSearchValue(searchedValue);
+  }
+
   return (
     <div className="container-fluid">
       <div className="pt_title">
@@ -715,6 +773,14 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
           </fieldset>
         </div>
         <div className="pt_filteroptions">
+          {/* <div> */}
+          <FormikControl
+            control={InputType.SEARCH}
+            onChange={(value: any) => handleSearch(value)}
+            placeholder="Search"
+            clearSearch={emptySearchField}
+          />
+          {/* </div> */}
           {/* <div>
             <FormikControl
               placeholder={"Select a project"}
@@ -733,40 +799,127 @@ export default function OverviewClaims({ overViewDetails = {} }: any) {
               valueKey="value"
             />
           </div> */}
-          <div>
-            <FormikControl
-              placeholder={"Select a contract"}
-              name="Contract"
-              options={contractOptions}
-              onChange={(selectedOption: any) => {
-                if (selectedOption) {
-                  setSelectedContractId(selectedOption);
-                }
-              }}
-              control={InputType.SELECT}
-              value={selectedContractId}
-              renderKey="label"
-              valueKey="value"
-            />
-          </div>
-
-          <div>
-            <FormikControl
-              placeholder={"Select a status"}
-              name="Status"
-              options={
-                selectedPaymentType === "Billable"
-                  ? statusOptions
-                  : receivableOptions
+          {/* <div> */}
+          <FormikControl
+            placeholder={"Select a contract"}
+            name="Contract"
+            options={contractOptions}
+            onChange={(selectedOption: any) => {
+              if (selectedOption) {
+                setSelectedContractId(selectedOption);
               }
-              onChange={handleStatusChange}
-              control={InputType.SELECT}
-              value={selectedStatusName}
-              renderKey="label"
-              valueKey="value"
-            />
-          </div>
+            }}
+            control={InputType.SELECT}
+            value={selectedContractId}
+            renderKey="label"
+            valueKey="value"
+          />
+          {/* </div> */}
+
+          {/* <div> */}
+          <FormikControl
+            placeholder={"Select a status"}
+            name="Status"
+            options={
+              selectedPaymentType === "Billable"
+                ? statusOptions
+                : receivableOptions
+            }
+            onChange={handleStatusChange}
+            control={InputType.SELECT}
+            value={selectedStatusName}
+            renderKey="label"
+            valueKey="value"
+          />
+          {/* </div> */}
+
+          <FormikControl
+            placeholder={"Activity Range"}
+            name="Activity Range"
+            options={filterByDuration}
+            onChange={handleActivityChange}
+            control={InputType.SELECT}
+            value={singleActivyDate}
+            renderKey="label"
+            valueKey="value"
+          />
         </div>
+        {isCustomDate && (
+          <div className="grid">
+            <div>
+              <FormikControl
+                label="From date"
+                name="activityLogStartDate"
+                control={InputType.DATE_PICKER}
+                type="date"
+                // value={
+                //   activityLogStartDate
+                //     ? format(new Date(activityLogStartDate), "yyyy-MM-dd")
+                //     : ""
+                // }
+                value={
+                  activityLogStartDate &&
+                  isValid(new Date(activityLogStartDate))
+                    ? format(new Date(activityLogStartDate), "yyyy-MM-dd")
+                    : ""
+                }
+                onChange={(selectedDate: any) => {
+                  if (!selectedDate) {
+                    setActivityLogStartDate(null);
+                    return;
+                  }
+
+                  if (selectedDate > activityLogEndDate) {
+                    setActivityLogStartDate(selectedDate);
+                    setActivityLogEndDate(selectedDate);
+                  } else {
+                    setActivityLogStartDate(selectedDate);
+                  }
+                }}
+                minDate="" // Set any minimum date if needed
+                // maxDate={format(new Date(activityLogEndDate), "yyyy-MM-dd")}
+                disabled={false}
+              />
+            </div>
+            <div>
+              <FormikControl
+                label="To date"
+                name="activityLogEndDate"
+                type="date"
+                control={InputType.DATE_PICKER}
+                // value={
+                //   activityLogEndDate
+                //     ? format(new Date(activityLogEndDate), "yyyy-MM-dd")
+                //     : ""
+                // }
+
+                value={
+                  activityLogEndDate && isValid(new Date(activityLogEndDate))
+                    ? format(new Date(activityLogEndDate), "yyyy-MM-dd")
+                    : ""
+                }
+                onChange={(selectedDate: any) => {
+                  if (!selectedDate) {
+                    setActivityLogEndDate(null);
+                    return;
+                  }
+
+                  // Ensure end date is not before start date
+                  if (selectedDate >= activityLogStartDate) {
+                    setActivityLogEndDate(selectedDate);
+                  }
+                }}
+                minDate={
+                  activityLogStartDate
+                    ? format(new Date(activityLogStartDate), "yyyy-MM-dd")
+                    : ""
+                }
+                maxDate="" // Set any maximum date if needed
+                disabled={false}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid">

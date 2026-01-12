@@ -7,7 +7,7 @@ const auditListHeaders = [
   { dataKey: "trail_balance_modified", title: "Trial Balance Statement" },
   {
     dataKey: "deposit_withdraw_modified",
-    title: "Record of Deposit and Withdrawls",
+    title: "Record of Deposit and Withdrawals",
   },
   {
     dataKey: "reconciliation_modified",

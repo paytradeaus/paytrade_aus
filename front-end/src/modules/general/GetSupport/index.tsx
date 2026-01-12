@@ -75,6 +75,7 @@ export default function SupportPage() {
       email: formik.values.email,
       message: formik.values.message,
       recaptcha_token: recaptchaToken ?? "",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     await postUserData(postData)
       .then((data: any) => {
@@ -182,7 +183,7 @@ export default function SupportPage() {
                       <FormikControl
                         control={InputType.TEXT_FIELD}
                         label={"Company"}
-                        placeholder="Enter company name"
+                        placeholder="Enter business name"
                         name="companyName"
                         value={formik.values.companyName}
                         onChange={formik.handleChange}

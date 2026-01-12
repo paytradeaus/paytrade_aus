@@ -241,7 +241,7 @@ const TopUpRetentionForm = (props: any) => {
         project_id: Number(values?.project),
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
-        payment_date: dateStringToUtcConversion(values?.paymentDate),
+        payment_date: values?.paymentDate || null,
         is_received_confirmed: values?.confirmReceived,
       };
       try {
@@ -268,7 +268,7 @@ const TopUpRetentionForm = (props: any) => {
       const payload = {
         companyId: companyId,
       };
-      const response = await GetProjectList(companyId);
+      const response = await GetProjectList(payload);
 
       if (response.length > 0) {
         const customProjectOption = response.map((data: any) => ({

@@ -892,7 +892,7 @@ const AddBusinessProfiles = (props: any) => {
                         valueKey="value"
                         onChange={handleRelatedEntityChange}
                       />
-                      {isEdit ? (
+                      {/* {isEdit ? (
                         <FormikControl
                           control={InputType.TEXT_FIELD}
                           label="Business Primary Admin "
@@ -908,7 +908,7 @@ const AddBusinessProfiles = (props: any) => {
                           <label className="labelStyle">
                             <small>
                               Business Primary Admin{" "}
-                              <span className="linkStyles">*</span>
+                              <span className="required">*</span>
                             </small>
                           </label>
                           <AsyncSelect
@@ -921,14 +921,47 @@ const AddBusinessProfiles = (props: any) => {
                             styles={customStyles}
                           />
                           {/* Ensure the error message is displayed if there's an error */}
-                          {formik.errors.UserId && formik.touched.UserId && (
+                      {/* {formik.errors.UserId && formik.touched.UserId && (
                             <small className="invalid">
                               <i className="fa-light fa-circle-xmark"></i>
                               <span>{formik.errors.UserId}</span>
                             </small>
                           )}
-                        </>
-                      )}
+                        </> */}
+                      <label className="labelStyle">
+                        <small>
+                          Business Primary Admin{" "}
+                          <span className="required">*</span>
+                        </small>
+                      </label>
+
+                      <AsyncSelect
+                        cacheOptions
+                        loadOptions={loadOptions}
+                        onChange={isEdit ? undefined : handleSelectChange} // disable changing in edit mode
+                        value={
+                          isEdit
+                            ? {
+                                label: editData?.primary_admin_name,
+                                value: editData?.primary_admin_id,
+                              }
+                            : selectedOption
+                        }
+                        placeholder={" "}
+                        isDisabled={isEdit} // 🔥 disable in edit mode
+                        openMenuOnClick={!isEdit} // menu will not open during edit
+                        styles={customStyles}
+                      />
+
+                      {/* Show validation error only when adding */}
+                      {!isEdit &&
+                        formik.errors.UserId &&
+                        formik.touched.UserId && (
+                          <small className="invalid">
+                            <i className="fa-light fa-circle-xmark"></i>
+                            <span>{formik.errors.UserId}</span>
+                          </small>
+                        )}
 
                       <br />
                       <FormikControl
@@ -967,7 +1000,7 @@ const AddBusinessProfiles = (props: any) => {
                       <ImageUploader
                         onImageSelect={(e: any) => onImageChange(e)}
                         accept={UploadImage.jpegAndPng}
-                        label="Upload company logo"
+                        label="Upload business logo"
                         selectedImage={
                           cropImage?.length > 0
                             ? cropImage[0]

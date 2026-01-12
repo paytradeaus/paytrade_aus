@@ -58,7 +58,9 @@ export default function RootLayout({
           data-cbid="48b179ab-203f-47bc-b6b8-f5ea4896aeaa"
           data-blockingmode="auto"
           type="text/javascript"
-          strategy="lazyOnload"
+          // strategy="lazyOnload"
+          async
+          strategy="afterInteractive"
         />
         <Script
           data-cookieconsent="ignore"

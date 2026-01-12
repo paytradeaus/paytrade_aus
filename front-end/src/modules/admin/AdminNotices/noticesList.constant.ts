@@ -1,7 +1,7 @@
 // Define headers dynamically
 const noticesListPDFHeaders = [
   "Date Generated",
-  "Company Profile",
+  "Business Profile",
   "Account Name",
   "Type",
   "Notices Type",
@@ -11,7 +11,7 @@ const noticesListPDFHeaders = [
 
 const noticesListHeaders = [
   { title: "Date Generated" },
-  { title: "Company Profile" },
+  { title: "Business Profile" },
   { title: "Account Name" },
   { title: "Type" },
   { title: "Notices Type" },

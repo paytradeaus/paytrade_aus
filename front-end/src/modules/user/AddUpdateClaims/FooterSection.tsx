@@ -57,6 +57,7 @@ export default function FooterSection() {
     setQbccNoticeUuids,
     noticesAutomated,
     setNoticesAutomated,
+    setIsFree,
   }: any = useAddUpdateClaimsContext();
   const { decodeTokenData } = useTokenDetails();
 
@@ -152,10 +153,10 @@ export default function FooterSection() {
             (item: any) => item.item_name === "Delegate authority"
           ) || null;
 
-        const isAllowed =
+        let isAllowed =
           delegateItem &&
           String(delegateItem.limit_value).toLowerCase() === "true";
-        setDelegateAuthorityAllowed(!!isAllowed);
+        // setDelegateAuthorityAllowed(!!isAllowed);
 
         // ✅ Find "Notices"
         const noticesItem =
@@ -166,7 +167,21 @@ export default function FooterSection() {
         const isNoticesAutomated =
           noticesItem &&
           String(noticesItem.limit_value).toLowerCase() === "automated";
-        setNoticesAutomated(!!isNoticesAutomated);
+        // setNoticesAutomated(!!isNoticesAutomated);
+
+        const isFreePlanEligible =
+          subscriptionResponse?.is_free_plan_eligible ?? false;
+        // 🔥🔥 OVERRIDE RULE:
+        // If free plan is TRUE → force delegate to TRUE
+        if (isFreePlanEligible) {
+          isAllowed = true;
+          setIsFree(isFreePlanEligible);
+          setNoticesAutomated(true);
+        } else {
+          setNoticesAutomated(!!isNoticesAutomated);
+        }
+        // 🔹 Final set states
+        setDelegateAuthorityAllowed(!!isAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);
         setDelegateAuthorityAllowed(false); // fail-safe

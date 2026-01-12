@@ -55,7 +55,7 @@ export default function PricingPage() {
         planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
         isCurrentPlan: true,
         title: plan.plan_name || "Free Plan",
-        description: plan.description || "No description available",
+        description: plan.description || "",
         price: "$0.00 +VAT",
         buttonText: " Current plan",
         href: "#",
@@ -65,7 +65,7 @@ export default function PricingPage() {
       ...planList.map((plan: any) => ({
         planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
         title: plan.plan_name || "Plan Title",
-        description: plan.description || "Plan Description",
+        description: plan.description || "",
         price: plan.price
           ? `${plan.price} ${isYearly ? "/yr +VAT" : "/mo +VAT"}`
           : "$0.00/yr +VAT",

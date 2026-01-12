@@ -35,6 +35,10 @@ const adminSidebar = [
         name: "Manage profiles",
       },
       {
+        routePath: AppRoutes.ADMIN_SUBSCRIPTION_CURRENT_COUPON,
+        name: "Manage coupons",
+      },
+      {
         routePath: AppRoutes.ADMIN_SUBSCRIPTION_BILLING_AND_HISTORY,
         name: "Billing history",
       },

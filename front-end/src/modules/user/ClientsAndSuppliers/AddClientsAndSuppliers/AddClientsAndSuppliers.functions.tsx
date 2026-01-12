@@ -1,6 +1,7 @@
 import { ERROR, SUCCESS } from "@/app/message";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import apolloClient from "@/network/apolloClient";
+import { ApiResponse } from "@/shared/constant/messages";
 import { gql } from "@apollo/client";
 
 export async function postAddClientSuppliersFormData(
@@ -415,6 +416,69 @@ export async function createContactInPaytradeFromXeroData(
     }
     if (response?.data?.createContactInPaytrade?.status === ERROR) {
       showErrorToast(response?.data?.createContactInPaytrade?.message);
+      return false;
+    }
+  } catch (error: any) {
+    return {};
+  }
+}
+
+export async function CreateOrUpdateContactInPaytrade(
+  postData: any,
+  showToast?: boolean
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation CreateOrUpdateContactInPaytrade(
+          $companyId: Float!
+          $contactId: String!
+          $contactStatus: String!
+          $payload: CreateClientSuppliersDetailInput
+          $syncId: String
+        ) {
+          createOrUpdateContactInPaytrade(
+            company_id: $companyId
+            contact_id: $contactId
+            contact_status: $contactStatus
+            payload: $payload
+            sync_id: $syncId
+          ) {
+            data {
+              contact_id
+              contact_name
+              contact_status
+              id
+              mapped_status
+              xero_contact_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    const res = response?.data?.createOrUpdateContactInPaytrade;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === SUCCESS) {
+      if (showToast) {
+        showSuccessToast(
+          response?.data?.createContactInPaytradeThroughWebhook?.message
+        );
+      }
+      return {
+        status: true,
+        message: res?.message,
+      };
+    }
+    if (res?.status === ERROR) {
+      showErrorToast(res?.message);
       return false;
     }
   } catch (error: any) {

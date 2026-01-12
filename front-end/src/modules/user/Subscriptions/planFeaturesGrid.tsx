@@ -293,7 +293,6 @@ export default function PlanFeaturesGrid() {
   }: any = useSubscriptionsContext();
 
   const [tableFeatures, setTableFeatures] = useState<any[]>([]);
-  console.log("🚀 ~ PlanFeaturesGrid ~ tableFeatures:", tableFeatures);
   const [loading, setLoading] = useState(true);
   const [loaderInfo, setLoaderInfo] = useState("Loading subscription plans...");
 
@@ -523,6 +522,7 @@ export default function PlanFeaturesGrid() {
       planPrice: `${data?.price}${
         data?.bill_cycle === "Year" ? "/yr" : "/mo"
       }+VAT`,
+      description: data?.description ? data?.description : data?.plan_name,
     });
   }
 

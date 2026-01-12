@@ -44,7 +44,7 @@ const initialValues = {
   withHoldReson: "",
 };
 
-const paymentsSchema = (noticesAutomated: boolean) =>
+const paymentsSchema = () =>
   Yup.object().shape(
     {
       payment_to: Yup.string().notRequired(),
@@ -320,7 +320,7 @@ const paymentsSchema = (noticesAutomated: boolean) =>
       ),
 
       payless_amount: Yup.string().when(
-        ["payment_type"],
+        ["payment_type", "retention_amount"],
         (otherFieldData: any) => {
           if (
             otherFieldData[0] === tabTypes.PAY_LESS_FULL ||
@@ -330,6 +330,10 @@ const paymentsSchema = (noticesAutomated: boolean) =>
               .required("Payless amount is required")
               .test("payless amount", function (value, formData: any) {
                 const claim_amount = formData.parent.claim_amount;
+                const retention_amount = formData.parent.retention_amount;
+
+                const paylessValue = +replaceDollarSymbol(value);
+                const retentionValue = +replaceDollarSymbol(retention_amount);
 
                 if (+replaceDollarSymbol(value) <= 0) {
                   return formData.createError({
@@ -341,6 +345,13 @@ const paymentsSchema = (noticesAutomated: boolean) =>
                     path: formData.path,
                     message:
                       "Payless amount should be lesser than claim amount",
+                  });
+                } // 3. NEW RULE: If retention exists → payless must be greater
+                else if (retention_amount && paylessValue <= retentionValue) {
+                  return formData.createError({
+                    path: formData.path,
+                    message:
+                      "Payless amount should be greater than retention amount",
                   });
                 }
                 return true;
@@ -350,7 +361,7 @@ const paymentsSchema = (noticesAutomated: boolean) =>
         }
       ),
       formatted_payless_amount: Yup.string().when(
-        ["payment_type"],
+        ["payment_type", "retention_amount"],
         (otherFieldData: any) => {
           if (
             otherFieldData[0] === tabTypes.PAY_LESS_FULL ||
@@ -360,6 +371,10 @@ const paymentsSchema = (noticesAutomated: boolean) =>
               .required("Payless amount is required")
               .test("payless amount", function (value, formData: any) {
                 const claim_amount = formData.parent.claim_amount;
+                const retention_amount = formData.parent.retention_amount;
+
+                const paylessValue = +replaceDollarSymbol(value);
+                const retentionValue = +replaceDollarSymbol(retention_amount);
 
                 if (+replaceDollarSymbol(value) <= 0) {
                   return formData.createError({
@@ -371,6 +386,12 @@ const paymentsSchema = (noticesAutomated: boolean) =>
                     path: formData.path,
                     message:
                       "Payless amount should be lesser than claim amount",
+                  });
+                } else if (retention_amount && paylessValue <= retentionValue) {
+                  return formData.createError({
+                    path: formData.path,
+                    message:
+                      "Payless amount should be greater than retention amount",
                   });
                 }
                 return true;
@@ -472,23 +493,22 @@ const paymentsSchema = (noticesAutomated: boolean) =>
           return Yup.object().notRequired(); // Return the schema without any additional validation
         }
       ),
-      withHoldReson: Yup.string().when(
-        ["claim_type", "payment_type", "payment_to"],
-        (otherFieldData: any, schema: any) => {
-          const [claim_type, payment_type, payment_to] = otherFieldData;
+      // withHoldReson: Yup.string().when(
+      //   ["claim_type", "payment_type", "payment_to"],
+      //   (otherFieldData: any, schema: any) => {
+      //     const [claim_type, payment_type, payment_to] = otherFieldData;
+      //     if (
+      //       claim_type === tabTypes.BILLABLES &&
+      //       (payment_type !== tabTypes.FULL ||
+      //         payment_to === tabTypes.THIRD_PARTY) &&
+      //       noticesAutomated
+      //     ) {
+      //       return schema.required("Reason is required");
+      //     }
 
-          if (
-            claim_type === tabTypes.BILLABLES &&
-            (payment_type !== tabTypes.FULL ||
-              payment_to === tabTypes.THIRD_PARTY) &&
-            noticesAutomated
-          ) {
-            return schema.required("Reason is required");
-          }
-
-          return schema.notRequired();
-        }
-      ),
+      //     return schema.notRequired();
+      //   }
+      // ),
     },
 
     [

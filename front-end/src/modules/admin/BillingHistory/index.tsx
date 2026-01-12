@@ -315,7 +315,7 @@ function AdminBillingHistory() {
         </div>
         <div className="pt_filteroptions">
           <SearchableSelect
-            placeholder="Select a company profile"
+            placeholder="Select a business profile"
             name="bankAccounts"
             options={availableCompanyOptions}
             onChange={(value: any) => handleCompanyChange(value)}

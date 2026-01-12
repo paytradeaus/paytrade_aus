@@ -242,7 +242,6 @@ const AddAdminUser = (props: any) => {
       }
     },
   });
-  console.log("🚀 ~ AddAdminUser ~ formik:", formik);
 
   const checkEmailExistence = async (email: string) => {
     // Call your API or validation logic for checking email
