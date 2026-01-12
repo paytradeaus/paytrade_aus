@@ -3,6 +3,7 @@ import Home from "../page";
 import seoMetadata from "@/utils/seoMetadata";
 import { fetchFaqList } from "@/modules/general/FAQS/Faq.functions";
 
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = seoMetadata.faq;
 
 export default async function Page() {
