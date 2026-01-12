@@ -258,7 +258,8 @@ const downloadPDF = async (
 function connectWebSocket(): Promise<any> {
   return new Promise((resolve, reject) => {
     const socket: Socket = io(`${process.env.NEXT_PUBLIC_SOCKET_URL}`, {
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
+      upgrade: true,
     });
 
     socket.on("connect", () => {
