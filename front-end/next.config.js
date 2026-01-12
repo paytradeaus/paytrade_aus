@@ -21,6 +21,10 @@ module.exports = {
   async rewrites() {
     return [
       {
+        source: '/graphql',
+        destination: `${BACKEND_URL}/graphql`,
+      },
+      {
         source: '/socket.io/:path*',
         destination: `${BACKEND_URL}/socket.io/:path*`,
       },
