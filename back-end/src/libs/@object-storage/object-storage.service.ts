@@ -148,7 +148,8 @@ export class ObjectStorageService {
       
       if (result.ok) {
         this.logger.log(`File downloaded successfully: ${objectPath}`);
-        return Buffer.from(result.value);
+        const bytes = result.value as unknown as Uint8Array;
+        return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
       } else {
         this.logger.error(`Failed to download file: ${result.error}`);
         return null;
@@ -209,7 +210,7 @@ export class ObjectStorageService {
 
   async listFiles(prefix?: string): Promise<string[]> {
     try {
-      const result = await this.client.list(prefix);
+      const result = await this.client.list({ prefix });
       if (result.ok) {
         return result.value.map(obj => obj.name);
       }

@@ -29,6 +29,10 @@ module.exports = {
         destination: `${BACKEND_URL}/files/:path*`,
       },
       {
+        source: '/socket.io',
+        destination: `${BACKEND_URL}/socket.io`,
+      },
+      {
         source: '/socket.io/:path*',
         destination: `${BACKEND_URL}/socket.io/:path*`,
       },

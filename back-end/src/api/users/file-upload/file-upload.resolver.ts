@@ -32,6 +32,7 @@ import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
 import { PtContentsService } from 'src/api/admin/pt-contents/pt-contents.service';
 import { PtAdminAccessService } from 'src/api/admin/pt-admin-access/pt-admin-access.service';
 import * as path from 'path';
+import { ObjectStorageService } from 'src/libs/@object-storage';
 
 @Resolver()
 export class FileUploadResolver {
@@ -42,6 +43,7 @@ export class FileUploadResolver {
     private readonly ptContentsService: PtContentsService,
     private readonly activityLogService: ActivityLogService,
     private readonly ptAdminAccessService: PtAdminAccessService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('FILE_UPLOAD');
   }
@@ -205,12 +207,30 @@ export class FileUploadResolver {
           return resolve(framedResponse('ERROR', `Invalid file type`));
         }
 
+        // Read the stream once and collect all data into a buffer
+        const chunks: Buffer[] = [];
+        let fileSize = 0;
+
+        await new Promise<void>((resolveStream, rejectStream) => {
+          const stream = createReadStream();
+          stream.on('data', (chunk) => {
+            fileSize += chunk.length;
+            chunks.push(chunk);
+          });
+          stream.on('end', () => resolveStream());
+          stream.on('error', (err) => rejectStream(err));
+        });
+
+        const fileBuffer = Buffer.concat(chunks);
+        console.log('fileSize: ', fileSize);
+        console.log('maxFileSize: ', maxFileSize);
+
+        // Validate CSV headers if needed (using the already-buffered data)
         if (
           createFileUploadInput?.attachment_type ===
           'Transaction_csv_file_attachments'
         ) {
           const tempDir = tmpdir();
-          // const tempFilePath = filename;
           const tempFilePath = join(tempDir, filename);
 
           // Ensure the temporary directory exists
@@ -218,44 +238,37 @@ export class FileUploadResolver {
             mkdirSync(tempDir);
           }
 
-          createReadStream()
-            .pipe(createWriteStream(tempFilePath))
-            .on('finish', async () => {
-              try {
-                const requiredHeaders = [
-                  'txn_amount',
-                  'txn_date',
-                  'description',
-                  'balance',
-                ];
-                await this.fileUploadService.validateCsvHeaders(
-                  tempFilePath,
-                  requiredHeaders,
-                );
-              } catch (error) {
-                return resolve(
-                  framedResponse(
-                    'ERROR',
-                    `CSV validation failed: ${error.message}`,
-                  ),
-                );
-              }
-            });
+          // Write buffer to temp file for CSV validation
+          const { writeFileSync, unlinkSync } = require('fs');
+          writeFileSync(tempFilePath, fileBuffer);
+
+          try {
+            const requiredHeaders = [
+              'txn_amount',
+              'txn_date',
+              'description',
+              'balance',
+            ];
+            await this.fileUploadService.validateCsvHeaders(
+              tempFilePath,
+              requiredHeaders,
+            );
+            // Clean up temp file
+            try { unlinkSync(tempFilePath); } catch {}
+          } catch (error) {
+            // Clean up temp file on error
+            try { unlinkSync(tempFilePath); } catch {}
+            return resolve(
+              framedResponse(
+                'ERROR',
+                `CSV validation failed: ${error.message}`,
+              ),
+            );
+          }
         }
 
-        // Validate file size (in bytes)
-        let fileSize = 0;
-        const chunks: Buffer[] = [];
-
-        createReadStream()
-          .on('data', (chunk) => {
-            fileSize += chunk.length;
-            chunks.push(chunk);
-          })
-          .on('end', async () => {
-            console.log('fileSize: ', fileSize);
-            console.log('maxFileSize: ', maxFileSize);
-            const fileBuffer = Buffer.concat(chunks);
+        // Continue with file size validation and upload
+        {
             if (fileSize > maxFileSize) {
               return resolve(
                 framedResponse('ERROR', `File size exceeds the limit`),
@@ -310,39 +323,42 @@ export class FileUploadResolver {
 
             const fileNamePrefix =
               Date.now() + '-' + Math.round(Math.random() * 1e9);
-            const filePath = await this.fileUploadService.createFilePath({
-              attachmentType: createFileUploadInput?.attachment_type,
-              fileNamePrefix,
-              filename,
-              customFileName,
-            });
-            createReadStream()
-              .pipe(createWriteStream(filePath))
-              .on('finish', async () => {
-                const path =
-                  process.env.UPLOAD_BASE_URL + filePath.replace(/\\/g, '/');
-                createFileUploadInput.file_name = filename;
-                createFileUploadInput.file_path = filePath;
-                createFileUploadInput.file_type = mimetype;
+            const finalFilename = customFileName || `${fileNamePrefix}-${filename}`;
+            
+            try {
+              const uploadResult = await this.objectStorageService.uploadFile(
+                fileBuffer,
+                createFileUploadInput?.attachment_type,
+                finalFilename,
+                mimetype,
+              );
+              
+              if (!uploadResult.success) {
+                return resolve(framedResponse('ERROR', 'Failed to upload file to storage'));
+              }
+              
+              const filePath = uploadResult.objectPath;
+              createFileUploadInput.file_name = filename;
+              createFileUploadInput.file_path = filePath;
+              createFileUploadInput.file_type = mimetype;
 
-                if (customFileName) {
-                  createFileUploadInput.custom_file_name = customFileName;
-                }
+              if (customFileName) {
+                createFileUploadInput.custom_file_name = customFileName;
+              }
 
-                const response = await this.fileUploadService.saveFile(
-                  decoded,
-                  createFileUploadInput,
-                );
-                this.logger.log(
-                  `Response received after creating the file upload with data: ${JSON.stringify(response)}`,
-                );
-                if (response) {
-                  if (response.file_path) {
-                    const image = readFileSync(response.file_path, {
-                      encoding: 'base64',
-                    });
-                    response['file'] =
-                      `data:${response.file_type};base64,${image}`;
+              const response = await this.fileUploadService.saveFile(
+                decoded,
+                createFileUploadInput,
+              );
+              this.logger.log(
+                `Response received after creating the file upload with data: ${JSON.stringify(response)}`,
+              );
+              if (response) {
+                if (response.file_path) {
+                  const imageBuffer = fileBuffer;
+                  const image = imageBuffer.toString('base64');
+                  response['file'] =
+                    `data:${response.file_type};base64,${image}`;
                     // response.file_path =
                     //   process.env.UPLOAD_BASE_URL +
                     //   response.file_path.replace(/\\/g, '/');
@@ -588,20 +604,15 @@ export class FileUploadResolver {
                     ),
                   );
                 } else {
-                  return resolve(
-                    framedResponse('ERROR', `Could not save image`),
-                  );
-                }
-              })
-              .on('error', () => {
-                return resolve(framedResponse('ERROR', `Could not save image`));
-              });
-          });
-
-        createReadStream().on('error', (err) => {
-          this.logger.error(`ReadStream error: ${err.message}`);
-          return resolve(framedResponse('ERROR', `Could not save image`));
-        });
+                return resolve(
+                  framedResponse('ERROR', `Could not save image`),
+                );
+              }
+            } catch (uploadError) {
+              this.logger.error(`Error during file upload: ${uploadError.message}`);
+              return resolve(framedResponse('ERROR', `Could not save image: ${uploadError.message}`));
+            }
+          }
       } catch (error) {
         this.logger.error(
           `Errored while uploading the file with message: ${error.message}`,

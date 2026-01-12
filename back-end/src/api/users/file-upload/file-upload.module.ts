@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { FileUploadService } from './file-upload.service';
 import { FileUploadResolver } from './file-upload.resolver';
+import { FileServeController } from './file-serve.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
@@ -96,6 +97,7 @@ import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.en
       name: 'mailQueue',
     }),
   ],
+  controllers: [FileServeController],
   providers: [
     JwtInternalService,
     FileUploadResolver,
