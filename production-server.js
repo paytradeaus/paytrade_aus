@@ -21,7 +21,16 @@ proxy.on('error', (err, req, res) => {
 const server = http.createServer((req, res) => {
   const url = req.url || '';
   
-  const backendPaths = ['/graphql', '/uploads', '/files', '/socket.io', '/bull-board'];
+  const backendPaths = [
+    '/graphql', '/uploads', '/files', '/socket.io', '/bull-board',
+    '/profile_photo', '/admin_profile_photo', '/company_logo', '/communication',
+    '/trust_training_records', '/blog_banner', '/resources', '/notice-templates',
+    '/notices', '/recieved-notices', '/notices_supporting_docs', '/contracts',
+    '/variations', '/bank_statements', '/retention_trust_certificates',
+    '/transaction_csv_file_attachments', '/optional_attachments', '/compulsory_attachments',
+    '/optional_supporting_statement_attachments', '/audit_reports', '/generated_aba_files',
+    '/Admin_holiday', '/misc', '/stripe-webhook', '/xero-webhook', '/xero', '/support-mail', '/support-ticket'
+  ];
   const isBackend = backendPaths.some(path => url.startsWith(path));
   
   if (isBackend) {
