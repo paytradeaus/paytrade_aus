@@ -94,3 +94,4 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 ## Notes
 - The application requires various third-party API keys (Stripe, email services, etc.) for full functionality
 - Frontend is configured to proxy to the backend GraphQL API
+- Fixed hydration errors by consolidating GoogleTagManager, GoogleAnalytics, and Cookiebot scripts into a unified AnalyticsWrapper client component

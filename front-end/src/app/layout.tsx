@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
-import Script from "next/script";
 import { Suspense } from "react";
 
 import "../../public/css/pico.min.css";
@@ -15,8 +14,7 @@ import "./globals.css";
 import { ReduxProvider } from "@/redux/provider";
 import { ToastifyContainer } from "@/components/Toaster";
 import { LoaderProvider } from "@/context/useLoader";
-import GoogleAnalytics from "@/components/GoogleAnalytics/GoogleAnalytics";
-import GoogleTagManager from "@/components/GoogleTagManager/GoogleTagManager";
+import AnalyticsWrapper from "@/components/Analytics/AnalyticsWrapper";
 import MultiTabManager from "@/components/MultiTabManager";
 import seoMetadata from "@/utils/seoMetadata";
 
@@ -37,13 +35,14 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="light">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <link
           rel="preconnect"
@@ -51,59 +50,14 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://consentcdn.cookiebot.com" />
-
-        <Script
-          id="Cookiebot"
-          src="https://consent.cookiebot.com/uc.js"
-          data-cbid="48b179ab-203f-47bc-b6b8-f5ea4896aeaa"
-          data-blockingmode="auto"
-          type="text/javascript"
-          // strategy="lazyOnload"
-          async
-          strategy="afterInteractive"
-        />
-        <Script
-          data-cookieconsent="ignore"
-          id="google-consent"
-          strategy="lazyOnload"
-        >
-          {`
-            window.dataLayer = window.dataLayer || [];
-
-            function gtag() {
-              dataLayer.push(arguments);
-            }
-
-            gtag("consent", "default", {
-              ad_personalization: "denied",
-              ad_storage: "denied",
-              analytics_storage: "denied",
-              functionality_storage: "denied",
-              personalization_storage: "denied",
-              security_storage: "granted",
-              wait_for_update: 500,
-            });
-            gtag("set", "ads_data_redaction", true);
-            gtag("set", "url_passthrough", false);
-          `}
-        </Script>
-        <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM_ID || ""} />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
-          `}
-        </Script>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap"
-          rel="stylesheet"
-        />
       </head>
 
-      <body className={outfit.className}>
-        <GoogleAnalytics />
+      <body className={outfit.className} suppressHydrationWarning>
+        <AnalyticsWrapper
+          gtmId={process.env.NEXT_PUBLIC_GTM_ID || ""}
+          gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""}
+          cookiebotId="48b179ab-203f-47bc-b6b8-f5ea4896aeaa"
+        />
         <ReduxProvider>
           <LoaderProvider>
             <Suspense>
