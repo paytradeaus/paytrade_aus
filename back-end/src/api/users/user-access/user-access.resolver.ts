@@ -15,8 +15,8 @@ import { UserListResponse } from './response/user-list.response';
 import { EmailService } from 'src/libs/@email-services/email.service';
 import { InvitationListResponse } from './response/invitation-list.response';
 import { PtContentsService } from 'src/api/admin/pt-contents/pt-contents.service';
-import { readFileSync } from 'fs';
 import { handleError } from 'src/api/common/error-handler';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
@@ -61,6 +61,7 @@ export class UserAccessResolver {
     @InjectRepository(CompanyUserRoles)
     private companyUsersRolesRepo: Repository<CompanyUserRoles>,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('USER_ACCESS');
   }
@@ -184,17 +185,22 @@ export class UserAccessResolver {
         `User details fetched with data: ${JSON.stringify(userDetails)}`,
       );
       if (userDetails && userDetails[0] !== null && userDetails.length > 0) {
-        userDetails.forEach((element) => {
+        for (const element of userDetails) {
           if (element.file_path) {
-            const image = readFileSync(element.file_path, {
-              encoding: 'base64',
-            });
-            element.file = `data:${element.file_type};base64,${image}`;
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+              if (fileBuffer) {
+                const image = fileBuffer.toString('base64');
+                element.file = `data:${element.file_type};base64,${image}`;
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
             element.file_path =
               process.env.UPLOAD_BASE_URL +
               element.file_path.replace(/\\/g, '/');
           }
-        });
+        }
       }
       return framedResponse(
         'SUCCESS',

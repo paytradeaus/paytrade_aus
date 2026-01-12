@@ -10,8 +10,8 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
 import { FileAttachmentOrDocumentType } from 'src/libs/@paytrade-types/paytrade-types';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
-import { readFileSync } from 'fs';
 import { FileAttachmentsOrDocumentsValidator } from '../validators/file-attachments.validator';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { CompanyDetails } from 'src/entities/company-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 
@@ -31,6 +31,7 @@ export class ReadFileAttachmentsOrDocumentsService {
     private paymentsRepo: Repository<PaymentDetails>,
     @InjectRepository(BankStatements)
     private bankStatementsRepo: Repository<BankStatements>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger(
       'READ_FILE_ATTACHMENTS_OR_DOCUMENTS_SERVICE',
@@ -51,17 +52,22 @@ export class ReadFileAttachmentsOrDocumentsService {
         `Requested to extract file attachments or documents with data: ${JSON.stringify(fileDetails)}}`,
       );
 
-      fileDetails.forEach((element) => {
+      for (const element of fileDetails) {
         if (element.file_path) {
-          const image = readFileSync(element.file_path, {
-            encoding: 'base64',
-          });
+          try {
+            const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+            if (fileBuffer) {
+              const image = fileBuffer.toString('base64');
+              element['file'] = `data:${element.file_type};base64,${image}`;
+            }
+          } catch (fileError) {
+            this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+          }
           element.file_path =
             process.env.UPLOAD_BASE_URL + element.file_path.replace(/\\/g, '/');
-          element['file'] = `data:${element.file_type};base64,${image}`;
           element.uploaded_on = new Date(element.uploaded_on);
         }
-      });
+      }
       this.logger.log(`Files of all the attachments extracted successfully.`);
 
       return fileDetails;

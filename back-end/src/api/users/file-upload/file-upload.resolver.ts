@@ -729,11 +729,16 @@ export class FileUploadResolver {
         `File details fetched with data: ${JSON.stringify(fileDetails)}`,
       );
       if (fileDetails && fileDetails.file_path) {
-        const image = readFileSync(fileDetails.file_path, {
-          encoding: 'base64',
-        });
-        const response = `data:${fileDetails.file_type};base64,${image}`;
-        return framedResponse('SUCCESS', response);
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(fileDetails.file_path);
+          if (fileBuffer) {
+            const image = fileBuffer.toString('base64');
+            const response = `data:${fileDetails.file_type};base64,${image}`;
+            return framedResponse('SUCCESS', response);
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       return framedResponse('ERROR', `Image not found`);
     } catch (error) {
@@ -1033,19 +1038,24 @@ export class FileUploadResolver {
         `File details fetched with data: ${JSON.stringify(fileDetails)}`,
       );
       if (fileDetails && fileDetails.file_path) {
-        const image = readFileSync(fileDetails.file_path, {
-          encoding: 'base64',
-        });
-        const file = { file: `data:${fileDetails.file_type};base64,${image}` };
-        fileDetails.file_path =
-          process.env.UPLOAD_BASE_URL +
-          fileDetails.file_path.replace(/\\/g, '/');
-        const response = { ...fileDetails, ...file };
-        return framedResponse(
-          'SUCCESS',
-          `Response successfully sent back to the client`,
-          response,
-        );
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(fileDetails.file_path);
+          if (fileBuffer) {
+            const image = fileBuffer.toString('base64');
+            const file = { file: `data:${fileDetails.file_type};base64,${image}` };
+            fileDetails.file_path =
+              process.env.UPLOAD_BASE_URL +
+              fileDetails.file_path.replace(/\\/g, '/');
+            const response = { ...fileDetails, ...file };
+            return framedResponse(
+              'SUCCESS',
+              `Response successfully sent back to the client`,
+              response,
+            );
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       return framedResponse('ERROR', `Image not found`);
     } catch (error) {
@@ -1090,17 +1100,22 @@ export class FileUploadResolver {
         `Response recieved while getting the trust training record `,
       );
       if (fileDetails && fileDetails.length > 0) {
-        fileDetails.forEach((element) => {
+        for (const element of fileDetails) {
           if (element.file_path) {
-            const image = readFileSync(element.file_path, {
-              encoding: 'base64',
-            });
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+              if (fileBuffer) {
+                const image = fileBuffer.toString('base64');
+                element['file'] = `data:${element.file_type};base64,${image}`;
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
             element.file_path =
               process.env.UPLOAD_BASE_URL +
               element.file_path.replace(/\\/g, '/');
-            element['file'] = `data:${element.file_type};base64,${image}`;
           }
-        });
+        }
         return framedResponse(
           'SUCCESS',
           `Response successfully sent back to the client`,
@@ -1150,14 +1165,19 @@ export class FileUploadResolver {
         `Response received after getting the file details: ${JSON.stringify(fileDetails.file_name)}`,
       );
       if (fileDetails && fileDetails.file_path) {
-        const image = readFileSync(fileDetails.file_path, {
-          encoding: 'base64',
-        });
-        fileDetails.file_path =
-          process.env.UPLOAD_BASE_URL +
-          fileDetails.file_path.replace(/\\/g, '/');
-        fileDetails['file'] = `data:${fileDetails.file_type};base64,${image}`;
-        return framedResponse('SUCCESS', `File not imported`, fileDetails);
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(fileDetails.file_path);
+          if (fileBuffer) {
+            const image = fileBuffer.toString('base64');
+            fileDetails.file_path =
+              process.env.UPLOAD_BASE_URL +
+              fileDetails.file_path.replace(/\\/g, '/');
+            fileDetails['file'] = `data:${fileDetails.file_type};base64,${image}`;
+            return framedResponse('SUCCESS', `File not imported`, fileDetails);
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       return framedResponse('ERROR', `Image not found`);
     } catch (error) {

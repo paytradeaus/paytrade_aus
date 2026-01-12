@@ -20,8 +20,8 @@ import {
 import { CreateEmailVerificationInput } from './dto/create-email-verification-input';
 import { CheckUserExistenceResponse } from './response/check-user-existence.response';
 import { CheckCompanyExistenceResponse } from './response/check-company-existence.response';
-import { readFileSync } from 'fs';
 import { CompanyWithLogoResponse } from './response/company-with-logo.response';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { UpdateSignupInput } from './dto/update-signup.input';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { UpdateCompanySignupInput } from './dto/update-company-signup.input';
@@ -64,6 +64,7 @@ export class SignupResolver {
     // private emailQueueProducer: EmailQueueProducer,
     private emailQueueProducer: EmailQueueProducer,
     private emailServices: EmailService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('SIGNUP_RESOLVER');
   }
@@ -154,17 +155,22 @@ export class SignupResolver {
         companyDetails[0] !== null &&
         companyDetails.length > 0
       ) {
-        companyDetails.forEach((element) => {
+        for (const element of companyDetails) {
           if (element.file_path) {
-            const image = readFileSync(element.file_path, {
-              encoding: 'base64',
-            });
-            element.file = `data:${element.file_type};base64,${image}`;
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+              if (fileBuffer) {
+                const image = fileBuffer.toString('base64');
+                element.file = `data:${element.file_type};base64,${image}`;
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
             element.file_path =
               process.env.UPLOAD_BASE_URL +
               element.file_path.replace(/\\/g, '/');
           }
-        });
+        }
       }
       return framedResponse(
         'SUCCESS',
@@ -781,10 +787,15 @@ export class SignupResolver {
       if (response && response[0] !== null && response.length > 0) {
         for (const element of response) {
           if (element && element.file_path) {
-            const image = readFileSync(element?.file_path, {
-              encoding: 'base64',
-            });
-            element['file'] = `data:${element.file_type};base64,${image}`;
+            try {
+              const fileBuffer = await this.objectStorageService.downloadFile(element.file_path);
+              if (fileBuffer) {
+                const image = fileBuffer.toString('base64');
+                element['file'] = `data:${element.file_type};base64,${image}`;
+              }
+            } catch (fileError) {
+              this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+            }
             element.file_path =
               process.env.UPLOAD_BASE_URL +
               element.file_path.replace(/\\/g, '/');
@@ -1651,11 +1662,16 @@ export class SignupResolver {
               companyDetails.file_path &&
               companyDetails.file_type
             ) {
-              const image = readFileSync(companyDetails.file_path, {
-                encoding: 'base64',
-              });
-              companyDetails['file'] =
-                `data:${companyDetails.file_type};base64,${image}`;
+              try {
+                const fileBuffer = await this.objectStorageService.downloadFile(companyDetails.file_path);
+                if (fileBuffer) {
+                  const image = fileBuffer.toString('base64');
+                  companyDetails['file'] =
+                    `data:${companyDetails.file_type};base64,${image}`;
+                }
+              } catch (fileError) {
+                this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+              }
               companyDetails.file_path =
                 process.env.UPLOAD_BASE_URL +
                 companyDetails.file_path.replace(/\\/g, '/');

@@ -71,6 +71,8 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Added CORS headers (Cross-Origin-Resource-Policy: cross-origin) for Next.js Image Optimization
 - Added rewrites in next.config.js for all file folder paths to proxy to backend
 - Created fileUrl.ts utility for normalizing file paths in frontend
+- **Fixed readFileSync to use ObjectStorageService** - Replaced all local filesystem reads in resolvers/services with ObjectStorageService.downloadFile() for profile photos, company logos, contracts, variations, and file attachments
+  - Updated: signup.resolver.ts, user-access.resolver.ts, file-upload.resolver.ts, variations.resolver.ts, contract-details.resolver.ts, read-file-attachments.service.ts
 
 ## File Serving Architecture
 - Database stores file paths as `{folder}/{filename}` (e.g., `company_logo/image.jpg`)

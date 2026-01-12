@@ -21,8 +21,8 @@ import {
   ViewVariationListResponse,
   ViewVariationResponse,
 } from './response/view-variation-list.response';
-import { readFileSync } from 'fs';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
@@ -46,6 +46,7 @@ export class VariationsResolver {
     private projectDetailsRepo: Repository<ProjectDetails>,
     @InjectRepository(CompanyDetails)
     private companyDetailsRepo: Repository<CompanyDetails>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('VARIATIONS_RESOLVER');
   }
@@ -241,10 +242,15 @@ export class VariationsResolver {
         `Response recieved while leaving the client: ${JSON.stringify(response)}`,
       );
       if (response && response !== null && response.file_path) {
-        const image = readFileSync(response.file_path, {
-          encoding: 'base64',
-        });
-        response['file'] = `data:${response.file_type};base64,${image}`;
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(response.file_path);
+          if (fileBuffer) {
+            const image = fileBuffer.toString('base64');
+            response['file'] = `data:${response.file_type};base64,${image}`;
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
         response.file_path = response.file_path
           ? process.env.UPLOAD_BASE_URL + response.file_path.replace(/\\/g, '/')
           : response.file_path;

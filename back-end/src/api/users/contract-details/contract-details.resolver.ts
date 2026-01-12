@@ -27,8 +27,8 @@ import {
   GetContractListResponse,
   GetContractResponse,
 } from './response/get-contract-list.response';
-import { readFileSync } from 'fs';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { XeroService } from 'src/api/common/integrations/xero/xero.service';
 import { XeroContractsService } from 'src/api/common/integrations/xero/contracts/xero-contracts.service';
 var moment = require('moment-timezone');
@@ -43,6 +43,7 @@ export class ContractDetailsResolver {
     private readonly contractDetailsService: ContractDetailsService,
     private readonly xeroService: XeroService,
     private readonly xeroContractsService: XeroContractsService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('CONTRACT_DETAILS_RESOLVER');
   }
@@ -249,10 +250,15 @@ export class ContractDetailsResolver {
         `Response recieved while leaving the client: ${JSON.stringify(response)}`,
       );
       if (response && response !== null && response.file_path) {
-        const image = readFileSync(response.file_path, {
-          encoding: 'base64',
-        });
-        response['file'] = `data:${response.file_type};base64,${image}`;
+        try {
+          const fileBuffer = await this.objectStorageService.downloadFile(response.file_path);
+          if (fileBuffer) {
+            const image = fileBuffer.toString('base64');
+            response['file'] = `data:${response.file_type};base64,${image}`;
+          }
+        } catch (fileError) {
+          this.logger.error(`Failed to read file from storage: ${fileError.message}`);
+        }
       }
       return framedResponse(
         'SUCCESS',
