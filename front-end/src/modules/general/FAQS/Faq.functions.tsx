@@ -66,7 +66,10 @@ export async function fetchFaqList(data: any): Promise<any> {
       return {};
     }
   } catch (error: any) {
-    showErrorToast(error.message || SOMETHING_WENT_WRONG);
+    console.error("Error fetching FAQ list:", error.message || SOMETHING_WENT_WRONG);
+    if (typeof window !== "undefined") {
+      showErrorToast(error.message || SOMETHING_WENT_WRONG);
+    }
     return [];
   }
 }
