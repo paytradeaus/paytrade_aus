@@ -1,0 +1,187 @@
+Databases
+Production Database
+147.94MB / 100GB
+Development Database
+33.59MB / 10GB
+Billing Period
+Renews monthly, 17 Jan
+Hours of Compute Used
+0 hours
+PT published
+a0bef058
+Provision
+Security Scan
+Build
+Bundle
+Promote
+Private Dev URL
+Restrict Dev URL access to authenticated editors only.
+When this option is disabled, anyone with the Dev URL can access your app preview.
+
+https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/
+Dev URLs are temporary and will sleep after you leave the workspace.
+Ports
+Learn more
+Internal Port
+External Port
+Name
+Pid
+0.0.0.0:3001
+0.0.0.0:4300
+0.0.0.0:5000
+next-server (v14.2.11)
+1799
+0.0.0.0:6379
+redis-server *:6379
+164
+This port config is saved in the .
+/
+
+Secrets
+SESSION_SECRET
+••••••••
+NODE_ENV
+••••••••
+DATABASE_PORT
+••••••••
+EMAIL_USER
+••••••••
+EMAIL_PASSWORD
+••••••••
+BREVO_EMAIL_LOGIN
+••••••••
+BREVO_EMAIL_PASSWORD
+••••••••
+RECAPTCHA_URI
+••••••••
+RECAPTCHA_SECRET_KEY
+••••••••
+REDIS_HOST
+••••••••
+REDIS_PORT
+••••••••
+REDIS_PASSWORD
+••••••••
+NOTICE_PAYTRADE_ADMIN_DELEGATE
+••••••••
+SUPPORT_EMAIL
+••••••••
+COMMUNITY_EMAIL
+••••••••
+MAILGUN_DOMAIN_URL
+••••••••
+MAILGUN_DOMAIN
+••••••••
+MAILGUN_API_KEY
+••••••••
+SUPPORT_TICKET_MAIL
+••••••••
+STRIPE_SECRET_KEY
+••••••••
+STRIPE_PUBLISHABLE_KEY
+••••••••
+STRIPE_PRODUCT_ID
+••••••••
+STRIPE_WEBHOOK_SECRET
+••••••••
+LOG_DELETION_DAYS
+••••••••
+GOOGLE_PLACES_URI
+••••••••
+GOOGLE_PLACES_KEY
+••••••••
+XERO_CLIENT_ID
+••••••••
+XERO_CLIENT_SECRET
+••••••••
+XERO_WEBHOOK_KEY
+••••••••
+ADMIN_EMAIL
+••••••••
+SENDGRID_API_KEY
+••••••••
+BULL_USER
+••••••••
+BULL_PASSWORD
+••••••••
+NEXT_PUBLIC_GA_MEASUREMENT_ID
+••••••••
+NEXT_PUBLIC_GTM_ID
+••••••••
+NEXT_PUBLIC_COOKIE_BOT_ID
+••••••••
+NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+••••••••
+NEXT_PUBLIC_RECAPTCHA_KEY
+••••••••
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+••••••••
+NEXT_PUBLIC_SENTRY_AUTH_TOKEN
+••••••••
+DATABASE_USER
+••••••••
+DATABASE_HOST
+••••••••
+DATABASE_PASSWORD
+••••••••
+DATABASE_NAME
+••••••••
+REDIS_URL
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI
+••••••••
+LOG_BASE_URL
+••••••••
+XERO_CALLBACK_URL
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI_ZIP_FILE_DOWNLOAD
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI_EXCEL_FILE_DOWNLOAD
+••••••••
+NEXT_PUBLIC_WEB_SOCKET_BASED_PDF_FILE_DOWNLOAD_TO_GET_URL
+••••••••
+PORT
+••••••••
+NEXT_PUBLIC_SOCKET_URL
+••••••••
+BASE_URL
+••••••••
+WEBSOCKET_PORT
+••••••••
+UPLOAD_BASE_URL
+••••••••
+Configurations
+Configurations are similar to secrets, but should only be used for non-sensitive information. They're useful for having a variable that's different between your published app and when testing on Replit.
+BULL_PASSWORD
+admin123
+BULL_USER
+admin
+DATABASE_USER
+postgres
+NEXT_PUBLIC_DEPLOYED_URL
+https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/
+NEXT_PUBLIC_GA_MEASUREMENT_ID
+NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+NEXT_PUBLIC_GRAPHQL_URI
+https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/graphql
+NEXT_PUBLIC_GTM_ID
+NEXT_PUBLIC_RECAPTCHA_KEY
+NODE_ENV
+development
+PORT
+3001
+REDIS_HOST
+127.0.0.1
+REDIS_PORT
+6379
+cd front-end && npm run dev
+149m
+ • 
+2 hours ago
+redis-server --daemonize yes; cd back-end && npm run start:dev
+149m
+ • 
+2 hours ago
+Enable "Accessible Terminal" in Workspace Settings to use a screen reader with the shell.
+Unsupported state: you are in the middle of a rebase.
+Please finish the rebase manually.
