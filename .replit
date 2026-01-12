@@ -92,3 +92,6 @@ outputType = "console"
 deploymentTarget = "vm"
 run = ["bash", "start-production.sh"]
 build = ["bash", "-c", "cd /home/runner/workspace/front-end && npm run build && cd /home/runner/workspace/back-end && npm run build"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-955fa95e-cfbd-48f9-9426-0d3a9ee63b30"
