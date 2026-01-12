@@ -132,11 +132,8 @@ export class CommunityService {
           })
         : null;
       const discIdeaOwner_owner_image_url = discIdeaOwnerImage
-        ? `${process.env.UPLOAD_BASE_URL}` + discIdeaOwnerImage.file_path
-        : `${process.env.UPLOAD_BASE_URL}` +
-          join(
-            'uploads/profile_photo/1742208051996-493540972-avatar.png',
-          ).replace(/\\/g, '/');
+        ? (discIdeaOwnerImage.file_path.startsWith('/') ? discIdeaOwnerImage.file_path : `/${discIdeaOwnerImage.file_path}`)
+        : '/profile_photo/1742208051996-493540972-avatar.png';
 
       const newDiscIdeaResponse = {
         ...newDiscIdea,
@@ -482,16 +479,11 @@ export class CommunityService {
             } catch (error) {
               console.error('Error reading file:', error);
             }
-            answer_comment_owner_image_url =
-              process.env.UPLOAD_BASE_URL +
-              commentOwnerImage.file_path.replace(/\\/g, '/');
+            const cleanPath = commentOwnerImage.file_path.replace(/\\/g, '/');
+            answer_comment_owner_image_url = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
           }
         } else {
-          answer_comment_owner_image_url =
-            `${process.env.UPLOAD_BASE_URL}` +
-            join(
-              'uploads/profile_photo/1742208051996-493540972-avatar.png',
-            ).replace(/\\/g, '/');
+          answer_comment_owner_image_url = '/profile_photo/1742208051996-493540972-avatar.png';
         }
 
         const commentAttachmentIds = comment.ans_comm_attachment_ids || [];
@@ -1205,11 +1197,8 @@ export class CommunityService {
         })
       : null;
     const discIdeaOwner_owner_image_url = discIdeaOwnerImage
-      ? `${process.env.UPLOAD_BASE_URL}` + discIdeaOwnerImage.file_path
-      : `${process.env.UPLOAD_BASE_URL}` +
-        join(
-          'uploads/profile_photo/1742208051996-493540972-avatar.png',
-        ).replace(/\\/g, '/');
+      ? (discIdeaOwnerImage.file_path.startsWith('/') ? discIdeaOwnerImage.file_path : `/${discIdeaOwnerImage.file_path}`)
+      : '/profile_photo/1742208051996-493540972-avatar.png';
 
     const ans_comm_owner_name = answerComment.author
       ? answerComment.author.first_name + ' ' + answerComment.author.last_name
@@ -1230,11 +1219,8 @@ export class CommunityService {
       : null;
 
     const answer_comment_owner_image_url = commentOwnerImage
-      ? `${process.env.UPLOAD_BASE_URL}` + commentOwnerImage.file_path
-      : `${process.env.UPLOAD_BASE_URL}` +
-        join(
-          'uploads/profile_photo/1742208051996-493540972-avatar.png',
-        ).replace(/\\/g, '/');
+      ? (commentOwnerImage.file_path.startsWith('/') ? commentOwnerImage.file_path : `/${commentOwnerImage.file_path}`)
+      : '/profile_photo/1742208051996-493540972-avatar.png';
 
     let getCommunityEmailEnabledUser = [];
 
@@ -1541,10 +1527,12 @@ export class CommunityService {
     if (!attachments || attachments.length === 0) {
       throw new Error(`Attachments not responding`);
     }
-    return attachments.map((attachment) => ({
-      ...attachment,
-      file_path:
-        process.env.UPLOAD_BASE_URL + attachment.file_path.replace(/\\/g, '/'),
-    }));
+    return attachments.map((attachment) => {
+      const cleanPath = attachment.file_path?.replace(/\\/g, '/') || '';
+      return {
+        ...attachment,
+        file_path: cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`,
+      };
+    });
   }
 }

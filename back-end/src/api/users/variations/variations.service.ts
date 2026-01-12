@@ -314,9 +314,10 @@ export class VariationsService {
       result.formatted_variation_amount = await formatCurrencyWithoutDollars(
         result.variation_amount,
       );
-      result.file_path = result.file_path
-        ? process.env.UPLOAD_BASE_URL + result.file_path.replace(/\\/g, '/')
-        : result.file_path;
+      if (result.file_path) {
+        const cleanPath = result.file_path.replace(/\\/g, '/');
+        result.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+      }
     }
 
     return { total_count: finalCount, variation_list: finalResult };

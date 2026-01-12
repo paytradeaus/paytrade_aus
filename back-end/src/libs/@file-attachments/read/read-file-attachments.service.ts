@@ -63,8 +63,8 @@ export class ReadFileAttachmentsOrDocumentsService {
           } catch (fileError) {
             this.logger.error(`Failed to read file from storage: ${fileError.message}`);
           }
-          element.file_path =
-            process.env.UPLOAD_BASE_URL + element.file_path.replace(/\\/g, '/');
+          const cleanPath = element.file_path.replace(/\\/g, '/');
+          element.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
           element.uploaded_on = new Date(element.uploaded_on);
         }
       }

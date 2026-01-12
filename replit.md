@@ -78,6 +78,7 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
   - Added normalizeObjectPath() in ObjectStorageService to handle various path formats (leading slashes, "uploads/" prefix)
   - Pattern: `const fileBuffer = await objectStorageService.downloadFile(filePath); if (fileBuffer) { base64 = fileBuffer.toString('base64'); }`
   - **File deletion migration**: Replaced all `fs.unlink()` calls in file-upload.resolver.ts with `objectStorageService.deleteFile()` for production compatibility
+  - **File path normalization**: Added `formatPublicPath()` helper to ensure all returned file paths start with `/` for browser URL compatibility. Replaced all `UPLOAD_BASE_URL` concatenations with direct slash prefix normalization across: file-upload.resolver.ts, signup.resolver.ts, variations.resolver.ts, variations.service.ts, read-file-attachments.service.ts, payments.service.ts, journals.service.ts, pt-contents.service.ts, community.service.ts
 
 ## File Serving Architecture
 - Database stores file paths as `{folder}/{filename}` (e.g., `company_logo/image.jpg`)

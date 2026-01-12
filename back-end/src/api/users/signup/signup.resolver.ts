@@ -1407,13 +1407,8 @@ export class SignupResolver {
       ) {
         companyDetails.forEach((element) => {
           if (element.file_path) {
-            element.file_path =
-              process.env.UPLOAD_BASE_URL +
-              element.file_path.replace(/\\/g, '/');
-            // const image = readFileSync(element.file_path, {
-            //   encoding: 'base64',
-            // });
-            // element.file = `data:${element.file_type};base64,${image}`;
+            const cleanPath = element.file_path.replace(/\\/g, '/');
+            element.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
           }
         });
       }

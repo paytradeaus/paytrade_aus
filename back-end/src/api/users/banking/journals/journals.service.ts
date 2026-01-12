@@ -2368,11 +2368,11 @@ export class JournalsService {
             `File read failed at ${file.file_path}: ${err.message}`,
           );
         }
+        const cleanPath = file.file_path.replace(/\\/g, '/');
         file_details.push({
           id: file.id,
           file: base64Data,
-          file_path:
-            process.env.UPLOAD_BASE_URL + file.file_path.replace(/\\/g, '/'),
+          file_path: cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`,
           file_type: file.file_type,
           attachment_type: file.attachment_type,
           file_name: file.custom_file_name ?? file.file_name,
@@ -2560,10 +2560,10 @@ export class JournalsService {
           .getMany();
 
         fileMap = files.reduce((acc, file) => {
+          const cleanPath = file.file_path.replace(/\\/g, '/');
           acc[file.id] = {
             ...file,
-            file_path:
-              process.env.UPLOAD_BASE_URL + file.file_path.replace(/\\/g, '/'),
+            file_path: cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`,
           };
           return acc;
         }, {});

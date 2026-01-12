@@ -33,6 +33,13 @@ import { PtAdminAccessService } from 'src/api/admin/pt-admin-access/pt-admin-acc
 import * as path from 'path';
 import { ObjectStorageService } from 'src/libs/@object-storage';
 
+function formatPublicPath(filePath: string | null | undefined): string {
+  if (!filePath) return '';
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+  if (filePath.startsWith('/')) return filePath;
+  return `/${filePath}`;
+}
+
 @Resolver()
 export class FileUploadResolver {
   private logger: PaytradeLogger;
@@ -358,10 +365,7 @@ export class FileUploadResolver {
                   const image = imageBuffer.toString('base64');
                   response['file'] =
                     `data:${response.file_type};base64,${image}`;
-                    // response.file_path =
-                    //   process.env.UPLOAD_BASE_URL +
-                    //   response.file_path.replace(/\\/g, '/');
-                    response.file_path = filePath;
+                    response.file_path = formatPublicPath(filePath);
                   }
                   if (
                     createFileUploadInput?.attachment_type === 'User_profile'

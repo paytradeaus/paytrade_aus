@@ -1082,14 +1082,13 @@ export class PtContentsService {
       // Handle the case where no data is found for the given id
       throw new Error(`Blog not found`);
     }
-    if (blog.banner) {
-      blog.banner.file_path =
-        process.env.UPLOAD_BASE_URL + blog.banner.file_path.replace(/\\/g, '/');
+    if (blog.banner && blog.banner.file_path) {
+      const cleanPath = blog.banner.file_path.replace(/\\/g, '/');
+      blog.banner.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
     }
-    if (blog.attachment) {
-      blog.attachment.file_path =
-        process.env.UPLOAD_BASE_URL +
-        blog.attachment.file_path.replace(/\\/g, '/');
+    if (blog.attachment && blog.attachment.file_path) {
+      const cleanPath = blog.attachment.file_path.replace(/\\/g, '/');
+      blog.attachment.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
     }
     return blog;
   }

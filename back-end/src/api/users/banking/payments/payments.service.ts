@@ -4675,7 +4675,7 @@ export class PaymentsService {
 
             return {
               ...fileData,
-              file_path: `${process.env.UPLOAD_BASE_URL}${fileData.file_path}`,
+              file_path: fileData.file_path?.startsWith('/') ? fileData.file_path : `/${fileData.file_path}`,
               notice_trigger: payments_to_send_notice,
             };
           } else {

@@ -251,9 +251,10 @@ export class VariationsResolver {
         } catch (fileError) {
           this.logger.error(`Failed to read file from storage: ${fileError.message}`);
         }
-        response.file_path = response.file_path
-          ? process.env.UPLOAD_BASE_URL + response.file_path.replace(/\\/g, '/')
-          : response.file_path;
+        if (response.file_path) {
+          const cleanPath = response.file_path.replace(/\\/g, '/');
+          response.file_path = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+        }
       }
       return framedResponse(
         'SUCCESS',
