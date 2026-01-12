@@ -785,10 +785,12 @@ export class FileUploadResolver {
       );
       console.log('fileDetails: ', fileDetails);
       if (fileDetails && fileDetails.file_path) {
-        await unlink(fileDetails.file_path, (err) => {
-          if (err) throw err;
-          console.log('file was deleted');
-        });
+        try {
+          await this.objectStorageService.deleteFile(fileDetails.file_path);
+          console.log('file was deleted from Object Storage');
+        } catch (storageErr) {
+          this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+        }
         const deleteFileResponse = await this.fileUploadService.deleteFile(
           decoded,
           fileDetails.attachment_id,
@@ -937,10 +939,12 @@ export class FileUploadResolver {
       );
 
       if (fileDetails) {
-        await unlink(fileDetails.file_path, (err) => {
-          if (err) throw err;
-          console.log('file was deleted');
-        });
+        try {
+          await this.objectStorageService.deleteFile(fileDetails.file_path);
+          console.log('file was deleted from Object Storage');
+        } catch (storageErr) {
+          this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+        }
         const deleteFileResponse = await this.fileUploadService.deleteBlogFile(
           decoded,
           attachmentType,
@@ -1227,13 +1231,12 @@ export class FileUploadResolver {
       if (fileDetails && fileDetails.length > 0) {
         for (const element of fileDetails) {
           if (element.file_path) {
-            await new Promise<void>((resolve, reject) => {
-              unlink(element.file_path, (err) => {
-                if (err) return reject(err);
-                this.logger.log('file was deleted');
-                return resolve();
-              });
-            });
+            try {
+              await this.objectStorageService.deleteFile(element.file_path);
+              this.logger.log('file was deleted from Object Storage');
+            } catch (storageErr) {
+              this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+            }
           }
         }
         const deleteFileResponse =
@@ -1304,10 +1307,12 @@ export class FileUploadResolver {
         );
       if (fileDetails && fileDetails.file_path) {
         if (attachmentType !== 'Notices_support_docs') {
-          await unlink(fileDetails.file_path, (err) => {
-            if (err) throw err;
-            console.log('file was deleted');
-          });
+          try {
+            await this.objectStorageService.deleteFile(fileDetails.file_path);
+            console.log('file was deleted from Object Storage');
+          } catch (storageErr) {
+            this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+          }
         }
         const deleteFileResponse =
           await this.fileUploadService.deleteFileByIdAndType(
@@ -1383,9 +1388,12 @@ export class FileUploadResolver {
             }
           }
           if (actionType === 'cancel') {
-            await unlink(fileDetails?.file_path, async (err) => {
-              if (err) throw err;
-            });
+            try {
+              await this.objectStorageService.deleteFile(fileDetails?.file_path);
+              console.log('file was deleted from Object Storage');
+            } catch (storageErr) {
+              this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+            }
             const deleteFileResponse =
               await this.fileUploadService.deleteFileByIdAndType(
                 decoded,
