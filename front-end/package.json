@@ -19,6 +19,7 @@
     "@zip.js/zip.js": "^2.7.68",
     "axios": "^1.7.7",
     "cookies-next": "^4.3.0",
+    "core-js-pure": "^3.47.0",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "dompurify": "^3.2.3",
