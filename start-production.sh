@@ -16,7 +16,7 @@ for i in {1..30}; do
 done
 
 echo "Starting frontend on port 5001..."
-cd /home/runner/workspace/front-end && PORT=5001 npm run start &
+cd /home/runner/workspace/front-end && npx next start -p 5001 -H 0.0.0.0 &
 
 echo "Waiting for frontend to be ready on port 5001..."
 for i in {1..30}; do
