@@ -2,8 +2,10 @@ import { Controller, Get, Param, Res, NotFoundException } from '@nestjs/common';
 import { Response } from 'express';
 import { ObjectStorageService } from 'src/libs/@object-storage';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { Public } from 'src/api/auth/jwt-guard/public.decorator';
 
 @Controller()
+@Public()
 export class DirectFileServeController {
   private logger: PaytradeLogger;
 
