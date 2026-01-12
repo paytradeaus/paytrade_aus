@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getCookie } from "cookies-next";
 import { useDispatch } from "react-redux";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
@@ -64,8 +64,11 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
   const dispatch = useDispatch();
   const router = useRouter();
   const selectedCompanyId = Number(getCookie("companyId")) || 0;
-
+  const searchParams = useSearchParams();
+  const claimId = searchParams?.get("partclaimid");
   const [loading, setLoading] = useState<boolean>(false);
+  // State to track if user has manually typed something
+  const [userTypedSearch, setUserTypedSearch] = useState(false);
   const [tempselectedDate, setTempSelectedDate] = useState<any>();
   const [displayDatePopup, setDisplayDatePopup] = useState(false); // State to control the popup
   const [searchValue, setSearchValue] = useState("");
@@ -87,10 +90,10 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
   });
   const [activityLogStartDate, setActivityLogStartDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(0, 0, 0, 0)));
+  >(new Date().toISOString().split("T")[0]);
   const [activityLogEndDate, setActivityLogEndDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(23, 59, 59, 999)));
+  >(new Date().toISOString().split("T")[0]);
   const [isCustomDate, setIsCustomDate] = useState(false);
 
   const [selectedToggle, setSelectedToggle] = useState<string | null>("All");
@@ -141,8 +144,9 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
     setSingleActivyDate({ value: "All", label: "All" }); // Reset Activity Range filter
     setActivityDate(""); // Reset activityDate state
     setIsCustomDate(false); // Reset custom date state
-    setActivityLogStartDate(new Date(new Date().setHours(0, 0, 0, 0))); // Reset start date to today
-    setActivityLogEndDate(new Date(new Date().setHours(23, 59, 59, 999))); // Reset end date to today
+    const today = new Date().toISOString().split("T")[0];
+    setActivityLogStartDate(today); // Reset start date to today
+    setActivityLogEndDate(today); // Reset end date to today
   };
 
   useEffect(() => {
@@ -253,6 +257,11 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
       setEmptySearchField(false);
     }
     setPaymentsListData([]);
+
+    const searchParam = userTypedSearch
+      ? searchValue // user typed something, override claimId
+      : claimId ?? searchValue ?? "";
+
     const adminUserList = await ListAllPaymentsInput(
       {
         payment_type: paymentType === "All" ? "" : paymentType || "",
@@ -268,7 +277,7 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
         cash_retention_type: claimType || null,
         claim_type: selectedToggle === "All" ? "" : selectedToggle,
         client_supplier_id: clientId ? +clientId : null,
-        search: searchValue ?? "",
+        search: searchParam ?? "",
         sorting_field: sortValues?.sortKey || "",
         sorting_order: sortValues?.direction || "",
         date_filter: activityDate === "All dates" ? null : activityDate,
@@ -525,6 +534,7 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
   };
 
   function handleSearch(searchedValue: any) {
+    setUserTypedSearch(true);
     if (page != 1) {
       setPerPage(1);
     }
@@ -647,6 +657,11 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
             onChange={(value: any) => handleSearch(value)}
             placeholder="Search"
             clearSearch={emptySearchField}
+            value={
+              userTypedSearch
+                ? searchValue // user typed something, override claimId
+                : claimId ?? searchValue ?? ""
+            }
           />
 
           <FormikControl
@@ -743,16 +758,13 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
                     setActivityLogStartDate(null);
                     return;
                   }
-                  const fromDate = new Date(
-                    new Date(selectedDate).setHours(0, 0, 0, 0)
-                  );
 
-                  if (fromDate > activityLogEndDate) {
-                    setActivityLogStartDate(fromDate);
-                    // setActivityLogEndDate(fromDate);
+                  if (selectedDate > activityLogEndDate) {
+                    setActivityLogStartDate(selectedDate);
+                    // setActivityLogEndDate(selectedDate);
                     setActivityLogEndDate(new Date(selectedDate));
                   } else {
-                    setActivityLogStartDate(fromDate);
+                    setActivityLogStartDate(selectedDate);
                   }
                 }}
                 minDate="" // Set any minimum date if needed
@@ -783,13 +795,9 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
                     return;
                   }
 
-                  const toDate = new Date(
-                    new Date(selectedDate).setHours(23, 59, 59, 999)
-                  );
-
                   // Ensure end date is not before start date
-                  if (toDate >= activityLogStartDate) {
-                    setActivityLogEndDate(toDate);
+                  if (selectedDate >= activityLogStartDate) {
+                    setActivityLogEndDate(selectedDate);
                   }
                 }}
                 minDate={

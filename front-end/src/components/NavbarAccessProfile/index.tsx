@@ -32,6 +32,7 @@ import {
   triggerActivityLogWhileSwitchingBusinessProfile,
 } from "@/app/api/commonApi";
 import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";
+import ScrollableText from "../ScrollableText";
 
 export default function NavbarAccessProfile() {
   const appUserDetails: any = useAppSelector(
@@ -119,7 +120,7 @@ export default function NavbarAccessProfile() {
       })
       .catch((error) => {
         // Handle error
-        console.error("Error fetching company profiles:", error);
+        console.error("Error fetching business profiles:", error);
       });
   }, [updatedCompany]);
 
@@ -168,7 +169,7 @@ export default function NavbarAccessProfile() {
         dispatch(setUpdatedCompany({}));
       }
     } catch (error) {
-      console.error("Error fetching company profiles:", error);
+      console.error("Error fetching business profiles:", error);
     }
   }
 
@@ -267,6 +268,10 @@ export default function NavbarAccessProfile() {
   }
 
   const handlePersonalProfileClick = async () => {
+    // 🧹 Remove xeroIntegrationId if it exists
+    if (localStorage.getItem("xeroIntegrationId")) {
+      localStorage.removeItem("xeroIntegrationId");
+    }
     const ucId: any = localStorage.getItem("UserCompanyId");
     localStorage.setItem("companyId", ucId?.toString());
     dispatch(setCompanyId(ucId?.toString()));
@@ -286,6 +291,10 @@ export default function NavbarAccessProfile() {
   };
 
   const handleAvatarClick = async (profile: any) => {
+    // 🧹 Remove xeroIntegrationId if it exists
+    if (localStorage.getItem("xeroIntegrationId")) {
+      localStorage.removeItem("xeroIntegrationId");
+    }
     localStorage.setItem("companyId", profile.company_id.toString());
     setCookie("companyId", profile.company_id);
     dispatch(setCompanyId(profile.company_id));
@@ -367,16 +376,25 @@ export default function NavbarAccessProfile() {
                 className="avatar useravatar"
               />
               <div className="usernamebox usertopnav">
-                <span className="pt_user">
-                  {updatedCompany?.company_name
-                    ? updatedCompany?.company_name
-                    : appUserDetails?.userName || decodeTokenData?.userName}
-                </span>
-                <span className="pt_email">
-                  {updatedCompany?.company_email_id
-                    ? updatedCompany?.company_email_id
-                    : appUserDetails?.emailId || decodeTokenData?.emailId}
-                </span>
+                <ScrollableText
+                  text={
+                    updatedCompany?.company_name ||
+                    appUserDetails?.userName ||
+                    decodeTokenData?.userName ||
+                    ""
+                  }
+                  className="pt_user"
+                />
+
+                <ScrollableText
+                  text={
+                    updatedCompany?.company_email_id ||
+                    appUserDetails?.emailId ||
+                    decodeTokenData?.emailId ||
+                    ""
+                  }
+                  className="pt_email"
+                />
               </div>
             </summary>
             <ul className="useroptions">
@@ -393,7 +411,7 @@ export default function NavbarAccessProfile() {
                 <div className="userblock">
                   <div className="currentuser">
                     <div className="usernamebox">
-                      <span className="pt_user">
+                      {/* <span className="pt_user">
                         {appUserDetails?.userName
                           ? appUserDetails.userName.length > 24
                             ? appUserDetails.userName.slice(0, 22) + ".."
@@ -414,7 +432,26 @@ export default function NavbarAccessProfile() {
                             ? decodeTokenData.emailId.slice(0, 22) + ".."
                             : decodeTokenData.emailId
                           : ""}
-                      </span>
+                      </span> */}
+                      <div className="usernamebox">
+                        <ScrollableText
+                          text={
+                            appUserDetails?.userName ||
+                            decodeTokenData?.userName ||
+                            ""
+                          }
+                          className="pt_user"
+                        />
+
+                        <ScrollableText
+                          text={
+                            appUserDetails?.emailId ||
+                            decodeTokenData?.emailId ||
+                            ""
+                          }
+                          className="pt_email"
+                        />
+                      </div>
                     </div>
                     <div className="themeswitcher">
                       <a
@@ -501,7 +538,7 @@ export default function NavbarAccessProfile() {
                         className="avatar"
                       />
                       <div className="usernamebox setBlock">
-                        <span className="pt_user">
+                        {/* <span className="pt_user">
                           {updatedCompany?.company_id
                             ? updatedCompany?.company_name
                             : userData
@@ -510,6 +547,17 @@ export default function NavbarAccessProfile() {
                         </span>
                         <span className="pt_email">
                           {" "}
+                          {updatedCompany?.company_id ? "Business" : "Personal"}
+                        </span> */}
+                        <ScrollableText
+                          text={
+                            updatedCompany?.company_id
+                              ? updatedCompany.company_name
+                              : userData?.userName || ""
+                          }
+                          className="pt_user"
+                        />
+                        <span className="pt_email">
                           {updatedCompany?.company_id ? "Business" : "Personal"}
                         </span>
                       </div>
@@ -603,11 +651,15 @@ export default function NavbarAccessProfile() {
                             className="avatar"
                           />
                           <div className="usernamebox setBlock">
-                            <span className="pt_user_customize  profileNameBox">
+                            {/* <span className="pt_user_customize  profileNameBox">
                               {profile?.company_name.length > 30
                                 ? profile?.company_name.slice(0, 33) + "..."
                                 : profile?.company_name}
-                            </span>
+                            </span> */}
+                            <ScrollableText
+                              text={profile.company_name}
+                              className="pt_user_customize profileNameBox"
+                            />
                             <div
                               style={{
                                 display: "flex",

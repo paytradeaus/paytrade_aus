@@ -15,6 +15,12 @@ import {
 export default function PaymentSummaryViews(props: any) {
   const { patchData } = props;
 
+  // ✅ NEW: Dynamic checkbox value
+  const confirmFieldValue =
+    patchData?.claim_type === tabTypes.BILLABLES
+      ? patchData?.is_paid_confirmed
+      : patchData?.is_received_confirmed;
+
   function calculateSubtotal(claimAmount: any, formattedGSTSummary: any) {
     // Ensure claimAmount and GST values are numbers
     const claim = parseFloat(claimAmount) || 0;
@@ -248,14 +254,17 @@ export default function PaymentSummaryViews(props: any) {
                             id={"confirmPaid"}
                             name={"confirmPaid"}
                             control={InputType.CHECKBOX}
-                            options={[
-                              {
-                                value: Boolean(patchData?.is_paid_confirmed),
-                              },
-                            ]}
-                            selectedValue={
-                              patchData?.is_paid_confirmed || "false"
-                            }
+                            // options={[
+                            //   {
+                            //     value: Boolean(patchData?.is_paid_confirmed),
+                            //   },
+                            // ]}
+                            // selectedValue={
+                            //   patchData?.is_paid_confirmed || "false"
+                            // }
+                            // disabled={true}
+                            options={[{ value: Boolean(confirmFieldValue) }]}
+                            selectedValue={Boolean(confirmFieldValue) || false}
                             disabled={true}
                           />
                         </td>

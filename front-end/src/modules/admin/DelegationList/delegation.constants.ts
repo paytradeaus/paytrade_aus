@@ -10,7 +10,7 @@ const delegationListHeaders = [
   { dataKey: "company_name", title: "Business Name" },
   { dataKey: "account_name", title: "Bank Account Name" },
   { dataKey: "account_type", title: "Account Type" },
-  { dataKey: "delegation", title: "Delegation" },
+  { dataKey: "delegation", title: "Delegation", restrictSorting: true },
 ];
 
 const delegationRenderData = [

@@ -40,11 +40,13 @@ export const AdminListAllCompanies = async (
                 country
                 entity_type
                 expiry_date
+                free_plan_reason
                 icon_base64
                 icon_file_path
                 icon_file_type
                 id
                 is_admin_blocked
+                is_free_plan_eligible
                 is_verified
                 latitude
                 legal_company_name

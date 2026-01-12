@@ -122,10 +122,11 @@ export default function PayApps({ overViewDetails = {} }: any) {
   });
   const [activityLogStartDate, setActivityLogStartDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(0, 0, 0, 0)));
+  >(new Date().toISOString().split("T")[0]);
+
   const [activityLogEndDate, setActivityLogEndDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(23, 59, 59, 999)));
+  >(new Date().toISOString().split("T")[0]);
 
   const selectedCompanyId = Number(getCookie("companyId")) || 0;
 
@@ -143,8 +144,9 @@ export default function PayApps({ overViewDetails = {} }: any) {
     setSingleActivyDate({ value: "All", label: "All" }); // Reset Activity Range filter
     setActivityDate(""); // Reset activityDate state
     setIsCustomDate(false); // Reset custom date state
-    setActivityLogStartDate(new Date(new Date().setHours(0, 0, 0, 0))); // Reset start date to today
-    setActivityLogEndDate(new Date(new Date().setHours(23, 59, 59, 999))); // Reset end date to today
+    const today = new Date().toISOString().split("T")[0];
+    setActivityLogStartDate(today); // Reset start date to today
+    setActivityLogEndDate(today); // Reset end date to today
   };
 
   const isAnyFilterActive =
@@ -444,7 +446,9 @@ export default function PayApps({ overViewDetails = {} }: any) {
       style: buttonType.SECONDARY,
       // onClick: (row: any) => {},
       onClick: (row: any) => {
-        router.push(AppRoutes.USER_PAYMENTS_LIST);
+        router.push(
+          `${AppRoutes.USER_PAYMENTS_LIST}?partclaimid=${row?.payment_claim_id}`
+        );
       },
 
       conditionalApiDisplayKey: "view_all_payment",
@@ -477,7 +481,14 @@ export default function PayApps({ overViewDetails = {} }: any) {
       icon: "fa-light fa-message-dollar",
       style: buttonType.SECONDARY,
       onClick: (row: any) => {
-        const isArchivedView = activeTab === "Archived";
+        // Check if any notice has status 'Sent' or 'Sending'
+        const hasSentOrSendingNotice = row?.notices?.some((notice: any) =>
+          ["Sent", "Sending", "Not Sent"].includes(notice.status)
+        );
+
+        // Determine if we should route to archived
+        const isArchivedView =
+          activeTab === "Archived" || !hasSentOrSendingNotice;
         router.push(
           `${AppRoutes.USER_NOTICES}?payment-claim=${row?.payment_claim_id}${
             isArchivedView ? "&archived=true" : ""
@@ -801,16 +812,12 @@ export default function PayApps({ overViewDetails = {} }: any) {
                     setActivityLogStartDate(null);
                     return;
                   }
-                  const fromDate = new Date(
-                    new Date(selectedDate).setHours(0, 0, 0, 0)
-                  );
 
-                  if (fromDate > activityLogEndDate) {
-                    setActivityLogStartDate(fromDate);
-                    // setActivityLogEndDate(fromDate);
-                    setActivityLogEndDate(new Date(selectedDate));
+                  if (selectedDate > activityLogEndDate) {
+                    setActivityLogStartDate(selectedDate);
+                    setActivityLogEndDate(selectedDate);
                   } else {
-                    setActivityLogStartDate(fromDate);
+                    setActivityLogStartDate(selectedDate);
                   }
                 }}
                 minDate="" // Set any minimum date if needed
@@ -840,13 +847,10 @@ export default function PayApps({ overViewDetails = {} }: any) {
                     setActivityLogEndDate(null);
                     return;
                   }
-                  const toDate = new Date(
-                    new Date(selectedDate).setHours(23, 59, 59, 999)
-                  );
 
                   // Ensure end date is not before start date
-                  if (toDate >= activityLogStartDate) {
-                    setActivityLogEndDate(toDate);
+                  if (selectedDate >= activityLogStartDate) {
+                    setActivityLogEndDate(selectedDate);
                   }
                 }}
                 minDate={

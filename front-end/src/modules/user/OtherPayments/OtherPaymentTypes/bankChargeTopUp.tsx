@@ -181,7 +181,7 @@ const BankChargeTopUpForm = (props: any) => {
         payment_to_account: Number(values?.accountId),
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
-        payment_date: dateStringToUtcConversion(values?.paymentDate),
+        payment_date: values?.paymentDate || null,
         // memo: values?.memo,
         is_received_confirmed: values?.confirmReceived,
       };

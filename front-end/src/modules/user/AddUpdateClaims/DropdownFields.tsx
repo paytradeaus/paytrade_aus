@@ -463,6 +463,7 @@ export default function DropdownFields() {
         }
 
         if (projectListData && projectListData?.length > 0) {
+          setProjectRole(projectListData[0].project_role);
           setProjectOpt(projectListData);
         }
       }
@@ -490,9 +491,7 @@ export default function DropdownFields() {
       (project: any) => project.project_id == selectedOption?.project_id
     );
     if (selectedProject) {
-      const projectRole = selectedProject.project_role;
-      // console.log("🚀 ~ onProjectChange ~ projectRole:", projectRole);
-      setProjectRole(projectRole);
+      setProjectRole(selectedProject?.project_role);
       setSelectedProjectId(selectedProject?.project_id);
       setSelectedContractId(null);
       // Fetch contracts based on the selected project ID

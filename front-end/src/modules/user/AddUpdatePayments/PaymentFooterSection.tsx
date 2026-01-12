@@ -87,6 +87,8 @@ export default function PaymentFooterSection() {
     setDelegateAuthorityAllowed,
     noticesAutomated,
     setNoticesAutomated,
+    isFree,
+    setIsFree,
   }: any = usePaymentsContext();
 
   const router = useRouter();
@@ -172,10 +174,10 @@ export default function PaymentFooterSection() {
             (item: any) => item.item_name === "Delegate authority"
           ) || null;
 
-        const isAllowed =
+        let isAllowed =
           delegateItem &&
           String(delegateItem.limit_value).toLowerCase() === "true";
-        setDelegateAuthorityAllowed(!!isAllowed);
+        // setDelegateAuthorityAllowed(!!isAllowed);
 
         // ✅ Find "Notices"
         const noticesItem =
@@ -186,7 +188,21 @@ export default function PaymentFooterSection() {
         const isNoticesAutomated =
           noticesItem &&
           String(noticesItem.limit_value).toLowerCase() === "automated";
-        setNoticesAutomated(!!isNoticesAutomated);
+        // setNoticesAutomated(!!isNoticesAutomated);
+        // 🔥 Free plan — override delegate authority
+        const isFreePlanEligible =
+          subscriptionResponse?.is_free_plan_eligible ?? false;
+
+        if (isFreePlanEligible) {
+          isAllowed = true; // 👈 Correct override
+          setIsFree(isFreePlanEligible);
+          setNoticesAutomated(true); // free = notices automated regardless of plan item
+        } else {
+          setNoticesAutomated(!!isNoticesAutomated);
+        }
+        // 🔹 Set final states
+        setDelegateAuthorityAllowed(!!isAllowed);
+        // setNoticesAutomated(!!isNoticesAutomated);
       } catch (error) {
         console.error("Error fetching subscription:", error);
         setDelegateAuthorityAllowed(false); // fail-safe

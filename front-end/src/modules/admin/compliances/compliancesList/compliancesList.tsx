@@ -385,7 +385,7 @@ export default function AdminCompliancesList() {
         </div>
         <div className="pt_filteroptions">
           <SearchableSelect
-            placeholder="Select a company profile"
+            placeholder="Select a business profile"
             name="companyProfile"
             options={companyList}
             onChange={(selectedValue) => {

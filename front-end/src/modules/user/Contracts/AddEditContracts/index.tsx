@@ -50,6 +50,7 @@ import {
   updateDelegatePowers,
 } from "../../Subscriptions/subscriptions.function";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
+import { CreateOrUpdateContractInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 interface ProjectOption {
   value: string;
@@ -75,6 +76,7 @@ export default function AddEditContracts(props: any) {
   const [paymentData, setPaymentData] = useState<any>({});
   const [uploadData, setUploadData] = useState<any>({});
   const [uploadvalues, setUploadValues] = useState<any>({});
+  console.log("🚀 ~ AddEditContracts ~ uploadvalues:", uploadvalues);
   const [status, setstatus] = useState<any>("");
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useCustomDebounce(searchTerm, DEBOUNCE_TIMER); // Debounce delay of 700ms
@@ -154,6 +156,7 @@ export default function AddEditContracts(props: any) {
   const overviewProjectrole = queryParams.get("projectrole");
   const rawProjectId = queryParams.get("proj_id");
   const syncId = queryParams.get("syncId");
+  const errorCode = queryParams.get("errorCode");
   const QuickProjectId = rawProjectId?.trim() || null;
   const isProjectPreselected =
     QuickProjectId !== null &&
@@ -257,9 +260,17 @@ export default function AddEditContracts(props: any) {
             (item: any) => item.item_name === "Delegate authority"
           ) || null;
 
-        const isAllowed =
+        let isAllowed =
           delegateItem &&
           String(delegateItem.limit_value).toLowerCase() === "true";
+        // setDelegateAuthorityAllowed(!!isAllowed);
+        // 🔥 FREE PLAN OVERRIDE:
+        // If is_free_plan_eligible = true → delegate authority must ALWAYS be allowed
+        if (subscriptionResponse?.is_free_plan_eligible) {
+          isAllowed = true;
+        }
+
+        // 🔹 Set final value
         setDelegateAuthorityAllowed(!!isAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);
@@ -893,11 +904,9 @@ export default function AddEditContracts(props: any) {
         payment_terms: Number(values?.PaymentTerms),
         project_id: selectedProjectID,
         client_supplier_id: selectedClientSuplierID,
-        contract_start_date: new Date(uploadvalues?.ContractStartDate),
+        contract_start_date: uploadvalues?.ContractStartDate || null,
         initial_contract_sum: Number(values?.InitialContractSum),
-        defect_liability_end_date: new Date(
-          uploadvalues?.DefectLiabilityEndDate
-        ),
+        defect_liability_end_date: uploadvalues?.DefectLiabilityEndDate || null,
         related_entity: values?.RelatedEntity,
         project_role: values?.ProjectRole,
         client_supplier_type: selectedClientSuplierType,
@@ -948,15 +957,37 @@ export default function AddEditContracts(props: any) {
         setFormSubmitted(true);
         setLoaderInfo("Saving contract...");
 
-        const response = syncId
-          ? await createContractInPaytradeFromXeroData({
-              companyId,
-              contractId: syncLogData?.api_payload?.contract_id,
-              syncId,
-              payload: payload,
-            })
-          : await insertContractDetails(payload);
-        if (response?.contract_id) {
+        // const response = syncId
+        //   ? await createContractInPaytradeFromXeroData({
+        //       companyId,
+        //       contractId: syncLogData?.api_payload?.contract_id,
+        //       syncId,
+        //       payload: payload,
+        //     })
+        //   : await insertContractDetails(payload);
+        let response;
+        if (syncId && errorCode === "SCHEDULER_CONTRACT_MISSING_FIELDS") {
+          // 🔥 New flow
+          response = await CreateOrUpdateContractInPaytrade({
+            companyId,
+            syncId,
+            contractId: syncLogData?.api_payload?.contract_id,
+            contractStatus: syncLogData?.api_payload?.contract_status,
+            payload: payload,
+          });
+        } else if (syncId) {
+          // 🟡 Usual sync support
+          response = await createContractInPaytradeFromXeroData({
+            companyId,
+            contractId: syncLogData?.api_payload?.contract_id,
+            syncId,
+            payload: payload,
+          });
+        } else {
+          // 🟢 Manual project create
+          response = await insertContractDetails(payload);
+        }
+        if (response) {
           if (uploadData?.selectedFile) {
             let UploadData = {
               contract_id: response?.contract_id,
@@ -1039,11 +1070,9 @@ export default function AddEditContracts(props: any) {
         payment_terms: Number(formik?.values?.PaymentTerms),
         project_id: selectedProjectID,
         client_supplier_id: selectedClientSuplierID,
-        contract_start_date: new Date(uploadvalues?.ContractStartDate),
+        contract_start_date: uploadvalues?.ContractStartDate || null,
         initial_contract_sum: Number(formik?.values?.InitialContractSum),
-        defect_liability_end_date: new Date(
-          uploadvalues?.DefectLiabilityEndDate
-        ),
+        defect_liability_end_date: uploadvalues?.DefectLiabilityEndDate || null,
         related_entity: formik?.values?.RelatedEntity,
         project_role: formik?.values?.ProjectRole,
         client_supplier_type: selectedClientSuplierType,
@@ -1256,8 +1285,30 @@ export default function AddEditContracts(props: any) {
         }
       } else {
         setLoaderInfo("Saving contract...");
-        const response = await insertContractDetails(data);
-        if (response?.contract_id) {
+        // const response = await insertContractDetails(data);
+        let response;
+        if (syncId && errorCode === "SCHEDULER_CONTRACT_MISSING_FIELDS") {
+          // 🔥 New flow
+          response = await CreateOrUpdateContractInPaytrade({
+            companyId,
+            syncId,
+            contractId: syncLogData?.api_payload?.contract_id,
+            contractStatus: syncLogData?.api_payload?.contract_status,
+            payload: data,
+          });
+        } else if (syncId) {
+          // 🟡 Usual sync support
+          response = await createContractInPaytradeFromXeroData({
+            companyId,
+            contractId: syncLogData?.api_payload?.contract_id,
+            syncId,
+            payload: data,
+          });
+        } else {
+          // 🟢 Manual project create
+          response = await insertContractDetails(data);
+        }
+        if (response) {
           // 👇 Save for later use in send/cancel popup handlers
           setLastInsertedContractId(response?.contract_id);
           setLastInsertedClientSupplierType(response?.client_supplier_type);
@@ -1307,10 +1358,14 @@ export default function AddEditContracts(props: any) {
 
           setLoader(false);
           resetRetainedContractData();
-          handleRouterBack(
-            response?.contract_id,
-            response?.client_supplier_type
-          );
+          if (syncId) {
+            router.push(AppRoutes.USER_SYNC_LOG + syncId);
+          } else {
+            handleRouterBack(
+              response?.contract_id,
+              response?.client_supplier_type
+            );
+          }
         } else {
           setLoader(false);
         }
@@ -2023,10 +2078,8 @@ export default function AddEditContracts(props: any) {
             setUploadValues(newValue);
             setData((pre: any) => ({
               ...pre,
-              contract_start_date: new Date(newValue?.ContractStartDate),
-              defect_liability_end_date: new Date(
-                newValue?.DefectLiabilityEndDate
-              ),
+              contract_start_date: newValue?.ContractStartDate,
+              defect_liability_end_date: newValue?.DefectLiabilityEndDate,
             }));
           }}
           uploadvalues={uploadvalues}

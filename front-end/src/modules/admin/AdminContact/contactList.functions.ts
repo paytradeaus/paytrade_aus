@@ -16,6 +16,7 @@ export async function fetchAllContacts(data: any): Promise<any> {
                 created_on
                 email
                 id
+                ticket_id
                 isViewed
                 message
                 name

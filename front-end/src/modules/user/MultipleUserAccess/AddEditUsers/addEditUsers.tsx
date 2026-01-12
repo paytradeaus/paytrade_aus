@@ -152,7 +152,7 @@ const AddEditUsers = (props: any) => {
               const user = userData[0];
 
               if (user.status === "Active" || user.status === "Inactive") {
-                showSuccessToast("User already exists in this company.");
+                showSuccessToast("User already exists in this business.");
                 setIsLoading(false);
               } else {
                 const createUserAccessInput: CreateNewUserAccessInputs = {

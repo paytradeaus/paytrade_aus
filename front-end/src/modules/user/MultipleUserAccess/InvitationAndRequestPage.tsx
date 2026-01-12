@@ -267,6 +267,15 @@ const InvitationAndRequestPage: React.FC<UserAccessPageProps> = ({
       let latestUserLimit = userLimit;
       let latestInviteCount = inviteCount;
 
+      // ⭐ NEW: If free plan eligible → skip ALL restrictions and accept immediately
+      const isFreePlanEligible =
+        subscriptionResponse?.is_free_plan_eligible === true;
+
+      if (isFreePlanEligible) {
+        await handleAction(id, "Accept", "You have accepted this invite.");
+        return;
+      }
+
       // ✅ Update totalCount + inviteCount
       if (userListResponse) {
         latestTotalCount = userListResponse.total_count || 0;

@@ -423,7 +423,7 @@ const Contacts = (props: any) => {
                   onChange={handleSubjectChange}
                   onBlur={formik.handleBlur("subject")}
                   value={formik.values.subject}
-                  maxLength={26}
+                  maxLength={250}
                 />
                 <br />
                 {true && (

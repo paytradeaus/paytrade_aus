@@ -5,6 +5,7 @@ const ApiResponse = {
   SUCCESS: "SUCCESS",
   ERROR: "ERROR",
   NO_RECORDS_TO_DISPLAY: "There are no records to display",
+  XERO_REFRESH: "XERO_REFRESH",
 };
 
 const ImageErrors = {

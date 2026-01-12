@@ -14,6 +14,7 @@ export async function FetchInformationsOfAContact(inputData: Object) {
               created_on
               email
               id
+              ticket_id
               isViewed
               message
               name

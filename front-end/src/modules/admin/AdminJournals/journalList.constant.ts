@@ -1,6 +1,6 @@
 // Define headers dynamically
 const journalListPDFHeaders = [
-  "Company Profile",
+  "Business Profile",
   "Account Name",
   "Account Type",
   "Status",
@@ -8,7 +8,7 @@ const journalListPDFHeaders = [
 ];
 
 const journalListHeaders = [
-  { dataKey: "company_name", title: "Company Profile" },
+  { dataKey: "company_name", title: "Business Profile" },
   { dataKey: "account_name", title: "Account Name" },
   { dataKey: "account_type", title: "Account Type" },
   { dataKey: "status", title: "Status" },

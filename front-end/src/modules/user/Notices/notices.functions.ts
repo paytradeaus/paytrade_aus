@@ -19,6 +19,7 @@ export interface NoticesListType {
   project_name: string;
   status: string;
   id: string;
+  notice_document_gen_failed?: boolean;
 }
 
 export const fetchFiltersForAdminNotices = async (
@@ -107,8 +108,10 @@ export const getNoticesListServices = async (
                 company_name
                 contract_id
                 contract_name
+                contract_uuid
                 id
                 notice_date
+                notice_document_gen_failed
                 notice_id
                 notice_source
                 notice_type
@@ -116,7 +119,6 @@ export const getNoticesListServices = async (
                 payment_id
                 project_id
                 project_name
-                contract_uuid
                 source_claim_details {
                   beneficiary_type
                   cash_retention_type
@@ -181,6 +183,7 @@ export const FetchDetailsOfANotice = async (
               contract_uuid
               id
               memo_notes
+              notice_document_gen_failed
               notice_id
               notice_source
               notice_type
@@ -441,5 +444,43 @@ export const ListAllMailsOfANotice = async (
     return null;
   } finally {
     setLoading && setLoading(false);
+  }
+};
+
+export const RegenerateNotice = async (noticeId: number): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation Mutation($noticeId: Float!) {
+          regenerateFailedNotice(noticeId: $noticeId) {
+            data {
+              notice_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        noticeId: noticeId,
+      },
+      fetchPolicy: "no-cache",
+    });
+
+    const resData = response?.data?.regenerateFailedNotice;
+
+    if (resData?.status === ApiResponse.SUCCESS) {
+      return resData;
+    }
+
+    if (resData?.status === ApiResponse.ERROR) {
+      showErrorToast(resData?.message);
+      return false;
+    }
+  } catch (error: any) {
+    showErrorToast(error.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return null;
+  } finally {
+    // setLoading && setLoading(false);
   }
 };

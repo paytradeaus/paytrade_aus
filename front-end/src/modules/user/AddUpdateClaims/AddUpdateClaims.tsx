@@ -72,6 +72,10 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
     setImportClaimAPIData,
     projectRole,
     clientRole,
+    setClientRole,
+    setProjectRole,
+    claimStatus,
+    setClaimStatus,
   }: any = useAddUpdateClaimsContext();
 
   //import claimsData from Email template
@@ -215,6 +219,9 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
         let formValues = {};
         if (responseData) {
           setClaimData(responseData);
+          setClientRole(responseData?.client_supplier_role);
+          setProjectRole(responseData?.project_role);
+          setClaimStatus(responseData?.status);
           // Set the default toggle value if isEdit is true
           if (editMode || viewMode) {
             fetchContractsForProject(
@@ -279,6 +286,7 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
               subTotal: responseData?.sub_total_summary,
               gstAmount: responseData?.gst_summary,
               totalAmount: responseData?.claim_amount,
+              paidDeclaration: responseData?.all_subcontracts_paid,
             };
             formik?.setValues(formValues);
 

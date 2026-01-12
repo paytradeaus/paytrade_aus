@@ -127,7 +127,8 @@ export default function Subscriptions() {
               </details>
               <hr />
 
-              {subscriptionData?.payment_method_id && (
+              {(subscriptionData?.payment_method_id ||
+                subscriptionData?.coupon_id) && (
                 <Fragment>
                   <details>
                     <summary>Payment methods</summary>
@@ -142,7 +143,8 @@ export default function Subscriptions() {
                 </Fragment>
               )}
 
-              {subscriptionData?.payment_method_id && (
+              {(subscriptionData?.payment_method_id ||
+                subscriptionData?.coupon_id) && (
                 <details>
                   <summary>Billing history</summary>
 
@@ -150,7 +152,8 @@ export default function Subscriptions() {
                 </details>
               )}
 
-              {subscriptionData?.payment_method_id &&
+              {(subscriptionData?.payment_method_id ||
+                subscriptionData?.coupon_id) &&
                 subscriptionData?.status !== subscriptionStatus.CANCELLED && (
                   <Fragment>
                     <hr />

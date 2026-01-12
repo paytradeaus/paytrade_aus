@@ -23,6 +23,7 @@ const contactSubmissionStatus = [
 ];
 
 const contactListHeaders = [
+  { dataKey: "ticket_id", title: "Ticket Id" },
   { dataKey: "name", title: "Name" },
   { dataKey: "email", title: "Email" },
   { dataKey: "status", title: "Status" },
@@ -32,10 +33,11 @@ const contactListHeaders = [
 ];
 
 const contactRenderData = [
+  { key: "ticket_id" },
   { key: "name" },
   { key: "email" },
   { key: "status" },
-  { key: "message" },
+  { key: "message", wrapData: true },
   { key: "received_date" },
 ];
 

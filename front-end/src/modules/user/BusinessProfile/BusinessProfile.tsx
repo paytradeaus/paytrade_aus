@@ -703,7 +703,7 @@ export default function BusinessProfile({ isEditable }: any) {
                 <ImageUploader
                   onImageSelect={(e: any) => onImageChange(e)}
                   accept={UploadImage.jpegAndPng}
-                  label="Upload company logo"
+                  label="Upload business logo"
                   selectedImage={
                     cropImage?.length > 0
                       ? cropImage[0]

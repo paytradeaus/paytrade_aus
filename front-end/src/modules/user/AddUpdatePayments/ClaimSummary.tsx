@@ -5,9 +5,16 @@ import React, { useEffect, useState } from "react";
 import { usePaymentsContext } from "./PaymentContextProvider";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { ReadFileAttachmentsOrDocuments } from "@/app/api/commonApi";
-import { getDatePickerFormat } from "@/utils";
+import { getCompanyIdFromStorage, getDatePickerFormat } from "@/utils";
 import { tabTypes } from "./Payments.constants";
-import { retentionRadioOption } from "../AddUpdateClaims/AddUpdateClaims.constant";
+import {
+  noticesHeader,
+  noticesRenderData,
+  retentionRadioOption,
+} from "../AddUpdateClaims/AddUpdateClaims.constant";
+import DynamicTable from "@/components/Table";
+import { AppRoutes } from "@/shared/constant/appRoutes";
+import { getNoticesListServices } from "../AddUpdateClaims/AddUpdateClaims.function";
 
 interface Attachment {
   attachment_type: string;
@@ -27,10 +34,14 @@ export default function ClaimSummary() {
     isViewMode,
     formik,
     retentionBankAccounts,
+    router,
   }: any = usePaymentsContext();
+  const selectedCompanyId = getCompanyIdFromStorage() || 0;
+
   const [otherOptionalAttachments, setOtherOptionalAttachments] = useState<
     Attachment[]
   >([]);
+  const [noticesListData, setNoticesListData] = useState([]);
 
   const [supportingStatementAttachments, setSupportingStatementAttachments] =
     useState<Attachment[]>([]);
@@ -85,10 +96,40 @@ export default function ClaimSummary() {
     if (patchData?.payment_claim_id) {
       fetchFileAttachments();
     }
+    if (patchData?.claim_type === "Receivable") {
+      getNoticesList();
+    }
   }, [patchData?.payment_claim_id]);
 
   function handleAccountSelection(value: any) {
     formik.setFieldValue("retention_account", value);
+  }
+
+  const noticesAction = [
+    {
+      label: "View",
+      icon: "fa-light fa-eye",
+      style: "primary",
+      onClick: (row: any) => {
+        router.push(`${AppRoutes.USER_NOTICES_VIEW}/${row?.id}`);
+      },
+    },
+  ];
+
+  async function getNoticesList() {
+    const postData = {
+      company_id: selectedCompanyId,
+      payment_claim_id: patchData?.payment_claim_id || null,
+      page: 1,
+      items_per_page: 10,
+    };
+    const response = await getNoticesListServices(postData);
+
+    if (response?.notices_list?.length > 0) {
+      setNoticesListData(response?.notices_list);
+    } else {
+      setNoticesListData([]);
+    }
   }
 
   return (
@@ -526,6 +567,17 @@ export default function ClaimSummary() {
             />
           </div>
         </div>
+        <br />
+        {isViewMode && noticesListData?.length > 0 && (
+          <DynamicTable
+            headers={noticesHeader}
+            gridData={noticesListData}
+            renderRowList={noticesRenderData}
+            gridActions={noticesAction}
+            loaderColSpan={4}
+            displayAllStaticActions
+          />
+        )}
       </details>
     </div>
   );

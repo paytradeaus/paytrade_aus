@@ -36,6 +36,7 @@ import {
   AdminListAllFinancialInstitution,
   CheckExistenceOfBankAccountNumber,
   CreateAccountInPaytrade,
+  CreateOrUpdateAccountInPaytrade,
   EditDetailsOfABankAccount,
   FetchAllBankAccounts,
   FetchBankAccountDetailsForEditing,
@@ -80,6 +81,8 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   const routedFrom = queryParams.get("routedFrom");
   const tab = queryParams.get("complianceTab");
   const syncId = queryParams.get("syncId");
+  const ErrorCode = queryParams.get("errorCode");
+
   const [isConfirmed, setIsConfirmed] = useState(false);
   const { setLoader, setLoaderInfo }: any = useLoaderContext();
   const dispatch = useAppDispatch();
@@ -100,7 +103,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   ); // Debounce delay of 700ms
   const [trusteeNameWarningMessage, setTrusteeNameWarningMessage] =
     useState("");
-
+  const [isFree, setIsFree] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [initialPatchedValues, setInitialPatchedValues] = useState<any>(null);
   const [accountNumberLength, setAccountNumberLength] = useState(0);
@@ -128,6 +131,8 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   const [modalHeading, setModalHeading] = useState<string>("");
   const [modalBodyContent, setModalBodyContent] = useState<string>("");
   const [xeroAccountId, setXeroAccountId] = useState("");
+  const [xeroAccountStatus, setXeroAccountStatus] = useState("");
+
   const [displayStatusInfo, setDisplayStatusInfo] = useState(false);
 
   const DelegateOptions = [
@@ -331,47 +336,53 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     "Retention Trust Account, Project Trust Account",
                 }),
               ]);
+              // ⭐ NEW CHECK: get free plan eligibility
+              const isFreePlanEligible =
+                subscriptionResponse?.is_free_plan_eligible === true;
 
               // 🔹 Step 1: Find Trusts plan item
               const trustsItem =
                 subscriptionResponse?.plan_items?.find(
                   (item: any) => item.item_name === "Trusts"
                 ) || null;
-
-              if (!trustsItem) {
-                setModalHeading("Upgrade Subscription");
-                setModalBodyContent(
-                  "Please complete and send the required notices in the notices list or if you would like Pay Trade to auto submit for you, Upgrade now."
-                );
-                setOpenFinalModal(true);
-                setLoader(false);
-                setLoaderInfo("");
-                return;
-              }
-
-              // 🔹 Step 2: Check only if NOT unlimited numeric
-              if (
-                trustsItem.limit_type === "Numeric" &&
-                !trustsItem.is_unlimited
-              ) {
-                const trustLimit = Number(trustsItem.limit_value ?? 0);
-                const bankTotalCount = Number(bankResponse?.total_count ?? 0);
-
-                if (bankTotalCount >= trustLimit) {
+              // 🔥 If free plan eligible → SKIP RESTRICTIONS COMPLETELY
+              if (!isFreePlanEligible) {
+                if (!trustsItem) {
                   setModalHeading("Upgrade Subscription");
                   setModalBodyContent(
-                    `You already have ${bankTotalCount} Trust account${
-                      bankTotalCount === 1 ? "" : "s"
-                    }. Your current subscription allows a maximum of ${trustLimit} Trust account${
-                      trustLimit === 1 ? "" : "s"
-                    }. Please upgrade your plan to add more.`
+                    "Please complete and send the required notices in the notices list or if you would like Pay Trade to auto submit for you, Upgrade now."
                   );
                   setOpenFinalModal(true);
                   setLoader(false);
                   setLoaderInfo("");
                   return;
                 }
+
+                // 🔹 Step 2: Check only if NOT unlimited numeric
+                if (
+                  trustsItem.limit_type === "Numeric" &&
+                  !trustsItem.is_unlimited
+                ) {
+                  const trustLimit = Number(trustsItem.limit_value ?? 0);
+                  const bankTotalCount = Number(bankResponse?.total_count ?? 0);
+
+                  if (bankTotalCount >= trustLimit) {
+                    setModalHeading("Upgrade Subscription");
+                    setModalBodyContent(
+                      `You already have ${bankTotalCount} Trust account${
+                        bankTotalCount === 1 ? "" : "s"
+                      }. Your current subscription allows a maximum of ${trustLimit} Trust account${
+                        trustLimit === 1 ? "" : "s"
+                      }. Please upgrade your plan to add more.`
+                    );
+                    setOpenFinalModal(true);
+                    setLoader(false);
+                    setLoaderInfo("");
+                    return;
+                  }
+                }
               }
+
               // else → unlimited numeric OR non-numeric → skip restriction
 
               // 🔹 Step 3: Check Delegate authority subscription
@@ -381,8 +392,13 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     (item: any) => item.item_name === "Delegate authority"
                   ) || null;
 
-                if (delegateItem?.limit_value === "true") {
-                  // ✅ Allow delegation model
+                if (
+                  delegateItem?.limit_value === "true" ||
+                  isFreePlanEligible
+                ) {
+                  setLoader(false);
+                  setLoaderInfo("");
+                  setIsFree(isFreePlanEligible);
                   setValuesForSubmit(values);
                   setDisplayDelegationModel(true);
                   return;
@@ -407,6 +423,24 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       }
     },
   });
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const subscriptionRes = await getSubscriptionDetailsByCompanyId();
+
+        // FREE PLAN → ALWAYS ALLOW (no popup, no restriction)
+        const isEligible = subscriptionRes?.is_free_plan_eligible === true;
+
+        setIsFree(isEligible);
+      } catch (err) {
+        console.error("Error fetching subscription details:", err);
+        setIsFree(false);
+      }
+    };
+
+    fetchSubscription();
+  }, []); // runs on initial render only
 
   // Reset timer when popup opens
   useEffect(() => {
@@ -931,8 +965,10 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
           account_number = "",
           bsb_number = "",
           account_id,
+          account_status,
         } = data.api_payload;
         setXeroAccountId(account_id);
+        setXeroAccountStatus(account_status);
         setInitialPatchedValues({
           ...formik?.values,
           AccountName: account_name || "",
@@ -1130,7 +1166,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         company_id: selectedCompanyId,
         financial_institution: FinancialIns,
         bsb_number: Number(BsbNumber),
-        opening_date: dateStringToUtcConversion(OpeningDate),
+        opening_date: OpeningDate || null,
         associated_cash_account_id:
           +formik?.values?.associated_cash_account_id || null,
         delegate_powers: DelegateStatus,
@@ -1145,16 +1181,12 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         payload.client_supplier_id = Number(ClientName);
         payload.trustee_id = selectedCompanyId;
 
-        payload.contract_date = dateStringToUtcConversion(
-          contactDetailsData?.ContractDate
-        );
+        payload.contract_date = contactDetailsData?.ContractDate || null;
         payload.contract_value = parseFloat(amountString);
-        payload.contract_practical_completion_date = dateStringToUtcConversion(
-          contactDetailsData?.ContractCompletionDate
-        );
-        payload.first_sub_contract_date = dateStringToUtcConversion(
-          contactDetailsData?.SubContractDate
-        );
+        payload.contract_practical_completion_date =
+          contactDetailsData?.ContractCompletionDate || null;
+        payload.first_sub_contract_date =
+          contactDetailsData?.SubContractDate || null;
       }
 
       let fileIds: Array<string> = [];
@@ -1247,7 +1279,11 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
             response?.notices || {};
 
           if (triggerBtnStatus === "completed") {
-            if (planName !== "Basic" && values?.DelegateStatus === "Yes") {
+            if (
+              (planName !== "Basic" && values?.DelegateStatus === "Yes") ||
+              isFree
+            ) {
+              // if (planName !== "Basic" && values?.DelegateStatus === "Yes") {
               if (
                 notice_previews.length > 0 ||
                 qbcc_notice_previews.length > 0
@@ -1265,14 +1301,22 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                 setShowNoticePopup(true);
                 return;
               }
-              handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+              if (syncId) {
+                handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+              } else {
+                handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+              }
               return;
             } else {
               if (planName === "Basic" && notice_previews.length > 0) {
                 handleRoute(AppRoutes.USER_NOTICES);
                 return;
               } else {
-                handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                if (syncId) {
+                  handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+                } else {
+                  handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                }
                 return;
               }
             }
@@ -1288,14 +1332,27 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
               handleRoute(AppRoutes.USER_NOTICES);
               return;
             } else {
-              handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+              if (syncId) {
+                handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+              } else {
+                handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+              }
               return;
             }
           } else {
-            handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+            if (syncId) {
+              handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+            } else {
+              handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+            }
             return;
           }
         } else {
+          if (syncId) {
+            handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+          } else {
+            handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+          }
           setLoader(false);
         }
       } else {
@@ -1304,21 +1361,35 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         if (BankAccountType !== "Cash Account") {
           payload.status = triggerBtnStatus === "save" ? "Draft" : "Open";
           let response;
-          if (syncId) {
-            response = await CreateAccountInPaytrade(
+          if (ErrorCode === "SCHEDULER_BANK_MISSING_FIELDS") {
+            // 🔁 Special case: call the scheduler API
+            response = await CreateOrUpdateAccountInPaytrade(
               {
                 syncId,
                 accountId: xeroAccountId,
                 companyId: selectedCompanyId,
+                accountStatus: xeroAccountStatus,
                 payload,
               },
               "This bank account has been added."
             );
           } else {
-            response = await AddBankAccount(
-              payload,
-              "This bank account has been added."
-            );
+            if (syncId) {
+              response = await CreateAccountInPaytrade(
+                {
+                  syncId,
+                  accountId: xeroAccountId,
+                  companyId: selectedCompanyId,
+                  payload,
+                },
+                "This bank account has been added."
+              );
+            } else {
+              response = await AddBankAccount(
+                payload,
+                "This bank account has been added."
+              );
+            }
           }
           setLoaderInfo("");
 
@@ -1327,7 +1398,11 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
               response?.notices || {};
 
             if (triggerBtnStatus === "completed") {
-              if (planName !== "Basic" && values?.DelegateStatus === "Yes") {
+              if (
+                (planName !== "Basic" && values?.DelegateStatus === "Yes") ||
+                isFree
+              ) {
+                // if (planName !== "Basic" && values?.DelegateStatus === "Yes") {
                 if (
                   notice_previews.length > 0 ||
                   qbcc_notice_previews.length > 0
@@ -1347,7 +1422,11 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                   setShowNoticePopup(true);
                   return;
                 }
-                handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                if (syncId) {
+                  handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
+                } else {
+                  handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                }
                 return;
               } else {
                 if (planName === "Basic" && notice_previews.length > 0) {
@@ -1376,21 +1455,35 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
           }
         } else {
           let response;
-          if (syncId) {
-            response = await CreateAccountInPaytrade(
+          if (ErrorCode === "SCHEDULER_BANK_MISSING_FIELDS") {
+            // 🔁 Special case: call the scheduler API
+            response = await CreateOrUpdateAccountInPaytrade(
               {
                 syncId,
                 accountId: xeroAccountId,
                 companyId: selectedCompanyId,
+                accountStatus: xeroAccountStatus,
                 payload,
               },
               "This bank account has been added."
             );
           } else {
-            response = await AddBankAccount(
-              payload,
-              "This bank account has been added."
-            );
+            if (syncId) {
+              response = await CreateAccountInPaytrade(
+                {
+                  syncId,
+                  accountId: xeroAccountId,
+                  companyId: selectedCompanyId,
+                  payload,
+                },
+                "This bank account has been added."
+              );
+            } else {
+              response = await AddBankAccount(
+                payload,
+                "This bank account has been added."
+              );
+            }
           }
           setLoaderInfo("");
           if (response) {
@@ -1516,7 +1609,20 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         setLoaderInfo("Checking subscription...");
 
         const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
+        // 🔥 FREE PLAN → ALWAYS ALLOW (no popup, no restriction)
+        const isFreePlanEligible =
+          subscriptionResponse?.is_free_plan_eligible === true;
 
+        if (isFreePlanEligible) {
+          formik.handleChange("DelegateStatus")(selectedOption?.value);
+          setLoader(false);
+          setLoaderInfo("");
+          setIsFree(isFreePlanEligible);
+          return;
+        }
+        // -----------------------------
+        // 🔹 NORMAL DELEGATE AUTHORITY CHECK
+        // -----------------------------
         const delegateItem =
           subscriptionResponse?.plan_items?.find(
             (item: any) => item.item_name === "Delegate authority"

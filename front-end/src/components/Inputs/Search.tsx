@@ -1,6 +1,7 @@
 import { ChangeEvent, Fragment, useEffect, useState } from "react";
 
 interface SearchProps {
+  value?: string; // ✅ external controlled value (optional)
   onChange: (value: string) => void; // Function to handle changes in the search term
   label?: string; // Optional label for the search field
   placeholder?: string; // Placeholder text when the input is empty (defaults to "Search")
@@ -22,6 +23,7 @@ interface SearchProps {
  * @returns - The rendered search input field.
  */
 export default function Search({
+  value = "",
   label,
   placeholder,
   hint,
@@ -37,6 +39,11 @@ export default function Search({
 }: Readonly<SearchProps>) {
   // Internal state to manage the search term before debounced onChange call
   const [internalValue, setInternalValue] = useState("");
+
+  // ✅ Keep internal value in sync with external updates
+  useEffect(() => {
+    setInternalValue(value);
+  }, [value]);
 
   // Debounce onChange call using useEffect
   useEffect(() => {

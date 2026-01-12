@@ -1,5 +1,5 @@
 const compliancesListHeaders = [
-  { dataKey: "company_name", title: "Company Profile" },
+  { dataKey: "company_name", title: "Business Profile" },
   { dataKey: "project_name", title: "Project Name" },
   { dataKey: "project_added_on_date", title: "Date Added" },
   { dataKey: "site_address", title: "Site Address" },

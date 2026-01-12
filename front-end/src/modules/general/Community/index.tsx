@@ -33,7 +33,7 @@ export default function Community() {
 
   useEffect(() => {
     import("@lottiefiles/lottie-player");
-  });
+  }, []);
 
   useEffect(() => {
     getTopCards();

@@ -4,7 +4,7 @@ import CustomButton from "@/components/CustomButton/CustomButton";
 import ToggleInputGroup from "@/components/Inputs/ToggleInputGroup";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { buttonType, InputType, uploadFile } from "@/shared/constant/general";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import {
   attachmentType,
@@ -52,11 +52,13 @@ export default function UpdatePremiumNotices({
   const { accessTokenId, decodeTokenData } = useTokenDetails();
 
   const [noticeAttachment, setNoticeAttachment] = useState<any>([]);
+
   const [existingNoticeAttachment, setExistingNoticeAttachment] = useState<any>(
     []
   );
 
   const [supportAttachment, setSupportAttachment] = useState<any>([]);
+
   const [existingSupportAttachment, setExistingSupportAttachment] =
     useState<any>([]);
 
@@ -75,6 +77,10 @@ export default function UpdatePremiumNotices({
   const reduxUserMode = useAppSelector(
     (state: RootState) => state.userMode.mode
   );
+
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.includes("/admin");
+  const hasNoticeSource = !!noticeData?.source_type;
 
   // Fallback to localStorage if Redux state is empty (e.g., after a page refresh)
   const localStorageUserMode =
@@ -113,8 +119,8 @@ export default function UpdatePremiumNotices({
         setNoticeData(apiData);
 
         setSentCheckBox(
-          noticeData?.status === "Sent" ||
-            noticeData?.status === "Sent - Onboarded" ||
+          apiData?.status === "Sent" ||
+            apiData?.status === "Sent - Onboarded" ||
             false
         );
 
@@ -153,6 +159,10 @@ export default function UpdatePremiumNotices({
   }
 
   function handleCheckboxChange(e: any) {
+    // const isPaidViewType =
+    //   noticeData?.ViewType === "Paid" ||
+    //   noticeData?.ViewType === "Paid-delegated";
+    // console.log("🚀 ~ onHandleSaveClick ~ isPaidViewType:", isPaidViewType);
     if (!SupportDocNotRequiredNoticeTypes.includes(noticeData?.notice_type))
       if (
         noticeAttachment?.length === 0 &&
@@ -174,15 +184,15 @@ export default function UpdatePremiumNotices({
       showErrorToast("Please upload the notice template ");
       return;
     }
-    if (!SupportDocNotRequiredNoticeTypes.includes(noticeData?.notice_type))
-      if (
-        supportAttachment?.length === 0 &&
-        existingSupportAttachment?.length == 0 &&
-        !sentCheckBox
-      ) {
-        showErrorToast("Please upload the supporting document  ");
-        return;
-      }
+    // if (!SupportDocNotRequiredNoticeTypes.includes(noticeData?.notice_type))
+    //   if (
+    //     supportAttachment?.length === 0 &&
+    //     existingSupportAttachment?.length == 0 &&
+    //     !sentCheckBox
+    //   ) {
+    //     showErrorToast("Please upload the supporting document  ");
+    //     return;
+    //   }
     if (
       !sentCheckBox &&
       QBCCNoticeTypesOnly.includes(noticeData?.notice_type)
@@ -239,8 +249,8 @@ export default function UpdatePremiumNotices({
 
   function truncateName(file: any, isDeleteHidden?: boolean) {
     const fileName = file?.name || file?.file_name;
-    return fileName?.length > 35 && !isDeleteHidden
-      ? fileName.slice(0, 35).concat("...")
+    return fileName?.length > 70 && !isDeleteHidden
+      ? fileName.slice(0, 70).concat("...")
       : fileName;
   }
 
@@ -338,15 +348,15 @@ export default function UpdatePremiumNotices({
         setDisabledSaveBtn(false);
         return;
       }
-      if (!SupportDocNotRequiredNoticeTypes.includes(noticeData?.notice_type))
-        if (
-          supportAttachment?.length === 0 &&
-          existingSupportAttachment?.length == 0
-        ) {
-          showErrorToast("Please upload the Supporting Document  ");
-          setDisabledSaveBtn(false);
-          return;
-        }
+      // if (!SupportDocNotRequiredNoticeTypes.includes(noticeData?.notice_type))
+      //   if (
+      //     supportAttachment?.length === 0 &&
+      //     existingSupportAttachment?.length == 0
+      //   ) {
+      //     showErrorToast("Please upload the Supporting Document  ");
+      //     setDisabledSaveBtn(false);
+      //     return;
+      //   }
       setLoader(true);
       setLoaderInfo("Saving notice...");
       if (noticeAttachment?.length > 0 || supportAttachment?.length > 0)
@@ -611,7 +621,7 @@ export default function UpdatePremiumNotices({
               <h5>
                 <b>Notice ID:</b> {noticeData?.notice_id}
               </h5>
-              <h5>
+              {/* <h5>
                 Status:{" "}
                 <b
                   className={
@@ -622,6 +632,24 @@ export default function UpdatePremiumNotices({
                   }
                 >
                   {noticeData?.status ? noticeData?.status.toUpperCase() : ""}
+                </b>
+              </h5> */}
+              <h5>
+                Status:{" "}
+                <b
+                  className={
+                    noticeData?.status === "Draft" ||
+                    noticeData?.status === "Not Sent" ||
+                    noticeData?.notice_document_gen_failed === true
+                      ? "invalid"
+                      : "valid"
+                  }
+                >
+                  {noticeData?.status
+                    ? noticeData?.notice_document_gen_failed === true
+                      ? `${noticeData?.status} – Notice Attachment Failed`
+                      : noticeData?.status.toUpperCase()
+                    : ""}
                 </b>
               </h5>
             </div>
@@ -733,13 +761,27 @@ export default function UpdatePremiumNotices({
                 <div className="mb_1">
                   <h5 className=" mb_0_5">Notice Source</h5>
                   <p
-                    onClick={() => routeToNoticesSource(noticeData)}
+                    onClick={() => {
+                      if (!isAdminRoute && noticeData?.source_type) {
+                        routeToNoticesSource(noticeData);
+                      }
+                    }}
                     style={{
-                      cursor: noticeData?.source_type ? "pointer" : "default",
-                      textDecoration: noticeData?.source_type
-                        ? "underline"
-                        : "none",
-                      color: noticeData?.source_type ? "#1583d8" : "#333",
+                      cursor:
+                        !isAdminRoute && noticeData?.source_type
+                          ? "pointer"
+                          : "default",
+                      textDecoration:
+                        !isAdminRoute && noticeData?.source_type
+                          ? "underline"
+                          : "none",
+                      color:
+                        !isAdminRoute && hasNoticeSource
+                          ? "#1583db" // keep blue
+                          : isAdminRoute && hasNoticeSource
+                          ? "var(--text-disabled)" // disabled in admin
+                          : "var(--text-primary)", // normal text
+
                       marginTop: "0.8rem",
                       fontSize: "12px",
                     }}
@@ -825,7 +867,7 @@ export default function UpdatePremiumNotices({
                               {truncateName(
                                 fileObj,
                                 fileObj?.attachment_type !==
-                                  attachmentType.QBCC_ATTACHMENT && !isArchived
+                                  attachmentType.QBCC_ATTACHMENT && isArchived
                               )}
                             </span>
 

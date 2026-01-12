@@ -42,7 +42,10 @@ import { jwtDecode } from "jwt-decode";
 import { setAppUserDetails } from "@/redux/slices/userRegistrationSlice";
 import { useAppDispatch } from "@/redux/store";
 import BaseModal from "@/components/BaseModal";
-import { AdminUpdateCompany } from "../AddBusinessProfiles/AddBusinessProfile.function";
+import {
+  AdminUpdateCompany,
+  UpdateBusinessFreeAccess,
+} from "../AddBusinessProfiles/AddBusinessProfile.function";
 import { Roles } from "@/shared/constant/role";
 import { useTokenDetails } from "@/hooks";
 
@@ -56,6 +59,7 @@ export default function BusinessProfilesList() {
   const [statusType, setStatusType] = useState("");
   const [totalRows, setTotalRows] = useState(0);
   const [tableLoader, setTableLoader] = useState(false);
+  const [freePlanModel, setFreePlanModal] = useState(false);
   const [singleselectedPlan, setSingleSelectedPlan] = useState<string | null>(
     null
   );
@@ -195,6 +199,37 @@ export default function BusinessProfilesList() {
       },
       conditionalApiDisplayKey: "allowaccess",
     },
+    {
+      label: "Enable Free Premium Access",
+      icon: "fa-light fa-badge-check",
+      onClick: (row: IBusinessListDetail) => {
+        setActionData({
+          ...row,
+        });
+
+        setPopUpHeaderMsg(
+          "Are you sure you want to make this business profile eligible for the free premium access?"
+        );
+        setFreePlanModal(true);
+      },
+      conditionalApiDisplayKey: "allowfreeplan",
+    },
+    {
+      label: "Disable Free Premium Access",
+      icon: "fa-light fa-circle-xmark",
+      style: "primary",
+      onClick: (row: IBusinessListDetail) => {
+        setActionData({
+          ...row,
+        });
+
+        setPopUpHeaderMsg(
+          "Are you sure you want to remove free premium access from this business profile?"
+        );
+        setFreePlanModal(true);
+      },
+      conditionalApiDisplayKey: "freeplanallowed",
+    },
   ];
 
   // Row click handler
@@ -270,6 +305,8 @@ export default function BusinessProfilesList() {
               allowaccess:
                 !listObj?.is_admin_blocked &&
                 decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE,
+              allowfreeplan: !listObj?.is_free_plan_eligible,
+              freeplanallowed: listObj?.is_free_plan_eligible,
             },
           };
         });
@@ -505,6 +542,25 @@ export default function BusinessProfilesList() {
     }
   };
 
+  async function handleOptionSelection() {
+    setLoader(true);
+
+    let payload = {
+      is_free_plan_eligible: !actionData?.is_free_plan_eligible,
+      company_id: actionData?.company_id,
+    };
+
+    const response = await UpdateBusinessFreeAccess(payload);
+    if (response) {
+      getAdminListAllCompanies(currentPage, entriesPerPage);
+      // showSuccessToast("FAQ list updated successfully");
+    } else {
+      showErrorToast("Business list update failed");
+    }
+    setFreePlanModal(false);
+    setLoader(false);
+  }
+
   return (
     <div className="container-fluid">
       <div className="pt_title">
@@ -711,6 +767,24 @@ export default function BusinessProfilesList() {
                 )}
               </>
             )}
+          </BaseModal>
+        )}
+        {freePlanModel && (
+          <BaseModal
+            modalId="FreePlanModal"
+            displayModal={freePlanModel}
+            onClose={() => {
+              setFreePlanModal(false);
+            }}
+            onConfirm={async () => {
+              handleOptionSelection();
+              return true;
+            }}
+            firstButtonName="Cancel"
+            secondButtonName="Yes"
+          >
+            {/* Modal heading can be placed here if needed */}
+            <div className="text_center">{popUpHeaderMsg}</div>
           </BaseModal>
         )}
       </div>

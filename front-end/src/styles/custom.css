@@ -1671,3 +1671,18 @@ small i {
 [data-theme="dark"] .chat-input-container .edit-btn {
   background-color: var(--pico-primary);
 }
+
+/* for scroll text only */
+
+.scroll-anim:hover {
+  animation: scroll-text 6s linear infinite;
+}
+
+@keyframes scroll-text {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}

@@ -43,6 +43,7 @@ export default function SyncLogDetailsBasic() {
 
   const [syncLogDetailsData, setSyncLogDetailsData] = useState<any>([]);
   const [loading, setLoading] = useState(false);
+  const [claimType, setClaimType] = useState<any>("");
   const [viewLogData, setViewLogData] = useState<any>();
   const [resolveInprogress, setResolveInprogress] = useState(false);
   const statusColors = {
@@ -127,6 +128,15 @@ export default function SyncLogDetailsBasic() {
     }).then((data) => {
       setLoading(false);
       setViewLogData(data);
+      if (data?.xero_records?.length > 0) {
+        const xeroType = data?.xero_records?.[0]?.type || "";
+        const isReceivable = xeroType.toUpperCase().includes("RECEIVE");
+
+        const claimType = isReceivable ? "Receivable" : "Billable";
+        // store in state
+        setClaimType(claimType);
+      }
+
       if (data.sync_type == "Contacts") {
         data.paytrade_details["contact_name"] =
           data.paytrade_details["client_supplier_name"];
@@ -553,7 +563,10 @@ export default function SyncLogDetailsBasic() {
     if (
       !response &&
       (viewLogData?.error_code == "WH_OVERPAYMENT_MISSING_FIELDS" ||
-        viewLogData?.error_code == "WH_OVERPAYMENT_REFUND_MISSING_FIELDS")
+        viewLogData?.error_code == "WH_OVERPAYMENT_REFUND_MISSING_FIELDS" ||
+        viewLogData?.error_code == "SCHEDULER_OVERPAYMENT_MISSING_FIELDS" ||
+        viewLogData?.error_code ==
+          "SCHEDULER_OVERPAYMENT_REFUND_MISSING_FIELDS")
     ) {
       try {
         await handleGetSupplierList();
@@ -615,6 +628,7 @@ export default function SyncLogDetailsBasic() {
         : null,
       projectId: projectId ? +projectId : null,
       syncId: viewLogData?.id ?? null,
+      syncRunType: viewLogData?.api_payload?.sync_run_type || null,
     });
     setLoading(false);
     resetOverpaymentValue();
@@ -655,7 +669,10 @@ export default function SyncLogDetailsBasic() {
 
     try {
       const { invoice_id, tenant_id } = viewLogData?.api_payload;
-      if (viewLogData.error_code == "WH_MISSING_NON_PAID_REASONS") {
+      if (
+        viewLogData.error_code == "WH_MISSING_NON_PAID_REASONS" ||
+        viewLogData.error_code == "SCHEDULER_MISSING_NON_PAID_REASONS"
+      ) {
         await CreateClaimInPaytradeForTable({
           associatedRetentionSubPaymentId: null,
           claimsWithReason,
@@ -664,6 +681,7 @@ export default function SyncLogDetailsBasic() {
           retentionId: null,
           syncId: viewLogData?.id,
           tenantId: tenant_id,
+          syncRunType: viewLogData?.api_payload?.sync_run_type || null,
         });
       } else if (
         viewLogData.error_code == "XP_ADD_INVOICE_MISSING_NON_PAID_REASONS"
@@ -717,6 +735,8 @@ export default function SyncLogDetailsBasic() {
           [
             "WH_MISSING_SUPPORTING_ATTACHMENTS",
             "WH_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS",
+            "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS,",
+            "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS",
           ].includes(viewLogData.error_code)
         ) {
           await CreateClaimInPaytradeForTable({
@@ -727,6 +747,7 @@ export default function SyncLogDetailsBasic() {
             retentionId: null,
             syncId: viewLogData?.id,
             tenantId: tenant_id,
+            syncRunType: viewLogData?.api_payload?.sync_run_type || null,
           });
         } else if (
           viewLogData.error_code ==
@@ -763,6 +784,7 @@ export default function SyncLogDetailsBasic() {
         invoiceId: viewLogData?.api_payload?.invoice_id,
         associatedRetentionSubPaymentId: null,
         retentionId: null,
+        syncRunType: viewLogData?.api_payload?.sync_run_type || null,
       });
       setOpenTextareaModel(false);
       getViewSyncLogDetails();
@@ -816,7 +838,7 @@ export default function SyncLogDetailsBasic() {
 
       const response: any = await fetchAllPaymentClaims({
         cash_retention_type: null,
-        claim_type: "Billable",
+        claim_type: claimType || null,
         contract_id: null,
         company_id: companyId || null,
         items_per_page: null,
@@ -860,7 +882,7 @@ export default function SyncLogDetailsBasic() {
       const response = await fetchClientSuppliersList(payload);
       if (response?.client_suppliers_list.length > 0) {
         const customSupplierOption = response?.client_suppliers_list
-          .filter((each: any) => each?.client_supplier_type === "Supplier")
+          // .filter((each: any) => each?.client_supplier_type === "Supplier")
           .map((data: any) => ({
             label: data.client_supplier_name,
             value: data.client_supplier_id.toString(),
@@ -961,7 +983,10 @@ export default function SyncLogDetailsBasic() {
   };
 
   function isOverpaymentSecondButtonDisabled() {
-    if (viewLogData?.error_code === "WH_OVERPAYMENT_REFUND_MISSING_FIELDS") {
+    if (
+      viewLogData?.error_code === "WH_OVERPAYMENT_REFUND_MISSING_FIELDS" ||
+      viewLogData?.error_code == "SCHEDULER_OVERPAYMENT_REFUND_MISSING_FIELDS"
+    ) {
       return !(
         projectSelectedValue &&
         paymentClaimSelectedData &&
@@ -1142,24 +1167,54 @@ export default function SyncLogDetailsBasic() {
                       }}
                     >
                       <h6>Error Message</h6>
-                      {syncLogDetailsData?.error_message}{" "}
-                      <button
+                      <div
                         style={{
-                          width: "auto",
-                          marginLeft: "10px",
-                          paddingRight: "10px",
+                          display: "flex",
+                          alignItems: "center", // ✅ vertically aligns text & button
+                          justifyContent: "flex-start", // ✅ keeps them side by side
+                          gap: "8px", // ✅ small space between
+                          flexWrap: "wrap", // ✅ allows wrapping for long text
                         }}
-                        onClick={() => resolveHandle()}
                       >
-                        <i
-                          className="fa-light fa-refresh"
+                        <span
                           style={{
-                            marginRight: "10px",
-                            marginLeft: "10px",
+                            flex: 1, // places it below the heading
+                            whiteSpace: "normal",
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                            lineHeight: "1.5",
+                            margin: 0,
                           }}
-                        ></i>
-                        {resolveInprogress ? "Inprogress..." : "Resolve"}
-                      </button>
+                        >
+                          {syncLogDetailsData?.error_message}
+                        </span>
+                        <button
+                          style={{
+                            whiteSpace: "nowrap",
+                            padding: "6px 14px",
+                            backgroundColor: "#FF4B4B",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "fit-content", // ✅ aligns well with text height
+                            margin: 0,
+                          }}
+                          onClick={() => resolveHandle()}
+                        >
+                          <i
+                            className="fa-light fa-refresh"
+                            style={{
+                              marginRight: "10px",
+                              marginLeft: "10px",
+                            }}
+                          ></i>
+                          {resolveInprogress ? "Inprogress..." : "Resolve"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1443,9 +1498,13 @@ export default function SyncLogDetailsBasic() {
           </p>
           <div style={{ marginBottom: "0.8rem" }}>
             <SearchableSelect
-              placeholder="Select Supplier "
+              placeholder={
+                claimType === "Receivable"
+                  ? "Select Client"
+                  : "Select Supplier "
+              }
               name="other payments"
-              label="Supplier"
+              label={claimType === "Receivable" ? "Client" : "Supplier"}
               onChange={(selectedOption: any) => {}}
               selectedData={supplierSelectedValue}
               disabled={true}
@@ -1512,21 +1571,23 @@ export default function SyncLogDetailsBasic() {
               isInPopup={true}
             />
           </div>
-          {viewLogData.error_code == "WH_OVERPAYMENT_REFUND_MISSING_FIELDS" && (
-            <SearchableSelect
-              placeholder="Select Overpayment"
-              name="other payments"
-              label="Overpayment"
-              onChange={(selectedOption: any) => {
-                setOverPaymentsSelectedValue(selectedOption);
-              }}
-              selectedData={overPaymentsSelectedValue}
-              options={overPaymentList}
-              renderKey="label"
-              valueKey="value"
-              required
-            />
-          )}
+          {viewLogData.error_code == "WH_OVERPAYMENT_REFUND_MISSING_FIELDS" ||
+            (viewLogData?.error_code ==
+              "SCHEDULER_OVERPAYMENT_REFUND_MISSING_FIELDS" && (
+              <SearchableSelect
+                placeholder="Select Overpayment"
+                name="other payments"
+                label="Overpayment"
+                onChange={(selectedOption: any) => {
+                  setOverPaymentsSelectedValue(selectedOption);
+                }}
+                selectedData={overPaymentsSelectedValue}
+                options={overPaymentList}
+                renderKey="label"
+                valueKey="value"
+                required
+              />
+            ))}
         </BaseModal>
       )}
       {openGeneratedClaimModel && generateClaimData?.length > 0 && (
@@ -1589,7 +1650,9 @@ export default function SyncLogDetailsBasic() {
                   existingFiles={compulsoryAttachments}
                   displayInfoIcon={
                     viewLogData.error_code ==
-                    "WH_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS"
+                      "WH_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS" ||
+                    viewLogData.error_code ==
+                      "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS"
                       ? false
                       : true
                   }

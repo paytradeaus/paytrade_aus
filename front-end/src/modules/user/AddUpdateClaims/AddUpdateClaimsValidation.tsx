@@ -50,12 +50,24 @@ const validationSchema = yup.object().shape({
     }
     return yup.string().notRequired();
   }),
-  retentionPercentage: yup.number().when(["cashRetention"], (value: any) => {
-    if (value[0] == "Retention") {
-      return yup.string().required("Retention percentage is required");
-    }
-    return yup.string().notRequired();
-  }),
+  // retentionPercentage: yup.number().when(["cashRetention"], (value: any) => {
+  //   if (value[0] == "Retention") {
+  //     return yup.string().required("Retention percentage is required");
+  //   }
+  //   return yup.string().notRequired();
+  // }),
+  retentionPercentage: yup
+    .number()
+    .typeError("Retention percentage must be a number")
+    .when("cashRetention", {
+      is: (val: string) => val === "Retention",
+      then: (schema) =>
+        schema
+          .required("Retention percentage is required")
+          .min(0.01, "Value must be greater than 0")
+          .max(100, "Value cannot exceed 100"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   sentDate: yup
     .string()
     .when(["claim_type", "cash_retention_type"], (otherFieldData: any) => {

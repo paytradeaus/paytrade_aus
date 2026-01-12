@@ -54,6 +54,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
   const [paymentsPatchData, setPaymentsPatchData] = useState<any>(null);
   const [retentionBankAccounts, setRetentionBankAccounts] = useState<any[]>([]);
   const [clientRole, setClientRole] = useState<string | null>(null);
+  const [claimStatus, setClaimStatus] = useState<any>("");
   const [projectRole, setProjectRole] = useState<string | null>(null);
   const [generateClaimData, setGenerateClaimData] = useState<any[]>([]);
   const [openGenereatedClaimModel, setOpenGenereatedClaimModel] =
@@ -64,6 +65,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
   const [isReasonDataLoaded, setIsReasonDataLoaded] = useState(false);
   const [generateClaimCount, setGenerateClaimCount] = useState<number>(0);
   const [showNoticePopup, setShowNoticePopup] = useState(false);
+  const [isFree, setIsFree] = useState(false);
   const [noticeFiles, setNoticeFiles] = useState<any[]>([]);
   const [noticeMailUuids, setNoticeMailUuids] = useState<string[]>([]);
   const [qbccNoticeFiles, setQbccNoticeFiles] = useState<any[]>([]);
@@ -149,7 +151,9 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
   const [paymentToOptions, setPaymentToOptions] = useState([]);
   const [disableDraftButton, setDisableDraftButton] = useState(false);
   const [importClaimsAPIData, setImportClaimAPIData] = useState("");
-  const isBasic = subscriptionPlanName === SubscriptionPlanTypes.BASIC;
+  // const isBasic = subscriptionPlanName === SubscriptionPlanTypes.BASIC;
+  const isBasic =
+    subscriptionPlanName === SubscriptionPlanTypes.BASIC && !isFree;
   const isPaid = generateClaimData?.length === 0;
   const isNotPaid = generateClaimData?.length > 0;
 
@@ -368,7 +372,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
 
       // CASE: Paid plan, Not Paid
       if (
-        !isEditable &&
+        // !isEditable &&
         !skipSubscriptionTrigger &&
         !isBasic &&
         isNotPaid &&
@@ -376,6 +380,8 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         formik?.values?.claim_type === "Receivable" &&
         projectRole === "Head Contractor" &&
         clientRole === "Principal"
+        // ((isEditable && claimStatus === "Draft") || // editable + draft only
+        //   !isEditable) // if not editable, just check existence
       ) {
         const hasEmptyReasons = generateClaimData?.some(
           (item: any) => (item.user_input || "").trim() === ""
@@ -389,7 +395,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
 
       // CASE: Paid plan, All Paid
       if (
-        !isEditable &&
+        // !isEditable &&
         !skipSubscriptionTrigger &&
         !isBasic &&
         isPaid &&
@@ -397,6 +403,8 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         formik?.values?.claim_type === "Receivable" &&
         projectRole === "Head Contractor" &&
         clientRole === "Principal"
+        // ((isEditable && claimStatus === "Draft") || // editable + draft only
+        //   !isEditable)
       ) {
         if (!formik?.values?.paidDeclaration) {
           showErrorToast(
@@ -459,7 +467,8 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
 
         isSupportingDocRequired() &&
         alreadyDoc.length === 0 &&
-        !skipNoticesTrigger
+        !skipNoticesTrigger &&
+        !isFree
       ) {
         showErrorToast("Please add a supporting statement attachment");
         setDisableDraftButton(false);
@@ -556,7 +565,8 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         contract_id: selectedContractID
           ? Number(selectedContractID)
           : Number(formik.values.contractId) || null,
-        due_date: dateStringToUtcConversion(values.dueDate),
+        due_date: values?.dueDate || null,
+
         cash_retention: values?.cashRetention == "Retention" ? true : false,
         retention_amount:
           values?.cashRetention == "Retention"
@@ -589,6 +599,27 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         }),
       };
 
+      // Build pending_claims_with_reason array
+      let pendingClaimsWithReason: any = [];
+
+      if (
+        generateClaimData?.length > 0 &&
+        generateClaimData.some(
+          (item: any) => (item.user_input || "").trim() !== ""
+        )
+      ) {
+        pendingClaimsWithReason = generateClaimData.map((item: any) => ({
+          payment_claim_id: item?.payment_claim_id || null,
+          reason: item?.user_input || null,
+        }));
+      }
+
+      // Attach to payload
+      payload = {
+        ...payload,
+        pending_claims_with_reason: pendingClaimsWithReason,
+      };
+
       if (CashRetentionType === "RetentionClaim") {
         payload = {
           ...payload,
@@ -600,14 +631,16 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
       if (togglePaymentReceivables()) {
         payload = {
           ...payload,
-          sent_date: dateStringToUtcConversion(values.sentDate) || null,
+          sent_date: values?.sentDate || null,
+
           compulsory_attachment_ids: compulsoryAttachmentIds || [],
           optional_attachment_ids: optionalAttachmentIds || [],
         };
       } else {
         payload = {
           ...payload,
-          received_date: dateStringToUtcConversion(values.receivedDate) || null,
+          received_date: values?.receivedDate || null,
+
           optional_attachment_ids: optionalAttachmentIds || [],
           optional_supporting_statement_attachment_ids:
             otherOptionalAttachmentIds || [],
@@ -625,7 +658,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
             : Number(values.contractId) || null,
           project_id: Number(values.projectId) || null,
           memo: values.memo,
-          due_date: dateStringToUtcConversion(values.dueDate) || null,
+          due_date: values?.dueDate || null,
           payment_claim_id: claimData?.payment_claim_id || null,
           status: skipNoticesTrigger ? "Draft" : "Confirmed",
           is_gst_optional: values?.isGstChecked,
@@ -656,15 +689,33 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
             };
           }),
         };
+
+        let pendingClaimsWithReasonInEdit: any = [];
+
+        if (
+          generateClaimData?.length > 0 &&
+          generateClaimData.some(
+            (item: any) => (item.user_input || "").trim() !== ""
+          )
+        ) {
+          pendingClaimsWithReasonInEdit = generateClaimData.map(
+            (item: any) => ({
+              payment_claim_id: item?.payment_claim_id || null,
+              reason: item?.user_input || null,
+            })
+          );
+        }
+
+        modifiedPayload.pending_claims_with_reason =
+          pendingClaimsWithReasonInEdit;
+
         if (togglePaymentReceivables()) {
-          modifiedPayload.sent_date =
-            dateStringToUtcConversion(formik.values.sentDate) || null;
+          modifiedPayload.sent_date = formik?.values?.sentDate || null;
           modifiedPayload.compulsory_attachment_ids =
             compulsoryAttachmentIds || [];
           modifiedPayload.optional_attachment_ids = optionalAttachmentIds || [];
         } else {
-          modifiedPayload.received_date =
-            dateStringToUtcConversion(formik.values.receivedDate) || null;
+          modifiedPayload.received_date = formik?.values?.receivedDate || null;
           modifiedPayload.optional_attachment_ids = optionalAttachmentIds || [];
           modifiedPayload.optional_supporting_statement_attachment_ids =
             otherOptionalAttachmentIds || [];
@@ -674,6 +725,83 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         const editResponse = await editDetailsOfAPaymentClaim(modifiedPayload);
         setLoaderInfo("");
         if (editResponse) {
+          const newClaimId = editResponse?.payment_claim_id;
+
+          // if (
+          //   !skipSubscriptionTrigger &&
+          //   !isBasic &&
+          //   isPaid &&
+          //   values?.claim_type === "Receivable" &&
+          //   projectRole === "Head Contractor" &&
+          //   clientRole === "Principal" &&
+          //   userMode !== "Onboarding" &&
+          //   isEditable &&
+          //   // claimStatus === "Draft" &&
+          //   formik?.values?.cash_retention_type === "Claim"
+          // ) {
+          //   const reasonPayload = {
+          //     claims_with_reason: [],
+          //     new_claim_id: newClaimId || null,
+          //     project_id: Number(values?.projectId) || null,
+          //   };
+
+          //   try {
+          //     setLoaderInfo("Generating S75 Document...");
+          //     const result = await GenerateS75DocumentService(reasonPayload);
+          //     setLoaderInfo("");
+
+          //     if (!result) {
+          //       setDisableDraftButton(false);
+          //       return; // stop if S75 doc fails
+          //     }
+          //   } catch (error) {
+          //     setLoaderInfo("");
+          //     setDisableDraftButton(false);
+          //     return;
+          //   }
+          // }
+
+          // ⚠️ Check if reason submission is required
+          // if (
+          //   !skipSubscriptionTrigger &&
+          //   !isBasic &&
+          //   isNotPaid &&
+          //   values?.claim_type === "Receivable" &&
+          //   projectRole === "Head Contractor" &&
+          //   clientRole === "Principal" &&
+          //   generateClaimData?.length > 0 &&
+          //   userMode !== "Onboarding" &&
+          //   isEditable &&
+          //   // claimStatus === "Draft" &&
+          //   formik?.values?.cash_retention_type === "Claim"
+          // ) {
+          //   const formattedReasons = generateClaimData.map((item: any) => ({
+          //     payment_claim_id: item?.payment_claim_id || null,
+          //     reason: item?.user_input || null,
+          //   }));
+
+          //   const reasonPayload = {
+          //     claims_with_reason: formattedReasons || [],
+          //     new_claim_id: newClaimId || null,
+          //     project_id: Number(values?.projectId) || null,
+          //   };
+
+          //   try {
+          //     setLoaderInfo("Generating S75 Document...");
+          //     const result = await GenerateS75DocumentService(reasonPayload);
+          //     setLoaderInfo("");
+
+          //     if (!result) {
+          //       setDisableDraftButton(false);
+          //       return; // stop if S75 doc fails
+          //     }
+          //   } catch (error) {
+          //     setLoaderInfo("");
+          //     setDisableDraftButton(false);
+          //     return;
+          //   }
+          // }
+
           if (!skipNoticesTrigger && !togglePaymentBillables()) {
             const { notice_previews = [], qbcc_notice_previews = [] } =
               editResponse?.notices || {};
@@ -720,74 +848,76 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         if (response) {
           const newClaimId = response?.payment_claim_id;
 
-          if (
-            !skipSubscriptionTrigger &&
-            !isBasic &&
-            isPaid &&
-            values?.claim_type === "Receivable" &&
-            projectRole === "Head Contractor" &&
-            clientRole === "Principal" &&
-            userMode !== "Onboarding"
-          ) {
-            const reasonPayload = {
-              claims_with_reason: [],
-              new_claim_id: newClaimId || null,
-              project_id: Number(values?.projectId) || null,
-            };
+          // if (
+          //   !skipSubscriptionTrigger &&
+          //   !isBasic &&
+          //   isPaid &&
+          //   values?.claim_type === "Receivable" &&
+          //   projectRole === "Head Contractor" &&
+          //   clientRole === "Principal" &&
+          //   userMode !== "Onboarding" &&
+          //   formik?.values?.cash_retention_type === "Claim"
+          // ) {
+          //   const reasonPayload = {
+          //     claims_with_reason: [],
+          //     new_claim_id: newClaimId || null,
+          //     project_id: Number(values?.projectId) || null,
+          //   };
 
-            try {
-              setLoaderInfo("Generating S75 Document...");
-              const result = await GenerateS75DocumentService(reasonPayload);
-              setLoaderInfo("");
+          //   try {
+          //     setLoaderInfo("Generating S75 Document...");
+          //     const result = await GenerateS75DocumentService(reasonPayload);
+          //     setLoaderInfo("");
 
-              if (!result) {
-                setDisableDraftButton(false);
-                return; // stop if S75 doc fails
-              }
-            } catch (error) {
-              setLoaderInfo("");
-              setDisableDraftButton(false);
-              return;
-            }
-          }
+          //     if (!result) {
+          //       setDisableDraftButton(false);
+          //       return; // stop if S75 doc fails
+          //     }
+          //   } catch (error) {
+          //     setLoaderInfo("");
+          //     setDisableDraftButton(false);
+          //     return;
+          //   }
+          // }
 
           // ⚠️ Check if reason submission is required
-          if (
-            !skipSubscriptionTrigger &&
-            !isBasic &&
-            isNotPaid &&
-            values?.claim_type === "Receivable" &&
-            projectRole === "Head Contractor" &&
-            clientRole === "Principal" &&
-            generateClaimData?.length > 0 &&
-            userMode !== "Onboarding"
-          ) {
-            const formattedReasons = generateClaimData.map((item: any) => ({
-              payment_claim_id: item?.payment_claim_id || null,
-              reason: item?.user_input || null,
-            }));
+          // if (
+          //   !skipSubscriptionTrigger &&
+          //   !isBasic &&
+          //   isNotPaid &&
+          //   values?.claim_type === "Receivable" &&
+          //   projectRole === "Head Contractor" &&
+          //   clientRole === "Principal" &&
+          //   generateClaimData?.length > 0 &&
+          //   userMode !== "Onboarding" &&
+          //   formik?.values?.cash_retention_type === "Claim"
+          // ) {
+          //   const formattedReasons = generateClaimData.map((item: any) => ({
+          //     payment_claim_id: item?.payment_claim_id || null,
+          //     reason: item?.user_input || null,
+          //   }));
 
-            const reasonPayload = {
-              claims_with_reason: formattedReasons || [],
-              new_claim_id: newClaimId || null,
-              project_id: Number(values?.projectId) || null,
-            };
+          //   const reasonPayload = {
+          //     claims_with_reason: formattedReasons || [],
+          //     new_claim_id: newClaimId || null,
+          //     project_id: Number(values?.projectId) || null,
+          //   };
 
-            try {
-              setLoaderInfo("Generating S75 Document...");
-              const result = await GenerateS75DocumentService(reasonPayload);
-              setLoaderInfo("");
+          //   try {
+          //     setLoaderInfo("Generating S75 Document...");
+          //     const result = await GenerateS75DocumentService(reasonPayload);
+          //     setLoaderInfo("");
 
-              if (!result) {
-                setDisableDraftButton(false);
-                return; // stop if S75 doc fails
-              }
-            } catch (error) {
-              setLoaderInfo("");
-              setDisableDraftButton(false);
-              return;
-            }
-          }
+          //     if (!result) {
+          //       setDisableDraftButton(false);
+          //       return; // stop if S75 doc fails
+          //     }
+          //   } catch (error) {
+          //     setLoaderInfo("");
+          //     setDisableDraftButton(false);
+          //     return;
+          //   }
+          // }
           if (!skipNoticesTrigger && !togglePaymentBillables()) {
             // Use notices from response directly
             const { notice_previews = [], qbcc_notice_previews = [] } =
@@ -1075,6 +1205,10 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         setDelegateAuthorityAllowed,
         noticesAutomated,
         setNoticesAutomated,
+        claimStatus,
+        setClaimStatus,
+        isFree,
+        setIsFree,
       }}
     >
       {children}

@@ -519,24 +519,22 @@ export default function VariationsList({ overViewDetails = {} }: any) {
               valueKey="value"
             />
           )}
-          <div>
-            {tabStatus !== tabOptions[1].value &&
-              (projectOptions?.length > 0 || contractOptions?.length > 0) && (
-                <FormikControl
-                  placeholder={"Select a status"}
-                  name="status"
-                  options={variationStatusOptions}
-                  control={InputType.SELECT}
-                  value={selectedStatusType}
-                  renderKey="label"
-                  valueKey="value"
-                  onChange={(value: any) => {
-                    setCurrentPage(1);
-                    setSelectedStatusType(value);
-                  }}
-                />
-              )}
-          </div>
+          {tabStatus !== tabOptions[1].value &&
+            (projectOptions?.length > 0 || contractOptions?.length > 0) && (
+              <FormikControl
+                placeholder={"Select a status"}
+                name="status"
+                options={variationStatusOptions}
+                control={InputType.SELECT}
+                value={selectedStatusType}
+                renderKey="label"
+                valueKey="value"
+                onChange={(value: any) => {
+                  setCurrentPage(1);
+                  setSelectedStatusType(value);
+                }}
+              />
+            )}
         </div>
       </div>
 

@@ -476,7 +476,7 @@ export const insertCompanyUserRoles = async (
   } catch (error) {
     // Handle errors appropriately, for example, show a toast notification
     console.error("GraphQL Error in insertCompanyUserRoles:", error);
-    toast.error("Error inserting company user roles. Please try again later.");
+    toast.error("Error inserting business user roles. Please try again later.");
     throw error;
   }
 };

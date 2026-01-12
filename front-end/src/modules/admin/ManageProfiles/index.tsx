@@ -349,15 +349,15 @@ function ManageSubscriptionProfiles() {
             />
           </div>
           <div className="pt_filteroptions">
-            <FormikControl
+            {/* <FormikControl
               control={InputType.SEARCH}
               onChange={(value: any) => handleSearch(value)}
               clearSearch={emptySearchField}
               placeholder={"Search by name"}
-            />
+            /> */}
 
             <SearchableSelect
-              placeholder="Select a company profile"
+              placeholder="Select a business profile"
               name="bankAccounts"
               options={availableCompanyOptions}
               onChange={(value: any) => handleCompanyChange(value)}

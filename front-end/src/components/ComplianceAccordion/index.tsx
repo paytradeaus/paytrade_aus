@@ -160,6 +160,9 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
           `${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${companyId}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}&routedFrom=compliance`
         );
         break;
+      case actionButtonType.VIEW_PAYMENTS:
+        router.push(`${AppRoutes.USER_PAYMENTS_TO_DO}`);
+        break;
       default:
         break;
     }

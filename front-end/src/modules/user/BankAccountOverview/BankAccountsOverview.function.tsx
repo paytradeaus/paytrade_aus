@@ -629,6 +629,7 @@ async function DeletePayments(data: any) {
       showSuccessToast("Payment has been Deleted.");
       return true;
     } else {
+      showErrorToast(response?.data?.changeStatusOfAPayment?.message);
       return null;
     }
   } catch (error: any) {

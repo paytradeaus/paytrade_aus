@@ -154,9 +154,17 @@ const MatchTransactions = () => {
             (item: any) => item.item_name === "Delegate authority"
           ) || null;
 
-        const isAllowed =
+        let isAllowed =
           delegateItem &&
           String(delegateItem.limit_value).toLowerCase() === "true";
+        // setDelegateAuthorityAllowed(!!isAllowed);
+        // 🔥 FREE PLAN OVERRIDE:
+        // If is_free_plan_eligible = true → delegate authority must ALWAYS be allowed
+        if (subscriptionResponse?.is_free_plan_eligible) {
+          isAllowed = true;
+        }
+
+        // 🔹 Set final value
         setDelegateAuthorityAllowed(!!isAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);

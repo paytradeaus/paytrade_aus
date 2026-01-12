@@ -104,7 +104,7 @@ function RenderDynamicTabs({
     case contractOverviewTabs.RETENTIONS:
       return (
         <RetentionLists
-          UniqueContract={contractData?.id}
+          UniqueContract={contractData?.contract_id}
           screenName={"contracts"}
           overViewMode={true}
         />

@@ -18,13 +18,18 @@ import { NA } from "@/shared/constant/general";
 import { setCookie } from "cookies-next";
 import { toggleOptions } from "../../PayApps/payApps.constant";
 import { useSearchParams } from "next/navigation";
-import { checkAndCreateOverPaymentAndRefunds } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
+import {
+  checkAndCreateOverPaymentAndRefunds,
+  CreateClaimInPaytrade,
+} from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
 
 const UnMatchTransactions = () => {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+
+  const errorCode: any = searchParams.get("errorCode");
 
   const { setLoader }: any = useLoaderContext();
 
@@ -98,18 +103,36 @@ const UnMatchTransactions = () => {
             const data = await viewXeroSyncLog({
               viewXeroSyncLogId: syncId,
             });
-            await checkAndCreateOverPaymentAndRefunds({
-              contactId: data?.api_payload?.contact_id ?? null,
-              tenantId: data?.api_payload?.tenant_id ?? null,
-              associatedOverpaymentId:
-                data?.api_payload?.associated_overpayment_id ?? null,
-              overpaymentId: data?.api_payload?.overpayment_id ?? null,
-              associatedPaymentId:
-                data?.api_payload?.associated_payment_id ?? null,
-              paymentClaimId: data?.api_payload?.payment_claim_id ?? null,
-              projectId: data?.api_payload?.project_id ?? null,
-              syncId: data?.id ?? null,
-            });
+            // ✅ Skip calling checkAndCreateOverPaymentAndRefunds when errorCode = WH_PAYMENT_CANNOT_BE_DELETED
+            if (errorCode !== "WH_PAYMENT_CANNOT_BE_DELETED") {
+              await checkAndCreateOverPaymentAndRefunds({
+                contactId: data?.api_payload?.contact_id ?? null,
+                tenantId: data?.api_payload?.tenant_id ?? null,
+                associatedOverpaymentId:
+                  data?.api_payload?.associated_overpayment_id ?? null,
+                overpaymentId: data?.api_payload?.overpayment_id ?? null,
+                associatedPaymentId:
+                  data?.api_payload?.associated_payment_id ?? null,
+                paymentClaimId: data?.api_payload?.payment_claim_id ?? null,
+                projectId: data?.api_payload?.project_id ?? null,
+                syncId: data?.id ?? null,
+                isUnderPayment: data?.api_payload?.is_under_payment ?? null,
+                syncRunType: data?.api_payload?.sync_run_type || null,
+              });
+            }
+            if (
+              errorCode == "WH_PAYMENT_CANNOT_BE_DELETED" ||
+              errorCode == "SCHEDULER_PAYMENT_CANNOT_BE_DELETED"
+            ) {
+              await CreateClaimInPaytrade({
+                associatedRetentionSubPaymentId: null,
+                retentionId: null,
+                invoiceId: data?.api_payload?.invoice_id || null,
+                tenantId: data?.api_payload?.tenant_id || null,
+                syncId: data?.id || syncId,
+                syncRunType: data?.api_payload?.sync_run_type || null,
+              });
+            }
           }
           router.back();
         }

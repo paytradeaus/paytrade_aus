@@ -122,16 +122,29 @@ const AdminContactSupport = (props: any) => {
 
   // When user clicks "Save"
   const handleSubmit = async (values: any) => {
-    // Only take the last unsaved message as final message
-    const lastUserMsg = [...ticketDetails]
-      .reverse()
-      .find((msg) => !msg.is_user);
+    // Only include newly typed/unsaved messages
+    const newMessages = ticketDetails.filter(
+      (msg) => !msg.is_saved && msg.body?.trim() !== ""
+    );
+
+    const finalMessage = newMessages.length
+      ? newMessages[newMessages.length - 1].body
+      : "";
+
+    // ✅ Detect if there are any changes
+    const hasStatusChanged = values?.status?.value !== initialStatus?.value;
+    const hasNewMessage = !!finalMessage?.trim();
+
+    if (!hasStatusChanged && !hasNewMessage) {
+      showInfoToast("No changes to save.");
+      return; // stop here — don’t make API call
+    }
 
     const postData: any = {
       payload: {
         ticketId: slugData[0] ?? null,
         status: values?.status?.value ?? null,
-        message: lastUserMsg?.body ?? "",
+        message: finalMessage ?? "",
       },
     };
 
@@ -176,7 +189,15 @@ const AdminContactSupport = (props: any) => {
         );
         formik.setFieldValue("status", findStatus ?? {});
         setInitialStatus(findStatus ?? {});
-        setTicketDetails(response?.ticket_details ?? []);
+        // setTicketDetails(response?.ticket_details ?? []);
+        // ✅ Mark all existing ticket messages as saved
+        const ticketsWithSavedFlag = (response?.ticket_details ?? []).map(
+          (msg: any) => ({
+            ...msg,
+            is_saved: true, // all existing messages are saved
+          })
+        );
+        setTicketDetails(ticketsWithSavedFlag);
       }
     } catch (err) {
       console.error(err);
@@ -229,7 +250,16 @@ const AdminContactSupport = (props: any) => {
               <div className="pt_box_transparent_cp">
                 <div className="grid">
                   <div className="pt_login">
-                    <h4>Edit contact</h4>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <h4>Edit contact </h4>
+                      <h4>Ticket Id {`- ${faqData?.ticket_id || ""}`}</h4>
+                    </div>
                     <br />
                     <form onSubmit={formik.handleSubmit}>
                       <FormikControl
@@ -248,7 +278,7 @@ const AdminContactSupport = (props: any) => {
                         label="Company Name"
                         name="companyName"
                         id="companyName"
-                        placeholder="Enter company name"
+                        placeholder="Enter business name"
                         value={formik.values.companyName}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}

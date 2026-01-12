@@ -468,8 +468,111 @@ export default function AdminSignInSecurity() {
                           </span>
                         </h6>
                         <form onSubmit={changePasswordFormik.handleSubmit}>
-                          <div className="formGroup position">
-                            <FormikControl
+                          <div className="passwordInputWrapper">
+                            <label htmlFor="Password">
+                              <small>New password</small>{" "}
+                              <span className="required">*</span>
+                            </label>
+                            <div className="passwordInputWrapper">
+                              <input
+                                style={{ margin: "0px" }}
+                                type={isPWDShow ? "text" : "Password"}
+                                id="Password"
+                                name="Password"
+                                placeholder=""
+                                maxLength={16}
+                                value={changePasswordFormik.values.Password}
+                                onChange={(e: any) => {
+                                  changePasswordFormik.handleChange(e);
+                                  validatePassword(e.target.value);
+                                }}
+                                onBlur={changePasswordFormik.handleBlur}
+                                className={
+                                  changePasswordFormik.touched.Password &&
+                                  changePasswordFormik.errors.Password
+                                    ? "invalid-borders" // Apply red border if there’s an error
+                                    : "" // No border if valid
+                                }
+                              />
+                              <i
+                                className={
+                                  isPWDShow
+                                    ? "fa-sharp fa-light fa-eye"
+                                    : "fa-light fa-eye-slash"
+                                }
+                                onClick={togglePasswordVisibility}
+                              ></i>
+                            </div>
+
+                            {changePasswordFormik.errors.Password &&
+                              changePasswordFormik.touched.Password && (
+                                <small className="invalid">
+                                  {changePasswordFormik.errors.Password}
+                                </small>
+                              )}
+                          </div>
+                          {changePasswordFormik.values.Password.length > 0 &&
+                            !isPasswordValid && (
+                              <div>
+                                {PasswordCheck.map((check, index) => (
+                                  <div key={index}>
+                                    <small
+                                      className={
+                                        check.error ? "invalid" : "valid"
+                                      }
+                                    >
+                                      {check.icon} <span>{check.msg}</span>
+                                    </small>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          <div className="passwordInputWrapper">
+                            <label htmlFor="Password">
+                              <small>Confirm password</small>{" "}
+                              <span className="required">*</span>
+                            </label>
+                            <div className="passwordInputWrapper">
+                              <input
+                                style={{ margin: "0px" }}
+                                type={isConfirmPWDShow ? "text" : "password"}
+                                id="ConfirmPassword"
+                                maxLength={16}
+                                name="ConfirmPassword"
+                                value={
+                                  changePasswordFormik.values.ConfirmPassword
+                                }
+                                placeholder=""
+                                onChange={changePasswordFormik.handleChange}
+                                onBlur={changePasswordFormik.handleBlur}
+                                className={
+                                  changePasswordFormik.touched
+                                    .ConfirmPassword &&
+                                  changePasswordFormik.errors.ConfirmPassword
+                                    ? "invalid-borders" // Apply red border if there’s an error
+                                    : "" // No border if valid
+                                }
+                              />
+                              <i
+                                className={
+                                  isConfirmPWDShow
+                                    ? "fa-sharp fa-light fa-eye"
+                                    : "fa-light fa-eye-slash"
+                                }
+                                onClick={toggleConfirmPasswordVisibility}
+                              ></i>
+                            </div>
+                            {changePasswordFormik.errors.ConfirmPassword &&
+                              changePasswordFormik.touched.ConfirmPassword && (
+                                <small className="invalid">
+                                  {changePasswordFormik.errors.ConfirmPassword}
+                                </small>
+                              )}
+                          </div>
+                          <br />
+                          <br />
+                          {/* <FormikControl
                               control={InputType.TEXT_FIELD}
                               label={"New Password"}
                               type={isPWDShow ? "text" : "password"}
@@ -500,8 +603,8 @@ export default function AdminSignInSecurity() {
                                 )
                               }
                             />
-                          </div>
-                          {changePasswordFormik.values.Password.length > 0 &&
+                          </div> */}
+                          {/* {changePasswordFormik.values.Password.length > 0 &&
                             !isPasswordValid && (
                               <div>
                                 {PasswordCheck.map((check, index) => (
@@ -516,8 +619,9 @@ export default function AdminSignInSecurity() {
                                   </div>
                                 ))}
                               </div>
-                            )}
-                          <div className="formGroup position">
+                            )} */}
+
+                          {/* <div className="formGroup position">
                             <FormikControl
                               control={InputType.TEXT_FIELD}
                               label={"Confirm Password"}
@@ -550,7 +654,7 @@ export default function AdminSignInSecurity() {
                                 )
                               }
                             />
-                          </div>
+                          </div> */}
                           <div className="grid">
                             <CustomButton
                               buttonName={"Change Password"}

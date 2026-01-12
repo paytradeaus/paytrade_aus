@@ -454,8 +454,10 @@ async function getNoticesListServices(data: any): Promise<any> {
                 company_name
                 contract_id
                 contract_name
+                contract_uuid
                 id
                 notice_date
+                notice_document_gen_failed
                 notice_id
                 notice_source
                 notice_type
@@ -463,6 +465,16 @@ async function getNoticesListServices(data: any): Promise<any> {
                 payment_id
                 project_id
                 project_name
+                source_claim_details {
+                  beneficiary_type
+                  cash_retention_type
+                  claim_type
+                  payments {
+                    payment_id
+                    payment_type
+                  }
+                }
+                source_type
                 status
               }
               total_count
@@ -844,6 +856,7 @@ export const fetchSubContractorClaimsByHeadContractor = async (
                 client_supplier_id
                 client_supplier_name
                 client_supplier_role
+                contract_date
                 contract_id
                 contract_name
                 due_date
@@ -854,6 +867,7 @@ export const fetchSubContractorClaimsByHeadContractor = async (
                 project_name
                 status
                 unpaid_amount
+                unpaid_reason
               }
               total_count
             }

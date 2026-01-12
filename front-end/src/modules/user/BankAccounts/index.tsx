@@ -74,6 +74,7 @@ const BankAccounts = (props: any) => {
   const [selectedAccType, setSelectedAccType] = useState<any>("");
 
   const [totalRows, setTotalRows] = useState(0);
+  const [displayContactTeam, setDisplayContactTeam] = useState(false);
 
   const [tabStatus] = useState(isArchived ? "Archived" : "Current");
 
@@ -176,7 +177,7 @@ const BankAccounts = (props: any) => {
       label: "Close",
       icon: "fa-light fa-xmark",
       onClick: (row: RowData) => {
-        console.log("Claiming for row:", row);
+        setDisplayContactTeam(true);
       },
     },
     {
@@ -566,6 +567,25 @@ const BankAccounts = (props: any) => {
             {!isArchived
               ? "Are you sure you wish to delete this account?"
               : "Are you sure you wish to Move to main list this account?"}
+          </h4>
+        </BaseModal>
+      )}
+      {displayContactTeam && (
+        <BaseModal
+          modalId={"bank accounts delete modal"}
+          displayModal={displayContactTeam}
+          onHeaderIconClose={() => setDisplayContactTeam(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => setDisplayContactTeam(false)}
+          onConfirm={() => {
+            router.push(AppRoutes.SUPPORT);
+            return true;
+          }}
+          firstButtonName="Close"
+          secondButtonName="Contact"
+        >
+          <h4 className="text_center">
+            To carry out this process, please contact the support team
           </h4>
         </BaseModal>
       )}

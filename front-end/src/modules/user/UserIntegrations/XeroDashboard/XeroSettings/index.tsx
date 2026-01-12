@@ -63,6 +63,7 @@ export default function XeroSettings() {
   const errorCode: any = queryParams.get("errorCode");
   const invoiceId: any = queryParams.get("invoiceId");
   const tenantId: any = queryParams.get("tenantId");
+  const synctype: any = queryParams.get("synctype");
 
   useEffect(() => {
     fetchGetXeroDetailsForCompany();
@@ -113,6 +114,7 @@ export default function XeroSettings() {
         reference_format: data?.reference_format || "",
         invoice_tax_code: data?.invoice_tax_code || "",
         bill_tax_code: data?.bill_tax_code || "",
+        wait_time: data?.wait_time || "",
       };
       settingsFormik.setValues(formValue);
       setInitialFormikValue(formValue);
@@ -165,6 +167,7 @@ export default function XeroSettings() {
     reference_format: Yup.string().required(
       "Invoice/billing reference is required"
     ),
+    // wait_time: Yup.string().required("Execution wait time is required"),
     retention_payable_retained_code: Yup.string().required(
       "Retention payable retained code is required"
     ),
@@ -205,6 +208,7 @@ export default function XeroSettings() {
       reference_format: "",
       invoice_tax_code: "",
       bill_tax_code: "",
+      wait_time: null,
     },
     validationSchema: validationSchemaXeroAccountCode,
     onSubmit: async (values) => {
@@ -236,6 +240,7 @@ export default function XeroSettings() {
         reference_format,
         invoice_tax_code,
         bill_tax_code,
+        wait_time,
       } = values;
       const payload = {
         retention_receivable_retained_code,
@@ -258,6 +263,7 @@ export default function XeroSettings() {
         reference_format,
         invoice_tax_code,
         bill_tax_code,
+        wait_time,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -306,12 +312,20 @@ export default function XeroSettings() {
             break;
           }
           case "WH_MISSING_PROJECT_CATEGORY_ID":
+          case "SCHEDULER_MISSING_PROJECT_CATEGORY_ID":
           case "WH_MISSING_CONTRACT_CATEGORY_ID":
+          case "SCHEDULER_MISSING_CONTRACT_CATEGORY_ID":
           case "WH_PROJECT_CATEGORY_ID_MISMATCH":
+          case "SCHEDULER_PROJECT_CATEGORY_ID_MISMATCH":
           case "WH_CONTRACT_CATEGORY_ID_MISMATCH":
+          case "SCHEDULER_CONTRACT_CATEGORY_ID_MISMATCH":
           case "WH_MISSING_ACCOUNT_FIELDS":
+          case "SCHEDULER_MISSING_ACCOUNT_FIELDS":
           case "WH_ACCOUNT_FIELDS_MISMATCH":
+          case "SCHEDULER_ACCOUNT_FIELDS_MISMATCH":
           case "WH_MISSING_TAX_FIELDS":
+          case "SCHEDULER_MISSING_TAX_FIELDS":
+          case "SCHEDULER_TAX_FIELDS_MISMATCH":
           case "WH_TAX_FIELDS_MISMATCH": {
             const response = await CreateClaimInPaytrade({
               associatedRetentionSubPaymentId: null,
@@ -319,6 +333,7 @@ export default function XeroSettings() {
               invoiceId: invoiceId || null,
               tenantId: tenantId || null,
               syncId: syncId,
+              syncRunType: synctype || null,
             });
             if (response) {
               router.push(`/user/integrations/xero/syncLogDetails/${syncId}`);
@@ -1416,6 +1431,49 @@ export default function XeroSettings() {
                       disabled={disableSave}
                     />
                   </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Webhook Schedule Settings</summary>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Execution wait time</h5>
+                    <FormikControl
+                      control={InputType.TEXT_FIELD}
+                      name={"Executionwaittime"}
+                      onChange={(e: any) => {
+                        const val = e.target.value.trim();
+
+                        // Allow empty (set null)
+                        if (val === "") {
+                          settingsFormik.setFieldValue("wait_time", null);
+                          return;
+                        }
+
+                        // Allow only numbers between 0–60
+                        const numericVal = Number(val);
+                        if (
+                          !isNaN(numericVal) &&
+                          numericVal >= 0 &&
+                          numericVal <= 60 &&
+                          /^[0-9]*$/.test(val)
+                        ) {
+                          settingsFormik.setFieldValue("wait_time", numericVal);
+                        }
+                      }}
+                      placeholder="Enter duration in mins (0–60)"
+                      value={settingsFormik.values.wait_time}
+                      showError={
+                        settingsFormik.touched.wait_time &&
+                        settingsFormik.errors.wait_time
+                      }
+                      error={settingsFormik?.errors?.wait_time}
+                    />
+                  </div>
+                  <div></div>
+                  <div></div>
                 </div>
               </details>
             </div>

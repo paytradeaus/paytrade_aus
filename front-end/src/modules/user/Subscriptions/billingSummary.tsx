@@ -4,6 +4,7 @@ import {
   getSubscriptionDetailsByCompanyId,
   updateDelegatePowers,
   upgradeSubscriptionPlan,
+  ValidateCouponService,
 } from "./subscriptions.function";
 import FormikControl from "@/components/FormikControl";
 import { buttonType, InputType } from "@/shared/constant/general";
@@ -11,20 +12,22 @@ import AddNewPayment from "./addNewPayment";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import UpdateSignature from "../BusinessProfile/UpdateSignature";
 import { getCompanyIdFromStorage } from "@/utils";
-import { setCookie } from "cookies-next";
+import { getCookie, setCookie } from "cookies-next";
 import { CustomJwtPayload } from "@/modules/admin/AdminLoginForm";
 import { jwtDecode } from "jwt-decode";
 import { getAuthToken } from "@/network/apolloClient";
 import { getCompanyProfilesWithLogos } from "@/app/api/companyRegistrationService";
 import { useSubscriptionDispatch } from "@/redux/subscriptions.store";
 import { setUpdatedCompany } from "@/redux/slices/companyDetails";
-import { useTokenDetails } from "@/hooks";
+import { useCustomDebounce, useTokenDetails } from "@/hooks";
 import CryptoJS from "crypto-js";
 import BaseModal from "@/components/BaseModal";
 import { FetchAllBankAccounts } from "../AddUpdateBankAccount/AddUpdateBankAccount.function";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { useRouter } from "next/navigation";
+import { showErrorToast, showSuccessToast } from "@/components/Toaster";
+import { useFormik } from "formik";
 
 export default function BillingSummary() {
   const {
@@ -46,6 +49,7 @@ export default function BillingSummary() {
     setAnnualBilling,
     setLoaderInfo,
     setStripeCardPaymentDetails,
+    isYearly,
   }: any = useSubscriptionsContext();
   const { decodeTokenData } = useTokenDetails();
   const router = useRouter();
@@ -70,37 +74,129 @@ export default function BillingSummary() {
 
   const [isAllSelected, setIsAllSelected] = useState(false);
   const dispatch: any = useSubscriptionDispatch();
+  const [coupon, setCoupon] = useState("");
+  const debouncedCoupon = useCustomDebounce(coupon, 600); // debounce 600ms
+  const [couponExists, setCouponExists] = useState(false);
+  const [finalAmount, setFinalAmount] = useState<number | null | any>(null);
+
+  const extractNumber = (value: string): number => {
+    if (!value) return 0;
+    return Number(value.replace(/[^0-9.]/g, "")); // keeps only 0-9 & dot
+  };
+
+  useEffect(() => {
+    const validate = async () => {
+      if (!debouncedCoupon) {
+        formik.setFieldValue("CouponId", "");
+        setCouponExists(false);
+
+        // Restore original price when coupon removed
+        const originalPrice = extractNumber(
+          selectedPlanForSub?.planPrice || handlePlanDuration(subscriptionData)
+        );
+        setFinalAmount(
+          `${originalPrice.toFixed(2)}  ${
+            annualBilling || isYearly ? "/yr" : "/mo"
+          }  +VAT`
+        );
+        return;
+      }
+
+      try {
+        const res = await ValidateCouponService({
+          coupon: debouncedCoupon,
+          companyId: Number(getCookie("companyId")) || null,
+        });
+
+        const originalPrice = extractNumber(
+          selectedPlanForSub?.planPrice || handlePlanDuration(subscriptionData)
+        );
+
+        let formattedAmount = `${originalPrice.toFixed(2)} ${
+          annualBilling || isYearly ? "/yr" : "/mo"
+        } +VAT`;
+
+        if (res?.percent_off) {
+          const percent = res.percent_off;
+          const discounted = originalPrice - (originalPrice * percent) / 100;
+          formattedAmount = `${discounted.toFixed(2)} ${
+            annualBilling || isYearly ? "/yr" : "/mo"
+          } +VAT`;
+        }
+
+        setFinalAmount(formattedAmount);
+
+        if (res?.coupon_id) {
+          formik.setFieldValue("CouponId", res?.coupon_id);
+          setCouponExists(true);
+          showSuccessToast("Coupon applied Successfully");
+        } else {
+          formik.setFieldValue("CouponId", "");
+          setCouponExists(false);
+        }
+      } catch {
+        formik.setFieldValue("CouponId", "");
+        setCouponExists(false);
+
+        const originalPrice = extractNumber(
+          selectedPlanForSub?.planPrice || handlePlanDuration(subscriptionData)
+        );
+        setFinalAmount(
+          `${originalPrice.toFixed(2)} ${
+            annualBilling || isYearly ? "/yr" : "/mo"
+          } +VAT`
+        );
+      }
+    };
+
+    validate();
+  }, [debouncedCoupon]);
+
+  const formik: any = useFormik({
+    initialValues: {
+      CouponCode: "",
+      CouponId: "",
+    },
+    onSubmit: () => {}, // required even if empty
+    enableReinitialize: true,
+  });
 
   useEffect(() => {
     setSelectedCard(getActiveCard());
     getFetchBankAccountsLists();
+    fetchSubscription();
   }, []);
 
   // 1️⃣ Fetch subscription on component mount or when needed
-  useEffect(() => {
-    const fetchSubscription = async () => {
-      try {
-        const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
-        const delegateItem =
-          subscriptionResponse?.plan_items?.find(
-            (item: any) => item.item_name === "Delegate authority"
-          ) || null;
+  async function fetchSubscription() {
+    try {
+      const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
+      const isFree = subscriptionResponse?.is_free_plan_eligible === true;
+      const delegateItem =
+        subscriptionResponse?.plan_items?.find(
+          (item: any) => item.item_name === "Delegate authority"
+        ) || null;
 
-        const isAllowed =
-          delegateItem &&
-          String(delegateItem.limit_value).toLowerCase() === "true";
-        setDelegateAuthorityAllowed(!!isAllowed);
-      } catch (error) {
-        console.error("Error fetching subscription:", error);
-        setDelegateAuthorityAllowed(false); // fail-safe
-      } finally {
-        setLoader(false);
-        setLoaderInfo("");
+      let isAllowed =
+        delegateItem &&
+        String(delegateItem.limit_value).toLowerCase() === "true";
+      // setDelegateAuthorityAllowed(!!isAllowed);
+      // 🔥 OVERRIDE RULE → FREE PLAN ALWAYS ALLOWS DELEGATION
+      if (isFree) {
+        isAllowed = true;
       }
-    };
 
-    fetchSubscription();
-  }, []);
+      setDelegateAuthorityAllowed(!!isAllowed);
+      return !!isAllowed;
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      setDelegateAuthorityAllowed(false);
+      return false;
+    } finally {
+      setLoader(false);
+      setLoaderInfo("");
+    }
+  }
 
   function getActiveCard() {
     if (allExistingCardDetails?.length > 0) {
@@ -201,19 +297,21 @@ export default function BillingSummary() {
 
           signature: signedSignature ?? subscriptionData?.signature,
           signature_type: signatureType ?? subscriptionData?.signature_type,
+          coupon_id: formik.values.CouponId || null,
         },
       };
 
       const response = await upgradeSubscriptionPlan(postData);
       if (response) {
         await updateAccessToken();
+        const isAllowed = await fetchSubscription();
         setUpdateSubscriptionData((prev: any) => !prev);
         //  Show delegation modal if bank accounts are available
         const validBankAccounts = bankAccountsOptions?.filter(
           (acc) => acc?.value !== -1
         );
         if (validBankAccounts?.length > 0) {
-          if (delegateAuthorityAllowed) {
+          if (isAllowed) {
             // ✅ Delegate authority allowed → show delegation modal
             setDisplayDelegationModel(true);
           } else {
@@ -308,8 +406,9 @@ export default function BillingSummary() {
 
   function handlePlanDuration(data: any) {
     return (
-      `${data?.annual_price_amount}${annualBilling ? "/yr" : "/mo"}+VAT` ||
-      "$0.00 +VAT"
+      `${data?.annual_price_amount}${
+        annualBilling || isYearly ? "/yr" : "/mo"
+      }+VAT` || "$0.00 +VAT"
     );
   }
 
@@ -343,6 +442,12 @@ export default function BillingSummary() {
     // Redirect to subscription management page
 
     router.push(AppRoutes.SUBSCRIPTION_PRICING);
+  };
+
+  const handleCouponCodeChange = (e: any) => {
+    const value = e.target.value.trim();
+    formik.setFieldValue("CouponCode", value);
+    setCoupon(value);
   };
 
   return (
@@ -379,12 +484,19 @@ export default function BillingSummary() {
                 <p>
                   <b>What you'll pay today</b>
                   <br />
-                  {`You'll play ${
+                  {/* {`You'll play ${
                     selectedPlanForSub?.planPrice ||
                     handlePlanDuration(subscriptionData) ||
                     "$0.00 +VAT"
                   } to cover the rest of this
-                  billing period`}
+                  billing period`} */}
+                  {`You'll pay $${
+                    finalAmount ??
+                    extractNumber(
+                      selectedPlanForSub?.planPrice ||
+                        handlePlanDuration(subscriptionData)
+                    )
+                  } to cover the rest of this billing period`}
                 </p>
               </div>
             </div>
@@ -457,6 +569,16 @@ export default function BillingSummary() {
                     subscription page.
                   </span>
                 </div>
+                <FormikControl
+                  control={InputType.TEXT_FIELD}
+                  label={"Coupon Code"}
+                  name={"CouponCode"}
+                  id={"CouponCode"}
+                  placeholder="Enter a coupon code"
+                  onChange={handleCouponCodeChange}
+                  value={formik.values.CouponCode}
+                />
+
                 <CustomButton
                   buttonName={"Subscribe"}
                   buttonType={buttonType.PRIMARY}

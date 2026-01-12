@@ -392,6 +392,16 @@ export default function MultipleUserAccessPage() {
         getSubscriptionDetailsByCompanyId(),
       ]);
 
+      // ⭐ NEW: Extract free plan eligibility
+      const isFreePlanEligible =
+        subscriptionResponse?.is_free_plan_eligible === true;
+
+      // ⭐ If free plan allows unlimited users → skip restrictions
+      if (isFreePlanEligible) {
+        router.push(AppRoutes.COMPANY_ADD_USER);
+        return;
+      }
+
       let latestTotalCount = totalCount;
       let latestUserLimit = userLimit;
       let latestInviteCount = inviteCount;

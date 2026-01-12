@@ -47,7 +47,32 @@ export const UpdateInterestChargesPaymentStatus = async (
       mutation: gql`
         mutation EditDetailsOfAPayment($payload: EditDetailsOfAPaymentInput!) {
           editDetailsOfAPayment(payload: $payload) {
-            data
+            data {
+              notices {
+                notice_previews {
+                  file_details {
+                    attachment_type
+                    file
+                    file_name
+                    file_path
+                    file_type
+                    id
+                  }
+                  mail_uuid
+                }
+                qbcc_notice_previews {
+                  notice_uuid
+                  qbcc_file_details {
+                    attachment_type
+                    file
+                    file_name
+                    file_path
+                    file_type
+                    id
+                  }
+                }
+              }
+            }
             message
             status
           }
@@ -608,6 +633,8 @@ export const DeletePayments = async (data: any): Promise<any> => {
       response &&
       response?.data?.changeStatusOfAPayment?.status === ApiResponse.ERROR
     ) {
+      showErrorToast(response?.data?.changeStatusOfAPayment?.message);
+
       console.error(
         response && response?.data?.changeStatusOfAPayment?.message
       );

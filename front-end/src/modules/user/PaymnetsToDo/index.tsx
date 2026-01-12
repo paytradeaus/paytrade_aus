@@ -140,14 +140,24 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     const fetchSubscription = async () => {
       try {
         const subscriptionResponse = await getSubscriptionDetailsByCompanyId();
+        // ⭐ NEW: Check free plan eligibility
+        const isFreePlanEligible =
+          subscriptionResponse?.is_free_plan_eligible === true;
         // 🔹 Check ABA generation
         const abaItem =
           subscriptionResponse?.plan_items?.find(
             (item: any) => item.item_name === "ABA Generation"
           ) || null;
 
-        const isAbaAllowed =
+        let isAbaAllowed =
           abaItem && String(abaItem.limit_value).toLowerCase() === "true";
+        // setAbaGenerationAllowed(!!isAbaAllowed);
+        // ⭐ OVERRIDE: If free plan → always allow ABA
+        if (isFreePlanEligible) {
+          isAbaAllowed = true;
+        }
+
+        // Final apply
         setAbaGenerationAllowed(!!isAbaAllowed);
       } catch (error) {
         console.error("Error fetching subscription:", error);

@@ -98,9 +98,16 @@ export const disconnectFromXero = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.disconnectFromXero?.status === ApiResponse.SUCCESS) {
+
+    const res = response?.data?.disconnectFromXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
       localStorage.removeItem("xeroIntegrationId");
-      showSuccessToast(response?.data?.disconnectFromXero?.message);
+      showSuccessToast(res?.message);
       return;
     }
   } catch (error: any) {
@@ -168,10 +175,17 @@ export const getTrackingCategories = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.getTrackingCategories?.status === ApiResponse.SUCCESS) {
-      if (showToast)
-        showSuccessToast(response?.data?.getTrackingCategories?.message);
-      return response?.data?.getTrackingCategories?.data || [];
+
+    const res = response?.data?.getTrackingCategories;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      if (showToast) showSuccessToast(res?.message);
+      return res?.data || [];
     }
   } catch (error: any) {
     showErrorToast(ApiResponse.ERROR);
@@ -285,6 +299,7 @@ export const getXeroDetailsForCompany = async (
               reference_format
               invoice_tax_code
               bill_tax_code
+              wait_time
             }
             message
             status
@@ -296,11 +311,14 @@ export const getXeroDetailsForCompany = async (
       },
       fetchPolicy: "no-cache",
     });
-
-    if (
-      response?.data?.getXeroDetailsForCompany?.status === ApiResponse.SUCCESS
-    ) {
-      return response?.data?.getXeroDetailsForCompany?.data || [];
+    const res = response?.data?.getXeroDetailsForCompany;
+    // 🚀 Handle XERO_REFRESH redirect
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      return res?.data || [];
     }
     return null;
   } catch (error: any) {
@@ -477,16 +495,17 @@ export const syncAllContactsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllContactsByCompanyId?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.syncAllContactsByCompanyId.message);
-      return response?.data?.syncAllContactsByCompanyId?.data;
+    const res = response?.data?.syncAllContactsByCompanyId;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
     }
-    if (
-      response?.data?.syncAllContactsByCompanyId?.status === ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllContactsByCompanyId.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
+      return res?.data;
+    }
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -518,7 +537,15 @@ export const getContactByContactId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    return response?.data?.getContactByContactId || [];
+    const res = response?.data?.getContactByContactId;
+
+    // 🚀 Handle Xero reauthorization redirect if backend signals it
+    if (res?.status === "XERO_REFRESH" && res?.message) {
+      window.open(res.message, "_self");
+      return null;
+    }
+    // ✅ Return the actual result or empty array
+    return res || [];
   } catch (error: any) {
     showErrorToast(ApiResponse.ERROR);
     console.error("GraphQL Error:", error);
@@ -783,11 +810,16 @@ export async function CreateContactInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createContactInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createContactInXero?.message);
+    const res = response?.data?.createContactInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createContactInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -871,16 +903,13 @@ export const syncAllProjectsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllProjectsByCompanyId?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.syncAllProjectsByCompanyId.message);
-      return response?.data?.syncAllProjectsByCompanyId?.data;
+    const res = response?.data?.syncAllProjectsByCompanyId;
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
+      return res?.data;
     }
-    if (
-      response?.data?.syncAllProjectsByCompanyId?.status === ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllProjectsByCompanyId.message);
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -1332,17 +1361,18 @@ export const syncAllContractsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllContractsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.syncAllContractsByCompanyId.message);
-      return response?.data?.syncAllContractsByCompanyId?.data;
+    const res = response?.data?.syncAllContractsByCompanyId;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res?.message, "_self");
+      return null; // stop further flow
     }
-    if (
-      response?.data?.syncAllContractsByCompanyId?.status === ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllContractsByCompanyId.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
+      return res?.data;
+    }
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res?.message);
       return null;
     }
   } catch (error: any) {
@@ -1410,11 +1440,16 @@ export async function CreateContractInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createContractInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createContractInXero?.message);
+    const res = response?.data?.createContractInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createContractInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -1485,11 +1520,18 @@ export async function CreateProjectInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createProjectInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createProjectInXero?.message);
+    const res = response?.data?.createProjectInXero;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createProjectInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -2529,18 +2571,18 @@ export const syncAllBankAccountsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllBankAccountsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.syncAllBankAccountsByCompanyId.message);
-      return response?.data?.syncAllBankAccountsByCompanyId?.data;
+    const res = response?.data?.syncAllBankAccountsByCompanyId;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
     }
-    if (
-      response?.data?.syncAllBankAccountsByCompanyId?.status ===
-      ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllBankAccountsByCompanyId.message);
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
+      return res?.data;
+    }
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -2574,20 +2616,18 @@ export const syncAllBillsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.syncAllInvoicesOrBillsByCompanyId.message
-      );
+    const res = response?.data?.syncAllInvoicesOrBillsByCompanyId;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
       return true;
     }
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllInvoicesOrBillsByCompanyId.message);
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -2621,20 +2661,19 @@ export const syncAllInvoicesByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.syncAllInvoicesOrBillsByCompanyId.message
-      );
+    const res = response?.data?.syncAllInvoicesOrBillsByCompanyId;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
       return true;
     }
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllInvoicesOrBillsByCompanyId.message);
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -2662,20 +2701,18 @@ export const syncAllPaymentsByCompanyId = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.syncAllInvoicesOrBillsByCompanyId.message
-      );
+    const res = response?.data?.syncAllInvoicesOrBillsByCompanyId;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
       return true;
     }
-    if (
-      response?.data?.syncAllInvoicesOrBillsByCompanyId?.status ===
-      ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.syncAllInvoicesOrBillsByCompanyId.message);
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
       return null;
     }
   } catch (error: any) {
@@ -3005,11 +3042,18 @@ export async function CreateBankAccountsInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.createAccountInXero?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createAccountInXero?.message);
+
+    const res = response?.data?.createAccountInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createAccountInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -3037,13 +3081,16 @@ export async function CreateBillsInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.createInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createInvoiceOrBillInXero?.message);
+    const res = response?.data?.createInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -3071,13 +3118,16 @@ export async function CreateInvoicesInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.createInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createInvoiceOrBillInXero?.message);
+    const res = response?.data?.createInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -3106,13 +3156,16 @@ export async function CreatePaymentsInXero(
       variables: postData,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.createInvoiceOrBillInXero?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createInvoiceOrBillInXero?.message);
+    const res = response?.data?.createInvoiceOrBillInXero;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
     } else {
-      showErrorToast(response?.data?.createInvoiceOrBillInXero?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
     }
   } catch (error: any) {
@@ -3422,8 +3475,13 @@ export const getXeroAccountCodes = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.getAccountCodes?.status === ApiResponse.SUCCESS) {
-      return response?.data?.getAccountCodes?.data || [];
+    const res = response?.data?.getAccountCodes;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      return res?.data || [];
     }
   } catch (error: any) {
     showErrorToast(ApiResponse.ERROR);
@@ -3455,8 +3513,16 @@ export const getTaxRates = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (response?.data?.getTaxRates?.status === ApiResponse.SUCCESS) {
-      return response?.data?.getTaxRates?.data || [];
+
+    const res = response?.data?.getTaxRates;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      return res?.data || [];
     }
   } catch (error: any) {
     showErrorToast(ApiResponse.ERROR);
@@ -3489,12 +3555,17 @@ export const createTrackingCategory = async (
       variables: data,
       fetchPolicy: "no-cache",
     });
-    if (
-      response?.data?.createTrackingCategory?.status === ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(response?.data?.createTrackingCategory?.message);
+
+    const res = response?.data?.createTrackingCategory;
+
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
     } else {
-      showErrorToast(response?.data?.createTrackingCategory?.message);
+      showErrorToast(res?.message);
     }
   } catch (error: any) {
     showErrorToast(ApiResponse.ERROR);
@@ -3521,15 +3592,21 @@ export async function addNewAccountApi(
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createAccount;
 
-    if (response?.data?.createAccount?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createAccount?.message);
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
+
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createAccount?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
-      return response?.data?.createAccount?.message;
+      return res?.message;
     }
   } catch (error: any) {
     showErrorToast(error);
@@ -3556,15 +3633,20 @@ export async function createTaxTypeApi(
       variables: postData,
       fetchPolicy: "no-cache",
     });
+    const res = response?.data?.createTaxRates;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null; // stop further flow
+    }
 
-    if (response?.data?.createTaxRates?.status === ApiResponse.SUCCESS) {
-      showSuccessToast(response?.data?.createTaxRates?.message);
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
       setLoading && setLoading(false);
       return true;
     } else {
-      showErrorToast(response?.data?.createTaxRates?.message);
+      showErrorToast(res?.message);
       setLoading && setLoading(false);
-      return response?.data?.createTaxRates?.message;
+      return res?.message;
     }
   } catch (error: any) {
     showErrorToast(error);

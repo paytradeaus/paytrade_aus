@@ -198,7 +198,7 @@ export default function AdminDashboard() {
         />
 
         <DashboardBox
-          title={"NEW COMPANIES"}
+          title={"NEW BUSINESSES"}
           cardData={allCompanies}
           enableLoader={companiesLoader}
           mappingKeys={{

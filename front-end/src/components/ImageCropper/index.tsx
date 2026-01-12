@@ -45,6 +45,23 @@ export default function ImageCropper({
   }
 
   useEffect(() => {
+    // 🔁 When Cookiebot closes or updates consent, re-render the image if it was lost
+    const handleCookiebotEvent = () => {
+      if (selectedImage?.length > 0 && !imgSrc) {
+        onSelectFile(selectedImage);
+      }
+    };
+
+    window.addEventListener("CookiebotOnAccept", handleCookiebotEvent);
+    window.addEventListener("CookiebotOnDialogInit", handleCookiebotEvent);
+
+    return () => {
+      window.removeEventListener("CookiebotOnAccept", handleCookiebotEvent);
+      window.removeEventListener("CookiebotOnDialogInit", handleCookiebotEvent);
+    };
+  }, [selectedImage, imgSrc]);
+
+  useEffect(() => {
     if (selectedImage?.length > 0) {
       onSelectFile(selectedImage);
     }
