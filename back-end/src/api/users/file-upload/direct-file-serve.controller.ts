@@ -146,6 +146,8 @@ export class DirectFileServeController {
         'Content-Type': contentType,
         'Content-Length': fileBuffer.length,
         'Cache-Control': 'public, max-age=31536000',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Access-Control-Allow-Origin': '*',
       });
 
       res.send(fileBuffer);
