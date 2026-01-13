@@ -68,6 +68,7 @@ export default function BusinessProfile() {
   const [companyExists, setCompanyExists] = useState<boolean>(false); // Added state to track company existence
 
   const [cropImage, setCropImage] = useState<any>();
+  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<any>(null);
 
   const [displayImage, setDisplayImage] = useState<any>([]);
@@ -198,6 +199,13 @@ export default function BusinessProfile() {
       uploadedFile,
       cropImage
     );
+
+    // Generate preview URL from the cropped file
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCroppedPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(convertedCanvasToFile);
 
     // If validations pass, set the image file
 
@@ -410,6 +418,7 @@ export default function BusinessProfile() {
               displayCenterAligned
               accept={UploadImage.jpegAndPng}
               selectedImage={cropImage?.length > 0 ? cropImage[0] : imageFile}
+              base64Image={croppedPreviewUrl}
             />
             <p style={{ textAlign: "center", marginTop: "1rem" }}>
               Click or drag a file to this area to upload

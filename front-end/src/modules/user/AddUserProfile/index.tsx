@@ -27,7 +27,7 @@ export default function AddUserProfileForm() {
   const verifyButtonRef = useRef<HTMLButtonElement | null>(null);
   const [triggerPoint, setTriggerPoint] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<any>([]);
-  console.log("🚀 ~ AddUserProfileForm ~ selectedImage:", selectedImage);
+  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string>("");
   const [isSkipDisabled, setIsSkipDisabled] = useState(false);
   const [imageError, setImageError] = useState<string>("");
   const router = useRouter();
@@ -73,6 +73,13 @@ export default function AddUserProfileForm() {
       uploadedFile,
       selectedImage
     );
+
+    // Generate preview URL from the cropped file
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCroppedPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(convertedCanvasToFile);
 
     // If validations pass, set the image file
 
@@ -234,6 +241,7 @@ export default function AddUserProfileForm() {
                   selectedImage={
                     selectedImage?.length > 0 ? selectedImage[0] : imageFile
                   }
+                  base64Image={croppedPreviewUrl}
                 />
                 <p style={{ textAlign: "center", marginTop: "1rem" }}>
                   Click or drag a file to this area to upload

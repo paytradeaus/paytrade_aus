@@ -83,6 +83,7 @@ export default function BusinessProfile({ isEditable }: any) {
   );
 
   const [cropImage, setCropImage] = useState<any>();
+  const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string>("");
   const [showNoticesInfo, setShowNoticesInfo] = useState(false);
   const [searchedBusiness, setSearchedBusiness] = useState<any>("");
   const [displayModal, setDisplayModal] = useState(false);
@@ -271,6 +272,13 @@ export default function BusinessProfile({ isEditable }: any) {
       uploadedFile,
       cropImage
     );
+
+    // Generate preview URL from the cropped file
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCroppedPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(convertedCanvasToFile);
 
     // If validations pass, set the image file
 
@@ -711,6 +719,7 @@ export default function BusinessProfile({ isEditable }: any) {
                   }
                   onImageRemove={() => {
                     setCropImage([]);
+                    setCroppedPreviewUrl("");
                     handleDeleteLogo();
                     formik?.setFieldValue("imageFile", "");
                     formik?.setFieldValue("image", "");
@@ -721,7 +730,7 @@ export default function BusinessProfile({ isEditable }: any) {
                     !!formik?.values?.imageFile || !!formik?.values?.image
                   }
                   clearImageName={clearImageName}
-                  base64Image={isEditable ? formik?.values?.image : ""}
+                  base64Image={croppedPreviewUrl || (isEditable ? formik?.values?.image : "")}
                 />
                 {displayImage?.length > 0 && (
                   <ImageCropper
