@@ -5110,7 +5110,7 @@ export class NoticesService {
       });
 
       let retention_details;
-      if (payment_details.retention_id) {
+      if (payment_details?.retention_id) {
         retention_details = await useRepo(this.retentionDetailsRepo).findOne({
           where: {
             retention_id: payment_details.retention_id,
@@ -5678,13 +5678,13 @@ export class NoticesService {
       ) {
         let retention_amount = 0;
 
-        if (payment_details.cash_retention === true) {
+        if (payment_details?.cash_retention === true) {
           if (retention_details) {
             retention_amount = retention_details.amount;
           }
         }
 
-        if (payment_details.retention_id) {
+        if (payment_details?.retention_id) {
           retention_amount =
             retention_details.retained_amount - payment_details.total_amount;
         }
