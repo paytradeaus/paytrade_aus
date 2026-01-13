@@ -51,6 +51,7 @@ export default function PersonalInfo() {
 
   const [selectedImage, setSelectedImage] = useState<File[]>([]);
   const [savedImage, setSavedImage] = useState<any>("");
+  const [previewUrl, setPreviewUrl] = useState<string>("");
 
   const [displayConfirmationModal, setDisplayConfirmationModal] =
     useState(false);
@@ -274,6 +275,13 @@ export default function PersonalInfo() {
         cropImage
       );
 
+      // Generate immediate preview from the cropped file
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(convertedCanvasToFile as Blob);
+
       // Decode the access token
       const decodedToken: any = getDecryptedToken();
       const userData = {
@@ -290,6 +298,7 @@ export default function PersonalInfo() {
 
       if (fileResponse) {
         setSavedImage(fileResponse?.file);
+        setCropImage([]);
 
         const tokenData = getDecryptedToken();
 
@@ -384,7 +393,7 @@ export default function PersonalInfo() {
                         !!formik?.values?.imageFile || !!formik?.values?.image
                       }
                       clearImageName={clearImageName}
-                      base64Image={savedImage || ""}
+                      base64Image={previewUrl || savedImage || ""}
                     />
                     {displayImage?.length > 0 && (
                       <ImageCropper
