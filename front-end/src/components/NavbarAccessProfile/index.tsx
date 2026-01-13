@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, Fragment } from "react";
+import React, { useEffect, useState, useRef, Fragment, useMemo } from "react";
 import Image from "next/image";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { useTokenDetails } from "@/hooks";
@@ -34,6 +34,17 @@ import {
 import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";
 import ScrollableText from "../ScrollableText";
 
+const getImageSrc = (src: any, cacheKey: number): any => {
+  if (!src) return null;
+  if (typeof src !== 'string') return src;
+  if (src.startsWith('data:')) return src;
+  if (src.startsWith('http')) return src;
+  if (src.startsWith('/') && !src.includes('?')) {
+    return `${src}?t=${cacheKey}`;
+  }
+  return src;
+};
+
 export default function NavbarAccessProfile() {
   const appUserDetails: any = useAppSelector(
     (state: RootState) => state?.userDetails?.appUserDetails
@@ -55,6 +66,7 @@ export default function NavbarAccessProfile() {
   const [viewProfile, setViewProfile] = useState("");
   const [userData, setUserData] = useState<any>(null);
   const [reorderedProfiles, setReorderedProfiles] = useState<any>([]);
+  const [imageCacheKey] = useState(() => Date.now());
 
   const [searchQuery, setSearchQuery] = useState(""); // State to manage search query
   const detailsRef = useRef<HTMLDetailsElement>(null); // Ref to the <details> element
@@ -367,7 +379,7 @@ export default function NavbarAccessProfile() {
           <details className="dropdown avatarbutton" ref={detailsRef}>
             <summary role="button contrast">
               <Image
-                src={viewProfile ? `${viewProfile}?t=${Date.now()}` : (appUserDetails?.image ? `${appUserDetails.image}?t=${Date.now()}` : userImage)}
+                src={getImageSrc(viewProfile, imageCacheKey) || getImageSrc(appUserDetails?.image, imageCacheKey) || userImage}
                 alt="user-icon"
                 width={0}
                 height={0}
@@ -531,7 +543,7 @@ export default function NavbarAccessProfile() {
                   <div className="pt_profileboxactive">
                     <div className="pt_profilename">
                       <Image
-                        src={viewProfile ? `${viewProfile}?t=${Date.now()}` : userImage}
+                        src={getImageSrc(viewProfile, imageCacheKey) || userImage}
                         alt="user-icon"
                         width={0}
                         height={0}
@@ -636,7 +648,7 @@ export default function NavbarAccessProfile() {
                           }
                         >
                           <Image
-                            src={profile?.file_path ? `${profile.file_path}?t=${Date.now()}` : userImage}
+                            src={getImageSrc(profile?.file_path, imageCacheKey) || userImage}
                             alt="user-icon"
                             width={0}
                             height={0}
