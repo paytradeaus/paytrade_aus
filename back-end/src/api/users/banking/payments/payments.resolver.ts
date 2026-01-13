@@ -94,11 +94,30 @@ export class PaymentsResolver {
 
       const timezone = decoded?.timezone || 'UTC';
 
-      const claimDetails = await this.paymentsService.getPaymentClaimByClaimId(
-        payload.payment_claim_id,
-      );
-      if (!claimDetails) {
-        throw `Claim details not found`;
+      const other_payment_types = [
+        'Interest Received',
+        'Interest Withdrawal',
+        'Bank Charge Applied',
+        'Bank Charge Top Up',
+        'Top Up',
+        'Withdrawal',
+        'Overpayment refund from supplier',
+        'Overpayment refund to client',
+        'Overpayment to supplier',
+        'Underpayment to supplier',
+        'Overpayment from client',
+        'Underpayment from client',
+        'Top Up Retention',
+      ];
+
+      let claimDetails = null;
+      if (!other_payment_types.includes(payload.payment_type)) {
+        claimDetails = await this.paymentsService.getPaymentClaimByClaimId(
+          payload.payment_claim_id,
+        );
+        if (!claimDetails) {
+          throw `Claim details not found`;
+        }
       }
 
       const validatedPaymentDetails =
