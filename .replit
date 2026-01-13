@@ -4,18 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = [
-  "redis",
-  "libuuid",
-  "cairo",
-  "pango",
-  "giflib",
-  "libjpeg",
-  "libpng",
-  "pixman",
-  "pkg-config",
-  "util-linux",
-]
+packages = ["redis", "libuuid", "cairo", "pango", "giflib", "libjpeg", "libpng", "pixman", "pkg-config", "util-linux", "chromium"]
 
 [userenv]
 
