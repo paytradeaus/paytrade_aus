@@ -144,6 +144,13 @@ export default function NavbarAccessProfile() {
     fetchCompanyProfiles();
   }, [selectedCompanyId, activeProfileStatus]);
 
+  useEffect(() => {
+    const profileType = localStorage.getItem("ProfileType");
+    if (profileType === "User" && appUserDetails?.image) {
+      setViewProfile(appUserDetails.image);
+    }
+  }, [appUserDetails?.image]);
+
   async function fetchUserData() {
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
@@ -208,7 +215,7 @@ export default function NavbarAccessProfile() {
     } else {
       setReorderedProfiles([personalData]);
     }
-  }, [companyProfiles]);
+  }, [companyProfiles, appUserDetails?.image, appUserDetails?.userName]);
 
   const handleButtonClick = () => {
     if (detailsRef.current) {
