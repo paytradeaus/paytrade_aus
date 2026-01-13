@@ -367,7 +367,7 @@ export default function NavbarAccessProfile() {
           <details className="dropdown avatarbutton" ref={detailsRef}>
             <summary role="button contrast">
               <Image
-                src={viewProfile || userImage || appUserDetails?.image}
+                src={viewProfile ? `${viewProfile}?t=${Date.now()}` : (appUserDetails?.image ? `${appUserDetails.image}?t=${Date.now()}` : userImage)}
                 alt="user-icon"
                 width={0}
                 height={0}
@@ -531,10 +531,11 @@ export default function NavbarAccessProfile() {
                   <div className="pt_profileboxactive">
                     <div className="pt_profilename">
                       <Image
-                        src={viewProfile || userImage}
+                        src={viewProfile ? `${viewProfile}?t=${Date.now()}` : userImage}
                         alt="user-icon"
                         width={0}
                         height={0}
+                        unoptimized
                         className="avatar"
                       />
                       <div className="usernamebox setBlock">
@@ -635,7 +636,7 @@ export default function NavbarAccessProfile() {
                           }
                         >
                           <Image
-                            src={profile?.file_path || userImage}
+                            src={profile?.file_path ? `${profile.file_path}?t=${Date.now()}` : userImage}
                             alt="user-icon"
                             width={0}
                             height={0}

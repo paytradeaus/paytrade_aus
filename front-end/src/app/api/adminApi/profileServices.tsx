@@ -406,6 +406,7 @@ export const getCompanyProfilesWithLogos = async (): Promise<
           }
         }
       `,
+      fetchPolicy: 'network-only',
     });
     if (response?.data?.getCompanyProfilesWithLogos?.status === "SUCCESS") {
       return response?.data?.getCompanyProfilesWithLogos?.data;
