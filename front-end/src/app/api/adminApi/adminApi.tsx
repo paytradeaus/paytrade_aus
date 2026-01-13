@@ -43,8 +43,15 @@ export interface IAddAdminData {
   password: string;
 }
 
+const getGraphQLUri = () => {
+  if (typeof window !== 'undefined') {
+    return '/graphql';
+  }
+  return process.env.NEXT_PUBLIC_GRAPHQL_URI || '/graphql';
+};
+
 const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_URI,
+  uri: getGraphQLUri(),
 });
 
 const authLink = setContext((_, { headers }) => {

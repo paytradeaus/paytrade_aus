@@ -93,7 +93,17 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Remaining non-critical readFileSync calls (not user files): email.service.ts (email templates), write-to-image.mjs (JSON config)
 - All PDF-related secrets need production values: NEXT_PUBLIC_SOCKET_URL, NEXT_PUBLIC_WEB_SOCKET_BASED_PDF_FILE_DOWNLOAD_TO_GET_URL
 
+## Frontend API Endpoint Configuration
+- **All GraphQL/API calls use relative URLs** for production compatibility:
+  - Apollo Client: `/graphql` (browser) or `NEXT_PUBLIC_GRAPHQL_URI` (server-side only)
+  - File upload APIs (singleUploadApi, multipleFileUploadApi): `/graphql`
+  - Excel download: `/files/excel`
+  - Audit report download: `/files/auditReport`
+- Production proxy (production-server.js) routes requests between frontend (port 5001) and backend (port 3001)
+- next.config.js rewrites handle dev environment proxying
+
 ## Notes
 - The application requires various third-party API keys (Stripe, email services, etc.) for full functionality
 - Frontend is configured to proxy to the backend GraphQL API
 - Fixed hydration errors by consolidating GoogleTagManager, GoogleAnalytics, and Cookiebot scripts into a unified AnalyticsWrapper client component
+- Puppeteer uses system Chromium at `/nix/store/.../chromium` for PDF generation

@@ -230,7 +230,7 @@ export async function GenerateABAfiles(data: any) {
 
 export const downloadExcelFileFromAPI = async (signedUrl: string) => {
   try {
-    let url = `${process.env.NEXT_PUBLIC_GRAPHQL_URI_EXCEL_FILE_DOWNLOAD}`;
+    let url = '/files/excel';
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -265,7 +265,7 @@ export const downloadAuditZipFromAPI = async (
   password: string
 ) => {
   try {
-    const url = `${process.env.NEXT_PUBLIC_GRAPHQL_URI_ZIP_FILE_DOWNLOAD}`;
+    const url = '/files/auditReport';
     const response = await fetch(url, {
       method: "GET",
       headers: {

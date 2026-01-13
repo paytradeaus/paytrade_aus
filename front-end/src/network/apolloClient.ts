@@ -190,7 +190,7 @@ export const singleUploadApi = async (
     "apollo-require-preflight": true,
     authorization: "Bearer " + accessToken,
   };
-  let url = `${process.env.NEXT_PUBLIC_GRAPHQL_URI}`;
+  let url = '/graphql';
   try {
     const response: any = await axios.post(url, formData, { headers });
 
@@ -580,7 +580,7 @@ export const multipleFileUploadApi = async (
     "apollo-require-preflight": true,
     authorization: "Bearer " + accessToken,
   };
-  let url = `${process.env.NEXT_PUBLIC_GRAPHQL_URI}`;
+  let url = '/graphql';
   try {
     const response = await axios.post(url, formData, { headers });
     // Handle response as needed
