@@ -235,7 +235,9 @@ export class BankAccountsService {
             console.log("@@@@@@@@@@@@@@", notices)
 
             if (notices?.status === 'ERROR') {
-              throw new Error('Notice generation failed');
+              this.logger.error(`Notice generation failed with message: ${notices.message}`);
+              console.error('NOTICE ERROR DETAILS:', JSON.stringify(notices, null, 2));
+              throw new Error(`Notice generation failed: ${notices.message}`);
             }
             // } catch (err) {
             this.logger.error(
