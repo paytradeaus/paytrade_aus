@@ -29,7 +29,7 @@ const server = http.createServer((req, res) => {
     '/variations', '/bank_statements', '/retention_trust_certificates',
     '/transaction_csv_file_attachments', '/optional_attachments', '/compulsory_attachments',
     '/optional_supporting_statement_attachments', '/audit_reports', '/generated_aba_files',
-    '/Admin_holiday', '/misc', '/stripe-webhook', '/xero-webhook', '/xero', '/support-mail', '/support-ticket'
+    '/Admin_holiday', '/misc', '/notices-generated', '/original-notices-generated', '/stripe-webhook', '/xero-webhook', '/xero', '/support-mail', '/support-ticket'
   ];
   const isBackend = backendPaths.some(path => url.startsWith(path));
   
