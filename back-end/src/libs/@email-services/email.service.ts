@@ -16,12 +16,47 @@ var errorMessage = '';
 import * as Handlebars from 'handlebars';
 import * as fileSystem from 'fs';
 const FormData = require('form-data');
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+
+const OBJECT_STORAGE_FOLDERS = [
+  'notices-generated',
+  'original-notices-generated',
+  'notices',
+  'recieved-notices',
+  'notices_supporting_docs',
+  'contracts',
+  'variations',
+  'bank_statements',
+  'retention_trust_certificates',
+  'transaction_csv_file_attachments',
+  'optional_attachments',
+  'compulsory_attachments',
+  'optional_supporting_statement_attachments',
+  'audit_reports',
+  'generated_aba_files',
+  'profile_photo',
+  'admin_profile_photo',
+  'company_logo',
+  'communication',
+  'trust_training_records',
+  'blog_banner',
+  'resources',
+  'notice-templates',
+  'Admin_holiday',
+  'misc',
+];
 
 @Injectable()
 export class EmailService {
   private logger: PaytradeLogger;
-  constructor() {
+  constructor(private readonly objectStorageService: ObjectStorageService) {
     this.logger = new PaytradeLogger('EMAIL_SERVICE');
+  }
+
+  private isObjectStoragePath(filePath: string): boolean {
+    const normalizedPath = filePath.replace(/^\//, '').replace(/^uploads\//, '');
+    const folder = normalizedPath.split('/')[0];
+    return OBJECT_STORAGE_FOLDERS.includes(folder);
   }
 
   private log(message: string) {
@@ -262,9 +297,23 @@ export class EmailService {
         : null;
       if (dynamicAttachments) {
         for (let attachment of dynamicAttachments) {
-          let content = await readFileAsync(join(`${attachment.filePath}`), {
-            encoding: 'base64',
-          });
+          let content: string;
+          
+          if (this.isObjectStoragePath(attachment.filePath)) {
+            this.logger.log(`Reading attachment from Object Storage: ${attachment.filePath}`);
+            const fileBuffer = await this.objectStorageService.downloadFile(attachment.filePath);
+            if (fileBuffer) {
+              content = fileBuffer.toString('base64');
+            } else {
+              this.logger.error(`Failed to read attachment from Object Storage: ${attachment.filePath}`);
+              continue;
+            }
+          } else {
+            content = await readFileAsync(join(`${attachment.filePath}`), {
+              encoding: 'base64',
+            });
+          }
+          
           let dynamicAttachment = {
             filename: attachment.fileName,
             content,

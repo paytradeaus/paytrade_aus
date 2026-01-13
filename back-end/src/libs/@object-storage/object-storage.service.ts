@@ -115,6 +115,29 @@ export class ObjectStorageService {
     }
   }
 
+  async uploadFileDirect(
+    objectPath: string,
+    fileBuffer: Buffer,
+  ): Promise<boolean> {
+    try {
+      const normalizedPath = this.normalizeObjectPath(objectPath);
+      this.logger.log(`Uploading file directly to object storage: ${normalizedPath}`);
+      
+      const result = await this.client.uploadFromBytes(normalizedPath, fileBuffer);
+      
+      if (result.ok) {
+        this.logger.log(`File uploaded successfully: ${normalizedPath}`);
+        return true;
+      } else {
+        this.logger.error(`Failed to upload file: ${result.error}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.error(`Error uploading file directly: ${error.message}`);
+      return false;
+    }
+  }
+
   async uploadFromText(
     content: string,
     attachmentType: string,

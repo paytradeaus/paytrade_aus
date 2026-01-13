@@ -7,7 +7,7 @@ import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { NoticeDetails } from 'src/entities/notices-details.entity';
 import fs from 'fs';
 import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
 import { FileUploadService } from '../file-upload/file-upload.service';
 import { CreateFileUploadInput } from '../file-upload/dto/create-file-upload.input';
 import { EmailTemplates } from 'src/entities/email-templates.entity';
@@ -15,6 +15,7 @@ import * as puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
 import { ImageService } from './write-to-image/write-to-image.service';
 import { NoticeTypes } from 'src/libs/@paytrade-types/paytrade-types';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 
 @Injectable()
 export class NoticeGenDocService {
@@ -26,8 +27,29 @@ export class NoticeGenDocService {
     private emailTemplates: Repository<EmailTemplates>,
     private readonly fileUploadService: FileUploadService,
     private readonly imageService: ImageService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('Document generation');
+  }
+
+  private async uploadToObjectStorage(localPath: string, objectPath: string): Promise<boolean> {
+    try {
+      if (!existsSync(localPath)) {
+        this.logger.error(`File not found for upload: ${localPath}`);
+        return false;
+      }
+      const fileBuffer = readFileSync(localPath);
+      const uploaded = await this.objectStorageService.uploadFileDirect(objectPath, fileBuffer);
+      if (uploaded) {
+        this.logger.log(`Uploaded to Object Storage: ${objectPath}`);
+        unlinkSync(localPath);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      this.logger.error(`Failed to upload to Object Storage: ${error.message}`);
+      return false;
+    }
   }
 
   private log(message: string) {
@@ -190,16 +212,12 @@ export class NoticeGenDocService {
 
     await browser.close();
 
-
-    //wkhtmltopdf - package for pdf conversion
-
-    // wkhtmltopdf(htmlOutput, { output: outputPath, pageSize: 'A4' }, (error) => {
-    //   if (error) {
-    //     console.error('Error generating PDF:', error);
-    //   } else {
-    //     console.log('PDF generated successfully');
-    //   }
-    // });
+    // Upload the generated PDF to Object Storage
+    const objectStoragePath = `${noticesFolderPath}/${fileName}`;
+    const uploadedToStorage = await this.uploadToObjectStorage(outputPath, objectStoragePath);
+    if (!uploadedToStorage) {
+      this.logger.error(`Failed to upload notice PDF to Object Storage: ${outputPath}`);
+    }
 
     if (noticeData && Object.keys(noticeData).length > 0) {
       const outputFolderName = 'original-notices-generated';
@@ -220,9 +238,13 @@ export class NoticeGenDocService {
       );
       console.log('runJsScriptResponse: ', runJsScriptResponse);
       if (runJsScriptResponse) {
+        // Upload original notice PDF to Object Storage
+        const originalObjectPath = `${outputFolderName}/${outputFileName}`;
+        await this.uploadToObjectStorage(outputFilePath, originalObjectPath);
+
         const createFileUploadInput: Partial<CreateFileUploadInput> = {
           notice_id: noticeId,
-          file_path: outputFilePath,
+          file_path: originalObjectPath,
           file_name: outputFileName,
           file_type: 'application/pdf',
           attachment_type: 'qbcc_notice_uploads',
@@ -239,13 +261,15 @@ export class NoticeGenDocService {
     }
 
     if (noticeType === 'S75 Supporting Statement') {
-      // fileName = 'S75-support-statement-' + noticeId + '-' + noticeDate + '.pdf';
+      const s75OutputPath = join(noticesFolderPath, finalFileName);
 
-      const outputPath = join(noticesFolderPath, finalFileName);
+      // Upload S75 PDF to Object Storage
+      const s75ObjectPath = `compulsory_attachments/${finalFileName}`;
+      await this.uploadToObjectStorage(s75OutputPath, s75ObjectPath);
 
       const createFileUploadInput: Partial<CreateFileUploadInput> = {
         payment_claim_id: noticeId,
-        file_path: outputPath,
+        file_path: s75ObjectPath,
         file_name: finalFileName,
         file_type: 'application/pdf',
         attachment_type: 'Compulsory_attachments',
@@ -260,28 +284,19 @@ export class NoticeGenDocService {
     } else {
       const createFileUploadInput: Partial<CreateFileUploadInput> = {
         notice_id: noticeId,
-        file_path: outputPath,
+        file_path: objectStoragePath,
         file_name: fileName,
         file_type: 'application/pdf',
         attachment_type: 'Notices_uploads',
       };
 
-      if (existsSync(outputPath)) {
-        await this.fileUploadService.saveFile(
-          decoded,
-          createFileUploadInput as CreateFileUploadInput,
-          manager,
-        );
-      } else {
-        console.error(`PDF generation failed. File not found: ${outputPath}`);
-      }
-
-      // await this.fileUploadService.saveFile(
-      //   decoded,
-      //   createFileUploadInput as CreateFileUploadInput,
-      // );
+      await this.fileUploadService.saveFile(
+        decoded,
+        createFileUploadInput as CreateFileUploadInput,
+        manager,
+      );
     }
-    // Optionally return the file path if needed
-    return outputPath;
+    // Return the Object Storage path
+    return objectStoragePath;
   }
 }
