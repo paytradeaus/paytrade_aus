@@ -153,9 +153,12 @@ export class NoticeGenDocService {
 
     let browser;
     try {
+      console.log(`[PDF] Launching Puppeteer with options:`, JSON.stringify(launchOptions));
       browser = await puppeteer.launch(launchOptions);
+      console.log(`[PDF] Browser launched successfully`);
     } catch (error) {
-      console.error('Error launching browser', error);
+      console.error('[PDF] Error launching browser:', error);
+      this.logError(`PDF generation failed - browser launch error: ${error.message}`);
       throw new Error(`PDF generation failed: ${error.message}`);
     }
 

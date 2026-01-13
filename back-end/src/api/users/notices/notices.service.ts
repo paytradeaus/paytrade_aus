@@ -4171,6 +4171,8 @@ export class NoticesService {
       this.logger.error(
         `Errored while triggering notices of contract: ${payload.bank_account_id} with message: ${error.message}`,
       );
+      this.logger.error(`Full error stack: ${error.stack}`);
+      console.error('NOTICE GENERATION ERROR:', error);
       return framedResponse('ERROR', error.message);
     }
   }
