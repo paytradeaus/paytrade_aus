@@ -238,7 +238,13 @@ export default function PersonalInfo() {
             })
           );
 
-          // onClose();
+          setLoader(false);
+          if (IsActivity === "log") {
+            router.push(AppRoutes.USER_ACTIVITY_LOG);
+          } else {
+            router.push(AppRoutes.USER_DASHBOARD);
+          }
+          return;
         }
       });
       setLoader(false);
