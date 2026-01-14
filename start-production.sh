@@ -2,6 +2,9 @@
 
 export NODE_ENV=production
 
+echo "Starting Redis..."
+redis-server --daemonize yes
+
 echo "Starting backend on port 3001..."
 cd /home/runner/workspace/back-end && PORT=3001 npm run start:prod &
 
