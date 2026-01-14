@@ -10,9 +10,14 @@ const SOMETHING_WENT_WRONG = "Something went wrong !";
 
 const getGraphQLUri = () => {
   if (typeof window !== 'undefined') {
+    // Browser - use relative URL (proxy handles routing)
     return '/graphql';
   }
-  return process.env.NEXT_PUBLIC_GRAPHQL_URI || '/graphql';
+  // Server-side - use internal backend URL
+  // In production, backend runs on port 3001 locally
+  return process.env.BACKEND_URL 
+    ? `${process.env.BACKEND_URL}/graphql`
+    : (process.env.NEXT_PUBLIC_GRAPHQL_URI || 'http://127.0.0.1:3001/graphql');
 };
 
 const httpLink = createHttpLink({
