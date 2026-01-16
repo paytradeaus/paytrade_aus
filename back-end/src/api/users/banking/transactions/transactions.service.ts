@@ -127,7 +127,7 @@ export class TransactionsService {
       //function to fetch file path according to the fin ins
 
       const filePath =
-        'uploads/transaction_csv_file_attachments/1724393403446-32446637-csv_upload_template.csv';
+        'transaction_csv_file_attachments/transaction-upload-csv-template.csv';
       const fileType = 'text/csv';
       let file_base_64 = '';
       try {
