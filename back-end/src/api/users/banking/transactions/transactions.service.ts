@@ -31,8 +31,7 @@ import {
   TempSaveTransactions,
   TransactionDetails,
 } from 'src/entities/transaction-details.entity';
-import { parse } from 'csv-parse';
-import { createReadStream } from 'fs';
+import { parse } from 'csv-parse/sync';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { csvTemplateFileDetailsResponse } from './transactions.response';
 import { SubPayments } from 'src/entities/sub-payments.entity';
@@ -2541,14 +2540,16 @@ export class TransactionsService {
     bank_account_id: number,
     userId: number,
   ): Promise<any> {
-    const records = [];
-
     try {
-      const parser = createReadStream(filePath).pipe(parse({ columns: true }));
-
-      for await (const row of parser) {
-        records.push(row);
+      // Download CSV file from Object Storage
+      const fileBuffer = await this.objectStorageService.downloadFile(filePath);
+      if (!fileBuffer) {
+        throw new Error(`Failed to download CSV file from storage: ${filePath}`);
       }
+
+      // Parse CSV from buffer
+      const csvContent = fileBuffer.toString('utf-8');
+      const records = parse(csvContent, { columns: true });
 
       await this.temperoryRepoTransactions.delete({});
 
