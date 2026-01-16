@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import FormikControl from "@/components/FormikControl";
 import { buttonType, InputType } from "@/shared/constant/general";
 import * as Yup from "yup";
@@ -16,6 +17,9 @@ import CustomButton from "@/components/CustomButton/CustomButton";
 import BreadCrumbs from "@/components/BreadCrumbs";
 import AsyncCreatableSelect from "react-select/async-creatable";
 import { useLoaderContext } from "@/context/useLoader";
+import pdfIcon from "../../../../public/images/pdf-icon.png";
+import docxIcon from "../../../../public/images/docx-icon.png";
+import imagesFileType from "../../../../public/images/imagesfileTypes.webp";
 
 const NoticeTemplate = () => {
   const [emailError, setEmailError] = useState("");
@@ -187,15 +191,16 @@ const NoticeTemplate = () => {
     const fileExtension = file.file_name?.split(".").pop()?.toLowerCase() ?? "";
     switch (fileExtension) {
       case "pdf":
-        return "/images/pdf-icon.png";
+        return pdfIcon;
+      case "doc":
       case "docx":
-        return "/images/docx-icon.png";
+        return docxIcon;
       case "jpg":
       case "jpeg":
       case "png":
-        return "/images/imagesfileTypes.webp";
+        return imagesFileType;
       default:
-        return "/images/imagesfileTypes.webp"; // Default icon
+        return imagesFileType;
     }
   };
 
@@ -403,15 +408,13 @@ const NoticeTemplate = () => {
                     style={{ margin: "5px 0px" }}
                     key={index}
                   >
-                    <div>
-                      <img
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <Image
                         src={getFileIcon(eachFile)}
                         alt="file icon"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          marginRight: "10px",
-                        }}
+                        width={20}
+                        height={20}
+                        style={{ marginRight: "10px" }}
                       />
                       <span>{truncateName(eachFile?.file_name)}</span>
                     </div>
