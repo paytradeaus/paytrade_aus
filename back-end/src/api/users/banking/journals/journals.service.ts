@@ -2267,13 +2267,13 @@ export class JournalsService {
 
     if (!auditDetails) throw new Error('Audit report not found');
 
-    auditDetails.company_id = data.company_id;
-    auditDetails.project_id = data.project_id;
-    auditDetails.audit_date = data.audit_date;
-    auditDetails.aud_gen_from_date = data.aud_gen_from_date;
-    auditDetails.aud_gen_to_date = data.aud_gen_to_date;
-    auditDetails.bank_account_id = data.bank_account_id;
-    auditDetails.nil_return = data.nil_return;
+    if (data.company_id !== undefined) auditDetails.company_id = data.company_id;
+    if (data.project_id !== undefined) auditDetails.project_id = data.project_id;
+    if (data.audit_date !== undefined) auditDetails.audit_date = data.audit_date;
+    if (data.aud_gen_from_date !== undefined) auditDetails.aud_gen_from_date = data.aud_gen_from_date;
+    if (data.aud_gen_to_date !== undefined) auditDetails.aud_gen_to_date = data.aud_gen_to_date;
+    if (data.bank_account_id !== undefined) auditDetails.bank_account_id = data.bank_account_id;
+    if (data.nil_return !== undefined) auditDetails.nil_return = data.nil_return;
     auditDetails.updated_by = decoded?.userId;
     auditDetails.updated_on = moment.tz('UTC');
     auditDetails.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
