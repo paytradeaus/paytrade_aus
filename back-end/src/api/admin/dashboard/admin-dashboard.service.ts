@@ -209,25 +209,36 @@ export class AdminDashboardService {
       const projectAndBankAccountDetails =
         await this.projectDetailsRepo.query(rawQuery);
 
-      const complianceResultsOfProjectsWithNumberOfIssues =
+      const complianceResultsOfProjectsWithNumberOfIssues = await Promise.all(
         projectAndBankAccountDetails.map(async (result) => {
-          const complianceResults =
-            await this.complianceService.fetchComplianceStatusesOfAProject({
-              project_id: result.project_id,
-            });
+          try {
+            const complianceResults =
+              await this.complianceService.fetchComplianceStatusesOfAProject({
+                project_id: result.project_id,
+              });
 
-          const issues =
-            complianceResults.data.number_of_issues_in_pta +
-            complianceResults.data.number_of_issues_in_rta;
+            const issues =
+              (complianceResults?.data?.number_of_issues_in_pta || 0) +
+              (complianceResults?.data?.number_of_issues_in_rta || 0);
 
-          return {
-            ...result,
-            ...{ issues },
-          };
-        });
+            return {
+              ...result,
+              issues,
+            };
+          } catch (complianceError) {
+            this.logger.error(
+              `Error fetching compliance for project ${result.project_id}: ${complianceError.message}`,
+            );
+            return {
+              ...result,
+              issues: 0,
+            };
+          }
+        }),
+      );
 
       this.logger.log(
-        `All projects with compliance issues have been fetched successfully with data: ${JSON.stringify(projectAndBankAccountDetails)}`,
+        `All projects with compliance issues have been fetched successfully with data: ${JSON.stringify(complianceResultsOfProjectsWithNumberOfIssues)}`,
       );
 
       return framedResponse(
