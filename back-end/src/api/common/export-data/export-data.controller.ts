@@ -17,13 +17,17 @@ import { jwtConstants } from 'src/api/auth/constants';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { ExportDataService } from './export-data.service';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import * as path from 'path';
 
 @Controller('files')
 export class ExportDataController {
   private readonly jwtSecret = jwtConstants.secret;
   private logger: PaytradeLogger;
-  constructor(private readonly exportDataService: ExportDataService) {
+  constructor(
+    private readonly exportDataService: ExportDataService,
+    private readonly objectStorageService: ObjectStorageService,
+  ) {
     this.logger = new PaytradeLogger('EXPORT_DATA');
   }
 
@@ -124,13 +128,12 @@ export class ExportDataController {
 
     try {
       const decoded: any = jwt.verify(token, this.jwtSecret);
-      const filePath = path.join(
-        process.cwd(),
-        'uploads/audit_report',
-        decoded?.fileName,
-      );
+      
+      // Download from Object Storage
+      const filePath = decoded?.filePath || `audit_reports/${decoded?.fileName}`;
+      const fileBuffer = await this.objectStorageService.downloadFile(filePath);
 
-      if (!existsSync(filePath)) {
+      if (!fileBuffer) {
         throw new HttpException('File not found', HttpStatus.NOT_FOUND);
       }
 
@@ -141,9 +144,9 @@ export class ExportDataController {
 
       response.setHeader('Content-Type', decoded?.contentType);
 
-      const fileStream = createReadStream(filePath);
-      fileStream.pipe(response);
+      response.send(fileBuffer);
     } catch (error) {
+      this.logger.error(`Error downloading audit report: ${error.message}`);
       return framedResponse(
         'ERROR',
         `Invalid or expired token: ${error.message}`,

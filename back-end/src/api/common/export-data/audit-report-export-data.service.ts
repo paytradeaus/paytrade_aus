@@ -33,6 +33,8 @@ import { JournalEntries } from 'src/entities/journal-entries.entity';
 import { JournalsService } from 'src/api/users/banking/journals/journals.service';
 import { ExportDataService } from './export-data.service';
 import { ExportExcelDataInput } from './dto/export-data-excel.input';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+import { Readable } from 'stream';
 var moment = require('moment-timezone');
 
 @Injectable()
@@ -64,6 +66,7 @@ export class AuditReportExportDataService {
 
     private journalsService: JournalsService,
     private exportDataService: ExportDataService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('AUDIT_REPORT_EXPORT_DATA_SERVICE');
   }
@@ -1013,25 +1016,19 @@ Each file contains records relevant to that category as part of the audit trail.
 
   async generateAuditReport(payload: any) {
     try {
-      const zipDir = path.join(process.cwd(), 'uploads/audit_report');
-      fs.mkdirSync(zipDir, { recursive: true });
-
       const expiration = Math.floor(Date.now() / 1000) + 60 * 10;
       const downloadName = await this.getFileName({
         ...payload,
         module_name: AuditReportModuleEnum.AuditReport,
       });
-      const zipOutputPath = path.join(zipDir, `${downloadName?.fileName}.zip`); // zip in root
 
-      const filePathLink = path.join(
-        'uploads/audit_report',
-        `${downloadName?.fileName}.zip`,
-      );
+      const filePathLink = `audit_reports/${downloadName?.fileName}.zip`;
 
       const token = jwt.sign(
         {
           fileName: `${downloadName?.fileName}.zip`,
           downloadName: `${downloadName?.fileName}.zip`,
+          filePath: filePathLink,
           contentType: 'application/zip',
           exp: expiration,
         },
@@ -1080,15 +1077,18 @@ Each file contains records relevant to that category as part of the audit trail.
         return false;
       };
 
-      const publicURL =
-        process.env.UPLOAD_BASE_URL + filePathLink.replace(/\\/g, '/');
-
       if (await hasRecords()) {
-        await this.generateZipFile({
+        // Generate zip as buffer and upload to Object Storage
+        const zipBuffer = await this.generateZipFileToBuffer({
           zipDetails: this.zipFileDetails(),
-          zipOutputPath,
           payload,
         });
+
+        // Upload to Object Storage
+        await this.objectStorageService.uploadFileDirect(
+          filePathLink,
+          zipBuffer,
+        );
 
         const savedFile = await this.fileAttachments.save({
           name: `${downloadName?.fileName}`,
@@ -1103,7 +1103,7 @@ Each file contains records relevant to that category as part of the audit trail.
 
         const fileData = {
           file_name: `${downloadName?.fileName}.zip`,
-          file_path: publicURL,
+          file_path: `/${filePathLink}`,
           file_type: 'application/zip',
           attachment_id: savedFile.id,
         };
@@ -1116,6 +1116,7 @@ Each file contains records relevant to that category as part of the audit trail.
         throw new Error(`Record not found`);
       }
     } catch (error) {
+      this.logger.error(`Error generating audit report: ${error.message}`);
       return error;
     }
   }
@@ -1690,7 +1691,273 @@ Each file contains records relevant to that category as part of the audit trail.
     return name.replace(/[:\\/?*\[\]]/g, '').substring(0, 31);
   }
 
-  // zipFromStructure
+  // Generate zip file to buffer for Object Storage upload
+  async generateZipFileToBuffer({
+    zipDetails,
+    payload,
+  }: {
+    zipDetails: Record<string, any>;
+    payload: AuditReportServiceInput;
+  }): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      const masterSummary = [];
+
+      archive.on('data', (chunk) => chunks.push(chunk));
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', (err) => reject(err));
+
+      const addToArchive = async ({
+        zipDetails,
+        currentPath = '',
+      }: {
+        zipDetails: any[];
+        currentPath?: string;
+      }) => {
+        type ModuleObject = {
+          moduleName: string;
+          subFolders: any[];
+          readMeFile: {
+            fileName: string;
+            content: any;
+          };
+        };
+
+        for (const moduleObj of zipDetails as ModuleObject[]) {
+          const folderName =
+            moduleObj?.moduleName === AuditReportModuleEnum.Contract
+              ? 'Contracts and variations'
+              : moduleObj?.moduleName;
+          const modulePath = path.join(currentPath, folderName);
+
+          // === Handle Accounting Records ===
+          if (
+            moduleObj?.moduleName === AuditReportModuleEnum.AccountingRecords
+          ) {
+            const accountingRecords = await this.fetchBatchData({
+              payload: {
+                ...payload,
+                module_name: AuditReportModuleEnum.AccountingRecords,
+              },
+            });
+
+            const formattedRecords =
+              accountingRecords?.map((record) => ({
+                sheetName: record.sheetName,
+                records: record.records,
+                module_name: record.module_name,
+              })) ?? [];
+
+            const accountingBuffer = await this.createExcelBuffer({
+              payload: {
+                ...payload,
+                module_name: AuditReportModuleEnum.AccountingRecords,
+              },
+              records: formattedRecords,
+              isMultiSheet: true,
+            });
+
+            archive.append(accountingBuffer, {
+              name: path.join(folderName, 'Accounting Records.xlsx'),
+            });
+
+            masterSummary.push({
+              module_name: AuditReportModuleEnum.AccountingRecords,
+              records: [
+                {
+                  file_name: 'Accounting Records.xlsx',
+                  description:
+                    'Contains Trial Balance, Ledger, Deposits & Withdrawals, and Journal',
+                },
+              ],
+            });
+
+            if (moduleObj?.readMeFile?.fileName) {
+              await this.createReadMeFile({
+                data: {
+                  ...moduleObj.readMeFile,
+                  path: modulePath,
+                },
+                archive,
+              });
+            }
+
+            continue;
+          }
+
+          if (
+            moduleObj?.moduleName ===
+              AuditReportModuleEnum.ClientPaymentClaim ||
+            moduleObj?.moduleName === AuditReportModuleEnum.ClientNotice ||
+            moduleObj?.moduleName === AuditReportModuleEnum.ReceivedNotice ||
+            moduleObj?.moduleName ===
+              AuditReportModuleEnum.SupplierSubConPaymentClaim ||
+            moduleObj?.moduleName ===
+              AuditReportModuleEnum.SupplierSubConPaymentSchedule ||
+            moduleObj?.moduleName === AuditReportModuleEnum.BankStatement ||
+            moduleObj?.moduleName ===
+              AuditReportModuleEnum.PaymentInstructionFile
+          ) {
+            const records = await this.fetchBatchData({
+              payload: { ...payload, module_name: moduleObj?.moduleName },
+            });
+
+            let attachments = [];
+
+            if (moduleObj?.moduleName === AuditReportModuleEnum.BankStatement) {
+              attachments = records
+                ?.filter(
+                  (bs) => bs?.bank_statement_attachment_id && bs?.file_path,
+                )
+                ?.map((f) => ({
+                  attachment_id: f?.id,
+                  file_path: f?.file_path,
+                  file_type: f?.file_type,
+                  attachment_type: f?.attachment_type,
+                  file_name: f?.file_name,
+                }));
+            } else if (
+              moduleObj?.moduleName ===
+              AuditReportModuleEnum.PaymentInstructionFile
+            ) {
+              attachments = records
+                ?.filter((r) => r?.aba_file_attachment_id && r?.file_path)
+                ?.map((f) => ({
+                  attachment_id: f?.aba_file_attachment_id,
+                  file_path: f?.file_path,
+                  file_type: f?.file_type,
+                  attachment_type: 'ABA File',
+                  file_name: f?.aba_file_name,
+                }));
+            }
+
+            // Add Excel file for this module
+            if (records?.length > 0) {
+              const excelBuffer = await this.createExcelBuffer({
+                payload: { ...payload, module_name: moduleObj?.moduleName },
+                records,
+              });
+              archive.append(excelBuffer, {
+                name: path.join(folderName, `${folderName}.xlsx`),
+              });
+            }
+
+            // Add attachments from Object Storage
+            for (const attachment of attachments) {
+              if (attachment?.file_path) {
+                try {
+                  const fileBuffer = await this.objectStorageService.downloadFile(
+                    attachment.file_path,
+                  );
+                  if (fileBuffer) {
+                    archive.append(fileBuffer, {
+                      name: path.join(folderName, 'Attachments', attachment.file_name),
+                    });
+                  }
+                } catch (e) {
+                  this.logger.error(`Failed to download attachment: ${attachment.file_path}`);
+                }
+              }
+            }
+
+            if (moduleObj?.readMeFile?.fileName) {
+              await this.createReadMeFile({
+                data: {
+                  ...moduleObj.readMeFile,
+                  path: modulePath,
+                },
+                archive,
+              });
+            }
+
+            continue;
+          }
+
+          // Handle contracts with subfolders
+          if (
+            moduleObj?.moduleName === AuditReportModuleEnum.Contract &&
+            moduleObj?.subFolders?.length
+          ) {
+            for (const subFolder of moduleObj.subFolders) {
+              const subFolderName = subFolder?.moduleName;
+              const subFolderPath = path.join(modulePath, subFolderName);
+
+              const records = await this.fetchBatchData({
+                payload: { ...payload, module_name: subFolder?.moduleName },
+              });
+
+              if (records?.length > 0) {
+                const excelBuffer = await this.createExcelBuffer({
+                  payload: { ...payload, module_name: subFolder?.moduleName },
+                  records,
+                });
+                archive.append(excelBuffer, {
+                  name: path.join(subFolderPath, `${subFolderName}.xlsx`),
+                });
+
+                // Add file attachments from records
+                for (const record of records) {
+                  if (record?.file_path) {
+                    try {
+                      const fileBuffer = await this.objectStorageService.downloadFile(
+                        record.file_path,
+                      );
+                      if (fileBuffer) {
+                        archive.append(fileBuffer, {
+                          name: path.join(subFolderPath, 'Attachments', record.file_name),
+                        });
+                      }
+                    } catch (e) {
+                      this.logger.error(`Failed to download: ${record.file_path}`);
+                    }
+                  }
+                }
+              }
+
+              if (subFolder?.readMeFile?.fileName) {
+                await this.createReadMeFile({
+                  data: {
+                    ...subFolder.readMeFile,
+                    path: subFolderPath,
+                  },
+                  archive,
+                });
+              }
+            }
+
+            if (moduleObj?.readMeFile?.fileName) {
+              await this.createReadMeFile({
+                data: {
+                  ...moduleObj.readMeFile,
+                  path: modulePath,
+                },
+                archive,
+              });
+            }
+          }
+        }
+      };
+
+      try {
+        await addToArchive({ zipDetails: zipDetails.modules });
+
+        // Add master summary
+        const summaryBuffer = await this.createExcelBuffer({
+          payload: { ...payload, module_name: AuditReportModuleEnum.AuditReport },
+          records: masterSummary,
+          sheetName: 'Summary',
+        });
+        archive.append(summaryBuffer, { name: 'Summary.xlsx' });
+
+        archive.finalize();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  // zipFromStructure - legacy method for local file system
   async generateZipFile({
     zipDetails,
     zipOutputPath,
