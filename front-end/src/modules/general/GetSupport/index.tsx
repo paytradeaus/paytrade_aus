@@ -97,6 +97,11 @@ export default function SupportPage() {
     setRecaptchaToken(token);
   }
 
+  function handleReCaptchaError(error: string) {
+    showErrorToast(error);
+    setIsSubmitting(false);
+  }
+
   return (
     <GoogleReCaptchaProvider reCaptchaKey={reCaptchaKey}>
       <main>
@@ -131,6 +136,7 @@ export default function SupportPage() {
                     <br />
                     <ReCaptchaComponent
                       onVerify={handleReCaptchaVerify}
+                      onError={handleReCaptchaError}
                       verifyButtonRef={verifyButtonRef}
                     />
                     <form onSubmit={formik.handleSubmit}>

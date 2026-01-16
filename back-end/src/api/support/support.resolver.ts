@@ -61,21 +61,35 @@ export class SupportResolver {
         `Request received for creating a support ticket with data: ${JSON.stringify(payload)}`,
       );
       if (payload.recaptcha_token) {
+        const recaptchaUri = process.env.RECAPTCHA_URI;
+        const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+        
+        if (!recaptchaUri || !recaptchaSecret) {
+          this.logger.error('reCAPTCHA configuration is missing');
+          return framedResponse(
+            'ERROR',
+            'reCAPTCHA configuration error. Please contact support.',
+          );
+        }
+        
         const response = await axios.post(
-          `${process.env.RECAPTCHA_URI}${process.env.RECAPTCHA_SECRET_KEY}&response=${payload.recaptcha_token}`,
+          `${recaptchaUri}${recaptchaSecret}&response=${payload.recaptcha_token}`,
+          {},
+          { timeout: 10000 },
         );
         if (response.data.success) {
           const contactDetails = payload;
           return await this.supportService.createSupportTicket(contactDetails);
         }
+        this.logger.error(`reCAPTCHA verification failed: ${JSON.stringify(response.data)}`);
         return framedResponse(
           'ERROR',
-          `Robot detected while submitting a contact with message: ${response.data['error-codes']}`,
+          `reCAPTCHA verification failed. Please try again.`,
         );
       }
       return framedResponse(
         'ERROR',
-        `Error in Token while submitting a contact`,
+        `reCAPTCHA token is required. Please try again.`,
       );
     } catch (error) {
       this.logger.error(
@@ -83,7 +97,7 @@ export class SupportResolver {
       );
       return framedResponse(
         'ERROR',
-        `Errored while submitting a contact with message: ${error.message}`,
+        `reCAPTCHA error occurred. Please try again later.`,
       );
     }
   }
