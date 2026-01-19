@@ -138,8 +138,8 @@ export class ExportDataResolver {
           ...payload,
         });
 
-      if (!signedUrl || typeof signedUrl !== 'object') {
-        return framedResponse('ERROR', 'Failed to generate audit report', null);
+      if (!signedUrl || typeof signedUrl !== 'object' || !signedUrl.token) {
+        return framedResponse('ERROR', 'Failed to generate audit report. No records found for the selected date range.', null);
       }
 
       return {
@@ -149,9 +149,12 @@ export class ExportDataResolver {
       };
     } catch (error) {
       this.logError(`Error generateAuditReport: ${error.message}`);
+      const errorMessage = error.message === 'Record not found' 
+        ? 'No records found for the selected date range.' 
+        : `Failed to generate audit report: ${error.message}`;
       return framedResponse(
         'ERROR',
-        `Failed to generate signed URL in resolver: ${error.message}`,
+        errorMessage,
         null,
       );
     }

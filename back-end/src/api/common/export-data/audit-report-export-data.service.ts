@@ -1117,7 +1117,7 @@ Each file contains records relevant to that category as part of the audit trail.
       }
     } catch (error) {
       this.logger.error(`Error generating audit report: ${error.message}`);
-      return error;
+      throw error;
     }
   }
 
