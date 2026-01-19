@@ -24,23 +24,54 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   }
 });
 
+const backendPaths = [
+  '/graphql', '/uploads', '/files', '/socket.io', '/bull-board',
+  '/profile_photo', '/admin_profile_photo', '/company_logo', '/communication',
+  '/trust_training_records', '/blog_banner', '/resources', '/notice-templates',
+  '/notices', '/recieved-notices', '/notices_supporting_docs', '/contracts',
+  '/variations', '/bank_statements', '/retention_trust_certificates',
+  '/transaction_csv_file_attachments', '/optional_attachments', '/compulsory_attachments',
+  '/optional_supporting_statement_attachments', '/audit_reports', '/generated_aba_files',
+  '/Admin_holiday', '/misc', '/notices-generated', '/original-notices-generated', '/stripe-webhook', '/xero-webhook', '/xero', '/support-mail', '/support-ticket'
+];
+
+const webhookPaths = ['/xero-webhook', '/stripe-webhook', '/support-mail'];
+
 const server = http.createServer((req, res) => {
   const url = req.url || '';
-  
-  const backendPaths = [
-    '/graphql', '/uploads', '/files', '/socket.io', '/bull-board',
-    '/profile_photo', '/admin_profile_photo', '/company_logo', '/communication',
-    '/trust_training_records', '/blog_banner', '/resources', '/notice-templates',
-    '/notices', '/recieved-notices', '/notices_supporting_docs', '/contracts',
-    '/variations', '/bank_statements', '/retention_trust_certificates',
-    '/transaction_csv_file_attachments', '/optional_attachments', '/compulsory_attachments',
-    '/optional_supporting_statement_attachments', '/audit_reports', '/generated_aba_files',
-    '/Admin_holiday', '/misc', '/notices-generated', '/original-notices-generated', '/stripe-webhook', '/xero-webhook', '/xero', '/support-mail', '/support-ticket'
-  ];
   const isBackend = backendPaths.some(path => url.startsWith(path));
+  const isWebhook = webhookPaths.some(path => url.startsWith(path));
   
   if (isBackend) {
-    proxy.web(req, res, { target: `http://127.0.0.1:${BACKEND_PORT}` });
+    if (isWebhook) {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        const rawBody = Buffer.concat(chunks);
+        const proxyReq = http.request({
+          hostname: '127.0.0.1',
+          port: BACKEND_PORT,
+          path: url,
+          method: req.method,
+          headers: {
+            ...req.headers,
+            'content-length': rawBody.length,
+          },
+        }, (proxyRes) => {
+          res.writeHead(proxyRes.statusCode, proxyRes.headers);
+          proxyRes.pipe(res);
+        });
+        proxyReq.on('error', (err) => {
+          console.error('Webhook proxy error:', err.message);
+          res.writeHead(502, { 'Content-Type': 'text/plain' });
+          res.end('Bad Gateway');
+        });
+        proxyReq.write(rawBody);
+        proxyReq.end();
+      });
+    } else {
+      proxy.web(req, res, { target: `http://127.0.0.1:${BACKEND_PORT}` });
+    }
   } else {
     proxy.web(req, res, { target: `http://127.0.0.1:${FRONTEND_PORT}` });
   }
