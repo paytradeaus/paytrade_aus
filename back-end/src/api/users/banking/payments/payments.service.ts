@@ -4943,8 +4943,10 @@ export class PaymentsService {
           },
         );
       } else if (getSubpaymentsInput.is_confirmed === false) {
-        queryBuilder.andWhere('payments.current_status NOT IN  (:...status)', {
-          status: allowedPaidStatuses,
+        // For ToDo + is_confirmed=false, filter by subpayment status instead of payment current_status
+        // This ensures items with paid/received payment status but unconfirmed subpayments are still shown
+        queryBuilder.andWhere('subpayment.status = :subpayment_status', {
+          subpayment_status: getSubpaymentsInput.status,
         });
       }
     } else if (getSubpaymentsInput.status) {
@@ -4963,7 +4965,7 @@ export class PaymentsService {
         // );
       } else if (getSubpaymentsInput.is_confirmed === false) {
         queryBuilder.andWhere(
-          '(subpayment.is_paid_confirmed = false OR subpayment.is_received_confirmed = false OR subpayment.is_retention_confirmed = false)',
+          '(COALESCE(subpayment.is_paid_confirmed, false) = false OR COALESCE(subpayment.is_received_confirmed, false) = false OR COALESCE(subpayment.is_retention_confirmed, false) = false)',
         );
 
         queryBuilder.addSelect(
