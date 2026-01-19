@@ -47,37 +47,48 @@ export class XeroWebhookResolver {
       const rawBodyBuffer = (request as any).rawBody;
       if (!rawBodyBuffer) {
         console.error('[Xero Webhook] Raw body not found!');
-        return response
-          .status(500)
-          .send('Internal Server Error: Raw body missing.');
+        // Must return 401 for Xero intent-to-receive validation (not 500)
+        return response.status(401).send();
       }
       const rawBodyString = rawBodyBuffer.toString('utf8');
       console.log(`[Xero Webhook] Raw Body: ${rawBodyString}`);
+      console.log(`[Xero Webhook] Raw Body Length: ${rawBodyBuffer.length}`);
 
       const signature = Array.isArray(request.headers['x-xero-signature'])
         ? request.headers['x-xero-signature'][0]
         : request.headers['x-xero-signature'];
       console.log(`[Xero Webhook] x-xero-signature: ${signature}`);
-      console.log(
-        `[Xero Webhook] XERO_WEBHOOK_KEY value: ${process.env.XERO_WEBHOOK_KEY}`,
-      );
+      
+      const webhookKey = process.env.XERO_WEBHOOK_KEY?.trim();
+      console.log(`[Xero Webhook] XERO_WEBHOOK_KEY exists: ${!!webhookKey}, length: ${webhookKey?.length || 0}`);
+      
+      if (!webhookKey) {
+        console.error('[Xero Webhook] XERO_WEBHOOK_KEY not configured!');
+        return response.status(401).send();
+      }
+      
       const computedHmac = crypto
-        .createHmac('sha256', process.env.XERO_WEBHOOK_KEY?.trim())
+        .createHmac('sha256', webhookKey)
         .update(rawBodyBuffer)
         .digest('base64');
+      
+      console.log(`[Xero Webhook] Computed HMAC: ${computedHmac}`);
+      console.log(`[Xero Webhook] Received signature: ${signature}`);
+      console.log(`[Xero Webhook] Signatures match: ${signature === computedHmac}`);
 
       if (!signature || signature !== computedHmac) {
-        console.warn('[Xero Webhook] HMAC verification failed!');
-        return response.status(401).send('Unauthorized');
+        console.warn('[Xero Webhook] HMAC verification failed - returning 401 (expected for 3 of 4 intent-to-receive tests)');
+        // Xero intent-to-receive sends 3 invalid + 1 valid signature - must return 401 for invalid
+        return response.status(401).send();
       }
 
-      console.log('[Xero Webhook] HMAC verification successful.');
+      console.log('[Xero Webhook] HMAC verification successful - returning 200.');
 
-      // Respond right away so Xero gets its 200 OK
+      const diff = process.hrtime(startTime);
+      console.log(`[Xero Webhook] Response Time: ${diff[0]}s ${diff[1] / 1e6}ms`);
+      
+      // Respond right away with empty body - Xero requires this exact format
       response.status(200).send();
-      console.log(
-        '[Xero Webhook] Intent to receive detected. Sending 200 OK (empty body).',
-      );
 
       // Process webhook asynchronously
       setImmediate(async () => {
@@ -176,14 +187,10 @@ export class XeroWebhookResolver {
           console.error('[Xero Webhook] Async error:', err.message);
         }
       });
-
-      const diff = process.hrtime(startTime);
-      console.log(
-        `[Xero Webhook] Response Time (200 OK): ${diff[0]}s ${diff[1] / 1e6}ms`,
-      );
     } catch (err) {
       console.error(`[Xero Webhook] Error: ${err.message}`);
-      return response.status(400).send(`Webhook Error: ${err.message}`);
+      // Return 401 for any errors during intent-to-receive validation
+      return response.status(401).send();
     }
   }
 }
