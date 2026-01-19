@@ -144,6 +144,9 @@ export class XeroService {
       if (!state) throw new Error('State not found');
       // console.log('Inside handleCallback:: state', state);
 
+      // Set state on XeroClient before calling apiCallback - required for OAuth validation
+      this.xero.config.state = state;
+
       const stateData = JSON.parse(state);
       // const stateData = JSON.parse(
       //   Buffer.from(state, 'base64').toString('utf8'),
