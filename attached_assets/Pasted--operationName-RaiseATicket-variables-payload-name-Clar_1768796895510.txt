@@ -1,0 +1,14 @@
+{
+  "operationName": "RaiseATicket",
+  "variables": {
+    "payload": {
+      "name": "Claritaz QA",
+      "companyName": "",
+      "email": "qa.claritaz@gmail.com",
+      "message": "help me to change pwd",
+      "recaptcha_token": "0cAFcWeA78h3bRcmbGLcPSVX_VfA3lKHAbNo_4vuCgKRiQhdQenfqmkPpTBvyUMQuyZWmPxrxmPO9VzIeYJ0BLDvC5PD0xkzowwsAe9nF-rCsDTvcjHt5WCWyggDjB4_w1rg_kulwFuPhViU9bJIgR3T1gBh5VRZiad85rlvw8zuZNdz5Q5cM94ZwRbmsSeRkI2wJo3FS5-nHEQ1PLB9NfbPwTMBb2lZFFdXtwDl5OxNBO7IB7m0Vd0okt8tLYbYVKBP_Sm0QTG-bbNmI4AZ-6rpwCj0FvTIqsq_4S3xMt7TEqL1p2mexHvzCbxz6OSOd0Ifai4UsFJ7DbQSPW2oe0-UBTYAtJZsJHr9wEzBRVhMyn2LfQCppttw8dMFDQVvTryowbD-iK0USiju9xikqyTAvy8AP2iD32vpge22mUxf471J8X4a6x_CCELb1GN6wcufBl_zqHdZuw-hNBqFSEC8tGtg9wb5lUVFGRG0vPavh987QaKqzBnlzbA-HCk1Xh2Zgi43zp1BOeU-sulfKlpl5v4-UQEDD-qlRGgUWGj6ntzaCL-4GA8T4KDqUoQc8zgZ8T_Vsk7Hy8Kc_PrRCAeHkuaSZPKoRKUyY6Pag6RgSF5mWsSh9P0YhRYYxL9m5wM5T1reFPBJTNypeOPMLAaAKY3B5SlWP5OdrjWzR0wxKhd5wj8X2WZk3lGpcbt11gF5zBuXsqRhdBHPNLReazFbTeNQBNOn_HP4Esbm9zEU8sasO2tBv610-o89XTkt8fC8CsgLghuY8MBH5XDyLbx6qw_H0k2kAWZzIqQSJrJt3shgIM25jB5eXW7t6-CfctB1wDHhBIKgC895o8B3LVObUwdFUE42sqn4-zyXED9PWndYjjpQRHDZjeumKJB1TjTNYxggpKCMjjKVMSwIbBJz-tODy9qED_NSO0RHH3Q-L4JSgfncq3iHU6PXEdQPMEuD3DZhuUzMEWP20FkkCA_GltF5HLX0sf4qxofMgzVIznHFTE8G0alQgxQe_eRMDfiqPlPQWQPGE-3eYuAXZZOdJPhH0pekhcBcGK-7U5us7GyUkugfiFkc79zTcgt6XPKkhW3a6F318KfqZgTSW8Ltxo8sCLm5wV6UtHEXW3P7agMHdDasrvFScTHmrRdljBrvQiHNfJv4krZyXHxLmudwrvrc1xMd2ScpD-m0zuFpFIuN-mKVV3HtLGl_2Ro7qgo5D7eQqYMwngx9kafjArXnex-hX85wx84VqV52ZgGrEXl_VGr2Y2OzyIREmZC4WRtZnVJgDXp3TkWfDjJDGjTaWN2dxMFI-u8yAISaQ_7R5t372JQs5oyjA_PlfXUEg3ecaE0jGLDsLiLZndMMNQ5kE6YUwSA2gdB_I7yadWhStD5f16Ka2JlIhIZ_fuYzh0ZBWWUz3RlLn7lURTotQ1fB9-6vnFiqCRXqTeNJbPYqUZDbGWcQsBv4EMUp5VTv1BNpHCiLaHnq0GDz09j8_2lA6nmhf5OInz3EJGKiuCOteQParNHQDspJm7A-IWh9f0UsSVsdsctMGqEwWLL8LP-vvu4U5bSLt2lwv9SVu1f5oDF4WheV0YWyD6gKVMWRsea6iDSyGZGc_DLhA9m5_7BaKNszqTsklYYyBkpqcdS51T_fhA9WfEvVkZcBd7ArfN3I5uSRqQtiRCIZ82XHKhmVjvykMye1WTreBDC1u3TAvUjA-O5r7QH8nLhFO1prKPSbBuA4bZAwFHHWGVUqE7YxacG2u6RN8cVA",
+      "timezone": "Asia/Calcutta"
+    }
+  },
+  "query": "mutation RaiseATicket($payload: CreateSupportTicketInput!) {\n  RaiseATicket(payload: $payload) {\n    data {\n      id\n      __typename\n    }\n    message\n    status\n    __typename\n  }\n}"
+}
