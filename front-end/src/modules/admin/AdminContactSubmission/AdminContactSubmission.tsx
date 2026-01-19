@@ -189,7 +189,6 @@ const AdminContactSupport = (props: any) => {
         );
         formik.setFieldValue("status", findStatus ?? {});
         setInitialStatus(findStatus ?? {});
-        // setTicketDetails(response?.ticket_details ?? []);
         // ✅ Mark all existing ticket messages as saved
         const ticketsWithSavedFlag = (response?.ticket_details ?? []).map(
           (msg: any) => ({
@@ -197,7 +196,23 @@ const AdminContactSupport = (props: any) => {
             is_saved: true, // all existing messages are saved
           })
         );
-        setTicketDetails(ticketsWithSavedFlag);
+        
+        // ✅ Include the initial message as the first entry
+        const initialMessage = response?.message
+          ? {
+              id: "initial_message",
+              body: response.message,
+              created_on: response.created_on,
+              is_user: true, // from the user who submitted the ticket
+              is_saved: true,
+            }
+          : null;
+
+        const allMessages = initialMessage
+          ? [initialMessage, ...ticketsWithSavedFlag]
+          : ticketsWithSavedFlag;
+
+        setTicketDetails(allMessages);
       }
     } catch (err) {
       console.error(err);
