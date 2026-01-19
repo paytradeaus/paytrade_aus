@@ -1099,23 +1099,17 @@ export class JournalsResolver {
               decoded,
             );
           if (isExisted && isExisted.length > 0) {
-            response = {
-              warning: true,
-              message: 'Audit has been made already for the selected year.',
-            };
+            return framedResponse(
+              'ERROR',
+              'Audit has been made already for the selected year.',
+              { warning: true, auditExists: true },
+            );
           }
         } else {
-          response = {
-            warning: true,
-            message:
-              'Please add bank statement for this month end and then return to create the audit report.',
-          };
-        }
-        if (response) {
           return framedResponse(
-            'SUCCESS',
-            'Unable to add audit report details',
-            response,
+            'ERROR',
+            'Please add bank statement for this month end and then return to create the audit report.',
+            { warning: true, noStatement: true, redirectToStatement: true },
           );
         }
         const auditDetails =
