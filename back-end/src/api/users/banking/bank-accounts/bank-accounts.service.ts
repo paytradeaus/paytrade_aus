@@ -548,7 +548,7 @@ export class BankAccountsService {
           }
 
           let notices;
-          if (data.status === 'Open') {
+          if (data.status === 'Open' && data.account_type !== 'Cash Account') {
             notices = await this.noticeService.handleTriggerAccountNotices(
               decoded,
               { bank_account_id: bank_account_id },
