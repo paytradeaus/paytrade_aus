@@ -4873,7 +4873,7 @@ export class PaymentsService {
 
     if (getSubpaymentsInput.sub_payment_type) {
       if (getSubpaymentsInput.sub_payment_type == 'ToDo') {
-        const PaymentsToDo = ['Payment', 'Retention Out'];
+        const PaymentsToDo = ['Payment', 'Retention Out', 'Retention In'];
         queryBuilder.andWhere(
           'subpayment.sub_payment_type  IN (:...toDoPayments)',
           {

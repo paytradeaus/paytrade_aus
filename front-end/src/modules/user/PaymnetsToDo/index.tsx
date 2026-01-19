@@ -522,7 +522,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           ].includes(payment_type))
       ) {
         payload.is_received_confirmed = true;
-      } else if (sub_payment_type === "Retention Out") {
+      } else if (sub_payment_type === "Retention Out" || sub_payment_type === "Retention In") {
         payload.is_retention_confirmed = true;
       }
 
