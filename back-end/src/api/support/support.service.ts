@@ -684,12 +684,16 @@ export class SupportService {
               mail_type: EmailTypeEnum.ticketReplyToUser,
             };
 
-            try {
-              await this.emailQueueProducer.emailQueueProducer(acknowledgementEmail);
+            // Fire-and-forget email sending - don't block response
+            // The reply message is already saved to ticket_mails above
+            this.emailQueueProducer.emailQueueProducer({
+              ...acknowledgementEmail,
+              isSupport: false, // Don't wait for email completion
+            }).then(() => {
               this.logger.log(`Email queued for ticket: ${ticket?.ticket_id}`);
-            } catch (emailError) {
+            }).catch((emailError) => {
               this.logger.error(`Failed to queue email for ticket ${ticket?.ticket_id}: ${emailError.message}`);
-            }
+            });
           } else {
             this.logger.warn(`Email template not found for support ticket reply. Ticket ${ticket?.ticket_id} updated but email not sent.`);
           }
