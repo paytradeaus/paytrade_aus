@@ -218,13 +218,14 @@ export class SupportResolver {
         template_id = 191;
       }
 
-      if (template_id) {
+      if (template_id && contact?.data) {
+        const ticketData = contact.data as { name?: string; email?: string };
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: template_id,
           admin_id: decoded?.userId,
           dynamic_values: {
-            name: contact.data.name,
-            mail_id: contact.data.email,
+            name: ticketData.name,
+            mail_id: ticketData.email,
           },
           is_admin: true,
           created_by: decoded?.userId,

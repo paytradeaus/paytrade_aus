@@ -534,6 +534,11 @@ export class SupportService {
         where: { id: ticketId },
       });
 
+      if (!ticketInfo) {
+        this.logger.error(`Support ticket not found with id: ${ticketId}`);
+        return framedResponse('ERROR', 'Support ticket not found');
+      }
+
       await this.ticketsRepo
         .createQueryBuilder()
         .update(SupportTickets)
@@ -550,6 +555,24 @@ export class SupportService {
       const ticket = await this.ticketsRepo.findOne({
         where: { id: ticketId },
       });
+
+      // Save the reply message to ticket_mails FIRST (before any email sending)
+      if (message) {
+        try {
+          const replyMail = this.ticketMailsRepo.create({
+            ticket: ticket,
+            fromEmail: process.env.SUPPORT_TICKET_MAIL || 'reply@support.paytrade.app',
+            toEmail: ticket.email,
+            subject: `Re: Support Ticket #${ticket?.ticket_id}`,
+            body: message,
+            isInbound: false,
+          });
+          await this.ticketMailsRepo.save(replyMail);
+          this.logger.log(`Reply message saved to ticket_mails for ticket: ${ticket?.ticket_id}`);
+        } catch (saveError) {
+          this.logger.error(`Failed to save reply mail for ticket ${ticket?.ticket_id}: ${saveError.message}`);
+        }
+      }
 
       const conversationDetail = await this.getTicketById(ticketId);
 
@@ -617,20 +640,6 @@ export class SupportService {
         if (message || ticketClosed) {
           ticket['supportEmail'] =
             `reply+${ticket?.ticket_id}@support.paytrade.app`;
-
-          // Save the reply message to ticket_mails regardless of email template
-          if (message) {
-            const replyMail = this.ticketMailsRepo.create({
-              ticket: ticket,
-              fromEmail: process.env.SUPPORT_TICKET_MAIL || 'reply@support.paytrade.app',
-              toEmail: ticket.email,
-              subject: `Re: Support Ticket #${ticket?.ticket_id}`,
-              body: ticketDetails?.message,
-              isInbound: false,
-            });
-            await this.ticketMailsRepo.save(replyMail);
-            this.logger.log(`Reply message saved to ticket_mails for ticket: ${ticket?.ticket_id}`);
-          }
 
           // Only send email if template exists
           if (supoortTicketReplyToUser) {
