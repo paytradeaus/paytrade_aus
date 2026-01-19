@@ -237,6 +237,7 @@ import { ObjectStorageModule } from './libs/@object-storage';
       name: 'mailQueue',
     }),
     AuthModule,
+    IntegrationsModule, // Must be before FileUploadModule so XeroController routes take precedence
     BankingModule,
     SignupModule,
     FileUploadModule,
@@ -271,7 +272,6 @@ import { ObjectStorageModule } from './libs/@object-storage';
     UserActivityLogModule,
     ExportDataModule,
     CommunityModule,
-    IntegrationsModule,
     SupportWebhooksModule,
     SupportModule,
     EmailQueueModule,
