@@ -295,6 +295,7 @@ const OverPaymentFromClientForm = (props: any) => {
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
         payment_date: values?.paymentDate || null,
+        input_date: new Date().toISOString(),
         payment_claim_id: Number(values?.paymentClaimId),
         associated_payment_id: Number(values?.associatedPaymentId),
         is_received_confirmed: values?.confirmReceived,
