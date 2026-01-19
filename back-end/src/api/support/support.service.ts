@@ -615,75 +615,75 @@ export class SupportService {
         });
 
         if (message || ticketClosed) {
-          if (status === 'Closed') {
-            const subject: any = await this.ptAdminResolver.replaceVariables(
-              supoortTicketReplyToUser.email_subject,
-              {
-                ticket_id: String(ticketInfo?.ticket_id),
-              },
-            );
-            supoortTicketReplyToUser.email_subject = subject;
-          }
-
           ticket['supportEmail'] =
             `reply+${ticket?.ticket_id}@support.paytrade.app`;
 
-          const keysOfAcknowledgementMail =
-            supoortTicketReplyToUser.selected_dynamic;
-          const dynamicAcknowledgementMailData: { [key: string]: any } = {};
-          keysOfAcknowledgementMail.forEach((key) => {
-            const data = {
-              conversation: conversationContent,
-              subject: `Ticket ${ticket?.ticket_id} - Reply from ${ticket?.name}`,
-              supportTicketLink: process.env.LOG_BASE_URL + 'get-support',
+          // Save the reply message to ticket_mails regardless of email template
+          if (message) {
+            const replyMail = this.ticketMailsRepo.create({
+              ticket: ticket,
+              fromEmail: process.env.SUPPORT_TICKET_MAIL || 'reply@support.paytrade.app',
+              toEmail: ticket.email,
+              subject: `Re: Support Ticket #${ticket?.ticket_id}`,
+              body: ticketDetails?.message,
+              isInbound: false,
+            });
+            await this.ticketMailsRepo.save(replyMail);
+            this.logger.log(`Reply message saved to ticket_mails for ticket: ${ticket?.ticket_id}`);
+          }
+
+          // Only send email if template exists
+          if (supoortTicketReplyToUser) {
+            if (status === 'Closed') {
+              const subject: any = await this.ptAdminResolver.replaceVariables(
+                supoortTicketReplyToUser.email_subject,
+                {
+                  ticket_id: String(ticketInfo?.ticket_id),
+                },
+              );
+              supoortTicketReplyToUser.email_subject = subject;
+            }
+
+            const keysOfAcknowledgementMail =
+              supoortTicketReplyToUser.selected_dynamic || [];
+            const dynamicAcknowledgementMailData: { [key: string]: any } = {};
+            keysOfAcknowledgementMail.forEach((key) => {
+              const data = {
+                conversation: conversationContent,
+                subject: `Ticket ${ticket?.ticket_id} - Reply from ${ticket?.name}`,
+                supportTicketLink: process.env.LOG_BASE_URL + 'get-support',
+              };
+
+              dynamicAcknowledgementMailData[key] = ticket[key] ?? data?.[key];
+            });
+
+            const bodyOfAcknowledgementEmail = String(
+              await this.ptAdminResolver.replaceVariables(
+                supoortTicketReplyToUser.email_content,
+                dynamicAcknowledgementMailData,
+              ),
+            );
+
+            const acknowledgementEmail = {
+              fromEmail: process.env.SUPPORT_TICKET_MAIL,
+              toEmail: ticket.email,
+              subject: supoortTicketReplyToUser.email_subject,
+              template: 'header-footer-email',
+              mailBody: bodyOfAcknowledgementEmail,
+              conversation,
+              isSupport: true,
+              mail_type: EmailTypeEnum.ticketReplyToUser,
             };
 
-            dynamicAcknowledgementMailData[key] = ticket[key] ?? data?.[key];
-          });
-
-          const bodyOfAcknowledgementEmail = String(
-            await this.ptAdminResolver.replaceVariables(
-              supoortTicketReplyToUser.email_content,
-              dynamicAcknowledgementMailData,
-            ),
-          );
-
-          const acknowledgementEmail = {
-            fromEmail: process.env.SUPPORT_TICKET_MAIL,
-            toEmail: ticket.email,
-            subject: supoortTicketReplyToUser.email_subject,
-            template: 'header-footer-email',
-            mailBody: bodyOfAcknowledgementEmail,
-            conversation,
-            isSupport: true,
-            mail_type: EmailTypeEnum.ticketReplyToUser,
-          };
-
-          await Promise.all([
-            (async () => {
-              const sentMailRes =
-                await this.emailQueueProducer.emailQueueProducer(
-                  acknowledgementEmail,
-                );
-
-              // await this.emailServices.sentSupportMail(acknowledgementEmail);
-
-              if (message) {
-                const ackMail = this.ticketMailsRepo.create({
-                  ticket: ticket,
-                  fromEmail: acknowledgementEmail.fromEmail,
-                  toEmail: acknowledgementEmail.toEmail,
-                  subject: acknowledgementEmail.subject,
-                  body: ticketDetails?.message, // acknowledgementEmail.mailBody
-                  isInbound: false,
-                  ...(sentMailRes?.data?.id && {
-                    messageId: sentMailRes?.data?.id,
-                  }),
-                });
-                await this.ticketMailsRepo.save(ackMail);
-              }
-            })(),
-          ]);
+            try {
+              await this.emailQueueProducer.emailQueueProducer(acknowledgementEmail);
+              this.logger.log(`Email queued for ticket: ${ticket?.ticket_id}`);
+            } catch (emailError) {
+              this.logger.error(`Failed to queue email for ticket ${ticket?.ticket_id}: ${emailError.message}`);
+            }
+          } else {
+            this.logger.warn(`Email template not found for support ticket reply. Ticket ${ticket?.ticket_id} updated but email not sent.`);
+          }
         }
       }
 
