@@ -133,31 +133,44 @@ export class SupportService {
         mail_type: EmailTypeEnum.notificationEmailOnTicketSubmission,
       };
 
-      await Promise.all([
+      // Fire-and-forget email sending - don't block response on email queue
+      // This ensures the user gets a response even if email service is slow
+      Promise.all([
         (async () => {
-          const sentMailRes =
-            await this.emailQueueProducer.emailQueueProducer(
-              acknowledgementEmail,
-            );
-          // await this.emailServices.sentSupportMail(acknowledgementEmail);
+          try {
+            const sentMailRes =
+              await this.emailQueueProducer.emailQueueProducer(
+                acknowledgementEmail,
+              );
 
-          const ackMail = this.ticketMailsRepo.create({
-            ticket: savedTicketDetails,
-            fromEmail: acknowledgementEmail.fromEmail,
-            toEmail: acknowledgementEmail.toEmail,
-            subject: acknowledgementEmail.subject,
-            body: ticketDetails?.message, // acknowledgementEmail.mailBody
-            isInbound: false,
-            ...(sentMailRes?.data?.id && {
-              messageId: sentMailRes?.data?.id,
-            }),
-          });
-          await this.ticketMailsRepo.save(ackMail);
+            const ackMail = this.ticketMailsRepo.create({
+              ticket: savedTicketDetails,
+              fromEmail: acknowledgementEmail.fromEmail,
+              toEmail: acknowledgementEmail.toEmail,
+              subject: acknowledgementEmail.subject,
+              body: ticketDetails?.message,
+              isInbound: false,
+              ...(sentMailRes?.data?.id && {
+                messageId: sentMailRes?.data?.id,
+              }),
+            });
+            await this.ticketMailsRepo.save(ackMail);
+          } catch (emailError) {
+            this.logger.error(`Failed to send acknowledgement email: ${emailError.message}`);
+          }
         })(),
-
-        // this.emailServices.sentSupportMail(notificationEmailToAdminOnTicket),
-        await this.emailQueueProducer.emailQueueProducer(acknowledgementEmail),
-      ]);
+        (async () => {
+          try {
+            await this.emailQueueProducer.emailQueueProducer(
+              notificationEmailToAdminOnTicket,
+            );
+          } catch (emailError) {
+            this.logger.error(`Failed to send admin notification email: ${emailError.message}`);
+          }
+        })(),
+      ]).catch((err) => {
+        this.logger.error(`Email queue error: ${err.message}`);
+      });
 
       this.logger.log(`Acknowledgement emails queued successfully.`);
 

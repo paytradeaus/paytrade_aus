@@ -60,44 +60,68 @@ export class SupportResolver {
       this.logger.log(
         `Request received for creating a support ticket with data: ${JSON.stringify(payload)}`,
       );
-      if (payload.recaptcha_token) {
-        const recaptchaUri = process.env.RECAPTCHA_URI;
-        const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
-        
-        if (!recaptchaUri || !recaptchaSecret) {
-          this.logger.error('reCAPTCHA configuration is missing');
-          return framedResponse(
-            'ERROR',
-            'reCAPTCHA configuration error. Please contact support.',
-          );
-        }
-        
-        const response = await axios.post(
+      
+      if (!payload.recaptcha_token) {
+        this.logger.error('reCAPTCHA token is missing');
+        return framedResponse(
+          'ERROR',
+          'Security verification is required. Please refresh the page and try again.',
+        );
+      }
+
+      const recaptchaUri = process.env.RECAPTCHA_URI;
+      const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+      
+      if (!recaptchaUri || !recaptchaSecret) {
+        this.logger.error('reCAPTCHA configuration is missing');
+        return framedResponse(
+          'ERROR',
+          'Server configuration error. Please contact support.',
+        );
+      }
+      
+      // Verify reCAPTCHA with timeout
+      let recaptchaResponse;
+      try {
+        recaptchaResponse = await axios.post(
           `${recaptchaUri}${recaptchaSecret}&response=${payload.recaptcha_token}`,
           {},
           { timeout: 10000 },
         );
-        if (response.data.success) {
-          const contactDetails = payload;
-          return await this.supportService.createSupportTicket(contactDetails);
-        }
-        this.logger.error(`reCAPTCHA verification failed: ${JSON.stringify(response.data)}`);
+      } catch (recaptchaError) {
+        this.logger.error(`reCAPTCHA request failed: ${recaptchaError.message}`);
         return framedResponse(
           'ERROR',
-          `reCAPTCHA verification failed. Please try again.`,
+          'Security verification service is temporarily unavailable. Please try again later.',
         );
       }
-      return framedResponse(
-        'ERROR',
-        `reCAPTCHA token is required. Please try again.`,
-      );
+
+      if (!recaptchaResponse.data.success) {
+        this.logger.error(`reCAPTCHA verification failed: ${JSON.stringify(recaptchaResponse.data)}`);
+        return framedResponse(
+          'ERROR',
+          'Security verification failed. Please refresh the page and try again.',
+        );
+      }
+
+      // Create the support ticket
+      try {
+        const result = await this.supportService.createSupportTicket(payload);
+        return result;
+      } catch (serviceError) {
+        this.logger.error(`Failed to create support ticket: ${serviceError.message}`);
+        return framedResponse(
+          'ERROR',
+          'Failed to submit your support request. Please try again or email us directly at support@paytrade.app',
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `Errored while submitting a contact with message: ${error.message}`,
+        `Unexpected error in RaiseATicket: ${error.message}`,
       );
       return framedResponse(
         'ERROR',
-        `reCAPTCHA error occurred. Please try again later.`,
+        'An unexpected error occurred. Please try again later or contact support.',
       );
     }
   }
