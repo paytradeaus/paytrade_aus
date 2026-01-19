@@ -2551,7 +2551,10 @@ export class TransactionsService {
       const csvContent = fileBuffer.toString('utf-8');
       const records = parse(csvContent, { columns: true });
 
-      await this.temperoryRepoTransactions.delete({});
+      await this.temperoryRepoTransactions
+        .createQueryBuilder()
+        .delete()
+        .execute();
 
       await this.storeInTemporaryTable(records);
 
@@ -2573,7 +2576,10 @@ export class TransactionsService {
   //storing the csv in a temp entity
   async storeInTemporaryTable(records) {
     try {
-      await this.temperoryRepoTransactions.delete({});
+      await this.temperoryRepoTransactions
+        .createQueryBuilder()
+        .delete()
+        .execute();
 
       const validationErrors = [];
       const singleValidationError = [];
@@ -2834,7 +2840,10 @@ export class TransactionsService {
         }
 
         //Clean up the processed temporary records
-        await this.temperoryRepoTransactions.delete({});
+        await this.temperoryRepoTransactions
+          .createQueryBuilder()
+          .delete()
+          .execute();
 
         return framedResponse('SUCCESS', `Transactions added successfully.`);
       } else {
