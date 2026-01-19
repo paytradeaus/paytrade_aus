@@ -238,6 +238,7 @@ import { ObjectStorageModule } from './libs/@object-storage';
     }),
     AuthModule,
     IntegrationsModule, // Must be before FileUploadModule so XeroController routes take precedence
+    ExportDataModule, // Must be before FileUploadModule so /files routes take precedence
     BankingModule,
     SignupModule,
     FileUploadModule,
@@ -270,7 +271,6 @@ import { ObjectStorageModule } from './libs/@object-storage';
     UserCombinationalFiltersModule,
     AdminCombinationalFiltersModule,
     UserActivityLogModule,
-    ExportDataModule,
     CommunityModule,
     SupportWebhooksModule,
     SupportModule,
