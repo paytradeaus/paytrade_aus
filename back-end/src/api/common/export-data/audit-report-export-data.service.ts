@@ -1940,7 +1940,7 @@ Each file contains records relevant to that category as part of the audit trail.
       };
 
       try {
-        await addToArchive({ zipDetails: zipDetails.modules });
+        await addToArchive({ zipDetails: zipDetails.folders });
 
         // Add master summary
         const summaryBuffer = await this.createExcelBuffer({
