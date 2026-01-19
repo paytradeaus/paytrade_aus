@@ -6307,7 +6307,7 @@ export class PaymentsService {
           .getRawMany();
         console.log('payments', payments);
 
-        payments.map(async (payment) => {
+        await Promise.all(payments.map(async (payment) => {
           // if (payment.payment_type == 'Withdrawal') {
           //   const paymentDetails = await this.paymentsRepo.findOne({
           //     where: { payment_id: payment.payment_id },
@@ -6535,7 +6535,7 @@ export class PaymentsService {
                 throw `${updatedCompletionStatusOfRetentions.message}`;
             }
           }
-        });
+        }));
       } else {
         const payments = await transactionalEntityManager
           .createQueryBuilder(SubPayments, 'subpayment')

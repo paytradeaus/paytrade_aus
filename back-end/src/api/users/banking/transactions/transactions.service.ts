@@ -2028,7 +2028,7 @@ export class TransactionsService {
                 ? decoded?.admin_id
                 : decoded?.user_id;
 
-            txns.map(async (txn) => {
+            await Promise.all(txns.map(async (txn) => {
               const createActivityLogInput: CreateActivityLogInput = {
                 event_template_id: 127,
                 admin_id:
@@ -2055,7 +2055,7 @@ export class TransactionsService {
               await this.activityLogService.insertActivityLog(
                 createActivityLogInput,
               );
-            });
+            }));
           }
         },
       );
