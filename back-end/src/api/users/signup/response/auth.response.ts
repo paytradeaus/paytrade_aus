@@ -74,6 +74,7 @@ export class auditExportResponse {
   status: string;
 
   @Field({
+    nullable: true,
     description: 'Message describing the result of the export operation.',
   })
   message: string;

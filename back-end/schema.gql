@@ -21536,7 +21536,7 @@ type auditExportResponse {
   file: Filedetails
 
   """Message describing the result of the export operation."""
-  message: String!
+  message: String
 
   """Indicates whether the export operation was successful."""
   status: String!
