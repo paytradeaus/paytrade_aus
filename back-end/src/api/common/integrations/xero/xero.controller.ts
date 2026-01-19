@@ -119,10 +119,12 @@ export class XeroController {
         `${process.env.LOG_BASE_URL}user/integrations/xero`,
       );
     } catch (error) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
       console.error('callback:: error', error);
+      console.error('callback:: errorMessage', errorMessage);
       return response.redirect(
         `${process.env.LOG_BASE_URL}user/integrations?error=${encodeURIComponent(
-          'Xero Authentication Failed',
+          `Xero Authentication Failed: ${errorMessage}`,
         )}`,
       );
     }
