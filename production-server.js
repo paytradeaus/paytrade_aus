@@ -11,10 +11,16 @@ const proxy = httpProxy.createProxyServer({
 });
 
 proxy.on('error', (err, req, res) => {
-  console.error('Proxy error:', err.message);
+  console.error('Proxy error:', err.message, 'URL:', req?.url);
   if (res && res.writeHead) {
     res.writeHead(502, { 'Content-Type': 'text/plain' });
     res.end('Bad Gateway');
+  }
+});
+
+proxy.on('proxyRes', (proxyRes, req, res) => {
+  if (proxyRes.statusCode >= 400) {
+    console.error(`[${new Date().toISOString()}] ${proxyRes.statusCode} ${req.method} ${req.url}`);
   }
 });
 
