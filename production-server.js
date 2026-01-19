@@ -36,6 +36,7 @@ const backendPaths = [
 ];
 
 const webhookPaths = ['/xero-webhook', '/stripe-webhook', '/support-mail'];
+const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
 
 const server = http.createServer((req, res) => {
   const url = req.url || '';
@@ -45,27 +46,73 @@ const server = http.createServer((req, res) => {
   if (isBackend) {
     if (isWebhook) {
       const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
+      let totalSize = 0;
+      let aborted = false;
+      
+      req.on('data', chunk => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_WEBHOOK_BODY_SIZE) {
+          aborted = true;
+          res.writeHead(413, { 'Content-Type': 'text/plain' });
+          res.end('Payload Too Large');
+          req.destroy();
+          return;
+        }
+        chunks.push(chunk);
+      });
+      
+      req.on('error', (err) => {
+        if (!aborted) {
+          console.error('Webhook request error:', err.message);
+          if (!res.headersSent) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Bad Request');
+          }
+        }
+      });
+      
+      req.on('aborted', () => {
+        aborted = true;
+        console.log('Webhook request aborted by client');
+      });
+      
       req.on('end', () => {
+        if (aborted) return;
+        
         const rawBody = Buffer.concat(chunks);
+        const headers = { ...req.headers };
+        delete headers['transfer-encoding'];
+        headers['content-length'] = rawBody.length;
+        
         const proxyReq = http.request({
           hostname: '127.0.0.1',
           port: BACKEND_PORT,
           path: url,
           method: req.method,
-          headers: {
-            ...req.headers,
-            'content-length': rawBody.length,
-          },
+          headers: headers,
+          timeout: 30000,
         }, (proxyRes) => {
           res.writeHead(proxyRes.statusCode, proxyRes.headers);
           proxyRes.pipe(res);
         });
+        
         proxyReq.on('error', (err) => {
           console.error('Webhook proxy error:', err.message);
-          res.writeHead(502, { 'Content-Type': 'text/plain' });
-          res.end('Bad Gateway');
+          if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end('Bad Gateway');
+          }
         });
+        
+        proxyReq.on('timeout', () => {
+          console.error('Webhook proxy timeout');
+          proxyReq.destroy();
+          if (!res.headersSent) {
+            res.writeHead(504, { 'Content-Type': 'text/plain' });
+            res.end('Gateway Timeout');
+          }
+        });
+        
         proxyReq.write(rawBody);
         proxyReq.end();
       });
