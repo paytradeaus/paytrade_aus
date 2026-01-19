@@ -697,6 +697,7 @@ export class PaymentsValidator {
           'payment_date',
           'total_amount',
         ];
+        const optionalParams = ['input_date'];
         let validParams, mandatoryParams;
         if (payment_type == 'Interest Received') {
           mandatoryParams = [
@@ -849,8 +850,8 @@ export class PaymentsValidator {
           //validation needs to be added
           //Can only process a Withdrawal when all other claims and payments have been processed and marked in a completed status.
         }
-        validParams = genericMandatoryParams.concat(mandatoryParams);
-        await validatePresenceOfMandatoryParams(validParams, data);
+        validParams = genericMandatoryParams.concat(mandatoryParams).concat(optionalParams);
+        await validatePresenceOfMandatoryParams(genericMandatoryParams.concat(mandatoryParams), data);
         await validatePresenceOfValidParams(validParams, data);
       } else {
         throw `Payment type is mandatory.`;
