@@ -75,8 +75,9 @@ export function AdminNavBarAccessProfile() {
             <Image
               src={appUserDetails?.image || profileImage || userImage}
               alt="user-icon"
-              width={0}
-              height={0}
+              width={160}
+              height={160}
+              unoptimized
               className="avatar useravatar"
             />
             <div className="usernamebox usertopnav">

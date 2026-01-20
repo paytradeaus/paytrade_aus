@@ -388,8 +388,8 @@ export default function NavbarAccessProfile() {
               <Image
                 src={getImageSrc(viewProfile, imageCacheKey) || getImageSrc(appUserDetails?.image, imageCacheKey) || userImage}
                 alt="user-icon"
-                width={0}
-                height={0}
+                width={160}
+                height={160}
                 quality={100}
                 unoptimized
                 className="avatar useravatar"
@@ -552,8 +552,8 @@ export default function NavbarAccessProfile() {
                       <Image
                         src={getImageSrc(viewProfile, imageCacheKey) || userImage}
                         alt="user-icon"
-                        width={0}
-                        height={0}
+                        width={160}
+                        height={160}
                         unoptimized
                         className="avatar"
                       />
@@ -657,8 +657,8 @@ export default function NavbarAccessProfile() {
                           <Image
                             src={getImageSrc(profile?.file_path, imageCacheKey) || userImage}
                             alt="user-icon"
-                            width={0}
-                            height={0}
+                            width={160}
+                            height={160}
                             quality={100}
                             unoptimized
                             data-name={
