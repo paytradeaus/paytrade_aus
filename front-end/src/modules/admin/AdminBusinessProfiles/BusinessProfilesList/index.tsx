@@ -259,6 +259,7 @@ export default function BusinessProfilesList() {
 
     setPlanOptions([
       { value: "All", label: "All" },
+      { value: "Free Premium", label: "Free Premium" },
       ...(mappedPlanOptions || []),
     ]);
   };
