@@ -1,0 +1,111 @@
+{
+  "level": "info",
+  "message": "POST https://xero-webhook-relay.paytrade-au.workers.dev/",
+  "$workers": {
+    "event": {
+      "request": {
+        "cf": {
+          "requestHeaderNames": {},
+          "isEUCountry": false,
+          "httpProtocol": "HTTP/1.1",
+          "requestPriority": "",
+          "colo": "IAD",
+          "asOrganization": "Amazon Technologies Inc.",
+          "country": "US",
+          "city": "Ashburn",
+          "continent": "NA",
+          "region": "Virginia",
+          "regionCode": "VA",
+          "timezone": "America/New_York",
+          "longitude": "-77.48749",
+          "latitude": "39.04372",
+          "postalCode": "20147",
+          "metroCode": "511",
+          "tlsVersion": "TLSv1.3",
+          "tlsCipher": "AEAD-AES256-GCM-SHA384",
+          "tlsClientRandom": "HdyT2Ubfau+b0/zzVQv6ebnVmPXc7S0BpxuVNMavTfk=",
+          "tlsClientCiphersSha1": "OsJ8/T1c7cIzACxNm6+ohe+VMtk=",
+          "tlsClientExtensionsSha1": "c2LtjxNjAH7V013bG28OuLqkrX8=",
+          "tlsClientExtensionsSha1Le": "hlw+zNInnHDT6G0kzMS0yXS3DXA=",
+          "tlsExportedAuthenticator": {
+            "clientHandshake": "bb7da039a0629d6fd53b91628d01b7d56258366257a3c793402c19f9640dfbdb886e776256b48d43ddf6ff1d51591887",
+            "serverHandshake": "ec81afd91dcc2c13f8e0f3e8c27b88c32237a95d419033ad767f3b5998a6712d0eb45235bf493b918e42bed480666185",
+            "clientFinished": "dc90bb7947cef8414becac4a3f188febc1d8f9afd3b5d5d33aa7b2288cccc0a3f49f685a9f685d65bbca58f5f825b715",
+            "serverFinished": "db276cb1796e80955cd33c0fe7a915f1d38a549ddff92db1c065fb07c800596113045e206d1cda4d8b2a8450b39da943"
+          },
+          "tlsClientHelloLength": "608",
+          "tlsClientAuth": {
+            "certPresented": "0",
+            "certVerified": "NONE",
+            "certRevoked": "0",
+            "certIssuerDN": "",
+            "certSubjectDN": "",
+            "certIssuerDNRFC2253": "",
+            "certSubjectDNRFC2253": "",
+            "certIssuerDNLegacy": "",
+            "certSubjectDNLegacy": "",
+            "certSerial": "",
+            "certIssuerSerial": "",
+            "certSKI": "",
+            "certIssuerSKI": "",
+            "certFingerprintSHA1": "",
+            "certFingerprintSHA256": "",
+            "certNotBefore": "",
+            "certNotAfter": ""
+          },
+          "verifiedBotCategory": "",
+          "edgeRequestKeepAliveStatus": 1,
+          "clientTcpRtt": 6,
+          "asn": 14618
+        },
+        "url": "https://xero-webhook-relay.paytrade-au.workers.dev/",
+        "method": "POST",
+        "headers": {
+          "accept-encoding": "gzip, br",
+          "cf-connecting-ip": "52.20.64.83",
+          "cf-ipcountry": "US",
+          "cf-ray": "9c0c4532e9102d26",
+          "cf-visitor": "{\"scheme\":\"https\"}",
+          "connection": "Keep-Alive",
+          "content-length": "95",
+          "content-type": "application/json; charset=utf-8",
+          "host": "xero-webhook-relay.paytrade-au.workers.dev",
+          "user-agent": "XeroWebhooks/1.0",
+          "x-forwarded-proto": "https",
+          "x-real-ip": "52.20.64.83",
+          "x-xero-signature": "mfXESzs/z5C977DNDGSJANRlzymbbA4a0y1SoBJEAs4="
+        },
+        "path": "/"
+      },
+      "rayId": "9c0c4532e9102d26",
+      "response": {
+        "status": 403
+      }
+    },
+    "diagnosticsChannelEvents": [],
+    "truncated": false,
+    "scriptName": "xero-webhook-relay",
+    "outcome": "ok",
+    "eventType": "fetch",
+    "executionModel": "stateless",
+    "scriptVersion": {
+      "id": "b2fc5df8-5aec-4c23-8568-4e3edaa2713b"
+    },
+    "requestId": "9c0c4532e9102d26",
+    "cpuTimeMs": 1,
+    "wallTimeMs": 203
+  },
+  "$metadata": {
+    "id": "01KFCZ0YYKG154SX48VAZ950YZ",
+    "requestId": "9c0c4532e9102d26",
+    "trigger": "POST /",
+    "service": "xero-webhook-relay",
+    "level": "info",
+    "message": "POST https://xero-webhook-relay.paytrade-au.workers.dev/",
+    "account": "61ad52831332f590b5261764a0045781",
+    "type": "cf-worker-event",
+    "fingerprint": "6a2c4a6ded39970d00ebfacc4b79ebdb",
+    "origin": "fetch",
+    "messageTemplate": "POST https://xero-webhook-relay.paytrade-au.workers.dev/"
+  }
+}
