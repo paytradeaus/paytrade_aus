@@ -1,0 +1,79 @@
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== 'POST') {
+      return new Response('Method not allowed', { status: 405 });
+    }
+
+    try {
+      const body = await request.arrayBuffer();
+      const bodyBuffer = new Uint8Array(body);
+      const bodyString = new TextDecoder().decode(bodyBuffer);
+      
+      const xeroSignature = request.headers.get('x-xero-signature');
+      const webhookKey = env.XERO_WEBHOOK_KEY;
+      
+      if (!webhookKey) {
+        console.error('XERO_WEBHOOK_KEY not configured');
+        return new Response('', { status: 401 });
+      }
+      
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(webhookKey);
+      const key = await crypto.subtle.importKey(
+        'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, bodyBuffer);
+      const computedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
+      
+      console.log(`Xero signature: ${xeroSignature}`);
+      console.log(`Computed signature: ${computedSignature}`);
+      
+      if (!xeroSignature || xeroSignature !== computedSignature) {
+        console.log('Signature mismatch - returning 401');
+        return new Response('', { status: 401 });
+      }
+      
+      console.log('Signature valid - returning 200');
+      
+      let payload;
+      try {
+        payload = JSON.parse(bodyString);
+      } catch (e) {
+        return new Response('', { status: 200 });
+      }
+      
+      if (payload.events && payload.events.length > 0) {
+        console.log(`Pushing ${payload.events.length} events to Redis`);
+        
+        ctx.waitUntil(
+          (async () => {
+            for (const event of payload.events) {
+              const eventData = JSON.stringify({
+                ...event,
+                receivedAt: new Date().toISOString()
+              });
+              
+              try {
+                const response = await fetch(
+                  `${env.UPSTASH_REDIS_REST_URL}/lpush/xero_webhook_queue/${encodeURIComponent(eventData)}`,
+                  { headers: { 'Authorization': `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}` } }
+                );
+                const result = await response.json();
+                console.log(`Redis push result: ${JSON.stringify(result)}`);
+              } catch (err) {
+                console.error(`Redis push error: ${err.message}`);
+              }
+            }
+          })()
+        );
+      }
+      
+      return new Response('', { status: 200 });
+      
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      return new Response('', { status: 401 });
+    }
+  },
+};
