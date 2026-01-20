@@ -125,11 +125,12 @@ function ImageUploader({
     } else {
       return (
         <Image
-          width={0}
-          height={0}
+          width={160}
+          height={160}
           alt="avatar"
           src={avatar}
           className="pt_profileimageupload"
+          unoptimized
         />
       );
     }
@@ -172,8 +173,8 @@ function ImageUploader({
               }}
             >
               <Image
-                width={0} // Fixed width
-                height={0} // Fixed height
+                width={160}
+                height={160}
                 src={
                   base64Image ||
                   renderImage ||
@@ -188,6 +189,7 @@ function ImageUploader({
                     ? "uploaded_center_aligned_image"
                     : "pt_profileimageupload cur-default"
                 }
+                unoptimized
               />
 
               {!displayCenterAligned && (
