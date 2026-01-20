@@ -14280,6 +14280,7 @@ type Mutation {
     """Server path of the uploaded CSV file"""
     filePath: String!
   ): ProcessFilterCsvUpload!
+  processXeroWebhook(events: String!): String!
 
   """
   Refreshes all Xero-related data (accounts, contacts, projects, contracts) for a given company.

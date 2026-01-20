@@ -103,6 +103,7 @@ import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { XeroResolver } from '../integrations/xero/xero.resolver';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
+import { XeroWebhookGraphQLResolver } from './webhook-graphql.resolver';
 
 @Module({
   imports: [
@@ -185,6 +186,7 @@ import { AuthService } from 'src/api/auth/auth-guard/auth.service';
   providers: [
     AuthService,
     XeroWebhookService,
+    XeroWebhookGraphQLResolver,
     XeroResolver,
     XeroService,
     PaymentClaimsService,
