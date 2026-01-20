@@ -29,6 +29,13 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
   }
 
   onModuleInit() {
+    // Only run consumer in production to avoid dev consuming production events
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!isProduction) {
+      this.logger.log('Xero webhook queue consumer disabled in development');
+      return;
+    }
+    
     const redisUrl = process.env.REDIS_URL;
     if (redisUrl) {
       this.redis = new Redis(redisUrl);
