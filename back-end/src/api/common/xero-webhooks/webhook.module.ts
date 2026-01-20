@@ -104,6 +104,7 @@ import { XeroResolver } from '../integrations/xero/xero.resolver';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { XeroWebhookGraphQLResolver } from './webhook-graphql.resolver';
+import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
 
 @Module({
   imports: [
@@ -187,6 +188,7 @@ import { XeroWebhookGraphQLResolver } from './webhook-graphql.resolver';
     AuthService,
     XeroWebhookService,
     XeroWebhookGraphQLResolver,
+    XeroWebhookQueueConsumer,
     XeroResolver,
     XeroService,
     PaymentClaimsService,
