@@ -88,12 +88,26 @@ export class XeroWaitQueueWorker extends WorkerHost {
         relations: ['userDetails'],
       });
 
+      if (!companyAdmin || !companyAdmin?.userDetails?.email_id) {
+        console.error(
+          `[Xero Webhook] No PRIMARY ADMIN found for company id: ${job?.data?.company_id}`,
+        );
+        throw `No PRIMARY ADMIN found for company id: ${job?.data?.company_id}`;
+      }
+
       const authResponse = await this.authService.getAuthToken(
-        companyAdmin?.userDetails?.email_id,
+        companyAdmin.userDetails.email_id,
         false,
       );
 
-      console.log(authResponse.data['access_token']);
+      if (!authResponse?.data?.['access_token']) {
+        console.error(
+          `[Xero Webhook] Failed to get auth token for company id: ${job?.data?.company_id}`,
+        );
+        throw `Failed to get auth token for company id: ${job?.data?.company_id}`;
+      }
+
+      console.log('Auth token obtained for Xero webhook processing');
       const decoded = this.jwtService.decode(authResponse.data['access_token']);
 
       if (xeroDetails) {
