@@ -1121,7 +1121,7 @@ export class NoticesService {
         .leftJoin(SubscriptionPlanDetails, 'pd', 's.plan_id = pd.plan_id')
         .where(`banks.delegate_powers = 'Yes'`)
         .andWhere('banks.status != :deletestatus', { deletestatus: 'Deleted' })
-        .andWhere(`pd.plan_type != 'Free'`);
+        .andWhere(`(pd.plan_type IS NULL OR pd.plan_type != 'Free')`);
 
       if (company_id) {
         queryBuilder.andWhere('(company.company_id = :company_id)', {
