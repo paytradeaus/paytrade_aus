@@ -4035,6 +4035,7 @@ export class XeroWebhookService {
               tenant_id,
               resource_id: invoice?.invoiceID,
               integrationId: xeroDetails?.integration_id,
+              company_id: xeroDetails?.company_id,
               contactId: invoice?.contact?.contactID,
               waitTime: xeroDetails?.wait_time,
               data,
