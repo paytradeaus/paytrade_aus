@@ -8131,7 +8131,14 @@ export class XeroWebhookService {
             'Amount ASC',
           );
 
-        console.log({ bankTransferResponse });
+        console.log('[Retention Transfer Debug] All bank transfers count:', bankTransferResponse?.body?.bankTransfers?.length);
+        console.log('[Retention Transfer Debug] Looking for accountID:', xeroBankAccountDetails.account_id, 'retention_amount:', retention_amount);
+        
+        // Log each bank transfer for debugging
+        bankTransferResponse?.body?.bankTransfers?.forEach((t, i) => {
+          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}`);
+        });
+
         const retentionTransfers = !data?.bank_transfer_id
           ? bankTransferResponse?.body?.bankTransfers?.filter(
               (transfer) =>
@@ -8144,7 +8151,7 @@ export class XeroWebhookService {
               (transfer) => transfer?.bankTransferID === data?.bank_transfer_id,
             ) || [];
 
-        console.log({ retentionTransfers });
+        console.log('[Retention Transfer Debug] Matched retentionTransfers:', retentionTransfers?.length, retentionTransfers?.map(t => t?.bankTransferID));
 
         if (retentionTransfers && retentionTransfers.length > 0) {
           if (retentionTransfers && retentionTransfers.length == 1) {
