@@ -5013,7 +5013,26 @@ export class XeroWebhookService {
       let creditNotesOfAnInvoice: CreditNote[] = [],
         creditNotes: CreditNote[] = [],
         existingCreditNotesInBothXeroAndDb: CreditNote[] = [];
-      if (invoice?.creditNotes && invoice?.creditNotes?.length > 0) {
+
+      console.log(
+        '[Credit Note Debug] invoice.creditNotes:',
+        invoice?.creditNotes,
+        'invoice.status:',
+        invoice?.status,
+        'invoice.amountPaid:',
+        invoice?.amountPaid,
+        'invoice.amountDue:',
+        invoice?.amountDue,
+      );
+
+      const shouldCheckCreditNotes =
+        (invoice?.creditNotes && invoice?.creditNotes?.length > 0) ||
+        (invoice?.status === Invoice.StatusEnum.PAID &&
+          Number(invoice?.amountPaid || 0) === 0);
+
+      console.log('[Credit Note Debug] shouldCheckCreditNotes:', shouldCheckCreditNotes);
+
+      if (shouldCheckCreditNotes) {
         const allCreditNotes = await this.xero.accountingApi.getCreditNotes(
           xeroDetails.tenant_id,
           new Date('1900-01-01T00:00:00.000-00:00'),
