@@ -256,8 +256,9 @@ export default function BaseModal({
                       <Image
                         src={each.logo}
                         alt="logo"
-                        width={each.width}
-                        height={each.height}
+                        width={Number(each.width) || 60}
+                        height={Number(each.height) || 60}
+                        unoptimized
                       />
                     )}
                   </h5>
