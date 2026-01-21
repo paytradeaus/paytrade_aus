@@ -1235,9 +1235,9 @@ export class PaymentsService {
             );
 
             if (noticeResult?.status === 'ERROR') {
+              console.error('Error triggering payment notices');
               throw new Error('Payment Notice generation failed');
             }
-            console.error('Error triggering payment notices');
           }
 
           console.log({ sub_payment_ids });
