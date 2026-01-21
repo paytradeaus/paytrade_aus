@@ -21,6 +21,7 @@ import { useTokenDetails } from "@/hooks";
 import { deleteAttachment, multipleFileUploadApi } from "@/app/api/commonApi";
 import { useLoaderContext } from "@/context/useLoader";
 import { formatDate, getCompanyIdFromStorage } from "@/utils";
+import { getFileUrl } from "@/utils/fileUrl";
 import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 
 export default function UpdateBasicNotices({
@@ -116,7 +117,7 @@ export default function UpdateBasicNotices({
   function handleViewFile(displayFile: any) {
     if (displayFile?.file_path) {
       window.open(
-        displayFile?.file_path,
+        getFileUrl(displayFile?.file_path),
         "_blank" // Opens in new tab
       );
     } else if (
