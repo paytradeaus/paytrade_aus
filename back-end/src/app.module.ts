@@ -217,18 +217,21 @@ import { ObjectStorageModule } from './libs/@object-storage';
       serveRoot: '/uploads',
     }),
     BullModule.forRoot({
-      connection: process.env.REDIS_URL
-        ? {
-            url: process.env.REDIS_URL,
-            tls: process.env.REDIS_URL.startsWith('rediss://') ? {} : undefined,
-          }
-        : {
-            host: process.env.REDIS_HOST || '127.0.0.1',
-            port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-            ...(process.env.REDIS_PASSWORD
-              ? { password: process.env.REDIS_PASSWORD }
-              : {}),
-          },
+      connection:
+        process.env.NODE_ENV === 'production' && process.env.REDIS_URL
+          ? {
+              url: process.env.REDIS_URL,
+              tls: process.env.REDIS_URL.startsWith('rediss://')
+                ? {}
+                : undefined,
+            }
+          : {
+              host: process.env.REDIS_HOST || '127.0.0.1',
+              port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+              ...(process.env.REDIS_PASSWORD
+                ? { password: process.env.REDIS_PASSWORD }
+                : {}),
+            },
     }),
     BullModule.registerQueue({
       name: 'xero-refresh-token',
