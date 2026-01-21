@@ -107,9 +107,7 @@ export class XeroWaitQueueWorker extends WorkerHost {
             },
             decoded,
           );
-        console.log(
-          `Xero Wait Job successful response for resource ${invoiceResponse}`,
-        );
+        console.log({ invoiceResponse });
         if (invoiceResponse && job?.data?.contactId) {
           const overpayments =
             await this.xeroWebhookService.checkAndCreateOverPaymentAndRefunds(
@@ -123,16 +121,17 @@ export class XeroWaitQueueWorker extends WorkerHost {
           console.log('overpayment check in job:: ', {
             overpayments,
           });
-          return overpayments;
+          return { success: true, invoiceResponse, overpayments };
         }
         console.log(
-          `Xero Wait Job successful for resource ${job?.data?.resource_id}`,
+          `Xero Wait Job completed for resource ${job?.data?.resource_id}`,
         );
+        return { success: true, invoiceResponse };
       } else {
-        await this.xeroWaitQueueService.removeWaitJob(job?.data);
         console.log(
-          `Xero Wait Job removed for resource ${job?.data?.resource_id}`,
+          `Xero Wait Job completed (no xeroDetails) for resource ${job?.data?.resource_id}`,
         );
+        return { success: true, invoiceResponse: false };
       }
     } catch (error) {
       const errMsg = error?.message ? error?.message : error;
