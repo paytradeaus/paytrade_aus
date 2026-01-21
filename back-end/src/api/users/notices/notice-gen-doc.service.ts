@@ -212,11 +212,17 @@ export class NoticeGenDocService {
 
     await browser.close();
 
-    // Upload the generated PDF to Object Storage
-    const objectStoragePath = `${noticesFolderPath}/${fileName}`;
-    const uploadedToStorage = await this.uploadToObjectStorage(outputPath, objectStoragePath);
-    if (!uploadedToStorage) {
-      this.logger.error(`Failed to upload notice PDF to Object Storage: ${outputPath}`);
+    // Upload the generated PDF to Object Storage (skip for S75 - handled separately below)
+    let objectStoragePath: string;
+    if (noticeType !== 'S75 Supporting Statement') {
+      objectStoragePath = `${noticesFolderPath}/${fileName}`;
+      const uploadedToStorage = await this.uploadToObjectStorage(outputPath, objectStoragePath);
+      if (!uploadedToStorage) {
+        this.logger.error(`Failed to upload notice PDF to Object Storage: ${outputPath}`);
+      }
+    } else {
+      // For S75, set objectStoragePath for later use but don't upload yet
+      objectStoragePath = `compulsory_attachments/${finalFileName}`;
     }
 
     if (noticeData && Object.keys(noticeData).length > 0) {
