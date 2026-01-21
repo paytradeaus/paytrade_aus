@@ -11,24 +11,16 @@ const FILE_FOLDERS = [
 export function getFileUrl(filePath: string | null | undefined): string {
   if (!filePath) return '';
   
+  // Handle full URLs
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
     return filePath;
   }
   
-  if (filePath.startsWith('/')) {
-    return filePath;
-  }
+  // Strip any leading slashes to normalize, then add exactly one
+  const normalizedPath = filePath.replace(/^\/+/, '');
   
-  const isKnownFolder = FILE_FOLDERS.some(folder => filePath.startsWith(folder + '/'));
-  if (isKnownFolder) {
-    return `/${filePath}`;
-  }
-  
-  if (filePath.startsWith('uploads/')) {
-    return `/${filePath}`;
-  }
-  
-  return `/${filePath}`;
+  // Return with single leading slash
+  return `/${normalizedPath}`;
 }
 
 export function getAbsoluteFileUrl(filePath: string | null | undefined): string {
