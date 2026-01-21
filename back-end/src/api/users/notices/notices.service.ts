@@ -1179,11 +1179,18 @@ export class NoticesService {
         }
       }
 
+      // Log the SQL query for debugging
+      const sqlQuery = queryBuilder.getSql();
+      this.logger.log(`[Delegation Query Debug] SQL: ${sqlQuery}`);
+
       const [rawResults, total_count] = await Promise.all([
         queryBuilder.getRawMany(),
         queryBuilder.getCount(),
       ]);
 
+      this.logger.log(
+        `[Delegation Query Debug] Results count: ${rawResults?.length}, Total count: ${total_count}`,
+      );
       this.logger.log(`All delegated accounts: fetched successfully }`);
 
       return framedResponse(
