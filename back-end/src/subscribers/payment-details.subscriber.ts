@@ -23,7 +23,7 @@ export class PaymentDetailsSubscriber
     const paymentDetails = await event.manager
       .getRepository(PaymentDetails)
       .findOne({ where: { payment_id } });
-    // paymentDetails.payment_id = 10000000000 + Number(payment_id);
+    paymentDetails.payment_id = 10000000000 + Number(payment_id);
     await event.manager.getRepository(PaymentDetails).save(paymentDetails);
   }
 }
