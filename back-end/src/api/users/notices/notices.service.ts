@@ -1122,6 +1122,9 @@ export class NoticesService {
         .where(`banks.delegate_powers = 'Yes'`)
         .andWhere('banks.status != :deletestatus', { deletestatus: 'Deleted' })
         .andWhere(
+          `banks.account_type IN ('Project Trust Account', 'Retention Trust Account')`,
+        )
+        .andWhere(
           `(s.is_free_plan_eligible = TRUE OR pd.plan_type IS NULL OR pd.plan_type != 'Free')`,
         );
 
