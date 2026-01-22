@@ -46,24 +46,21 @@ export class PaytradeLogger implements LoggerService {
   }
 
   log(message: string) {
-    fs.appendFileSync(
-      this.logFilePath,
-      `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [SUCCESS] ${message}\n`,
-    );
+    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [SUCCESS] ${message}`;
+    console.log(logLine);
+    fs.appendFileSync(this.logFilePath, logLine + '\n');
   }
 
   error(message: string, trace?: string) {
-    fs.appendFileSync(
-      this.logFilePath,
-      `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [ERROR] ${message}\n`,
-    );
+    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [ERROR] ${message}`;
+    console.error(logLine);
+    fs.appendFileSync(this.logFilePath, logLine + '\n');
   }
 
   warn(message: string) {
-    fs.appendFileSync(
-      this.logFilePath,
-      `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [WARN] ${message}\n`,
-    );
+    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [WARN] ${message}`;
+    console.warn(logLine);
+    fs.appendFileSync(this.logFilePath, logLine + '\n');
   }
 
   debug?(message: string) {
