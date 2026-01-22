@@ -110,38 +110,40 @@ export class RetentionProgressionFunctions {
         created_by,
         client_supplier_id,
       } = data;
-      console.log(
-        'data:::::createMatchedRetentionInPaymentForRetentionList::::',
-        data,
+      this.logger.log(
+        `[RETENTION_DEBUG] data: ${JSON.stringify(data)}`,
       );
-      console.log('[Retention Debug] Starting database queries...');
+      this.logger.log('[RETENTION_DEBUG] Starting database queries...');
 
       //Fetch retained account name.
-      console.log('[Retention Debug] Fetching retainedAccountDetails for bank_account_id:', claim_type == 'Billable' ? retention_account : payment_to_account);
+      const bankAccountIdToFetch = claim_type == 'Billable' ? retention_account : payment_to_account;
+      this.logger.log(`[RETENTION_DEBUG] Fetching retainedAccountDetails for bank_account_id: ${bankAccountIdToFetch}`);
       const retainedAccountDetails = await this.bankAccountsRepo.findOne({
         where: {
-          bank_account_id:
-            claim_type == 'Billable' ? retention_account : payment_to_account,
+          bank_account_id: bankAccountIdToFetch,
         },
         select: ['account_name'],
       });
-      console.log('retainedAccountDetails', retainedAccountDetails);
+      this.logger.log(`[RETENTION_DEBUG] retainedAccountDetails: ${JSON.stringify(retainedAccountDetails)}`);
 
       //Fetch client supplier details.
+      this.logger.log(`[RETENTION_DEBUG] Fetching clientSupplierDetails for client_supplier_id: ${client_supplier_id}`);
       const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
         where: { client_supplier_id },
         select: ['client_supplier_name'],
       });
-      console.log('clientSupplierDetails', clientSupplierDetails);
+      this.logger.log(`[RETENTION_DEBUG] clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
 
       //Fetch company details.
+      this.logger.log(`[RETENTION_DEBUG] Fetching companyDetails for company_id: ${company_id}`);
       const companyDetails = await this.companyDetailsRepo.findOne({
         where: { company_id },
         select: ['company_name'],
       });
-      console.log('companyDetails', companyDetails);
+      this.logger.log(`[RETENTION_DEBUG] companyDetails: ${JSON.stringify(companyDetails)}`);
 
       // Check if there are entries present without the status of deleted.
+      this.logger.log(`[RETENTION_DEBUG] Checking existing retention entries for sub_payment_id: ${sub_payment_id}`);
       const createdRetentionSubPaymentInRetentionList =
         await queryRunner.manager
           .createQueryBuilder(RetentionDetails, 'rd')
@@ -150,9 +152,8 @@ export class RetentionProgressionFunctions {
           .andWhere(`rd.retention_status != 'Deleted'`)
           .orderBy('rd.created_on', 'DESC')
           .getRawMany();
-      console.log(
-        'createdRetentionSubPaymentInRetentionList',
-        createdRetentionSubPaymentInRetentionList,
+      this.logger.log(
+        `[RETENTION_DEBUG] createdRetentionSubPaymentInRetentionList: ${JSON.stringify(createdRetentionSubPaymentInRetentionList)}`,
       );
 
       if (!createdRetentionSubPaymentInRetentionList.length) {
@@ -161,25 +162,27 @@ export class RetentionProgressionFunctions {
         
         // Validate payment_id exists before inserting
         const paymentIdNum = Number(payment_id);
-        console.log('[Retention Debug] About to create retention_details with payment_id:', payment_id, 'parsed as:', paymentIdNum);
+        this.logger.log(`[RETENTION_DEBUG] About to create retention_details with payment_id: ${payment_id}, parsed as: ${paymentIdNum}`);
         
         if (!paymentIdNum || isNaN(paymentIdNum)) {
-          console.error('[Retention Debug] Invalid payment_id:', payment_id, '- cannot create retention_details');
+          this.logger.error(`[RETENTION_DEBUG] Invalid payment_id: ${payment_id} - cannot create retention_details`);
           throw new Error(`Invalid payment_id for retention: ${payment_id}`);
         }
         
         // Verify payment exists in payment_details table
+        this.logger.log(`[RETENTION_DEBUG] Verifying payment_id ${paymentIdNum} exists in payment_details...`);
         const paymentExists = await queryRunner.manager.findOne(PaymentDetails, {
           where: { payment_id: paymentIdNum },
           select: ['payment_id'],
         });
-        console.log('[Retention Debug] Payment exists check:', paymentExists);
+        this.logger.log(`[RETENTION_DEBUG] Payment exists check result: ${JSON.stringify(paymentExists)}`);
         
         if (!paymentExists) {
-          console.error('[Retention Debug] payment_id does not exist in payment_details:', paymentIdNum);
+          this.logger.error(`[RETENTION_DEBUG] payment_id does not exist in payment_details: ${paymentIdNum}`);
           throw new Error(`Payment ID ${paymentIdNum} does not exist in payment_details - cannot create retention`);
         }
         
+        this.logger.log(`[RETENTION_DEBUG] Creating retention_details record...`);
         const createdRetentionList = await queryRunner.manager.save(
           this.retentionDetailsRepo.create({
             sub_payment_id: Number(sub_payment_id),
@@ -194,7 +197,7 @@ export class RetentionProgressionFunctions {
           }),
         );
         const retention_id = createdRetentionList.retention_id;
-        console.log('retention_id', createdRetentionList, retention_id);
+        this.logger.log(`[RETENTION_DEBUG] retention_id created: ${retention_id}, createdRetentionList.id: ${createdRetentionList.id}`);
         const updateRetentionId = await queryRunner.manager
           .createQueryBuilder()
           .update(RetentionDetails)
@@ -206,13 +209,14 @@ export class RetentionProgressionFunctions {
           })
           .execute();
 
-        console.log('updateRetentionId', updateRetentionId);
+        this.logger.log(`[RETENTION_DEBUG] updateRetentionId result: ${JSON.stringify(updateRetentionId)}`);
 
         this.logger.log(
           `Retention list entry created successfully with id: ${JSON.stringify({ retention_id })}`,
         );
 
         // Creating the retention summary.
+        this.logger.log(`[RETENTION_DEBUG] Checking existing retention summary for sub_payment_id: ${sub_payment_id}, amount: ${retained_amount}`);
         const createdRetentionSummary = await queryRunner.manager
           .createQueryBuilder(RetentionSummaryDetails, 'rs')
           .select(['rs.retention_summary_id AS retention_summary_id'])
@@ -221,10 +225,8 @@ export class RetentionProgressionFunctions {
           .andWhere(`rs.status != 'Deleted'`)
           .getRawMany();
 
-        console.log(
-          'createdRetentionSummary:: createMatchedRetentionInPaymentForRetentionList',
-          createdRetentionSummary,
-          !createdRetentionSummary.length,
+        this.logger.log(
+          `[RETENTION_DEBUG] createdRetentionSummary: ${JSON.stringify(createdRetentionSummary)}, needsCreation: ${!createdRetentionSummary.length}`,
         );
 
         const event_id = await this.eventIdHandler({
@@ -232,9 +234,10 @@ export class RetentionProgressionFunctions {
           cash_retention_type,
           payment_type,
         });
-        console.log('event_id', event_id);
+        this.logger.log(`[RETENTION_DEBUG] event_id: ${event_id}`);
 
         if (!createdRetentionSummary.length) {
+          this.logger.log(`[RETENTION_DEBUG] Creating retention summary...`);
           const retentionSummary = await queryRunner.manager.save(
             this.retentionSummaryRepo.create({
               sub_payment_id,
@@ -256,7 +259,7 @@ export class RetentionProgressionFunctions {
               created_on: moment.tz('UTC'),
             }),
           );
-          console.log('retentionSummary', retentionSummary);
+          this.logger.log(`[RETENTION_DEBUG] retentionSummary created: ${JSON.stringify(retentionSummary)}`);
 
           this.logger.log(`Retention summary entry created successfully.`);
           await queryRunner.commitTransaction();
@@ -276,8 +279,8 @@ export class RetentionProgressionFunctions {
       await queryRunner.rollbackTransaction();
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : '';
-      console.error('[Retention Error] createMatchedRetentionInPaymentForRetentionList failed:', errorMessage);
-      console.error('[Retention Error] Stack:', errorStack);
+      this.logger.error(`[RETENTION_ERROR] createMatchedRetentionInPaymentForRetentionList failed: ${errorMessage}`);
+      this.logger.error(`[RETENTION_ERROR] Stack: ${errorStack}`);
       this.logger.error(
         `Errored while creating matched retention payment for retention list with message: ${errorMessage}`,
       );
