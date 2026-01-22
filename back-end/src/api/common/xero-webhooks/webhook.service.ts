@@ -8144,8 +8144,12 @@ export class XeroWebhookService {
         console.log('[Retention Transfer Debug] cash_retention_type:', cash_retention_type);
         
         // Get retention account IDs from invoice line items (for retention claim matching)
-        // Use the retention line items from the invoice if available
-        const retentionAccountCodes = contractDetails?.retention_account_codes?.split(',') || [];
+        // Use retention account codes from xeroDetails (integration settings)
+        const retentionAccountCodes = [
+          xeroDetails.retention_payable_retained_code,
+          xeroDetails.retention_receivable_retained_code,
+        ].filter(Boolean);
+        console.log('[Retention Transfer Debug] retentionAccountCodes from xeroDetails:', retentionAccountCodes);
         const invoiceRetentionLineItems = invoice?.lineItems?.filter(
           (item) => retentionAccountCodes.includes(item?.accountCode),
         ) || [];
