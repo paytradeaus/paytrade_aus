@@ -86,10 +86,8 @@ export class RetentionProgressionFunctions {
     transactionalEntityManager,
     data: ICreateMatchedRetentionInPayment,
   ) {
-    const queryRunner =
-      transactionalEntityManager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Use the passed transactionalEntityManager directly to stay within the same transaction
+    // This ensures we can see uncommitted data from the parent transaction (like payment_details)
     try {
       this.logger.log(
         `Request received for creating matched retention payment for retention list with data: ${JSON.stringify(data)}`,
@@ -113,12 +111,12 @@ export class RetentionProgressionFunctions {
       this.logger.log(
         `[RETENTION_DEBUG] data: ${JSON.stringify(data)}`,
       );
-      this.logger.log('[RETENTION_DEBUG] Starting database queries...');
+      this.logger.log('[RETENTION_DEBUG] Starting database queries (using parent transaction)...');
 
       //Fetch retained account name.
       const bankAccountIdToFetch = claim_type == 'Billable' ? retention_account : payment_to_account;
       this.logger.log(`[RETENTION_DEBUG] Fetching retainedAccountDetails for bank_account_id: ${bankAccountIdToFetch}`);
-      const retainedAccountDetails = await this.bankAccountsRepo.findOne({
+      const retainedAccountDetails = await transactionalEntityManager.findOne(BankAccounts, {
         where: {
           bank_account_id: bankAccountIdToFetch,
         },
@@ -128,7 +126,7 @@ export class RetentionProgressionFunctions {
 
       //Fetch client supplier details.
       this.logger.log(`[RETENTION_DEBUG] Fetching clientSupplierDetails for client_supplier_id: ${client_supplier_id}`);
-      const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
+      const clientSupplierDetails = await transactionalEntityManager.findOne(ClientSuppliersDetails, {
         where: { client_supplier_id },
         select: ['client_supplier_name'],
       });
@@ -136,7 +134,7 @@ export class RetentionProgressionFunctions {
 
       //Fetch company details.
       this.logger.log(`[RETENTION_DEBUG] Fetching companyDetails for company_id: ${company_id}`);
-      const companyDetails = await this.companyDetailsRepo.findOne({
+      const companyDetails = await transactionalEntityManager.findOne(CompanyDetails, {
         where: { company_id },
         select: ['company_name'],
       });
@@ -145,7 +143,7 @@ export class RetentionProgressionFunctions {
       // Check if there are entries present without the status of deleted.
       this.logger.log(`[RETENTION_DEBUG] Checking existing retention entries for sub_payment_id: ${sub_payment_id}`);
       const createdRetentionSubPaymentInRetentionList =
-        await queryRunner.manager
+        await transactionalEntityManager
           .createQueryBuilder(RetentionDetails, 'rd')
           .select(['rd.retained_amount AS retained_amount'])
           .where('rd.sub_payment_id = :sub_payment_id', { sub_payment_id })
@@ -169,8 +167,9 @@ export class RetentionProgressionFunctions {
         }
         
         this.logger.log(`[RETENTION_DEBUG] Creating retention_details record with payment_id: ${paymentIdNum}`);
-        const createdRetentionList = await queryRunner.manager.save(
-          this.retentionDetailsRepo.create({
+        const createdRetentionList = await transactionalEntityManager.save(
+          RetentionDetails,
+          {
             sub_payment_id: Number(sub_payment_id),
             payment_id: paymentIdNum,
             retained_amount: Math.abs(retained_amount),
@@ -180,11 +179,11 @@ export class RetentionProgressionFunctions {
             company_id,
             created_by,
             created_on: moment.tz('UTC'),
-          }),
+          },
         );
         const retention_id = createdRetentionList.retention_id;
         this.logger.log(`[RETENTION_DEBUG] retention_id created: ${retention_id}, createdRetentionList.id: ${createdRetentionList.id}`);
-        const updateRetentionId = await queryRunner.manager
+        const updateRetentionId = await transactionalEntityManager
           .createQueryBuilder()
           .update(RetentionDetails)
           .set({
@@ -203,7 +202,7 @@ export class RetentionProgressionFunctions {
 
         // Creating the retention summary.
         this.logger.log(`[RETENTION_DEBUG] Checking existing retention summary for sub_payment_id: ${sub_payment_id}, amount: ${retained_amount}`);
-        const createdRetentionSummary = await queryRunner.manager
+        const createdRetentionSummary = await transactionalEntityManager
           .createQueryBuilder(RetentionSummaryDetails, 'rs')
           .select(['rs.retention_summary_id AS retention_summary_id'])
           .where('rs.sub_payment_id = :sub_payment_id', { sub_payment_id })
@@ -224,8 +223,9 @@ export class RetentionProgressionFunctions {
 
         if (!createdRetentionSummary.length) {
           this.logger.log(`[RETENTION_DEBUG] Creating retention summary...`);
-          const retentionSummary = await queryRunner.manager.save(
-            this.retentionSummaryRepo.create({
+          const retentionSummary = await transactionalEntityManager.save(
+            RetentionSummaryDetails,
+            {
               sub_payment_id,
               amount: Math.abs(retained_amount),
               retention_id: Number(retention_id) + 10000000000,
@@ -243,26 +243,23 @@ export class RetentionProgressionFunctions {
               status: 'Retained',
               created_by,
               created_on: moment.tz('UTC'),
-            }),
+            },
           );
           this.logger.log(`[RETENTION_DEBUG] retentionSummary created: ${JSON.stringify(retentionSummary)}`);
 
           this.logger.log(`Retention summary entry created successfully.`);
-          await queryRunner.commitTransaction();
           return framedResponse('SUCCESS', 'Retentions created successfully.');
         } else {
-          await queryRunner.commitTransaction();
           return framedResponse(
             'ERROR',
             `Matched retention payment with type Pay Less - Part and Pay Less - Full cannot be added in the retention list.`,
           );
         }
       } else {
-        await queryRunner.commitTransaction();
         return framedResponse('SUCCESS', 'Retentions created successfully.');
       }
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      // Don't rollback - let the parent transaction handle it
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : '';
       this.logger.error(`[RETENTION_ERROR] createMatchedRetentionInPaymentForRetentionList failed: ${errorMessage}`);
@@ -270,9 +267,7 @@ export class RetentionProgressionFunctions {
       this.logger.error(
         `Errored while creating matched retention payment for retention list with message: ${errorMessage}`,
       );
-      return framedResponse('ERROR', `${errorMessage}`);
-    } finally {
-      await queryRunner.release();
+      throw error; // Re-throw to let parent transaction handle rollback
     }
   }
 
