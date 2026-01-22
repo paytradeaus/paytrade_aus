@@ -160,19 +160,51 @@ export class RetentionProgressionFunctions {
         // Creating the retention list entry.
         var moment = require('moment-timezone').tz.setDefault('UTC');
         
-        const paymentIdNum = Number(payment_id);
-        this.logger.log(`[RETENTION_DEBUG] About to create retention_details with payment_id: ${payment_id}, parsed as: ${paymentIdNum}`);
+        // payment_id from sub_payments is formatted (10000000000 + raw_id or 1000000000 + raw_id)
+        // We need to find the actual raw payment_id from payment_details for the FK constraint
+        const formattedPaymentId = Number(payment_id);
+        this.logger.log(`[RETENTION_DEBUG] Received formatted payment_id: ${payment_id}, parsed as: ${formattedPaymentId}`);
         
-        if (!paymentIdNum || isNaN(paymentIdNum)) {
+        if (!formattedPaymentId || isNaN(formattedPaymentId)) {
           this.logger.error(`[RETENTION_DEBUG] Invalid payment_id: ${payment_id} - cannot create retention_details`);
           throw new Error(`Invalid payment_id for retention: ${payment_id}`);
         }
         
-        this.logger.log(`[RETENTION_DEBUG] Creating retention_details record with payment_id: ${paymentIdNum}`);
+        // Look up the actual payment_details record to get the raw payment_id
+        // Try to find by looking up sub_payments first to get the relationship
+        const subPaymentRecord = await queryRunner.manager.findOne(SubPayments, {
+          where: { sub_payment_id: Number(sub_payment_id) },
+          relations: ['paymentDetails'],
+        });
+        
+        let rawPaymentId: number;
+        if (subPaymentRecord?.paymentDetails?.payment_id) {
+          rawPaymentId = Number(subPaymentRecord.paymentDetails.payment_id);
+          this.logger.log(`[RETENTION_DEBUG] Found raw payment_id from subPayment relation: ${rawPaymentId}`);
+        } else {
+          // Fallback: try to convert formatted ID to raw ID
+          rawPaymentId = formattedPaymentId > 10000000000 ? formattedPaymentId - 10000000000 : 
+                         formattedPaymentId > 1000000000 ? formattedPaymentId - 1000000000 : formattedPaymentId;
+          this.logger.log(`[RETENTION_DEBUG] No subPayment relation found, converted payment_id: formatted=${formattedPaymentId}, raw=${rawPaymentId}`);
+        }
+        
+        // Verify the raw payment_id exists
+        const paymentExists = await queryRunner.manager.findOne(PaymentDetails, {
+          where: { payment_id: rawPaymentId },
+          select: ['payment_id'],
+        });
+        
+        if (!paymentExists) {
+          this.logger.error(`[RETENTION_DEBUG] Raw payment_id ${rawPaymentId} does not exist in payment_details (formatted: ${formattedPaymentId})`);
+          throw new Error(`Payment ID ${rawPaymentId} does not exist in payment_details - cannot create retention`);
+        }
+        this.logger.log(`[RETENTION_DEBUG] Verified payment_id ${rawPaymentId} exists in payment_details`);
+        
+        this.logger.log(`[RETENTION_DEBUG] Creating retention_details record with rawPaymentId: ${rawPaymentId}`);
         const createdRetentionList = await queryRunner.manager.save(
           this.retentionDetailsRepo.create({
             sub_payment_id: Number(sub_payment_id),
-            payment_id: paymentIdNum,
+            payment_id: rawPaymentId,
             retained_amount: Math.abs(retained_amount),
             retention_status: 'Retained',
             beneficiary_type: 'Current supplier',
