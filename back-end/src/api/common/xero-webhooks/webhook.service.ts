@@ -8143,42 +8143,21 @@ export class XeroWebhookService {
         console.log('[Retention Transfer Debug] retentionAccount:', retentionAccount);
         console.log('[Retention Transfer Debug] cash_retention_type:', cash_retention_type);
         
-        // Get retention account IDs from invoice line items (for retention claim matching)
-        // Use retention account codes from xeroDetails (integration settings)
-        const retentionAccountCodes = [
-          xeroDetails.retention_payable_retained_code,
-          xeroDetails.retention_receivable_retained_code,
-        ].filter(Boolean);
-        console.log('[Retention Transfer Debug] retentionAccountCodes from xeroDetails:', retentionAccountCodes);
-        const invoiceRetentionLineItems = invoice?.lineItems?.filter(
-          (item) => retentionAccountCodes.includes(item?.accountCode),
-        ) || [];
-        const retentionLineItemAccountIDs = invoiceRetentionLineItems?.map(item => item?.accountID)?.filter(Boolean) || [];
-        console.log('[Retention Transfer Debug] retentionLineItemAccountIDs:', retentionLineItemAccountIDs);
-        
-        // Log each bank transfer for debugging with detailed matching info
+        // Log each bank transfer for debugging
         bankTransferResponse?.body?.bankTransfers?.forEach((t, i) => {
           const fromMatches = t?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id;
           const toMatches = t?.toBankAccount?.accountID === xeroBankAccountDetails.account_id;
-          const fromMatchesRetentionAccount = retentionLineItemAccountIDs.includes(t?.fromBankAccount?.accountID);
-          const toMatchesRetentionAccount = retentionLineItemAccountIDs.includes(t?.toBankAccount?.accountID);
           const amountMatches = Math.abs(Number(t?.amount)) === Math.abs(Number(retention_amount));
-          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, fromMatchesRetention=${fromMatchesRetentionAccount}, toMatchesRetention=${toMatchesRetentionAccount}, amountMatches=${amountMatches}`);
+          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, amountMatches=${amountMatches}`);
         });
 
         // Match retention transfers - check BOTH from and to account since transfer direction can vary
-        // For 'Retention claim', also check if transfer involves any of the retention account IDs from line items
         const retentionTransfers = !data?.bank_transfer_id
           ? bankTransferResponse?.body?.bankTransfers?.filter(
               (transfer) => {
                 const accountMatches = 
                   transfer?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id ||
-                  transfer?.toBankAccount?.accountID === xeroBankAccountDetails.account_id ||
-                  // For retention claims, also match if transfer involves retention accounts from invoice
-                  (cash_retention_type === 'Retention claim' && (
-                    retentionLineItemAccountIDs.includes(transfer?.fromBankAccount?.accountID) ||
-                    retentionLineItemAccountIDs.includes(transfer?.toBankAccount?.accountID)
-                  ));
+                  transfer?.toBankAccount?.accountID === xeroBankAccountDetails.account_id;
                 const amountMatches = Math.abs(Number(transfer?.amount)) === Math.abs(Number(retention_amount));
                 return accountMatches && amountMatches;
               }
