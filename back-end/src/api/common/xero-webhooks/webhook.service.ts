@@ -8173,11 +8173,11 @@ export class XeroWebhookService {
                 : null;
             console.log('[Retention Flow Debug] checkBankTransferIdExistence:', checkBankTransferIdExistence);
             console.log('[Retention Flow Debug] existingPayment:', !!existingPayment, 'previousPartPayments:', !!previousPartPayments);
-            if (!checkBankTransferIdExistence) {
-              console.log('[Retention Flow Debug] Bank transfer not found in existing payments, returning No retention transfer error');
+            if (checkBankTransferIdExistence) {
+              console.log('[Retention Flow Debug] Bank transfer already exists in another payment, returning No retention transfer error');
               // no retention transfers identified
               console.log('if::', { existingPayment, previousPartPayments });
-              const debugInfo = `[DEBUG] Branch: checkBankTransferIdExistence=false (no existing payment found for this transfer), bankTransferId=${retentionTransfers[0]?.bankTransferID}. ${retentionDebugContext}`;
+              const debugInfo = `[DEBUG] Branch: checkBankTransferIdExistence=true (transfer already used), bankTransferId=${retentionTransfers[0]?.bankTransferID}, usedByPaymentId=${checkBankTransferIdExistence?.id}. ${retentionDebugContext}`;
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: data?.sync_id || null,
                 api_name: 'createClaimInPaytrade',
