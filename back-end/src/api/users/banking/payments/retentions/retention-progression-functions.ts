@@ -160,8 +160,6 @@ export class RetentionProgressionFunctions {
         // Creating the retention list entry.
         var moment = require('moment-timezone').tz.setDefault('UTC');
         
-        // payment_id from sub_payments is formatted (10000000000 + raw_id)
-        // We need to convert it back to raw ID for the foreign key constraint
         const paymentIdNum = Number(payment_id);
         this.logger.log(`[RETENTION_DEBUG] About to create retention_details with payment_id: ${payment_id}, parsed as: ${paymentIdNum}`);
         
@@ -170,29 +168,11 @@ export class RetentionProgressionFunctions {
           throw new Error(`Invalid payment_id for retention: ${payment_id}`);
         }
         
-        // Check if payment_id is formatted (> 10000000000) and convert to raw ID
-        const rawPaymentId = paymentIdNum > 10000000000 ? paymentIdNum - 10000000000 : 
-                             paymentIdNum > 1000000000 ? paymentIdNum - 1000000000 : paymentIdNum;
-        this.logger.log(`[RETENTION_DEBUG] Converted payment_id: formatted=${paymentIdNum}, raw=${rawPaymentId}`);
-        
-        // Verify payment exists in payment_details table
-        this.logger.log(`[RETENTION_DEBUG] Verifying payment_id ${rawPaymentId} exists in payment_details...`);
-        const paymentExists = await queryRunner.manager.findOne(PaymentDetails, {
-          where: { payment_id: rawPaymentId },
-          select: ['payment_id'],
-        });
-        this.logger.log(`[RETENTION_DEBUG] Payment exists check result: ${JSON.stringify(paymentExists)}`);
-        
-        if (!paymentExists) {
-          this.logger.error(`[RETENTION_DEBUG] payment_id does not exist in payment_details: ${rawPaymentId} (formatted: ${paymentIdNum})`);
-          throw new Error(`Payment ID ${rawPaymentId} does not exist in payment_details - cannot create retention`);
-        }
-        
-        this.logger.log(`[RETENTION_DEBUG] Creating retention_details record with rawPaymentId: ${rawPaymentId}`);
+        this.logger.log(`[RETENTION_DEBUG] Creating retention_details record with payment_id: ${paymentIdNum}`);
         const createdRetentionList = await queryRunner.manager.save(
           this.retentionDetailsRepo.create({
             sub_payment_id: Number(sub_payment_id),
-            payment_id: rawPaymentId,
+            payment_id: paymentIdNum,
             retained_amount: Math.abs(retained_amount),
             retention_status: 'Retained',
             beneficiary_type: 'Current supplier',
