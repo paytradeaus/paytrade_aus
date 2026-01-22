@@ -8173,6 +8173,7 @@ export class XeroWebhookService {
               console.log('[Retention Flow Debug] Bank transfer already exists, returning No retention transfer error');
               // no retention transfers identified
               console.log('if::', { existingPayment, previousPartPayments });
+              const debugInfo = `[DEBUG] Branch: checkBankTransferIdExistence=true (transfer already used), bankTransferId=${retentionTransfers[0]?.bankTransferID}, usedByPaymentId=${checkBankTransferIdExistence?.id}`;
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: data?.sync_id || null,
                 api_name: 'createClaimInPaytrade',
@@ -8199,6 +8200,7 @@ export class XeroWebhookService {
                 history: [
                   `API triggered from invoice ${sync_run_type}`,
                   'Import failed',
+                  debugInfo,
                 ],
                 important_checks: {
                   'Import data format validation': 'Ok',
@@ -8209,7 +8211,7 @@ export class XeroWebhookService {
                   'Contract mapping validation': 'Ok',
                   'Project mapping validation': 'Ok',
                 },
-                error_message: `No retention transfer identified`,
+                error_message: `No retention transfer identified. ${debugInfo}`,
                 xero_records: [invoice],
                 paytrade_records: [],
                 new_records: null,
@@ -8325,7 +8327,8 @@ export class XeroWebhookService {
                 existingPayment,
                 previousPartPayments,
               });
-              // no retention transfers identified
+              // no retention transfers identified - filtered out by existing bank transfer IDs
+              const debugInfo = `[DEBUG] Branch: multipleTransfers=true BUT retentionTransferList=0 after filtering. Original count=${retentionTransfers?.length}, existingBankTransferIds=${existingBankTransfers?.map(p => p.bank_transfer_id)?.join(',')}`;
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: data?.sync_id || null,
                 api_name: 'createClaimInPaytrade',
@@ -8352,6 +8355,7 @@ export class XeroWebhookService {
                 history: [
                   `API triggered from invoice ${sync_run_type}`,
                   'Import failed',
+                  debugInfo,
                 ],
                 important_checks: {
                   'Import data format validation': 'Ok',
@@ -8362,7 +8366,7 @@ export class XeroWebhookService {
                   'Contract mapping validation': 'Ok',
                   'Project mapping validation': 'Ok',
                 },
-                error_message: `No retention transfer identified`,
+                error_message: `No retention transfer identified. ${debugInfo}`,
                 xero_records: [invoice],
                 paytrade_records: [],
                 new_records: null,
@@ -8376,6 +8380,7 @@ export class XeroWebhookService {
           console.log('[Retention Flow Debug] NO retention transfers found (length == 0), returning error');
           console.log('else::', { existingPayment, previousPartPayments });
           // no retention transfers identified
+          const debugInfo = `[DEBUG] retentionTransfers.length=0, data.bank_transfer_id=${data?.bank_transfer_id || 'null'}, existingPayment=${!!existingPayment}, totalXeroTransfers=${bankTransferResponse?.body?.bankTransfers?.length || 0}`;
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
             api_name: 'createClaimInPaytrade',
@@ -8400,6 +8405,7 @@ export class XeroWebhookService {
             history: [
               `API triggered from invoice ${sync_run_type}`,
               'Import failed',
+              debugInfo,
             ],
             important_checks: {
               'Import data format validation': 'Ok',
@@ -8410,7 +8416,7 @@ export class XeroWebhookService {
               'Contract mapping validation': 'Ok',
               'Project mapping validation': 'Ok',
             },
-            error_message: `No retention transfer identified`,
+            error_message: `No retention transfer identified. ${debugInfo}`,
             xero_records: [invoice],
             paytrade_records: [],
             new_records: null,
