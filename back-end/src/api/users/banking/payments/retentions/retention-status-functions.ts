@@ -193,17 +193,14 @@ export class RetentionStatusFunctions {
     transactionalEntityManager,
     data: IUpdateRetentionStatus,
   ) {
-    const queryRunner =
-      transactionalEntityManager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Use the passed transactionalEntityManager directly to stay within the same transaction
     try {
       this.logger.log(
         `Request received for updating the retention status with data: ${JSON.stringify(data)}`,
       );
 
       //Fetched retention IN payment.
-      const retention_in_payment = await queryRunner.manager
+      const retention_in_payment = await transactionalEntityManager
         .createQueryBuilder(RetentionDetails, 'rd')
         .select([
           'rd.beneficiary_type AS beneficiary_type',
@@ -217,7 +214,7 @@ export class RetentionStatusFunctions {
         .getRawOne();
 
       //Check presence of claims.
-      const presence_of_claims = await queryRunner.manager
+      const presence_of_claims = await transactionalEntityManager
         .createQueryBuilder(PaymentClaims, 'pc')
         .select([
           'pc.status AS status, pc.claim_amount AS claim_amount',
@@ -238,7 +235,7 @@ export class RetentionStatusFunctions {
         for (const claim of presence_of_claims) {
           claim_amounts.push(Number(claim.claim_amount));
 
-          const presence_of_payments = await queryRunner.manager
+          const presence_of_payments = await transactionalEntityManager
             .createQueryBuilder(PaymentDetails, 'p')
             .select([
               'p.total_amount AS amount',
@@ -297,7 +294,7 @@ export class RetentionStatusFunctions {
           retention_in_payment.retained_amount == sum_of_claim_amounts
         ) {
           console.log('---------->');
-          await this.retentionDetailsRepo
+          await transactionalEntityManager
             .createQueryBuilder()
             .update(RetentionDetails)
             .set({
@@ -314,10 +311,11 @@ export class RetentionStatusFunctions {
         'Status of retentions updated successfully.',
       );
     } catch (error) {
+      // Don't catch - let the parent transaction handle it
       this.logger.error(
         `Errored while updating the retention status with message: ${error}`,
       );
-      return framedResponse('ERROR', `${error}`);
+      throw error;
     }
   }
 }

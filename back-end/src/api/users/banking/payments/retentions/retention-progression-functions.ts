@@ -275,10 +275,7 @@ export class RetentionProgressionFunctions {
     transactionalEntityManager,
     data: ICreateMatchedRetentionPaymentInRetentionSummary,
   ) {
-    const queryRunner =
-      transactionalEntityManager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Use the passed transactionalEntityManager directly to stay within the same transaction
     try {
       this.logger.log(
         `Request received for creating matched retentions payments in retention summary with data: ${JSON.stringify(data)}`,
@@ -349,8 +346,9 @@ export class RetentionProgressionFunctions {
             select: ['client_supplier_name'],
           });
           const createdRetainedBeneficiaryAmountEntryInRetentionList =
-            await queryRunner.manager.save(
-              this.retentionDetailsRepo.create({
+            await transactionalEntityManager.save(
+              RetentionDetails,
+              {
                 sub_payment_id,
                 payment_id,
                 retained_amount,
@@ -360,7 +358,7 @@ export class RetentionProgressionFunctions {
                 company_id,
                 created_by,
                 created_on: moment.tz('UTC'),
-              }),
+              },
             );
           const created_retention_id =
             createdRetainedBeneficiaryAmountEntryInRetentionList.retention_id;
@@ -369,7 +367,7 @@ export class RetentionProgressionFunctions {
             createdRetainedBeneficiaryAmountEntryInRetentionList,
           );
 
-          const updateRetentionId = await queryRunner.manager
+          const updateRetentionId = await transactionalEntityManager
             .createQueryBuilder()
             .update(RetentionDetails)
             .set({
@@ -384,8 +382,9 @@ export class RetentionProgressionFunctions {
 
           //Create retained amount for beneficiary as companySTP in retention summary.
           const createdRetainedBeneficiaryAmountEntryInRetentionSummary =
-            await queryRunner.manager.save(
-              this.retentionSummaryRepo.create({
+            await transactionalEntityManager.save(
+              RetentionSummaryDetails,
+              {
                 sub_payment_id,
                 amount: retained_amount,
                 status: 'Retained',
@@ -398,7 +397,7 @@ export class RetentionProgressionFunctions {
                 company_id,
                 created_by,
                 created_on: moment.tz('UTC'),
-              }),
+              },
             );
           console.log(
             'createdRetainedBeneficiaryAmountEntryInRetentionSummary',
@@ -410,8 +409,9 @@ export class RetentionProgressionFunctions {
           console.log('retained_payment_amount', retained_payment_amount);
 
           const createdPaylessReducedRetainedAmountEntryInSummary =
-            await queryRunner.manager.save(
-              this.retentionSummaryRepo.create({
+            await transactionalEntityManager.save(
+              RetentionSummaryDetails,
+              {
                 sub_payment_id: associated_retention_sub_payment_id,
                 event_id: event_id,
                 amount: -retained_payment_amount,
@@ -423,7 +423,7 @@ export class RetentionProgressionFunctions {
                 client_supplier_id,
                 created_by,
                 created_on: moment.tz('UTC'),
-              }),
+              },
             );
           console.log(
             'createdPaylessRetainedAmountEntryInSummary',
@@ -432,8 +432,9 @@ export class RetentionProgressionFunctions {
 
           //Create another payment amount entry in retention summary while self beneficiary is made against a retained amount.
           const createdPaylessAdditionalPaymentAmountEntryInSummary =
-            await queryRunner.manager.save(
-              this.retentionSummaryRepo.create({
+            await transactionalEntityManager.save(
+              RetentionSummaryDetails,
+              {
                 sub_payment_id: associated_retention_sub_payment_id,
                 payment_amount: retained_payment_amount,
                 event_id: event_id,
@@ -446,7 +447,7 @@ export class RetentionProgressionFunctions {
                 company_id,
                 created_by,
                 created_on: moment.tz('UTC'),
-              }),
+              },
             );
           console.log(
             'createdPaylessAdditionalPaymentAmountEntryInSummary',
@@ -480,7 +481,7 @@ export class RetentionProgressionFunctions {
           });
           console.log('clientSupplierDetails', clientSupplierDetails);
           const checkExistenceOfMatchedPaylessPartPayment =
-            await queryRunner.manager
+            await transactionalEntityManager
               .createQueryBuilder(PaymentDetails, 'pd')
               .select(['pd.payment_type AS payment_type'])
               .where(`pd.payment_claim_id = :payment_claim_id`, {
@@ -501,8 +502,9 @@ export class RetentionProgressionFunctions {
               Number(claimDetails.claim_amount) - Number(payless_amount);
             console.log('retention_retained_amount', retention_retained_amount);
             const createdRetainedBeneficiaryAmountEntryInRetentionsList =
-              await queryRunner.manager.save(
-                this.retentionDetailsRepo.create({
+              await transactionalEntityManager.save(
+                RetentionDetails,
+                {
                   sub_payment_id,
                   payment_id,
                   retained_amount: retention_retained_amount,
@@ -512,7 +514,7 @@ export class RetentionProgressionFunctions {
                   company_id,
                   created_by,
                   created_on: moment.tz('UTC'),
-                }),
+                },
               );
             const generated_retention_id =
               createdRetainedBeneficiaryAmountEntryInRetentionsList.retention_id;
@@ -521,7 +523,7 @@ export class RetentionProgressionFunctions {
               createdRetainedBeneficiaryAmountEntryInRetentionsList,
             );
 
-            const updateRetentionId = await queryRunner.manager
+            const updateRetentionId = await transactionalEntityManager
               .createQueryBuilder()
               .update(RetentionDetails)
               .set({
@@ -536,8 +538,9 @@ export class RetentionProgressionFunctions {
 
             //Create retained amount for beneficiary as companySTP in retention summary.
             const createdRetainedBeneficiaryAmountEntryInRetentionSummary =
-              await queryRunner.manager.save(
-                this.retentionSummaryRepo.create({
+              await transactionalEntityManager.save(
+                RetentionSummaryDetails,
+                {
                   sub_payment_id,
                   amount: retention_retained_amount,
                   status: 'Retained',
@@ -550,7 +553,7 @@ export class RetentionProgressionFunctions {
                   created_by,
                   created_on: moment.tz('UTC'),
                   event_id: event_id,
-                }),
+                },
               );
             console.log(
               'createdRetainedBeneficiaryAmountEntryInRetentionSummary',
@@ -582,8 +585,9 @@ export class RetentionProgressionFunctions {
             console.log('payment_amount', payment_amount);
 
             const createdPaylessReducedRetainedAmountEntryInRetentionSummary =
-              await queryRunner.manager.save(
-                this.retentionSummaryRepo.create({
+              await transactionalEntityManager.save(
+                RetentionSummaryDetails,
+                {
                   sub_payment_id: associated_retention_sub_payment_id,
                   amount: -payment_amount,
                   status: 'Retained',
@@ -595,7 +599,7 @@ export class RetentionProgressionFunctions {
                   created_by,
                   created_on: moment.tz('UTC'),
                   event_id: event_id,
-                }),
+                },
               );
             console.log(
               'createdPaylessReducedRetainedAmountEntryInRetentionSummary',
@@ -604,8 +608,9 @@ export class RetentionProgressionFunctions {
 
             //Create another payment amount entry in retentnion summary while self beneficiary is made against a retained amount.
             const createdPaylessAdditionalPaymentAmountEntryInRetentionSummary =
-              await queryRunner.manager.save(
-                this.retentionSummaryRepo.create({
+              await transactionalEntityManager.save(
+                RetentionSummaryDetails,
+                {
                   sub_payment_id: associated_retention_sub_payment_id,
                   payment_amount: payment_amount,
                   status: 'Retained',
@@ -618,7 +623,7 @@ export class RetentionProgressionFunctions {
                   created_by,
                   created_on: moment.tz('UTC'),
                   event_id: event_id,
-                }),
+                },
               );
             console.log(
               'createdPaylessAdditionalPaymentAmountEntryInSummary',
@@ -702,8 +707,9 @@ export class RetentionProgressionFunctions {
       });
       console.log('clientSupplierDetails', clientSupplierDetails);
 
-      const createdRetentionSummary = await queryRunner.manager.save(
-        this.retentionSummaryRepo.create({
+      const createdRetentionSummary = await transactionalEntityManager.save(
+        RetentionSummaryDetails,
+        {
           sub_payment_id,
           amount: -Math.abs(Number(total_amount)),
           payment_amount: Math.abs(Number(total_amount)),
@@ -719,7 +725,7 @@ export class RetentionProgressionFunctions {
           status: 'Completed',
           created_by,
           created_on: moment.tz('UTC'),
-        }),
+        },
       );
       console.log('createdRetentionSummary', createdRetentionSummary);
 
@@ -731,7 +737,7 @@ export class RetentionProgressionFunctions {
           (claimDetails.claim_amount - payless_amount) ==
           0
       ) {
-        await queryRunner.manager
+        await transactionalEntityManager
           .createQueryBuilder()
           .update(RetentionDetails)
           .set({
@@ -771,16 +777,13 @@ export class RetentionProgressionFunctions {
       this.logger.log(
         `Matched retention payment created in retention summary successfully.`,
       );
-      await queryRunner.commitTransaction();
       return framedResponse('SUCCESS', 'Retentions created successfully.');
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      // Don't rollback - let the parent transaction handle it
       this.logger.error(
-        `Errored while creating matched retention oayments in retention summary with message: ${JSON.stringify(error)}`,
+        `Errored while creating matched retention payments in retention summary with message: ${JSON.stringify(error)}`,
       );
-      return framedResponse('ERROR', `${error}`);
-    } finally {
-      await queryRunner.release();
+      throw error; // Re-throw to let parent transaction handle rollback
     }
   }
 }
