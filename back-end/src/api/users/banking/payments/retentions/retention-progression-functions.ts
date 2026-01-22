@@ -156,10 +156,32 @@ export class RetentionProgressionFunctions {
       if (!createdRetentionSubPaymentInRetentionList.length) {
         // Creating the retention list entry.
         var moment = require('moment-timezone').tz.setDefault('UTC');
+        
+        // Validate payment_id exists before inserting
+        const paymentIdNum = Number(payment_id);
+        console.log('[Retention Debug] About to create retention_details with payment_id:', payment_id, 'parsed as:', paymentIdNum);
+        
+        if (!paymentIdNum || isNaN(paymentIdNum)) {
+          console.error('[Retention Debug] Invalid payment_id:', payment_id, '- cannot create retention_details');
+          throw new Error(`Invalid payment_id for retention: ${payment_id}`);
+        }
+        
+        // Verify payment exists in payment_details table
+        const paymentExists = await queryRunner.manager.findOne(PaymentDetails, {
+          where: { payment_id: paymentIdNum },
+          select: ['payment_id'],
+        });
+        console.log('[Retention Debug] Payment exists check:', paymentExists);
+        
+        if (!paymentExists) {
+          console.error('[Retention Debug] payment_id does not exist in payment_details:', paymentIdNum);
+          throw new Error(`Payment ID ${paymentIdNum} does not exist in payment_details - cannot create retention`);
+        }
+        
         const createdRetentionList = await queryRunner.manager.save(
           this.retentionDetailsRepo.create({
             sub_payment_id: Number(sub_payment_id),
-            payment_id: Number(payment_id),
+            payment_id: paymentIdNum,
             retained_amount: Math.abs(retained_amount),
             retention_status: 'Retained',
             beneficiary_type: 'Current supplier',
