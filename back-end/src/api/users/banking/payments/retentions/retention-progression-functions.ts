@@ -300,9 +300,12 @@ export class RetentionProgressionFunctions {
         cash_retention_type,
       } = data;
       console.log('dataInSummary', data);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Starting createMatchedRetentionPaymentInRetentionSummary`);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] payment_type: ${payment_type}, claim_type: ${claim_type}, payment_claim_id: ${payment_claim_id}`);
       let event_id;
 
       const moment = require('moment-timezone').tz.setDefault('UTC');
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Calling eventIdHandler...`);
 
       event_id = await this.eventIdHandler({
         claim_type,
@@ -310,11 +313,14 @@ export class RetentionProgressionFunctions {
         payment_type,
       });
       console.log('event_id', event_id);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] event_id: ${event_id}`);
 
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Fetching claimDetails for payment_claim_id: ${payment_claim_id}`);
       const claimDetails = await this.paymentClaimsRepo.findOne({
         where: { payment_claim_id },
         select: ['claim_amount'],
       });
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] claimDetails: ${JSON.stringify(claimDetails)}`);
 
       if (payment_type == 'Pay Less - Full') {
         //Need to reduce the retained amount of the Beneficiary as current supplier entry from which the retention claim is created.
@@ -683,6 +689,8 @@ export class RetentionProgressionFunctions {
       }
 
       //Fetch retained account name.
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Reached common code section - fetching account details`);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] claim_type: ${claim_type}, payment_to_account: ${payment_to_account}, payment_from_account: ${payment_from_account}`);
       const retentionAccountDetails = await this.bankAccountsRepo.findOne({
         where: {
           bank_account_id:
@@ -693,20 +701,26 @@ export class RetentionProgressionFunctions {
         select: ['account_name'],
       });
       console.log('retentionAccountDetails', retentionAccountDetails);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] retentionAccountDetails: ${JSON.stringify(retentionAccountDetails)}`);
 
       //Fetch company details.
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Fetching companyDetails for company_id: ${company_id}`);
       const companyDetails = await this.companyDetailsRepo.findOne({
         where: { company_id },
         select: ['company_name'],
       });
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] companyDetails: ${JSON.stringify(companyDetails)}`);
 
       //Fetch client supplier details.
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] Fetching clientSupplierDetails for client_supplier_id: ${client_supplier_id}`);
       const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
         where: { client_supplier_id },
         select: ['client_supplier_name'],
       });
       console.log('clientSupplierDetails', clientSupplierDetails);
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
 
+      this.logger.log(`[RETENTION_SUMMARY_DEBUG] About to create retention summary with sub_payment_id: ${sub_payment_id}, retention_id: ${retention_id}`);
       const createdRetentionSummary = await transactionalEntityManager.save(
         RetentionSummaryDetails,
         {
