@@ -114,8 +114,10 @@ export class RetentionProgressionFunctions {
         'data:::::createMatchedRetentionInPaymentForRetentionList::::',
         data,
       );
+      console.log('[Retention Debug] Starting database queries...');
 
       //Fetch retained account name.
+      console.log('[Retention Debug] Fetching retainedAccountDetails for bank_account_id:', claim_type == 'Billable' ? retention_account : payment_to_account);
       const retainedAccountDetails = await this.bankAccountsRepo.findOne({
         where: {
           bank_account_id:
@@ -272,10 +274,14 @@ export class RetentionProgressionFunctions {
       }
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : '';
+      console.error('[Retention Error] createMatchedRetentionInPaymentForRetentionList failed:', errorMessage);
+      console.error('[Retention Error] Stack:', errorStack);
       this.logger.error(
-        `Errored while creating matched retention payment for retention list with message: ${JSON.stringify(error)}`,
+        `Errored while creating matched retention payment for retention list with message: ${errorMessage}`,
       );
-      return framedResponse('ERROR', `${error}`);
+      return framedResponse('ERROR', `${errorMessage}`);
     } finally {
       await queryRunner.release();
     }
