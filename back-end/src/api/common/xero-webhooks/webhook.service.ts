@@ -8133,23 +8133,30 @@ export class XeroWebhookService {
 
         console.log('[Retention Transfer Debug] All bank transfers count:', bankTransferResponse?.body?.bankTransfers?.length);
         console.log('[Retention Transfer Debug] Looking for accountID:', xeroBankAccountDetails.account_id, 'retention_amount:', retention_amount);
+        console.log('[Retention Transfer Debug] retentionAccount:', retentionAccount);
         
-        // Log each bank transfer for debugging
+        // Log each bank transfer for debugging with detailed matching info
         bankTransferResponse?.body?.bankTransfers?.forEach((t, i) => {
-          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}`);
+          const fromMatches = t?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id;
+          const toMatches = t?.toBankAccount?.accountID === xeroBankAccountDetails.account_id;
+          const amountMatches = Math.abs(Number(t?.amount)) === Math.abs(Number(retention_amount));
+          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, amountMatches=${amountMatches}`);
         });
 
+        // Match retention transfers - check BOTH from and to account since transfer direction can vary
         const retentionTransfers = !data?.bank_transfer_id
           ? bankTransferResponse?.body?.bankTransfers?.filter(
               (transfer) =>
-                transfer?.fromBankAccount?.accountID ===
-                  xeroBankAccountDetails.account_id &&
+                (transfer?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id ||
+                 transfer?.toBankAccount?.accountID === xeroBankAccountDetails.account_id) &&
                 Math.abs(Number(transfer?.amount)) ==
                   Math.abs(Number(retention_amount)),
             ) || []
           : bankTransferResponse?.body?.bankTransfers?.filter(
               (transfer) => transfer?.bankTransferID === data?.bank_transfer_id,
             ) || [];
+        
+        console.log('[Retention Transfer Debug] After matching with fromAccount OR toAccount, retentionTransfers count:', retentionTransfers?.length);
 
         console.log('[Retention Transfer Debug] Matched retentionTransfers:', retentionTransfers?.length, retentionTransfers?.map(t => t?.bankTransferID));
 
