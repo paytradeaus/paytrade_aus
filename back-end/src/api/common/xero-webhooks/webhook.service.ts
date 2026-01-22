@@ -8123,13 +8123,20 @@ export class XeroWebhookService {
           data.bank_transfer_id = previousPartPayments?.bank_transfer_id;
         }
         console.log({ bank_transfer_id: data.bank_transfer_id });
-        const bankTransferResponse =
-          await this.xero.accountingApi.getBankTransfers(
+        console.log('[Retention Transfer Debug] Fetching bank transfers from Xero for tenant_id:', xeroDetails.tenant_id);
+        let bankTransferResponse;
+        try {
+          bankTransferResponse = await this.xero.accountingApi.getBankTransfers(
             xeroDetails.tenant_id,
             new Date('1900-01-01T00:00:00.000+00:00'),
             null,
             'Amount ASC',
           );
+          console.log('[Retention Transfer Debug] Bank transfer API response status:', bankTransferResponse?.response?.statusCode);
+        } catch (apiError: any) {
+          console.error('[Retention Transfer Debug] Bank transfer API ERROR:', apiError?.message, apiError?.response?.body || apiError);
+          bankTransferResponse = { body: { bankTransfers: [] } };
+        }
 
         console.log('[Retention Transfer Debug] All bank transfers count:', bankTransferResponse?.body?.bankTransfers?.length);
         console.log('[Retention Transfer Debug] Looking for accountID:', xeroBankAccountDetails.account_id, 'retention_amount:', retention_amount);
