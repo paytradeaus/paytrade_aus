@@ -8153,8 +8153,11 @@ export class XeroWebhookService {
 
         console.log('[Retention Transfer Debug] Matched retentionTransfers:', retentionTransfers?.length, retentionTransfers?.map(t => t?.bankTransferID));
 
+        console.log('[Retention Flow Debug] retentionTransfers.length:', retentionTransfers?.length);
         if (retentionTransfers && retentionTransfers.length > 0) {
+          console.log('[Retention Flow Debug] Entering length > 0 branch');
           if (retentionTransfers && retentionTransfers.length == 1) {
+            console.log('[Retention Flow Debug] Entering length == 1 branch');
             const checkBankTransferIdExistence =
               !existingPayment && !previousPartPayments
                 ? await this.xeroPayments.findOne({
@@ -8164,9 +8167,10 @@ export class XeroWebhookService {
                     },
                   })
                 : null;
-            console.log({ checkBankTransferIdExistence });
-            console.log('out if::', { existingPayment, previousPartPayments });
+            console.log('[Retention Flow Debug] checkBankTransferIdExistence:', checkBankTransferIdExistence);
+            console.log('[Retention Flow Debug] existingPayment:', !!existingPayment, 'previousPartPayments:', !!previousPartPayments);
             if (checkBankTransferIdExistence) {
+              console.log('[Retention Flow Debug] Bank transfer already exists, returning No retention transfer error');
               // no retention transfers identified
               console.log('if::', { existingPayment, previousPartPayments });
               await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -8214,6 +8218,7 @@ export class XeroWebhookService {
               });
               return false;
             }
+            console.log('[Retention Flow Debug] Check passed, setting bankTransferId');
             bankTransferId = retentionTransfers[0]?.bankTransferID || null;
             paymentAccount =
               retentionTransfers[0]?.fromBankAccount?.accountID || null;
@@ -8223,9 +8228,13 @@ export class XeroWebhookService {
                   contractDetails?.retention_from_account
                 : null;
             console.log(
+              `[Retention Flow Debug] Set bankTransferId: ${bankTransferId}, paymentAccount: ${paymentAccount}, retentionAccount: ${retentionAccount}`,
+            );
+            console.log(
               `[Xero Retention] Bank transaction for ${payment.paymentID} From: ${paymentAccount}, To: ${retentionAccount}, Amount: ${retentionAmount}`,
             );
           } else {
+            console.log('[Retention Flow Debug] Multiple transfers branch (length > 1)');
             // multiple bank transfers identified
             const existingBankTransfers =
               (await this.xeroPayments.find({
@@ -8364,6 +8373,7 @@ export class XeroWebhookService {
             }
           }
         } else {
+          console.log('[Retention Flow Debug] NO retention transfers found (length == 0), returning error');
           console.log('else::', { existingPayment, previousPartPayments });
           // no retention transfers identified
           await this.xeroService.insertXeroSyncLogs(decoded, {

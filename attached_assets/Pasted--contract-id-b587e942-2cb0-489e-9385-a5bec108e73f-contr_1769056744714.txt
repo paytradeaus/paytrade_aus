@@ -1,0 +1,230 @@
+{
+    "contract_id": "b587e942-2cb0-489e-9385-a5bec108e73f",
+    "contract_name": null,
+    "created_on": "2026-01-21T12:42:01.413Z",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "dynamic_values": {},
+    "error_code": "WH_NO_RETENTIONS_IDENTIFIED",
+    "error_message": "No retention transfer identified",
+    "from_xero": true,
+    "history": [
+        "API triggered from invoice webhook",
+        "Import failed"
+    ],
+    "id": "e28c129b-18b4-4b8c-9062-9e65780e9760",
+    "important_checks": {
+        "Import data format validation": "Ok",
+        "Import tracking id validation": "Ok",
+        "Import account type validation": "Ok",
+        "Import tax type validation": "Ok",
+        "Client/Supplier mapping validation": "Ok",
+        "Contract mapping validation": "Ok",
+        "Project mapping validation": "Ok"
+    },
+    "information_required": "NA",
+    "integration_id": 1003,
+    "log_template_id": 340,
+    "new_records": null,
+    "notification": "NA",
+    "paytrade_details": {},
+    "paytrade_id": null,
+    "paytrade_records": [],
+    "process": "Xero > Pay Trade",
+    "project_id": "265ce5ae-e110-4528-80f3-b3a446f69c50",
+    "project_name": "Bricks and blocks",
+    "reference": {
+        "paytradeId": null,
+        "xeroId": "f09191a2-a8cf-47c7-8317-0010f4112927",
+        "__typename": "ReferenceResponse"
+    },
+    "reference_id": "f09191a2-a8cf-47c7-8317-0010f4112927",
+    "sync_id": 100089,
+    "sync_status": "Failed",
+    "sync_type": "Invoice webhook",
+    "synced_records": null,
+    "updated_records": null,
+    "xero_details": {},
+    "xero_id": "f09191a2-a8cf-47c7-8317-0010f4112927",
+    "xero_records": [
+        {
+            "date": "2026-01-21T00:00:00.000Z",
+            "type": "ACCPAY",
+            "total": 150,
+            "status": "PAID",
+            "contact": {
+                "name": "QA 9 Supplie",
+                "phones": [
+                    {
+                        "phoneType": "DEFAULT",
+                        "phoneNumber": "",
+                        "phoneAreaCode": "",
+                        "phoneCountryCode": ""
+                    },
+                    {
+                        "phoneType": "DDI",
+                        "phoneNumber": "",
+                        "phoneAreaCode": "",
+                        "phoneCountryCode": ""
+                    },
+                    {
+                        "phoneType": "FAX",
+                        "phoneNumber": "",
+                        "phoneAreaCode": "",
+                        "phoneCountryCode": ""
+                    },
+                    {
+                        "phoneType": "MOBILE",
+                        "phoneNumber": "+61452352353",
+                        "phoneAreaCode": "",
+                        "phoneCountryCode": ""
+                    }
+                ],
+                "addresses": [
+                    {
+                        "city": "",
+                        "region": "",
+                        "country": "",
+                        "postalCode": "",
+                        "addressType": "STREET"
+                    },
+                    {
+                        "city": "",
+                        "region": "",
+                        "country": "Australia",
+                        "postalCode": "",
+                        "addressType": "POBOX",
+                        "addressLine1": "Australian Museum, William Street, Darlinghurst NSW, Australia"
+                    }
+                ],
+                "contactID": "9e2199c0-f844-47c6-a76f-98bd87643a6b",
+                "isCustomer": false,
+                "isSupplier": true,
+                "emailAddress": "qa9@yopmail.com",
+                "contactGroups": [],
+                "contactStatus": "ACTIVE",
+                "contactPersons": [],
+                "updatedDateUTC": "2026-01-20T11:54:12.947Z",
+                "bankAccountDetails": "",
+                "hasValidationErrors": false,
+                "salesTrackingCategories": [],
+                "purchasesTrackingCategories": []
+            },
+            "dueDate": "2026-01-29T00:00:00.000Z",
+            "payments": [
+                {
+                    "date": "2026-01-21T00:00:00.000Z",
+                    "amount": 150,
+                    "paymentID": "577d5729-4760-4f88-98b9-08a93e8533d1",
+                    "hasAccount": false,
+                    "currencyRate": 1,
+                    "hasValidationErrors": false
+                }
+            ],
+            "subTotal": 136.36,
+            "totalTax": 13.64,
+            "amountDue": 0,
+            "hasErrors": false,
+            "invoiceID": "1c7e4e9e-2924-43c4-acac-e992a41252f8",
+            "lineItems": [
+                {
+                    "taxType": "INPUT",
+                    "quantity": 1,
+                    "tracking": [
+                        {
+                            "name": "Project",
+                            "option": "Bricks and blocks",
+                            "trackingOptionID": "b305c59e-867f-4434-92c2-7b44a0fde4ff",
+                            "trackingCategoryID": "1612716a-8384-41ef-a805-5f703bed3d08"
+                        },
+                        {
+                            "name": "Contract",
+                            "option": "QA Supl",
+                            "trackingOptionID": "fcac8da3-bef7-4310-b570-777e69ead222",
+                            "trackingCategoryID": "e02ff731-9357-43e5-82b8-cdae93c4b6e8"
+                        }
+                    ],
+                    "accountID": "4ceff174-6b46-4cd3-9bfd-a2e2a131b3e0",
+                    "taxAmount": 13.64,
+                    "lineAmount": 150,
+                    "lineItemID": "d78fcbf7-7faa-49c2-a06b-fb3a6f913f12",
+                    "unitAmount": 150,
+                    "accountCode": "310",
+                    "description": "bill"
+                },
+                {
+                    "taxType": "BASEXCLUDED",
+                    "quantity": 1,
+                    "tracking": [
+                        {
+                            "name": "Project",
+                            "option": "Bricks and blocks",
+                            "trackingOptionID": "b305c59e-867f-4434-92c2-7b44a0fde4ff",
+                            "trackingCategoryID": "1612716a-8384-41ef-a805-5f703bed3d08"
+                        },
+                        {
+                            "name": "Contract",
+                            "option": "QA Supl",
+                            "trackingOptionID": "fcac8da3-bef7-4310-b570-777e69ead222",
+                            "trackingCategoryID": "e02ff731-9357-43e5-82b8-cdae93c4b6e8"
+                        }
+                    ],
+                    "accountID": "689de7bf-00c2-4dc7-bfcd-e0e8f6340f55",
+                    "taxAmount": 0,
+                    "lineAmount": 50,
+                    "lineItemID": "2fc61319-60bc-4a0c-a970-ac5582fec2cd",
+                    "unitAmount": 50,
+                    "accountCode": "500",
+                    "description": "ret im"
+                },
+                {
+                    "taxType": "BASEXCLUDED",
+                    "quantity": 1,
+                    "tracking": [
+                        {
+                            "name": "Project",
+                            "option": "Bricks and blocks",
+                            "trackingOptionID": "b305c59e-867f-4434-92c2-7b44a0fde4ff",
+                            "trackingCategoryID": "1612716a-8384-41ef-a805-5f703bed3d08"
+                        },
+                        {
+                            "name": "Contract",
+                            "option": "QA Supl",
+                            "trackingOptionID": "fcac8da3-bef7-4310-b570-777e69ead222",
+                            "trackingCategoryID": "e02ff731-9357-43e5-82b8-cdae93c4b6e8"
+                        }
+                    ],
+                    "accountID": "c9080b7a-bd0c-41e7-8768-4f2662069190",
+                    "taxAmount": 0,
+                    "lineAmount": -50,
+                    "lineItemID": "09499c51-5230-440d-9fe5-9ee0de3c5bd9",
+                    "unitAmount": -50,
+                    "accountCode": "501",
+                    "description": "ret lia"
+                }
+            ],
+            "reference": "",
+            "amountPaid": 150,
+            "attachments": [],
+            "prepayments": [],
+            "currencyCode": "AUD",
+            "currencyRate": 1,
+            "isDiscounted": false,
+            "overpayments": [],
+            "invoiceNumber": "",
+            "sentToContact": false,
+            "hasAttachments": false,
+            "updatedDateUTC": "2026-01-21T12:41:41.747Z",
+            "fullyPaidOnDate": "2026-01-21T00:00:00.000Z",
+            "lineAmountTypes": "Inclusive"
+        }
+    ],
+    "api_name": "createClaimInPaytrade",
+    "api_payload": {
+        "sync_run_type": "webhook",
+        "invoice_id": "1c7e4e9e-2924-43c4-acac-e992a41252f8",
+        "tenant_id": "05394c87-dcb3-44e1-b111-8e66ab76e1d7",
+        "type": "bill",
+        "transfer_bank_account_id": "d2be27fd-df81-4b97-bfd7-01c4e7b40916"
+    },
+    "__typename": "SyncLog"
+}
