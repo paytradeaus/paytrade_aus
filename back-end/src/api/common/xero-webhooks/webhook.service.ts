@@ -8152,7 +8152,7 @@ export class XeroWebhookService {
         });
 
         // Match retention transfers - check BOTH from and to account since transfer direction can vary
-        const retentionTransfers = !data?.bank_transfer_id
+        let retentionTransfers = !data?.bank_transfer_id
           ? bankTransferResponse?.body?.bankTransfers?.filter(
               (transfer) => {
                 const accountMatches = 
@@ -8167,6 +8167,13 @@ export class XeroWebhookService {
             ) || [];
         
         console.log('[Retention Transfer Debug] After matching with fromAccount OR toAccount, retentionTransfers count:', retentionTransfers?.length);
+
+        // If existing payment has a bank_transfer_id but transfer not found in API response,
+        // trust the existing record and create a synthetic transfer object for processing
+        if (retentionTransfers.length === 0 && existingPayment?.bank_transfer_id) {
+          console.log('[Retention Transfer Debug] Existing payment has bank_transfer_id but not found in API - using existing record');
+          retentionTransfers = [{ bankTransferID: existingPayment.bank_transfer_id }] as any;
+        }
 
         console.log('[Retention Transfer Debug] Matched retentionTransfers:', retentionTransfers?.length, retentionTransfers?.map(t => t?.bankTransferID));
 
