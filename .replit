@@ -10,7 +10,6 @@ packages = ["redis", "libuuid", "cairo", "pango", "giflib", "libjpeg", "libpng",
 
 [userenv.shared]
 PORT = "3001"
-NODE_ENV = "development"
 BULL_USER = "admin"
 BULL_PASSWORD = "admin123"
 NEXT_PUBLIC_GRAPHQL_URI = "https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/graphql"
