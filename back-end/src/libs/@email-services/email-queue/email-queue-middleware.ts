@@ -1,6 +1,9 @@
 import { JwtService } from '@nestjs/jwt';
 import { NextFunction, Request, Response } from 'express';
 import { jwtConstants } from 'src/api/auth/constants';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+
+const logger = new PaytradeLogger('AUTH_MIDDLEWARE');
 
 export function AuthMiddleware(
   req: Request,
@@ -25,10 +28,10 @@ export function AuthMiddleware(
     const decoded = jwtService.verify(token);
     (req as any).user = decoded;
 
-    console.log('decoded: ', decoded);
+    logger.log(`decoded: ${JSON.stringify(decoded)}`);
     next();
   } catch (err) {
-    console.log('err: ', err?.message);
+    logger.log(`err: ${err?.message}`);
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }

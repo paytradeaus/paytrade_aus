@@ -92,9 +92,9 @@ export class EmailService {
     });
     transporter.verify((error, success) => {
       if (error) {
-        console.error('SMTP Connection Error:', error);
+        this.logger.error(`SMTP Connection Error: ${error}`);
       } else {
-        console.log('SMTP Server is ready to take messages:', success);
+        this.logger.log(`SMTP Server is ready to take messages: ${success}`);
       }
     });
     return transporter;
@@ -338,8 +338,8 @@ export class EmailService {
         // Handle any rejections or errors
         return error;
       });
-      console.log('errorMessage: ', errorMessage);
-      console.log('mailDetails?.isMailQueue: ', mailDetails?.isMailQueue);
+      this.logger.log(`errorMessage: ${errorMessage}`);
+      this.logger.log(`mailDetails?.isMailQueue: ${mailDetails?.isMailQueue}`);
       if (mailDetails?.isMailQueue) {
         throw new Error(errMsg);
       } else {
@@ -428,7 +428,7 @@ export class EmailService {
       return { message: 'Support email sent successfully', data: response };
     } catch (error) {
       const errorMessage = error.message ? error.message : error;
-      console.log('errorMessage: ', errorMessage);
+      this.logger.log(`errorMessage: ${errorMessage}`);
       this.logger.error(`Errored while sending support email: ${errorMessage}`);
       return `Failed to send support email: ${errorMessage}`;
     }

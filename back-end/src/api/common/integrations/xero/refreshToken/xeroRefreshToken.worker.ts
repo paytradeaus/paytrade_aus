@@ -6,9 +6,11 @@ import { XeroClient } from 'xero-node';
 import { Repository } from 'typeorm';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Processor('xero-refresh-token')
 export class XeroRefreshTokenWorker extends WorkerHost {
+  private logger = new PaytradeLogger('XERO_REFRESH_TOKEN_WORKER');
   private xero: XeroClient;
 
   constructor(
@@ -41,14 +43,12 @@ export class XeroRefreshTokenWorker extends WorkerHost {
 
   async process(job: Job): Promise<any> {
     try {
-      console.log(
+      this.logger.log(
         `Processing safeguard job for company ${job?.data?.company_id}`,
       );
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
         where: { company_id: job?.data?.company_id, status: 'ACTIVE' },
       });
-
-      // console.log({ xeroDetails });
 
       if (xeroDetails) {
         await this.xeroService.refreshTokenSet(
@@ -56,22 +56,21 @@ export class XeroRefreshTokenWorker extends WorkerHost {
           this.xero,
           true,
         );
-        console.log(
+        this.logger.log(
           `Safeguard refresh successful for company ${job?.data?.company_id}`,
         );
       } else {
         await this.xeroRefreshTokenService.removeRefreshSafeguardJob(
           job?.data?.company_id,
         );
-        console.log(
+        this.logger.log(
           `Safeguard refresh removed for company ${job?.data?.company_id}`,
         );
       }
     } catch (error) {
       const errMsg = error?.message ? error?.message : error;
-      console.error(
-        `Error refreshing safeguard token for company ${job?.data?.company_id}:`,
-        errMsg,
+      this.logger.error(
+        `Error refreshing safeguard token for company ${job?.data?.company_id}: ${errMsg}`,
       );
       throw errMsg;
     }

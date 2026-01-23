@@ -94,7 +94,7 @@ export class JournalsService {
       );
 
       const timezone = decoded?.timezone || data.timezone;
-      console.log('timezone: ', timezone);
+      this.logger.log('timezone: ' + timezone);
 
       const skip = (data.page_number - 1) * data.page_size;
 
@@ -522,7 +522,7 @@ export class JournalsService {
       );
 
       const timezone = decoded?.timezone || data.timezone;
-      console.log('timezone: ', timezone);
+      this.logger.log('timezone: ' + timezone);
 
       const skip = (data.page_number - 1) * data.page_size;
 
@@ -1143,7 +1143,7 @@ export class JournalsService {
         .where(`je.bank_account_id = :bank_account_id`, {
           bank_account_id: data.bank_account_id,
         });
-      console.log(await subQuery.getRawMany());
+      this.logger.log(JSON.stringify(await subQuery.getRawMany()));
 
       const queryBuilder = await this.journalsRepo
         .createQueryBuilder('journal')
@@ -1280,7 +1280,7 @@ export class JournalsService {
             start_date: startDate,
           })
           .getRawMany();
-        console.log('openingBalanceResults:', openingBalanceResults);
+        this.logger.log('openingBalanceResults: ' + JSON.stringify(openingBalanceResults));
 
         if (openingBalanceResults && openingBalanceResults.length > 0) {
           opening_balance = openingBalanceResults.reduce((sum, record) => {
@@ -1447,7 +1447,7 @@ export class JournalsService {
     decoded,
   ) {
     const timezone = decoded?.timezone || data.timezone;
-    console.log('timezone: ', timezone);
+    this.logger.log('timezone: ' + timezone);
 
     const startOfDayUTC = moment(data.month_end_date).startOf('day').toDate();
     const endOfDayUTC = moment(data.month_end_date).endOf('day').toDate();
@@ -1469,7 +1469,7 @@ export class JournalsService {
   ) {
     const startOfDayUTC = moment(data.month_end_date).startOf('day').toDate();
     const endOfDayUTC = moment(data.month_end_date).endOf('day').toDate();
-    console.log(startOfDayUTC, endOfDayUTC, data.month_end_date);
+    this.logger.log(startOfDayUTC + ' ' + endOfDayUTC + ' ' + data.month_end_date);
     return await this.bankStatementsRepo.findOne({
       where: {
         bank_account_id: data.bank_account_id,
@@ -1491,7 +1491,7 @@ export class JournalsService {
         `Handling request for fetching balance with data: ${JSON.stringify(data)}`,
       );
       const timezone = decoded?.timezone || data.timezone;
-      console.log('timezone: ', timezone);
+      this.logger.log('timezone: ' + timezone);
 
       const endDate = moment(data.month_end_date).endOf('day').toDate();
 
@@ -1518,10 +1518,7 @@ export class JournalsService {
         })
         .getRawOne();
 
-      console.log(
-        'depositAndWithdrawalResponse:',
-        depositAndWithdrawalResponse,
-      );
+      this.logger.log('depositAndWithdrawalResponse: ' + JSON.stringify(depositAndWithdrawalResponse));
       depositAndWithdrawalResponse.deposit_and_withdrawal_balance =
         depositAndWithdrawalResponse.deposit_and_withdrawal_balance ?? 0;
 
@@ -1548,7 +1545,7 @@ export class JournalsService {
         })
         .getRawOne();
 
-      console.log('accountLedgerClientResponse:', accountLedgerClientResponse);
+      this.logger.log('accountLedgerClientResponse: ' + JSON.stringify(accountLedgerClientResponse));
       accountLedgerClientResponse.account_ledger_balance =
         accountLedgerClientResponse.account_ledger_balance ?? 0;
 
@@ -1791,7 +1788,7 @@ export class JournalsService {
           }),
         );
       });
-      console.log('accountResults: ', accountResults);
+      this.logger.log('accountResults: ' + JSON.stringify(accountResults));
       const typeResults = await this.bankAccountsRepo
         .createQueryBuilder('ba')
         .select('ba.account_type', 'value')
@@ -1825,9 +1822,9 @@ export class JournalsService {
         .map((item) => JSON.parse(item))
         .sort((a, b) => a.name?.trim()?.localeCompare(b.name?.trim()));
 
-      console.log('company_list:', company_list);
-      console.log('account_list:', account_list);
-      console.log('account_type_list:', account_type_list);
+      this.logger.log('company_list: ' + JSON.stringify(company_list));
+      this.logger.log('account_list: ' + JSON.stringify(account_list));
+      this.logger.log('account_type_list: ' + JSON.stringify(account_type_list));
 
       this.logger.log(
         `Fetched filters for Admin successfully with data: ${JSON.stringify({ company_list, account_list, account_type_list })}`,
@@ -1967,7 +1964,7 @@ export class JournalsService {
       );
 
       const timezone = decoded?.timezone || data.timezone;
-      console.log('timezone: ', timezone);
+      this.logger.log('timezone: ' + timezone);
 
       const queryBuilder = await this.reconciliationReportRepo
         .createQueryBuilder('report')
@@ -2199,7 +2196,7 @@ export class JournalsService {
 
   async checkNilReturnForAudit(data: CheckNilReturnForAuditInput, decoded) {
     const timezone = decoded?.timezone || data.timezone;
-    console.log('timezone: ', timezone);
+    this.logger.log('timezone: ' + timezone);
 
     const startOfDayUTC = moment(data.year_end_date).startOf('day').toDate();
     const endOfDayUTC = moment(data.year_end_date).endOf('day').toDate();
@@ -2392,7 +2389,7 @@ export class JournalsService {
       );
 
       const timezone = decoded?.timezone || data.timezone;
-      console.log('timezone: ', timezone);
+      this.logger.log('timezone: ' + timezone);
 
       const queryBuilder = this.auditReportRepo
         .createQueryBuilder('report')
@@ -2617,7 +2614,7 @@ export class JournalsService {
     decoded,
   ) {
     const timezone = decoded?.timezone || data.timezone;
-    console.log('timezone: ', timezone);
+    this.logger.log('timezone: ' + timezone);
 
     const openingDateUTC = moment(openingDate).startOf('day').toDate();
 

@@ -17,9 +17,9 @@ export class EmailQueueConsumer extends WorkerHost {
       const payload = job?.data;
       let response = null;
 
-      console.log(`job id: `, job?.id);
+      this.logger.log(`job id: ${job?.id}`);
 
-      console.log(`Sending email through queue - ${payload?.toEmail}`);
+      this.logger.log(`Sending email through queue - ${payload?.toEmail}`);
 
       // Support Ticket - MailGun
       if (payload?.isSupport) {
@@ -29,7 +29,7 @@ export class EmailQueueConsumer extends WorkerHost {
       }
 
       this.logger.log(`Email sent`);
-      console.log(`Email sent - ${payload?.toEmail}`);
+      this.logger.log(`Email sent - ${payload?.toEmail}`);
 
       if (payload?.isSupport && response) {
         return response;
@@ -37,7 +37,7 @@ export class EmailQueueConsumer extends WorkerHost {
     } catch (error) {
       const errMsg = error?.message ? error?.message : error;
       this.logger.error(`Failed to send mail to: ${errMsg}`);
-      console.log(`Failed to send mail to: ${errMsg}`);
+      this.logger.log(`Failed to send mail to: ${errMsg}`);
       throw error;
     }
   }

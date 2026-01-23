@@ -66,7 +66,7 @@ export class PaymentsValidator {
         input_date,
         retention_id,
       } = data;
-      console.log('data', data);
+      this.logger.log(`data: ${JSON.stringify(data)}`);
 
       const payable_payment_types = [
         'Full',
@@ -146,7 +146,7 @@ export class PaymentsValidator {
           where: { payment_claim_id: payment_claim_id },
           relations: ['contractDetails'],
         });
-        console.log('payment_claim_details', payment_claim_details);
+        this.logger.log(`payment_claim_details: ${JSON.stringify(payment_claim_details)}`);
         if (!payment_claim_details)
           throw `Payment claim details not found. Please provide a valid payment_claim_id.`;
 
@@ -157,11 +157,8 @@ export class PaymentsValidator {
         )
           throw `Please provide retention_id while adding a retention payment.`;
 
-        console.log(
-          new Date(payment_date),
-          new Date(
-            payment_claim_details.contractDetails.defect_liability_end_date,
-          ),
+        this.logger.log(
+          `payment_date: ${new Date(payment_date)}, defect_liability_end_date: ${new Date(payment_claim_details.contractDetails.defect_liability_end_date)}`,
         );
         // if (
         //   payment_claim_details.cash_retention_type === 'Retention claim' &&
@@ -243,7 +240,7 @@ export class PaymentsValidator {
                     )
                     .getRawOne();
 
-                  console.log({ retentionDetails });
+                  this.logger.log(JSON.stringify({ retentionDetails }));
 
                   totalRetentionAmount += retentionDetails
                     ? parseFloat(retentionDetails?.retention_amount)
@@ -251,7 +248,7 @@ export class PaymentsValidator {
                   existingTotalAmount += parseFloat(payment.total_amount);
                 }
               }
-              console.log('existingTotalAmount', existingTotalAmount);
+              this.logger.log(`existingTotalAmount: ${JSON.stringify(existingTotalAmount)}`);
               outstanding_amount = payless_payments.length
                 ? payless_payments[0].payless_amount - existingTotalAmount
                 : payment_claim_details.claim_amount - existingTotalAmount;
@@ -265,7 +262,7 @@ export class PaymentsValidator {
               payment_claim_details?.retention_amount_with_gst;
           }
         }
-        console.log('outstanding_amount', outstanding_amount);
+        this.logger.log(`outstanding_amount: ${JSON.stringify(outstanding_amount)}`);
 
         // if (outstanding_amount <= 0)
         //   throw `Payments associated with this claim has been completed and closed.`;
@@ -323,7 +320,7 @@ export class PaymentsValidator {
             // if (total_amount >= payment_claim_details.claim_amount)
             //   throw `The Total amount for a pay less part payment must be less than the Claim amount.`;
 
-            console.log('payments', payments);
+            this.logger.log(`payments: ${JSON.stringify(payments)}`);
             // if (
             //   payments &&
             //   payments.length &&
@@ -467,16 +464,15 @@ export class PaymentsValidator {
           payment_claim_details.claim_type == 'Billable' &&
           cash_retention
         ) {
-          console.log('paymentt_amount', payment_amount);
-          console.log('retention_amount', retention_amount);
-          console.log('totall_amount', total_amount);
-          console.log(
-            'result',
-            Number((payment_amount + retention_amount).toFixed(2)),
+          this.logger.log(`paymentt_amount: ${JSON.stringify(payment_amount)}`);
+          this.logger.log(`retention_amount: ${JSON.stringify(retention_amount)}`);
+          this.logger.log(`totall_amount: ${JSON.stringify(total_amount)}`);
+          this.logger.log(
+            `result: ${Number((payment_amount + retention_amount).toFixed(2))}`,
           );
-          console.log('typeof payment_amount', typeof payment_amount);
-          console.log('typeof retention_amount', typeof retention_amount);
-          console.log('typeof total_amount', typeof total_amount);
+          this.logger.log(`typeof payment_amount: ${typeof payment_amount}`);
+          this.logger.log(`typeof retention_amount: ${typeof retention_amount}`);
+          this.logger.log(`typeof total_amount: ${typeof total_amount}`);
           if (payment_type !== 'Pay - Zero' && payment_type !== '3rd Party') {
             // if (
             //   Number((payment_amount + retention_amount).toFixed(2)) !==

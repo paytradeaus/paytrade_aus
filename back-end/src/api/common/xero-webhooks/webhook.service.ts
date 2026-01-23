@@ -139,7 +139,7 @@ export class XeroWebhookService {
     data?: any,
     decoded?: any,
   ) {
-    console.log(
+    this.logger.log(
       `[Xero Service] Contact Update initiated: ${resource_id} (Tenant: ${tenant_id})`,
     );
 
@@ -157,7 +157,7 @@ export class XeroWebhookService {
         !xeroDetails.integration_id ||
         !xeroDetails?.integrationDetails
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] No integration found for tenant id: ${tenant_id}`,
         );
         return false;
@@ -167,7 +167,7 @@ export class XeroWebhookService {
         xeroDetails.integrationDetails.integration_status !==
         'Connected - active'
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] Paytrade is currently not active in Xero`,
         );
         return false;
@@ -184,7 +184,7 @@ export class XeroWebhookService {
       const contact = response.body.contacts?.[0];
 
       if (!contact) {
-        console.warn(
+        this.logger.warn(
           `[Xero Service] No contact found in Xero for ID: ${resource_id}`,
         );
         return false;
@@ -201,7 +201,7 @@ export class XeroWebhookService {
         },
       });
 
-      console.log(`[Xero Webhook] existing contact::`, existing);
+      this.logger.log(`[Xero Webhook] existing contact::` + " " + JSON.stringify(existing));
 
       if (existing) {
         // Update existing contact
@@ -210,9 +210,9 @@ export class XeroWebhookService {
         existing.is_supplier = isSupplier ?? false;
         existing.contact_status = String(contactStatus);
         await this.xeroContactDetails.save(existing);
-        console.log(`[Xero Service] Contact updated in DB`);
+        this.logger.log(`[Xero Service] Contact updated in DB`);
       } else {
-        console.log('Adding Contact to the paytrade db');
+        this.logger.log('Adding Contact to the paytrade db');
         await this.xeroContactDetails.save({
           contact_id: contactID,
           tenant_id,
@@ -222,7 +222,7 @@ export class XeroWebhookService {
           is_customer: isCustomer ?? false,
           is_supplier: isSupplier ?? false,
         });
-        console.log(`[Xero Service] New contact added to DB`);
+        this.logger.log(`[Xero Service] New contact added to DB`);
       }
 
       const xeroContactDetails = await this.xeroContactDetails.findOne({
@@ -274,7 +274,7 @@ export class XeroWebhookService {
               payload,
               decoded,
             );
-          console.log({ pt_client_supplier1: pt_client_supplier });
+          this.logger.log(JSON.stringify({ pt_client_supplier1: pt_client_supplier }));
         } else if (
           xeroContactDetails?.contact_status !== 'ACTIVE' &&
           ['Draft', 'Completed']?.includes(
@@ -289,7 +289,7 @@ export class XeroWebhookService {
                 true,
                 decoded,
               );
-            console.log({ pt_client_supplier2: pt_client_supplier });
+            this.logger.log(JSON.stringify({ pt_client_supplier2: pt_client_supplier }));
           } catch (error) {
             const errMsg = error?.message ? error?.message : error;
             if (
@@ -337,7 +337,7 @@ export class XeroWebhookService {
           }
         } else {
           pt_client_supplier = clientSuppliersDetails;
-          console.log({ pt_client_supplier3: pt_client_supplier });
+          this.logger.log(JSON.stringify({ pt_client_supplier3: pt_client_supplier }));
         }
       } else {
         pt_client_supplier = await this.handleContactCreate(
@@ -348,7 +348,7 @@ export class XeroWebhookService {
           sync_id,
           data,
         );
-        console.log(`[Xero Contact Webhook] new::`, pt_client_supplier);
+        this.logger.log(`[Xero Contact Webhook] new::` + " " + JSON.stringify(pt_client_supplier));
         if (pt_client_supplier) {
           xeroContactDetails.pt_contact_id =
             pt_client_supplier?.client_supplier_id;
@@ -394,7 +394,7 @@ export class XeroWebhookService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Service] Failed to fetch contact:`, error);
+      this.logger.error(`[Xero Service] Failed to fetch contact:` + " " + JSON.stringify(error));
 
       const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
         error,
@@ -455,7 +455,7 @@ export class XeroWebhookService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Service] Failed to fetch contact:`, error);
+          this.logger.error(`[Xero Service] Failed to fetch contact:` + " " + JSON.stringify(error));
         }
       }
     }
@@ -726,7 +726,7 @@ export class XeroWebhookService {
 
   async handleInvoiceCreateUpdate(data: any, decoded?: any) {
     const { resource_id, tenant_id, eventType, sync_run_type } = data;
-    console.log(
+    this.logger.log(
       `[Xero Service] Invoice CREATED: ${resource_id} of Tenant ${tenant_id}`,
     );
 
@@ -741,7 +741,7 @@ export class XeroWebhookService {
         !xeroDetails.integration_id ||
         !xeroDetails?.integrationDetails
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] No integration found for tenant_id: ${tenant_id}`,
         );
         return false;
@@ -751,7 +751,7 @@ export class XeroWebhookService {
         xeroDetails.integrationDetails.integration_status !==
         'Connected - active'
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] Paytrade is currently not active in Xero`,
         );
         return false;
@@ -800,7 +800,7 @@ export class XeroWebhookService {
 
       if (invoice?.status !== Invoice.StatusEnum.DRAFT) {
         // Process invoice create logic..
-        console.log('*****************invoice****************', invoice);
+        this.logger.log('*****************invoice****************' + " " + JSON.stringify(invoice));
 
         const xeroContactDetails = await this.xeroContactDetails.findOne({
           where: {
@@ -899,13 +899,13 @@ export class XeroWebhookService {
           decoded,
         );
 
-        console.log({ invoiceResponse });
+        this.logger.log(JSON.stringify({ invoiceResponse }));
         return invoiceResponse;
       }
       return true;
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Service] Failed to fetch invoice:`, error);
+      this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
 
       const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
         error,
@@ -970,7 +970,7 @@ export class XeroWebhookService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Service] Failed to fetch invoice:`, error);
+          this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
         }
       }
     }
@@ -978,7 +978,7 @@ export class XeroWebhookService {
 
   async createClaimInPaytrade(data: any, decoded?: any) {
     const { invoice_id, tenant_id, sync_run_type } = data;
-    console.log(
+    this.logger.log(
       `[Xero Service] Invoice CREATED: ${invoice_id} of Tenant ${tenant_id}`,
     );
 
@@ -993,7 +993,7 @@ export class XeroWebhookService {
         !xeroDetails.integration_id ||
         !xeroDetails?.integrationDetails
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] No integration found for tenant id: ${tenant_id}`,
         );
         throw `No xero integration found`;
@@ -1003,7 +1003,7 @@ export class XeroWebhookService {
         xeroDetails.integrationDetails.integration_status !==
         'Connected - active'
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] Paytrade is currently not active in Xero`,
         );
         throw `Paytrade is currently not active in Xero.`;
@@ -1055,7 +1055,7 @@ export class XeroWebhookService {
 
       if (invoice?.status !== Invoice.StatusEnum.DRAFT) {
         // Process invoice create logic..
-        console.log('*****************invoice****************', invoice);
+        this.logger.log('*****************invoice****************' + " " + JSON.stringify(invoice));
 
         const xeroContactDetails = await this.xeroContactDetails.findOne({
           where: {
@@ -1173,9 +1173,9 @@ export class XeroWebhookService {
             },
             decoded,
           );
-          console.log('overpayment check in createClaimPaytrade:: ', {
+          this.logger.log('overpayment check in createClaimPaytrade:: ' + " " + JSON.stringify({
             overpayments,
-          });
+          }));
           return overpayments;
         }
 
@@ -1184,7 +1184,7 @@ export class XeroWebhookService {
       return false;
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Service] Failed to fetch invoice:`, error);
+      this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
 
       const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
         error,
@@ -1249,7 +1249,7 @@ export class XeroWebhookService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Service] Failed to fetch invoice:`, error);
+          this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
         }
       }
     }
@@ -1267,7 +1267,7 @@ export class XeroWebhookService {
     decoded?: any,
   ) {
     try {
-      console.log('Webhook::eventType::', eventType);
+      this.logger.log('Webhook::eventType::' + " " + JSON.stringify(eventType));
       // 1. Check if invoice exists in xeroInvoicesBills
       let existingXeroInvoice = await this.xeroInvoicesBills.findOne({
         where: {
@@ -2175,7 +2175,7 @@ export class XeroWebhookService {
         existingXeroInvoice.updated_group = 'SYSTEM';
         existingXeroInvoice.updated_on = moment().toISOString();
         xeroInvoice = await this.xeroInvoicesBills.save(existingXeroInvoice);
-        console.log('Webhook::xeroInvoice::exist::', existingXeroInvoice);
+        this.logger.log('Webhook::xeroInvoice::exist::' + " " + JSON.stringify(existingXeroInvoice));
       } else {
         const xeroPayload: any = {
           invoice_id: invoice.invoiceID,
@@ -2199,7 +2199,7 @@ export class XeroWebhookService {
         };
         const newXeroInvoice = await this.xeroInvoicesBills.create(xeroPayload);
         xeroInvoice = await this.xeroInvoicesBills.save(newXeroInvoice);
-        console.log('Webhook::xeroInvoice::new::', xeroInvoice);
+        this.logger.log('Webhook::xeroInvoice::new::' + " " + JSON.stringify(xeroInvoice));
       }
 
       if (xeroInvoice) {
@@ -2300,7 +2300,7 @@ export class XeroWebhookService {
 
               const retentionDetails =
                 await this.dataSource.query(retentionListQuery);
-              console.log(retentionDetails);
+              this.logger.log(retentionDetails);
 
               if (!retentionDetails) {
                 await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -2924,7 +2924,7 @@ export class XeroWebhookService {
               where: { id: response?.id },
             });
 
-            console.log({ response: response?.id });
+            this.logger.log(JSON.stringify({ response: response?.id }));
             // if (isS75eligible) {
             //   const file = await this.paymentClaimsService.generateS75Pdf(
             //     {
@@ -3090,7 +3090,7 @@ export class XeroWebhookService {
 
                     const retentionDetails =
                       await this.dataSource.query(retentionListQuery);
-                    console.log(retentionDetails);
+                    this.logger.log(retentionDetails);
 
                     if (!retentionDetails) {
                       await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -3731,7 +3731,7 @@ export class XeroWebhookService {
                 (key) => key in claimDetails,
               );
               let needsEdit = false;
-              console.log('Webhook:::', commonKeys, claimData, claimDetails);
+              this.logger.log(`Webhook::: ${JSON.stringify(commonKeys)} ${JSON.stringify(claimData)} ${JSON.stringify(claimDetails)}`);
               for (const key of commonKeys) {
                 if (
                   ![
@@ -3740,12 +3740,7 @@ export class XeroWebhookService {
                     'compulsory_attachment_ids',
                   ]?.includes(key)
                 ) {
-                  console.log(
-                    'Webhook::claimData[key] !== claimDetails[key]::',
-                    key,
-                    claimData[key],
-                    claimDetails[key],
-                  );
+                  this.logger.log(`Webhook::claimData[key] !== claimDetails[key]:: ${JSON.stringify(key)} ${JSON.stringify(claimData[key])} ${JSON.stringify(claimDetails[key])}`);
                   if (
                     ['due_date', 'received_date', 'sent_date']?.includes(key)
                   ) {
@@ -3819,7 +3814,7 @@ export class XeroWebhookService {
                     break;
                   }
                 }
-                console.log({ needsEdit });
+                this.logger.log(JSON.stringify({ needsEdit }));
               }
 
               if (needsEdit) {
@@ -4041,7 +4036,7 @@ export class XeroWebhookService {
               data,
               sync_run_type,
             });
-          console.log({ addedJob: addedJob?.name });
+          this.logger.log(JSON.stringify({ addedJob: addedJob?.name }));
           return true;
         } else {
           const processPayment = await this.checkAndProcessPayment(
@@ -4053,7 +4048,7 @@ export class XeroWebhookService {
             },
             decoded,
           );
-          console.log({ processPayment });
+          this.logger.log(JSON.stringify({ processPayment }));
           if (processPayment) {
             return processPayment;
           } else {
@@ -4063,7 +4058,7 @@ export class XeroWebhookService {
       }
       return false;
     } catch (err) {
-      console.error(
+      this.logger.error(
         `[Webhook Validation Fail] ${invoice.invoiceID}: ${'Unexpected error: ' + (err?.message || err)}`,
       );
     }
@@ -4124,8 +4119,8 @@ export class XeroWebhookService {
       const paymentClaimDetails = await this.paymentClaims.findOne({
         where: { payment_claim_id: xeroInvoice?.pt_claim_id },
       });
-      console.log({ paymentClaimDetails });
-      console.log({ invoice });
+      this.logger.log(JSON.stringify({ paymentClaimDetails }));
+      this.logger.log(JSON.stringify({ invoice }));
 
       const previousPayments = await this.paymentDetails.find({
         where: {
@@ -4143,7 +4138,7 @@ export class XeroWebhookService {
         order: { created_on: 'DESC' },
       });
 
-      console.log('1:: ', { previousPayments });
+      this.logger.log('1:: ' + " " + JSON.stringify({ previousPayments }));
 
       const associatedUnderPaymentsInXero = await this.xeroPayments.find({
         where: {
@@ -4154,7 +4149,7 @@ export class XeroWebhookService {
           integration_id: xeroDetails?.integration_id,
         },
       });
-      console.log({ associatedUnderPaymentsInXero });
+      this.logger.log(JSON.stringify({ associatedUnderPaymentsInXero }));
 
       if (
         associatedUnderPaymentsInXero &&
@@ -4167,10 +4162,7 @@ export class XeroWebhookService {
                 await this.paymentDetails?.findOne({
                   where: { payment_id: element.pt_payment_id },
                 });
-              console.log(
-                'existingPaymentStatusCheck for underpayments: ',
-                existingPaymentStatusCheck,
-              );
+              this.logger.log(`existingPaymentStatusCheck for underpayments:  ${JSON.stringify(existingPaymentStatusCheck)}`);
               if (
                 existingPaymentStatusCheck &&
                 existingPaymentStatusCheck?.current_status !== 'Deleted'
@@ -4181,7 +4173,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -4189,7 +4181,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('1:::', { deletePaymentResponse });
+                  this.logger.log('1:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   await this.xeroPayments.update(
                     {
@@ -4269,7 +4261,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       unmatchTransactions = [];
                     if (matchedPayments && matchedPayments?.length > 0) {
@@ -4391,23 +4383,17 @@ export class XeroWebhookService {
                 .filter((id) => id != null),
             ),
           ];
-          console.log('overpaymentIds: ', overpaymentIds);
+          this.logger.log('overpaymentIds: ' + " " + JSON.stringify(overpaymentIds));
 
           for (const element of associatedUnderPaymentsInXero) {
             if (!overpaymentIds?.includes(element?.overpayment_id)) {
-              console.log(
-                ' !overpaymentIds?.includes(element?.overpayment_id): ',
-                !overpaymentIds?.includes(element?.overpayment_id),
-              );
+              this.logger.log(`!overpaymentIds?.includes(element?.overpayment_id): ${JSON.stringify(!overpaymentIds?.includes(element?.overpayment_id))}`);
               if (element?.pt_payment_id) {
                 const existingPaymentStatusCheck =
                   await this.paymentDetails?.findOne({
                     where: { payment_id: element.pt_payment_id },
                   });
-                console.log(
-                  'existingPaymentStatusCheck: ',
-                  existingPaymentStatusCheck,
-                );
+                this.logger.log(`existingPaymentStatusCheck:  ${JSON.stringify(existingPaymentStatusCheck)}`);
                 if (
                   existingPaymentStatusCheck &&
                   existingPaymentStatusCheck?.current_status !== 'Deleted'
@@ -4418,7 +4404,7 @@ export class XeroWebhookService {
                       status: 'Deleted',
                       input_date: null,
                     };
-                    console.log({ paytradePayload });
+                    this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
                       await this.paymentsService.changeStatusOfAPayment(
                         decoded,
@@ -4426,7 +4412,7 @@ export class XeroWebhookService {
                         decoded?.userId,
                       );
 
-                    console.log('2:::', { deletePaymentResponse });
+                    this.logger.log('2:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                     await this.xeroPayments.update(
                       {
@@ -4509,7 +4495,7 @@ export class XeroWebhookService {
                             )
                           : [];
 
-                      console.log({ matchedPayments });
+                      this.logger.log(JSON.stringify({ matchedPayments }));
                       let payment_account = null,
                         retention_account = null,
                         unmatchTransactions = [];
@@ -4659,7 +4645,7 @@ export class XeroWebhookService {
         order: { created_on: 'DESC' },
       });
 
-      console.log({ associatedUnderPaymentsInPaytrade });
+      this.logger.log(JSON.stringify({ associatedUnderPaymentsInPaytrade }));
 
       if (
         associatedUnderPaymentsInPaytrade &&
@@ -4674,7 +4660,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -4682,7 +4668,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('3:::', { deletePaymentResponse });
+                this.logger.log('3:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails?.findOne({
@@ -4753,7 +4739,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     unmatchTransactions = [];
                   if (matchedPayments && matchedPayments?.length > 0) {
@@ -5008,29 +4994,20 @@ export class XeroWebhookService {
           ? true
           : false;
 
-      console.log({ cash_retention_type });
+      this.logger.log(JSON.stringify({ cash_retention_type }));
 
       let creditNotesOfAnInvoice: CreditNote[] = [],
         creditNotes: CreditNote[] = [],
         existingCreditNotesInBothXeroAndDb: CreditNote[] = [];
 
-      console.log(
-        '[Credit Note Debug] invoice.creditNotes:',
-        invoice?.creditNotes,
-        'invoice.status:',
-        invoice?.status,
-        'invoice.amountPaid:',
-        invoice?.amountPaid,
-        'invoice.amountDue:',
-        invoice?.amountDue,
-      );
+      this.logger.log(`[Credit Note Debug] invoice.creditNotes: ${JSON.stringify(invoice?.creditNotes)} ${JSON.stringify('invoice.status:')} ${JSON.stringify(invoice?.status)} ${JSON.stringify('invoice.amountPaid:')} ${JSON.stringify(invoice?.amountPaid)} ${JSON.stringify('invoice.amountDue:')} ${JSON.stringify(invoice?.amountDue)}`);
 
       const shouldCheckCreditNotes =
         (invoice?.creditNotes && invoice?.creditNotes?.length > 0) ||
         (invoice?.status === Invoice.StatusEnum.PAID &&
           Number(invoice?.amountPaid || 0) === 0);
 
-      console.log('[Credit Note Debug] shouldCheckCreditNotes:', shouldCheckCreditNotes);
+      this.logger.log('[Credit Note Debug] shouldCheckCreditNotes:' + " " + JSON.stringify(shouldCheckCreditNotes));
 
       if (shouldCheckCreditNotes) {
         const allCreditNotes = await this.xero.accountingApi.getCreditNotes(
@@ -5043,7 +5020,7 @@ export class XeroWebhookService {
           100,
         );
 
-        // console.log(
+        // this.logger.log(
         //   'allCreditNotes?.body?.creditNotes: ',
         //   allCreditNotes?.body?.creditNotes,
         // );
@@ -5059,7 +5036,7 @@ export class XeroWebhookService {
           }
         }
       }
-      console.log('creditNotesOfAnInvoice: ', creditNotesOfAnInvoice);
+      this.logger.log('creditNotesOfAnInvoice: ' + " " + JSON.stringify(creditNotesOfAnInvoice));
 
       if (creditNotesOfAnInvoice && creditNotesOfAnInvoice?.length > 0) {
         const creditNotesfilter = data?.credit_note_id
@@ -5067,7 +5044,7 @@ export class XeroWebhookService {
               (credit) => credit?.creditNoteID === data?.credit_note_id,
             )
           : creditNotesOfAnInvoice;
-        console.log('creditNotesfilter: ', creditNotesfilter);
+        this.logger.log('creditNotesfilter: ' + " " + JSON.stringify(creditNotesfilter));
         if (creditNotesfilter && creditNotesfilter?.length > 0) {
           if (creditNotesfilter?.length == 1) {
             const existingCreditNotesInDb = await this.xeroPayments.findOne({
@@ -5079,7 +5056,7 @@ export class XeroWebhookService {
                 status: Not('DELETED'),
               },
             });
-            console.log('existingCreditNotesInDb: ', existingCreditNotesInDb);
+            this.logger.log('existingCreditNotesInDb: ' + " " + JSON.stringify(existingCreditNotesInDb));
             if (
               existingCreditNotesInDb &&
               existingCreditNotesInDb?.pt_payment_id
@@ -5088,12 +5065,7 @@ export class XeroWebhookService {
             } else {
               creditNotes = creditNotesfilter;
             }
-            console.log(
-              'existingCreditNotesInDb && existingCreditNotesInBothXeroAndDb && creditNotes: ',
-              existingCreditNotesInDb,
-              existingCreditNotesInBothXeroAndDb,
-              creditNotes,
-            );
+            this.logger.log(`existingCreditNotesInDb && existingCreditNotesInBothXeroAndDb && creditNotes:  ${JSON.stringify(existingCreditNotesInDb)} ${JSON.stringify(existingCreditNotesInBothXeroAndDb)} ${JSON.stringify(creditNotes)}`);
           } else {
             const creditNoteIds = [
               ...new Set(
@@ -5102,7 +5074,7 @@ export class XeroWebhookService {
                   .filter((id) => id != null),
               ),
             ];
-            console.log('creditNoteIds: ', creditNoteIds);
+            this.logger.log('creditNoteIds: ' + " " + JSON.stringify(creditNoteIds));
             const existingCreditNotesInDb = await this.xeroPayments.find({
               where: {
                 credit_note_id: In(creditNoteIds),
@@ -5112,7 +5084,7 @@ export class XeroWebhookService {
                 pt_payment_id: Not(IsNull()),
               },
             });
-            console.log('existingCreditNotesInDb: ', existingCreditNotesInDb);
+            this.logger.log('existingCreditNotesInDb: ' + " " + JSON.stringify(existingCreditNotesInDb));
             if (
               existingCreditNotesInDb &&
               existingCreditNotesInDb?.length > 0
@@ -5128,20 +5100,13 @@ export class XeroWebhookService {
                   existingCreditNotesInBothXeroAndDb.push(element);
                 }
               }
-              console.log(
-                'creditNotes && existingCreditNotesInBothXeroAndDb: ',
-                creditNotes,
-                existingCreditNotesInBothXeroAndDb,
-              );
+              this.logger.log(`creditNotes && existingCreditNotesInBothXeroAndDb:  ${JSON.stringify(creditNotes)} ${JSON.stringify(existingCreditNotesInBothXeroAndDb)}`);
             } else {
               creditNotes = creditNotesfilter;
-              console.log('creditNotes: ', creditNotes);
+              this.logger.log('creditNotes: ' + " " + JSON.stringify(creditNotes));
             }
 
-            console.log(
-              'existingCreditNotesInBothXeroAndDb: ',
-              existingCreditNotesInBothXeroAndDb,
-            );
+            this.logger.log(`existingCreditNotesInBothXeroAndDb:  ${JSON.stringify(existingCreditNotesInBothXeroAndDb)}`);
             if (
               existingCreditNotesInBothXeroAndDb &&
               existingCreditNotesInBothXeroAndDb?.length > 0
@@ -5156,7 +5121,7 @@ export class XeroWebhookService {
                   ]
                 : [];
 
-              console.log('existingCreditNoteIds: ', existingCreditNoteIds);
+              this.logger.log('existingCreditNoteIds: ' + " " + JSON.stringify(existingCreditNoteIds));
               const existingPayment = await this.xeroPayments.find({
                 where: {
                   credit_note_id: Not(IsNull()),
@@ -5165,26 +5130,20 @@ export class XeroWebhookService {
                   invoice_id: xeroInvoice?.id,
                 },
               });
-              console.log('existingPayment: ', existingPayment);
+              this.logger.log('existingPayment: ' + " " + JSON.stringify(existingPayment));
 
               if (existingPayment && existingPayment?.length > 0) {
                 for (const element of existingPayment) {
                   if (
                     !existingCreditNoteIds?.includes(element?.credit_note_id)
                   ) {
-                    console.log(
-                      '!existingCreditNoteIds?.includes(element?.credit_note_id): ',
-                      !existingCreditNoteIds?.includes(element?.credit_note_id),
-                    );
+                    this.logger.log(`!existingCreditNoteIds?.includes(element?.credit_note_id): ${JSON.stringify(!existingCreditNoteIds?.includes(element?.credit_note_id))}`);
                     if (element?.pt_payment_id) {
                       const existingPaymentStatusCheck =
                         await this.paymentDetails?.findOne({
                           where: { payment_id: element.pt_payment_id },
                         });
-                      console.log(
-                        'existingPaymentStatusCheck: ',
-                        existingPaymentStatusCheck,
-                      );
+                      this.logger.log(`existingPaymentStatusCheck:  ${JSON.stringify(existingPaymentStatusCheck)}`);
                       if (
                         existingPaymentStatusCheck &&
                         existingPaymentStatusCheck?.current_status !== 'Deleted'
@@ -5195,7 +5154,7 @@ export class XeroWebhookService {
                             status: 'Deleted',
                             input_date: null,
                           };
-                          console.log({ paytradePayload });
+                          this.logger.log(JSON.stringify({ paytradePayload }));
                           const deletePaymentResponse =
                             await this.paymentsService.changeStatusOfAPayment(
                               decoded,
@@ -5203,7 +5162,7 @@ export class XeroWebhookService {
                               decoded?.userId,
                             );
 
-                          console.log('4:::', { deletePaymentResponse });
+                          this.logger.log('4:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                           await this.xeroPayments.update(
                             {
@@ -5295,7 +5254,7 @@ export class XeroWebhookService {
                                   )
                                 : [];
 
-                            console.log({ matchedPayments });
+                            this.logger.log(JSON.stringify({ matchedPayments }));
                             let payment_account = null,
                               retention_account = null,
                               unmatchTransactions = [];
@@ -5440,7 +5399,7 @@ export class XeroWebhookService {
                           status: String(Payment.StatusEnum.DELETED),
                         },
                       );
-                      console.log(
+                      this.logger.log(
                         `[Xero Webhook] Updated credit note ${creditNotes[0]?.creditNoteID}`,
                       );
                     }
@@ -5450,7 +5409,7 @@ export class XeroWebhookService {
             }
           }
         }
-        console.log('creditNotes: ', creditNotes);
+        this.logger.log('creditNotes: ' + " " + JSON.stringify(creditNotes));
         if (creditNotes && creditNotes?.length > 1) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
@@ -5503,7 +5462,7 @@ export class XeroWebhookService {
             invoice_id: xeroInvoice?.id,
           },
         });
-        console.log('existingPayment: ', existingPayment);
+        this.logger.log('existingPayment: ' + " " + JSON.stringify(existingPayment));
 
         if (existingPayment && existingPayment?.length > 0) {
           for (const element of existingPayment) {
@@ -5512,10 +5471,7 @@ export class XeroWebhookService {
                 await this.paymentDetails?.findOne({
                   where: { payment_id: element.pt_payment_id },
                 });
-              console.log(
-                'existingPaymentStatusCheck: ',
-                existingPaymentStatusCheck,
-              );
+              this.logger.log(`existingPaymentStatusCheck:  ${JSON.stringify(existingPaymentStatusCheck)}`);
               if (
                 existingPaymentStatusCheck &&
                 existingPaymentStatusCheck?.current_status !== 'Deleted'
@@ -5526,7 +5482,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -5534,7 +5490,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('5:::', { deletePaymentResponse });
+                  this.logger.log('5:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   await this.xeroPayments.update(
                     {
@@ -5618,7 +5574,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       retention_account = null,
                       unmatchTransactions = [];
@@ -5753,7 +5709,7 @@ export class XeroWebhookService {
                   status: String(Payment.StatusEnum.DELETED),
                 },
               );
-              console.log(
+              this.logger.log(
                 `[Xero Webhook] Updated credit note ${creditNotes[0]?.creditNoteID}`,
               );
             }
@@ -5761,7 +5717,7 @@ export class XeroWebhookService {
         }
       }
 
-      console.log(
+      this.logger.log(
         `[Xero Webhook] Credit notes applied: ${JSON.stringify(creditNotes)}`,
       );
 
@@ -5778,7 +5734,7 @@ export class XeroWebhookService {
             status: Not('DELETED'),
           },
         });
-        console.log('checkExistence: ', checkExistence);
+        this.logger.log('checkExistence: ' + " " + JSON.stringify(checkExistence));
         if (!checkExistence) {
           let xeroPaymentPayload: any = {
             payment_id: null,
@@ -5801,7 +5757,7 @@ export class XeroWebhookService {
 
           const newPayment = this.xeroPayments.create(xeroPaymentPayload);
           await this.xeroPayments.save(newPayment);
-          console.log(
+          this.logger.log(
             `[Xero Webhook] Inserted new credit note ${creditNotes[0]?.creditNoteID}`,
           );
         }
@@ -5813,7 +5769,7 @@ export class XeroWebhookService {
             status: Not('DELETED'),
           },
         });
-        console.log('xeroPaymentEntity: ', xeroPaymentEntity);
+        this.logger.log('xeroPaymentEntity: ' + " " + JSON.stringify(xeroPaymentEntity));
 
         if (
           xeroPaymentEntity &&
@@ -5973,17 +5929,14 @@ export class XeroWebhookService {
             withhold_payment_reason: data?.withhold_payment_reason || '',
           };
 
-          console.log(
-            '%%%%----------paytrade-pay----------------->>>>>>',
-            paytradePayload,
-          );
+          this.logger.log(`%%%%----------paytrade-pay----------------->>>>>> ${JSON.stringify(paytradePayload)}`);
 
           const newPayment = await this.paymentsService.addPayment(
             decoded,
             paytradePayload,
             decoded?.userId,
           );
-          console.log('newPayment', newPayment);
+          this.logger.log('newPayment' + " " + JSON.stringify(newPayment));
           await this.xeroPayments
             .createQueryBuilder()
             .update()
@@ -5993,7 +5946,7 @@ export class XeroWebhookService {
             })
             .where('id = :id', { id: xeroPaymentEntity.id })
             .execute();
-          console.log(
+          this.logger.log(
             `[Xero Webhook] Synced to Paytrade: Payment ${newPayment?.data?.payment_id}`,
           );
 
@@ -6050,10 +6003,8 @@ export class XeroWebhookService {
         }
       }
 
-      console.log(
-        invoice?.payments &&
-          Array.isArray(invoice?.payments) &&
-          invoice?.payments?.length > 0,
+      this.logger.log(
+        `hasPayments: ${invoice?.payments && Array.isArray(invoice?.payments) && invoice?.payments?.length > 0}`,
       );
       if (
         invoice?.payments &&
@@ -6067,7 +6018,7 @@ export class XeroWebhookService {
         );
 
         const paymentList = paymentListResponse?.body?.payments || [];
-        console.log({ paymentList });
+        this.logger.log(JSON.stringify({ paymentList }));
 
         if (paymentList?.length > 0) {
           const paymentIds = [
@@ -6075,7 +6026,7 @@ export class XeroWebhookService {
               paymentList?.map((e) => e?.paymentID).filter((id) => id != null),
             ),
           ];
-          console.log({ paymentIds });
+          this.logger.log(JSON.stringify({ paymentIds }));
           const existingPaymentsInPaytrade = await this.xeroPayments.find({
             where: {
               payment_id: Not(In(paymentIds)),
@@ -6084,7 +6035,7 @@ export class XeroWebhookService {
               integration_id: xeroDetails?.integration_id,
             },
           });
-          console.log({ existingPaymentsInPaytrade });
+          this.logger.log(JSON.stringify({ existingPaymentsInPaytrade }));
           if (
             existingPaymentsInPaytrade &&
             existingPaymentsInPaytrade?.length > 0
@@ -6105,7 +6056,7 @@ export class XeroWebhookService {
                       status: 'Deleted',
                       input_date: null,
                     };
-                    console.log({ paytradePayload });
+                    this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
                       await this.paymentsService.changeStatusOfAPayment(
                         decoded,
@@ -6113,7 +6064,7 @@ export class XeroWebhookService {
                         decoded?.userId,
                       );
 
-                    console.log('6:::', { deletePaymentResponse });
+                    this.logger.log('6:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                     await this.xeroPayments.update(
                       {
@@ -6196,7 +6147,7 @@ export class XeroWebhookService {
                             )
                           : [];
 
-                      console.log({ matchedPayments });
+                      this.logger.log(JSON.stringify({ matchedPayments }));
                       let payment_account = null,
                         retention_account = null,
                         unmatchTransactions = [];
@@ -6325,17 +6276,8 @@ export class XeroWebhookService {
           }
           if (previousPayments && previousPayments?.length > 0) {
             //reversal of payments due to credit notes and overpayments
-            console.log(
-              'previousPayments[0]?.payment_type::',
-              previousPayments[0]?.payment_type,
-              creditNotes?.length,
-            );
-            console.log(
-              'previousPayments[0]?.payment_type::',
-              previousPayments[0]?.payment_type,
-              existingCreditNotesInBothXeroAndDb?.length,
-              creditNotes?.length,
-            );
+            this.logger.log(`previousPayments[0]?.payment_type:: ${JSON.stringify(previousPayments[0]?.payment_type)} ${JSON.stringify(creditNotes?.length)}`);
+            this.logger.log(`previousPayments[0]?.payment_type:: ${JSON.stringify(previousPayments[0]?.payment_type)} ${JSON.stringify(existingCreditNotesInBothXeroAndDb?.length)} ${JSON.stringify(creditNotes?.length)}`);
             if (
               (previousPayments[0]?.payment_type === 'Part' &&
                 creditNotes &&
@@ -6347,7 +6289,7 @@ export class XeroWebhookService {
                   existingCreditNotesInBothXeroAndDb?.length == 0) &&
                 (!creditNotes || creditNotes?.length == 0))
             ) {
-              console.log('2:: ', { previousPayments });
+              this.logger.log('2:: ' + " " + JSON.stringify({ previousPayments }));
               for (const element of previousPayments) {
                 const associatedOverUnderPaymentsInPaytrade =
                   await this.paymentDetails.find({
@@ -6365,7 +6307,7 @@ export class XeroWebhookService {
                     order: { created_on: 'DESC' },
                   });
 
-                console.log('1::', { associatedOverUnderPaymentsInPaytrade });
+                this.logger.log('1::' + " " + JSON.stringify({ associatedOverUnderPaymentsInPaytrade }));
 
                 if (
                   associatedOverUnderPaymentsInPaytrade &&
@@ -6379,7 +6321,7 @@ export class XeroWebhookService {
                           status: 'Deleted',
                           input_date: null,
                         };
-                        console.log({ paytradePayload });
+                        this.logger.log(JSON.stringify({ paytradePayload }));
                         const deletePaymentResponse =
                           await this.paymentsService.changeStatusOfAPayment(
                             decoded,
@@ -6387,7 +6329,7 @@ export class XeroWebhookService {
                             decoded?.userId,
                           );
 
-                        console.log('8:::', { deletePaymentResponse });
+                        this.logger.log('8:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                         await this.xeroPayments.update(
                           {
@@ -6471,7 +6413,7 @@ export class XeroWebhookService {
                                 )
                               : [];
 
-                          console.log({ matchedPayments });
+                          this.logger.log(JSON.stringify({ matchedPayments }));
                           let payment_account = null,
                             retention_account = null,
                             unmatchTransactions = [];
@@ -6596,7 +6538,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -6604,7 +6546,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('7:::', { deletePaymentResponse });
+                  this.logger.log('7:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   await this.xeroPayments.update(
                     {
@@ -6687,7 +6629,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       retention_account = null,
                       unmatchTransactions = [];
@@ -6819,11 +6761,7 @@ export class XeroWebhookService {
             ) {
               creditNotes = existingCreditNotesInBothXeroAndDb;
               existingCreditNotesInBothXeroAndDb = [];
-              console.error(
-                'creditNotes && existingCreditNotesInBothXeroAndDb::',
-                creditNotes,
-                existingCreditNotesInBothXeroAndDb,
-              );
+              this.logger.error(`creditNotes && existingCreditNotesInBothXeroAndDb:: ${JSON.stringify(creditNotes)} ${JSON.stringify(existingCreditNotesInBothXeroAndDb)}`);
             } else if (
               ['Pay Less - Full', 'Pay Less - Part'].includes(
                 previousPayments[0]?.payment_type,
@@ -6833,22 +6771,18 @@ export class XeroWebhookService {
               creditNotes &&
               creditNotes?.length == 1
             ) {
-              console.error(
-                'existingCreditNotesInBothXeroAndDb?.length::',
-                existingCreditNotesInBothXeroAndDb?.length,
-                { existingCreditNotesInBothXeroAndDb },
-              );
+              this.logger.error(`existingCreditNotesInBothXeroAndDb?.length:: ${JSON.stringify(existingCreditNotesInBothXeroAndDb?.length)} ${JSON.stringify({ existingCreditNotesInBothXeroAndDb })}`);
             }
           }
           const updatedClaimDetails = await this.paymentClaims.findOne({
             where: { payment_claim_id: xeroInvoice?.pt_claim_id },
           });
-          console.log({ updatedClaimDetails });
+          this.logger.log(JSON.stringify({ updatedClaimDetails }));
 
           for (let index = 0; index < paymentList.length; index++) {
             const payment = paymentList[index];
 
-            console.log(
+            this.logger.log(
               `Start:: [${index + 1}/${paymentList.length}] ${payment.paymentID}`,
             );
 
@@ -6875,9 +6809,7 @@ export class XeroWebhookService {
               decoded,
             );
 
-            console.log(`Done:: [${index + 1}] ${payment.paymentID}`, {
-              paymentResponse,
-            });
+            this.logger.log(`Done:: [${index + 1}] ${payment.paymentID} ${JSON.stringify({ paymentResponse })}`);
 
             if (!paymentResponse) {
               return false; // stop further processing
@@ -6896,7 +6828,7 @@ export class XeroWebhookService {
           },
         });
 
-        console.log({ associatedOverUnderPaymentsInXero });
+        this.logger.log(JSON.stringify({ associatedOverUnderPaymentsInXero }));
 
         if (
           associatedOverUnderPaymentsInXero &&
@@ -6918,7 +6850,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -6926,7 +6858,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('11:::', { deletePaymentResponse });
+                  this.logger.log('11:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   await this.xeroPayments.update(
                     {
@@ -7006,7 +6938,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       retention_account = null,
                       unmatchTransactions = [];
@@ -7154,7 +7086,7 @@ export class XeroWebhookService {
             order: { created_on: 'DESC' },
           });
 
-        console.log('2::', { associatedOverUnderPaymentsInPaytrade });
+        this.logger.log('2::' + " " + JSON.stringify({ associatedOverUnderPaymentsInPaytrade }));
 
         if (
           associatedOverUnderPaymentsInPaytrade &&
@@ -7168,7 +7100,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -7176,7 +7108,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('12:::', { deletePaymentResponse });
+                this.logger.log('12:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails.findOne({
@@ -7247,7 +7179,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     retention_account = null,
                     unmatchTransactions = [];
@@ -7389,7 +7321,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -7397,7 +7329,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('9:::', { deletePaymentResponse });
+                  this.logger.log('9:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   await this.xeroPayments.update(
                     {
@@ -7477,7 +7409,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       retention_account = null,
                       unmatchTransactions = [];
@@ -7630,7 +7562,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -7638,7 +7570,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('10:::', { deletePaymentResponse });
+                this.logger.log('10:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails.findOne({
@@ -7709,7 +7641,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     retention_account = null,
                     unmatchTransactions = [];
@@ -7851,7 +7783,7 @@ export class XeroWebhookService {
         //       ? Number(creditNotes[0]?.allocations[0]?.amount)
         //       : 0;
 
-        //   console.log({ underPayments, underPaymentAmount, creditNoteAmount });
+        //   this.logger.log(JSON.stringify({ underPayments, underPaymentAmount, creditNoteAmount }));
 
         //   if (
         //     underPaymentAmount > 0 &&
@@ -7874,7 +7806,7 @@ export class XeroWebhookService {
         //       status: Not('DELETED'),
         //     },
         //   });
-        //   console.log('checkExistence: ', checkExistence);
+        //   this.logger.log('checkExistence: ' + " " + JSON.stringify(checkExistence));
         //   if (!checkExistence) {
         //     let xeroPaymentPayload: any = {
         //       payment_id: null,
@@ -7897,7 +7829,7 @@ export class XeroWebhookService {
 
         //     const newPayment = this.xeroPayments.create(xeroPaymentPayload);
         //     await this.xeroPayments.save(newPayment);
-        //     console.log(
+        //     this.logger.log(
         //       `[Xero Webhook] Inserted new credit note ${creditNotes[0]?.creditNoteID}`,
         //     );
         //   }
@@ -7909,7 +7841,7 @@ export class XeroWebhookService {
         //       status: Not('DELETED'),
         //     },
         //   });
-        //   console.log('xeroPaymentEntity: ', xeroPaymentEntity);
+        //   this.logger.log('xeroPaymentEntity: ' + " " + JSON.stringify(xeroPaymentEntity));
         // }
 
         return true;
@@ -8100,11 +8032,11 @@ export class XeroWebhookService {
         cash_retention_type === 'Retention claim'
           ? payment?.amount
           : retentionAmount;
-      console.log({
+      this.logger.log(JSON.stringify({
         retentionAmount,
         retention_amount,
         payment_amount: payment?.amount,
-      });
+      }));
       if (
         (cash_retention_type === 'Claim' && cashRetention) ||
         cash_retention_type === 'Retention claim'
@@ -8112,7 +8044,7 @@ export class XeroWebhookService {
         const previousPartPayments = await this.xeroPayments.findOne({
           where: { invoice_id: xeroInvoice?.id, status: Not('DELETED') },
         });
-        console.log({ previousPartPayments });
+        this.logger.log(JSON.stringify({ previousPartPayments }));
         if (existingPayment && existingPayment?.bank_transfer_id) {
           data.bank_transfer_id = existingPayment?.bank_transfer_id;
         } else if (
@@ -8122,8 +8054,8 @@ export class XeroWebhookService {
         ) {
           data.bank_transfer_id = previousPartPayments?.bank_transfer_id;
         }
-        console.log({ bank_transfer_id: data.bank_transfer_id });
-        console.log('[Retention Transfer Debug] Fetching bank transfers from Xero for tenant_id:', xeroDetails.tenant_id);
+        this.logger.log(JSON.stringify({ bank_transfer_id: data.bank_transfer_id }));
+        this.logger.log('[Retention Transfer Debug] Fetching bank transfers from Xero for tenant_id:' + " " + JSON.stringify(xeroDetails.tenant_id));
         let bankTransferResponse;
         try {
           bankTransferResponse = await this.xero.accountingApi.getBankTransfers(
@@ -8132,23 +8064,23 @@ export class XeroWebhookService {
             null,
             'Amount ASC',
           );
-          console.log('[Retention Transfer Debug] Bank transfer API response status:', bankTransferResponse?.response?.statusCode);
+          this.logger.log('[Retention Transfer Debug] Bank transfer API response status:' + " " + JSON.stringify(bankTransferResponse?.response?.statusCode));
         } catch (apiError: any) {
-          console.error('[Retention Transfer Debug] Bank transfer API ERROR:', apiError?.message, apiError?.response?.body || apiError);
+          this.logger.error(`[Retention Transfer Debug] Bank transfer API ERROR: ${JSON.stringify(apiError?.message)} ${JSON.stringify(apiError?.response?.body || apiError)}`);
           bankTransferResponse = { body: { bankTransfers: [] } };
         }
 
-        console.log('[Retention Transfer Debug] All bank transfers count:', bankTransferResponse?.body?.bankTransfers?.length);
-        console.log('[Retention Transfer Debug] Looking for accountID:', xeroBankAccountDetails.account_id, 'retention_amount:', retention_amount);
-        console.log('[Retention Transfer Debug] retentionAccount:', retentionAccount);
-        console.log('[Retention Transfer Debug] cash_retention_type:', cash_retention_type);
+        this.logger.log('[Retention Transfer Debug] All bank transfers count:' + " " + JSON.stringify(bankTransferResponse?.body?.bankTransfers?.length));
+        this.logger.log(`[Retention Transfer Debug] Looking for accountID: ${JSON.stringify(xeroBankAccountDetails.account_id)} ${JSON.stringify('retention_amount:')} ${JSON.stringify(retention_amount)}`);
+        this.logger.log('[Retention Transfer Debug] retentionAccount:' + " " + JSON.stringify(retentionAccount));
+        this.logger.log('[Retention Transfer Debug] cash_retention_type:' + " " + JSON.stringify(cash_retention_type));
         
         // Log each bank transfer for debugging
         bankTransferResponse?.body?.bankTransfers?.forEach((t, i) => {
           const fromMatches = t?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id;
           const toMatches = t?.toBankAccount?.accountID === xeroBankAccountDetails.account_id;
           const amountMatches = Math.abs(Number(t?.amount)) === Math.abs(Number(retention_amount));
-          console.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, amountMatches=${amountMatches}`);
+          this.logger.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, amountMatches=${amountMatches}`);
         });
 
         // Match retention transfers - check BOTH from and to account since transfer direction can vary
@@ -8166,26 +8098,26 @@ export class XeroWebhookService {
               (transfer) => transfer?.bankTransferID === data?.bank_transfer_id,
             ) || [];
         
-        console.log('[Retention Transfer Debug] After matching with fromAccount OR toAccount, retentionTransfers count:', retentionTransfers?.length);
+        this.logger.log('[Retention Transfer Debug] After matching with fromAccount OR toAccount, retentionTransfers count:' + " " + JSON.stringify(retentionTransfers?.length));
 
         // If existing payment has a bank_transfer_id but transfer not found in API response,
         // trust the existing record and create a synthetic transfer object for processing
         if (retentionTransfers.length === 0 && existingPayment?.bank_transfer_id) {
-          console.log('[Retention Transfer Debug] Existing payment has bank_transfer_id but not found in API - using existing record');
+          this.logger.log('[Retention Transfer Debug] Existing payment has bank_transfer_id but not found in API - using existing record');
           retentionTransfers = [{ bankTransferID: existingPayment.bank_transfer_id }] as any;
         }
 
-        console.log('[Retention Transfer Debug] Matched retentionTransfers:', retentionTransfers?.length, retentionTransfers?.map(t => t?.bankTransferID));
+        this.logger.log(`[Retention Transfer Debug] Matched retentionTransfers: ${JSON.stringify(retentionTransfers?.length)} ${JSON.stringify(retentionTransfers?.map(t => t?.bankTransferID))}`);
 
         // Build debug info string for all error messages
         const retentionDebugContext = `[DEBUG CONTEXT] existingPayment=${!!existingPayment}, existingPayment.bank_transfer_id=${existingPayment?.bank_transfer_id || 'null'}, data.bank_transfer_id=${data?.bank_transfer_id || 'null'}, totalXeroTransfers=${bankTransferResponse?.body?.bankTransfers?.length || 0}, matchedTransfers=${retentionTransfers?.length || 0}, matchedIds=${retentionTransfers?.map(t => t?.bankTransferID)?.join(',') || 'none'}`;
-        console.log(retentionDebugContext);
+        this.logger.log(retentionDebugContext);
 
-        console.log('[Retention Flow Debug] retentionTransfers.length:', retentionTransfers?.length);
+        this.logger.log('[Retention Flow Debug] retentionTransfers.length:' + " " + JSON.stringify(retentionTransfers?.length));
         if (retentionTransfers && retentionTransfers.length > 0) {
-          console.log('[Retention Flow Debug] Entering length > 0 branch');
+          this.logger.log('[Retention Flow Debug] Entering length > 0 branch');
           if (retentionTransfers && retentionTransfers.length == 1) {
-            console.log('[Retention Flow Debug] Entering length == 1 branch');
+            this.logger.log('[Retention Flow Debug] Entering length == 1 branch');
             const checkBankTransferIdExistence =
               !existingPayment && !previousPartPayments
                 ? await this.xeroPayments.findOne({
@@ -8195,12 +8127,12 @@ export class XeroWebhookService {
                     },
                   })
                 : null;
-            console.log('[Retention Flow Debug] checkBankTransferIdExistence:', checkBankTransferIdExistence);
-            console.log('[Retention Flow Debug] existingPayment:', !!existingPayment, 'previousPartPayments:', !!previousPartPayments);
+            this.logger.log('[Retention Flow Debug] checkBankTransferIdExistence:' + " " + JSON.stringify(checkBankTransferIdExistence));
+            this.logger.log(`[Retention Flow Debug] existingPayment: ${JSON.stringify(!!existingPayment)} ${JSON.stringify('previousPartPayments:')} ${JSON.stringify(!!previousPartPayments)}`);
             if (checkBankTransferIdExistence) {
-              console.log('[Retention Flow Debug] Bank transfer already exists in another payment, returning No retention transfer error');
+              this.logger.log('[Retention Flow Debug] Bank transfer already exists in another payment, returning No retention transfer error');
               // no retention transfers identified
-              console.log('if::', { existingPayment, previousPartPayments });
+              this.logger.log('if::' + " " + JSON.stringify({ existingPayment, previousPartPayments }));
               const debugInfo = `[DEBUG] Branch: checkBankTransferIdExistence=true (transfer already used), bankTransferId=${retentionTransfers[0]?.bankTransferID}, usedByPaymentId=${checkBankTransferIdExistence?.id}. ${retentionDebugContext}`;
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: data?.sync_id || null,
@@ -8248,7 +8180,7 @@ export class XeroWebhookService {
               });
               return false;
             }
-            console.log('[Retention Flow Debug] Check passed, setting bankTransferId');
+            this.logger.log('[Retention Flow Debug] Check passed, setting bankTransferId');
             bankTransferId = retentionTransfers[0]?.bankTransferID || null;
             paymentAccount =
               retentionTransfers[0]?.fromBankAccount?.accountID || null;
@@ -8257,14 +8189,14 @@ export class XeroWebhookService {
                 ? retentionTransfers[0]?.toBankAccount?.accountID ||
                   contractDetails?.retention_from_account
                 : null;
-            console.log(
+            this.logger.log(
               `[Retention Flow Debug] Set bankTransferId: ${bankTransferId}, paymentAccount: ${paymentAccount}, retentionAccount: ${retentionAccount}`,
             );
-            console.log(
+            this.logger.log(
               `[Xero Retention] Bank transaction for ${payment.paymentID} From: ${paymentAccount}, To: ${retentionAccount}, Amount: ${retentionAmount}`,
             );
           } else {
-            console.log('[Retention Flow Debug] Multiple transfers branch (length > 1)');
+            this.logger.log('[Retention Flow Debug] Multiple transfers branch (length > 1)');
             // multiple bank transfers identified
             const existingBankTransfers =
               (await this.xeroPayments.find({
@@ -8281,12 +8213,12 @@ export class XeroWebhookService {
                     ),
                   )
                 : [];
-            console.log({ existingBankTransferIds });
+            this.logger.log(JSON.stringify({ existingBankTransferIds }));
             const retentionTransferList = retentionTransfers?.filter(
               (element) =>
                 !existingBankTransferIds?.includes(element.bankTransferID),
             );
-            console.log({ retentionTransferList });
+            this.logger.log(JSON.stringify({ retentionTransferList }));
             if (retentionTransferList && retentionTransferList.length > 0) {
               if (retentionTransferList.length == 1) {
                 bankTransferId =
@@ -8298,14 +8230,14 @@ export class XeroWebhookService {
                     ? retentionTransferList[0]?.toBankAccount?.accountID ||
                       contractDetails?.retention_from_account
                     : null;
-                console.log(
+                this.logger.log(
                   `[Xero Retention] Bank transaction for ${payment.paymentID} From: ${paymentAccount}, To: ${retentionAccount}, Amount: ${retentionAmount}`,
                 );
               } else {
-                console.log('multiple else::', {
+                this.logger.log('multiple else::' + " " + JSON.stringify({
                   existingPayment,
                   previousPartPayments,
-                });
+                }));
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: data?.sync_id || null,
                   api_name: 'createClaimInPaytrade',
@@ -8351,10 +8283,10 @@ export class XeroWebhookService {
                 return false;
               }
             } else {
-              console.log('else multiple::', {
+              this.logger.log('else multiple::' + " " + JSON.stringify({
                 existingPayment,
                 previousPartPayments,
-              });
+              }));
               // no retention transfers identified - filtered out by existing bank transfer IDs
               const debugInfo = `[DEBUG] Branch: multipleTransfers=true BUT retentionTransferList=0 after filtering. Original count=${retentionTransfers?.length}, existingBankTransferIds=${existingBankTransfers?.map(p => p.bank_transfer_id)?.join(',')}. ${retentionDebugContext}`;
               await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -8405,8 +8337,8 @@ export class XeroWebhookService {
             }
           }
         } else {
-          console.log('[Retention Flow Debug] NO retention transfers found (length == 0), returning error');
-          console.log('else::', { existingPayment, previousPartPayments });
+          this.logger.log('[Retention Flow Debug] NO retention transfers found (length == 0), returning error');
+          this.logger.log('else::' + " " + JSON.stringify({ existingPayment, previousPartPayments }));
           // no retention transfers identified
           const debugInfo = `[DEBUG] Branch: retentionTransfers.length=0 (no matches at all). ${retentionDebugContext}`;
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -8582,7 +8514,7 @@ export class XeroWebhookService {
         },
         decoded,
       );
-      console.log({ response });
+      this.logger.log(JSON.stringify({ response }));
       return response;
     } catch (error) {
       throw error;
@@ -8657,12 +8589,12 @@ export class XeroWebhookService {
           },
           xeroPaymentPayload,
         );
-        console.log(`[Xero Webhook] Updated payment ${payment.paymentID}`);
+        this.logger.log(`[Xero Webhook] Updated payment ${payment.paymentID}`);
       } else {
         if (paymentDetails?.status !== Payment.StatusEnum.DELETED) {
           const newPayment = this.xeroPayments.create(xeroPaymentPayload);
           await this.xeroPayments.save(newPayment);
-          console.log(
+          this.logger.log(
             `[Xero Webhook] Inserted new payment ${payment.paymentID}`,
           );
         }
@@ -8672,7 +8604,7 @@ export class XeroWebhookService {
         where: { payment_id: payment.paymentID, status: Not('DELETED') },
       });
 
-      console.log('xeroPaymentEntitycheck: ', xeroPaymentEntitycheck);
+      this.logger.log('xeroPaymentEntitycheck: ' + " " + JSON.stringify(xeroPaymentEntitycheck));
       if (xeroPaymentEntitycheck) {
         let isPreviousPartPaymentExist = false,
           isPreviousPaymentExist = false;
@@ -8721,7 +8653,7 @@ export class XeroWebhookService {
         const claimAndPaymentdetails = paymentClaimDetails?.payment_claim_id
           ? await queryBuilder.getRawOne()
           : null;
-        console.log('claimAndPaymentdetails: ', claimAndPaymentdetails);
+        this.logger.log('claimAndPaymentdetails: ' + " " + JSON.stringify(claimAndPaymentdetails));
         const payment_list =
           claimAndPaymentdetails && claimAndPaymentdetails.payment_list
             ? claimAndPaymentdetails.payment_list
@@ -8738,7 +8670,7 @@ export class XeroWebhookService {
                   .filter((id) => id != null),
               ),
             ];
-            console.log({ existingPaymentIds });
+            this.logger.log(JSON.stringify({ existingPaymentIds }));
 
             const mappedXeroPayments = await this.xeroPayments.find({
               where: {
@@ -8807,17 +8739,17 @@ export class XeroWebhookService {
                   is_retention_confirmed,
                   delete_paytrade_only: false,
                 };
-                console.log({
+                this.logger.log(JSON.stringify({
                   filteredPayments: filteredPayments[0],
                   editPayload,
-                });
+                }));
                 const editPayment =
                   await this.paymentsService.editDetailsOfAPayment(
                     decoded,
                     editPayload,
                     decoded?.userId,
                   );
-                console.log({ editPayment });
+                this.logger.log(JSON.stringify({ editPayment }));
 
                 await this.xeroPayments
                   .createQueryBuilder()
@@ -8920,7 +8852,7 @@ export class XeroWebhookService {
             ? Number(creditNotes[0]?.allocations[0]?.amount)
             : 0;
 
-        console.log({ underPayments, underPaymentAmount, creditNoteAmount });
+        this.logger.log(JSON.stringify({ underPayments, underPaymentAmount, creditNoteAmount }));
 
         if (invoiceAmount == creditNoteAmount) {
           paymentType = 'Pay - Zero';
@@ -8943,12 +8875,12 @@ export class XeroWebhookService {
               : 'Pay Less - Part';
         }
 
-        console.log({
+        this.logger.log(JSON.stringify({
           isPreviousPaymentExist,
           isPreviousPartPaymentExist,
           underPaymentAmount,
           paymentType,
-        });
+        }));
 
         if (isPreviousPaymentExist) {
           if (
@@ -8964,7 +8896,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -8972,7 +8904,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('13:::', { deletePaymentResponse });
+                this.logger.log('13:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 await this.xeroPayments.update(
                   {
@@ -9060,7 +8992,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     retention_account = null,
                     unmatchTransactions = [];
@@ -9195,7 +9127,7 @@ export class XeroWebhookService {
               order: { created_on: 'DESC' },
             });
 
-            console.log({ associatedUnderPaymentsInXero });
+            this.logger.log(JSON.stringify({ associatedUnderPaymentsInXero }));
 
             if (
               associatedUnderPaymentsInXero &&
@@ -9227,7 +9159,7 @@ export class XeroWebhookService {
           where: { payment_id: payment.paymentID, status: Not('DELETED') },
         });
 
-        console.log('xeroPaymentEntity: ', xeroPaymentEntity);
+        this.logger.log('xeroPaymentEntity: ' + " " + JSON.stringify(xeroPaymentEntity));
         if (xeroPaymentEntity) {
           if (!xeroPaymentEntity?.pt_payment_id) {
             if (paymentDetails?.status === Payment.StatusEnum.AUTHORISED) {
@@ -9308,13 +9240,13 @@ export class XeroWebhookService {
                       }
                     } else {
                       if (!data?.withhold_payment_reason) {
-                        console.log({
+                        this.logger.log(JSON.stringify({
                           outstandingAmount,
                           amount: Number(
                             paymentDetails.amount + underPaymentAmount,
                           ),
                           paymentType,
-                        });
+                        }));
                         if (
                           ['Full', 'Pay Less - Full', 'Pay - Zero'].includes(
                             paymentType,
@@ -9468,17 +9400,14 @@ export class XeroWebhookService {
                   created_group: 'SYSTEM',
                 };
 
-                console.log(
-                  '%%%%----------paytrade-pay----------------->>>>>>',
-                  paytradePayload,
-                );
+                this.logger.log(`%%%%----------paytrade-pay----------------->>>>>> ${JSON.stringify(paytradePayload)}`);
 
                 const newPayment = await this.paymentsService.addPayment(
                   decoded,
                   paytradePayload,
                   decoded?.userId,
                 );
-                console.log('newPayment', newPayment);
+                this.logger.log('newPayment' + " " + JSON.stringify(newPayment));
                 await this.xeroPayments
                   .createQueryBuilder()
                   .update()
@@ -9488,7 +9417,7 @@ export class XeroWebhookService {
                   })
                   .where('id = :id', { id: xeroPaymentEntity.id })
                   .execute();
-                console.log(
+                this.logger.log(
                   `[Xero Webhook] Synced to Paytrade: Payment ${newPayment?.data?.payment_id}`,
                 );
 
@@ -9517,9 +9446,9 @@ export class XeroWebhookService {
                         decoded,
                       );
 
-                    console.log('underPayment check in payment:: ', {
+                    this.logger.log('underPayment check in payment:: ' + " " + JSON.stringify({
                       underPayment,
-                    });
+                    }));
                     if (!underPayment) {
                       return false;
                     }
@@ -9574,7 +9503,7 @@ export class XeroWebhookService {
                   paymentClaimDetails.list_status,
                 )
               ) {
-                console.log(
+                this.logger.log(
                   `Payment cannot be created/updated in paytrade since claim is in ${paymentClaimDetails.list_status}`,
                 );
                 const outstandingPayments = await this.paymentDetails.findOne({
@@ -9602,7 +9531,7 @@ export class XeroWebhookService {
                       )
                     : [];
 
-                console.log({ unmatchedPayments });
+                this.logger.log(JSON.stringify({ unmatchedPayments }));
                 let payment_account = null,
                   retention_account = null;
                 if (unmatchedPayments && unmatchedPayments?.length > 0) {
@@ -9730,7 +9659,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -9738,7 +9667,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('14:::', { deletePaymentResponse });
+                this.logger.log('14:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails.findOne({
@@ -9809,7 +9738,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     retention_account = null,
                     unmatchTransactions = [];
@@ -9943,7 +9872,7 @@ export class XeroWebhookService {
                   .filter((id) => id != null),
               ),
             ];
-            console.log({ deletedPaymentIds });
+            this.logger.log(JSON.stringify({ deletedPaymentIds }));
 
             const toBeDeletedPayments = await this.paymentDetails.find({
               where: {
@@ -9959,7 +9888,7 @@ export class XeroWebhookService {
                     status: 'Deleted',
                     input_date: null,
                   };
-                  console.log({ paytradePayload });
+                  this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
                     await this.paymentsService.changeStatusOfAPayment(
                       decoded,
@@ -9967,7 +9896,7 @@ export class XeroWebhookService {
                       decoded?.userId,
                     );
 
-                  console.log('17:::', { deletePaymentResponse });
+                  this.logger.log('17:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                   const existingPaytradePayment =
                     await this.paymentDetails.findOne({
@@ -10053,7 +9982,7 @@ export class XeroWebhookService {
                           )
                         : [];
 
-                    console.log({ matchedPayments });
+                    this.logger.log(JSON.stringify({ matchedPayments }));
                     let payment_account = null,
                       retention_account = null,
                       unmatchTransactions = [];
@@ -10187,7 +10116,7 @@ export class XeroWebhookService {
                 .filter((id) => id != null),
             ),
           ];
-          console.log({ deletedPaymentIds });
+          this.logger.log(JSON.stringify({ deletedPaymentIds }));
 
           const toBeDeletedPayments = await this.paymentDetails.find({
             where: {
@@ -10203,7 +10132,7 @@ export class XeroWebhookService {
                   status: 'Deleted',
                   input_date: null,
                 };
-                console.log({ paytradePayload });
+                this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
                   await this.paymentsService.changeStatusOfAPayment(
                     decoded,
@@ -10211,7 +10140,7 @@ export class XeroWebhookService {
                     decoded?.userId,
                   );
 
-                console.log('17:::', { deletePaymentResponse });
+                this.logger.log('17:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails.findOne({
@@ -10295,7 +10224,7 @@ export class XeroWebhookService {
                         )
                       : [];
 
-                  console.log({ matchedPayments });
+                  this.logger.log(JSON.stringify({ matchedPayments }));
                   let payment_account = null,
                     retention_account = null,
                     unmatchTransactions = [];
@@ -10489,12 +10418,12 @@ export class XeroWebhookService {
         order,
       );
       const overpayments = overPaymentDetails?.body?.overpayments || [];
-      // console.log({ overpayments });
+      // this.logger.log(JSON.stringify({ overpayments }));
 
       if (overpayments && overpayments?.length > 0) {
         if (!overpayment_id) {
           for (const element of overpayments) {
-            console.log({ overpayment_element: element });
+            this.logger.log(JSON.stringify({ overpayment_element: element }));
             await this.createOverPaymentAndRefunds(
               {
                 xeroDetails,
@@ -10509,7 +10438,7 @@ export class XeroWebhookService {
           const overpayment = overpayments?.filter(
             (payment) => payment?.overpaymentID == overpayment_id,
           );
-          console.log({ overpayment });
+          this.logger.log(JSON.stringify({ overpayment }));
           await this.createOverPaymentAndRefunds(
             {
               xeroDetails,
@@ -10570,7 +10499,7 @@ export class XeroWebhookService {
         );
       const bankTransactions =
         getBankTransactions?.body?.bankTransactions || [];
-      console.log({ bankTransactions });
+      this.logger.log(JSON.stringify({ bankTransactions }));
 
       if (!bankTransactions || bankTransactions?.length === 0) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -10745,10 +10674,10 @@ export class XeroWebhookService {
         xeroOverpayment = await this.xeroPayments.save(xeroPayments);
       }
 
-      console.log({
+      this.logger.log(JSON.stringify({
         pt_payment_id: xeroOverpayment.pt_payment_id,
         type: overpayment,
-      });
+      }));
       if (
         ['SPEND-OVERPAYMENT', 'RECEIVE-OVERPAYMENT'].includes(
           String(overpayment.type),
@@ -10794,7 +10723,7 @@ export class XeroWebhookService {
               String(overpayment.type) === 'RECEIVE-OVERPAYMENT' ? true : null,
           };
 
-          console.log({ paytradePayload });
+          this.logger.log(JSON.stringify({ paytradePayload }));
 
           if (project_id && payment_claim_id && associated_payment_id) {
             const newPayment = await this.paymentsService.addPayment(
@@ -10802,7 +10731,7 @@ export class XeroWebhookService {
               paytradePayload,
               decoded?.userId,
             );
-            console.log('newPayment', newPayment);
+            this.logger.log('newPayment' + " " + JSON.stringify(newPayment));
 
             await this.xeroPayments
               .createQueryBuilder()
@@ -11119,7 +11048,7 @@ export class XeroWebhookService {
                       status: 'Deleted',
                       input_date: null,
                     };
-                    console.log({ paytradePayload });
+                    this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
                       await this.paymentsService.changeStatusOfAPayment(
                         decoded,
@@ -11127,7 +11056,7 @@ export class XeroWebhookService {
                         decoded?.userId,
                       );
 
-                    console.log('15:::', { deletePaymentResponse });
+                    this.logger.log('15:::' + " " + JSON.stringify({ deletePaymentResponse }));
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: { payment_id: xeroRefund.pt_payment_id },
                     });
@@ -11202,7 +11131,7 @@ export class XeroWebhookService {
                             )
                           : [];
 
-                      console.log({ matchedPayments });
+                      this.logger.log(JSON.stringify({ matchedPayments }));
                       let payment_account = null,
                         unmatchTransactions = [];
                       if (matchedPayments && matchedPayments?.length > 0) {
@@ -11286,7 +11215,7 @@ export class XeroWebhookService {
           xeroOverPayments.overpayment_refund_id &&
           xeroOverPayments.overpayment_refund_id.length > 0
         ) {
-          console.log('Refund exists in paytrade and not in xero');
+          this.logger.log('Refund exists in paytrade and not in xero');
           await this.xeroPayments
             .createQueryBuilder()
             .update(XeroPayments)
@@ -11333,7 +11262,7 @@ export class XeroWebhookService {
                       status: 'Deleted',
                       input_date: null,
                     };
-                    console.log({ paytradePayload });
+                    this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
                       await this.paymentsService.changeStatusOfAPayment(
                         decoded,
@@ -11341,7 +11270,7 @@ export class XeroWebhookService {
                         decoded?.userId,
                       );
 
-                    console.log('16:::', { deletePaymentResponse });
+                    this.logger.log('16:::' + " " + JSON.stringify({ deletePaymentResponse }));
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: { payment_id: xeroRefund.pt_payment_id },
                     });
@@ -11416,7 +11345,7 @@ export class XeroWebhookService {
                             )
                           : [];
 
-                      console.log({ matchedPayments });
+                      this.logger.log(JSON.stringify({ matchedPayments }));
                       let payment_account = null,
                         unmatchTransactions = [];
                       if (matchedPayments && matchedPayments?.length > 0) {
@@ -11496,7 +11425,7 @@ export class XeroWebhookService {
             }
           }
         } else {
-          console.log('No refund exists');
+          this.logger.log('No refund exists');
         }
       }
       return true;
@@ -11546,7 +11475,7 @@ export class XeroWebhookService {
         created_on: payment.updatedDateUTC,
         created_group: 'SYSTEM',
       };
-      console.log({ requestData });
+      this.logger.log(JSON.stringify({ requestData }));
       const newXeroPayments = await this.xeroPayments.create(requestData);
       const xeroRefundPayments: any =
         await this.xeroPayments.save(newXeroPayments);
@@ -11563,7 +11492,7 @@ export class XeroWebhookService {
             })
           : null;
 
-        console.log({ associatedOverPayment });
+        this.logger.log(JSON.stringify({ associatedOverPayment }));
         if (associatedOverPayment) {
           project_id = associatedOverPayment?.project_id;
           payment_claim_id = associatedOverPayment?.payment_claim_id;
@@ -11608,7 +11537,7 @@ export class XeroWebhookService {
               : null,
         };
 
-        console.log({ paytradePayload });
+        this.logger.log(JSON.stringify({ paytradePayload }));
         if (
           project_id &&
           payment_claim_id &&
@@ -11620,7 +11549,7 @@ export class XeroWebhookService {
             paytradePayload,
             decoded?.userId,
           );
-          console.log('newRefundPayment', newRefundPayment);
+          this.logger.log('newRefundPayment' + " " + JSON.stringify(newRefundPayment));
 
           await this.xeroPayments
             .createQueryBuilder()

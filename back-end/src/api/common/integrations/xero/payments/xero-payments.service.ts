@@ -59,12 +59,14 @@ import { SubPayments } from 'src/entities/sub-payments.entity';
 import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
 export class XeroPaymentsService {
+  private logger = new PaytradeLogger('XERO_PAYMENTS_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -882,7 +884,7 @@ export class XeroPaymentsService {
           payment,
         );
 
-        console.log('Payment created:', response.body.payments[0]);
+        this.logger.log(`Payment created: ${JSON.stringify(response.body.payments[0])}`);
         if (response.body.payments) {
           let bank_transfer_id = null;
           if (cash_retention) {
@@ -894,16 +896,15 @@ export class XeroPaymentsService {
               amount: retention_amount,
               date: dateValue,
             };
-            console.log({ bankTransfer });
+            this.logger.log(`bankTransfer: ${JSON.stringify(bankTransfer)}`);
             const retentionTransfer =
               await this.xero.accountingApi.createBankTransfer(
                 xeroDetails.tenant_id,
                 { bankTransfers: [bankTransfer] },
               );
             if (retentionTransfer?.body?.bankTransfers) {
-              console.log(
-                'retention: ',
-                retentionTransfer?.body?.bankTransfers,
+              this.logger.log(
+                `retention: ${JSON.stringify(retentionTransfer?.body?.bankTransfers)}`,
               );
               bank_transfer_id =
                 retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
@@ -937,7 +938,7 @@ export class XeroPaymentsService {
             created_by: decoded?.userId,
             created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
           };
-          console.log({ requestData });
+          this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
           const xeroPayments = await this.xeroPayments.create(requestData);
           const xeroResponse: any = await this.xeroPayments.save(xeroPayments);
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -1372,7 +1373,7 @@ export class XeroPaymentsService {
           bankTransactions,
         );
 
-        console.log('Overpayment created: ', response.body.bankTransactions[0]);
+        this.logger.log(`Overpayment created: ${JSON.stringify(response.body.bankTransactions[0])}`);
         if (response.body.bankTransactions) {
           const bankTransaction = response.body.bankTransactions[0];
           const overpaymentResponse =
@@ -1380,7 +1381,7 @@ export class XeroPaymentsService {
               xeroDetails.tenant_id,
               bankTransaction?.overpaymentID,
             );
-          console.log('opRes: ', overpaymentResponse.body.overpayments[0]);
+          this.logger.log(`opRes: ${JSON.stringify(overpaymentResponse.body.overpayments[0])}`);
           const overpayment = overpaymentResponse.body.overpayments[0];
           let requestData: any = {
             payment_id: bankTransaction.bankTransactionID,
@@ -1401,7 +1402,7 @@ export class XeroPaymentsService {
             created_by: decoded?.userId,
             created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
           };
-          console.log({ requestData });
+          this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
           const xeroPayments = await this.xeroPayments.create(requestData);
           const xeroResponse: any = await this.xeroPayments.save(xeroPayments);
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -1938,10 +1939,8 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log(
-          'xeroPayments: ',
-          xeroPayments?.status,
-          xeroPayment?.body?.bankTransactions[0],
+        this.logger.log(
+          `xeroPayments: ${xeroPayments?.status} - ${JSON.stringify(xeroPayment?.body?.bankTransactions[0])}`,
         );
 
         const xeroOverpayment = await this.xero.accountingApi.getOverpayment(
@@ -1985,7 +1984,7 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log('xeroOverpayment: ', xeroOverpayment.body.overpayments[0]);
+        this.logger.log(`xeroOverpayment: ${JSON.stringify(xeroOverpayment.body.overpayments[0])}`);
         if (
           xeroPayments.status === 'PAID' &&
           xeroOverpayment?.body?.overpayments[0]?.status ===
@@ -2040,9 +2039,8 @@ export class XeroPaymentsService {
             xeroDetails.tenant_id,
             payment,
           );
-          console.log(
-            'response over payment deleted:',
-            response?.body?.payments[0],
+          this.logger.log(
+            `response over payment deleted: ${JSON.stringify(response?.body?.payments[0])}`,
           );
           if (response?.body?.payments?.length > 0) {
             let refundIds = xeroPayments.overpayment_refund_id
@@ -2054,7 +2052,7 @@ export class XeroPaymentsService {
                 xeroDetails.tenant_id,
                 refundPayment.paymentID,
               );
-              console.log('refundDetails:', refundDetails?.body?.payments[0]);
+              this.logger.log(`refundDetails: ${JSON.stringify(refundDetails?.body?.payments[0])}`);
               const payment = refundDetails.body.payments[0];
 
               if (!refundIds.includes(payment.paymentID)) {
@@ -2085,14 +2083,14 @@ export class XeroPaymentsService {
             xeroPayments.overpayment_refund_id = refundIds;
             await this.xeroPayments.save(xeroPayments);
 
-            console.log({ requestData });
+            this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
             if (requestData && requestData.length > 0) {
               if (requestData.length == 1) {
                 const newXeroPayments =
                   await this.xeroPayments.create(requestData);
                 const xeroRefundPayments: any =
                   await this.xeroPayments.save(newXeroPayments);
-                console.log({ xeroRefundPayments });
+                this.logger.log(`xeroRefundPayments: ${JSON.stringify(xeroRefundPayments)}`);
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: data?.sync_id,
                   integration_id: xeroDetails.integration_id,
@@ -2628,9 +2626,8 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log(
-          xeroPayments.status,
-          xeroPayment?.body?.payments[0]?.status,
+        this.logger.log(
+          `xeroPayments status: ${xeroPayments.status} - ${xeroPayment?.body?.payments[0]?.status}`,
         );
         if (
           xeroPayments.status === 'DELETED' &&
@@ -2708,9 +2705,8 @@ export class XeroPaymentsService {
             xeroPayments.payment_id,
             paymentDelete,
           );
-          console.log(
-            'response deleted:',
-            response.response.data?.Payments[0]?.Status,
+          this.logger.log(
+            `response deleted: ${response.response.data?.Payments[0]?.Status}`,
           );
           if (response.response.data?.Payments[0]?.Status === 'DELETED') {
             let bank_transfer_id = xeroPayments.bank_transfer_id || null;
@@ -2733,9 +2729,8 @@ export class XeroPaymentsService {
               if (retentionTransfer?.body?.bankTransfers) {
                 bank_transfer_id =
                   retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
-                console.log(
-                  'retention: ',
-                  retentionTransfer?.body?.bankTransfers,
+                this.logger.log(
+                  `retention: ${JSON.stringify(retentionTransfer?.body?.bankTransfers)}`,
                 );
               }
             }
@@ -2750,7 +2745,7 @@ export class XeroPaymentsService {
               xeroPayments.payment_id,
             );
 
-            console.log({ xeroRes });
+            this.logger.log(`xeroRes: ${JSON.stringify(xeroRes)}`);
             if (
               xeroRes &&
               xeroRes?.body?.payments &&
@@ -2902,7 +2897,7 @@ export class XeroPaymentsService {
   async deleteOverPayment(decoded: any, data: DeleteOverPaymentInput) {
     try {
       const { payment_id } = data;
-      console.log({ overpaymentData: data });
+      this.logger.log(`overpaymentData: ${JSON.stringify(data)}`);
 
       const paymentDetails = await this.getPaymentDetails(payment_id);
       if (!paymentDetails) {
@@ -3291,10 +3286,8 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log(
-          'xeroPayments: ',
-          xeroPayments?.status,
-          xeroPayment?.body?.bankTransactions[0],
+        this.logger.log(
+          `xeroPayments: ${xeroPayments?.status} - ${JSON.stringify(xeroPayment?.body?.bankTransactions[0])}`,
         );
 
         const xeroOverpayment = await this.xero.accountingApi.getOverpayment(
@@ -3338,7 +3331,7 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log('xeroOverpayment: ', xeroOverpayment.body.overpayments[0]);
+        this.logger.log(`xeroOverpayment: ${JSON.stringify(xeroOverpayment.body.overpayments[0])}`);
         if (
           xeroPayments.status === 'PAID' &&
           xeroOverpayment?.body?.overpayments[0]?.status ===
@@ -3430,9 +3423,8 @@ export class XeroPaymentsService {
             xeroDetails.tenant_id,
             payment,
           );
-          console.log(
-            'response over payment deleted:',
-            response?.body?.payments[0],
+          this.logger.log(
+            `response over payment deleted: ${JSON.stringify(response?.body?.payments[0])}`,
           );
           if (response?.body?.payments?.length > 0) {
             let refundIds = xeroPayments.overpayment_refund_id
@@ -3444,7 +3436,7 @@ export class XeroPaymentsService {
                 xeroDetails.tenant_id,
                 refundPayment.paymentID,
               );
-              console.log('refundDetails:', refundDetails?.body?.payments[0]);
+              this.logger.log(`refundDetails: ${JSON.stringify(refundDetails?.body?.payments[0])}`);
               const payment = refundDetails.body.payments[0];
 
               if (!refundIds.includes(payment.paymentID)) {
@@ -3465,7 +3457,7 @@ export class XeroPaymentsService {
                   created_by: decoded?.userId,
                   created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
                 };
-                console.log({ requestData });
+                this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
                 // if (requestData && requestData.length > 0) {
                 const newXeroPayments =
                   await this.xeroPayments.create(requestData);
@@ -3525,15 +3517,15 @@ export class XeroPaymentsService {
                   associatedOverPayment,
                 };
 
-                console.log({ paytradePayload });
+                this.logger.log(`paytradePayload: ${JSON.stringify(paytradePayload)}`);
                 const createPaymentDetails =
                   await this.paymentDetails.create(paytradePayload);
                 const ptPaymentDetails: any =
                   await this.paymentDetails.save(createPaymentDetails);
-                console.log({ ptPaymentDetails });
+                this.logger.log(`ptPaymentDetails: ${JSON.stringify(ptPaymentDetails)}`);
                 const pt_payment_id =
                   10000000000 + Number(ptPaymentDetails.payment_id);
-                console.log({ pt_payment_id });
+                this.logger.log(`pt_payment_id: ${pt_payment_id}`);
                 await this.paymentDetails
                   .createQueryBuilder()
                   .update(PaymentDetails)
@@ -3562,12 +3554,12 @@ export class XeroPaymentsService {
                       : null,
                   status: 'Unmatched',
                 };
-                console.log({ subPaymentData });
+                this.logger.log(`subPaymentData: ${JSON.stringify(subPaymentData)}`);
                 const createdSubPaymentDetails: any =
                   await this.subPaymentsRepo.save(
                     this.subPaymentsRepo.create(subPaymentData),
                   );
-                console.log({ createdSubPaymentDetails });
+                this.logger.log(`createdSubPaymentDetails: ${JSON.stringify(createdSubPaymentDetails)}`);
                 await this.subPaymentsRepo
                   .createQueryBuilder()
                   .update(SubPayments)
@@ -3897,7 +3889,7 @@ export class XeroPaymentsService {
       //   return false;
       // }
 
-      console.log({ xeroPayments });
+      this.logger.log(`xeroPayments: ${JSON.stringify(xeroPayments)}`);
       if (
         xeroPayments.payment_id &&
         [
@@ -4062,7 +4054,7 @@ export class XeroPaymentsService {
           return false;
         }
 
-        console.log({ xeroOverPayments });
+        this.logger.log(`xeroOverPayments: ${JSON.stringify(xeroOverPayments)}`);
 
         const xeroPayment = await await this.xero.accountingApi.getPayment(
           xeroDetails.tenant_id,
@@ -4104,9 +4096,8 @@ export class XeroPaymentsService {
           });
           return false;
         }
-        console.log(
-          xeroPayments.status,
-          xeroPayment?.body?.payments[0]?.status,
+        this.logger.log(
+          `xeroPayments status: ${xeroPayments.status} - ${xeroPayment?.body?.payments[0]?.status}`,
         );
         if (
           xeroPayments.status === 'DELETED' &&
@@ -4184,9 +4175,8 @@ export class XeroPaymentsService {
             xeroPayments.payment_id,
             paymentDelete,
           );
-          console.log(
-            'response deleted:',
-            response.response.data?.Payments[0]?.Status,
+          this.logger.log(
+            `response deleted: ${response.response.data?.Payments[0]?.Status}`,
           );
           if (response.response.data?.Payments[0]?.Status === 'DELETED') {
             const xeroOverpayment =
@@ -4555,7 +4545,7 @@ export class XeroPaymentsService {
           summarizeErrors,
           unitdp,
         );
-        console.log('response created:', response.body.creditNotes[0]);
+        this.logger.log(`response created: ${JSON.stringify(response.body.creditNotes[0])}`);
         if (response.body.creditNotes) {
           const creditNotes = response.body.creditNotes[0];
           const invoice: Invoice = {
@@ -4569,16 +4559,15 @@ export class XeroPaymentsService {
           const allocations: Allocations = {
             allocations: [allocation],
           };
-          console.log('allocations:', allocations);
+          this.logger.log(`allocations: ${JSON.stringify(allocations)}`);
           const createCreditNoteAllocation =
             await this.xero.accountingApi.createCreditNoteAllocation(
               xeroDetails.tenant_id,
               creditNotes.creditNoteID,
               allocations,
             );
-          console.log(
-            'createCreditNoteAllocation created:',
-            createCreditNoteAllocation?.body?.allocations[0],
+          this.logger.log(
+            `createCreditNoteAllocation created: ${JSON.stringify(createCreditNoteAllocation?.body?.allocations[0])}`,
           );
           if (createCreditNoteAllocation?.body?.allocations) {
             const creditNote = response.body.creditNotes[0];
@@ -4599,7 +4588,7 @@ export class XeroPaymentsService {
               created_by: decoded?.userId,
               created_group: 'USER',
             };
-            console.log({ requestData });
+            this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
             if (!payment_id) {
               const xeroPayments = await this.xeroPayments.create(requestData);
               const xeroResponse: any =
@@ -5084,9 +5073,8 @@ export class XeroPaymentsService {
               creditNoteDetails?.body?.creditNotes[0]?.creditNoteID,
               creditNoteDetails.body.creditNotes[0].allocations[0].allocationID,
             );
-          console.log(
-            'response created:',
-            response.response.data.Allocations[0].IsDeleted,
+          this.logger.log(
+            `response created: ${response.response.data.Allocations[0].IsDeleted}`,
           );
           if (response?.response?.data?.Allocations[0]?.IsDeleted) {
             await this.xeroPayments
@@ -5245,13 +5233,13 @@ export class XeroPaymentsService {
         xeroDetails.tenant_id,
         payment_id,
       );
-      console.log('paymentDetails:', paymentDetails?.body?.payments[0]);
+      this.logger.log(`paymentDetails: ${JSON.stringify(paymentDetails?.body?.payments[0])}`);
       if (paymentDetails.body.payments[0]) {
         return paymentDetails.body.payments[0];
       }
       throw paymentDetails;
     } catch (error) {
-      console.log({ error });
+      this.logger.log(`error: ${JSON.stringify(error)}`);
       const errMsg = await handleAxiosError(error);
       throw errMsg;
     }
@@ -5264,7 +5252,7 @@ export class XeroPaymentsService {
         tenantId,
         payment_id,
       );
-      console.log({ paymentResponse: paymentResponse?.body?.payments });
+      this.logger.log(`paymentResponse: ${JSON.stringify(paymentResponse?.body?.payments)}`);
       if (paymentResponse?.body?.payments?.length) {
         return {
           type: 'payment',
@@ -5276,7 +5264,7 @@ export class XeroPaymentsService {
         typeof err === 'string'
           ? JSON?.parse(err)?.response?.statusCode
           : err?.response?.statusCode;
-      console.log('Payment lookup failed with:', statusCode);
+      this.logger.log(`Payment lookup failed with: ${statusCode}`);
 
       // If it's not a 404, rethrow
       if (statusCode !== 404) {
@@ -5290,7 +5278,7 @@ export class XeroPaymentsService {
         tenantId,
         payment_id,
       );
-      console.log({ bankTxResponse: bankTxResponse?.body?.bankTransactions });
+      this.logger.log(`bankTxResponse: ${JSON.stringify(bankTxResponse?.body?.bankTransactions)}`);
       if (bankTxResponse?.body?.bankTransactions?.length) {
         return {
           type: 'bankTransaction',
@@ -5302,7 +5290,7 @@ export class XeroPaymentsService {
         typeof err === 'string'
           ? JSON?.parse(err)?.response?.statusCode
           : err?.response?.statusCode;
-      console.log('BankTransaction lookup failed with:', statusCode);
+      this.logger.log(`BankTransaction lookup failed with: ${statusCode}`);
 
       // If it's not a 404, rethrow
       if (statusCode !== 404) {
@@ -5318,7 +5306,7 @@ export class XeroPaymentsService {
         undefined,
         `Invoice.InvoiceID == Guid("${invoice_id}")`,
       );
-      console.log({ paymentListResponse: paymentListResponse?.body?.payments });
+      this.logger.log(`paymentListResponse: ${JSON.stringify(paymentListResponse?.body?.payments)}`);
       if (paymentListResponse?.body?.payments?.length) {
         for (const payment of paymentListResponse?.body?.payments) {
           if (
@@ -5337,7 +5325,7 @@ export class XeroPaymentsService {
         typeof err === 'string'
           ? JSON?.parse(err)?.response?.statusCode
           : err?.response?.statusCode;
-      console.log('PaymentList lookup failed with:', statusCode);
+      this.logger.log(`PaymentList lookup failed with: ${statusCode}`);
 
       if (statusCode === 404) {
         throw new Error(
@@ -5464,7 +5452,7 @@ export class XeroPaymentsService {
         pageSize,
       );
 
-      console.log('response.body: ', response?.body?.payments[0]);
+      this.logger.log(`response.body: ${JSON.stringify(response?.body?.payments[0])}`);
       const payments = response?.body?.payments || [];
 
       if (payments && payments[0] !== null && payments.length !== 0) {
@@ -5482,7 +5470,7 @@ export class XeroPaymentsService {
         const existingPaymentIdsSet = new Set(existingPaymentIds);
         // Separate new and existing payments
         for (const payment of payments) {
-          console.log('payment: ', payment.paymentID, payment.paymentType);
+          this.logger.log(`payment: ${payment.paymentID} - ${payment.paymentType}`);
           const contactId =
             (
               await this.getXeroContact(
@@ -5544,7 +5532,7 @@ export class XeroPaymentsService {
       if (newPayments.length > 0) {
         const xeroPayments = await this.xeroPayments.create(newPayments);
         await this.xeroPayments.save(xeroPayments);
-        console.log(`Inserted ${xeroPayments.length} new payments.`);
+        this.logger.log(`Inserted ${xeroPayments.length} new payments.`);
       }
 
       // Batch update existing payments
@@ -5558,10 +5546,10 @@ export class XeroPaymentsService {
             payment,
           );
         }
-        console.log(`Updated ${existingPayments.length} existing payments.`);
+        this.logger.log(`Updated ${existingPayments.length} existing payments.`);
       }
 
-      console.log(
+      this.logger.log(
         `newPayments ${newPayments} existingPayments ${existingPayments}`,
       );
 
@@ -5591,7 +5579,7 @@ export class XeroPaymentsService {
         },
       );
 
-      console.log('All payments fetched, inserted, and updated successfully.');
+      this.logger.log('All payments fetched, inserted, and updated successfully.');
 
       if (newPayments || existingPayments) {
         return 'Data synced successfully';

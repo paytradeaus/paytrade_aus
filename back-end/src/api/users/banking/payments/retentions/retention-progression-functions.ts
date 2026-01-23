@@ -64,7 +64,7 @@ export class RetentionProgressionFunctions {
       );
 
       const { cash_retention_type, claim_type, payment_type } = data;
-      console.log('data', data);
+      this.logger.log(`data: ${JSON.stringify(data)}`);
       for (let i = 0; i < eventIdsArray.length; i++) {
         if (
           eventIdsArray[i].cash_retention_type == cash_retention_type &&
@@ -299,7 +299,7 @@ export class RetentionProgressionFunctions {
         claim_type,
         cash_retention_type,
       } = data;
-      console.log('dataInSummary', data);
+      this.logger.log(`dataInSummary: ${JSON.stringify(data)}`);
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] Starting createMatchedRetentionPaymentInRetentionSummary`);
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] payment_type: ${payment_type}, claim_type: ${claim_type}, payment_claim_id: ${payment_claim_id}`);
       let event_id;
@@ -312,7 +312,7 @@ export class RetentionProgressionFunctions {
         cash_retention_type,
         payment_type,
       });
-      console.log('event_id', event_id);
+      this.logger.log(`event_id: ${JSON.stringify(event_id)}`);
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] event_id: ${event_id}`);
 
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] Fetching claimDetails for payment_claim_id: ${payment_claim_id}`);
@@ -328,7 +328,7 @@ export class RetentionProgressionFunctions {
         //Create retained amount for beneficiary as companySTP in retention list if the claim type is Receivable.
         const retained_amount =
           Number(claimDetails.claim_amount) - Number(payless_amount);
-        console.log('retained_amount', retained_amount);
+        this.logger.log(`retained_amount: ${JSON.stringify(retained_amount)}`);
 
         //Create Self beneficiary only if the claim_type is Billable.
         if (claim_type == 'Billable') {
@@ -337,14 +337,14 @@ export class RetentionProgressionFunctions {
             where: { bank_account_id: payment_from_account },
             select: ['account_name'],
           });
-          console.log('retainedAccountDetails', retainedAccountDetails);
+          this.logger.log(`retainedAccountDetails: ${JSON.stringify(retainedAccountDetails)}`);
 
           //Fetch company details.
           const companyDetails = await this.companyDetailsRepo.findOne({
             where: { company_id },
             select: ['company_name'],
           });
-          console.log('companyDetails', companyDetails);
+          this.logger.log(`companyDetails: ${JSON.stringify(companyDetails)}`);
 
           //Fetch client supplier details.
           const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
@@ -368,9 +368,8 @@ export class RetentionProgressionFunctions {
             );
           const created_retention_id =
             createdRetainedBeneficiaryAmountEntryInRetentionList.retention_id;
-          console.log(
-            'createdRetainedBeneficiaryAmountEntryInRetentionList',
-            createdRetainedBeneficiaryAmountEntryInRetentionList,
+          this.logger.log(
+            `createdRetainedBeneficiaryAmountEntryInRetentionList: ${JSON.stringify(createdRetainedBeneficiaryAmountEntryInRetentionList)}`,
           );
 
           const updateRetentionId = await transactionalEntityManager
@@ -384,7 +383,7 @@ export class RetentionProgressionFunctions {
             })
             .execute();
 
-          console.log('updateRetentionId', updateRetentionId);
+          this.logger.log(`updateRetentionId: ${JSON.stringify(updateRetentionId)}`);
 
           //Create retained amount for beneficiary as companySTP in retention summary.
           const createdRetainedBeneficiaryAmountEntryInRetentionSummary =
@@ -405,14 +404,13 @@ export class RetentionProgressionFunctions {
                 created_on: moment.tz('UTC'),
               },
             );
-          console.log(
-            'createdRetainedBeneficiaryAmountEntryInRetentionSummary',
-            createdRetainedBeneficiaryAmountEntryInRetentionSummary,
+          this.logger.log(
+            `createdRetainedBeneficiaryAmountEntryInRetentionSummary: ${JSON.stringify(createdRetainedBeneficiaryAmountEntryInRetentionSummary)}`,
           );
 
           const retained_payment_amount =
             Number(claimDetails.claim_amount) - Number(payless_amount);
-          console.log('retained_payment_amount', retained_payment_amount);
+          this.logger.log(`retained_payment_amount: ${JSON.stringify(retained_payment_amount)}`);
 
           const createdPaylessReducedRetainedAmountEntryInSummary =
             await transactionalEntityManager.save(
@@ -431,9 +429,8 @@ export class RetentionProgressionFunctions {
                 created_on: moment.tz('UTC'),
               },
             );
-          console.log(
-            'createdPaylessRetainedAmountEntryInSummary',
-            createdPaylessReducedRetainedAmountEntryInSummary,
+          this.logger.log(
+            `createdPaylessRetainedAmountEntryInSummary: ${JSON.stringify(createdPaylessReducedRetainedAmountEntryInSummary)}`,
           );
 
           //Create another payment amount entry in retention summary while self beneficiary is made against a retained amount.
@@ -455,9 +452,8 @@ export class RetentionProgressionFunctions {
                 created_on: moment.tz('UTC'),
               },
             );
-          console.log(
-            'createdPaylessAdditionalPaymentAmountEntryInSummary',
-            createdPaylessAdditionalPaymentAmountEntryInSummary,
+          this.logger.log(
+            `createdPaylessAdditionalPaymentAmountEntryInSummary: ${JSON.stringify(createdPaylessAdditionalPaymentAmountEntryInSummary)}`,
           );
         }
       } else if (payment_type == 'Pay Less - Part') {
@@ -471,21 +467,21 @@ export class RetentionProgressionFunctions {
             where: { bank_account_id: payment_from_account },
             select: ['account_name'],
           });
-          console.log('retainedAccountDetails', retainedAccountDetails);
+          this.logger.log(`retainedAccountDetails: ${JSON.stringify(retainedAccountDetails)}`);
 
           //Fetch company details.
           const companyDetails = await this.companyDetailsRepo.findOne({
             where: { company_id },
             select: ['company_name'],
           });
-          console.log('companyDetails', companyDetails);
+          this.logger.log(`companyDetails: ${JSON.stringify(companyDetails)}`);
 
           //Fetch client supplier details.
           const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
             where: { client_supplier_id },
             select: ['client_supplier_name'],
           });
-          console.log('clientSupplierDetails', clientSupplierDetails);
+          this.logger.log(`clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
           const checkExistenceOfMatchedPaylessPartPayment =
             await transactionalEntityManager
               .createQueryBuilder(PaymentDetails, 'pd')
@@ -496,9 +492,8 @@ export class RetentionProgressionFunctions {
               .andWhere(`pd.current_status != 'Deleted'`)
               .getRawMany();
 
-          console.log(
-            'checkExistenceOfMatchedPaylessPartPayment',
-            checkExistenceOfMatchedPaylessPartPayment,
+          this.logger.log(
+            `checkExistenceOfMatchedPaylessPartPayment: ${JSON.stringify(checkExistenceOfMatchedPaylessPartPayment)}`,
           );
           if (
             checkExistenceOfMatchedPaylessPartPayment &&
@@ -506,7 +501,7 @@ export class RetentionProgressionFunctions {
           ) {
             const retention_retained_amount =
               Number(claimDetails.claim_amount) - Number(payless_amount);
-            console.log('retention_retained_amount', retention_retained_amount);
+            this.logger.log(`retention_retained_amount: ${JSON.stringify(retention_retained_amount)}`);
             const createdRetainedBeneficiaryAmountEntryInRetentionsList =
               await transactionalEntityManager.save(
                 RetentionDetails,
@@ -524,9 +519,8 @@ export class RetentionProgressionFunctions {
               );
             const generated_retention_id =
               createdRetainedBeneficiaryAmountEntryInRetentionsList.retention_id;
-            console.log(
-              'createdRetainedBeneficiaryAmountEntryInRetentionsList',
-              createdRetainedBeneficiaryAmountEntryInRetentionsList,
+            this.logger.log(
+              `createdRetainedBeneficiaryAmountEntryInRetentionsList: ${JSON.stringify(createdRetainedBeneficiaryAmountEntryInRetentionsList)}`,
             );
 
             const updateRetentionId = await transactionalEntityManager
@@ -540,7 +534,7 @@ export class RetentionProgressionFunctions {
               })
               .execute();
 
-            console.log('updateRetentionId: ', updateRetentionId);
+            this.logger.log(`updateRetentionId: : ${JSON.stringify(updateRetentionId)}`);
 
             //Create retained amount for beneficiary as companySTP in retention summary.
             const createdRetainedBeneficiaryAmountEntryInRetentionSummary =
@@ -561,9 +555,8 @@ export class RetentionProgressionFunctions {
                   event_id: event_id,
                 },
               );
-            console.log(
-              'createdRetainedBeneficiaryAmountEntryInRetentionSummary',
-              createdRetainedBeneficiaryAmountEntryInRetentionSummary,
+            this.logger.log(
+              `createdRetainedBeneficiaryAmountEntryInRetentionSummary: ${JSON.stringify(createdRetainedBeneficiaryAmountEntryInRetentionSummary)}`,
             );
           }
 
@@ -580,15 +573,14 @@ export class RetentionProgressionFunctions {
               .orderBy('rs.created_on', 'DESC')
               .limit(1)
               .getRawOne();
-          console.log(
-            'checkPresenceOfSelfBeneficiaryEntryInSummary',
-            checkPresenceOfSelfBeneficiaryEntryInSummary,
+          this.logger.log(
+            `checkPresenceOfSelfBeneficiaryEntryInSummary: ${JSON.stringify(checkPresenceOfSelfBeneficiaryEntryInSummary)}`,
           );
 
           if (!checkPresenceOfSelfBeneficiaryEntryInSummary) {
             const payment_amount =
               Number(claimDetails.claim_amount) - Number(payless_amount);
-            console.log('payment_amount', payment_amount);
+            this.logger.log(`payment_amount: ${JSON.stringify(payment_amount)}`);
 
             const createdPaylessReducedRetainedAmountEntryInRetentionSummary =
               await transactionalEntityManager.save(
@@ -607,9 +599,8 @@ export class RetentionProgressionFunctions {
                   event_id: event_id,
                 },
               );
-            console.log(
-              'createdPaylessReducedRetainedAmountEntryInRetentionSummary',
-              createdPaylessReducedRetainedAmountEntryInRetentionSummary,
+            this.logger.log(
+              `createdPaylessReducedRetainedAmountEntryInRetentionSummary: ${JSON.stringify(createdPaylessReducedRetainedAmountEntryInRetentionSummary)}`,
             );
 
             //Create another payment amount entry in retentnion summary while self beneficiary is made against a retained amount.
@@ -631,9 +622,8 @@ export class RetentionProgressionFunctions {
                   event_id: event_id,
                 },
               );
-            console.log(
-              'createdPaylessAdditionalPaymentAmountEntryInSummary',
-              createdPaylessAdditionalPaymentAmountEntryInRetentionSummary,
+            this.logger.log(
+              `createdPaylessAdditionalPaymentAmountEntryInSummary: ${JSON.stringify(createdPaylessAdditionalPaymentAmountEntryInRetentionSummary)}`,
             );
           }
         }
@@ -652,14 +642,12 @@ export class RetentionProgressionFunctions {
           .orderBy('rs.created_on', 'DESC')
           .getRawMany();
 
-        console.log(
-          'fetchedRetentionSummaryDetails',
-          fetchedRetentionSummaryDetails,
+        this.logger.log(
+          `fetchedRetentionSummaryDetails: ${JSON.stringify(fetchedRetentionSummaryDetails)}`,
         );
 
-        console.log(
-          'fetchedRetentionSummaryDetails[0]',
-          fetchedRetentionSummaryDetails[0],
+        this.logger.log(
+          `fetchedRetentionSummaryDetails[0]: ${JSON.stringify(fetchedRetentionSummaryDetails[0])}`,
         );
 
         if (fetchedRetentionSummaryDetails.length) {
@@ -679,11 +667,11 @@ export class RetentionProgressionFunctions {
               sub_payment_id: fetchedRetentionSummaryDetails[0].sub_payment_id,
             })
             .getRawOne();
-          console.log('paymentDetails---', paymentDetails);
+          this.logger.log(`paymentDetails---: ${JSON.stringify(paymentDetails)}`);
 
           if (paymentDetails.payment_type == 'Part') {
             event_id = Number(fetchedRetentionSummaryDetails[0].event_id) + 1;
-            console.log('event_id_after_increment', event_id);
+            this.logger.log(`event_id_after_increment: ${JSON.stringify(event_id)}`);
           }
         }
       }
@@ -700,7 +688,7 @@ export class RetentionProgressionFunctions {
         },
         select: ['account_name'],
       });
-      console.log('retentionAccountDetails', retentionAccountDetails);
+      this.logger.log(`retentionAccountDetails: ${JSON.stringify(retentionAccountDetails)}`);
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] retentionAccountDetails: ${JSON.stringify(retentionAccountDetails)}`);
 
       //Fetch company details.
@@ -717,7 +705,7 @@ export class RetentionProgressionFunctions {
         where: { client_supplier_id },
         select: ['client_supplier_name'],
       });
-      console.log('clientSupplierDetails', clientSupplierDetails);
+      this.logger.log(`clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
 
       this.logger.log(`[RETENTION_SUMMARY_DEBUG] About to create retention summary with sub_payment_id: ${sub_payment_id}, retention_id: ${retention_id}`);
@@ -741,7 +729,7 @@ export class RetentionProgressionFunctions {
           created_on: moment.tz('UTC'),
         },
       );
-      console.log('createdRetentionSummary', createdRetentionSummary);
+      this.logger.log(`createdRetentionSummary: ${JSON.stringify(createdRetentionSummary)}`);
 
       if (
         (payment_type == 'Pay Less - Full' ||
@@ -781,7 +769,7 @@ export class RetentionProgressionFunctions {
       //       ],
       //     })
       //     .getRawMany();
-      //   console.log('allPayments', allPayments);
+      //   this.logger.log(`allPayments: ${JSON.stringify(allPayments)}`);
 
       //   if (allPayments.length) {
 

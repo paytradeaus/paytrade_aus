@@ -36,13 +36,13 @@ export class BankStatementsValidator {
         where: { bank_statement_id },
         select: ['matched_payment_ids', 'status'],
       });
-      console.log('bankStatementToBeEdited', bankStatementToBeEdited);
+      this.logger.log(`bankStatementToBeEdited: ${JSON.stringify(bankStatementToBeEdited)}`);
       if (!bankStatementToBeEdited)
         throw `Invalid data. Bank statement id which you have provided is invalid or not present.`;
 
       //Validate whether the statement is submitted for auditing in already. If yes, restrict the editing access.
       const matchedPaymentIds = bankStatementToBeEdited.matched_payment_ids;
-      console.log('matchedPaymentIds', matchedPaymentIds);
+      this.logger.log(`matchedPaymentIds: ${matchedPaymentIds}`);
       const statusOfBankStatement = bankStatementToBeEdited.status;
 
       if (matchedPaymentIds || statusOfBankStatement != 'Open') {

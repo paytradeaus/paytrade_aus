@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Injectable()
 export class XeroRefreshTokenService {
+  private logger = new PaytradeLogger('XERO_REFRESH_TOKEN_SERVICE');
   constructor(
     @InjectQueue('xero-refresh-token') private xeroRefreshToken: Queue,
   ) {}
@@ -19,9 +21,9 @@ export class XeroRefreshTokenService {
       // Check if job already exists
       const schedulers = await this.xeroRefreshToken.getJobSchedulers();
       const existingJob = schedulers.find((s) => s.name === jobId);
-      console.log({ existingJob });
+      this.logger.log(`existingJob: ${JSON.stringify(existingJob)}`);
       if (existingJob) {
-        console.log(`Safeguard job already exists for company ${company_id}`);
+        this.logger.log(`Safeguard job already exists for company ${company_id}`);
         return existingJob;
       }
 
@@ -37,13 +39,13 @@ export class XeroRefreshTokenService {
         },
       );
 
-      console.log(
+      this.logger.log(
         `Safeguard job scheduled for company ${company_id} (daily refresh)`,
       );
 
       return job;
     } catch (error) {
-      console.error('Error scheduling safeguard job:', error);
+      this.logger.error(`Error scheduling safeguard job: ${JSON.stringify(error)}`);
       throw error;
     }
   }
@@ -54,18 +56,18 @@ export class XeroRefreshTokenService {
       const schedulers = await this.xeroRefreshToken.getJobSchedulers();
       const scheduler = schedulers.find((s) => s.name === jobId);
       if (!scheduler) {
-        console.warn(`No scheduler found for jobId=${jobId}`);
+        this.logger.warn(`No scheduler found for jobId=${jobId}`);
         return false;
       }
 
       const removedJobResponse = await this.xeroRefreshToken.removeJobScheduler(
         scheduler.key,
       );
-      console.log({ removedJobResponse });
-      console.log(`Stopped scheduler for jobId=${scheduler.name}`);
+      this.logger.log(`removedJobResponse: ${JSON.stringify(removedJobResponse)}`);
+      this.logger.log(`Stopped scheduler for jobId=${scheduler.name}`);
       return true;
     } catch (error) {
-      console.error('Error scheduling safeguard job:', error);
+      this.logger.error(`Error scheduling safeguard job: ${JSON.stringify(error)}`);
       throw error;
     }
   }

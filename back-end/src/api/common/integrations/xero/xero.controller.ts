@@ -41,17 +41,17 @@ export class XeroController {
       const callbackUrl = `${process.env.XERO_CALLBACK_URL}xero/callback?${new URLSearchParams(query)}`;
       // Create a URL object
       const url = new URL(callbackUrl);
-      console.log('url: ', url);
+      this.logger.log(`url: ${url}`);
       // Get query parameters
       const state = url.searchParams.get('state');
       if (!state) throw new Error('State not found');
-      console.log('state: ', state);
+      this.logger.log(`state: ${state}`);
 
       const stateData = JSON.parse(state);
       // const stateData = JSON.parse(
       //   Buffer.from(state, 'base64').toString('utf8'),
       // );
-      console.log('stateData: ', stateData);
+      this.logger.log(`stateData: ${JSON.stringify(stateData)}`);
 
       const companyId = stateData?.company_id;
       if (!companyId) throw new Error('Company Id not found');
@@ -65,7 +65,7 @@ export class XeroController {
       const integration_details =
         await this.integrationsService.getIntegrationDetails(companyId);
 
-      console.log('integration_details: ', integration_details);
+      this.logger.log(`integration_details: ${JSON.stringify(integration_details)}`);
 
       let integration_id =
         integration_details && integration_details?.integration_id
@@ -96,9 +96,9 @@ export class XeroController {
       const updatedIntegratedValue =
         await this.integrationsService.getIntegrationDetails(companyId);
 
-      console.log('updatedIntegratedValue: ', updatedIntegratedValue);
+      this.logger.log(`updatedIntegratedValue: ${JSON.stringify(updatedIntegratedValue)}`);
 
-      console.log('tenantDetails: ', tenantDetails);
+      this.logger.log(`tenantDetails: ${JSON.stringify(tenantDetails)}`);
 
       let updateIntegrationDetails =
         await this.integrationsService.updateIntegrationDetails(decoded, {
@@ -120,8 +120,8 @@ export class XeroController {
       );
     } catch (error) {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      console.error('callback:: error', error);
-      console.error('callback:: errorMessage', errorMessage);
+      this.logger.error(`callback:: error ${JSON.stringify(error)}`);
+      this.logger.error(`callback:: errorMessage ${errorMessage}`);
       return response.redirect(
         `${process.env.LOG_BASE_URL}user/integrations?error=${encodeURIComponent(
           `Xero Authentication Failed: ${errorMessage}`,

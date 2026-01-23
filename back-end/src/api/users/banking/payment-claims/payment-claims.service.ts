@@ -352,7 +352,7 @@ export class PaymentClaimsService {
                 payment_claim_id,
               },
             );
-          console.log('updateClaimButtons: ', updateClaimButtons);
+          this.logger.log(`updateClaimButtons: : ${JSON.stringify(updateClaimButtons)}`);
 
           const clientSupplierDetails =
             await transactionalEntityManager.findOne(ClientSuppliersDetails, {
@@ -368,7 +368,7 @@ export class PaymentClaimsService {
             payment_type,
             payment_id,
           });
-          console.log('paymentClaimLink*', paymentClaimLink);
+          this.logger.log(`paymentClaimLink*: ${JSON.stringify(paymentClaimLink)}`);
 
           //Create activity log as soon a payment claim is created.
           const createActivityLogInput: CreateActivityLogInput = {
@@ -395,7 +395,7 @@ export class PaymentClaimsService {
             is_admin: false,
             created_by: decoded?.userId,
           };
-          //console.log('createActivityLogInput', createActivityLogInput);
+          //this.logger.log(`createActivityLogInput: ${JSON.stringify(createActivityLogInput)}`);
           const x = await this.activityLogService.insertActivityLog(
             createActivityLogInput,
           );
@@ -439,7 +439,7 @@ export class PaymentClaimsService {
         }
 
         if (clm?.data?.project_id) {
-          console.log(clm?.data?.project_id);
+          this.logger.log(`project_id: ${clm?.data?.project_id}`);
           const compliance_pta_init = await this.complianceService
             .fetchComplianceResultsOfAProject({
               project_id: clm?.data?.project_id,
@@ -655,7 +655,7 @@ export class PaymentClaimsService {
   ) {
     try {
       const { beneficiary_type, payment_type, payment_id } = data;
-      // console.log('decoded', decoded);
+      // this.logger.log(`decoded: ${JSON.stringify(decoded)}`);
       const invoices = data.invoices || null;
       delete data.client_supplier_type;
       const response = await this.entityManager.transaction(
@@ -952,7 +952,7 @@ export class PaymentClaimsService {
                 payment_claim_id,
               },
             );
-          // console.log('updateClaimButtons: ', updateClaimButtons);
+          // this.logger.log(`updateClaimButtons: : ${JSON.stringify(updateClaimButtons)}`);
 
           //Generating payment claim link to view edited payment claim.
           const paymentClaimLink = generatePaymentClaimLink({
@@ -963,7 +963,7 @@ export class PaymentClaimsService {
             payment_type,
             payment_id,
           });
-          // console.log('paymentClaimLink', paymentClaimLink);
+          // this.logger.log(`paymentClaimLink: ${JSON.stringify(paymentClaimLink)}`);
 
           //Create activity log as soon a payment claim is created.
           const createActivityLogInput: CreateActivityLogInput = {
@@ -992,7 +992,7 @@ export class PaymentClaimsService {
             is_admin: false,
             created_by: decoded?.userId,
           };
-          //console.log('createActivityLogInput', createActivityLogInput);
+          //this.logger.log(`createActivityLogInput: ${JSON.stringify(createActivityLogInput)}`);
           await this.activityLogService.insertActivityLog(
             createActivityLogInput,
           );
@@ -1151,7 +1151,7 @@ export class PaymentClaimsService {
                 payment_claim_id,
               },
             );
-          // console.log('updateClaimButtons: ', updateClaimButtons);
+          // this.logger.log(`updateClaimButtons: : ${JSON.stringify(updateClaimButtons)}`);
           this.logger.log(
             `Status of a payment claim with id: ${payment_claim_id} has changed successfully.`,
           );
@@ -1184,7 +1184,7 @@ export class PaymentClaimsService {
               claim_type: claimDetails.claim_type,
               payment_claim_id,
             });
-            console.log('paymentClaimLink', paymentClaimLink);
+            this.logger.log(`paymentClaimLink: ${JSON.stringify(paymentClaimLink)}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -1213,7 +1213,7 @@ export class PaymentClaimsService {
               is_admin: false,
               created_by: decoded?.userId,
             };
-            //console.log('createActivityLogInput', createActivityLogInput);
+            //this.logger.log(`createActivityLogInput: ${JSON.stringify(createActivityLogInput)}`);
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
@@ -1737,7 +1737,7 @@ export class PaymentClaimsService {
         queryBuilder.getCount(),
       ]);
 
-      // console.log('rawResults', rawResults);
+      // this.logger.log(`rawResults: ${JSON.stringify(rawResults)}`);
 
       // Formatted results to match the desired structure
       const payment_claims = rawResults.map((result) => ({
@@ -2117,7 +2117,7 @@ export class PaymentClaimsService {
         })
         .andWhere(`pc.status != 'Deleted'`)
         .getRawMany();
-      console.log('presence_of_claims', presence_of_claims);
+      this.logger.log(`presence_of_claims: ${JSON.stringify(presence_of_claims)}`);
 
       if (presence_of_claims && presence_of_claims.length) {
         //Pushing the claim amounts.
@@ -2129,12 +2129,11 @@ export class PaymentClaimsService {
         (acc, curr) => acc + curr,
         0,
       );
-      console.log('sum_of_claim_amounts', sum_of_claim_amounts);
+      this.logger.log(`sum_of_claim_amounts: ${JSON.stringify(sum_of_claim_amounts)}`);
       fetchedDetailsOfPaymentClaim.retained_amount =
         fetchedDetailsOfPaymentClaim.retained_amount - sum_of_claim_amounts;
-      console.log(
-        'fetchedDetailsOfAPaymentClaim',
-        fetchedDetailsOfPaymentClaim,
+      this.logger.log(
+        `fetchedDetailsOfAPaymentClaim: ${JSON.stringify(fetchedDetailsOfPaymentClaim)}`,
       );
 
       let projectDetails = {};
@@ -2311,7 +2310,7 @@ export class PaymentClaimsService {
               fetchedDetailsOfPaymentClaim.associated_retention_sub_payment_id,
           })
           .getRawOne();
-        // console.log('-------paymentDetails', paymentDetails);
+        // this.logger.log(`-------paymentDetails: ${JSON.stringify(paymentDetails)}`);
       }
 
       if (
@@ -2321,7 +2320,7 @@ export class PaymentClaimsService {
         const contract_details = await this.contractsRepo.findOne({
           where: { contract_id: fetchedDetailsOfPaymentClaim.contract_id },
         });
-        // console.log('-------contract_details', contract_details);
+        // this.logger.log(`-------contract_details: ${JSON.stringify(contract_details)}`);
 
         const payment_from_account_id =
           fetchedDetailsOfPaymentClaim.cash_retention_type == 'Claim'
@@ -2363,9 +2362,8 @@ export class PaymentClaimsService {
             bank_account_id: payment_to_account_id,
           })
           .getRawOne();
-        console.log(
-          'fetchedPaymentToAccountDetails',
-          fetchedPaymentToAccountDetails,
+        this.logger.log(
+          `fetchedPaymentToAccountDetails: ${JSON.stringify(fetchedPaymentToAccountDetails)}`,
         );
 
         if (!fetchedPaymentToAccountDetails)
@@ -2383,13 +2381,11 @@ export class PaymentClaimsService {
       };
 
       if (fetchedDetailsOfPaymentClaim.status === 'Confirmed') {
-        console.log(
-          'fetchedDetailsOfPaymentClaim.sent_date: ',
-          fetchedDetailsOfPaymentClaim.sent_date,
+        this.logger.log(
+          `fetchedDetailsOfPaymentClaim.sent_date: ${fetchedDetailsOfPaymentClaim.sent_date}`,
         );
-        console.log(
-          'fetchedDetailsOfPaymentClaim.received_date: ',
-          fetchedDetailsOfPaymentClaim.received_date,
+        this.logger.log(
+          `fetchedDetailsOfPaymentClaim.received_date: ${fetchedDetailsOfPaymentClaim.received_date}`,
         );
         const checkDateConditionsAndFetchStatusRes =
           await this.checkDateConditionsAndFetchStatus(
@@ -2459,12 +2455,12 @@ export class PaymentClaimsService {
       );
 
       const { client_supplier_id, contract_id, payment_id } = data;
-      console.log('data', data);
+      this.logger.log(`data: ${JSON.stringify(data)}`);
       const relatedEntityDetails = await this.clientSuppliersRepo.findOne({
         where: { client_supplier_id },
         select: ['related_entity', 'client_supplier_address'],
       });
-      console.log('relatedEntityDetails', relatedEntityDetails);
+      this.logger.log(`relatedEntityDetails: ${JSON.stringify(relatedEntityDetails)}`);
       if (!relatedEntityDetails)
         throw `Provided client_supplier_id is invalid or not present.`;
 
@@ -2477,7 +2473,7 @@ export class PaymentClaimsService {
       } else {
         bankAccountsToBeFetched = ['Cash Account'];
       }
-      console.log('bankAccountsToBeFetched', bankAccountsToBeFetched);
+      this.logger.log(`bankAccountsToBeFetched: ${JSON.stringify(bankAccountsToBeFetched)}`);
 
       const fetchedPaymentToAccountsList = await this.bankAccountsRepo
         .createQueryBuilder('ba')
@@ -2498,7 +2494,7 @@ export class PaymentClaimsService {
           client_supplier_id,
         })
         .getRawMany();
-      console.log('fetchedPaymentToAccountsList', fetchedPaymentToAccountsList);
+      this.logger.log(`fetchedPaymentToAccountsList: ${JSON.stringify(fetchedPaymentToAccountsList)}`);
 
       this.logger.log(
         `All payment to accounts list fetched successfully with data: ${JSON.stringify(fetchedPaymentToAccountsList)}`,
@@ -2508,10 +2504,10 @@ export class PaymentClaimsService {
         where: { payment_id },
         select: ['payment_from_account'],
       });
-      console.log('paymentDetails', paymentDetails);
+      this.logger.log(`paymentDetails: ${JSON.stringify(paymentDetails)}`);
 
       const bank_account_id = paymentDetails.payment_from_account;
-      console.log('bank_account_id', bank_account_id);
+      this.logger.log(`bank_account_id: ${JSON.stringify(bank_account_id)}`);
 
       const payment_from_account_details = await this.bankAccountsRepo
         .createQueryBuilder('ba')
@@ -2526,7 +2522,7 @@ export class PaymentClaimsService {
           bank_account_id,
         })
         .getRawOne();
-      console.log('payment_from_account_details', payment_from_account_details);
+      this.logger.log(`payment_from_account_details: ${JSON.stringify(payment_from_account_details)}`);
 
       this.logger.log(
         `Payment from account details of contract fetched successfully with data: ${JSON.stringify(payment_from_account_details)}`,
@@ -2586,14 +2582,14 @@ export class PaymentClaimsService {
             })
             .andWhere(`pd.current_status != 'Deleted'`)
             .getRawMany();
-          console.log('allPayments', allPayments);
+          this.logger.log(`allPayments: ${JSON.stringify(allPayments)}`);
 
           if (allPayments && allPayments.length) {
             const total_payment_amounts = [];
             //Looping through the payments created against a claim.
             for (const payment of allPayments) {
               //Bypass if the payment type is Pay - Zero
-              console.log('payment', payment);
+              this.logger.log(`payment: ${JSON.stringify(payment)}`);
               if (payment.payment_type != 'Pay - Zero') {
                 if (
                   payment.status != 'Paid - Matched' ||
@@ -2605,15 +2601,14 @@ export class PaymentClaimsService {
                   is_previous_claims_completed = false;
                 }
               }
-              console.log('payment', payment);
+              this.logger.log(`payment: ${JSON.stringify(payment)}`);
             }
             const sumOfTotalAmountOfPayments = total_payment_amounts.reduce(
               (acc, curr) => acc + curr,
               0,
             );
-            console.log(
-              'sumOfTotalAmountOfPayments',
-              sumOfTotalAmountOfPayments,
+            this.logger.log(
+              `sumOfTotalAmountOfPayments: ${sumOfTotalAmountOfPayments}`,
             );
             if (paymentClaim.claim_amount != sumOfTotalAmountOfPayments) {
               is_previous_claims_completed = false;
@@ -2677,7 +2672,7 @@ export class PaymentClaimsService {
           client_supplier_id,
         })
         .getRawOne();
-      console.log('fetchedAutoPopulatableFields', fetchedAutoPopulatableFields);
+      this.logger.log(`fetchedAutoPopulatableFields: ${JSON.stringify(fetchedAutoPopulatableFields)}`);
 
       const payment_to_account_details = await this.bankAccountsRepo
         .createQueryBuilder('ba')
@@ -2692,13 +2687,13 @@ export class PaymentClaimsService {
           client_supplier_id,
         })
         .getRawOne();
-      console.log('payment_to_account_details', payment_to_account_details);
+      this.logger.log(`payment_to_account_details: ${JSON.stringify(payment_to_account_details)}`);
 
       const fetchedResults = {
         ...fetchedAutoPopulatableFields,
         ...payment_to_account_details,
       };
-      console.log('fetchedResults', fetchedResults);
+      this.logger.log(`fetchedResults: ${JSON.stringify(fetchedResults)}`);
 
       return framedResponse(
         'SUCCESS',
@@ -2760,7 +2755,7 @@ export class PaymentClaimsService {
       .andWhere(`pc.claim_type = 'Receivable'`)
       .getRawOne();
 
-    console.log('fetchedDetailsOfAPaymentClaim', fetchedDetailsOfPaymentClaim);
+    this.logger.log(`fetchedDetailsOfAPaymentClaim: ${JSON.stringify(fetchedDetailsOfPaymentClaim)}`);
 
     let expectedCalculations = {};
     if (
@@ -2836,14 +2831,12 @@ export class PaymentClaimsService {
           (receivedSentDatePlus15BusinessDays > today &&
             today > receivedSentDatePlus10BusinessDays)
         ) {
-          console.log(
-            'receivedSentDatePlus15BusinessDays > today: ',
-            receivedSentDatePlus15BusinessDays > today,
+          this.logger.log(
+            `receivedSentDatePlus15BusinessDays > today: ${receivedSentDatePlus15BusinessDays > today}`,
           );
-          console.log('today > dueDate: ', today > dueDate);
-          console.log(
-            'today > receivedSentDatePlus10BusinessDays: ',
-            today > receivedSentDatePlus10BusinessDays,
+          this.logger.log(`today > dueDate: ${today > dueDate}`);
+          this.logger.log(
+            `today > receivedSentDatePlus10BusinessDays: ${today > receivedSentDatePlus10BusinessDays}`,
           );
           overview_status = 'Due date passed - Add and send Payment Schedule';
           list_status = 'Overdue';
@@ -2907,7 +2900,7 @@ export class PaymentClaimsService {
         });
 
         if (isHoliday) {
-          console.log('isHoliday: ', isHoliday);
+          this.logger.log(`isHoliday: : ${JSON.stringify(isHoliday)}`);
           continue; // Skip holidays
         }
 
@@ -2917,7 +2910,7 @@ export class PaymentClaimsService {
 
       return new Date(date.toLocaleString('en-US', { timeZone }));
     } catch (error) {
-      console.error('Error in addBusinessDaysWithTimezone:', error);
+      this.logger.error(`Error in addBusinessDaysWithTimezone:: ${JSON.stringify(error)}`);
     }
   }
 
@@ -2943,7 +2936,7 @@ export class PaymentClaimsService {
         const journalProcessIds = journalTypeDetails?.map(
           (type) => type.process_id,
         );
-        console.log({ journalProcessIds });
+        this.logger.log(JSON.stringify({ journalProcessIds }));
 
         const journalRelatedDetails = payment_claim_id
           ? await this.getJournalRelatedDetailsForClaimsPayments(
@@ -2981,7 +2974,7 @@ export class PaymentClaimsService {
         const previousJournalProcessIds = previousJournalTypeDetails?.map(
           (type) => type.process_id,
         );
-        console.log({ previousJournalProcessIds });
+        this.logger.log(JSON.stringify({ previousJournalProcessIds }));
 
         const checkPreviousJournalExistence =
           await transactionalEntityManager.findOne(JournalEntries, {
@@ -2992,7 +2985,7 @@ export class PaymentClaimsService {
             },
             order: { created_on: 'DESC' },
           });
-        console.log({ checkPreviousJournalExistence });
+        this.logger.log(JSON.stringify({ checkPreviousJournalExistence }));
 
         if (checkPreviousJournalExistence) {
           const updatePreviousJournals = await transactionalEntityManager
@@ -3006,7 +2999,7 @@ export class PaymentClaimsService {
               { previousJournalProcessIds, auditId, isReversed: false },
             )
             .execute();
-          console.log({ updatePreviousJournals });
+          this.logger.log(JSON.stringify({ updatePreviousJournals }));
         }
 
         const checkPaymentJournalExistence =
@@ -3017,7 +3010,7 @@ export class PaymentClaimsService {
               is_reversed: false,
             },
           });
-        console.log({ checkPaymentJournalExistence });
+        this.logger.log(JSON.stringify({ checkPaymentJournalExistence }));
         if (
           checkPaymentJournalExistence &&
           checkPaymentJournalExistence?.length > 0
@@ -3317,7 +3310,7 @@ export class PaymentClaimsService {
           }),
         );
 
-        // console.log('journalPayload: ', journalPayload);
+        // this.logger.log(`journalPayload: : ${JSON.stringify(journalPayload)}`);
         if (journalPayload && journalPayload.length > 0) {
           await transactionalEntityManager.save(
             this.journalEntriesRepo.create(journalPayload),
@@ -4004,7 +3997,7 @@ export class PaymentClaimsService {
                 },
               })
             : null;
-          // console.log('account_details', account_details);
+          // this.logger.log(`account_details: ${JSON.stringify(account_details)}`);
           if (
             bankAccountId &&
             account_details &&
@@ -4184,13 +4177,13 @@ export class PaymentClaimsService {
               element.payment_type === 'Pay Less - Full' ||
               element.payment_type === 'Pay Less - Part'
             ) {
-              console.log({ filteredSubPayments });
+              this.logger.log(JSON.stringify({ filteredSubPayments }));
               for (const payment of filteredSubPayments) {
                 const subPaymentDetails =
                   await transactionalEntityManager.findOne(SubPayments, {
                     where: { sub_payment_id: payment?.sub_payment_id },
                   });
-                console.log({ subPaymentDetails });
+                this.logger.log(JSON.stringify({ subPaymentDetails }));
                 if (
                   subPaymentDetails &&
                   subPaymentDetails?.status === 'Unmatched'
@@ -4410,7 +4403,7 @@ export class PaymentClaimsService {
                       (p) => p.sub_payment_type === 'Retention Out',
                     );
 
-                    console.log({ matchingRetentionOut });
+                    this.logger.log(JSON.stringify({ matchingRetentionOut }));
                     const matchingRetentionOutDetails = matchingRetentionOut
                       ? await transactionalEntityManager.findOne(SubPayments, {
                           where: {
@@ -4419,7 +4412,7 @@ export class PaymentClaimsService {
                           },
                         })
                       : null;
-                    console.log({ matchingRetentionOutDetails });
+                    this.logger.log(JSON.stringify({ matchingRetentionOutDetails }));
                     if (
                       matchingRetentionOutDetails &&
                       matchingRetentionOutDetails?.status === 'Unmatched' &&

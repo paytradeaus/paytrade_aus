@@ -64,7 +64,7 @@ export class PaymentClaimsValidator {
         associated_retention_sub_payment_id,
         is_gst_optional,
       } = data;
-      console.log('data', data);
+      this.logger.log(`data: ${JSON.stringify(data)}`);
 
       const userMode = (await this.userDetails.findOne({ where: { user_id } }))
         .user_mode;
@@ -135,7 +135,7 @@ export class PaymentClaimsValidator {
             gsts: gsts.reduce((acc, curr) => acc + curr, 0),
             totalSummary: totalSummaries.reduce((acc, curr) => acc + curr, 0),
           };
-          console.log('expectedCalculations', expectedCalculations);
+          this.logger.log(`expectedCalculations: ${JSON.stringify(expectedCalculations)}`);
 
           //Total amount inclusive of GST.
           if (claim_amount != expectedCalculations.totalSummary)
@@ -202,7 +202,7 @@ export class PaymentClaimsValidator {
               variation_status: 'Agreed',
             })
             .getRawMany();
-          console.log('fetchedAllVariationAmounts', fetchedAllVariationAmounts);
+          this.logger.log(`fetchedAllVariationAmounts: ${JSON.stringify(fetchedAllVariationAmounts)}`);
 
           let totalVariationAmount;
           if (fetchedAllVariationAmounts && fetchedAllVariationAmounts.length) {
@@ -214,11 +214,11 @@ export class PaymentClaimsValidator {
               (acc, curr) => acc + curr,
               0,
             );
-            console.log('allVariationAmounts', allVariationAmounts);
+            this.logger.log(`allVariationAmounts: ${JSON.stringify(allVariationAmounts)}`);
           } else {
             totalVariationAmount = 0;
           }
-          console.log('totalVariationAmount', totalVariationAmount);
+          this.logger.log(`totalVariationAmount: ${JSON.stringify(totalVariationAmount)}`);
 
           //Fetching the head contract sum
           const contractDetails = await this.contractsRepo
@@ -231,7 +231,7 @@ export class PaymentClaimsValidator {
           const initialContractSum = contractDetails.initial_contract_sum;
           const pendingContractAmount =
             initialContractSum + totalVariationAmount - totalClaimAmount;
-          console.log('pendingContractAmount', pendingContractAmount);
+          this.logger.log(`pendingContractAmount: ${JSON.stringify(pendingContractAmount)}`);
 
           // if (totalClaimAmount > initialContractSum + totalVariationAmount)
           // if (claim_amount > pendingContractAmount)
@@ -377,8 +377,8 @@ export class PaymentClaimsValidator {
             (acc, curr) => acc + curr,
             0,
           );
-          console.log('claimAmounts', claimAmounts);
-          console.log('totalClaimAmount', totalClaimAmount);
+          this.logger.log(`claimAmounts: ${JSON.stringify(claimAmounts)}`);
+          this.logger.log(`totalClaimAmount: ${JSON.stringify(totalClaimAmount)}`);
 
           //Total variation amounts calculation
           const fetchedAllVariationAmounts = await this.variationsRepo
@@ -391,7 +391,7 @@ export class PaymentClaimsValidator {
               variation_status: 'Agreed',
             })
             .getRawMany();
-          console.log('fetchedAllVariationAmounts', fetchedAllVariationAmounts);
+          this.logger.log(`fetchedAllVariationAmounts: ${JSON.stringify(fetchedAllVariationAmounts)}`);
 
           let totalVariationAmount;
           if (fetchedAllVariationAmounts && fetchedAllVariationAmounts.length) {
@@ -403,11 +403,11 @@ export class PaymentClaimsValidator {
               (acc, curr) => acc + curr,
               0,
             );
-            console.log('allVariationAmounts', allVariationAmounts);
+            this.logger.log(`allVariationAmounts: ${JSON.stringify(allVariationAmounts)}`);
           } else {
             totalVariationAmount = 0;
           }
-          console.log('totalVariationAmount', totalVariationAmount);
+          this.logger.log(`totalVariationAmount: ${JSON.stringify(totalVariationAmount)}`);
 
           //Fetching the head contract sum
           const contractDetails = await this.contractsRepo
@@ -423,7 +423,7 @@ export class PaymentClaimsValidator {
             const initialContractSum = contractDetails.initial_contract_sum;
             const pendingContractAmount =
               initialContractSum + totalVariationAmount - totalClaimAmount;
-            console.log('pendingContractAmount', pendingContractAmount);
+            this.logger.log(`pendingContractAmount: ${JSON.stringify(pendingContractAmount)}`);
           }
         }
       }

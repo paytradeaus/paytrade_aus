@@ -18,12 +18,14 @@ import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-c
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ClientSuppliersDetailsService } from 'src/api/users/client-suppliers-details/client-suppliers-details.service';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
 export class XeroContactsService {
+  private logger = new PaytradeLogger('XERO_CONTACTS_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -114,7 +116,7 @@ export class XeroContactsService {
         500,
       );
 
-      console.log('response.body: ', checkExistenceInXero.body);
+      this.logger.log(`response.body: ${JSON.stringify(checkExistenceInXero.body)}`);
       if (
         checkExistenceInXero &&
         checkExistenceInXero?.body &&
@@ -273,9 +275,8 @@ export class XeroContactsService {
               ],
             },
           );
-          console.log(
-            'Contact created successfully:: ',
-            xeroResponse.body.contacts,
+          this.logger.log(
+            `Contact created successfully:: ${JSON.stringify(xeroResponse.body.contacts)}`,
           );
           if (
             xeroResponse?.body?.contacts &&
@@ -743,7 +744,7 @@ export class XeroContactsService {
                   contacts: [contactData],
                 },
               );
-            console.log('updateContactResponse: ', updateContactResponse);
+            this.logger.log(`updateContactResponse: ${JSON.stringify(updateContactResponse)}`);
             const updatedContact: any =
               updateContactResponse?.body?.contacts[0];
 
@@ -1030,7 +1031,7 @@ export class XeroContactsService {
         contact_details.contact_id,
       );
 
-      console.log('xeroContactDetails:', xeroContactDetails);
+      this.logger.log(`xeroContactDetails: ${JSON.stringify(xeroContactDetails)}`);
       if (xeroContactDetails.body.contacts[0]) {
         try {
           const phone: Phone = {
@@ -1062,7 +1063,7 @@ export class XeroContactsService {
               contacts: [contactData],
             },
           );
-          console.log('response: ', response.body.contacts);
+          this.logger.log(`response: ${JSON.stringify(response.body.contacts)}`);
           if (response.body.contacts) {
             const contact: any = response.body.contacts[0];
             const requestData: any = {
@@ -1363,9 +1364,8 @@ export class XeroContactsService {
               },
             );
 
-          console.log(
-            'Contact deleted successfully:',
-            deleteContactResponse.response.status,
+          this.logger.log(
+            `Contact deleted successfully: ${deleteContactResponse.response.status}`,
           );
           if (deleteContactResponse.response.status === 200) {
             const contact = deleteContactResponse.body.contacts[0];
@@ -1622,7 +1622,7 @@ export class XeroContactsService {
           const existingContactIdsSet = new Set(existingContactIds);
           // Separate new and existing contacts
           contacts.forEach((contact) => {
-            console.log('contact: ', contact.contactStatus);
+            this.logger.log(`contact: ${contact.contactStatus}`);
             const contactData: any = {
               contact_id: contact.contactID,
               tenant_id: xeroDetails.tenant_id,
@@ -1926,7 +1926,7 @@ export class XeroContactsService {
         //
       }
 
-      console.log('All contacts fetched, inserted, and updated successfully.');
+      this.logger.log('All contacts fetched, inserted, and updated successfully.');
       if (newContacts || existingContacts) {
         // return 'Data synced and automapped successfully';
         return framedResponse(

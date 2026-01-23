@@ -9,6 +9,7 @@ import {
   UpdateIntegrationInput,
 } from './dto/integrations.input';
 import { EmailTemplates } from 'src/entities/email-templates.entity';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -16,6 +17,7 @@ dotenv.config();
 
 @Injectable()
 export class IntegrationsService {
+  private logger = new PaytradeLogger('INTEGRATIONS_SERVICE');
   constructor(
     @InjectRepository(IntegrationDetails)
     private integrationDetails: Repository<IntegrationDetails>,
@@ -63,7 +65,7 @@ export class IntegrationsService {
     const integrationDetails: any = await this.integrationDetails.save(
       await this.integrationDetails.create(integrationInput),
     );
-    console.log('integrationDetails: ', integrationDetails);
+    this.logger.log(`integrationDetails: ${JSON.stringify(integrationDetails)}`);
     return await this.integrationDetails.findOne({
       where: { id: integrationDetails.id },
       relations: ['companyDetails'],
@@ -99,7 +101,7 @@ export class IntegrationsService {
         integration_id: updateIntegrationInput.integration_id,
       })
       .execute();
-    console.log(updateIntegrationResult);
+    this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
     return await this.integrationDetails.findOne({
       where: { integration_id: updateIntegrationInput.integration_id },
     });

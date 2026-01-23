@@ -66,7 +66,7 @@ export class RetentionReversalFunctions {
       if (presence_of_claims.length > 1) {
         throw `Cannot unmatch. Multiple retention claims has been generated already.`;
       }
-      console.log('presence_of_claims', presence_of_claims);
+      this.logger.log(`presence_of_claims: ${JSON.stringify(presence_of_claims)}`);
 
       const retention_details = await transactionalEntityManager
         .createQueryBuilder(RetentionDetails, 'rd')
@@ -78,7 +78,7 @@ export class RetentionReversalFunctions {
         .where(`rd.retention_status != 'Deleted'`)
         .andWhere('rd.sub_payment_id = :sub_payment_id', { sub_payment_id })
         .getRawOne();
-      console.log('retention_details', retention_details);
+      this.logger.log(`retention_details: ${JSON.stringify(retention_details)}`);
 
       if (retention_details) {
         if (retention_details.status == 'Payment generated') {
@@ -96,7 +96,7 @@ export class RetentionReversalFunctions {
                 payment_claim_id: presence_of_claims[0].payment_claim_id,
               })
               .execute();
-            console.log('------>');
+            this.logger.log('------>');
 
             //Update the status as Deleted in the retention list entry.
             await transactionalEntityManager
@@ -109,7 +109,7 @@ export class RetentionReversalFunctions {
                 sub_payment_id,
               })
               .execute();
-            console.log('--------/');
+            this.logger.log('--------/');
 
             //Update the status as Deleted in the retention summary entry.
             await transactionalEntityManager
@@ -123,7 +123,7 @@ export class RetentionReversalFunctions {
                 sub_payment_id,
               })
               .execute();
-            console.log('--------//');
+            this.logger.log('--------//');
           } else
             throw `Delete the retention claim generated against the retention and unmatch again.`;
         } else if (retention_details.status == 'Retained') {
@@ -138,7 +138,7 @@ export class RetentionReversalFunctions {
               sub_payment_id,
             })
             .execute();
-          console.log('--------/');
+          this.logger.log('--------/');
 
           //Update the status as Deleted in the retention summary entry.
           await transactionalEntityManager
@@ -152,7 +152,7 @@ export class RetentionReversalFunctions {
               sub_payment_id,
             })
             .execute();
-          console.log('--------//');
+          this.logger.log('--------//');
         }
       }
 
@@ -181,7 +181,7 @@ export class RetentionReversalFunctions {
         payment_id,
         payment_claim_id,
       } = data;
-      console.log('data', data);
+      this.logger.log(`data: ${JSON.stringify(data)}`);
 
       const latestPayment = await transactionalEntityManager
         .createQueryBuilder(PaymentDetails, 'pd')
@@ -209,7 +209,7 @@ export class RetentionReversalFunctions {
         })
         .orderBy({ 'pd.created_on': 'DESC' })
         .getRawOne();
-      console.log('latestPayment', latestPayment);
+      this.logger.log(`latestPayment: ${JSON.stringify(latestPayment)}`);
 
       if (latestPayment && latestPayment.payment_id != payment_id) {
         throw `Cannot unmatch. Multiple payments has been generated after the matching of current payment. Please unmatch payments in descending order.`;
@@ -231,7 +231,7 @@ export class RetentionReversalFunctions {
           })
           .andWhere(`status != 'Deleted'`)
           .execute();
-        console.log('-------1');
+        this.logger.log('-------1');
 
         //Update the status as Deleted in the retention list entry.
         await transactionalEntityManager
@@ -245,7 +245,7 @@ export class RetentionReversalFunctions {
           })
           .andWhere(`retention_status != 'Deleted'`)
           .execute();
-        console.log('-------2');
+        this.logger.log('-------2');
 
         //Update the latest two entries created in the retention summary.
         const latestEntries = await transactionalEntityManager
@@ -258,12 +258,12 @@ export class RetentionReversalFunctions {
           .orderBy('rs.created_on', 'DESC')
           .limit(2)
           .getRawMany();
-        console.log('latestEntries', latestEntries);
+        this.logger.log(`latestEntries: ${JSON.stringify(latestEntries)}`);
 
         const sub_payment_ids = latestEntries.map((entry) =>
           Number(entry.sub_payment_id),
         );
-        console.log('sub_payment_ids', sub_payment_ids);
+        this.logger.log(`sub_payment_ids: ${JSON.stringify(sub_payment_ids)}`);
 
         if (sub_payment_ids.length > 0) {
           // Update the entries with the fetched sub_payment_ids.
@@ -275,7 +275,7 @@ export class RetentionReversalFunctions {
               sub_payment_ids,
             })
             .execute();
-          console.log('-------3');
+          this.logger.log('-------3');
         }
       }
 
@@ -293,7 +293,7 @@ export class RetentionReversalFunctions {
         .orderBy('rsd.created_on', 'DESC')
         .limit(1)
         .getRawOne();
-      console.log('latestSummaryEntry', latestSummaryEntry);
+      this.logger.log(`latestSummaryEntry: ${JSON.stringify(latestSummaryEntry)}`);
 
       if (latestSummaryEntry) {
         // Update the status of the latest summary entry

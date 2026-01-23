@@ -949,9 +949,8 @@ export class XeroResolver {
         }
       }
 
-      console.log(
-        `Error ${error.message ? 'msg' : ''}: `,
-        error.message ? error.message : error,
+      this.logger.log(
+        `Error ${error.message ? 'msg' : ''}: ${error.message ? error.message : error}`,
       );
 
       return framedResponse('ERROR', error.message ? error.message : error);

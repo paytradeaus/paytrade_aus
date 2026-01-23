@@ -492,7 +492,6 @@ export class PaymentClaimsResolver {
         timezone,
       );
     } catch (error) {
-      console.log(error);
       this.logger.error(
         `Errored while fetching details of a payment claims with message: ${error.message ? error.message : error}`,
       );
@@ -694,7 +693,6 @@ export class PaymentClaimsResolver {
         throw `Payment claim not found.`;
       }
     } catch (error) {
-      console.log(error);
       const errMsg = error.message ? error.message : error;
       this.logger.error(
         `Errored while fetching details of a payment claims for importing with message: ${errMsg}`,

@@ -1,7 +1,11 @@
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+
+const logger = new PaytradeLogger('ERROR_HANDLER');
+
 export async function handleError(error): Promise<string> {
   return new Promise(async (resolve, reject) => {
     var errorMessage = '';
-    console.log({ error });
+    logger.log(`error: ${JSON.stringify(error)}`);
     if (error.detail) {
       const matchUnique = error.detail.match(
         /Key \(([^)]+)\)=\([^)]+\) already exists./,
@@ -46,7 +50,7 @@ export async function handleError(error): Promise<string> {
     } else {
       errorMessage = `${error}`;
     }
-    console.log(errorMessage);
+    logger.log(errorMessage);
     reject(errorMessage); // Reject the promise with the error message
   });
 }
@@ -61,7 +65,7 @@ export async function handleAxiosError(axiosError): Promise<any> {
       try {
         axiosError = JSON.parse(axiosError);
       } catch (parseErr) {
-        console.log('Failed to parse axiosError string:', axiosError);
+        logger.log(`Failed to parse axiosError string: ${axiosError}`);
         return reject(axiosError); // return the original string
       }
     }
@@ -104,7 +108,7 @@ export async function handleAxiosError(axiosError): Promise<any> {
       errorMessage = String(error);
     }
 
-    console.log('Handled Axios Error:', errorMessage);
+    logger.log(`Handled Axios Error: ${errorMessage}`);
     resolve(errorMessage);
   });
 }

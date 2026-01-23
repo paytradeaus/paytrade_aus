@@ -61,14 +61,14 @@ export class RetentionStatusFunctions {
         )
         .where('sp.sub_payment_id = :sub_payment_id', { sub_payment_id })
         .getRawOne();
-      console.log('payment_details', payment_details);
+      this.logger.log(`payment_details: ${JSON.stringify(payment_details)}`);
 
       //Update the status of retention list entry if the payment type is Pay Less - Full or Pay Less - Part.
       if (
         payment_details.payment_type == 'Pay Less - Full' ||
         payment_details.payment_type == 'Full'
       ) {
-        console.log('------3');
+        this.logger.log('------3');
         await this.retentionDetailsRepo
           .createQueryBuilder()
           .update(RetentionDetails)
@@ -79,7 +79,7 @@ export class RetentionStatusFunctions {
             retention_id: payment_details.retention_id,
           })
           .execute();
-        console.log('------2');
+        this.logger.log('------2');
       } else if (payment_details.payment_type == 'Pay Less - Part') {
         const payless_part_payment_details = await this.paymentsRepo
           .createQueryBuilder('pd')
@@ -98,16 +98,15 @@ export class RetentionStatusFunctions {
             payment_claim_id: payment_details.payment_claim_id,
           })
           .getRawMany();
-        console.log(
-          'payless_part_payment_details',
-          payless_part_payment_details,
+        this.logger.log(
+          `payless_part_payment_details: ${JSON.stringify(payless_part_payment_details)}`,
         );
 
         const payment_amounts = [];
         let payless_amount;
 
         for (const payment of payless_part_payment_details) {
-          console.log('payment', payment);
+          this.logger.log(`payment: ${JSON.stringify(payment)}`);
           payment_amounts.push(Number(payment.payment_amount));
           payless_amount = Number(payment.payless_amount);
         }
@@ -116,8 +115,8 @@ export class RetentionStatusFunctions {
           (acc, curr) => acc + curr,
           0,
         );
-        console.log('total_payment_amounts', total_payment_amounts);
-        console.log('payless_amount', payless_amount);
+        this.logger.log(`total_payment_amounts: ${JSON.stringify(total_payment_amounts)}`);
+        this.logger.log(`payless_amount: ${JSON.stringify(payless_amount)}`);
 
         //Update the status as Claim completed if sum of all the payment amounts is equal to claim amount.
         if (payless_amount == total_payment_amounts) {
@@ -149,7 +148,7 @@ export class RetentionStatusFunctions {
             payment_claim_id: payment_details.payment_claim_id,
           })
           .getRawMany();
-        console.log('part_payment_details', part_payment_details);
+        this.logger.log(`part_payment_details: ${JSON.stringify(part_payment_details)}`);
 
         const payment_amounts = [];
 
@@ -161,7 +160,7 @@ export class RetentionStatusFunctions {
           (acc, curr) => acc + curr,
           0,
         );
-        console.log('total_payment_amounts', total_payment_amounts);
+        this.logger.log(`total_payment_amounts: ${JSON.stringify(total_payment_amounts)}`);
 
         //Update the status as Claim completed if sum of all the payment amounts is equal to claim amount.
         if (part_payment_details[0].claim_amount == total_payment_amounts) {
@@ -226,7 +225,7 @@ export class RetentionStatusFunctions {
         .andWhere(`pc.status != 'Deleted'`)
         .orderBy('pc.created_on', 'DESC')
         .getRawMany();
-      console.log('presence_of_claims', presence_of_claims);
+      this.logger.log(`presence_of_claims: ${JSON.stringify(presence_of_claims)}`);
 
       if (presence_of_claims && presence_of_claims.length) {
         const claim_amounts = [];
@@ -248,7 +247,7 @@ export class RetentionStatusFunctions {
             })
             .andWhere(`p.current_status != 'Deleted'`)
             .getRawMany();
-          console.log('presence_of_payments', presence_of_payments);
+          this.logger.log(`presence_of_payments: ${JSON.stringify(presence_of_payments)}`);
 
           if (presence_of_payments && presence_of_payments.length) {
             for (const payment of presence_of_payments) {
@@ -282,18 +281,17 @@ export class RetentionStatusFunctions {
           (acc, curr) => acc + curr,
           0,
         );
-        console.log(
-          'sum_of_total_payment_amount',
-          sum_of_total_payment_amounts,
+        this.logger.log(
+          `sum_of_total_payment_amount: ${sum_of_total_payment_amounts}`,
         );
-        console.log('sum_of_claim_amounts', sum_of_claim_amounts);
-        console.log('retained_amount', retention_in_payment.retained_amount);
+        this.logger.log(`sum_of_claim_amounts: ${JSON.stringify(sum_of_claim_amounts)}`);
+        this.logger.log(`retained_amount: ${retention_in_payment.retained_amount}`);
 
         if (
           sum_of_total_payment_amounts == sum_of_claim_amounts &&
           retention_in_payment.retained_amount == sum_of_claim_amounts
         ) {
-          console.log('---------->');
+          this.logger.log('---------->');
           await transactionalEntityManager
             .createQueryBuilder()
             .update(RetentionDetails)

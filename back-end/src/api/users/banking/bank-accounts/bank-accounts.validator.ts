@@ -92,7 +92,7 @@ export class BankAccountsValidator {
         opening_date,
         associated_cash_account_id,
       } = data;
-      console.log('project_ids', project_ids);
+      this.logger.log(`project_ids: ${JSON.stringify(project_ids)}`);
 
       const bankAccountDetails = await this.bankAccountsRepo.find({
         where: {
@@ -113,7 +113,7 @@ export class BankAccountsValidator {
           where: { project_id: In(project_ids) },
           select: ['project_status'],
         });
-        console.log('projectDetails', projectDetails);
+        this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
 
         if (projectDetails && projectDetails.length) {
           const projectWithCompletedStatus = projectDetails.filter(
@@ -126,7 +126,7 @@ export class BankAccountsValidator {
                 return project;
             },
           );
-          console.log('projectWithCompletedStatus', projectWithCompletedStatus);
+          this.logger.log(`projectWithCompletedStatus: ${JSON.stringify(projectWithCompletedStatus)}`);
           if (projectWithCompletedStatus.length)
             throw 'Provided project is either completed or deleted. Please add a project which in In Progress state.';
         }
@@ -241,7 +241,7 @@ export class BankAccountsValidator {
           where: { project_id: In(newProjectIds) },
           select: ['project_status'],
         });
-        // console.log('projectDetails', projectDetails);
+        // this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
 
         if (projectDetails && projectDetails.length) {
           const projectWithCompletedStatus = projectDetails.filter(
@@ -254,7 +254,7 @@ export class BankAccountsValidator {
                 return project;
             },
           );
-          console.log('projectWithCompletedStatus', projectWithCompletedStatus);
+          this.logger.log(`projectWithCompletedStatus: ${JSON.stringify(projectWithCompletedStatus)}`);
           if (projectWithCompletedStatus.length)
             throw 'Provided project is either completed or deleted. Please add a project which in In Progress state.';
         }
@@ -272,7 +272,7 @@ export class BankAccountsValidator {
         const projectIdsSet = new Set(project_ids);
         const removedProjectIds =
           oldProjectIds.filter((id) => !projectIdsSet.has(Number(id))) || [];
-        console.log(oldProjectIds, project_ids, removedProjectIds);
+        this.logger.log(`oldProjectIds: ${JSON.stringify(oldProjectIds)}, project_ids: ${JSON.stringify(project_ids)}, removedProjectIds: ${JSON.stringify(removedProjectIds)}`);
         if (
           removedProjectIds &&
           removedProjectIds.length > 0 &&
@@ -326,7 +326,7 @@ export class BankAccountsValidator {
             ? paymentClaimDetails.length
             : 0;
           const paymentsCount = paymentDetails ? paymentDetails.length : 0;
-          console.log({ contractCount, claimsCount, paymentsCount });
+          this.logger.log(`contractCount: ${contractCount}, claimsCount: ${claimsCount}, paymentsCount: ${paymentsCount}`);
           if (contractCount > 0 || claimsCount > 0 || paymentsCount > 0)
             throw `There are still contracts or payments/claims that are in process. You can't edit this account to avoid system error.`;
         }

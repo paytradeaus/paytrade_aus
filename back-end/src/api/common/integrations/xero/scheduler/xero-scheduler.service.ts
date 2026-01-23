@@ -20,6 +20,7 @@ import {
   LessThan,
   LessThanOrEqual,
 } from 'typeorm';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
@@ -65,6 +66,7 @@ dotenv.config();
 
 @Injectable()
 export class XeroSchedulerService {
+  private logger = new PaytradeLogger('XERO_SCHEDULER_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -127,7 +129,7 @@ export class XeroSchedulerService {
   @Cron('0 13 * * *', { timeZone: 'UTC' })
   async checkSubscriptionExpiryAndUpdateXeroJob() {
     try {
-      console.log('Expiry check starts');
+      this.logger.log('Expiry check starts');
       const expiredSubscriptionDetails = await this.subscriptionDetails.find({
         where: {
           status: In(['Subscribed', 'Cancelled', 'Unsubscribed']),
@@ -145,7 +147,7 @@ export class XeroSchedulerService {
         order: { company_id: 'DESC' },
       });
 
-      console.log({ expiredSubscriptionDetails });
+      this.logger.log(`expiredSubscriptionDetails: ${JSON.stringify(expiredSubscriptionDetails)}`);
       if (
         expiredSubscriptionDetails &&
         expiredSubscriptionDetails?.length > 0
@@ -154,7 +156,7 @@ export class XeroSchedulerService {
           ...new Set(expiredSubscriptionDetails.map((r) => r.company_id)),
         ];
 
-        console.log({ expiredCompanyIds });
+        this.logger.log(`expiredCompanyIds: ${JSON.stringify(expiredCompanyIds)}`);
         const expireIntegrations = await this.integrationDetails.find({
           where: {
             company_id: In(expiredCompanyIds),
@@ -163,13 +165,13 @@ export class XeroSchedulerService {
           order: { company_id: 'DESC' },
         });
 
-        console.log({ expireIntegrations });
+        this.logger.log(`expireIntegrations: ${JSON.stringify(expireIntegrations)}`);
         if (expireIntegrations && expireIntegrations?.length > 0) {
           const expiredIntegrationIds = [
             ...new Set(expireIntegrations.map((r) => r.integration_id)),
           ];
 
-          console.log({ expiredIntegrationIds });
+          this.logger.log(`expiredIntegrationIds: ${JSON.stringify(expiredIntegrationIds)}`);
           const updateIntegrationResult = await this.integrationDetails
             .createQueryBuilder()
             .update(IntegrationDetails)
@@ -185,18 +187,17 @@ export class XeroSchedulerService {
             })
             .execute();
 
-          console.log({ updateIntegrationResult });
-          console.log('Integration updated for expired subscriptions!');
+          this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+          this.logger.log('Integration updated for expired subscriptions!');
         } else {
-          console.log('No integration found for expired subscriptions!');
+          this.logger.log('No integration found for expired subscriptions!');
         }
       } else {
-        console.log('No expired subscriptions!');
+        this.logger.log('No expired subscriptions!');
       }
     } catch (error) {
-      console.error(
-        'Error in check subscription expiry scheduler: ',
-        error?.message ? error.message : error,
+      this.logger.error(
+        `Error in check subscription expiry scheduler: ${error?.message ? error.message : error}`,
       );
     }
   }
@@ -214,7 +215,7 @@ export class XeroSchedulerService {
   @Cron('0 13 * * *', { timeZone: 'UTC' })
   async checkAndRunJobs() {
     try {
-      console.log('Starts');
+      this.logger.log('Starts');
       const integrationDetails = await this.integrationDetails.find({
         where: {
           integration_status: Not('Deleted - archived'),
@@ -227,7 +228,7 @@ export class XeroSchedulerService {
         integrationDetails[0] !== null
       ) {
         for (const element of integrationDetails) {
-          console.log('element.company_id: ', element.company_id);
+          this.logger.log(`element.company_id: ${element.company_id}`);
           // if (element?.company_id === 1057) {
           if (element?.integration_status === 'Connected - active') {
             const getXeroDetails = await this.xeroIntegrationDetails.findOne({
@@ -241,7 +242,7 @@ export class XeroSchedulerService {
                 );
               } catch (err) {
                 const error = await handleAxiosError(err);
-                console.error(`[Xero Scheduler] Failed in scheduler:`, error);
+                this.logger.error(`[Xero Scheduler] Failed in scheduler: ${error}`);
 
                 const isRefreshToken =
                   await this.xeroResolver.refreshTokenReAuthenticate({
@@ -265,7 +266,7 @@ export class XeroSchedulerService {
                     },
                   },
                 );
-                console.log({ getConnections: getConnections?.status });
+                this.logger.log(`getConnections: ${getConnections?.status}`);
 
                 const connections =
                   getConnections.status === 200 ? getConnections.data : [];
@@ -274,7 +275,7 @@ export class XeroSchedulerService {
                   (connection) =>
                     connection?.tenantId === xeroDetails?.tenant_id,
                 );
-                console.log({ connection });
+                this.logger.log(`connection: ${JSON.stringify(connection)}`);
                 if (!connection || connection?.length == 0) {
                   const updateXeroResult = await this.xeroIntegrationDetails
                     .createQueryBuilder()
@@ -291,7 +292,7 @@ export class XeroSchedulerService {
                     .where(`id = :id`, { id: xeroDetails?.id })
                     .execute();
 
-                  console.log({ updateXeroResult });
+                  this.logger.log(`updateXeroResult: ${JSON.stringify(updateXeroResult)}`);
 
                   const getIntegrationDetails =
                     await this.integrationDetails.findOne({
@@ -310,7 +311,7 @@ export class XeroSchedulerService {
                     .where(`id = :id`, { id: getIntegrationDetails?.id })
                     .execute();
 
-                  console.log({ updateIntegrationResult });
+                  this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
                 } else {
                   const companyAdmin = await this.userRoles.findOne({
                     where: {
@@ -326,7 +327,7 @@ export class XeroSchedulerService {
                     false,
                   );
 
-                  console.log(authResponse.data['access_token']);
+                  this.logger.log(`authResponse access_token: ${authResponse.data['access_token']}`);
                   const decoded = this.jwtService.decode(
                     authResponse.data['access_token'],
                   );
@@ -335,7 +336,7 @@ export class XeroSchedulerService {
                     decoded,
                     element.company_id,
                   );
-                  console.log('isRefreshed: ', isRefreshed);
+                  this.logger.log(`isRefreshed: ${JSON.stringify(isRefreshed)}`);
                 }
               }
             }
@@ -361,7 +362,7 @@ export class XeroSchedulerService {
                     },
                   },
                 );
-                console.log({ getConnections: getConnections.status });
+                this.logger.log(`getConnections: ${getConnections.status}`);
                 const connections =
                   getConnections.status === 200 ? getConnections.data : [];
 
@@ -369,7 +370,7 @@ export class XeroSchedulerService {
                   (connection) =>
                     connection?.tenantId === xeroDetails?.tenant_id,
                 );
-                console.log({ connection });
+                this.logger.log(`connection: ${JSON.stringify(connection)}`);
 
                 if (!connection || connection?.length == 0) {
                   const updateXeroResult = await this.xeroIntegrationDetails
@@ -387,7 +388,7 @@ export class XeroSchedulerService {
                     .where(`id = :id`, { id: xeroDetails?.id })
                     .execute();
 
-                  console.log({ updateXeroResult });
+                  this.logger.log(`updateXeroResult: ${JSON.stringify(updateXeroResult)}`);
 
                   const getIntegrationDetails =
                     await this.integrationDetails.findOne({
@@ -406,7 +407,7 @@ export class XeroSchedulerService {
                     .where(`id = :id`, { id: getIntegrationDetails?.id })
                     .execute();
 
-                  console.log({ updateIntegrationResult });
+                  this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
                 }
               }
             }
@@ -415,9 +416,8 @@ export class XeroSchedulerService {
         }
       }
     } catch (error) {
-      console.error(
-        'Error in Xero scheduler: ',
-        error?.message ? error.message : error,
+      this.logger.error(
+        `Error in Xero scheduler: ${error?.message ? error.message : error}`,
       );
     }
   }
@@ -425,18 +425,18 @@ export class XeroSchedulerService {
   async refreshAllByCompanyId(decoded: any, company_id: number) {
     try {
       const newAccounts = await this.refreshAccounts(decoded, company_id);
-      console.log('newAccounts: ', newAccounts);
+      this.logger.log(`newAccounts: ${JSON.stringify(newAccounts)}`);
       const newContacts = await this.refreshContacts(decoded, company_id);
-      console.log('newContacts: ', newContacts);
+      this.logger.log(`newContacts: ${JSON.stringify(newContacts)}`);
       const newProjects = await this.refreshProjects(decoded, company_id);
-      console.log('newProjects: ', newProjects);
+      this.logger.log(`newProjects: ${JSON.stringify(newProjects)}`);
       const newContracts = await this.refreshContracts(decoded, company_id);
-      console.log('newContracts: ', newContracts);
+      this.logger.log(`newContracts: ${JSON.stringify(newContracts)}`);
       const newInvoices = await this.refreshInvoicesAndBills(
         decoded,
         company_id,
       );
-      console.log('newInvoices: ', newInvoices);
+      this.logger.log(`newInvoices: ${JSON.stringify(newInvoices)}`);
 
       return {
         newAccounts,
@@ -447,7 +447,7 @@ export class XeroSchedulerService {
       };
     } catch (error) {
       const errMsg = await handleAxiosError(error);
-      console.log('error:::', errMsg);
+      this.logger.log(`error::: ${errMsg}`);
       // throw errMsg;
     }
   }
@@ -778,7 +778,7 @@ export class XeroSchedulerService {
       return newAccounts;
     } catch (error) {
       const errMsg = await handleAxiosError(error);
-      console.error(`[Xero Scheduler] Failed in Account scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Account scheduler: ${error}`);
       throw errMsg;
     }
   }
@@ -859,7 +859,7 @@ export class XeroSchedulerService {
                   decoded,
                   payload,
                 );
-              console.log({ editBankDetails });
+              this.logger.log(`editBankDetails: ${JSON.stringify(editBankDetails)}`);
               if (
                 editBankDetails &&
                 editBankDetails?.warning &&
@@ -920,7 +920,7 @@ export class XeroSchedulerService {
                   status: 'Deleted',
                 },
               );
-            console.log({ deleteBankDetails });
+            this.logger.log(`deleteBankDetails: ${JSON.stringify(deleteBankDetails)}`);
             if (
               deleteBankDetails &&
               deleteBankDetails?.warning &&
@@ -1198,7 +1198,7 @@ export class XeroSchedulerService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Account scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Account scheduler: ${error}`);
 
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
@@ -1244,7 +1244,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Scheduler] Failed in account scheduler:`, error);
+          this.logger.error(`[Xero Scheduler] Failed in account scheduler: ${error}`);
           throw error;
         }
       } else {
@@ -1325,7 +1325,7 @@ export class XeroSchedulerService {
 
           const existingContactIdsSet = new Set(existingContactIds);
           contacts.forEach((contact) => {
-            console.log('contact: ', contact.contactStatus);
+            this.logger.log(`contact: ${contact.contactStatus}`);
             allXeroContacts.push(contact);
             const contactData: any = {
               contact_id: contact.contactID,
@@ -1600,7 +1600,7 @@ export class XeroSchedulerService {
       return newContacts;
     } catch (error) {
       const errMsg = await handleAxiosError(error);
-      console.error(`[Xero Scheduler] Failed in Contact scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Contact scheduler: ${error}`);
       throw errMsg;
     }
   }
@@ -1641,11 +1641,8 @@ export class XeroSchedulerService {
             company_id,
           );
           if (xeroContactDetails?.contact_status === 'ACTIVE') {
-            console.log(
-              xeroContactDetails?.contact_name,
-              xeroContactDetails?.pt_contact_id,
-              clientSupplierDetails?.client_supplier_name,
-              clientSupplierDetails?.client_supplier_id,
+            this.logger.log(
+              `contact: ${xeroContactDetails?.contact_name} - ${xeroContactDetails?.pt_contact_id} - ${clientSupplierDetails?.client_supplier_name} - ${clientSupplierDetails?.client_supplier_id}`,
             );
             if (
               xeroContactDetails?.contact_name !==
@@ -1679,13 +1676,13 @@ export class XeroSchedulerService {
                 account_details: clientSupplierDetails.accountDetails || [],
                 is_deleted: false,
               };
-              console.log({ editpayload: payload });
+              this.logger.log(`editpayload: ${JSON.stringify(payload)}`);
               const editClientSupplierDetails =
                 await this.clientSuppliersDetailsService.editClientSuppliersDetailsById(
                   payload,
                   decoded,
                 );
-              console.log({ editClientSupplierDetails });
+              this.logger.log(`editClientSupplierDetails: ${JSON.stringify(editClientSupplierDetails)}`);
             } else {
               const syncCheck = sync_id
                 ? await this.xeroSyncLogs.findOne({
@@ -1748,7 +1745,7 @@ export class XeroSchedulerService {
                   true,
                   decoded,
                 );
-              console.log({ deleteClientSupplierDetails });
+              this.logger.log(`deleteClientSupplierDetails: ${JSON.stringify(deleteClientSupplierDetails)}`);
             } catch (error) {
               const errMsg = error?.message ? error?.message : error;
               if (
@@ -2162,7 +2159,7 @@ export class XeroSchedulerService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Contact scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Contact scheduler: ${error}`);
 
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
@@ -2205,7 +2202,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Scheduler] Failed in contact scheduler:`, error);
+          this.logger.error(`[Xero Scheduler] Failed in contact scheduler: ${error}`);
           throw error;
         }
       } else {
@@ -2283,7 +2280,7 @@ export class XeroSchedulerService {
         !projectDetails ||
         projectDetails.body.trackingCategories.length === 0
       ) {
-        console.error(`No project was found`);
+        this.logger.error(`No project was found`);
         return false;
       }
 
@@ -2322,7 +2319,7 @@ export class XeroSchedulerService {
           (c) => c.pt_project_id,
         );
 
-        console.log({ unFoundProjectIdsInDb, deletePtProjectIds });
+        this.logger.log(`unFoundProjectIdsInDb: ${JSON.stringify(unFoundProjectIdsInDb)}, deletePtProjectIds: ${JSON.stringify(deletePtProjectIds)}`);
 
         if (existingXeroProjects && existingXeroProjects?.length > 0) {
           await this.xeroProjectDetails
@@ -2360,7 +2357,7 @@ export class XeroSchedulerService {
                   decoded,
                   'Deleted',
                 );
-              console.log({ updateProjectStatusRes });
+              this.logger.log(`updateProjectStatusRes: ${JSON.stringify(updateProjectStatusRes)}`);
             } catch (error) {
               const errMsg = error?.message ? error?.message : error;
               if (
@@ -2406,7 +2403,7 @@ export class XeroSchedulerService {
       }
 
       projects[0]?.options?.forEach((project) => {
-        console.log('project: ', project.status);
+        this.logger.log(`project: ${project.status}`);
         const projectData: any = {
           project_id: project.trackingOptionID,
           tenant_id: xeroDetails.tenant_id,
@@ -2667,7 +2664,7 @@ export class XeroSchedulerService {
       return newProjects;
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Project scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Project scheduler: ${error}`);
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
           error,
@@ -2709,7 +2706,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Scheduler] Failed in project scheduler:`, error);
+          this.logger.error(`[Xero Scheduler] Failed in project scheduler: ${error}`);
           throw error;
         }
       } else {
@@ -2742,13 +2739,13 @@ export class XeroSchedulerService {
         );
       xeroProjectDetails.project_status = data?.project_status;
       await this.xeroProjectDetails.save(xeroProjectDetails);
-      console.log({ xeroProjectDetails });
+      this.logger.log(`xeroProjectDetails: ${JSON.stringify(xeroProjectDetails)}`);
       if (xeroProjectDetails?.pt_project_id) {
         const projectDetails =
           await this.xeroProjectsService.getProjectsDetails(
             xeroProjectDetails?.pt_project_id,
           );
-        console.log({ projectDetails });
+        this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
         if (xeroProjectDetails && projectDetails) {
           const project = await this.xeroProjectsService.getProjectByProjectId(
             project_id,
@@ -2760,7 +2757,7 @@ export class XeroSchedulerService {
                 xeroProjectDetails?.project_name !==
                 projectDetails?.project_name
               ) {
-                console.log('Project name cannot be updated');
+                this.logger.log('Project name cannot be updated');
                 const addSyncLogResponse =
                   await this.xeroService.insertXeroSyncLogs(decoded, {
                     id: sync_id || null,
@@ -2857,7 +2854,7 @@ export class XeroSchedulerService {
                     decoded,
                     'Deleted',
                   );
-                console.log({ deleteProjectDetails });
+                this.logger.log(`deleteProjectDetails: ${JSON.stringify(deleteProjectDetails)}`);
                 if (
                   deleteProjectDetails &&
                   deleteProjectDetails?.warning &&
@@ -3034,14 +3031,14 @@ export class XeroSchedulerService {
                 company_id,
                 project?.name,
               );
-            console.log({ checkNameExistence });
+            this.logger.log(`checkNameExistence: ${JSON.stringify(checkNameExistence)}`);
             if (!checkNameExistence || checkNameExistence?.length == 0) {
               const response: any =
                 await this.projectsService.insertProjectDetails(
                   decoded,
                   data.payload,
                 );
-              console.log('response', response);
+              this.logger.log(`response: ${JSON.stringify(response)}`);
 
               if (
                 response &&
@@ -3143,7 +3140,7 @@ export class XeroSchedulerService {
                     xeroDetails?.integration_id,
                   )
                 : null;
-              console.log({ checkExistenceInXero });
+              this.logger.log(`checkExistenceInXero: ${JSON.stringify(checkExistenceInXero)}`);
               if (!checkExistenceInXero) {
                 const addSyncLogResponse =
                   await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -3237,7 +3234,7 @@ export class XeroSchedulerService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Contact scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Contact scheduler: ${error}`);
 
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
@@ -3280,7 +3277,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(`[Xero Scheduler] Failed in project scheduler:`, error);
+          this.logger.error(`[Xero Scheduler] Failed in project scheduler: ${error}`);
           throw error;
         }
       } else {
@@ -3357,7 +3354,7 @@ export class XeroSchedulerService {
         !contractDetails ||
         contractDetails.body.trackingCategories.length === 0
       ) {
-        console.error(`No contract was found`);
+        this.logger.error(`No contract was found`);
         return false;
       }
 
@@ -3394,7 +3391,7 @@ export class XeroSchedulerService {
           (c) => c.pt_contract_id,
         );
 
-        console.log({ unFoundContractIdsInDb, deletePtContractIds });
+        this.logger.log(`unFoundContractIdsInDb: ${JSON.stringify(unFoundContractIdsInDb)}, deletePtContractIds: ${JSON.stringify(deletePtContractIds)}`);
 
         if (existingXeroContracts && existingXeroContracts?.length > 0) {
           await this.xeroContractDetails
@@ -3432,7 +3429,7 @@ export class XeroSchedulerService {
                   userId,
                   'Deleted',
                 );
-              console.log({ updateContractStatusRes });
+              this.logger.log(`updateContractStatusRes: ${JSON.stringify(updateContractStatusRes)}`);
             } catch (error) {
               const errMsg = error?.message ? error?.message : error;
               if (
@@ -3479,7 +3476,7 @@ export class XeroSchedulerService {
 
       // Separate new and existing contracts
       contracts[0]?.options?.forEach((contract) => {
-        console.log('contract: ', contract.status);
+        this.logger.log(`contract: ${contract.status}`);
         const contractData: any = {
           contract_id: contract.trackingOptionID,
           tenant_id: xeroDetails.tenant_id,
@@ -3744,7 +3741,7 @@ export class XeroSchedulerService {
       return newContracts;
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Contract scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Contract scheduler: ${error}`);
 
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
@@ -3787,7 +3784,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(
+          this.logger.error(
             `[Xero Scheduler] Failed in contract scheduler:`,
             error,
           );
@@ -3829,7 +3826,7 @@ export class XeroSchedulerService {
           await this.xeroContractsService.getContractsDetails(
             xeroContractDetails?.pt_contract_id,
           );
-        console.log({ xeroContractDetails, contractDetails });
+        this.logger.log(`xeroContractDetails: ${JSON.stringify(xeroContractDetails)}, contractDetails: ${JSON.stringify(contractDetails)}`);
         if (xeroContractDetails && contractDetails) {
           const contract =
             await this.xeroContractsService.getContractByContractId(
@@ -3838,15 +3835,14 @@ export class XeroSchedulerService {
             );
           if (contract) {
             if (xeroContractDetails?.contract_status === 'ACTIVE') {
-              console.log({
-                xeroContractDetails: xeroContractDetails?.contract_name,
-                contractDetails: contractDetails?.contract_name,
-              });
+              this.logger.log(
+                `xeroContractDetails: ${xeroContractDetails?.contract_name}, contractDetails: ${contractDetails?.contract_name}`,
+              );
               if (
                 xeroContractDetails?.contract_name !==
                 contractDetails?.contract_name
               ) {
-                console.log('Contract name cannot be updated');
+                this.logger.log('Contract name cannot be updated');
                 const addSyncLogResponse =
                   await this.xeroService.insertXeroSyncLogs(decoded, {
                     id: sync_id || null,
@@ -3943,7 +3939,7 @@ export class XeroSchedulerService {
                     decoded,
                     'Deleted',
                   );
-                console.log({ deleteContractDetails });
+                this.logger.log(`deleteContractDetails: ${JSON.stringify(deleteContractDetails)}`);
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
                 if (
@@ -4083,7 +4079,7 @@ export class XeroSchedulerService {
                   decoded,
                   data.payload,
                 );
-              console.log('response', response);
+              this.logger.log(`response: ${JSON.stringify(response)}`);
 
               if (response) {
                 const xeroContractDetails =
@@ -4234,7 +4230,7 @@ export class XeroSchedulerService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Contract scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Contract scheduler: ${error}`);
 
       const isRefreshToken = await this.xeroResolver.refreshTokenReAuthenticate(
         {
@@ -4277,7 +4273,7 @@ export class XeroSchedulerService {
             synced_records: null,
           });
         } catch (error) {
-          console.error(
+          this.logger.error(
             `[Xero Scheduler] Failed in contract scheduler:`,
             error,
           );
@@ -4356,7 +4352,7 @@ export class XeroSchedulerService {
               },
               decoded,
             );
-          console.log({ invoiceSchedulerResponse });
+          this.logger.log(`invoiceSchedulerResponse: ${JSON.stringify(invoiceSchedulerResponse)}`);
         }
       }
 
@@ -4392,7 +4388,7 @@ export class XeroSchedulerService {
       return newInvoices;
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in Invoice scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in Invoice scheduler: ${error}`);
       throw error;
     }
   }
@@ -4402,7 +4398,7 @@ export class XeroSchedulerService {
   // })
   async checkAndCreateOverPaymentAndRefunds() {
     try {
-      console.log('Starts');
+      this.logger.log('Starts');
       const integrationDetails = await this.integrationDetails.find({
         where: { integration_status: 'Connected - active' },
         relations: ['xeroIntegration'],
@@ -4438,7 +4434,7 @@ export class XeroSchedulerService {
       }
     } catch (err) {
       const error = await handleAxiosError(err);
-      console.error(`[Xero Scheduler] Failed in overpayment scheduler:`, error);
+      this.logger.error(`[Xero Scheduler] Failed in overpayment scheduler: ${error}`);
     }
   }
 }

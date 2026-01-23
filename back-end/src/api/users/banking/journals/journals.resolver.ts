@@ -276,7 +276,7 @@ export class JournalsResolver {
         payload,
         decoded,
       );
-      console.log(isExisted, isExisted && isExisted.length > 0 ? true : false);
+      this.logger.log(JSON.stringify(isExisted) + ' ' + (isExisted && isExisted.length > 0 ? true : false));
       return framedResponse(
         'SUCCESS',
         `Checking existing report of a bank account successfully.`,
@@ -507,7 +507,7 @@ export class JournalsResolver {
           `${linkExtensions[16]}` +
           `${reconciliationDetails.id}` +
           `?from=log`;
-        console.log('reconciliationLink', reconciliationLink);
+        this.logger.log('reconciliationLink: ' + reconciliationLink);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 116,
@@ -647,7 +647,7 @@ export class JournalsResolver {
           `${linkExtensions[16]}` +
           `${reconciliationDetails.id}` +
           `?from=log`;
-        console.log('reconciliationLink', reconciliationLink);
+        this.logger.log('reconciliationLink: ' + reconciliationLink);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 117,
@@ -805,7 +805,7 @@ export class JournalsResolver {
           `${linkExtensions[16]}` +
           `${reconciliationDetails.id}` +
           `?from=log`;
-        console.log('reconciliationLink', reconciliationLink);
+        this.logger.log('reconciliationLink: ' + reconciliationLink);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 118,
@@ -923,10 +923,7 @@ export class JournalsResolver {
 
       const nilReturnDetails =
         await this.journalsService.checkNilReturnForAudit(payload, decoded);
-      console.log(
-        nilReturnDetails,
-        nilReturnDetails && nilReturnDetails.length > 0 ? true : false,
-      );
+      this.logger.log(JSON.stringify(nilReturnDetails) + ' ' + (nilReturnDetails && nilReturnDetails.length > 0 ? true : false));
 
       return framedResponse(
         'SUCCESS',
@@ -1081,7 +1078,7 @@ export class JournalsResolver {
         };
         const auditDate = moment(auditPayload.month_end_date).toDate();
 
-        console.log(account_details.opening_date, firstAuditDate, auditDate);
+        this.logger.log(account_details.opening_date + ' ' + firstAuditDate + ' ' + auditDate);
         const isStatementExisted =
           await this.journalsService.checkAndGetStatementBalance(
             auditPayload,
@@ -1114,7 +1111,7 @@ export class JournalsResolver {
         }
         const auditDetails =
           await this.journalsService.insertAuditReportDetails(decoded, payload);
-        console.log('auditDetails', auditDetails);
+        this.logger.log('auditDetails: ' + JSON.stringify(auditDetails));
         this.logger.log(
           `Response received after inserting audit report details with data: ${JSON.stringify(auditDetails)}`,
         );
@@ -1152,7 +1149,7 @@ export class JournalsResolver {
             `${linkExtensions[15]}` +
             `${auditDetails.id}` +
             `?from=log`;
-          console.log('auditLink', auditLink);
+          this.logger.log('auditLink: ' + auditLink);
 
           const createActivityLogInput: CreateActivityLogInput = {
             event_template_id: 114,
@@ -1241,7 +1238,7 @@ export class JournalsResolver {
           `${linkExtensions[15]}` +
           `${auditDetails.id}` +
           `?from=log`;
-        console.log('auditLink', auditLink);
+        this.logger.log('auditLink: ' + auditLink);
 
         if (auditDetails.bank_account_id) {
           const bank_details = await this.journalsService.getBankAccountDetails(
@@ -1463,12 +1460,7 @@ export class JournalsResolver {
 
         const auditDate = moment(payload.month_end_date).toDate();
 
-        console.log(
-          account_details.opening_date,
-          '*&^%$#@!',
-          firstAuditDate,
-          auditDate,
-        );
+        this.logger.log(account_details.opening_date + ' ' + firstAuditDate + ' ' + auditDate);
         const isStatementExisted =
           await this.journalsService.checkAndGetStatementBalance(
             payload,

@@ -36,15 +36,15 @@ export class XeroWebhookGraphQLResolver {
       const requestSecret = context.req?.headers?.['x-webhook-secret'];
 
       if (!webhookSecret || requestSecret !== webhookSecret) {
-        console.error('[Xero GraphQL Webhook] Invalid relay secret');
+        this.logger.error('[Xero GraphQL Webhook] Invalid relay secret');
         return JSON.stringify({ status: 'error', message: 'Unauthorized' });
       }
 
-      console.log('[Xero GraphQL Webhook] Processing forwarded events');
+      this.logger.log('[Xero GraphQL Webhook] Processing forwarded events');
       const events = JSON.parse(eventsJson);
 
       if (!events || events.length === 0) {
-        console.log('[Xero GraphQL Webhook] No events to process');
+        this.logger.log('[Xero GraphQL Webhook] No events to process');
         return JSON.stringify({ status: 'ok', message: 'No events' });
       }
 
@@ -52,7 +52,7 @@ export class XeroWebhookGraphQLResolver {
         try {
           for (const event of events) {
             const { eventCategory, eventType, resourceId, tenantId } = event;
-            console.log(`[Xero GraphQL Webhook] Processing: ${eventCategory}.${eventType} for tenant ${tenantId}`);
+            this.logger.log(`[Xero GraphQL Webhook] Processing: ${eventCategory}.${eventType} for tenant ${tenantId}`);
 
             const xeroDetails = await this.xeroIntegrationDetails.findOne({
               where: {
@@ -63,12 +63,12 @@ export class XeroWebhookGraphQLResolver {
             });
 
             if (!xeroDetails || !xeroDetails.integration_id || !xeroDetails?.integrationDetails) {
-              console.error(`[Xero GraphQL Webhook] No integration found for tenant id: ${tenantId}`);
+              this.logger.error(`[Xero GraphQL Webhook] No integration found for tenant id: ${tenantId}`);
               continue;
             }
 
             if (xeroDetails.integrationDetails.integration_status !== 'Connected - active') {
-              console.error(`[Xero GraphQL Webhook] Integration not active for tenant id: ${tenantId}`);
+              this.logger.error(`[Xero GraphQL Webhook] Integration not active for tenant id: ${tenantId}`);
               continue;
             }
 
@@ -84,7 +84,7 @@ export class XeroWebhookGraphQLResolver {
             });
 
             if (!companyAdmin?.userDetails?.email_id) {
-              console.error(`[Xero GraphQL Webhook] No admin found for company ${companyId}`);
+              this.logger.error(`[Xero GraphQL Webhook] No admin found for company ${companyId}`);
               continue;
             }
 
@@ -123,17 +123,17 @@ export class XeroWebhookGraphQLResolver {
                 break;
 
               default:
-                console.log(`[Xero GraphQL Webhook] Unhandled event: ${eventKey}`);
+                this.logger.log(`[Xero GraphQL Webhook] Unhandled event: ${eventKey}`);
             }
           }
         } catch (err) {
-          console.error('[Xero GraphQL Webhook] Async processing error:', err.message);
+          this.logger.error('[Xero GraphQL Webhook] Async processing error:', err.message);
         }
       });
 
       return JSON.stringify({ status: 'ok' });
     } catch (err) {
-      console.error(`[Xero GraphQL Webhook] Error: ${err.message}`);
+      this.logger.error(`[Xero GraphQL Webhook] Error: ${err.message}`);
       return JSON.stringify({ status: 'error', message: err.message });
     }
   }

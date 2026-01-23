@@ -70,7 +70,6 @@ export class EmailQueueEvent extends QueueEventsHost {
 
     await this.logEmailJob(job, 'SUCCESS', null);
 
-    console.log(`Job ${jobId} completed successfully`);
     this.logger.log(`Job ${jobId} completed successfully`);
   }
 
@@ -88,14 +87,12 @@ export class EmailQueueEvent extends QueueEventsHost {
 
     await this.logEmailJob(job, 'ERROR', failedReason);
 
-    console.log(`Job ${jobId} failed: ${failedReason}`);
     this.logger.error(`Job ${jobId} failed: ${failedReason}`);
   }
 
   // Triggered when there’s an error in queue events processing
   @OnQueueEvent('error')
   onError(error: Error) {
-    console.log(`Queue error: ${error.message}`);
     this.logger.error(`Queue error: ${error.message}`);
   }
 }

@@ -229,7 +229,7 @@ export class PaymentsService {
 
           payment_id = createdPaymentDetails.payment_id;
 
-          console.log('createdPaymentDetails: ', payment_id);
+          this.logger.log('createdPaymentDetails: ' + payment_id);
 
           this.logger.log(`Payment added successfully with id: ${payment_id}`);
 
@@ -539,7 +539,7 @@ export class PaymentsService {
               .leftJoin('payment.paymentClaims', 'claim')
               .where('subpayment.payment_id =:payment_id', { payment_id })
               .getRawMany();
-            // console.log('payments', payments);
+            // this.logger.log(`payments: ${JSON.stringify(payments)}`);
             let payments = [];
             if (subPayments) {
               for (const subPayment of subPayments) {
@@ -1178,7 +1178,7 @@ export class PaymentsService {
             .where('subpayment.payment_id =:payment_id', { payment_id })
             .getRawMany();
 
-          console.log({ subPaymentDetails });
+          this.logger.log('subPaymentDetails: ' + JSON.stringify(subPaymentDetails));
           let sub_payment_ids = [];
           for (const element of subPaymentDetails) {
             if (element.sub_payment_type == 'Retention In') {
@@ -1235,12 +1235,12 @@ export class PaymentsService {
             );
 
             if (noticeResult?.status === 'ERROR') {
-              console.error('Error triggering payment notices');
+              this.logger.error('Error triggering payment notices');
               throw new Error('Payment Notice generation failed');
             }
           }
 
-          console.log({ sub_payment_ids });
+          this.logger.log('sub_payment_ids: ' + JSON.stringify(sub_payment_ids));
 
           if (sub_payment_ids && sub_payment_ids?.length > 0) {
             await this.createOrDeleteRetentionEntries(
@@ -1371,7 +1371,7 @@ export class PaymentsService {
           ) {
             throw `Only for onboarding mode for the related transactions requiring the input date. Please input the required input date which will be input into your journal records if different from today.`;
           }
-          console.log({ current_status: paymentDetails.current_status });
+          this.logger.log('current_status: ' + paymentDetails.current_status);
           if (
             ![
               'No Match Required',
@@ -1432,7 +1432,7 @@ export class PaymentsService {
               allowDelete = false;
             }
           }
-          console.log({ allowDelete });
+          this.logger.log('allowDelete: ' + allowDelete);
 
           if (allowDelete) {
             await transactionalEntityManager
@@ -2439,8 +2439,8 @@ export class PaymentsService {
             requestData,
           );
 
-          console.log({ confirmedPayments });
-          console.log({ unConfirmedPayments });
+          this.logger.log('confirmedPayments: ' + JSON.stringify(confirmedPayments));
+          this.logger.log('unConfirmedPayments: ' + JSON.stringify(unConfirmedPayments));
 
           // create retentions
           const subPaymentDetails = await transactionalEntityManager
@@ -2713,7 +2713,7 @@ export class PaymentsService {
             },
           });
 
-          console.log('All notices of payment', allNotices);
+          this.logger.log('All notices of payment: ' + JSON.stringify(allNotices));
 
           const noticesToArchive: NoticeDetails[] = [];
 
@@ -3205,13 +3205,13 @@ export class PaymentsService {
           )
           .orderBy({ 'p.created_on': 'DESC' })
           .getRawMany();
-        console.log('paymentss', payments);
+        this.logger.log(`paymentss: ${JSON.stringify(payments)}`);
         const payless_payments = payments?.filter(
           (payment) =>
             payment?.payment_type == 'Pay Less - Full' ||
             payment?.payment_type == 'Pay Less - Part',
         );
-        console.log('payless_payments', payless_payments);
+        this.logger.log(`payless_payments: ${JSON.stringify(payless_payments)}`);
 
         let existingTotalAmount = 0,
           totalRetentionAmount = 0;
@@ -3250,7 +3250,7 @@ export class PaymentsService {
                   )
                   .getRawOne();
 
-                console.log({ retentionDetails });
+                this.logger.log(`retentionDetails: ${JSON.stringify(retentionDetails)}`);
 
                 totalRetentionAmount += retentionDetails
                   ? parseFloat(retentionDetails?.retention_amount)
@@ -3572,13 +3572,13 @@ export class PaymentsService {
           .orderBy({ 'p.created_on': 'DESC' })
           .getRawMany()
         : null;
-      console.log('paymentss', payments);
+      this.logger.log(`paymentss: ${JSON.stringify(payments)}`);
       const payless_payments = payments.filter(
         (payment) =>
           payment.payment_type == 'Pay Less - Full' ||
           payment.payment_type == 'Pay Less - Part',
       );
-      console.log('payless_payments', payless_payments);
+      this.logger.log(`payless_payments: ${JSON.stringify(payless_payments)}`);
 
       let existingTotalAmount = 0,
         totalRetentionAmount = 0;
@@ -3609,7 +3609,7 @@ export class PaymentsService {
               )
               .getRawOne();
 
-            console.log({ retentionDetails });
+            this.logger.log(`retentionDetails: ${JSON.stringify(retentionDetails)}`);
 
             totalRetentionAmount += retentionDetails
               ? parseFloat(retentionDetails?.retention_amount)
@@ -4430,12 +4430,12 @@ export class PaymentsService {
 
       for (const tx of paymentList) {
         if (!tx.payment_from_account_number) {
-          console.warn(
+          this.logger.warn(
             `Skipping transaction for ${tx.payment_type} (Sender account details not found)`,
           );
           continue;
         } else if (!tx.payment_to_account_bsb_number) {
-          console.warn(
+          this.logger.warn(
             `Skipping transaction for ${tx.payment_type} (Reciever bsb details not found)`,
           );
           continue;
@@ -4474,7 +4474,7 @@ export class PaymentsService {
           })
           : null;
 
-        console.log('accountDetails: ', accountDetails);
+        this.logger.log(`accountDetails: ${JSON.stringify(accountDetails)}`);
 
         if (accountDetails.apca_number) {
           if (mark_paid) {
@@ -5726,15 +5726,13 @@ export class PaymentsService {
           }
 
           if (total_payment_amounts.length) {
-            console.log('total_payment_amounts', total_payment_amounts);
+            this.logger.log(`total_payment_amounts: ${JSON.stringify(total_payment_amounts)}`);
             const sum_of_total_payment_amounts = total_payment_amounts.reduce(
               (acc, payment_info) => acc + payment_info.payment_amount,
               0,
             );
-            console.log(
-              'sum_of_total_amounts',
-              sum_of_total_payment_amounts,
-              retentionInPayment.retained_amount,
+            this.logger.log(
+              `sum_of_total_amounts: ${sum_of_total_payment_amounts}, retained_amount: ${retentionInPayment.retained_amount}`,
             );
 
             retentionInPayment.retained_amount =
@@ -6252,7 +6250,7 @@ export class PaymentsService {
     undoRetention?: any,
   ): Promise<boolean> {
     try {
-      console.log('--- createOrDeleteRetentionEntries ---');
+      this.logger.log('--- createOrDeleteRetentionEntries ---');
       if (!undoRetention) {
         const payments = await transactionalEntityManager
           .createQueryBuilder(SubPayments, 'subpayment')
@@ -6307,7 +6305,7 @@ export class PaymentsService {
           .leftJoin('payment.clientSupplierDetails', 'cs')
           .where('sub_payment_id IN (:...ids)', { ids: sub_payment_ids })
           .getRawMany();
-        console.log('payments', payments);
+        this.logger.log(`payments: ${JSON.stringify(payments)}`);
 
         await Promise.all(payments.map(async (payment) => {
           // if (payment.payment_type == 'Withdrawal') {
@@ -6315,7 +6313,7 @@ export class PaymentsService {
           //     where: { payment_id: payment.payment_id },
           //     select: ['retention_id'],
           //   });
-          //   // console.log('fetchedPaymentDetails', paymentDetails);
+          //   // this.logger.log(`fetchedPaymentDetails: ${JSON.stringify(paymentDetails)}`);
 
           //   if (paymentDetails && paymentDetails.retention_id) {
           //     const retentionInPaymentsList =
@@ -6358,7 +6356,7 @@ export class PaymentsService {
                 claim_type: payment.claim_type,
                 cash_retention_type: payment.cash_retention_type,
               };
-              // console.log('dataRetentionIn', data);
+              // this.logger.log(`dataRetentionIn: ${JSON.stringify(data)}`);
               this.logger.log(
                 `Function for creating retention list and retention summary called with data:  ${JSON.stringify(data)}`,
               );
@@ -6367,7 +6365,7 @@ export class PaymentsService {
                   transactionalEntityManager,
                   data,
                 );
-              // console.log('createdRetentions1', createdRetentions);
+              // this.logger.log(`createdRetentions1: ${JSON.stringify(createdRetentions)}`);
               if (createdRetentions.status == 'ERROR')
                 throw `${createdRetentions.message}`;
             } else if (
@@ -6397,9 +6395,8 @@ export class PaymentsService {
                   `sp.sub_payment_type = 'Retention In' AND sp.status = 'Auto matched'`,
                 )
                 .getRawOne();
-              console.log(
-                'retention_payment_details::::transaction:::',
-                retention_payment_details,
+              this.logger.log(
+                `retention_payment_details::::transaction::: ${JSON.stringify(retention_payment_details)}`,
               );
 
               if (retention_payment_details) {
@@ -6415,9 +6412,8 @@ export class PaymentsService {
                       },
                     },
                   );
-                console.log(
-                  'createdRetentions3:::createdRetentions3:::',
-                  createdRetentions,
+                this.logger.log(
+                  `createdRetentions3:::createdRetentions3::: ${JSON.stringify(createdRetentions)}`,
                 );
                 if (createdRetentions.status == 'ERROR')
                   throw `${createdRetentions.message}`;
@@ -6447,9 +6443,8 @@ export class PaymentsService {
                 })
                 .andWhere(`sp.sub_payment_type = 'Retention'`)
                 .getRawOne();
-              console.log(
-                'retention_payment_details::::transaction:::',
-                retention_payment_details,
+              this.logger.log(
+                `retention_payment_details::::transaction::: ${JSON.stringify(retention_payment_details)}`,
               );
 
               const createdRetentions =
@@ -6464,9 +6459,8 @@ export class PaymentsService {
                     },
                   },
                 );
-              console.log(
-                'createdRetentions4:::createdRetentions4:::',
-                createdRetentions,
+              this.logger.log(
+                `createdRetentions4:::createdRetentions4::: ${JSON.stringify(createdRetentions)}`,
               );
               if (createdRetentions.status == 'ERROR')
                 throw `${createdRetentions.message}`;
@@ -6495,7 +6489,7 @@ export class PaymentsService {
                 claim_type: payment.claim_type,
                 cash_retention_type: payment.cash_retention_type,
               };
-              // console.log('data', data);
+              // this.logger.log(`data: ${JSON.stringify(data)}`);
               this.logger.log(
                 `Function for creating retention summary called with data:  ${JSON.stringify(data)}`,
               );
@@ -6504,7 +6498,7 @@ export class PaymentsService {
                   transactionalEntityManager,
                   data,
                 );
-              // console.log('createdRetentions3', createdRetentions);
+              // this.logger.log(`createdRetentions3: ${JSON.stringify(createdRetentions)}`);
               if (createdRetentions.status == 'ERROR')
                 throw `${createdRetentions.message}`;
 
@@ -6514,9 +6508,8 @@ export class PaymentsService {
                     sub_payment_id: payment.sub_payment_id,
                   },
                 );
-              console.log(
-                'updatedClaimCompletedStatusOfRetentions',
-                updatedClaimCompletedStatusOfRetentions,
+              this.logger.log(
+                `updatedClaimCompletedStatusOfRetentions: ${JSON.stringify(updatedClaimCompletedStatusOfRetentions)}`,
               );
               if (updatedClaimCompletedStatusOfRetentions.status == 'ERROR')
                 throw `${updatedClaimCompletedStatusOfRetentions.message}`;
@@ -6529,9 +6522,8 @@ export class PaymentsService {
                     payment_id: payment.payment_id,
                   },
                 );
-              console.log(
-                'updatedCompletionStatusOfRetentions',
-                updatedCompletionStatusOfRetentions,
+              this.logger.log(
+                `updatedCompletionStatusOfRetentions: ${JSON.stringify(updatedCompletionStatusOfRetentions)}`,
               );
               if (updatedCompletionStatusOfRetentions.status == 'ERROR')
                 throw `${updatedCompletionStatusOfRetentions.message}`;
@@ -6702,13 +6694,13 @@ export class PaymentsService {
                 payment_id: payment.payment_id,
                 payment_claim_id: payment.payment_claim_id,
               };
-              // console.log('dataWhileUnmatchingRetentionPayment', data);
+              // this.logger.log(`dataWhileUnmatchingRetentionPayment: ${JSON.stringify(data)}`);
               const deletedRetentions =
                 await this.retentionReversalFns.deleteAllRetentionPaymentEntriesInSummaryAndList(
                   transactionalEntityManager,
                   data,
                 );
-              // console.log('deletedRetentions', deletedRetentions);
+              // this.logger.log(`deletedRetentions: ${JSON.stringify(deletedRetentions)}`);
               if (deletedRetentions.status == 'ERROR')
                 throw `${deletedRetentions.message}`;
             }

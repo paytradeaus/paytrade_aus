@@ -17,12 +17,14 @@ import { handleAxiosError } from 'src/api/common/error-handler';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ProjectsService } from 'src/api/users/projects/projects.service';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
 export class XeroProjectsService {
+  private logger = new PaytradeLogger('XERO_PROJECTS_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -73,7 +75,7 @@ export class XeroProjectsService {
     const projectDetails = await this.projectDetails.find({
       where: { company_id, project_name: ILike(`${project_name}`) },
     });
-    console.log(projectDetails);
+    this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
     return projectDetails;
   }
 
@@ -109,7 +111,7 @@ export class XeroProjectsService {
 
     if (!contact) throw new Error('Contact not found');
     const contactId = contact?.contactID;
-    console.log('contactId: ', contactId);
+    this.logger.log(`contactId: ${contactId}`);
     if (!contactId) throw new Error('Contact ID is missing');
     const projectData = {
       name: 'Website Redesign',
@@ -123,7 +125,7 @@ export class XeroProjectsService {
       xeroDetails.tenant_id,
       projectData,
     );
-    console.log('Created project:', response.body);
+    this.logger.log(`Created project: ${JSON.stringify(response.body)}`);
     return response;
   }
 
@@ -215,7 +217,7 @@ export class XeroProjectsService {
             : null;
         })
         .filter(Boolean);
-      console.log('response.body: ', checkExistenceInXero);
+      this.logger.log(`response.body: ${JSON.stringify(checkExistenceInXero)}`);
       if (
         checkExistenceInXero &&
         checkExistenceInXero.length > 0 &&
@@ -355,9 +357,8 @@ export class XeroProjectsService {
               trackingOption,
             );
 
-          console.log(
-            'New Option Added to Tracking Category:',
-            xeroResponse?.body,
+          this.logger.log(
+            `New Option Added to Tracking Category: ${JSON.stringify(xeroResponse?.body)}`,
           );
           if (xeroResponse?.body?.options[0] !== null) {
             const project = xeroResponse.body.options[0];
@@ -700,7 +701,7 @@ export class XeroProjectsService {
             decoded,
             data.payload,
           );
-          console.log('response', response);
+          this.logger.log(`response: ${JSON.stringify(response)}`);
           if (
             response &&
             response?.warning &&
@@ -1103,7 +1104,7 @@ export class XeroProjectsService {
             xeroProjectDetails.project_id,
           );
 
-        console.log('trackingCategories: ', deleteProjectResponse);
+        this.logger.log(`trackingCategories: ${JSON.stringify(deleteProjectResponse)}`);
         if (deleteProjectResponse.body) {
           xeroProjectDetails.project_status = 'ARCHIVED';
           xeroProjectDetails.updated_by = decoded?.userId;
@@ -1381,7 +1382,7 @@ export class XeroProjectsService {
           (c) => c.pt_project_id,
         );
 
-        console.log({ unFoundProjectIdsInDb, deletePtProjectIds });
+        this.logger.log(`unFoundProjectIdsInDb: ${JSON.stringify(unFoundProjectIdsInDb)}, deletePtProjectIds: ${JSON.stringify(deletePtProjectIds)}`);
 
         await this.xeroProjectDetails
           .createQueryBuilder()
@@ -1417,7 +1418,7 @@ export class XeroProjectsService {
                   decoded?.userId,
                   'Deleted',
                 );
-              console.log({ updateProjectStatusRes });
+              this.logger.log(`updateProjectStatusRes: ${JSON.stringify(updateProjectStatusRes)}`);
             } catch (error) {
               throw error;
             }
@@ -1427,7 +1428,7 @@ export class XeroProjectsService {
 
       // Separate new and existing projects
       projects[0]?.options?.forEach((project) => {
-        console.log('project: ', project.status);
+        this.logger.log(`project: ${project.status}`);
         const projectData: any = {
           project_id: project.trackingOptionID,
           tenant_id: xeroDetails.tenant_id,
@@ -1707,7 +1708,7 @@ export class XeroProjectsService {
         //
       }
 
-      console.log('All projects fetched, inserted, and updated successfully.');
+      this.logger.log('All projects fetched, inserted, and updated successfully.');
       if (newProjects || existingProjects) {
         // return 'Data synced and automapped successfully';
         return framedResponse(

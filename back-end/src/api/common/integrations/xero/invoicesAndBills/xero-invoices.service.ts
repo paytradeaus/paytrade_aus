@@ -35,12 +35,14 @@ import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { AddPaymentClaimInput } from 'src/api/users/banking/payment-claims/payment-claims.input';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
 export class XeroInvoicesService {
+  private logger = new PaytradeLogger('XERO_INVOICES_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -799,7 +801,7 @@ export class XeroInvoicesService {
       };
 
       if (invoices && invoices.length > 0 && invoices[0] !== null) {
-        console.log({ invoices });
+        this.logger.log(`invoices: ${JSON.stringify(invoices)}`);
         let lineItems = [];
         const totalLineAmount = invoices?.reduce((sum, item) => {
           return (
@@ -941,7 +943,7 @@ export class XeroInvoicesService {
           { invoices: [invoice] },
         );
 
-        console.log('Invoice created:', response.body.invoices[0]);
+        this.logger.log(`Invoice created: ${JSON.stringify(response.body.invoices[0])}`);
         if (response.body.invoices) {
           const invoice = response.body.invoices[0];
           // Get new claim - project/contract mapping validation
@@ -999,7 +1001,7 @@ export class XeroInvoicesService {
             created_by: decoded?.userId,
             created_group: 'USER',
           };
-          console.log({ requestData });
+          this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
 
           const xeroResponse: any =
             await this.insertInvoiceDetails(requestData);
@@ -2171,7 +2173,7 @@ export class XeroInvoicesService {
 
         const retentionDetails =
           await this.dataSource.query(retentionListQuery);
-        console.log(retentionDetails);
+        this.logger.log(`retentionDetails: ${JSON.stringify(retentionDetails)}`);
 
         if (!retentionDetails) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -2843,7 +2845,7 @@ export class XeroInvoicesService {
         },
       );
     }
-    console.log('response', response);
+    this.logger.log(`response: ${JSON.stringify(response)}`);
 
     return {
       id: response.id,
@@ -2886,14 +2888,14 @@ export class XeroInvoicesService {
       const newTaxAmount = item.taxAmount + taxRetention;
       const newAmountIncludingGST = lineAmount + retentionShare;
 
-      console.log({
+      this.logger.log(JSON.stringify({
         newUnitAmount,
         newTaxAmount,
         newAmountIncludingGST,
         unitRetention,
         taxRetention,
         retentionShare,
-      });
+      }));
       return {
         unit_price: [
           LineAmountTypes.Inclusive,
@@ -3622,7 +3624,7 @@ export class XeroInvoicesService {
         xeroDetails.tenant_id,
         invoiceBillDetails.invoice_id,
       );
-      console.log('invoiceDetails:', invoiceDetails?.body?.invoices[0]);
+      this.logger.log(`invoiceDetails: ${JSON.stringify(invoiceDetails?.body?.invoices[0])}`);
       if (invoiceDetails.body.invoices[0] !== null) {
         const contractTracking: LineItemTracking =
           xeroDetails?.contract_category_id && xeroContractDetails?.contract_id
@@ -3817,9 +3819,8 @@ export class XeroInvoicesService {
               },
             );
 
-          console.log(
-            'Invoice/Bill edited:',
-            updateInvoiceResponse.response?.data,
+          this.logger.log(
+            `Invoice/Bill edited: ${JSON.stringify(updateInvoiceResponse.response?.data)}`,
           );
           if (updateInvoiceResponse.response.status === 200) {
             const invoice = updateInvoiceResponse.response.data.Invoices[0];
@@ -4130,7 +4131,7 @@ export class XeroInvoicesService {
         xeroDetails.tenant_id,
         invoiceBillDetails.invoice_id,
       );
-      console.log('invoiceDetails:', invoiceDetails);
+      this.logger.log(`invoiceDetails: ${JSON.stringify(invoiceDetails)}`);
       if (invoiceDetails.body.invoices[0] !== null) {
         try {
           const deleteInvoiceResponse =
@@ -4146,9 +4147,8 @@ export class XeroInvoicesService {
               },
             );
 
-          console.log(
-            'Invoice/bill deleted successfully:',
-            deleteInvoiceResponse.response.status,
+          this.logger.log(
+            `Invoice/bill deleted successfully: ${deleteInvoiceResponse.response.status}`,
           );
           if (deleteInvoiceResponse.response.status === 200) {
             const invoice = deleteInvoiceResponse.response.data.Invoices[0];
@@ -4305,7 +4305,7 @@ export class XeroInvoicesService {
         xeroDetails.tenant_id,
         invoice_id,
       );
-      console.log('invoiceDetails:', invoiceDetails?.body?.invoices[0]);
+      this.logger.log(`invoiceDetails: ${JSON.stringify(invoiceDetails?.body?.invoices[0])}`);
       if (invoiceDetails.body.invoices[0]) {
         return invoiceDetails.body.invoices[0];
       }
@@ -4513,7 +4513,7 @@ export class XeroInvoicesService {
         const xeroInvoicesBills =
           await this.xeroInvoicesBills.create(newInvoices);
         await this.xeroInvoicesBills.save(xeroInvoicesBills);
-        console.log(`Inserted ${xeroInvoicesBills.length} new invoices.`);
+        this.logger.log(`Inserted ${xeroInvoicesBills.length} new invoices.`);
       }
 
       // Batch update existing invoices
@@ -4527,10 +4527,10 @@ export class XeroInvoicesService {
             invoice,
           );
         }
-        console.log(`Updated ${existingInvoices.length} existing invoices.`);
+        this.logger.log(`Updated ${existingInvoices.length} existing invoices.`);
       }
 
-      console.log(
+      this.logger.log(
         `newInvoices ${newInvoices} existingInvoices ${existingInvoices}`,
       );
 
@@ -4560,7 +4560,7 @@ export class XeroInvoicesService {
         },
       );
 
-      console.log('All invoices fetched, inserted, and updated successfully.');
+      this.logger.log('All invoices fetched, inserted, and updated successfully.');
 
       if (newInvoices || existingInvoices) {
         return 'Data synced successfully';

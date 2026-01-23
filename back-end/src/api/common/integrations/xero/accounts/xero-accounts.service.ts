@@ -112,7 +112,7 @@ export class XeroAccountsService {
         'Name ASC',
       );
 
-      console.log('checkExistenceInXero.body: ', checkExistenceInXero.body);
+      this.logger.log(`checkExistenceInXero.body: ${JSON.stringify(checkExistenceInXero.body)}`);
       if (
         checkExistenceInXero &&
         checkExistenceInXero?.body &&
@@ -257,7 +257,7 @@ export class XeroAccountsService {
             },
           );
 
-          console.log('Bank account created successfully:', xeroResponse.body);
+          this.logger.log(`Bank account created successfully: ${JSON.stringify(xeroResponse.body)}`);
           if (
             xeroResponse?.body?.accounts &&
             xeroResponse?.body?.accounts.length > 0
@@ -572,7 +572,7 @@ export class XeroAccountsService {
         data.payload,
         decoded?.userId,
       );
-      console.log('bankResponse', bankResponse);
+      this.logger.log(`bankResponse: ${JSON.stringify(bankResponse)}`);
       let warningMessage, bank_account_id;
       if (bankResponse && "warningMessage" in bankResponse) {
         warningMessage = bankResponse.warningMessage;
@@ -842,7 +842,7 @@ export class XeroAccountsService {
         xeroDetails.tenant_id,
         bankAccountDetails.account_id,
       );
-      console.log('xeroAccountDetails:', xeroAccountDetails);
+      this.logger.log(`xeroAccountDetails: ${JSON.stringify(xeroAccountDetails)}`);
       if (xeroAccountDetails.body.accounts[0] !== null) {
         try {
           const updateBankAccountResponse =
@@ -862,13 +862,12 @@ export class XeroAccountsService {
               },
             );
 
-          console.log(
-            'Bank account edited successfully:',
-            updateBankAccountResponse.response.status,
+          this.logger.log(
+            `Bank account edited successfully: ${updateBankAccountResponse.response.status}`,
           );
           if (updateBankAccountResponse.response.status === 200) {
             const account = updateBankAccountResponse.response.data.Accounts[0];
-            console.log('account: ', account);
+            this.logger.log(`account: ${JSON.stringify(account)}`);
             const xeroPayload: any = {
               account_id: account.AccountID,
               tenant_id: xeroDetails.tenant_id,
@@ -1134,7 +1133,7 @@ export class XeroAccountsService {
         xeroDetails.tenant_id,
         account_details.account_id,
       );
-      console.log('accountDetails:', accountDetails);
+      this.logger.log(`accountDetails: ${JSON.stringify(accountDetails)}`);
       if (accountDetails.body.accounts[0] !== null) {
         try {
           const deleteBankAccountResponse =
@@ -1150,9 +1149,8 @@ export class XeroAccountsService {
               },
             );
 
-          console.log(
-            'Bank account deleted successfully:',
-            deleteBankAccountResponse.response.status,
+          this.logger.log(
+            `Bank account deleted successfully: ${deleteBankAccountResponse.response.status}`,
           );
           if (deleteBankAccountResponse.response.status === 200) {
             const account = deleteBankAccountResponse.response.data.Accounts[0];
@@ -1391,7 +1389,7 @@ export class XeroAccountsService {
         const existingAccountIdsSet = new Set(existingAccountIds);
         // Separate new and existing accounts
         accounts.forEach((account) => {
-          console.log('account: ', account.status);
+          this.logger.log(`account: ${account.status}`);
           const accountData: any = {
             account_id: account.accountID,
             integration_id: xeroDetails.integration_id,
@@ -1702,7 +1700,7 @@ export class XeroAccountsService {
         //
       }
 
-      console.log('All accounts fetched, inserted, and updated successfully');
+      this.logger.log('All accounts fetched, inserted, and updated successfully');
       if (newAccounts || existingAccounts) {
         // return 'Data synced and automapped successfully';
         return framedResponse(

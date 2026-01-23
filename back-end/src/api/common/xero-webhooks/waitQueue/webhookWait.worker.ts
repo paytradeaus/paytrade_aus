@@ -9,10 +9,12 @@ import { XeroWebhookService } from '../webhook.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Processor('xero-wait-queue')
 export class XeroWaitQueueWorker extends WorkerHost {
   private xero: XeroClient;
+  private logger = new PaytradeLogger('XERO_WAIT_QUEUE_WORKER');
 
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -34,21 +36,21 @@ export class XeroWaitQueueWorker extends WorkerHost {
         'email',
         'profile',
         'accounting.transactions',
-        'accounting.settings', // Required for tenants
+        'accounting.settings',
         'accounting.settings.read',
-        'offline_access', // Required for token refresh
-        'projects', // Required for projects
-        'accounting.contacts', // Required for contacts
+        'offline_access',
+        'projects',
+        'accounting.contacts',
         'accounting.contacts.read',
       ],
       state: '',
-      httpTimeout: 10000, // Set timeout for requests
+      httpTimeout: 10000,
     });
   }
 
   async process(job: Job): Promise<any> {
     try {
-      console.log(
+      this.logger.log(
         `Processing wait job for resource_id ${job?.data?.resource_id}`,
       );
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
@@ -56,14 +58,12 @@ export class XeroWaitQueueWorker extends WorkerHost {
         relations: ['integrationDetails'],
       });
 
-      // console.log({ xeroDetails });
-
       if (
         !xeroDetails ||
         !xeroDetails.integration_id ||
         !xeroDetails?.integrationDetails
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] No integration found for company id: ${job?.data?.company_id}`,
         );
         throw `No integration found for company id: ${job?.data?.company_id}`;
@@ -73,7 +73,7 @@ export class XeroWaitQueueWorker extends WorkerHost {
         xeroDetails.integrationDetails.integration_status !==
         'Connected - active'
       ) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] Paytrade is currently not active in Xero`,
         );
         throw `Paytrade is currently not active in Xero for company id: ${job?.data?.company_id}`;
@@ -89,7 +89,7 @@ export class XeroWaitQueueWorker extends WorkerHost {
       });
 
       if (!companyAdmin || !companyAdmin?.userDetails?.email_id) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] No PRIMARY ADMIN found for company id: ${job?.data?.company_id}`,
         );
         throw `No PRIMARY ADMIN found for company id: ${job?.data?.company_id}`;
@@ -101,13 +101,13 @@ export class XeroWaitQueueWorker extends WorkerHost {
       );
 
       if (!authResponse?.data?.['access_token']) {
-        console.error(
+        this.logger.error(
           `[Xero Webhook] Failed to get auth token for company id: ${job?.data?.company_id}`,
         );
         throw `Failed to get auth token for company id: ${job?.data?.company_id}`;
       }
 
-      console.log('Auth token obtained for Xero webhook processing');
+      this.logger.log('Auth token obtained for Xero webhook processing');
       const decoded = this.jwtService.decode(authResponse.data['access_token']);
 
       if (xeroDetails) {
@@ -121,7 +121,7 @@ export class XeroWaitQueueWorker extends WorkerHost {
             },
             decoded,
           );
-        console.log({ invoiceResponse });
+        this.logger.log(`invoiceResponse: ${JSON.stringify({ invoiceResponse })}`);
         if (invoiceResponse && job?.data?.contactId) {
           const overpayments =
             await this.xeroWebhookService.checkAndCreateOverPaymentAndRefunds(
@@ -132,26 +132,23 @@ export class XeroWaitQueueWorker extends WorkerHost {
               },
               decoded,
             );
-          console.log('overpayment check in job:: ', {
-            overpayments,
-          });
+          this.logger.log(`overpayment check in job:: ${JSON.stringify({ overpayments })}`);
           return { success: true, invoiceResponse, overpayments };
         }
-        console.log(
+        this.logger.log(
           `Xero Wait Job completed for resource ${job?.data?.resource_id}`,
         );
         return { success: true, invoiceResponse };
       } else {
-        console.log(
+        this.logger.log(
           `Xero Wait Job completed (no xeroDetails) for resource ${job?.data?.resource_id}`,
         );
         return { success: true, invoiceResponse: false };
       }
     } catch (error) {
       const errMsg = error?.message ? error?.message : error;
-      console.error(
-        `Error waiting for resource ${job?.data?.resource_id}:`,
-        errMsg,
+      this.logger.error(
+        `Error waiting for resource ${job?.data?.resource_id}: ${JSON.stringify(errMsg)}`,
       );
       throw errMsg;
     }

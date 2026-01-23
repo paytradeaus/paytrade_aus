@@ -144,7 +144,7 @@ export class PaymentsResolver {
           xeroDetails?.integrationDetails?.integration_status ===
             'Connected - active'
         ) {
-          console.log('newPayment: ', newPayment);
+          this.logger.log(`newPayment: ${JSON.stringify(newPayment)}`);
           const paymentDetails = await this.paymentsService.fetchPaymentDetails(
             newPayment.data.payment_id,
           );
@@ -280,9 +280,8 @@ export class PaymentsResolver {
                 payment_id: newPayment.data.payment_id,
                 overpayment_id: payload.associated_overpayment_id,
               });
-            console.log(
-              'createOverPaymentRefundDetails: ',
-              createOverPaymentRefundDetails,
+            this.logger.log(
+              `createOverPaymentRefundDetails: ${JSON.stringify(createOverPaymentRefundDetails)}`,
             );
           } else if (
             ['Overpayment to supplier', 'Overpayment from client'].includes(
@@ -306,7 +305,7 @@ export class PaymentsResolver {
                 amount: Math.abs(Number(paymentDetails.total_amount)),
                 payment_date: paymentDetails.payment_date,
               });
-            console.log('createOverPaymentDetails: ', createOverPaymentDetails);
+            this.logger.log(`createOverPaymentDetails: ${JSON.stringify(createOverPaymentDetails)}`);
           }
         }
       }
@@ -695,9 +694,8 @@ export class PaymentsResolver {
               await this.xeroPaymentsService.deleteOverPaymentRefund(decoded, {
                 payment_id: paymentDetails.payment_id,
               });
-            console.log(
-              'deleteOverPaymentRefundDetails: ',
-              deleteOverPaymentRefundDetails,
+            this.logger.log(
+              `deleteOverPaymentRefundDetails: ${JSON.stringify(deleteOverPaymentRefundDetails)}`,
             );
           } else if (
             isExisted &&
@@ -709,7 +707,7 @@ export class PaymentsResolver {
               await this.xeroPaymentsService.deleteOverPayment(decoded, {
                 payment_id: paymentDetails.payment_id,
               });
-            console.log('deleteOverPaymentDetails: ', deleteOverPaymentDetails);
+            this.logger.log(`deleteOverPaymentDetails: ${JSON.stringify(deleteOverPaymentDetails)}`);
           }
         }
       }
@@ -836,7 +834,7 @@ export class PaymentsResolver {
                     decoded,
                     xeroPayload,
                   );
-                console.log('createPaymentDetails: ', createPaymentDetails);
+                this.logger.log(`createPaymentDetails: ${JSON.stringify(createPaymentDetails)}`);
               } else if (
                 isExisted &&
                 ['Unconfirmed - Unmatched'].includes(
@@ -851,7 +849,7 @@ export class PaymentsResolver {
                     decoded,
                     xeroPayload,
                   );
-                console.log('deletePaymentDetails: ', deletePaymentDetails);
+                this.logger.log(`deletePaymentDetails: ${JSON.stringify(deletePaymentDetails)}`);
               }
             }
           } else if (
@@ -880,9 +878,8 @@ export class PaymentsResolver {
                       paymentDetails.associatedOverPayment.payment_id,
                   },
                 );
-              console.log(
-                'createOverPaymentRefundDetails: ',
-                createOverPaymentRefundDetails,
+              this.logger.log(
+                `createOverPaymentRefundDetails: ${JSON.stringify(createOverPaymentRefundDetails)}`,
               );
             } else if (
               isExisted &&
@@ -905,9 +902,8 @@ export class PaymentsResolver {
                     payment_id: payload.payment_id,
                   },
                 );
-              console.log(
-                'deleteOverPaymentRefundDetails: ',
-                deleteOverPaymentRefundDetails,
+              this.logger.log(
+                `deleteOverPaymentRefundDetails: ${JSON.stringify(deleteOverPaymentRefundDetails)}`,
               );
             }
           } else if (
@@ -936,9 +932,8 @@ export class PaymentsResolver {
                   amount: Math.abs(Number(paymentDetails.total_amount)),
                   payment_date: paymentDetails.payment_date,
                 });
-              console.log(
-                'createOverPaymentDetails: ',
-                createOverPaymentDetails,
+              this.logger.log(
+                `createOverPaymentDetails: ${JSON.stringify(createOverPaymentDetails)}`,
               );
             } else if (
               isExisted &&
@@ -958,9 +953,8 @@ export class PaymentsResolver {
                 await this.xeroPaymentsService.deleteOverPayment(decoded, {
                   payment_id: payload.payment_id,
                 });
-              console.log(
-                'deleteOverPaymentDetails: ',
-                deleteOverPaymentDetails,
+              this.logger.log(
+                `deleteOverPaymentDetails: ${JSON.stringify(deleteOverPaymentDetails)}`,
               );
             }
           }

@@ -18,12 +18,14 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
 import { ContractDetailsService } from 'src/api/users/contract-details/contract-details.service';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
 export class XeroContractsService {
+  private logger = new PaytradeLogger('XERO_CONTRACTS_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -158,7 +160,7 @@ export class XeroContractsService {
             : null;
         })
         .filter(Boolean);
-      console.log('response.body: ', checkExistenceInXero);
+      this.logger.log(`response.body: ${JSON.stringify(checkExistenceInXero)}`);
 
       if (
         checkExistenceInXero &&
@@ -301,9 +303,8 @@ export class XeroContractsService {
               trackingOption,
             );
 
-          console.log(
-            'New Option Added to Tracking Category:',
-            xeroResponse.body,
+          this.logger.log(
+            `New Option Added to Tracking Category: ${JSON.stringify(xeroResponse.body)}`,
           );
           if (xeroResponse?.body?.options[0] !== null) {
             const contract = xeroResponse.body.options[0];
@@ -505,7 +506,7 @@ export class XeroContractsService {
     const contractDetails = await this.contractDetails.find({
       where: { company_id, contract_name: ILike(`${contract_name}`) },
     });
-    console.log(contractDetails);
+    this.logger.log(`contractDetails: ${JSON.stringify(contractDetails)}`);
     return contractDetails;
   }
 
@@ -736,7 +737,7 @@ export class XeroContractsService {
               decoded,
               data?.payload,
             );
-          console.log('response', response);
+          this.logger.log(`response: ${JSON.stringify(response)}`);
           if (response) {
             const xeroContractDetails = await this.xeroContractDetails.findOne({
               where: {
@@ -1186,7 +1187,7 @@ export class XeroContractsService {
                   trackingCategoryID: xeroDetails.contract_category_id,
                 },
               );
-        console.log('trackingCategories: ', trackingOptionsResponse.body);
+        this.logger.log(`trackingCategories: ${JSON.stringify(trackingOptionsResponse.body)}`);
 
         if (trackingOptionsResponse.body) {
           xeroContractDetails.contract_id =
@@ -1347,7 +1348,7 @@ export class XeroContractsService {
             : null;
         })
         .filter(Boolean);
-      console.log('contractDetails:', contractDetails);
+      this.logger.log(`contractDetails: ${JSON.stringify(contractDetails)}`);
       if (contractDetails[0] !== null) {
         return contractDetails[0]?.options[0] || false;
       }
@@ -1467,7 +1468,7 @@ export class XeroContractsService {
           (c) => c.pt_contract_id,
         );
 
-        console.log({ unFoundContractIdsInDb, deletePtContractIds });
+        this.logger.log(`unFoundContractIdsInDb: ${JSON.stringify(unFoundContractIdsInDb)}, deletePtContractIds: ${JSON.stringify(deletePtContractIds)}`);
 
         await this.xeroContractDetails
           .createQueryBuilder()
@@ -1503,7 +1504,7 @@ export class XeroContractsService {
                   decoded?.userId,
                   'Deleted',
                 );
-              console.log({ updateContractStatusRes });
+              this.logger.log(`updateContractStatusRes: ${JSON.stringify(updateContractStatusRes)}`);
             } catch (error) {
               throw error;
             }
@@ -1513,7 +1514,7 @@ export class XeroContractsService {
 
       // Separate new and existing contracts
       contracts[0]?.options?.forEach((contract) => {
-        console.log('contract: ', contract.status);
+        this.logger.log(`contract: ${contract.status}`);
         const contractData: any = {
           contract_id: contract.trackingOptionID,
           tenant_id: xeroDetails.tenant_id,
@@ -1792,7 +1793,7 @@ export class XeroContractsService {
         //
       }
 
-      console.log('All contracts fetched, inserted, and updated successfully.');
+      this.logger.log('All contracts fetched, inserted, and updated successfully.');
       if (newContracts || existingContracts) {
         // return 'Data synced and automapped successfully';
         return framedResponse(

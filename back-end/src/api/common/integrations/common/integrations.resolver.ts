@@ -170,7 +170,7 @@ export class IntegrationsResolver {
           adatreeIntegerationInput,
         );
       if (newAdatreeIntegeration) {
-        console.log('newAdatreeIntegeration: ', newAdatreeIntegeration);
+        this.logger.log(`newAdatreeIntegeration: ${JSON.stringify(newAdatreeIntegeration)}`);
 
         const integrationRequestData = {
           name: newAdatreeIntegeration.companyDetails.company_name,

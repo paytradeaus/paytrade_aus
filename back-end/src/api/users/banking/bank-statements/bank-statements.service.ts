@@ -163,8 +163,8 @@ export class BankStatementsService {
       const statementDate = new Date(data.statement_date);
       const statementMonth = new Date(statementDate).getMonth() + 1;
       const statementYear = new Date(statementDate).getFullYear();
-      console.log('statementMonth', statementMonth);
-      console.log('statementYear', statementYear);
+      this.logger.log(`statementMonth: ${statementMonth}`);
+      this.logger.log(`statementYear: ${statementYear}`);
 
       const startDate = new Date(
         Date.UTC(statementYear, statementMonth - 1, 1),
@@ -173,8 +173,8 @@ export class BankStatementsService {
         Date.UTC(statementYear, statementMonth, 0, 23, 59, 59, 999),
       ).toISOString();
 
-      console.log('startDate', startDate);
-      console.log('endDate', endDate);
+      this.logger.log(`startDate: ${startDate}`);
+      this.logger.log(`endDate: ${endDate}`);
 
       const whereConditions: any = { company_id, bank_account_id };
       whereConditions.statement_date = Between(startDate, endDate);

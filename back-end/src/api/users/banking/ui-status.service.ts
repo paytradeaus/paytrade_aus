@@ -99,7 +99,7 @@ export class StatusService {
       const claimAndPaymentdetails = data.payment_claim_id
         ? await queryBuilder.getRawOne()
         : null;
-      // console.log('claimAndPaymentdetails: ', claimAndPaymentdetails);
+      // this.logger.log(`claimAndPaymentdetails: : ${JSON.stringify(claimAndPaymentdetails)}`);
       const payment_list =
         claimAndPaymentdetails && claimAndPaymentdetails.payment_list
           ? claimAndPaymentdetails.payment_list
@@ -129,7 +129,7 @@ export class StatusService {
         }
       }
 
-      // console.log('outstandingAmount: ', outstandingAmount);
+      // this.logger.log(`outstandingAmount: : ${JSON.stringify(outstandingAmount)}`);
       const confirmationStatus = [
         'Unconfirmed - Matched',
         'Paid - Matched',
@@ -208,12 +208,12 @@ export class StatusService {
         current_status: current_status,
       };
       // }
-      // console.log('whereConditions: ', whereConditions);
+      // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       const statusDetails = await this.statusRepo.findOne({
         where: whereConditions,
       });
 
-      // console.log('statusDetails :: ', statusDetails);
+      // this.logger.log(`statusDetails :: : ${JSON.stringify(statusDetails)}`);
 
       const noticesOfClaims = await this.noticesRepo.find({
         where: { payment_claim_id: data.payment_claim_id },
@@ -259,7 +259,7 @@ export class StatusService {
         }
       }
 
-      // console.log('statusDetails: ', statusDetails);
+      // this.logger.log(`statusDetails: : ${JSON.stringify(statusDetails)}`);
 
       if (current_status) {
         const response = await this.paymentClaimsRepo
@@ -353,7 +353,7 @@ export class StatusService {
       const claimAndPaymentdetails = data.payment_claim_id
         ? await queryBuilder.getRawOne()
         : null;
-      // console.log('claimAndPaymentdetails: ', claimAndPaymentdetails);
+      // this.logger.log(`claimAndPaymentdetails: : ${JSON.stringify(claimAndPaymentdetails)}`);
       const payment_list =
         claimAndPaymentdetails && claimAndPaymentdetails.payment_list
           ? claimAndPaymentdetails.payment_list
@@ -383,7 +383,7 @@ export class StatusService {
         }
       }
 
-      // console.log('outstandingAmount: ', outstandingAmount);
+      // this.logger.log(`outstandingAmount: : ${JSON.stringify(outstandingAmount)}`);
       const confirmationStatus = [
         'Unconfirmed - Matched',
         'Paid - Matched',
@@ -462,7 +462,7 @@ export class StatusService {
         current_status: current_status,
       };
       // }
-      // console.log('whereConditions: ', whereConditions);
+      // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       const statusDetails = await transactionalEntityManager.findOne(
         UiStatusAndActionButtons,
         {
@@ -470,7 +470,7 @@ export class StatusService {
         },
       );
 
-      console.log('statusDetails :: ', statusDetails);
+      this.logger.log(`statusDetails :: : ${JSON.stringify(statusDetails)}`);
 
       const noticesOfClaims = await transactionalEntityManager.find(
         NoticeDetails,
@@ -519,7 +519,7 @@ export class StatusService {
         }
       }
 
-      // console.log('statusDetails: ', statusDetails);
+      // this.logger.log(`statusDetails: : ${JSON.stringify(statusDetails)}`);
       if (current_status) {
         const response = await transactionalEntityManager
           .createQueryBuilder()
@@ -571,7 +571,7 @@ export class StatusService {
             relations: ['paymentClaims'],
           })
         : null;
-      console.log('paymentDetails: ', paymentDetails);
+      this.logger.log(`paymentDetails: : ${JSON.stringify(paymentDetails)}`);
 
       const queryBuilder = transactionalEntityManager
         .createQueryBuilder(PaymentClaims, 'pc')
@@ -619,7 +619,7 @@ export class StatusService {
       const claimAndPaymentdetails = paymentDetails?.payment_claim_id
         ? await queryBuilder.getRawOne()
         : null;
-      // console.log('claimAndPaymentdetails: ', claimAndPaymentdetails);
+      // this.logger.log(`claimAndPaymentdetails: : ${JSON.stringify(claimAndPaymentdetails)}`);
       const payment_list =
         claimAndPaymentdetails && claimAndPaymentdetails?.payment_list
           ? claimAndPaymentdetails?.payment_list
@@ -712,9 +712,8 @@ export class StatusService {
             `sp.sub_payment_type IN ('Retention Out', 'Retention In') AND sp.status = 'Auto matched'`,
           )
           .getRawMany();
-        console.log(
-          'retention_payment_details::::action buttons:::',
-          retention_payment_details,
+        this.logger.log(
+          `retention_payment_details::::action buttons::: ${JSON.stringify(retention_payment_details)}`,
         );
         if (
           retention_payment_details &&
@@ -743,7 +742,7 @@ export class StatusService {
         payment_type: payment_type,
         current_status: current_status,
       };
-      console.log('whereConditions: ', whereConditions);
+      this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       let statusDetails = await transactionalEntityManager.findOne(
         UiStatusAndActionButtons,
         {
@@ -933,7 +932,7 @@ export class StatusService {
             relations: ['paymentClaims'],
           })
         : null;
-      // console.log('paymentDetails: ', paymentDetails);
+      // this.logger.log(`paymentDetails: : ${JSON.stringify(paymentDetails)}`);
 
       const queryBuilder = this.paymentClaimsRepo
         .createQueryBuilder('pc')
@@ -981,7 +980,7 @@ export class StatusService {
       const claimAndPaymentdetails = paymentDetails?.payment_claim_id
         ? await queryBuilder.getRawOne()
         : null;
-      // console.log('claimAndPaymentdetails: ', claimAndPaymentdetails);
+      // this.logger.log(`claimAndPaymentdetails: : ${JSON.stringify(claimAndPaymentdetails)}`);
       const payment_list =
         claimAndPaymentdetails && claimAndPaymentdetails.payment_list
           ? claimAndPaymentdetails.payment_list
@@ -1105,7 +1104,7 @@ export class StatusService {
         payment_type: payment_type,
         current_status: current_status,
       };
-      // console.log('whereConditions: ', whereConditions);
+      // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       let statusDetails = await this.statusRepo.findOne({
         where: whereConditions,
       });

@@ -15,6 +15,9 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { Queue } from 'bullmq';
 import * as basicAuth from 'express-basic-auth';
+import { PaytradeLogger } from './libs/@loggers/logger.service';
+
+const logger = new PaytradeLogger('MAIN');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -124,6 +127,6 @@ async function bootstrap() {
   await app.init();
 
   await app.listen(process.env.PORT, '0.0.0.0');
-  console.log(`PayTrade Service is listening to port ${process.env.PORT}!`);
+  logger.log(`PayTrade Service is listening to port ${process.env.PORT}!`);
 }
 bootstrap();

@@ -42,28 +42,27 @@ export class XeroWebhookResolver {
   async handleWebhook(@Req() request: Request, @Res() response: Response) {
     const startTime = process.hrtime();
     try {
-      console.log('[Xero Webhook] Request received.');
-      console.log(`[Xero Webhook] Headers: ${JSON.stringify(request.headers)}`);
+      this.logger.log('[Xero Webhook] Request received.');
+      this.logger.log(`[Xero Webhook] Headers: ${JSON.stringify(request.headers)}`);
       const rawBodyBuffer = (request as any).rawBody;
       if (!rawBodyBuffer) {
-        console.error('[Xero Webhook] Raw body not found!');
-        // Must return 401 for Xero intent-to-receive validation (not 500)
+        this.logger.error('[Xero Webhook] Raw body not found!');
         return response.status(401).send();
       }
       const rawBodyString = rawBodyBuffer.toString('utf8');
-      console.log(`[Xero Webhook] Raw Body: ${rawBodyString}`);
-      console.log(`[Xero Webhook] Raw Body Length: ${rawBodyBuffer.length}`);
+      this.logger.log(`[Xero Webhook] Raw Body: ${rawBodyString}`);
+      this.logger.log(`[Xero Webhook] Raw Body Length: ${rawBodyBuffer.length}`);
 
       const signature = Array.isArray(request.headers['x-xero-signature'])
         ? request.headers['x-xero-signature'][0]
         : request.headers['x-xero-signature'];
-      console.log(`[Xero Webhook] x-xero-signature: ${signature}`);
+      this.logger.log(`[Xero Webhook] x-xero-signature: ${signature}`);
       
       const webhookKey = process.env.XERO_WEBHOOK_KEY?.trim();
-      console.log(`[Xero Webhook] XERO_WEBHOOK_KEY exists: ${!!webhookKey}, length: ${webhookKey?.length || 0}`);
+      this.logger.log(`[Xero Webhook] XERO_WEBHOOK_KEY exists: ${!!webhookKey}, length: ${webhookKey?.length || 0}`);
       
       if (!webhookKey) {
-        console.error('[Xero Webhook] XERO_WEBHOOK_KEY not configured!');
+        this.logger.error('[Xero Webhook] XERO_WEBHOOK_KEY not configured!');
         return response.status(401).send();
       }
       
@@ -72,25 +71,22 @@ export class XeroWebhookResolver {
         .update(rawBodyBuffer)
         .digest('base64');
       
-      console.log(`[Xero Webhook] Computed HMAC: ${computedHmac}`);
-      console.log(`[Xero Webhook] Received signature: ${signature}`);
-      console.log(`[Xero Webhook] Signatures match: ${signature === computedHmac}`);
+      this.logger.log(`[Xero Webhook] Computed HMAC: ${computedHmac}`);
+      this.logger.log(`[Xero Webhook] Received signature: ${signature}`);
+      this.logger.log(`[Xero Webhook] Signatures match: ${signature === computedHmac}`);
 
       if (!signature || signature !== computedHmac) {
-        console.warn('[Xero Webhook] HMAC verification failed - returning 401 (expected for 3 of 4 intent-to-receive tests)');
-        // Xero intent-to-receive sends 3 invalid + 1 valid signature - must return 401 for invalid
+        this.logger.warn('[Xero Webhook] HMAC verification failed - returning 401 (expected for 3 of 4 intent-to-receive tests)');
         return response.status(401).send();
       }
 
-      console.log('[Xero Webhook] HMAC verification successful - returning 200.');
+      this.logger.log('[Xero Webhook] HMAC verification successful - returning 200.');
 
       const diff = process.hrtime(startTime);
-      console.log(`[Xero Webhook] Response Time: ${diff[0]}s ${diff[1] / 1e6}ms`);
+      this.logger.log(`[Xero Webhook] Response Time: ${diff[0]}s ${diff[1] / 1e6}ms`);
       
-      // Respond right away with empty body - Xero requires this exact format
       response.status(200).send();
 
-      // Process webhook asynchronously
       setImmediate(async () => {
         try {
           const eventPayload = JSON.parse(rawBodyBuffer.toString('utf8'));
@@ -112,7 +108,7 @@ export class XeroWebhookResolver {
                 !xeroDetails.integration_id ||
                 !xeroDetails?.integrationDetails
               ) {
-                console.error(
+                this.logger.error(
                   `[Xero Webhook] No integration found for tenant id: ${tenantId}`,
                 );
                 throw `No integration found for tenant id: ${tenantId}`;
@@ -122,7 +118,7 @@ export class XeroWebhookResolver {
                 xeroDetails.integrationDetails.integration_status !==
                 'Connected - active'
               ) {
-                console.error(
+                this.logger.error(
                   `[Xero Webhook] Paytrade is currently not active in Xero`,
                 );
                 throw `Paytrade is currently not active in Xero for tenant id: ${tenantId}`;
@@ -144,7 +140,7 @@ export class XeroWebhookResolver {
                 false,
               );
 
-              console.log(authResponse.data['access_token']);
+              this.logger.log(authResponse.data['access_token']);
               const decoded = this.jwtService.decode(
                 authResponse.data['access_token'],
               );
@@ -177,19 +173,18 @@ export class XeroWebhookResolver {
                   break;
 
                 default:
-                  console.log(`[Xero Webhook] Unhandled event: ${eventKey}`);
+                  this.logger.log(`[Xero Webhook] Unhandled event: ${eventKey}`);
               }
             }
           } else {
-            console.log('[Xero Webhook] Intent-to-receive ping, no events.');
+            this.logger.log('[Xero Webhook] Intent-to-receive ping, no events.');
           }
         } catch (err) {
-          console.error('[Xero Webhook] Async error:', err.message);
+          this.logger.error('[Xero Webhook] Async error:', err.message);
         }
       });
     } catch (err) {
-      console.error(`[Xero Webhook] Error: ${err.message}`);
-      // Return 401 for any errors during intent-to-receive validation
+      this.logger.error(`[Xero Webhook] Error: ${err.message}`);
       return response.status(401).send();
     }
   }

@@ -103,7 +103,7 @@ export class BankAccountsService {
           page: 1,
           items_per_page: 10,
         });
-        console.log('getCount', getCount);
+        this.logger.log('getCount: ' + JSON.stringify(getCount));
 
         const subscriptionItem =
           subscriptionDetails &&
@@ -221,7 +221,7 @@ export class BankAccountsService {
               .execute();
           }
 
-          console.log("*****************", saved, data )
+          this.logger.log('saved: ' + JSON.stringify(saved) + ' data: ' + JSON.stringify(data));
 
           let notices = null;
           if (data.status === 'Open' && (data.account_type !== 'Cash Account')) {
@@ -232,11 +232,11 @@ export class BankAccountsService {
               transactionalEntityManager
             );
 
-            console.log("@@@@@@@@@@@@@@", notices)
+            this.logger.log('notices: ' + JSON.stringify(notices));
 
             if (notices?.status === 'ERROR') {
               this.logger.error(`Notice generation failed with message: ${notices.message}`);
-              console.error('NOTICE ERROR DETAILS:', JSON.stringify(notices, null, 2));
+              this.logger.error('NOTICE ERROR DETAILS: ' + JSON.stringify(notices, null, 2));
               throw new Error(`Notice generation failed: ${notices.message}`);
             }
             // } catch (err) {
@@ -447,7 +447,7 @@ export class BankAccountsService {
           page: 1,
           items_per_page: 10,
         });
-        console.log('getCount', getCount);
+        this.logger.log('getCount: ' + JSON.stringify(getCount));
 
         const subscriptionItem =
           subscriptionDetails &&
@@ -584,7 +584,7 @@ export class BankAccountsService {
               account.account_type === 'Retention Trust Account'
             ) {
               for (const projectId of allProjectIds) {
-                console.log(projectId);
+                this.logger.log('projectId: ' + projectId);
                 this.complianceService.fetchComplianceResultsOfAProject({
                   project_id: projectId,
                   bank_account_type: account.account_type,
@@ -820,7 +820,7 @@ export class BankAccountsService {
           page: 1,
           items_per_page: 10,
         });
-        console.log('getCount', getCount);
+        this.logger.log('getCount: ' + JSON.stringify(getCount));
 
         const subscriptionDetails =
           await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -908,7 +908,7 @@ export class BankAccountsService {
                 account.account_type === 'Retention Trust Account'
               ) {
                 for (const projectId of projectIds) {
-                  console.log(projectId);
+                  this.logger.log('projectId: ' + projectId);
                   this.complianceService.fetchComplianceResultsOfAProject({
                     project_id: projectId,
                     bank_account_type: account.account_type,
@@ -927,7 +927,7 @@ export class BankAccountsService {
           `${bank_account_id}/` +
           `${bankAccountDetails.company_id}` +
           `?from=log`;
-        console.log('bankAccountLink', bankAccountLink);
+        this.logger.log('bankAccountLink: ' + bankAccountLink);
 
         let eventTemplateId;
         if (data.status === 'Deleted') {
@@ -1825,7 +1825,7 @@ export class BankAccountsService {
         .andWhere(`delegate_powers = 'No'`)
         .execute();
 
-      console.log(response.affected);
+      this.logger.log('response.affected: ' + response.affected);
 
       const details_for_compli_trigger =
         await this.fetchBankAccountDetailsforCompliance(data.account_ids);

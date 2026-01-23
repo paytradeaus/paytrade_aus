@@ -10,6 +10,7 @@ import {
 } from 'xero-node';
 import * as dotenv from 'dotenv';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 var moment = require('moment-timezone');
@@ -36,6 +37,7 @@ dotenv.config();
 
 @Injectable()
 export class XeroService {
+  private logger = new PaytradeLogger('XERO_SERVICE');
   private xero: XeroClient;
   constructor(
     @InjectRepository(XeroIntegrationDetails)
@@ -254,7 +256,7 @@ export class XeroService {
       return updatedXero;
     } catch (error) {
       const errMsg = await handleAxiosError(error);
-      console.error('Inside handleCallback:: error', error);
+      this.logger.error(`Inside handleCallback:: error ${JSON.stringify(error)}`);
       throw new Error(errMsg);
     }
   }

@@ -298,7 +298,7 @@ export class TransactionsResolver {
               account.account_type === 'Retention Trust Account'
             ) {
               for (const projectId of projectIds) {
-                console.log(projectId);
+                this.logger.log(`projectId: ${projectId}`);
                 await this.complianceService.fetchComplianceResultsOfAProject({
                   project_id: projectId,
                   bank_account_type: account.account_type,
@@ -464,7 +464,7 @@ export class TransactionsResolver {
         const company_id = response?.data?.payments[0]?.company_id;
         const xeroDetails =
           await this.xeroService.getIntegrationDetails(company_id);
-        console.log({ xeroDetails });
+        this.logger.log(JSON.stringify({ xeroDetails }));
         if (
           xeroDetails &&
           xeroDetails.integration_id &&
@@ -537,7 +537,7 @@ export class TransactionsResolver {
 
               const overPaymentDetails =
                 await this.paymentsService.fetchOverPaymentDetails(payment_id);
-              console.log({ overPaymentDetails });
+              this.logger.log(JSON.stringify({ overPaymentDetails }));
               if (overPaymentDetails && overPaymentDetails.length > 0) {
                 for (const element of overPaymentDetails) {
                   if (
@@ -558,7 +558,7 @@ export class TransactionsResolver {
                     });
                   }
                 }
-                console.log({ overpaymentPayloads });
+                this.logger.log(JSON.stringify({ overpaymentPayloads }));
               }
             } else if (
               paymentDetails &&
@@ -577,7 +577,7 @@ export class TransactionsResolver {
                   paymentDetails.payment_id,
                   xeroDetails.integration_id,
                 );
-              console.log({ isExisted });
+              this.logger.log(JSON.stringify({ isExisted }));
               if (!isExisted) {
                 const createOverPaymentRefundDetails =
                   await this.xeroPaymentsService.createOverPaymentRefund(
@@ -588,9 +588,8 @@ export class TransactionsResolver {
                         paymentDetails.associatedOverPayment.payment_id,
                     },
                   );
-                console.log(
-                  'createOverPaymentRefundDetails: ',
-                  createOverPaymentRefundDetails,
+                this.logger.log(
+                  `createOverPaymentRefundDetails: ${JSON.stringify(createOverPaymentRefundDetails)}`,
                 );
               }
             } else if (
@@ -609,7 +608,7 @@ export class TransactionsResolver {
                   paymentDetails.payment_id,
                   xeroDetails.integration_id,
                 );
-              console.log({ isExisted });
+              this.logger.log(JSON.stringify({ isExisted }));
               if (!isExisted) {
                 overpaymentPayloads.push({
                   payment_id: paymentDetails.payment_id,
@@ -621,10 +620,10 @@ export class TransactionsResolver {
                   payment_date: paymentDetails.payment_date,
                 });
               }
-              console.log('overpaymentPayloads: ', overpaymentPayloads);
+              this.logger.log(`overpaymentPayloads: : ${JSON.stringify(overpaymentPayloads)}`);
             }
           }
-          console.log({ xeroPayloads });
+          this.logger.log(JSON.stringify({ xeroPayloads }));
           if (xeroPayloads && xeroPayloads.length > 0) {
             for (const xeroPayload of xeroPayloads) {
               const isExisted =
@@ -632,14 +631,14 @@ export class TransactionsResolver {
                   xeroPayload.payment_id,
                   xeroDetails.integration_id,
                 );
-              console.log({ isExisted });
+              this.logger.log(JSON.stringify({ isExisted }));
               if (!isExisted) {
                 const createPaymentDetails =
                   await this.xeroPaymentsService.createPayment(
                     decoded,
                     xeroPayload,
                   );
-                console.log('createPaymentDetails: ', createPaymentDetails);
+                this.logger.log(`createPaymentDetails: : ${JSON.stringify(createPaymentDetails)}`);
               }
             }
           }
@@ -651,9 +650,8 @@ export class TransactionsResolver {
                   decoded,
                   overpaymentPayload,
                 );
-              console.log(
-                'createOverPaymentDetails: ',
-                createOverPaymentDetails,
+              this.logger.log(
+                `createOverPaymentDetails: ${JSON.stringify(createOverPaymentDetails)}`,
               );
             }
           }
@@ -845,7 +843,7 @@ export class TransactionsResolver {
                   await this.paymentsService.fetchOverPaymentDetails(
                     payment_id,
                   );
-                console.log({ overPaymentDetails });
+                this.logger.log(JSON.stringify({ overPaymentDetails }));
                 if (overPaymentDetails && overPaymentDetails.length > 0) {
                   for (const element of overPaymentDetails) {
                     if (
@@ -858,9 +856,9 @@ export class TransactionsResolver {
                       });
                     }
                   }
-                  console.log({ overpaymentPayloads });
+                  this.logger.log(JSON.stringify({ overpaymentPayloads }));
                 }
-                console.log({ xeroPayloads });
+                this.logger.log(JSON.stringify({ xeroPayloads }));
                 if (xeroPayloads && xeroPayloads.length > 0) {
                   for (const xeroPayload of xeroPayloads) {
                     const deletePaymentDetails =
@@ -868,7 +866,7 @@ export class TransactionsResolver {
                         decoded,
                         xeroPayload,
                       );
-                    console.log('deletePaymentDetails: ', deletePaymentDetails);
+                    this.logger.log(`deletePaymentDetails: : ${JSON.stringify(deletePaymentDetails)}`);
                   }
                 }
                 if (overpaymentPayloads && overpaymentPayloads.length > 0) {
@@ -878,9 +876,8 @@ export class TransactionsResolver {
                         decoded,
                         overpaymentPayload,
                       );
-                    console.log(
-                      'deleteOverPaymentDetails: ',
-                      deleteOverPaymentDetails,
+                    this.logger.log(
+                      `deleteOverPaymentDetails: ${JSON.stringify(deleteOverPaymentDetails)}`,
                     );
                   }
                 }
@@ -896,9 +893,8 @@ export class TransactionsResolver {
                     decoded,
                     { payment_id: paymentDetails.payment_id },
                   );
-                console.log(
-                  'deleteOverPaymentRefundDetails: ',
-                  deleteOverPaymentRefundDetails,
+                this.logger.log(
+                  `deleteOverPaymentRefundDetails: ${JSON.stringify(deleteOverPaymentRefundDetails)}`,
                 );
               } else if (
                 ['Overpayment to supplier', 'Overpayment from client'].includes(
@@ -916,9 +912,8 @@ export class TransactionsResolver {
                   await this.xeroPaymentsService.deleteOverPayment(decoded, {
                     payment_id: paymentDetails.payment_id,
                   });
-                console.log(
-                  'deleteOverPaymentDetails: ',
-                  deleteOverPaymentDetails,
+                this.logger.log(
+                  `deleteOverPaymentDetails: ${JSON.stringify(deleteOverPaymentDetails)}`,
                 );
               }
             }
