@@ -90,9 +90,9 @@ export class AdminCompliancesService {
           },
           {},
         );
-        console.log('inactiveChecksOfPTA', inactiveChecksOfPTA);
+        this.logger.log(`inactiveChecksOfPTA: ${JSON.stringify(inactiveChecksOfPTA)}`);
         const inactiveChecksArray = Object.keys(inactiveChecksOfPTA);
-        console.log('inactiveChecksArray', inactiveChecksArray);
+        this.logger.log(`inactiveChecksArray: ${JSON.stringify(inactiveChecksArray)}`);
         const inactiveCheckNames = [];
         for (let i = 0; i < inactiveChecksArray.length; i++) {
           for (let j = 0; j < compliancePTAChecks.length; j++) {
@@ -101,7 +101,7 @@ export class AdminCompliancesService {
             }
           }
         }
-        console.log('inactiveCheckNames', inactiveCheckNames);
+        this.logger.log(`inactiveCheckNames: ${JSON.stringify(inactiveCheckNames)}`);
 
         if (inactiveCheckNames.length) {
           await this.complianceChecksRepo
@@ -111,7 +111,7 @@ export class AdminCompliancesService {
             .where('check_name IN (:...names)', { names: inactiveCheckNames })
             .andWhere({ bank_account_type: 'Project Trust Account' })
             .execute();
-          console.log('--------->1');
+          this.logger.log(`Updated inactive checks for PTA`);
         }
 
         //Updating active checks of PTA.
@@ -124,9 +124,9 @@ export class AdminCompliancesService {
           },
           {},
         );
-        console.log('activeChecksOfPTA', activeChecksOfPTA);
+        this.logger.log(`activeChecksOfPTA: ${JSON.stringify(activeChecksOfPTA)}`);
         const activeChecksArray = Object.keys(activeChecksOfPTA);
-        console.log('activeChecksArray', activeChecksArray);
+        this.logger.log(`activeChecksArray: ${JSON.stringify(activeChecksArray)}`);
         const activeCheckNames = [];
         for (let i = 0; i < activeChecksArray.length; i++) {
           for (let j = 0; j < compliancePTAChecks.length; j++) {
@@ -135,7 +135,7 @@ export class AdminCompliancesService {
             }
           }
         }
-        console.log('activeCheckNames', activeCheckNames);
+        this.logger.log(`activeCheckNames: ${JSON.stringify(activeCheckNames)}`);
 
         if (activeCheckNames.length) {
           await this.complianceChecksRepo
@@ -146,7 +146,7 @@ export class AdminCompliancesService {
             .andWhere({ bank_account_type: 'Project Trust Account' })
             .execute();
         }
-        console.log('--------->2');
+        this.logger.log(`Finished processing active checks for PTA`);
       } else if (retentionTrustAccount) {
         //Updating the inactive checks of RTA.
         const inactiveChecksOfRTA = Object.entries(
@@ -157,9 +157,9 @@ export class AdminCompliancesService {
           }
           return acc;
         }, {});
-        console.log('inactiveChecksOfRTA', inactiveChecksOfRTA);
+        this.logger.log(`inactiveChecksOfRTA: ${JSON.stringify(inactiveChecksOfRTA)}`);
         const inactiveChecksArray = Object.keys(inactiveChecksOfRTA);
-        console.log('inactiveChecksArray', inactiveChecksArray);
+        this.logger.log(`inactiveChecksArray: ${JSON.stringify(inactiveChecksArray)}`);
 
         const inactiveCheckNames = [];
         for (let i = 0; i < inactiveChecksArray.length; i++) {
@@ -169,7 +169,7 @@ export class AdminCompliancesService {
             }
           }
         }
-        console.log('inactiveCheckNames', inactiveCheckNames);
+        this.logger.log(`inactiveCheckNames: ${JSON.stringify(inactiveCheckNames)}`);
 
         if (inactiveCheckNames.length) {
           await this.complianceChecksRepo
@@ -179,7 +179,7 @@ export class AdminCompliancesService {
             .where('check_name IN (:...names)', { names: inactiveCheckNames })
             .andWhere({ bank_account_type: 'Retention Trust Account' })
             .execute();
-          console.log('--------->2');
+          this.logger.log(`Updated inactive checks for RTA`);
         }
 
         //Updating the active checks of RTA.
@@ -192,9 +192,9 @@ export class AdminCompliancesService {
           },
           {},
         );
-        console.log('activeChecksOfRTA', activeChecksOfRTA);
+        this.logger.log(`activeChecksOfRTA: ${JSON.stringify(activeChecksOfRTA)}`);
         const activeChecksArray = Object.keys(activeChecksOfRTA);
-        console.log('activeChecksArray', activeChecksArray);
+        this.logger.log(`activeChecksArray: ${JSON.stringify(activeChecksArray)}`);
 
         const activeCheckNames = [];
         for (let i = 0; i < activeChecksArray.length; i++) {
@@ -204,7 +204,7 @@ export class AdminCompliancesService {
             }
           }
         }
-        console.log('activeCheckNames', activeCheckNames);
+        this.logger.log(`activeCheckNames: ${JSON.stringify(activeCheckNames)}`);
 
         if (activeCheckNames.length) {
           await this.complianceChecksRepo
@@ -214,7 +214,7 @@ export class AdminCompliancesService {
             .where('check_name IN (:...names)', { names: activeCheckNames })
             .andWhere({ bank_account_type: 'Retention Trust Account' })
             .execute();
-          console.log('--------->2');
+          this.logger.log(`Finished processing active checks for RTA`);
         }
       }
       this.logger.log(
@@ -281,7 +281,7 @@ export class AdminCompliancesService {
       for (const projectId of projectIds) {
         const isPTA = bank_account_type === 'Project Trust Account'
         await this.ptContentService.syncCompliancesOfProject(projectId, check_number, isPTA);
-        console.log("Updated Project Compliance - ", projectId)
+        this.logger.log(`Updated Project Compliance - ${projectId}`);
       }
     } catch (error) {
       this.logger.error(
@@ -361,7 +361,7 @@ export class AdminCompliancesService {
       );
 
       const { company_id, project_id, bank_account_id } = data;
-      console.log('data', data);
+      this.logger.log(`fetchAllFiltersInAdminCompliancesList data: ${JSON.stringify(data)}`);
       const companyDetails =
         await this.companyDetailsRepo.createQueryBuilder('company');
       const bankAccountDetails =
@@ -401,37 +401,37 @@ export class AdminCompliancesService {
       }
 
       const companies = await companyDetails.getMany();
-      console.log('companies', companies);
+      this.logger.log(`Fetched companies: ${companies.length}`);
       const accounts = await bankAccountDetails.getMany();
-      console.log('accounts', accounts);
+      this.logger.log(`Fetched accounts: ${accounts.length}`);
       const projects = await projectDetails.getMany();
-      console.log('projects', projects);
+      this.logger.log(`Fetched projects: ${projects.length}`);
 
       const accountTypes = await bankAccountDetails
         .select('DISTINCT account.account_type')
         .getRawMany();
-      console.log('accountTypes', accountTypes);
+      this.logger.log(`Fetched account types: ${accountTypes.length}`);
       const account_types = accountTypes
         .filter((result) => result.account_type !== 'Cash Account')
         .map((result) => result.account_type);
-      console.log('account_types', account_types);
+      this.logger.log(`Filtered account types: ${account_types.length}`);
       const company_list: IListOfCompanies[] = companies.map((company) => ({
         company_id: company.company_id,
         company_name: company.company_name,
       }));
-      console.log('company_list', company_list);
+      this.logger.log(`Mapped company list: ${company_list.length} items`);
 
       const account_list: IListOfBankAccounts[] = accounts.map((account) => ({
         bank_account_id: account.bank_account_id,
         bank_account_name: account.account_name,
       }));
-      console.log('account_list', account_list);
+      this.logger.log(`Mapped account list: ${account_list.length} items`);
 
       const project_list: IListOfProjects[] = projects.map((project) => ({
         project_id: project.project_id,
         project_name: project.project_name,
       }));
-      console.log('project_list', project_list);
+      this.logger.log(`Mapped project list: ${project_list.length} items`);
 
       this.logger.log(
         `Fetched filters for admin compliances list with data: ${JSON.stringify({ company_list, account_list, project_list })}`,
@@ -455,7 +455,7 @@ export class AdminCompliancesService {
   ) {
     try {
       const { contract_value, admin_id } = data;
-      console.log('contract_value', contract_value);
+      this.logger.log(`Setting contract value: ${contract_value}`);
 
       const createdContractDetails =
         await this.complianceSettingsRepo.create(data);
@@ -482,9 +482,9 @@ export class AdminCompliancesService {
         select: ['contract_value'],
         order: { created_on: 'DESC' },
       });
-      console.log('fetchedContractDetails', fetchedContractDetails);
+      this.logger.log(`Fetched contract details for admin: ${data.admin_id}`);
       const contractValue = fetchedContractDetails?.contract_value;
-      console.log('contractValue', contractValue);
+      this.logger.log(`Retrieved contract value: ${contractValue}`);
 
       return framedResponse(
         'SUCCESS',

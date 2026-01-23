@@ -11,14 +11,18 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 import { jwtConstants } from '../constants';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { JwtService } from '@nestjs/jwt';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  private logger: PaytradeLogger;
+
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
   ) {
     super();
+    this.logger = new PaytradeLogger('JWT_AUTH_GUARD');
   }
 
   canActivate(context: ExecutionContext) {
@@ -47,7 +51,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
           'Your session has expired. Please log in again.',
         );
       }
-      console.error('JWT Verification Error:', error);
+      this.logger.error(`JWT Verification Error: ${JSON.stringify(error)}`);
       throw new ForbiddenException('Invalid token');
     }
   }

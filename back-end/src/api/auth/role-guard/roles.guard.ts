@@ -14,16 +14,21 @@ import { AdminDetails } from 'src/entities/admin-details.entity';
 import { Repository } from 'typeorm';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { JwtService } from '@nestjs/jwt';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private logger: PaytradeLogger;
+
   constructor(
     private reflector: Reflector,
     private readonly jwtService: JwtService,
     @InjectRepository(UserDetails) private userDetails: Repository<UserDetails>,
     @InjectRepository(AdminDetails)
     private adminDetails: Repository<AdminDetails>,
-  ) {}
+  ) {
+    this.logger = new PaytradeLogger('ROLES_GUARD');
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
@@ -73,7 +78,7 @@ export class RolesGuard implements CanActivate {
           'Your session has expired. Please log in again.',
         );
       }
-      console.error('Error in RolesGuard:', error);
+      this.logger.error(`Error in RolesGuard: ${JSON.stringify(error)}`);
       throw new ForbiddenException('Access denied.');
     }
   }
