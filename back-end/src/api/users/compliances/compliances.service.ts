@@ -1531,6 +1531,9 @@ export class CompliancesService {
           `;
 
         session.results.forEach((result) => {
+          const actionButtonType = result.action_button_type;
+          const showActionButton = actionButtonType && actionButtonType !== 'NONE';
+          
           // **Each result should have a separate box inside the check**
           htmlString += `
               <div style="border: 1px solid ${result.display_message_colour}; background-color: #fff3f3; padding: 12px; border-radius: 4px; margin-bottom: 12px;">
@@ -1540,11 +1543,13 @@ export class CompliancesService {
                 <div style="font-size: 14px; font-weight: bold; color: #D32F2F;">
                   ${result.display_message}
                 </div>
+                ${showActionButton ? `
                 <a href="${complianceLink}" target="_blank" style="text-decoration: none;">
                   <button style="background-color: #1583D8; color: white; font-size: 14px; font-weight: bold; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
-                    ${result.action_button_type.replace(/_/g, ' ')}
+                    ${actionButtonType.replace(/_/g, ' ')}
                   </button>
                 </a>
+                ` : ''}
               </div>
             `;
         });
