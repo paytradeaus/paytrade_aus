@@ -45,12 +45,13 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME` - PostgreSQL connection
 - `PORT` - Backend server port (3001)
 - `REDIS_HOST`, `REDIS_PORT` - Redis connection for BullMQ (development only)
-- `REDIS_URL` - Upstash Redis URL (production only, used when NODE_ENV=production)
+- `REDIS_URL` - Upstash Redis URL (production only, used when REPLIT_DEPLOYMENT=1)
 - `BULL_USER`, `BULL_PASSWORD` - Bull board authentication
 
 ## Redis Configuration
 - **Development**: Uses local redis-server (127.0.0.1:6379) - isolated queue for dev testing
 - **Production**: Uses Upstash Redis (REDIS_URL) - shared production queue
+- **Detection**: Uses `REPLIT_DEPLOYMENT === '1'` (automatically set in published deployments) instead of NODE_ENV
 - This separation prevents development from processing production Xero webhook jobs
 
 ### Frontend
