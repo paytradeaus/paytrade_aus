@@ -174,8 +174,9 @@ export class PaytradeLogger implements LoggerService {
 
     fs.appendFileSync(this.logFilePath, logLine + '\n');
 
-    if (this.isProduction && this.objectStorageClient) {
-      this.logBuffer.push(logLine);
+    // Use shared client directly - don't rely on instance isProduction flag
+    if (sharedObjectStorageClient) {
+      sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
   }
@@ -196,8 +197,8 @@ export class PaytradeLogger implements LoggerService {
     const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [DEBUG] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
     
-    if (this.isProduction && this.objectStorageClient) {
-      this.logBuffer.push(logLine);
+    if (sharedObjectStorageClient) {
+      sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
   }
@@ -206,8 +207,8 @@ export class PaytradeLogger implements LoggerService {
     const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [VERBOSE] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
     
-    if (this.isProduction && this.objectStorageClient) {
-      this.logBuffer.push(logLine);
+    if (sharedObjectStorageClient) {
+      sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
   }
