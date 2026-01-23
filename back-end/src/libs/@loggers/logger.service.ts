@@ -24,7 +24,8 @@ export class PaytradeLogger implements LoggerService {
   private readonly isProduction: boolean;
 
   constructor(context?: string) {
-    this.isProduction = process.env.NODE_ENV === 'production';
+    // Use REPLIT_DEPLOYMENT to detect actual production deployment
+    this.isProduction = process.env.REPLIT_DEPLOYMENT === '1';
     this.dateToday = new Date().toJSON().slice(0, 10);
     this.context = context;
 
@@ -180,18 +181,8 @@ export class PaytradeLogger implements LoggerService {
 
   private formatTimestamp(): string {
     const now = new Date();
-    // Use Australia/Sydney timezone for consistency with business operations
-    const options: Intl.DateTimeFormatOptions = {
-      timeZone: 'Australia/Sydney',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    };
-    return now.toLocaleString('en-AU', options);
+    // Use UTC for consistent timestamps across all users
+    return now.toISOString();
   }
 
   private writeLog(level: string, message: string): void {

@@ -218,7 +218,8 @@ import { ObjectStorageModule } from './libs/@object-storage';
     }),
     BullModule.forRoot({
       connection:
-        process.env.NODE_ENV === 'production' && process.env.REDIS_URL
+        // Use REPLIT_DEPLOYMENT to detect actual production deployment
+        process.env.REPLIT_DEPLOYMENT === '1' && process.env.REDIS_URL
           ? {
               url: process.env.REDIS_URL,
               tls: process.env.REDIS_URL.startsWith('rediss://')
