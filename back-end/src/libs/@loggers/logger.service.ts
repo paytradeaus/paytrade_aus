@@ -8,14 +8,15 @@ import { Client } from '@replit/object-storage';
 const logsDirectory = 'logs';
 const objectStorageLogsPrefix = 'application-logs';
 
+let sharedObjectStorageClient: Client | null = null;
+let sharedLogBuffer: string[] = [];
+let sharedFlushTimeout: NodeJS.Timeout | null = null;
+
 @Injectable()
 export class PaytradeLogger implements LoggerService {
   private readonly logFilePath: string;
   private readonly context: string;
   private readonly dateToday: string;
-  private objectStorageClient: Client | null = null;
-  private logBuffer: string[] = [];
-  private flushTimeout: NodeJS.Timeout | null = null;
   private readonly isProduction: boolean;
 
   constructor(context?: string) {
@@ -28,13 +29,35 @@ export class PaytradeLogger implements LoggerService {
     }
     this.logFilePath = path.join(logsDirectory, `${this.dateToday}.log`);
 
-    if (this.isProduction) {
+    if (this.isProduction && !sharedObjectStorageClient) {
+      console.log(`[PaytradeLogger] Production mode detected (NODE_ENV=${process.env.NODE_ENV}), initializing Object Storage logging...`);
       try {
-        this.objectStorageClient = new Client();
+        sharedObjectStorageClient = new Client();
+        console.log('[PaytradeLogger] Object Storage client initialized successfully');
       } catch (error) {
-        console.error('Failed to initialize Object Storage client for logging:', error);
+        console.error('[PaytradeLogger] Failed to initialize Object Storage client:', error);
       }
     }
+  }
+
+  private get objectStorageClient(): Client | null {
+    return sharedObjectStorageClient;
+  }
+
+  private get logBuffer(): string[] {
+    return sharedLogBuffer;
+  }
+
+  private set logBuffer(value: string[]) {
+    sharedLogBuffer = value;
+  }
+
+  private get flushTimeout(): NodeJS.Timeout | null {
+    return sharedFlushTimeout;
+  }
+
+  private set flushTimeout(value: NodeJS.Timeout | null) {
+    sharedFlushTimeout = value;
   }
 
   @Cron('0 0 * * *')
@@ -120,11 +143,11 @@ export class PaytradeLogger implements LoggerService {
       
       const uploadResult = await this.objectStorageClient.uploadFromText(objectPath, newContent);
       if (!uploadResult.ok) {
-        console.error('Failed to upload logs to Object Storage:', uploadResult.error);
+        console.error('[PaytradeLogger] Failed to upload logs to Object Storage:', uploadResult.error);
         this.logBuffer = [...logsToWrite, ...this.logBuffer];
       }
     } catch (error) {
-      console.error('Error flushing logs to Object Storage:', error);
+      console.error('[PaytradeLogger] Error flushing logs to Object Storage:', error);
       this.logBuffer = [...logsToWrite, ...this.logBuffer];
     }
   }
