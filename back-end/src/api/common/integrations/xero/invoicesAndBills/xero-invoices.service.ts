@@ -816,7 +816,8 @@ export class XeroInvoicesService {
           );
         }, 0.0);
         for (const element of invoices) {
-          const retentionShare = claimDetails.retention_amount
+          // Protect against division by zero to prevent Infinity/NaN values
+          const retentionShare = claimDetails.retention_amount && totalLineAmount !== 0
             ? ((claimDetails.is_gst_optional
                 ? Number(claimDetails.retention_amount) * 1.1
                 : Number(claimDetails.retention_amount)) *
@@ -2873,13 +2874,15 @@ export class XeroInvoicesService {
           ? item.unitAmount * item.quantity
           : item.unitAmount * item.quantity + item.taxAmount;
 
-      const itemRatio = lineAmount / totalOriginal;
+      // Protect against division by zero to prevent Infinity/NaN values
+      const itemRatio = totalOriginal !== 0 ? lineAmount / totalOriginal : 0;
 
       const retentionShare = retentionAmountIncludingGST * itemRatio;
 
-      const baseRatio = unitAmount / lineAmount;
+      // Protect against division by zero to prevent Infinity/NaN values
+      const baseRatio = lineAmount !== 0 ? unitAmount / lineAmount : 0;
 
-      const taxRatio = item.taxAmount / lineAmount;
+      const taxRatio = lineAmount !== 0 ? item.taxAmount / lineAmount : 0;
 
       const unitRetention = retentionShare * baseRatio;
       const taxRetention = retentionShare * taxRatio;
