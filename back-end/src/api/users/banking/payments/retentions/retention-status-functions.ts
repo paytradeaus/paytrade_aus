@@ -46,6 +46,21 @@ export class RetentionStatusFunctions {
       );
 
       const { sub_payment_id } = data;
+      
+      // First check if the sub_payment exists
+      const subPaymentExists = await this.subPaymentsRepo.findOne({
+        where: { sub_payment_id: sub_payment_id as any },
+      });
+      this.logger.log(`subPaymentExists: ${JSON.stringify(subPaymentExists)}`);
+      
+      if (!subPaymentExists) {
+        this.logError(`Sub payment with ID ${sub_payment_id} does not exist in database`);
+        return framedResponse(
+          'ERROR',
+          `Sub payment with ID ${sub_payment_id} does not exist`,
+        );
+      }
+      
       const payment_details = await this.subPaymentsRepo
         .createQueryBuilder('sp')
         .select([
@@ -62,6 +77,15 @@ export class RetentionStatusFunctions {
         .where('sp.sub_payment_id = :sub_payment_id', { sub_payment_id })
         .getRawOne();
       this.logger.log(`payment_details: ${JSON.stringify(payment_details)}`);
+
+      // Check if payment_details exists before accessing properties
+      if (!payment_details) {
+        this.logError(`No payment details found for sub_payment_id: ${sub_payment_id}. SubPayment exists but join query returned no results.`);
+        return framedResponse(
+          'ERROR',
+          `No payment details found for sub_payment_id: ${sub_payment_id}`,
+        );
+      }
 
       //Update the status of retention list entry if the payment type is Pay Less - Full or Pay Less - Part.
       if (
