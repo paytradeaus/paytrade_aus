@@ -38,6 +38,7 @@ export class RetentionStatusFunctions {
   }
 
   async updateClaimCompletedStatusOfRetention(
+    transactionalEntityManager: EntityManager,
     data: IUpdateClaimCompletedStatusOfRetention,
   ) {
     try {
@@ -47,8 +48,8 @@ export class RetentionStatusFunctions {
 
       const { sub_payment_id } = data;
       
-      // First check if the sub_payment exists
-      const subPaymentExists = await this.subPaymentsRepo.findOne({
+      // First check if the sub_payment exists (using transaction manager to see uncommitted data)
+      const subPaymentExists = await transactionalEntityManager.findOne(SubPayments, {
         where: { sub_payment_id: sub_payment_id as any },
       });
       this.logger.log(`subPaymentExists: ${JSON.stringify(subPaymentExists)}`);
@@ -61,8 +62,9 @@ export class RetentionStatusFunctions {
         );
       }
       
-      const payment_details = await this.subPaymentsRepo
-        .createQueryBuilder('sp')
+      // Use transactionalEntityManager to query within the same transaction
+      const payment_details = await transactionalEntityManager
+        .createQueryBuilder(SubPayments, 'sp')
         .select([
           'pd.payment_type AS payment_type',
           'pd.payment_claim_id AS payment_claim_id',
@@ -93,7 +95,7 @@ export class RetentionStatusFunctions {
         payment_details.payment_type == 'Full'
       ) {
         this.logger.log('------3');
-        await this.retentionDetailsRepo
+        await transactionalEntityManager
           .createQueryBuilder()
           .update(RetentionDetails)
           .set({
@@ -105,8 +107,8 @@ export class RetentionStatusFunctions {
           .execute();
         this.logger.log('------2');
       } else if (payment_details.payment_type == 'Pay Less - Part') {
-        const payless_part_payment_details = await this.paymentsRepo
-          .createQueryBuilder('pd')
+        const payless_part_payment_details = await transactionalEntityManager
+          .createQueryBuilder(PaymentDetails, 'pd')
           .select([
             'pc.retention_id AS retention_id',
             'pc.claim_amount AS claim_amount',
@@ -144,7 +146,7 @@ export class RetentionStatusFunctions {
 
         //Update the status as Claim completed if sum of all the payment amounts is equal to claim amount.
         if (payless_amount == total_payment_amounts) {
-          await this.retentionDetailsRepo
+          await transactionalEntityManager
             .createQueryBuilder()
             .update(RetentionDetails)
             .set({
@@ -156,8 +158,8 @@ export class RetentionStatusFunctions {
             .execute();
         }
       } else if (payment_details.payment_type == 'Part') {
-        const part_payment_details = await this.paymentsRepo
-          .createQueryBuilder('pd')
+        const part_payment_details = await transactionalEntityManager
+          .createQueryBuilder(PaymentDetails, 'pd')
           .select([
             'pc.claim_amount AS claim_amount',
             'pd.total_amount AS payment_amount',
@@ -188,7 +190,7 @@ export class RetentionStatusFunctions {
 
         //Update the status as Claim completed if sum of all the payment amounts is equal to claim amount.
         if (part_payment_details[0].claim_amount == total_payment_amounts) {
-          await this.retentionDetailsRepo
+          await transactionalEntityManager
             .createQueryBuilder()
             .update(RetentionDetails)
             .set({

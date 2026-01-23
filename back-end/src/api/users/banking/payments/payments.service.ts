@@ -6504,6 +6504,7 @@ export class PaymentsService {
 
               const updatedClaimCompletedStatusOfRetentions =
                 await this.retentionStatusFns.updateClaimCompletedStatusOfRetention(
+                  transactionalEntityManager,
                   {
                     sub_payment_id: payment.sub_payment_id,
                   },
