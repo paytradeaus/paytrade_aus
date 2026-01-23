@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   BUTTON_DEMO_TEXT,
   BUTTON_EXPLORE_FEATURES_TEXT,
@@ -189,10 +190,15 @@ export default function HomeScreenPage() {
               <div className="blurblobtheme"></div>
             </div>
             <div className="pt_hometopimage">
-              <img
+              <Image
                 alt={"Dashboard mockup"}
                 src="/images/mockupshots.png"
                 className="mockupshots"
+                width={600}
+                height={400}
+                style={{ width: 'auto', height: 'auto' }}
+                priority
+                unoptimized
               />
               <div className="blurblobriver"></div>
               <div className="blurblobcoral"></div>
