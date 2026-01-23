@@ -377,14 +377,11 @@ export class CompliancesService {
         bank_account_type: 'Project Trust Account',
         failedFilter: false,
       });
-      // console.log('complianceResultsOfPta', complianceResultsOfPta);
       const complianceResultsOfRta = await this.getComplianceData({
         project_id,
         bank_account_type: 'Retention Trust Account',
         failedFilter: false,
       });
-      // console.log('complianceResultsOfRta', complianceResultsOfRta);
-      // console.log(
       //   'complianceResultsOfRtaResults',
       //   complianceResultsOfRta.data[0].results,
       // );
@@ -441,8 +438,6 @@ export class CompliancesService {
         }
       }
 
-      // console.log('statusesOfPTA', statusesOfPTA);
-      // console.log('statusesOfRTA', statusesOfRTA);
 
       const projectDetails = await this.projectsRepo.findOne({
         where: { project_id },
@@ -551,7 +546,6 @@ export class CompliancesService {
       );
 
       const { project_id, bank_account_type, failedFilter } = data;
-      // console.log('data', data);
       let complianceResults = [];
       const requiredProjectDetails = await this.projectsRepo.findOne({
         where: { project_id },
@@ -591,7 +585,6 @@ export class CompliancesService {
             const fetchedAllContents = await this.complianceChecksRepo.find({
               where: { bank_account_type: 'Project Trust Account' },
             });
-            // console.log('fetchedAllContentsInPTA', fetchedAllContents);
 
             const fetchedAllRules = await this.ptaCompliancesRepo.find({
               where: { bank_account_type: 'Project Trust Account' },
@@ -605,7 +598,6 @@ export class CompliancesService {
                 'rule_number',
               ],
             });
-            // console.log("fetchedAllRule", fetchedAllRules)
 
             const AllRulesOfPTA = await this.complianceChecksRepo.find({
               where: { bank_account_type: 'Project Trust Account' },
@@ -616,7 +608,6 @@ export class CompliancesService {
                 'is_active',
               ],
             });
-            // console.log('AllRulesOfPTA', AllRulesOfPTA);
 
             const functionNameMap: Record<string, string> = {};
             for (const rule of AllRulesOfPTA) {
@@ -709,7 +700,6 @@ export class CompliancesService {
             const fetchedAllContents = await this.complianceChecksRepo.find({
               where: { bank_account_type: 'Retention Trust Account' },
             });
-            // console.log('fetchedAllContentsInRTA', fetchedAllContents);
 
             const fetchedAllRules = await this.rtaCompliancesRepo.find({
               where: { bank_account_type: 'Retention Trust Account' },
@@ -723,7 +713,6 @@ export class CompliancesService {
                 'rule_number',
               ],
             });
-            // console.log('fetchedAllRulesInRTA', fetchedAllRules);
 
             const retentionTrustAccount = await this.bankAccountsRepo
               .createQueryBuilder('ba')
@@ -744,7 +733,6 @@ export class CompliancesService {
               })
               .orderBy({ 'ba.created_on': 'ASC' })
               .getRawOne();
-            // console.log('retentionTrustAccount', retentionTrustAccount);
 
             const AllRulesOfRTA = await this.complianceChecksRepo.find({
               where: { bank_account_type: 'Retention Trust Account' },
@@ -755,7 +743,6 @@ export class CompliancesService {
                 'is_active',
               ],
             });
-            // console.log('AllRulesOfPTA', AllRulesOfPTA);
 
             const functionNameMap: Record<string, string> = {};
             for (const rule of AllRulesOfRTA) {
@@ -844,20 +831,16 @@ export class CompliancesService {
           }
           break;
       }
-      // console.log('compliance_results', complianceResults);
       this.logger.log(
         `Compliance results obtained successfully with data: ${JSON.stringify(complianceResults)}`,
       );
 
-      // console.log('complianceResults', complianceResults);
       const flattenedData = complianceResults.flat();
-      // console.log('flattenedData', flattenedData);
       const sortedData = flattenedData.sort((a, b) => {
         if (a.check_number === undefined) return 1; // move undefined to the end
         if (b.check_number === undefined) return -1;
         return a.check_number - b.check_number;
       });
-      // console.log('sortedData', sortedData);
       // const groupedData: { [key: number]: any[] } = sortedData.reduce(
       //   (acc, item) => {
       //     if (!acc[item.check_number]) {
@@ -1324,7 +1307,6 @@ export class CompliancesService {
         }
       }
 
-      // console.log('processedResults', processedResults);
       // Filter out null values (those with zero issues)
       const resultsWithComplianceIssues = processedResults.filter(
         (res) => res.number_of_issues != 0,
@@ -1605,7 +1587,6 @@ export class CompliancesService {
   //   });
 
   //   // if (existingCheckpoints.length > 2) {
-  //   //   console.log(`Skipping insert for project ${projectId} as multiple checkpoints already exist`);
   //   //   return;
   //   // }
 
@@ -1866,7 +1847,6 @@ export class CompliancesService {
             existing_saved_compliance.pta_compliances.find(
               (pta) => pta.check_number === compliance.check_number,
             );
-          // console.log('Matching Compliance:', matchingCompliance);
           if (matchingCompliance) {
             return {
               ...compliance,
@@ -1952,7 +1932,7 @@ export class CompliancesService {
 
         // Save the entry to the database
         const response = await this.complianceOfProjects.save(complianceEntry);
-        console.log('Compliance data inserted successfully');
+        this.logger.log('Compliance data inserted successfully');
         return response;
       }
     }

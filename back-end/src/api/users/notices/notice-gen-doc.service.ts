@@ -175,11 +175,11 @@ export class NoticeGenDocService {
 
     let browser;
     try {
-      console.log(`[PDF] Launching Puppeteer with options:`, JSON.stringify(launchOptions));
+      this.logger.log(`[PDF] Launching Puppeteer with options: ${JSON.stringify(launchOptions)}`);
       browser = await puppeteer.launch(launchOptions);
-      console.log(`[PDF] Browser launched successfully`);
+      this.logger.log(`[PDF] Browser launched successfully`);
     } catch (error) {
-      console.error('[PDF] Error launching browser:', error);
+      this.logger.error(`[PDF] Error launching browser: ${error}`);
       this.logError(`PDF generation failed - browser launch error: ${error.message}`);
       throw new Error(`PDF generation failed: ${error.message}`);
     }
@@ -242,7 +242,7 @@ export class NoticeGenDocService {
         noticeData,
         outputFilePath,
       );
-      console.log('runJsScriptResponse: ', runJsScriptResponse);
+      this.logger.log(`runJsScriptResponse: ${runJsScriptResponse}`);
       if (runJsScriptResponse) {
         // Upload original notice PDF to Object Storage
         const originalObjectPath = `${outputFolderName}/${outputFileName}`;
@@ -256,7 +256,7 @@ export class NoticeGenDocService {
           attachment_type: 'qbcc_notice_uploads',
         };
 
-        console.log("^%^%^%^save file", createFileUploadInput)
+        this.logger.log(`Saving file: ${JSON.stringify(createFileUploadInput)}`);
 
         const uploadedFile = await this.fileUploadService.saveFile(
           decoded,

@@ -97,7 +97,6 @@ export class CompliancePTAFunctions {
         bank_account_type,
         project_role,
       } = data;
-      // // console.log('data', data);
       const resultsOfCheck = [];
 
       const fetchedContent = await this.complianceChecksRepo.findOne({
@@ -120,7 +119,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...fetchedContent,
@@ -130,18 +128,15 @@ export class CompliancePTAFunctions {
           where: { project_id, client_supplier_role: 'Head Contractor' },
           select: ['initial_contract_sum'],
         });
-        // console.log('fetchedContractDetails', fetchedContractDetails);
         const fetchedVariationDetails = await this.variationsRepo.find({
           where: { project_id, variation_status: 'Agreed' },
           select: ['variation_amount'],
         });
-        // console.log('fetchedVariationDetails', fetchedVariationDetails);
         const sum_of_all_contract_initial_sum = fetchedContractDetails.length
           ? fetchedContractDetails
               .map((contract) => Number(contract.initial_contract_sum))
               .reduce((arr, curr) => arr + curr)
           : 0;
-        // console.log(
         //   'sum_of_all_contract_initial_sum',
         //   sum_of_all_contract_initial_sum,
         // );
@@ -150,14 +145,10 @@ export class CompliancePTAFunctions {
               .map((variation) => Number(variation.variation_amount))
               .reduce((arr, curr) => arr + curr)
           : 0;
-        // console.log('sum_of_all_variation_amounts', sum_of_all_variation_amounts);
 
-        // console.log('fetchedContent', fetchedContent);
 
         const contractValueDetails = await this.complianceSettingsRepo.find();
-        // console.log('contractValueDetails', contractValueDetails);
 
-        // console.log('projectTrustAccounttt', projectTrustAccount);
 
         if (
           Number(head_contract_sum) > contractValueDetails[0].contract_value
@@ -168,7 +159,6 @@ export class CompliancePTAFunctions {
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails2', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -181,7 +171,6 @@ export class CompliancePTAFunctions {
               2,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails3', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -196,7 +185,6 @@ export class CompliancePTAFunctions {
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails2', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{ reference_id: String(projectTrustAccount.bank_account_id) },
@@ -212,7 +200,6 @@ export class CompliancePTAFunctions {
               1,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails1', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContent,
@@ -223,7 +210,6 @@ export class CompliancePTAFunctions {
               1,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails1', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContent,
@@ -241,7 +227,6 @@ export class CompliancePTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails2', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
@@ -271,7 +256,6 @@ export class CompliancePTAFunctions {
               1,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails2', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContent,
@@ -279,7 +263,6 @@ export class CompliancePTAFunctions {
           }
         }
       }
-      // console.log('resultsOfCheck1', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(
@@ -309,7 +292,6 @@ export class CompliancePTAFunctions {
         bank_account_type,
         project_role,
       } = data;
-      // console.log('dataaaaa', data);
       const resultsOfCheck = [];
 
       const fetchedContent = await this.complianceChecksRepo.findOne({
@@ -320,7 +302,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContent', fetchedContent);
 
       const projectData = await this.projectsRepo.findOne({
         where: { project_id },
@@ -333,7 +314,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...fetchedContent,
@@ -343,18 +323,15 @@ export class CompliancePTAFunctions {
           where: { project_id },
           select: ['initial_contract_sum'],
         });
-        // console.log('fetchedContractDetails', fetchedContractDetails);
         const fetchedVariationDetails = await this.variationsRepo.find({
           where: { project_id, variation_status: 'Agreed' },
           select: ['variation_amount'],
         });
-        // console.log('fetchedVariationDetails', fetchedVariationDetails);
         const sum_of_all_contract_initial_sum = fetchedContractDetails.length
           ? fetchedContractDetails
               .map((contract) => Number(contract.initial_contract_sum))
               .reduce((arr, curr) => arr + curr)
           : 0;
-        // console.log(
         //   'sum_of_all_contract_initial_sum',
         //   sum_of_all_contract_initial_sum,
         // );
@@ -363,11 +340,8 @@ export class CompliancePTAFunctions {
               .map((variation) => Number(variation.variation_amount))
               .reduce((arr, curr) => arr + curr)
           : 0;
-        // console.log('sum_of_all_variation_amounts', sum_of_all_variation_amounts);
 
         const contractValueDetails = await this.complianceSettingsRepo.find();
-        // console.log('contractValueDetails', contractValueDetails);
-        // console.log('projectTrustAccounttttt', projectTrustAccount);
 
         if (
           Number(head_contract_sum) > contractValueDetails[0].contract_value
@@ -378,7 +352,6 @@ export class CompliancePTAFunctions {
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails20', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{ reference_id: String(projectTrustAccount.bank_account_id) },
@@ -403,7 +376,6 @@ export class CompliancePTAFunctions {
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails21', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{ reference_id: String(projectTrustAccount.bank_account_id) },
@@ -419,7 +391,6 @@ export class CompliancePTAFunctions {
               1,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails1', fetchedRuleDetails);
             resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
           } else {
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -427,7 +398,6 @@ export class CompliancePTAFunctions {
               1,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails1', fetchedRuleDetails);
             resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
           }
         } else if (pta_eligibility == 'Yes') {
@@ -442,7 +412,6 @@ export class CompliancePTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails22', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
@@ -473,7 +442,6 @@ export class CompliancePTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails21', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
@@ -487,13 +455,11 @@ export class CompliancePTAFunctions {
                 1,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails23', fetchedRuleDetails);
               resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
             }
           }
         }
       }
-      // console.log('resultsOfCheck2', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(`Error: ${error.message}`);
@@ -509,7 +475,6 @@ export class CompliancePTAFunctions {
   ) {
     try {
       const { project_id, id, bank_account_type } = data;
-      // // console.log('data', data);
       const resultsOfCheck = [];
 
       //Check 3 rule 1
@@ -530,7 +495,6 @@ export class CompliancePTAFunctions {
             excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
           })
           .getRawOne();
-      // // console.log(
       //   'qbccTA1ProjectTrustAccountNoticeDetails',
       //   qbccTA1ProjectTrustAccountNoticeDetails,
       // );
@@ -545,7 +509,6 @@ export class CompliancePTAFunctions {
           select: ['rule_number', 'content'],
         },
       );
-      // // console.log('fetchedContentOfFirstRule', fetchedContentOfFirstRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -577,7 +540,6 @@ export class CompliancePTAFunctions {
             businessDays: 5,
             holidayDetails,
           });
-        // // console.log(
         //   'isTodayGreaterThanOpeningDatePlus5BusinessDays',
         //   isTodayGreaterThanOpeningDatePlus5BusinessDays,
         // );
@@ -587,7 +549,6 @@ export class CompliancePTAFunctions {
             3,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -602,7 +563,6 @@ export class CompliancePTAFunctions {
             2,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -623,7 +583,6 @@ export class CompliancePTAFunctions {
           4,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -649,7 +608,6 @@ export class CompliancePTAFunctions {
             excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
           })
           .getRawOne();
-      // // console.log(
       //   'clientS18BProjectTrustAccountNoticeDetails',
       //   clientS18BProjectTrustAccountNoticeDetails,
       // );
@@ -662,7 +620,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf3rdRule', fetchedContentOf3rdRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -670,7 +627,6 @@ export class CompliancePTAFunctions {
           5,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetailsNotices1', fetchedRuleDetails, project_id);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -694,7 +650,6 @@ export class CompliancePTAFunctions {
             businessDays: 5,
             holidayDetails,
           });
-        // // console.log(
         //   'isTodayGreaterThanOpeningDatePlus5BusinessDays',
         //   isTodayGreaterThanOpeningDatePlus5BusinessDays,
         // );
@@ -704,7 +659,6 @@ export class CompliancePTAFunctions {
             7,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -719,7 +673,6 @@ export class CompliancePTAFunctions {
             6,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -741,7 +694,6 @@ export class CompliancePTAFunctions {
           8,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -767,7 +719,6 @@ export class CompliancePTAFunctions {
             excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
           })
           .getRawOne();
-      // // console.log(
       //   'supplierS23ProjectTrustAccountNoticeDetails',
       //   supplierS23ProjectTrustAccountNoticeDetails,
       // );
@@ -780,7 +731,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf2ndRule', fetchedContentOf2ndRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -788,7 +738,6 @@ export class CompliancePTAFunctions {
           9,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotices1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -807,7 +756,6 @@ export class CompliancePTAFunctions {
           10,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -828,7 +776,6 @@ export class CompliancePTAFunctions {
           11,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -854,7 +801,6 @@ export class CompliancePTAFunctions {
             excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
           })
           .getRawOne();
-      // // console.log(
       //   'qbccTa3NoticeOfRelatedEntitiesNoticeDetails',
       //   qbccTa3NoticeOfRelatedEntitiesNoticeDetails,
       // );
@@ -867,7 +813,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf4thRule', fetchedContentOf4thRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -875,7 +820,6 @@ export class CompliancePTAFunctions {
           12,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotices1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -894,7 +838,6 @@ export class CompliancePTAFunctions {
           13,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -912,7 +855,6 @@ export class CompliancePTAFunctions {
           15,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -930,14 +872,12 @@ export class CompliancePTAFunctions {
           14,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...fetchedContentOf4thRule,
         });
       }
-      // // console.log('resultsOfCheck3', resultsOfCheck);
 
       return resultsOfCheck;
     } catch (error) {
@@ -971,7 +911,6 @@ export class CompliancePTAFunctions {
 
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
-      // // console.log('data', data);
 
       //Check 4 rule 1
       const fetchedContent = await this.complianceChecksRepo.findOne({
@@ -982,7 +921,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContent', fetchedContent);
 
       //Returning the results of the rule based upon the delegate powers.
       if (!projectTrustAccount) {
@@ -991,7 +929,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetails1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1006,7 +943,6 @@ export class CompliancePTAFunctions {
             2,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
@@ -1020,7 +956,6 @@ export class CompliancePTAFunctions {
             3,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails3', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...fetchedContent,
@@ -1033,7 +968,6 @@ export class CompliancePTAFunctions {
         2,
         fetchedAllContents,
       );
-      // console.log('fetchedContentOf2ndRule', fetchedContentOf2ndRule);
 
       resultsOfCheck.push(fetchedContentOf2ndRule);
 
@@ -1043,11 +977,9 @@ export class CompliancePTAFunctions {
         3,
         fetchedAllContents,
       );
-      // console.log('fetchedContentOf2ndRule', fetchedContentOf2ndRule);
 
       resultsOfCheck.push(fetchedContentOf3rdRule);
 
-      // // console.log('resultsOfCheck4', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(
@@ -1066,7 +998,6 @@ export class CompliancePTAFunctions {
     try {
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
-      // console.log('data', data);
 
       const fetchedContent = await this.complianceChecksRepo.findOne({
         where: {
@@ -1076,7 +1007,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOfPaymentsFromThePrincipal', fetchedContent);
 
       //Check 5 rule 1
       if (!projectTrustAccount) {
@@ -1085,7 +1015,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsFromThePrincipal',
         //   fetchedRuleDetails,
         // );
@@ -1122,7 +1051,6 @@ export class CompliancePTAFunctions {
           )
           .where('c.project_id = :project_id', { project_id })
           .getRawOne();
-        // console.log('contractDetails', contractDetails);
 
         //Check if the account selected in the payment from account of contract is Project trust Account.
         if (
@@ -1145,21 +1073,18 @@ export class CompliancePTAFunctions {
               excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
             })
             .getRawMany();
-          // console.log('noticeDetailsOfPaymentsFromThePrincipal', noticeDetails);
           if (noticeDetails && noticeDetails.length) {
             //Filtering all the notices in both SENT and NOT SENT status.
             const unsentNotices = noticeDetails.filter(
               (notice) =>
                 notice.status === 'Not Sent' || notice.status === 'Draft',
             );
-            // console.log('unsentNotices', unsentNotices);
 
             const sentNotices = noticeDetails.filter(
               (notice) =>
                 notice.status === 'Sent' ||
                 notice.status === 'Sent - Onboarded',
             );
-            // console.log('sentNotices', sentNotices, 'unsentNotice-', unsentNotices);
 
             if (unsentNotices.length) {
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1167,7 +1092,6 @@ export class CompliancePTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOf5thCheck3rdRule',
               //   fetchedRuleDetails,
               // );
@@ -1209,7 +1133,6 @@ export class CompliancePTAFunctions {
                   return payment;
                 }
               });
-              // console.log('unsentNotices', unsentNotices);
 
               const paymentIds = fetchedPayments.map((p) => p.payment_id);
               let lateSubpayments = [];
@@ -1272,7 +1195,6 @@ export class CompliancePTAFunctions {
                   4,
                   fetchedAllRules,
                 );
-                // console.log(
                 //   'fetchedRuleDetailsOfCheck5Rule4',
                 //   fetchedRuleDetails,
                 // );
@@ -1290,7 +1212,6 @@ export class CompliancePTAFunctions {
                   5,
                   fetchedAllRules,
                 );
-                // console.log(
                 //   'fetchedRuleDetailsOfCheck5Rule4',
                 //   fetchedRuleDetails,
                 // );
@@ -1307,7 +1228,6 @@ export class CompliancePTAFunctions {
               5,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsFromThePrincipal',
             //   fetchedRuleDetails,
             // );
@@ -1323,7 +1243,6 @@ export class CompliancePTAFunctions {
             5,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsFromThePrincipal',
           //   fetchedRuleDetails,
           // );
@@ -1335,7 +1254,6 @@ export class CompliancePTAFunctions {
         }
       }
 
-      // console.log('resultsOfPaymentsFromThePrincipal', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       throw error;
@@ -1380,7 +1298,6 @@ export class CompliancePTAFunctions {
         .andWhere('pc.claim_type = :claim_type', { claim_type: 'Billable' })
         .andWhere(`p.current_status != 'Deleted'`)
         .getRawMany();
-      // // console.log('fetchedBillablePayments1', fetchedBillablePayments);
 
       //Check 6 rule 1
       const fetchedContentOf1stRule = await filterComplianceContentDetails(
@@ -1388,7 +1305,6 @@ export class CompliancePTAFunctions {
         1,
         fetchedAllContents,
       );
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1396,7 +1312,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -1422,7 +1337,6 @@ export class CompliancePTAFunctions {
             account_type: 'Project Trust Account',
           })
           .getRawMany();
-        // // console.log(
         //   'fetchedPaymentsInPaymentsToSubcontractorsRule1',
         //   fetchedAllPayments,
         // );
@@ -1434,7 +1348,6 @@ export class CompliancePTAFunctions {
                 payment.payment_status,
               ),
           );
-          // // console.log('filteredUnmatchPayments', filteredUnmatchedPayments);
 
           if (!filteredUnmatchedPayments.length) {
             //There is no incomplete payments present against a project.
@@ -1456,14 +1369,12 @@ export class CompliancePTAFunctions {
                 status: ['Sent', 'Not Sent', 'Sent - Onboarded', 'Draft'],
               })
               .getRawMany();
-            // // console.log('fetchedNoticeDetails', fetchedNoticeDetails);
 
             //Filter the SENT and NOT SENT notices separately.
             const filteredUnsentNotices = fetchedNoticeDetails.filter(
               (notice) =>
                 notice.status === 'Not Sent' || notice.status === 'Draf',
             );
-            // // console.log('filteredUnsentNotices', filteredUnsentNotices);
 
             if (filteredUnsentNotices.length) {
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1471,7 +1382,6 @@ export class CompliancePTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
               //   fetchedRuleDetails, filteredUnsentNotices,
               // );
@@ -1487,7 +1397,6 @@ export class CompliancePTAFunctions {
                 4,
                 fetchedAllRules,
               );
-              // // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
               //   fetchedRuleDetails,
               // );
@@ -1504,7 +1413,6 @@ export class CompliancePTAFunctions {
               2,
               fetchedAllRules,
             );
-            // // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
             //   fetchedRuleDetails,
             // );
@@ -1521,7 +1429,6 @@ export class CompliancePTAFunctions {
             2,
             fetchedAllRules,
           );
-          // // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
           //   fetchedRuleDetails,
           // );
@@ -1539,7 +1446,6 @@ export class CompliancePTAFunctions {
         2,
         fetchedAllContents,
       );
-      // console.log('fetchedContentOf2ndRule', fetchedContentOf2ndRule);
 
       if (!projectTrustAccount) {
         //No project trust account found for the project.
@@ -1548,7 +1454,6 @@ export class CompliancePTAFunctions {
           5,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -1576,7 +1481,6 @@ export class CompliancePTAFunctions {
           })
           .orderBy({ 'tr.updated_on': 'DESC' })
           .getRawMany();
-        // console.log('fetchedTransactions', fetchedTransactions);
 
         const totalClaimAmount = await this.paymentClaimsRepo.query(`
           SELECT 
@@ -1599,26 +1503,19 @@ export class CompliancePTAFunctions {
                 'Paid - Unmatched',
                 'Received - Unmatched');
         `);
-        // console.log('totalClaimAmount', totalClaimAmount);
-        // console.log('current_balance', projectTrustAccount.current_balance);
         const sumOfUnpaidClaims = Number(
           totalClaimAmount[0]?.total_claim_amount,
         );
-        // console.log('sumOfUnpaidClaims', sumOfUnpaidClaims);
         const current_balance = projectTrustAccount.current_balance
           ? Number(projectTrustAccount.current_balance)
           : 0;
-        // console.log('current_balance', current_balance);
 
         if (fetchedTransactions.length) {
           //Check if the transaction was last updated one week ago.
           const lastUpdatedDate = new Date(fetchedTransactions[0].updated_on);
-          // console.log('lastUpdatedDate', lastUpdatedDate);
           const today = new Date();
           const diffInMs = today.getTime() - lastUpdatedDate.getTime();
-          // console.log('diffInMs', diffInMs);
           const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
-          // console.log('diffInDays', diffInDays);
 
           //If the CSV transaction was updated more than 1 week ago.
           if (diffInDays > 7) {
@@ -1627,7 +1524,6 @@ export class CompliancePTAFunctions {
               6,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -1647,7 +1543,6 @@ export class CompliancePTAFunctions {
               7,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -1664,7 +1559,6 @@ export class CompliancePTAFunctions {
               8,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -1684,7 +1578,6 @@ export class CompliancePTAFunctions {
             7,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
           //   fetchedRuleDetails,
           // );
@@ -1696,7 +1589,6 @@ export class CompliancePTAFunctions {
         }
       }
 
-      // console.log('projectTrustAccounttttttt', projectTrustAccount);
 
       //Check 6 Rule 3
       const fetchedContentOf3rdRule = await this.complianceChecksRepo.findOne({
@@ -1707,7 +1599,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOf3rdRule', fetchedContentOf3rdRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1715,7 +1606,6 @@ export class CompliancePTAFunctions {
           12,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -1734,7 +1624,6 @@ export class CompliancePTAFunctions {
             9,
             fetchedAllRules,
           );
-          // console.log('fetched3rdRuleDetails', fetched3rdRuleDetails);
           resultsOfCheck.push({
             ...fetched3rdRuleDetails,
             ...fetchedContentOf3rdRule,
@@ -1748,16 +1637,13 @@ export class CompliancePTAFunctions {
                 payment.current_status != 'Paid - Matched' &&
                 payment.current_status != 'Received - Matched',
             );
-          // console.log('filteredInCompletePayments', filteredInCompletePayments);
 
           if (filteredInCompletePayments.length) {
-            // console.log('--------1');
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               6,
               10,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails3', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{
@@ -1770,13 +1656,11 @@ export class CompliancePTAFunctions {
               ...fetchedContentOf3rdRule,
             });
           } else {
-            // console.log('--------2');
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               6,
               11,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails4', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContentOf3rdRule,
@@ -1784,7 +1668,6 @@ export class CompliancePTAFunctions {
           }
         }
       }
-      // console.log('resultsOfCheck1', resultsOfCheck);
 
       //Check 6 rule 4
       const fetchedContentOf4thRule = await this.complianceChecksRepo.findOne({
@@ -1795,8 +1678,6 @@ export class CompliancePTAFunctions {
         },
         select: ['check_number', 'check_name', 'rule_number', 'content'],
       });
-      // console.log('fetchedContentOf4thRule', fetchedContentOf4thRule);
-      // console.log('projectTrustAccounttttttt', projectTrustAccount);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1804,7 +1685,6 @@ export class CompliancePTAFunctions {
           12,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -1818,7 +1698,6 @@ export class CompliancePTAFunctions {
         });
       } else {
         if (fetchedBillablePayments.length) {
-          // console.log('fetchedBillablePaymentss', fetchedBillablePayments);
           //Check whether any unmatched payments are present or not.
           const filteredUnmatchedBillablePayments =
             fetchedBillablePayments.filter((payment) =>
@@ -1828,7 +1707,6 @@ export class CompliancePTAFunctions {
                 'Confirmed',
               ].includes(payment.current_status),
             );
-          // console.log(
           //   'filteredUnmatchedBillablePayments',
           //   filteredUnmatchedBillablePayments,
           // );
@@ -1853,7 +1731,6 @@ export class CompliancePTAFunctions {
                 .andWhere('n.status = :status', { status: 'Not Sent' })
                 .andWhere('n.project_id = :project_id', { project_id })
                 .getRawMany();
-            // console.log(
             //   'fetchedUnsentSupplierNoticeDetails',
             //   fetchedUnsentSupplierNoticeDetails,
             // );
@@ -1865,7 +1742,6 @@ export class CompliancePTAFunctions {
                 14,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
               //   fetchedRuleDetails,
               // );
@@ -1885,7 +1761,6 @@ export class CompliancePTAFunctions {
               15,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -1903,7 +1778,6 @@ export class CompliancePTAFunctions {
             13,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
           //   fetchedRuleDetails,
           // );
@@ -1924,14 +1798,12 @@ export class CompliancePTAFunctions {
         },
         select: ['check_number', 'check_name', 'rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf5thRule', fetchedContentOf5thRule);
 
       const fetchedRuleDetails = await fetchComplianceRuleDetails(
         6,
         20,
         fetchedAllRules,
       );
-      // // console.log(
       //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
       //   fetchedRuleDetails,
       // );
@@ -1959,7 +1831,6 @@ export class CompliancePTAFunctions {
           12,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -1973,7 +1844,6 @@ export class CompliancePTAFunctions {
         });
       } else {
         if (fetchedBillablePayments.length) {
-          // console.log('fetchedBillablePaymentss', fetchedBillablePayments);
           //Check whether any unmatched payments are present or not.
           const filteredUnmatchedBillablePayments =
             fetchedBillablePayments.filter((payment) =>
@@ -1983,7 +1853,6 @@ export class CompliancePTAFunctions {
                 'Confirmed',
               ].includes(payment.current_status),
             );
-          // console.log(
           //   'filteredUnmatchedBillablePayments',
           //   filteredUnmatchedBillablePayments,
           // );
@@ -2008,7 +1877,6 @@ export class CompliancePTAFunctions {
                 .andWhere('n.status = :status', { status: 'Not Sent' })
                 .andWhere('n.project_id = :project_id', { project_id })
                 .getRawMany();
-            // console.log(
             //   'fetchedUnsentSupplierNoticeDetails',
             //   fetchedUnsentSupplierNoticeDetails,
             // );
@@ -2020,7 +1888,6 @@ export class CompliancePTAFunctions {
                 14,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
               //   fetchedRuleDetails,
               // );
@@ -2040,7 +1907,6 @@ export class CompliancePTAFunctions {
               15,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -2058,7 +1924,6 @@ export class CompliancePTAFunctions {
             13,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
           //   fetchedRuleDetails,
           // );
@@ -2086,7 +1951,6 @@ export class CompliancePTAFunctions {
           16,
           fetchedAllRules,
         );
-        // // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -2117,7 +1981,6 @@ export class CompliancePTAFunctions {
           })
           .andWhere(`p.payment_type = :payment_type`, { payment_type: 'Part' })
           .getRawMany();
-        // // console.log(
         //   'fetchedAllPaymentsInPaymentsToSubContractorsRule5',
         //   fetchedAllPartPayments,
         // );
@@ -2139,7 +2002,6 @@ export class CompliancePTAFunctions {
               excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
             })
             .getRawMany();
-          // // console.log(
           //   'fetchedPartPaymentNoticeDetailsOfPaymentsToSubContractorsInRule5',
           //   fetchedPartPaymentNoticeDetails,
           // );
@@ -2153,7 +2015,6 @@ export class CompliancePTAFunctions {
                   notice.notice_status == 'Sending' ||
                   notice.notice_status == 'Draft',
               );
-            // // console.log('filteredUnsentNotices', filteredUnsentNotices);
 
             if (filteredUnsentNotices.length) {
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -2161,7 +2022,6 @@ export class CompliancePTAFunctions {
                 18,
                 fetchedAllRules,
               );
-              // // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
               //   fetchedRuleDetails,
               // );
@@ -2181,7 +2041,6 @@ export class CompliancePTAFunctions {
                 19,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
               //   fetchedRuleDetails,
               // );
@@ -2198,7 +2057,6 @@ export class CompliancePTAFunctions {
               17,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -2215,7 +2073,6 @@ export class CompliancePTAFunctions {
             17,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
           //   fetchedRuleDetails,
           // );
@@ -2243,20 +2100,17 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOf6thRule', fetchedContentOf6thRule);
 
       const presenceOfContracts = await this.contractsRepo.find({
         where: { project_id },
         select: ['attachment_id', 'project_id', 'contract_id'],
       });
-      // console.log('presenceOfContracts', presenceOfContracts);
       if (presenceOfContracts && !presenceOfContracts.length) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
           6,
           22,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails1', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{ reference_id: String(id) },
@@ -2267,7 +2121,6 @@ export class CompliancePTAFunctions {
           await presenceOfContracts.filter(
             (contract) => !contract.attachment_id,
           );
-        // console.log(
         //   'filteredContractWithoutAttachments',
         //   filteredContractsWithoutAttachments,
         // );
@@ -2281,7 +2134,6 @@ export class CompliancePTAFunctions {
             23,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails3', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
@@ -2297,14 +2149,12 @@ export class CompliancePTAFunctions {
             21,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...fetchedContentOf8thRule,
           });
         }
       }
-      // console.log('resultsOfPaymentsToSubContractors', resultsOfCheck);
 
       //Check 6 rule 9
       const fetchedContentOf9stRule = await filterComplianceContentDetails(
@@ -2312,7 +2162,6 @@ export class CompliancePTAFunctions {
         9,
         fetchedAllContents,
       );
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -2320,7 +2169,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log(
         //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
         //   fetchedRuleDetails,
         // );
@@ -2349,7 +2197,6 @@ export class CompliancePTAFunctions {
         //     account_type: 'Project Trust Account',
         //   })
         //   .getRawMany();
-        // // // console.log(
         //   'fetchedPaymentsInPaymentsToSubcontractorsRule1',
         //   fetchedAllPayments,
         // );
@@ -2408,7 +2255,6 @@ export class CompliancePTAFunctions {
               24,
               fetchedAllRules,
             );
-            // // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
             //   fetchedRuleDetails,
             // );
@@ -2425,7 +2271,6 @@ export class CompliancePTAFunctions {
             24,
             fetchedAllRules,
           );
-          // // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
           //   fetchedRuleDetails,
           // );
@@ -2468,18 +2313,15 @@ export class CompliancePTAFunctions {
         fetchedAllContents,
       );
 
-      // console.log(
       //   'fetcheedContentOfPaymentsToYourselfAsTrustee',
       //   fetchedContent,
       // );
-      // console.log('projectTrustAccounttttttttt', projectTrustAccount);
       if (!projectTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
           7,
           1,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToYourselfAsTrustee',
         //   fetchedRuleDetails,
         // );
@@ -2507,7 +2349,6 @@ export class CompliancePTAFunctions {
           })
           .orderBy({ 'tr.updated_on': 'DESC' })
           .getRawMany();
-        // console.log('fetchedTransactions', fetchedTransactions);
 
         const totalClaimAmount = await this.paymentClaimsRepo.query(`
           SELECT 
@@ -2533,21 +2374,16 @@ export class CompliancePTAFunctions {
         const sumOfUnpaidClaims = Number(
           totalClaimAmount[0]?.total_claim_amount,
         );
-        // console.log('sumOfUnpaidClaims', sumOfUnpaidClaims);
         const current_balance = projectTrustAccount.current_balance
           ? Number(projectTrustAccount.current_balance)
           : 0;
-        // console.log('current_balance', current_balance);
 
         if (fetchedTransactions.length) {
           //Check if the transaction was last updated one week ago.
           const lastUpdatedDate = new Date(fetchedTransactions[0].updated_on);
-          // console.log('lastUpdatedDate', lastUpdatedDate);
           const today = new Date();
           const diffInMs = today.getTime() - lastUpdatedDate.getTime();
-          // console.log('diffInMs', diffInMs);
           const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
-          // console.log('diffInDays', diffInDays);
 
           //If the CSV transaction was updated more than 1 week ago.
           if (diffInDays > 7) {
@@ -2556,7 +2392,6 @@ export class CompliancePTAFunctions {
               2,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
             //   fetchedRuleDetails,
             // );
@@ -2606,7 +2441,6 @@ export class CompliancePTAFunctions {
               4,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule4',
             //   fetchedRuleDetails,
             // );
@@ -2638,7 +2472,6 @@ export class CompliancePTAFunctions {
                     )}</strong>
                   </div>
                 `;
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule3',
             //   fetchedRuleDetails,
             // );
@@ -2656,7 +2489,6 @@ export class CompliancePTAFunctions {
               4,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
             //   fetchedRuleDetails,
             // );
@@ -2672,7 +2504,6 @@ export class CompliancePTAFunctions {
             2,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
           //   fetchedRuleDetails,
           // );
@@ -2700,7 +2531,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfPaymentsToYourselfAsTrustee',
         //   fetchedRuleDetails,
         // );
@@ -2735,7 +2565,6 @@ export class CompliancePTAFunctions {
 
         if (paymentIds.length) {
           // Fetch SubPayments of type 'Payment' for these payments
-          // console.log("&&^&^&^", paymentIds)
           const subPayments = await this.subPaymentsRepo
             .createQueryBuilder('sp')
             .select([
@@ -2785,7 +2614,6 @@ export class CompliancePTAFunctions {
               7,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRule2---------------->>',
             //   fetchedRuleDetails,
             // );
@@ -2802,7 +2630,6 @@ export class CompliancePTAFunctions {
             7,
             fetchedAllRules,
           );
-          // // console.log(
           //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule2',
           //   fetchedRuleDetails,
           // );
@@ -2814,7 +2641,6 @@ export class CompliancePTAFunctions {
         }
       }
 
-      // console.log(
       //   'resultsOfCheckInPaymentsToYourselfAsTrustee',
       //   resultsOfCheck,
       // );
@@ -2843,7 +2669,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       //Returning the results of the rule based upon the monthly reconciliation record.
       if (!projectTrustAccount) {
@@ -2852,7 +2677,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsOfReconcile1', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -2876,7 +2700,6 @@ export class CompliancePTAFunctions {
           })
           .orderBy({ 'rr.created_on': 'DESC' })
           .getRawOne();
-        // console.log(
         //   'fetchedReconcileReportDetails',
         //   fetchedReconcileReportDetails,
         // );
@@ -2905,7 +2728,6 @@ export class CompliancePTAFunctions {
             3,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetailsOfReconcile3', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -2969,7 +2791,6 @@ export class CompliancePTAFunctions {
             4,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetailsOfReconcile5', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -3003,7 +2824,6 @@ export class CompliancePTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       //Returning the results of the rule based upon the annual audit report.
       if (!projectTrustAccount) {
@@ -3012,7 +2832,6 @@ export class CompliancePTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetailsOfReconcile1', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -3091,7 +2910,6 @@ export class CompliancePTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails2', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -3119,7 +2937,6 @@ export class CompliancePTAFunctions {
                 2,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsOfAnnualReport', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -3180,7 +2997,6 @@ export class CompliancePTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetailsReconcile1', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,

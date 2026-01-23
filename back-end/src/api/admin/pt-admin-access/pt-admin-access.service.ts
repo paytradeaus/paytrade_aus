@@ -1371,7 +1371,7 @@ export class PtAdminAccessService {
               order: { company_id: 'DESC' },
             });
 
-          console.log({ expiredSubscriptionDetails });
+          this.logger.log(`expiredSubscriptionDetails: ${JSON.stringify(expiredSubscriptionDetails)}`);
 
           if (expiredSubscriptionDetails) {
             const expireIntegrations = await this.integrationDetails.findOne({
@@ -1382,7 +1382,7 @@ export class PtAdminAccessService {
               order: { company_id: 'DESC' },
             });
 
-            console.log({ expireIntegrations });
+            this.logger.log(`expireIntegrations: ${JSON.stringify(expireIntegrations)}`);
             if (expireIntegrations) {
               const updateIntegrationResult = await this.integrationDetails
                 .createQueryBuilder()
@@ -1399,8 +1399,8 @@ export class PtAdminAccessService {
                 })
                 .execute();
 
-              console.log({ updateIntegrationResult });
-              console.log('Integration updated for expired subscriptions!');
+              this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+              this.logger.log('Integration updated for expired subscriptions!');
             }
           }
         } else {
@@ -1422,7 +1422,7 @@ export class PtAdminAccessService {
               order: { company_id: 'DESC' },
             });
 
-          console.log({ activeSubscriptionDetails });
+          this.logger.log(`activeSubscriptionDetails: ${JSON.stringify(activeSubscriptionDetails)}`);
 
           if (activeSubscriptionDetails) {
             const activeXeroIntegrations =
@@ -1439,7 +1439,7 @@ export class PtAdminAccessService {
                 order: { company_id: 'DESC' },
               });
 
-              console.log({ activeIntegrations });
+              this.logger.log(`activeIntegrations: ${JSON.stringify(activeIntegrations)}`);
               if (activeIntegrations) {
                 const updateIntegrationResult = await this.integrationDetails
                   .createQueryBuilder()
@@ -1457,8 +1457,8 @@ export class PtAdminAccessService {
                   })
                   .execute();
 
-                console.log({ updateIntegrationResult });
-                console.log('Integration updated for active subscriptions!');
+                this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+                this.logger.log('Integration updated for active subscriptions!');
               }
             }
           }

@@ -1670,7 +1670,7 @@ export class NoticesResolver {
             `${linkExtensions[14]}` +
             `${newNotice.data.id}` +
             `?from=log`;
-          console.log('noticeLink', noticeLink);
+          this.logger.log(`noticeLink: ${noticeLink}`);
 
           //Create activity log as soon a payment claim is created.
           const createActivityLogInput: CreateActivityLogInput = {

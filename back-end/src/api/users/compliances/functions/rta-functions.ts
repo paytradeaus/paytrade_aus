@@ -119,25 +119,21 @@ export class ComplianceRTAFunctions {
         head_contract_sum,
         bank_account_type,
       } = data;
-      // console.log('data------------------------------', data);
       const resultsOfCheck = [];
 
       const fetchedContractDetails = await this.contractsRepo.find({
         where: { project_id },
         select: ['initial_contract_sum'],
       });
-      // // console.log('fetchedContractDetails', fetchedContractDetails);
       const fetchedVariationDetails = await this.variationsRepo.find({
         where: { project_id, variation_status: 'Agreed' },
         select: ['variation_amount'],
       });
-      // // console.log('fetchedVariationDetails', fetchedVariationDetails);
       const sum_of_all_contract_initial_sum = fetchedContractDetails.length
         ? fetchedContractDetails
           .map((contract) => Number(contract.initial_contract_sum))
           .reduce((arr, curr) => arr + curr)
         : 0;
-      // // console.log(
       //   'sum_of_all_contract_initial_sum',
       //   sum_of_all_contract_initial_sum,
       // );
@@ -146,7 +142,6 @@ export class ComplianceRTAFunctions {
           .map((variation) => Number(variation.variation_amount))
           .reduce((arr, curr) => arr + curr)
         : 0;
-      // // console.log('sum_of_all_variation_amounts', sum_of_all_variation_amounts);
       const fetchedContent = await this.complianceChecksRepo.findOne({
         where: {
           check_number: 1,
@@ -155,10 +150,8 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContent', fetchedContent);
 
       const contractValueDetails = await this.complianceSettingsRepo.find();
-      // console.log('contractValueDetails', contractValueDetails);
 
       if (rta_eligibility == 'No') {
         if (retentionTrustAccount) {
@@ -167,7 +160,6 @@ export class ComplianceRTAFunctions {
             3,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{ reference_id: String(retentionTrustAccount.bank_account_id) },
@@ -185,7 +177,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails1', fetchedRuleDetails);
           resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
         } else {
           const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -193,7 +184,6 @@ export class ComplianceRTAFunctions {
             2,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails1', fetchedRuleDetails);
           resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
         }
       } else if (rta_eligibility == 'Yes') {
@@ -203,14 +193,12 @@ export class ComplianceRTAFunctions {
             number_of_units >= 3) ||
           (pta_eligibility == 'Yes' && retention_type == 'Cash')
         ) {
-          // console.log('retentionTrustAccount', retentionTrustAccount);
           if (retentionTrustAccount) {
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               1,
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails2', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{
@@ -219,7 +207,6 @@ export class ComplianceRTAFunctions {
               ...fetchedContent,
             });
           } else {
-            // console.log('fetchedRuleDetails2', fetchedAllRules);
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               1,
               2,
@@ -230,7 +217,6 @@ export class ComplianceRTAFunctions {
               ...{ reference_id: String(id) },
               ...fetchedContent,
             });
-            // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           }
         } else {
           const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -238,7 +224,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails', fetchedRuleDetails);
           resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
         }
       } else if (
@@ -250,7 +235,6 @@ export class ComplianceRTAFunctions {
             3,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{ reference_id: String(retentionTrustAccount.bank_account_id) },
@@ -269,7 +253,6 @@ export class ComplianceRTAFunctions {
           });
         }
       }
-      // console.log('resultsOfCheck', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(
@@ -300,25 +283,20 @@ export class ComplianceRTAFunctions {
         head_contract_sum,
         bank_account_type,
       } = data;
-      // console.log('data++++++++++++++++++++++++++++++++++++', data);
-      // console.log('retentionTrustAccounttt', retentionTrustAccount);
       const resultsOfCheck = [];
       const fetchedContractDetails = await this.contractsRepo.find({
         where: { project_id },
         select: ['initial_contract_sum'],
       });
-      // // console.log('fetchedContractDetails', fetchedContractDetails);
       const fetchedVariationDetails = await this.variationsRepo.find({
         where: { project_id, variation_status: 'Agreed' },
         select: ['variation_amount'],
       });
-      // // console.log('fetchedVariationDetails', fetchedVariationDetails);
       const sum_of_all_contract_initial_sum = fetchedContractDetails.length
         ? fetchedContractDetails
           .map((contract) => Number(contract.initial_contract_sum))
           .reduce((arr, curr) => arr + curr)
         : 0;
-      // // console.log(
       //   'sum_of_all_contract_initial_sum',
       //   sum_of_all_contract_initial_sum,
       // );
@@ -327,7 +305,6 @@ export class ComplianceRTAFunctions {
           .map((variation) => Number(variation.variation_amount))
           .reduce((arr, curr) => arr + curr)
         : 0;
-      // // console.log('sum_of_all_variation_amounts', sum_of_all_variation_amounts);
       const fetchedContent = await this.complianceChecksRepo.findOne({
         where: {
           check_number: 2,
@@ -336,10 +313,8 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContent', fetchedContent);
 
       const contractValueDetails = await this.complianceSettingsRepo.find();
-      // console.log('contractValueDetails', contractValueDetails);
 
       if (Number(head_contract_sum) > contractValueDetails[0].contract_value) {
         if (retentionTrustAccount) {
@@ -348,7 +323,6 @@ export class ComplianceRTAFunctions {
             3,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails20', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{ reference_id: String(retentionTrustAccount.bank_account_id) },
@@ -373,7 +347,6 @@ export class ComplianceRTAFunctions {
             3,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails21', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{ reference_id: String(retentionTrustAccount.bank_account_id) },
@@ -391,7 +364,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails1', fetchedRuleDetails);
           resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
         } else {
           const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -399,7 +371,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails1', fetchedRuleDetails);
           resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
         }
       } else if (rta_eligibility == 'Yes') {
@@ -415,7 +386,6 @@ export class ComplianceRTAFunctions {
               3,
               fetchedAllRules,
             );
-            // // console.log('fetchedRuleDetails2', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{
@@ -442,7 +412,6 @@ export class ComplianceRTAFunctions {
               3,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails21', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{
@@ -456,12 +425,10 @@ export class ComplianceRTAFunctions {
               1,
               fetchedAllRules,
             );
-            // // console.log('fetchedRuleDetails1', fetchedRuleDetails);
             resultsOfCheck.push({ ...fetchedRuleDetails, ...fetchedContent });
           }
         }
       }
-      // console.log('resultsOfCheck', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(
@@ -483,11 +450,9 @@ export class ComplianceRTAFunctions {
       const holidayDetails = await this.holidayDetails.find({
         where: { holiday_status: 'Active' },
       });
-      // console.log('data', data);
       const resultsOfCheck = [];
 
       //Check 3 rule 1
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       //Checking the status of the QBCC TA1 Retention Trust Account Notice created against a retention trust account.
       const qbccTa1RetentionTrustAccountNoticeDetails =
@@ -506,7 +471,6 @@ export class ComplianceRTAFunctions {
             excludedStatuses: ['Delete-Sent', 'Delete-Unsent'],
           })
           .getRawOne();
-      // console.log(
       //   'qbccTa1RetentionTrustAccountNotice',
       //   qbccTa1RetentionTrustAccountNoticeDetails,
       // );
@@ -518,7 +482,6 @@ export class ComplianceRTAFunctions {
           bank_account_type: 'Retention Trust Account',
         },
       });
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       if (!retentionTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -526,7 +489,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -553,7 +515,6 @@ export class ComplianceRTAFunctions {
             client_supplier_type: 'Supplier',
           })
           .getRawMany();
-        // console.log('contractDetailss', fetchedContractDetails);
 
         if (fetchedContractDetails && fetchedContractDetails.length) {
           if (
@@ -569,7 +530,6 @@ export class ComplianceRTAFunctions {
                 businessDays: 5,
                 holidayDetails,
               });
-            // console.log(
             //   'isTodayGreaterThanOpeningDatePlus5BusinessDays',
             //   isTodayGreaterThanOpeningDatePlus5BusinessDays,
             // );
@@ -579,7 +539,6 @@ export class ComplianceRTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -594,7 +553,6 @@ export class ComplianceRTAFunctions {
                 2,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsNotice3', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -613,7 +571,6 @@ export class ComplianceRTAFunctions {
               4,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetailsNotice4', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -625,7 +582,6 @@ export class ComplianceRTAFunctions {
               4,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetailsNotice4', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -638,7 +594,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -665,7 +620,6 @@ export class ComplianceRTAFunctions {
             unsentStatuses: ['Not Sent'],
           })
           .getRawMany();
-      // console.log(
       //   'unsentSupplierS23TrustAccountNoticeDetails',
       //   unsentSupplierS23TrustAccountNoticeDetails,
       // );
@@ -690,7 +644,6 @@ export class ComplianceRTAFunctions {
           client_supplier_type: 'Supplier',
         })
         .getRawMany();
-      // console.log('contractDetailss', contractDetails);
 
       const filteredContractsWithoutRetentionTrustAccount =
         contractDetails.length
@@ -698,7 +651,6 @@ export class ComplianceRTAFunctions {
             (contract) => !contract.retention_from_account,
           )
           : [];
-      // console.log(
       //   'filteredContractsWithoutRetentionTrustAccount',
       //   filteredContractsWithoutRetentionTrustAccount,
       // );
@@ -710,7 +662,6 @@ export class ComplianceRTAFunctions {
           bank_account_type: 'Retention Trust Account',
         },
       });
-      // console.log('fetchedContentOf2ndRule', fetchedContentOf2ndRule);
 
       if (!retentionTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -718,7 +669,6 @@ export class ComplianceRTAFunctions {
           5,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails5', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -736,7 +686,6 @@ export class ComplianceRTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsNotice5', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -759,7 +708,6 @@ export class ComplianceRTAFunctions {
                   8,
                   fetchedAllRules,
                 );
-                // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
                 resultsOfCheck.push({
                   ...fetchedRuleDetails,
@@ -775,7 +723,6 @@ export class ComplianceRTAFunctions {
                   7,
                   fetchedAllRules,
                 );
-                // console.log('fetchedRuleDetailsNotice2', fetchedRuleDetails);
 
                 resultsOfCheck.push({
                   ...fetchedRuleDetails,
@@ -793,7 +740,6 @@ export class ComplianceRTAFunctions {
               9,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails9', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -806,7 +752,6 @@ export class ComplianceRTAFunctions {
             13,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails13', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -833,7 +778,6 @@ export class ComplianceRTAFunctions {
             unsentStatuses: ['Not Sent'],
           })
           .getRawOne();
-      // console.log(
       //   'unsentQbccNoticeOfRelatedEntityDetails',
       //   unsentQbccNoticeOfRelatedEntityDetails,
       // );
@@ -856,7 +800,6 @@ export class ComplianceRTAFunctions {
           client_supplier_type: 'Supplier',
         })
         .getRawMany();
-      // console.log('supplierContractDetails', supplierContractDetails);
 
       const clientSupplierDetails =
         supplierContractDetails && supplierContractDetails.length
@@ -867,7 +810,6 @@ export class ComplianceRTAFunctions {
             },
           })
           : null;
-      // console.log('clientSupplierDetails', clientSupplierDetails);
 
       const fetchedContentOf3rdRule = await this.complianceChecksRepo.findOne({
         where: {
@@ -883,7 +825,6 @@ export class ComplianceRTAFunctions {
           10,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails????', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -898,7 +839,6 @@ export class ComplianceRTAFunctions {
                 11,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsNotice6', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -913,7 +853,6 @@ export class ComplianceRTAFunctions {
                 12,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsNotice8', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -926,7 +865,6 @@ export class ComplianceRTAFunctions {
               14,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails14', fetchedRuleDetails);
 
             resultsOfCheck.push({
               ...fetchedRuleDetails,
@@ -939,7 +877,6 @@ export class ComplianceRTAFunctions {
             14,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails14', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -948,7 +885,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log('resultsOfCheck', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       throw error;
@@ -968,10 +904,8 @@ export class ComplianceRTAFunctions {
 
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
-      // // console.log('data', data);
 
       //Check 4 rule 1
-      // // console.log('retentionTrustAccount', retentionTrustAccount);
 
       const fetchedContentOf1stRule = await this.complianceChecksRepo.findOne({
         where: {
@@ -981,7 +915,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       //Returning the results of the rule based upon the delegate powers.
       if (!retentionTrustAccount) {
@@ -990,7 +923,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1005,7 +937,6 @@ export class ComplianceRTAFunctions {
             2,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails2', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
@@ -1019,14 +950,12 @@ export class ComplianceRTAFunctions {
             3,
             fetchedAllRules,
           );
-          // // console.log('fetchedRuleDetails3', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...fetchedContentOf1stRule,
           });
         }
       }
-      // // console.log('resultsOfCheck1', resultsOfCheck);
 
       //Check 4 rule 2
       const fetchedContentOf2ndRule = await this.complianceChecksRepo.findOne({
@@ -1040,7 +969,6 @@ export class ComplianceRTAFunctions {
 
       // if (!retentionTrustAccount) {
       //   const fetchedRuleDetails = await fetchComplianceRuleDetails(4, 4);
-      //   // // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
       //   resultsOfCheck.push({
       //     ...fetchedRuleDetails,
       //     ...{
@@ -1066,7 +994,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('retentionTrustAccounttt', retentionTrustAccount);
 
       if (!retentionTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1074,7 +1001,6 @@ export class ComplianceRTAFunctions {
           20,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails=====', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1089,7 +1015,6 @@ export class ComplianceRTAFunctions {
             21,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails;;;;;', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
@@ -1105,7 +1030,6 @@ export class ComplianceRTAFunctions {
             22,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails;;;;;;;;;;', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...fetchedContentOf3rdRule,
@@ -1137,7 +1061,6 @@ export class ComplianceRTAFunctions {
 
       resultsOfCheck.push(fetchedContentOf5thrule);
 
-      // console.log('resultsOfCheck00000', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(
@@ -1157,7 +1080,6 @@ export class ComplianceRTAFunctions {
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
 
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       //Check 5 rule 1
       const fetchedContentOf1stRule = await this.complianceChecksRepo.findOne({
@@ -1168,7 +1090,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log(
       //   'fetchedContentOfWithholdingRetentionAmountsFromPayment1stRule',
       //   fetchedContentOf1stRule,
       // );
@@ -1193,7 +1114,6 @@ export class ComplianceRTAFunctions {
           client_supplier_type: 'Supplier',
         })
         .getRawMany();
-      // console.log('contractDetailssss', contractDetails);
 
       //Fetch rule details if no retention trust account has been created yet.
       if (!retentionTrustAccount) {
@@ -1202,7 +1122,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1215,13 +1134,11 @@ export class ComplianceRTAFunctions {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
             where: { project_id, cash_retention_type: 'Claim' },
           });
-          // console.log('paymentClaimDetails', paymentClaimDetails);
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
               { where: { project_id, cash_retention: true } },
             );
-            // console.log(
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
             // );
@@ -1247,7 +1164,6 @@ export class ComplianceRTAFunctions {
                   })
                   .andWhere('n.status = :status', { status: 'Not Sent' })
                   .getRawMany();
-              // console.log(
               //   'fetchedUnsentRetentionScheduleNoticeDetails',
               //   fetchedUnsentRetentionScheduleNoticeDetails,
               // );
@@ -1262,7 +1178,6 @@ export class ComplianceRTAFunctions {
                   2,
                   fetchedAllRules,
                 );
-                // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
                 resultsOfCheck.push({
                   ...fetchedRuleDetails,
                   ...{
@@ -1279,7 +1194,6 @@ export class ComplianceRTAFunctions {
                   3,
                   fetchedAllRules,
                 );
-                // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
                 resultsOfCheck.push({
                   ...fetchedRuleDetails,
                   ...fetchedContentOf1stRule,
@@ -1291,7 +1205,6 @@ export class ComplianceRTAFunctions {
                 9,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContentOf1stRule,
@@ -1303,7 +1216,6 @@ export class ComplianceRTAFunctions {
               8,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContentOf1stRule,
@@ -1315,7 +1227,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
@@ -1335,7 +1246,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log(
       //   'fetchedContentOfWithholdingRetentionAmountsFromPayment2ndRule',
       //   fetchedContentOf2ndRule,
       // );
@@ -1346,7 +1256,6 @@ export class ComplianceRTAFunctions {
           4,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1378,7 +1287,6 @@ export class ComplianceRTAFunctions {
             retention_type: 'Cash',
           })
           .getRawMany();
-        // console.log('fetchedSubPayments', fetchedSubPayments);
 
         if (fetchedSubPayments && fetchedSubPayments.length) {
           //Filter out the UNMATCHED retention In Sub payments.
@@ -1386,7 +1294,6 @@ export class ComplianceRTAFunctions {
             await fetchedSubPayments.filter(
               (subPayment) => subPayment.sub_payment_status == 'Unmatched',
             );
-          // console.log(
           //   'filteredUnmatchedRetentionInPayments',
           //   filteredUnmatchedRetentionInPayments,
           // );
@@ -1401,7 +1308,6 @@ export class ComplianceRTAFunctions {
               5,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails33333', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...{
@@ -1430,7 +1336,6 @@ export class ComplianceRTAFunctions {
                 })
                 .andWhere('n.status = :status', { status: 'Not Sent' })
                 .getRawMany();
-            // console.log(
             //   'fetchedRetentionWithdrawalNoticeDetails',
             //   fetchedRetentionWithheldNoticeDetails,
             // );
@@ -1445,7 +1350,6 @@ export class ComplianceRTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails33333', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
@@ -1462,7 +1366,6 @@ export class ComplianceRTAFunctions {
                 7,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails33333', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContentOf2ndRule,
@@ -1473,13 +1376,11 @@ export class ComplianceRTAFunctions {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
             where: { project_id, cash_retention_type: 'Claim' },
           });
-          // console.log('paymentClaimDetails', paymentClaimDetails);
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
               { where: { project_id, cash_retention: true } },
             );
-            // console.log(
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
             // );
@@ -1491,7 +1392,6 @@ export class ComplianceRTAFunctions {
                 fetchedAllRules,
               );
 
-              // console.log('fetchedRuleDetails12222', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContentOf2ndRule,
@@ -1503,7 +1403,6 @@ export class ComplianceRTAFunctions {
                 fetchedAllRules,
               );
 
-              // console.log('fetchedRuleDetails122', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContentOf2ndRule,
@@ -1515,7 +1414,6 @@ export class ComplianceRTAFunctions {
               8,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContentOf1stRule,
@@ -1524,7 +1422,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log(
       //   'resultsOfWithholdingRetentionAmountsFromPayment',
       //   resultsOfCheck,
       // );
@@ -1544,7 +1441,6 @@ export class ComplianceRTAFunctions {
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
 
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       const fetchedContent = await this.complianceChecksRepo.findOne({
         where: {
@@ -1553,7 +1449,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['check_number', 'check_name', 'rule_number', 'content'],
       });
-      // console.log('fetchedContent', fetchedContent);
 
       if (!retentionTrustAccount) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1561,7 +1456,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
         //   fetchedRuleDetails,
         // );
@@ -1593,13 +1487,11 @@ export class ComplianceRTAFunctions {
             client_supplier_type: 'Supplier',
           })
           .getRawMany();
-        // console.log('supplierContractDetailss', supplierContractDetails);
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
             where: { project_id, cash_retention_type: 'Retention claim' },
           });
-          // console.log('paymentClaimDetails', paymentClaimDetails);
 
           if (paymentClaimDetails) {
             const fetchedRetentionSubPayments = await this.subPaymentsRepo
@@ -1623,7 +1515,6 @@ export class ComplianceRTAFunctions {
                 retention_type: 'Cash',
               })
               .getRawMany();
-            // console.log(
             //   'fetchedRetentionSubPayments',
             //   fetchedRetentionSubPayments,
             // );
@@ -1649,7 +1540,6 @@ export class ComplianceRTAFunctions {
                   })
                   .andWhere('n.status = :status', { status: 'Not Sent' })
                   .getRawMany();
-              // console.log(
               //   'fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails',
               //   fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails,
               // );
@@ -1663,7 +1553,6 @@ export class ComplianceRTAFunctions {
                   await filterPendingLatePayments(
                     fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails,
                   );
-                // console.log(
                 //   'filteredPendingLatePayments',
                 //   filteredPendingLatePayments,
                 // );
@@ -1672,7 +1561,6 @@ export class ComplianceRTAFunctions {
                   await filterPendingNonLatePayments(
                     fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails,
                   );
-                // console.log(
                 //   'filteredPendingNonLatePayments',
                 //   filteredPendingNonLatePayments,
                 // );
@@ -1687,7 +1575,6 @@ export class ComplianceRTAFunctions {
                     3,
                     fetchedAllRules,
                   );
-                  // console.log('fetchedRuleDetails122', fetchedRuleDetails);
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
@@ -1707,7 +1594,6 @@ export class ComplianceRTAFunctions {
                     2,
                     fetchedAllRules,
                   );
-                  // console.log('fetchedRuleDetails12222', fetchedRuleDetails);
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
@@ -1724,7 +1610,6 @@ export class ComplianceRTAFunctions {
                   4,
                   fetchedAllRules,
                 );
-                // console.log(
                 //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties4',
                 //   fetchedRuleDetails,
                 // );
@@ -1740,7 +1625,6 @@ export class ComplianceRTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContent,
@@ -1752,7 +1636,6 @@ export class ComplianceRTAFunctions {
               5,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContent,
@@ -1764,7 +1647,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
           //   fetchedRuleDetails,
           // );
@@ -1778,7 +1660,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log(
       //   'resultsOfReleasingRetetionAmountsToContractedParties',
       //   resultsOfCheck,
       // );
@@ -1797,7 +1678,6 @@ export class ComplianceRTAFunctions {
     try {
       const { id, project_id, bank_account_type } = data;
       const resultsOfCheck = [];
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       //Fetch content of 7th check.
       const fetchedContent = await this.complianceChecksRepo.findOne({
@@ -1807,7 +1687,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log(
       //   'fetchedContentOfReleasingRetentionAmountsToSomeoneElseFromTheAccount',
       //   fetchedContent,
       // );
@@ -1819,7 +1698,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
         resultsOfCheck.push({
           ...fetchedRuleDetails,
           ...{
@@ -1848,13 +1726,11 @@ export class ComplianceRTAFunctions {
             client_supplier_type: 'Supplier',
           })
           .getRawMany();
-        // console.log('supplierContractDetailss', supplierContractDetails);
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
             where: { project_id, cash_retention_type: 'Retention claim' },
           });
-          // console.log('paymentClaimDetails', paymentClaimDetails);
 
           if (paymentClaimDetails) {
             const fetchedRetentionPayments = await this.paymentsRepo
@@ -1879,7 +1755,6 @@ export class ComplianceRTAFunctions {
                 claim_type: 'Billable',
               })
               .getRawMany();
-            // console.log('fetchedRetentionPayments', fetchedRetentionPayments);
 
             //Filter completed retention payments.
             const filteredInCompleteRetentionPayments =
@@ -1888,7 +1763,6 @@ export class ComplianceRTAFunctions {
                   payment.payment_status,
                 ),
               );
-            // console.log(
             //   'filteredInCompleteRetentionPayments',
             //   filteredInCompleteRetentionPayments,
             // );
@@ -1924,7 +1798,6 @@ export class ComplianceRTAFunctions {
                   })
                   .andWhere('n.status = :status', { status: 'Not Sent' })
                   .getRawMany();
-              // console.log(
               //   'fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails',
               //   fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails,
               // );
@@ -1938,7 +1811,6 @@ export class ComplianceRTAFunctions {
                   await filterPendingLatePayments(
                     fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails,
                   );
-                // console.log(
                 //   'filteredPendingLatePayments',
                 //   filteredPendingLatePayments,
                 // );
@@ -1947,7 +1819,6 @@ export class ComplianceRTAFunctions {
                   await filterPendingNonLatePayments(
                     fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails,
                   );
-                // console.log(
                 //   'filteredPendingNonLatePayments',
                 //   filteredPendingNonLatePayments,
                 // );
@@ -1962,7 +1833,6 @@ export class ComplianceRTAFunctions {
                     3,
                     fetchedAllRules,
                   );
-                  // console.log('fetchedRuleDetails122', fetchedRuleDetails);
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
@@ -1982,7 +1852,6 @@ export class ComplianceRTAFunctions {
                     2,
                     fetchedAllRules,
                   );
-                  // console.log('fetchedRuleDetails12222', fetchedRuleDetails);
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
@@ -2000,7 +1869,6 @@ export class ComplianceRTAFunctions {
                   4,
                   fetchedAllRules,
                 );
-                // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
                 resultsOfCheck.push({
                   ...fetchedRuleDetails,
                   ...fetchedContent,
@@ -2013,7 +1881,6 @@ export class ComplianceRTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...fetchedContent,
@@ -2025,7 +1892,6 @@ export class ComplianceRTAFunctions {
               5,
               fetchedAllRules,
             );
-            // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
             resultsOfCheck.push({
               ...fetchedRuleDetails,
               ...fetchedContent,
@@ -2037,7 +1903,6 @@ export class ComplianceRTAFunctions {
             4,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetails122222', fetchedRuleDetails);
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...fetchedContent,
@@ -2045,7 +1910,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log(
       //   'resultsOfReleasingRetentionAmountsToSomeoneElseFromTheAccount',
       //   resultsOfCheck,
       // );
@@ -2089,7 +1953,6 @@ export class ComplianceRTAFunctions {
 
       //Check 8 rule 1
       const resultsOfCheck = [];
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       const fetchedContent = await this.complianceChecksRepo.findOne({
         where: {
@@ -2098,7 +1961,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log(
       //   'fetchedContentOfReleasingRetentionAmountsToYourselfAsTrustee',
       //   fetchedContent,
       // );
@@ -2109,7 +1971,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log(
         //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
         //   fetchedRuleDetails,
         // );
@@ -2141,19 +2002,16 @@ export class ComplianceRTAFunctions {
           })
           .orderBy({ 'c.created_on': 'DESC' })
           .getRawMany();
-        // console.log('supplierContractDetails', supplierContractDetails);
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
             where: { project_id, cash_retention_type: 'Retention claim' },
           });
-          // console.log('paymentClaimDetails', paymentClaimDetails);
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
               { where: { project_id, cash_retention: true } },
             );
-            // console.log(
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
             // );
@@ -2167,7 +2025,6 @@ export class ComplianceRTAFunctions {
                   3,
                   fetchedAllRules,
                 );
-                // console.log(
                 //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
                 //   fetchedRuleDetails,
                 // );
@@ -2208,7 +2065,6 @@ export class ComplianceRTAFunctions {
                     })
                     .andWhere('sp.status = :status', { status: 'Unmatched' })
                     .getRawMany();
-                // console.log(
                 //   'fetchedUnmatchedRetentionSubPayments',
                 //   fetchedUnmatchedRetentionSubPayments,
                 // );
@@ -2222,7 +2078,6 @@ export class ComplianceRTAFunctions {
                     4,
                     fetchedAllRules,
                   );
-                  // console.log(
                   //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties1',
                   //   fetchedRuleDetails,
                   // );
@@ -2236,7 +2091,6 @@ export class ComplianceRTAFunctions {
                     5,
                     fetchedAllRules,
                   );
-                  // console.log(
                   //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties2',
                   //   fetchedRuleDetails,
                   // );
@@ -2252,7 +2106,6 @@ export class ComplianceRTAFunctions {
                 7,
                 fetchedAllRules,
               );
-              // console.log(
               //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
               //   fetchedRuleDetails,
               // );
@@ -2268,7 +2121,6 @@ export class ComplianceRTAFunctions {
               6,
               fetchedAllRules,
             );
-            // console.log(
             //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
             //   fetchedRuleDetails,
             // );
@@ -2284,7 +2136,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log(
           //   'fetchedRuleDetailsOfReleasingRetentionAmountsToContractedParties',
           //   fetchedRuleDetails,
           // );
@@ -2297,7 +2148,6 @@ export class ComplianceRTAFunctions {
           });
         }
       }
-      // console.log(
       //   'resultsOfReleasingRetentionAmountsToYouselfAsTrustee',
       //   resultsOfCheck,
       // );
@@ -2325,7 +2175,6 @@ export class ComplianceRTAFunctions {
 
       //Check 9 rule 1
       const resultsOfCheck = [];
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       const fetchedContentOf1stRule = await this.complianceChecksRepo.findOne({
         where: {
@@ -2335,7 +2184,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       //Returning the results of the rule based upon the monthly reconciliation record.
       if (!retentionTrustAccount) {
@@ -2344,7 +2192,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetailsReconcile1', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -2366,7 +2213,6 @@ export class ComplianceRTAFunctions {
             2,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetailsReconcile2', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -2387,7 +2233,6 @@ export class ComplianceRTAFunctions {
             })
             .orderBy({ 'rr.created_on': 'DESC' })
             .getRawOne();
-          // console.log(
           //   'fetchedReconcileReportDetails',
           //   fetchedReconcileReportDetails,
           // );
@@ -2407,7 +2252,6 @@ export class ComplianceRTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsReconcile3', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2422,7 +2266,6 @@ export class ComplianceRTAFunctions {
                 4,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsReconcile4', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2441,7 +2284,6 @@ export class ComplianceRTAFunctions {
                 5,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsReconcile4', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2453,7 +2295,6 @@ export class ComplianceRTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsReconcile3', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2467,7 +2308,6 @@ export class ComplianceRTAFunctions {
                 3,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsReconcile3', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2478,7 +2318,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log(
       //   'resultsOfMonthlyReconciliationsAndRecordKeeping',
       //   resultsOfCheck,
       // );
@@ -2499,7 +2338,6 @@ export class ComplianceRTAFunctions {
 
       //Check 10 rule 1
       let resultsOfCheck = [];
-      // console.log('retentionTrustAccount', retentionTrustAccount);
 
       const fetchedContentOf1stRule = await this.complianceChecksRepo.findOne({
         where: {
@@ -2509,7 +2347,6 @@ export class ComplianceRTAFunctions {
         },
         select: ['rule_number', 'content'],
       });
-      // console.log('fetchedContentOf1stRule', fetchedContentOf1stRule);
 
       //Returning the results of the rule based upon the monthly reconciliation record.
       if (!retentionTrustAccount) {
@@ -2518,7 +2355,6 @@ export class ComplianceRTAFunctions {
           1,
           fetchedAllRules,
         );
-        // console.log('fetchedRuleDetailsReconcile1', fetchedRuleDetails);
 
         resultsOfCheck.push({
           ...fetchedRuleDetails,
@@ -2552,7 +2388,6 @@ export class ComplianceRTAFunctions {
             client_supplier_type: 'Supplier',
           })
           .getRawMany();
-        // console.log('contractDetailss', contractDetails);
 
         if (contractDetails && contractDetails.length) {
           const fetchedLatestAuditDetails = await this.auditReportRepo
@@ -2577,7 +2412,6 @@ export class ComplianceRTAFunctions {
             })
             .orderBy({ 'ar.created_on': 'DESC' })
             .getRawOne();
-          // console.log('fetchedLatestAuditDetailsss', fetchedLatestAuditDetails);
 
           if (fetchedLatestAuditDetails) {
             const auditDate = fetchedLatestAuditDetails.audit_date;
@@ -2594,7 +2428,6 @@ export class ComplianceRTAFunctions {
                 6,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetails2', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2623,7 +2456,6 @@ export class ComplianceRTAFunctions {
                 2,
                 fetchedAllRules,
               );
-              // console.log('fetchedRuleDetailsOfAnnualReport', fetchedRuleDetails);
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
@@ -2673,7 +2505,6 @@ export class ComplianceRTAFunctions {
             1,
             fetchedAllRules,
           );
-          // console.log('fetchedRuleDetailsReconcile1', fetchedRuleDetails);
 
           resultsOfCheck.push({
             ...fetchedRuleDetails,
@@ -2685,7 +2516,6 @@ export class ComplianceRTAFunctions {
         }
       }
 
-      // console.log('resultsOfAnnualAccountReviewReports', resultsOfCheck);
       return resultsOfCheck;
     } catch (error) {
       throw error;

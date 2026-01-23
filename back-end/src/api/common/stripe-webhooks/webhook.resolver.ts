@@ -32,7 +32,7 @@ export class StripeWebhookResolver {
     });
 
     try {
-      console.log('Inside handleWebhook');
+      this.logger.log('Inside handleWebhook');
       const event = stripe.webhooks.constructEvent(
         request.body,
         sig as string,
@@ -51,7 +51,7 @@ export class StripeWebhookResolver {
           this.logger.log(
             `Request recieved while entering the handleWebhook::invoicePaymentSucceeded:: ${JSON.stringify(invoicePaymentSucceeded)}`,
           );
-          console.log('invoicePaymentSucceeded: ', invoicePaymentSucceeded);
+          this.logger.log(`invoicePaymentSucceeded: ${JSON.stringify(invoicePaymentSucceeded)}`);
           dbResponse = await this.stripeService.handlePaymentResponse(
             invoicePaymentSucceeded,
           );
@@ -65,7 +65,7 @@ export class StripeWebhookResolver {
           this.logger.log(
             `Request recieved while entering the handleWebhook::invoicePaymentFailed:: ${JSON.stringify(invoicePaymentFailed)}`,
           );
-          console.log('invoicePaymentFailed: ', invoicePaymentFailed);
+          this.logger.log(`invoicePaymentFailed: ${JSON.stringify(invoicePaymentFailed)}`);
           dbResponse =
             await this.stripeService.handlePaymentResponse(
               invoicePaymentFailed,
@@ -80,9 +80,8 @@ export class StripeWebhookResolver {
           this.logger.log(
             `Request recieved while entering the handleWebhook::cancelSubscriptionAtTrialEnd:: ${JSON.stringify(cancelSubscriptionAtTrialEnd)}`,
           );
-          console.log(
-            'cancelSubscriptionAtTrialEnd: ',
-            cancelSubscriptionAtTrialEnd,
+          this.logger.log(
+            `cancelSubscriptionAtTrialEnd: ${JSON.stringify(cancelSubscriptionAtTrialEnd)}`,
           );
           dbResponse = await this.stripeService.handleCancelResponse(
             cancelSubscriptionAtTrialEnd,
@@ -97,9 +96,8 @@ export class StripeWebhookResolver {
           this.logger.log(
             `Request recieved while entering the handleWebhook::cancelSubscriptionImmediately:: ${JSON.stringify(cancelSubscriptionImmediately)}`,
           );
-          console.log(
-            'cancelSubscriptionImmediately: ',
-            cancelSubscriptionImmediately,
+          this.logger.log(
+            `cancelSubscriptionImmediately: ${JSON.stringify(cancelSubscriptionImmediately)}`,
           );
           dbResponse = await this.stripeService.handleCancelResponse(
             cancelSubscriptionImmediately,
@@ -111,7 +109,7 @@ export class StripeWebhookResolver {
         // ... handle other event types
         default:
           this.logger.log(`Unhandled event:: ${JSON.stringify(event)}`);
-          console.log(`Unhandled event type ${event.type}`);
+          this.logger.log(`Unhandled event type ${event.type}`);
       }
       response.status(200).json({ received: true });
     } catch (err) {

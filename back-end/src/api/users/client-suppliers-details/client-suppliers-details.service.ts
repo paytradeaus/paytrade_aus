@@ -131,7 +131,7 @@ export class ClientSuppliersDetailsService {
             response.id +
             `?tab=current` +
             `&from=log`;
-          console.log('clientSupplierLink', clientSupplierLink);
+          this.logger.log(`clientSupplierLink: ${clientSupplierLink}`);
 
           const createActivityLogInput: CreateActivityLogInput = {
             event_template_id:
@@ -224,7 +224,7 @@ export class ClientSuppliersDetailsService {
             }
           }
         }
-        console.log('response', response);
+        this.logger.log(`response: ${JSON.stringify(response)}`);
         return response;
       }
       throw `Name already exist`;
@@ -758,7 +758,7 @@ export class ClientSuppliersDetailsService {
               response.id +
               `?tab=current` +
               `&from=log`;
-            console.log('clientSupplierLink', clientSupplierLink);
+            this.logger.log(`clientSupplierLink: ${clientSupplierLink}`);
 
             let eventTemplateId;
             if (
@@ -977,7 +977,7 @@ export class ClientSuppliersDetailsService {
               `${linkExtensions[5]}${response.id}${is_deleted ? '?tab=archived' : '?tab=current'}` +
               `&from=log`;
 
-            console.log('clientSupplierLink', clientSupplierLink);
+            this.logger.log(`clientSupplierLink: ${clientSupplierLink}`);
 
             //Generating company link.
             const companyLink =
@@ -985,7 +985,7 @@ export class ClientSuppliersDetailsService {
               `${linkExtensions[2]}` +
               `${clientSuppliersDetails.company_id}` +
               `?from=log`;
-            console.log('companyLink', companyLink);
+            this.logger.log(`companyLink: ${companyLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
               event_template_id:
@@ -1396,7 +1396,7 @@ export class ClientSuppliersDetailsService {
     const clientSuppliersDetails = await this.clientSuppliersDetails.find({
       where: whereConditions,
     });
-    console.log(clientSuppliersDetails);
+    this.logger.log(`clientSuppliersDetails: ${JSON.stringify(clientSuppliersDetails)}`);
     return clientSuppliersDetails;
   }
 
@@ -1460,7 +1460,7 @@ export class ClientSuppliersDetailsService {
           contract_id,
         })
         .getRawOne();
-      console.log('queriedDetails', queriedDetails);
+      this.logger.log(`queriedDetails: ${JSON.stringify(queriedDetails)}`);
 
       if (!queriedDetails)
         throw `Invalid data. Contract details not found. Please provide a valid contract_id.`;
@@ -1478,7 +1478,7 @@ export class ClientSuppliersDetailsService {
             ? queriedDetails.payment_from_account
             : paymentDetails.retention_account;
 
-        console.log('bank_account_id', bank_account_id);
+        this.logger.log(`bank_account_id: ${bank_account_id}`);
         fetchedPaymentFromAccountDetails = await this.bankAccountsRepo
           .createQueryBuilder('ba')
           .select([
@@ -1491,10 +1491,7 @@ export class ClientSuppliersDetailsService {
             bank_account_id,
           })
           .getRawOne();
-        console.log(
-          'fetchedPaymentFromAccountDetails',
-          fetchedPaymentFromAccountDetails,
-        );
+        this.logger.log(`fetchedPaymentFromAccountDetails: ${JSON.stringify(fetchedPaymentFromAccountDetails)}`);
 
         if (!fetchedPaymentFromAccountDetails)
           throw `Payment from account id present in the contracts entity is invalid or not present in the bank accounts entity.`;
@@ -1512,10 +1509,7 @@ export class ClientSuppliersDetailsService {
           bank_account_id: queriedDetails.payment_to_account,
         })
         .getRawOne();
-      console.log(
-        'fetchedPaymentToAccountDetails',
-        fetchedPaymentToAccountDetails,
-      );
+      this.logger.log(`fetchedPaymentToAccountDetails: ${JSON.stringify(fetchedPaymentToAccountDetails)}`);
 
       if (!fetchedPaymentToAccountDetails)
         throw `Payment to account id present in the contracts entity is invalid or not present in the bank accounts entity.`;
@@ -1573,7 +1567,7 @@ export class ClientSuppliersDetailsService {
         ...fetchedPaymentToAccountDetails,
         ...{ claim_amount: previous_claim_amount },
       };
-      console.log('allClientSupplierDetails', allClientSupplierDetails);
+      this.logger.log(`allClientSupplierDetails: ${JSON.stringify(allClientSupplierDetails)}`);
 
       this.logger.log(
         `Client supplier details fetched successfully with data: ${JSON.stringify(allClientSupplierDetails)}`,
@@ -1627,7 +1621,7 @@ export class ClientSuppliersDetailsService {
       });
 
       if (!projectIdDetails) throw `Contract details not found.`;
-      console.log('projectIdDetails: ', projectIdDetails);
+      this.logger.log(`projectIdDetails: ${JSON.stringify(projectIdDetails)}`);
 
       let projectIds = [];
       projectIdDetails.forEach((element) => {
@@ -1740,7 +1734,7 @@ export class ClientSuppliersDetailsService {
       ? removedAccountDetails?.map((obj) => Number(obj.bank_account_id))
       : [];
 
-    console.log('removedIds: ', removedIds);
+    this.logger.log(`removedIds: ${JSON.stringify(removedIds)}`);
 
     if (removedIds && removedIds?.length > 0) {
       const contractDetails = await this.contractDetails

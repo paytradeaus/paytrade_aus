@@ -224,7 +224,7 @@ export class ContactsResolver {
         is_admin: true,
         created_by: decoded?.userId,
       };
-      console.log('ActivityLog:', createActivityLogInput);
+      this.logger.log(`ActivityLog: ${JSON.stringify(createActivityLogInput)}`);
       await this.activityLogService.insertActivityLog(createActivityLogInput);
 
       return contact;

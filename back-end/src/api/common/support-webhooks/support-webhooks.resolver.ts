@@ -3,10 +3,13 @@ import { Request, Response } from 'express';
 import * as crypto from 'crypto';
 import { SupportWebhooksService } from './support-webhooks.service';
 import { Public } from 'src/api/auth/jwt-guard/public.decorator';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 // import { SupportMailService } from './support-mail.service';
 
 @Controller('support-mail')
 export class SupportWebhooksResolver {
+  private logger = new PaytradeLogger('SUPPORT_WEBHOOKS_RESOLVER');
+
   constructor(
     private readonly SupportWebhooksService: SupportWebhooksService,
   ) {}
@@ -23,9 +26,9 @@ export class SupportWebhooksResolver {
 
       // Optional HMAC verification
       if (process.env.SUPPORT_WEBHOOK_KEY) {
-        console.log('[Support webhook verification');
+        this.logger.log('[Support webhook verification');
       } else {
-        console.log(
+        this.logger.log(
           '[Support Webhook] No Support_WEBHOOK_KEY set → skipping verification',
         );
       }
@@ -38,14 +41,13 @@ export class SupportWebhooksResolver {
           const payload = JSON.parse(rawBody.toString('utf8'));
           this.SupportWebhooksService.processInboundEmail(payload);
         } catch (err) {
-          console.error(
-            '[Support Webhook] Failed to parse/process payload:',
-            err.message,
+          this.logger.error(
+            `[Support Webhook] Failed to parse/process payload: ${err.message}`,
           );
         }
       });
     } catch (err) {
-      console.error('[Support Webhook] Error:', err.message);
+      this.logger.error(`[Support Webhook] Error: ${err.message}`);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
   }

@@ -8,7 +8,6 @@ export class ComplianceCronService {
 
   // @Cron('0 16 * * *')
   // async handleTestCron() {
-  //   console.log("Log: test cron running")
   //   await this.compliancesService.checkAllprojectCompliance();
   // }
 

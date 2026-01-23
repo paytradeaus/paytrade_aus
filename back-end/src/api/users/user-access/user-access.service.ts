@@ -15,11 +15,13 @@ import {
   FetchModeOfAnUserInput,
   SwitchModeOfAnUserInput,
 } from './dto/switch-user-mode.input';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
 @Injectable()
 export class UserAccessService {
+  private logger: PaytradeLogger;
   constructor(
     @InjectRepository(CompanyDetails)
     private companyDetails: Repository<CompanyDetails>,
@@ -29,7 +31,9 @@ export class UserAccessService {
     @InjectRepository(Invitations) private invitations: Repository<Invitations>,
     @InjectRepository(FileAttachments)
     private fileAttachments: Repository<FileAttachments>,
-  ) {}
+  ) {
+    this.logger = new PaytradeLogger('USER_ACCESS_SERVICE');
+  }
 
   async getUserListsForCompany(
     decoded,
@@ -542,7 +546,7 @@ export class UserAccessService {
   async switchModeOfAnUser(data: SwitchModeOfAnUserInput) {
     try {
       const { user_id, user_mode } = data;
-      console.log('data', data);
+      this.logger.log(`Switching user mode with data: ${JSON.stringify(data)}`);
 
       await this.userDetails
         .createQueryBuilder()
@@ -550,7 +554,7 @@ export class UserAccessService {
         .set({ user_mode })
         .where(`user_id = :user_id`, { user_id })
         .execute();
-      console.log('--------->');
+      this.logger.log(`User mode switched successfully`);
 
       const responseMessage =
         user_mode == 'Onboarding'
@@ -570,7 +574,7 @@ export class UserAccessService {
         where: { user_id },
         select: ['user_id', 'user_mode'],
       });
-      console.log('userDetails', userDetails);
+      this.logger.log(`Fetched user mode: ${JSON.stringify(userDetails)}`);
 
       return framedResponse(
         'SUCCESS',
@@ -603,10 +607,7 @@ export class UserAccessService {
         }
         resolve('');
       } catch (error) {
-        // this.logger.error(
-        //   `Errored while getting company specific role with message: ${error.message}`,
-        // );
-        console.error(error?.message ? error?.message : error);
+        this.logger.error(`Errored while getting company specific role with message: ${error?.message ? error?.message : error}`);
       }
     });
   }

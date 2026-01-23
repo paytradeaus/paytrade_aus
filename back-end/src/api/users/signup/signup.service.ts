@@ -334,7 +334,7 @@ export class SignupService {
             SubscriptionDetails,
             subscriptionDetails,
           );
-          console.log('subscriptionDetails: ', subscriptionDetails);
+          this.logger.log(`Subscription details saved: ${JSON.stringify(subscriptionDetails)}`);
 
           const createCompanySpecificRolesInput: any = {
             user_name:
@@ -689,7 +689,7 @@ export class SignupService {
         qbcc_number: ILike(`${qbcc_number}`),
       },
     });
-    console.log(companyDetails);
+    this.logger.log(`QBCC company details: ${JSON.stringify(companyDetails)}`);
     return companyDetails;
   }
 
@@ -705,7 +705,7 @@ export class SignupService {
     });
 
     const result = { ...leftQueryBuilder, ...rightQueryBuilder };
-    console.log('result:', result);
+    this.logger.log(`Email existence check result: ${JSON.stringify(result)}`);
     return result;
   }
 
@@ -725,10 +725,10 @@ export class SignupService {
         user_status: 'Active',
       },
     });
-    console.log('user_details', user_id);
+    this.logger.log(`user_details: ${user_id}`);
 
     if (user) {
-      console.log('failed_attempts', failed_attempts);
+      this.logger.log(`failed_attempts: ${failed_attempts}`);
       if (failed_attempts !== null && Number(failed_attempts) >= 0) {
         user.failed_attempts = failed_attempts;
         user.lock_time =
@@ -740,7 +740,7 @@ export class SignupService {
         user.updated_on = moment.tz('UTC');
         user.updated_group = 'USER';
         var result = await this.userDetails.save(user);
-        console.log('Maximum attempts updated.');
+        this.logger.log('Maximum attempts updated.');
         return result;
       } else {
         user.failed_attempts = 0;
@@ -754,11 +754,11 @@ export class SignupService {
         user.user_mode = 'Normal';
         user.first_time_logged_in = Number(user.first_time_logged_in) + 1;
         var result = await this.userDetails.save(user);
-        console.log('Login Info updated successfully');
+        this.logger.log('Login Info updated successfully');
         return result;
       }
     } else {
-      console.log('User not found');
+      this.logger.log('User not found');
       return user;
     }
   }

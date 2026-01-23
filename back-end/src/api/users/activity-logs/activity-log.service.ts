@@ -46,7 +46,7 @@ export class UserActivityLogService {
         where: { company_id },
         select: ['company_name'],
       });
-      console.log('fetchedCompanyDetails', fetchedCompanyDetails);
+      this.logger.log(`fetchedCompanyDetails: ${JSON.stringify(fetchedCompanyDetails)}`);
 
       //Generating company link.
       const companyLink =
@@ -54,7 +54,7 @@ export class UserActivityLogService {
         `${linkExtensions[2]}` +
         `${company_id}` +
         `?from=log`;
-      console.log('companyLink', companyLink);
+      this.logger.log(`companyLink: ${companyLink}`);
 
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: 31,

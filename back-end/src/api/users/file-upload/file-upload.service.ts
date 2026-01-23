@@ -257,7 +257,7 @@ export class FileUploadService {
     try {
       const createFile = fileRepo.create(createFileUploadInput);
       const savedFile = await fileRepo.save(createFile);
-      console.log('savedFile: ', savedFile);
+      this.logger.log(`savedFile: ${JSON.stringify(savedFile)}`);
       this.logger.log(
         `File save and map initiated: ${savedFile.file_name}`,
       );
@@ -364,7 +364,7 @@ export class FileUploadService {
               `Notice not found for id: ${createFileUploadInput.notice_id}`,
             );
           }
-          console.log('noticeDetails', noticeData);
+          this.logger.log(`noticeDetails: ${JSON.stringify(noticeData)}`);
 
           // Safely assign the relation using .save()
           noticeData.uploaded_notice = savedFile;
@@ -454,8 +454,8 @@ export class FileUploadService {
             ? discussionIdeaDetails.disc_idea_attachment_ids
             : [];
           discAttachmentIds.push(savedFile.id);
-          console.log('savedFile.id: ', savedFile.id);
-          console.log('attachmentIds: ', discAttachmentIds);
+          this.logger.log(`savedFile.id: ${savedFile.id}`);
+          this.logger.log(`attachmentIds: ${JSON.stringify(discAttachmentIds)}`);
 
           const result = await this.discussionsIdeas
             .createQueryBuilder()
@@ -486,8 +486,8 @@ export class FileUploadService {
             ? answerCommentDetails.ans_comm_attachment_ids
             : [];
           ansAttachmentIds.push(savedFile.id);
-          console.log('savedFile.id: ', savedFile.id);
-          console.log('attachmentIds: ', attachmentIds);
+          this.logger.log(`savedFile.id: ${savedFile.id}`);
+          this.logger.log(`attachmentIds: ${JSON.stringify(attachmentIds)}`);
 
           const result = await this.answerComments
             .createQueryBuilder()
@@ -530,13 +530,13 @@ export class FileUploadService {
           const companyDetails = await this.companyDetails.findOne({
             where: { company_id: createFileUploadInput?.company_id },
           });
-          console.log('companyDetails: ', companyDetails);
+          this.logger.log(`companyDetails: ${JSON.stringify(companyDetails)}`);
           var attachmentIds = companyDetails.training_records_ids
             ? companyDetails.training_records_ids
             : [];
           attachmentIds.push(savedFile.id);
-          console.log('savedFile.id: ', savedFile.id);
-          console.log('attachmentIds: ', attachmentIds);
+          this.logger.log(`savedFile.id: ${savedFile.id}`);
+          this.logger.log(`attachmentIds: ${JSON.stringify(attachmentIds)}`);
           const result = await this.companyDetails
             .createQueryBuilder()
             .update(CompanyDetails)
@@ -591,7 +591,7 @@ export class FileUploadService {
           createFileUploadInput?.attachment_type === 'Compulsory_attachments'
         ) {
           if (createFileUploadInput?.payment_claim_id) {
-            console.log("*********update payment claim repo - txn")
+            this.logger.log('update payment claim repo - txn');
             const claimDetails = await claimsRepo.findOne({
               where: {
                 payment_claim_id: createFileUploadInput.payment_claim_id,
@@ -624,14 +624,14 @@ export class FileUploadService {
             const paymentDetails = await this.paymentDetails.findOne({
               where: { payment_id: createFileUploadInput?.payment_id },
             });
-            // console.log('paymentDetails: ', paymentDetails);
+            this.logger.log(`paymentDetails: ${JSON.stringify(paymentDetails)}`);
             var attachmentIds =
               paymentDetails && paymentDetails?.compulsory_attachment_ids
                 ? paymentDetails?.compulsory_attachment_ids
                 : [];
             attachmentIds.push(savedFile?.id);
-            console.log('savedFile.id: ', savedFile?.id);
-            console.log('attachmentIds: ', attachmentIds);
+            this.logger.log(`savedFile.id: ${savedFile?.id}`);
+            this.logger.log(`attachmentIds: ${JSON.stringify(attachmentIds)}`);
             const result = await this.paymentDetails
               .createQueryBuilder()
               .update(PaymentDetails)
@@ -655,13 +655,13 @@ export class FileUploadService {
           const paymentDetails = await this.paymentDetails.findOne({
             where: { payment_id: createFileUploadInput?.payment_id },
           });
-          // console.log('paymentDetails: ', paymentDetails);
+          this.logger.log(`paymentDetails: ${JSON.stringify(paymentDetails)}`);
           var attachmentIds = paymentDetails.optional_attachment_ids
             ? paymentDetails.optional_attachment_ids
             : [];
           attachmentIds.push(savedFile.id);
-          console.log('savedFile.id: ', savedFile.id);
-          console.log('attachmentIds: ', attachmentIds);
+          this.logger.log(`savedFile.id: ${savedFile.id}`);
+          this.logger.log(`attachmentIds: ${JSON.stringify(attachmentIds)}`);
           const result = await this.paymentDetails
             .createQueryBuilder()
             .update(PaymentDetails)
@@ -1020,11 +1020,7 @@ export class FileUploadService {
               where: { company_id },
             },
           );
-          console.log(
-            'companyDetails: ',
-            companyDetails,
-            companyDetails.training_records_ids,
-          );
+          this.logger.log(`companyDetails: ${JSON.stringify(companyDetails)}, training_records_ids: ${JSON.stringify(companyDetails.training_records_ids)}`);
           companyDetails.training_records_ids =
             companyDetails.training_records_ids
               ? companyDetails.training_records_ids.filter(
@@ -1287,7 +1283,7 @@ export class FileUploadService {
       ) {
         const claimPayment = await this.getPaymentDetail(Number(module_id));
         customFileName = `Payment-${claimPayment?.payment_claim_id}-Supporting Statement-${claimPayment?.payment_type}-${formatDate(claimPayment?.payment_date)}-${fileNamePrefix}`;
-        console.log('customFileName: ', customFileName);
+        this.logger.log(`customFileName: ${customFileName}`);
       }
 
       // else if (attachment_type === 'Notices_uploads') {
@@ -1371,8 +1367,8 @@ export class FileUploadService {
       })
       .getRawOne();
 
-    console.log('payment_claim_id: ', payment_claim_id);
-    console.log('paymentClaim: ', paymentClaim);
+    this.logger.log(`payment_claim_id: ${payment_claim_id}`);
+    this.logger.log(`paymentClaim: ${JSON.stringify(paymentClaim)}`);
 
     if (!paymentClaim) throw new Error('Claim record not found');
 
@@ -1387,8 +1383,8 @@ export class FileUploadService {
 
     if (!bankAcc) throw new Error('Bank account record not found');
 
-    console.log('bank_account_id: ', bank_account_id);
-    console.log('bankAcc: ', bankAcc);
+    this.logger.log(`bank_account_id: ${bank_account_id}`);
+    this.logger.log(`bankAcc: ${JSON.stringify(bankAcc)}`);
 
     return bankAcc;
   }
@@ -1407,7 +1403,7 @@ export class FileUploadService {
       .where('ar.audit_id = :audit_id', { audit_id })
       .getRawOne();
 
-    console.log('auditReport: ', auditReport);
+    this.logger.log(`auditReport: ${JSON.stringify(auditReport)}`);
 
     if (!auditReport) throw new Error('Audit report record not found');
 
@@ -1427,12 +1423,12 @@ export class FileUploadService {
     try {
       if (existsSync(oldPath)) {
         await fsPromises.rename(oldPath, newPath);
-        console.log(`File renamed from ${oldPath} to ${newPath}`);
+        this.logger.log(`File renamed from ${oldPath} to ${newPath}`);
         return true;
       }
-      console.log(`File not found ${oldPath}`);
+      this.logger.log(`File not found ${oldPath}`);
     } catch (error) {
-      console.error(`Error renaming file: ${error.message}`);
+      this.logger.error(`Error renaming file: ${error.message}`);
       throw error;
     }
   }
@@ -1464,7 +1460,7 @@ export class FileUploadService {
       >[] = [];
 
       const noChangeToSave = () => {
-        console.log('No changes to save');
+        this.logger.log('No changes to save');
         return true;
       };
 
@@ -1490,7 +1486,7 @@ export class FileUploadService {
             typeof fileDetails.file_name === 'string' &&
             fileDetails.file_name.toUpperCase().startsWith('S75')
           ) {
-            console.log(
+            this.logger.log(
               `Skipping rename for compulsory attachment starting with S75: ${fileDetails.file_name} (id: ${fileDetails.id})`,
             );
             continue; // skip this file
@@ -1564,7 +1560,7 @@ export class FileUploadService {
         });
       }
 
-      console.log('newFileDetail: ', newFileDetail);
+      this.logger.log(`newFileDetail: ${JSON.stringify(newFileDetail)}`);
 
       for (let index = 0; index < newFileDetail.length; index++) {
         const newFileDetailObj = newFileDetail[index];
@@ -1586,9 +1582,9 @@ export class FileUploadService {
               custom_file_name: customFileName,
             },
           );
-          console.log(`File path updated - ${attachment_id}`);
+          this.logger.log(`File path updated - ${attachment_id}`);
         } else {
-          console.log(`File path updated - Failed`);
+          this.logger.log(`File path updated - Failed`);
         }
       }
 
@@ -1598,7 +1594,7 @@ export class FileUploadService {
 
       return true;
     } catch (error) {
-      console.log('Err updateFileName: ', error?.message);
+      this.logger.error(`Err updateFileName: ${error?.message}`);
       throw error;
     }
   }

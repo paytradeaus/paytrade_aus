@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Injectable()
 export class SupportWebhooksService {
+  private logger = new PaytradeLogger('SUPPORT_WEBHOOKS_SERVICE');
+
   async processInboundEmail(payload: any) {
-    console.log(' [SupportMailService] Received inbound email:', payload);
+    this.logger.log(`[SupportMailService] Received inbound email: ${JSON.stringify(payload)}`);
 
     // Example payload structure:
     // {

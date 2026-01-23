@@ -330,7 +330,7 @@ export class UserAccessResolver {
           null,
           null,
         );
-        console.log('getCount', getCount);
+        this.logger.log(`User count for company: ${JSON.stringify(getCount)}`);
 
         const subscriptionDetails =
           await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -540,7 +540,7 @@ export class UserAccessResolver {
                 null,
                 null,
               );
-            console.log('getCount', getCount);
+            this.logger.log(`User count for company: ${JSON.stringify(getCount)}`);
 
             const subscriptionDetails =
               await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -689,7 +689,7 @@ export class UserAccessResolver {
           createUserAccessInput.company_id,
           false,
         );
-        console.log(getInviteDetails);
+        this.logger.log(`getInviteDetails: ${JSON.stringify(getInviteDetails)}`);
         if (
           getInviteDetails &&
           getInviteDetails.decline_count !== null &&
@@ -720,19 +720,19 @@ export class UserAccessResolver {
               createUserAccessInput,
             );
           }
-          console.log(roleResponse);
+          this.logger.log(`roleResponse: ${JSON.stringify(roleResponse)}`);
           const existingAdminDetails =
             await this.userAccessService.getExistingAdmin(
               createUserAccessInput.company_id,
             );
-          console.log(existingAdminDetails);
+          this.logger.log(`existingAdminDetails: ${JSON.stringify(existingAdminDetails)}`);
           if (roleResponse) {
             var response;
             if (getInviteDetails) {
               const requestedCount = getInviteDetails.requested_count
                 ? Number(getInviteDetails.requested_count) + 1
                 : 1;
-              console.log('requestedCount:', requestedCount);
+              this.logger.log(`requestedCount: ${requestedCount}`);
               getInviteDetails.requested_count = requestedCount;
               getInviteDetails.user_action = null;
               response = await this.userAccessService.updateInvitation(
@@ -813,7 +813,7 @@ export class UserAccessResolver {
                 `${linkExtensions[2]}` +
                 `${createUserAccessInput.company_id}` +
                 `?from=log`;
-              console.log('companyLink', companyLink);
+              this.logger.log(`companyLink: ${companyLink}`);
 
               const createActivityLogInput: CreateActivityLogInput = {
                 event_template_id: 16,
@@ -976,14 +976,14 @@ export class UserAccessResolver {
               `${linkExtensions[2]}` +
               `${companyDetails.company_id}` +
               `?from=log`;
-            console.log('companyLink', companyLink);
+            this.logger.log(`companyLink: ${companyLink}`);
 
             //Generating user link.
             const userLink =
               `${process.env.LOG_BASE_URL}` +
               `${linkExtensions[1]}` +
               `?from=log`;
-            console.log('userLink', userLink);
+            this.logger.log(`userLink: ${userLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
               event_template_id: 26,
@@ -1105,14 +1105,14 @@ export class UserAccessResolver {
                 `${linkExtensions[2]}` +
                 `${company_id}` +
                 `?from=log`;
-              console.log('companyLink', companyLink);
+              this.logger.log(`companyLink: ${companyLink}`);
 
               //Generating user link.
               const userLink =
                 `${process.env.LOG_BASE_URL}` +
                 `${linkExtensions[1]}` +
                 `?from=log`;
-              console.log('userLink', userLink);
+              this.logger.log(`userLink: ${userLink}`);
 
               const createActivityLogInput: CreateActivityLogInput = {
                 event_template_id: 28,
@@ -1237,14 +1237,14 @@ export class UserAccessResolver {
                 `${linkExtensions[2]}` +
                 `${updateUserAccessInput.company_id}` +
                 `?from=log`;
-              console.log('companyLink', companyLink);
+              this.logger.log(`companyLink: ${companyLink}`);
 
               //Generating user link.
               const userLink =
                 `${process.env.LOG_BASE_URL}` +
                 `${linkExtensions[1]}` +
                 `?from=log`;
-              console.log('userLink', userLink);
+              this.logger.log(`userLink: ${userLink}`);
 
               const createActivityLogInput: CreateActivityLogInput = {
                 event_template_id: 27,
@@ -1314,16 +1314,13 @@ export class UserAccessResolver {
           createUserAccessInput.company_id,
           true,
         );
-        console.log(getInviteDetails);
+        this.logger.log(`getInviteDetails: ${JSON.stringify(getInviteDetails)}`);
         if (
           getInviteDetails &&
           getInviteDetails.decline_count !== null &&
           getInviteDetails.decline_count >= 3
         ) {
-          console.log(
-            'getInviteDetails.decline_count: ',
-            getInviteDetails.decline_count,
-          );
+          this.logger.log(`getInviteDetails.decline_count: ${getInviteDetails.decline_count}`);
           reject(
             `User has declined your request thrice. Please contact the Paytrade administrator for further assistance.`,
           );
@@ -1332,15 +1329,12 @@ export class UserAccessResolver {
           getInviteDetails.requested_count !== null &&
           getInviteDetails.requested_count >= 3
         ) {
-          console.log(
-            'getInviteDetails.requested_count: ',
-            getInviteDetails.requested_count,
-          );
+          this.logger.log(`getInviteDetails.requested_count: ${getInviteDetails.requested_count}`);
           reject(
             `Please contact the Paytrade administrator for further assistance.`,
           );
         } else {
-          console.log('getInviteDetails');
+          this.logger.log(`Processing invite details`);
           var roleResponse;
           if (getInviteDetails && getInviteDetails !== null) {
             roleResponse = await this.userAccessService.updateCompanyUserRoles(
@@ -1361,7 +1355,7 @@ export class UserAccessResolver {
               const requestedCount = getInviteDetails.requested_count
                 ? Number(getInviteDetails.requested_count) + 1
                 : 1;
-              console.log('requestedCount:', requestedCount);
+              this.logger.log(`requestedCount: ${requestedCount}`);
               getInviteDetails.requested_count = requestedCount;
               getInviteDetails.user_action = null;
               response = await this.userAccessService.updateInvitation(
@@ -1477,7 +1471,7 @@ export class UserAccessResolver {
           createUserAccessInput.company_id,
           true,
         );
-        console.log(getInviteDetails);
+        this.logger.log(`getInviteDetails: ${JSON.stringify(getInviteDetails)}`);
         if (
           getInviteDetails &&
           getInviteDetails.decline_count !== null &&
@@ -1500,7 +1494,7 @@ export class UserAccessResolver {
             const requestedCount = getInviteDetails.requested_count
               ? Number(getInviteDetails.requested_count) + 1
               : 1;
-            console.log('requestedCount:', requestedCount);
+            this.logger.log(`requestedCount: ${requestedCount}`);
             getInviteDetails.requested_count = requestedCount;
             getInviteDetails.user_action = null;
             response = await this.userAccessService.updateInvitation(
@@ -1669,12 +1663,12 @@ export class UserAccessResolver {
           `${linkExtensions[2]}` +
           `${companyDetails.company_id}` +
           `?from=log`;
-        console.log('companyLink', companyLink);
+        this.logger.log(`companyLink: ${companyLink}`);
 
         //Generating user link.
         const userLink =
           `${process.env.LOG_BASE_URL}` + `${linkExtensions[1]}` + `?from=log`;
-        console.log('userLink', userLink);
+        this.logger.log(`userLink: ${userLink}`);
 
         const requestor = await this.userAccessService.getUserDetailsByEmailId(
           getRequestedByRes.requested_by,
@@ -1804,7 +1798,7 @@ export class UserAccessResolver {
           company_id,
           false,
         );
-        console.log(getRequestedByRes);
+        this.logger.log(`getRequestedByRes: ${JSON.stringify(getRequestedByRes)}`);
         const userAction = user_action === 'Accept' ? 'accepted' : 'declined';
         const subject =
           user_action === 'Accept'
@@ -1856,12 +1850,12 @@ export class UserAccessResolver {
           `${linkExtensions[2]}` +
           `${companyDetails.company_id}` +
           `?from=log`;
-        console.log('companyLink', companyLink);
+        this.logger.log(`companyLink: ${companyLink}`);
 
         //Generating user link.
         const userLink =
           `${process.env.LOG_BASE_URL}` + `${linkExtensions[1]}` + `?from=log`;
-        console.log('userLink', userLink);
+        this.logger.log(`userLink: ${userLink}`);
 
         const requestor = await this.userAccessService.getUserDetailsByEmailId(
           getRequestedByRes.requested_by,

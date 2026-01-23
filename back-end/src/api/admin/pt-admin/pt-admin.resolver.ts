@@ -131,7 +131,7 @@ export class PtAdminResolver {
         `${linkExtensions[39]}` +
         `${adminDetails.id}` +
         `?from=log`;
-      console.log('adminUserLink', adminUserLink);
+      this.logger.log(`adminUserLink: ${adminUserLink}`);
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: 136,
         admin_id: decoded?.userId,
@@ -307,7 +307,7 @@ export class PtAdminResolver {
           `${linkExtensions[39]}` +
           `${updateAdminInput.id}` +
           `?from=log`;
-        console.log('adminUserLink', adminUserLink);
+        this.logger.log(`adminUserLink: ${adminUserLink}`);
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: eventTemplateId,
           admin_id: decoded?.userId,
@@ -362,7 +362,7 @@ export class PtAdminResolver {
           `${linkExtensions[39]}` +
           `${updateAdminInput.id}` +
           `?from=log`;
-        console.log('adminUserLink', adminUserLink);
+        this.logger.log(`adminUserLink: ${adminUserLink}`);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: eventTemplateId,
@@ -685,9 +685,9 @@ export class PtAdminResolver {
         //Generating admin-user link.
         const adminUserLink =
           `${process.env.LOG_BASE_URL}` + `${linkExtensions[39]}` + `${Id}`;
-        console.log('adminUserLink', adminUserLink);
+        this.logger.log(`adminUserLink: ${adminUserLink}`);
 
-        console.log('decodededed', decoded);
+        this.logger.log(`decodededed: ${JSON.stringify(decoded)}`);
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 176,
           admin_id: decoded?.userId,
@@ -765,7 +765,7 @@ export class PtAdminResolver {
             userDetails.email_id,
             true,
           );
-          console.log('token', response.data);
+          this.logger.log(`token: ${JSON.stringify(response.data)}`);
           this.logger.log(
             `Response recieved while leaving the client: ${JSON.stringify(response)}`,
           );

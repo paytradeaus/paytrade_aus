@@ -199,7 +199,7 @@ export class ExportDataService {
 
       return token;
     } catch (error) {
-      console.error('Error in generateSignedUrl:', error.message);
+      this.logger.error(`Error in generateSignedUrl: ${error.message}`);
       throw new Error('Failed to generate signed URL');
     }
   }
@@ -814,7 +814,7 @@ export class ExportDataService {
             process.env.UPLOAD_BASE_URL + pdfPaths[0].replace(/\\/g, '/');
         }
 
-        console.log(
+        this.logger.log(
           'PDF generation complete - sending WebSocket notification.',
         );
 
@@ -830,7 +830,7 @@ export class ExportDataService {
         });
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      this.logger.error(`Error generating PDF: ${error}`);
       this.exportGateway.notifyClient(clientId, {
         message: 'PDF generation failed. Please try again.',
         error: error.message || error,
@@ -1791,7 +1791,7 @@ export class ExportDataService {
       if (additionalStyles) {
         await page.addStyleTag({ content: additionalStyles });
       }
-      page.on('console', (msg) => console.log('BROWSER LOG:', msg.text()));
+      page.on('console', (msg) => this.logger.log(`BROWSER LOG: ${msg.text()}`));
 
       await page.evaluate(() => {
         setTimeout(() => {
@@ -1859,11 +1859,11 @@ export class ExportDataService {
       const writeStream = fs.createWriteStream(pdfPath);
       await pipeline(pdfStream, writeStream);
 
-      console.log(`PDF batch ${batchIndex + 1} saved: ${pdfPath}`);
+      this.logger.log(`PDF batch ${batchIndex + 1} saved: ${pdfPath}`);
       await browser.close();
       return pdfPath;
     } catch (error) {
-      console.error(`Error generating PDF batch ${batchIndex + 1}:`, error);
+      this.logger.error(`Error generating PDF batch ${batchIndex + 1}: ${error}`);
       throw error;
     }
   }
@@ -1881,7 +1881,7 @@ export class ExportDataService {
       const archive = archiver('zip', { zlib: { level: 9 } });
 
       archive.on('error', (err) => {
-        console.error('Archiving error:', err);
+        this.logger.error(`Archiving error: ${err}`);
         reject(err);
       });
 
@@ -1893,7 +1893,7 @@ export class ExportDataService {
           typeof filePath !== 'string' ||
           !fs.existsSync(filePath)
         ) {
-          console.warn(`Skipping invalid file at index ${index}:`, filePath);
+          this.logger.warn(`Skipping invalid file at index ${index}: ${filePath}`);
           return;
         }
         archive.file(filePath, { name: path.basename(filePath) });
@@ -1902,7 +1902,7 @@ export class ExportDataService {
       archive.finalize();
 
       output.on('close', async () => {
-        console.log(
+        this.logger.log(
           `ZIP file created: ${zipFilePath} (${archive.pointer()} bytes)`,
         );
 
@@ -1911,9 +1911,9 @@ export class ExportDataService {
           if (fs.existsSync(filePath)) {
             try {
               fs.unlinkSync(filePath);
-              console.log(`Deleted file: ${filePath}`);
+              this.logger.log(`Deleted file: ${filePath}`);
             } catch (err) {
-              console.error(`Error deleting file ${filePath}:`, err);
+              this.logger.error(`Error deleting file ${filePath}: ${err}`);
             }
           }
         }
@@ -5840,7 +5840,7 @@ export class ExportDataService {
           admin_ids && admin_ids.id_array
             ? admin_ids.id_array
             : [decoded?.admin_id];
-        console.log('id_array: ', id_array);
+        this.logger.log(`id_array: ${JSON.stringify(id_array)}`);
         queryBuilder.where(
           'log.admin_id IN(:...idArray) AND log.is_admin IS TRUE',
           {

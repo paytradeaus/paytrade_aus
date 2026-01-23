@@ -310,7 +310,7 @@ export class ClientSuppliersDetailsResolver {
           updateClientSuppliersDetailInput,
           decoded,
         );
-      console.log('editClientSupplierDetails', editClientSuppliersDetailsRes);
+      this.logger.log(`editClientSupplierDetails: ${JSON.stringify(editClientSuppliersDetailsRes)}`);
       this.logger.log(
         `Response recieved while leaving the client: ${JSON.stringify(editClientSuppliersDetailsRes)}`,
       );

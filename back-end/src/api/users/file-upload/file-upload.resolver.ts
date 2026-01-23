@@ -208,7 +208,7 @@ export class FileUploadResolver {
             }
           }
         }
-        console.log('allowedFileTypes: ', allowedFileTypes, mimetype);
+        this.logger.log(`allowedFileTypes: ${allowedFileTypes}, mimetype: ${mimetype}`);
         if (!allowedFileTypes.includes(mimetype)) {
           return resolve(framedResponse('ERROR', `Invalid file type`));
         }
@@ -228,8 +228,8 @@ export class FileUploadResolver {
         });
 
         const fileBuffer = Buffer.concat(chunks);
-        console.log('fileSize: ', fileSize);
-        console.log('maxFileSize: ', maxFileSize);
+        this.logger.log(`fileSize: ${fileSize}`);
+        this.logger.log(`maxFileSize: ${maxFileSize}`);
 
         // Validate CSV headers if needed (using the already-buffered data)
         if (
@@ -419,14 +419,14 @@ export class FileUploadResolver {
                       `${linkExtensions[2]}` +
                       `${createFileUploadInput?.company_id}` +
                       `?from=log`;
-                    console.log('companyLink', companyLink);
+                    this.logger.log(`companyLink: ${companyLink}`);
 
                     const companyLinkAdmin =
                       `${process.env.LOG_BASE_URL}` +
                       `${linkExtensions[20]}` +
                       `${createFileUploadInput?.company_id}` +
                       `?from=log`;
-                    console.log('companyLink', companyLink);
+                    this.logger.log(`companyLinkAdmin: ${companyLinkAdmin}`);
                     const companyName =
                       await this.fileUploadService.getCompanyName(
                         createFileUploadInput?.company_id,
@@ -505,7 +505,7 @@ export class FileUploadResolver {
                       is_admin: false,
                       created_by: decoded?.userId,
                     };
-                    console.log('activity_log: ', createActivityLogInput);
+                    this.logger.log(`activity_log: ${JSON.stringify(createActivityLogInput)}`);
                     await this.activityLogService.insertActivityLog(
                       createActivityLogInput,
                     );
@@ -526,7 +526,7 @@ export class FileUploadResolver {
                       `${linkExtensions[14]}` +
                       `${notice_data.id}` +
                       `?from=log`;
-                    console.log('noticeLink', noticeLink);
+                    this.logger.log(`noticeLink: ${noticeLink}`);
 
                     const createActivityLogInput: CreateActivityLogInput = {
                       event_template_id: 129,
@@ -787,11 +787,11 @@ export class FileUploadResolver {
         companyId,
         decoded?.isAdmin,
       );
-      console.log('fileDetails: ', fileDetails);
+      this.logger.log(`fileDetails: ${JSON.stringify(fileDetails)}`);
       if (fileDetails && fileDetails.file_path) {
         try {
           await this.objectStorageService.deleteFile(fileDetails.file_path);
-          console.log('file was deleted from Object Storage');
+          this.logger.log('file was deleted from Object Storage');
         } catch (storageErr) {
           this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
         }
@@ -846,7 +846,7 @@ export class FileUploadResolver {
               `${linkExtensions[2]}` +
               `${companyId}` +
               `?from=log`;
-            console.log('companyLink', companyLink);
+            this.logger.log(`companyLink: ${companyLink}`);
             const companyName =
               await this.fileUploadService.getCompanyName(companyId);
 
@@ -945,7 +945,7 @@ export class FileUploadResolver {
       if (fileDetails) {
         try {
           await this.objectStorageService.deleteFile(fileDetails.file_path);
-          console.log('file was deleted from Object Storage');
+          this.logger.log('file was deleted from Object Storage');
         } catch (storageErr) {
           this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
         }
@@ -967,14 +967,14 @@ export class FileUploadResolver {
           `${linkExtensions[24]}` +
           blogResId +
           `?from=log`;
-        console.log('blogLink', blogLink);
+        this.logger.log(`blogLink: ${blogLink}`);
 
         const resourceLink =
           `${process.env.LOG_BASE_URL}` +
           `${linkExtensions[25]}` +
           blogResId +
           `?from=log`;
-        console.log('resourceLink', resourceLink);
+        this.logger.log(`resourceLink: ${resourceLink}`);
 
         let attachType;
 
@@ -1003,7 +1003,7 @@ export class FileUploadResolver {
           is_admin: true,
           created_by: decoded?.userId,
         };
-        console.log('ActivityLog_Input: ', createActivityLogInput);
+        this.logger.log(`ActivityLog_Input: ${JSON.stringify(createActivityLogInput)}`);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
         return framedResponse('SUCCESS', `File deleted Successfully`);
       }
@@ -1313,7 +1313,7 @@ export class FileUploadResolver {
         if (attachmentType !== 'Notices_support_docs') {
           try {
             await this.objectStorageService.deleteFile(fileDetails.file_path);
-            console.log('file was deleted from Object Storage');
+            this.logger.log('file was deleted from Object Storage');
           } catch (storageErr) {
             this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
           }
@@ -1394,7 +1394,7 @@ export class FileUploadResolver {
           if (actionType === 'cancel') {
             try {
               await this.objectStorageService.deleteFile(fileDetails?.file_path);
-              console.log('file was deleted from Object Storage');
+              this.logger.log('file was deleted from Object Storage');
             } catch (storageErr) {
               this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
             }

@@ -174,7 +174,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${user.user_id}` +
           `?from=log`;
-        console.log('userLink1', userLink);
+        this.logger.log(`userLink1: ${userLink}`);
       } else if (
         updateUserDetailsInput.user_status === 'Blocked' &&
         !updateUserDetailsInput.latitude
@@ -186,7 +186,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${user.user_id}` +
           `?from=log`;
-        console.log('userLink2', userLink);
+        this.logger.log(`userLink2: ${userLink}`);
       } else if (
         updateUserDetailsInput.is_admin_contacted == false &&
         Object.keys(updateUserDetailsInput).length < 3
@@ -198,7 +198,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${user.user_id}` +
           `?from=log`;
-        console.log('userLink3', userLink);
+        this.logger.log(`userLink3: ${userLink}`);
       } else if (
         updateUserDetailsInput.user_status === 'Active' &&
         Object.keys(updateUserDetailsInput).length < 3
@@ -210,7 +210,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${user.user_id}` +
           `?from=log`;
-        console.log('userLink4', userLink);
+        this.logger.log(`userLink4: ${userLink}`);
       } else {
         templateID = 144;
         userLink =
@@ -218,7 +218,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${user.user_id}` +
           `?from=log`;
-        console.log('userLink5', userLink);
+        this.logger.log(`userLink5: ${userLink}`);
       }
 
       const createActivityLogInput: CreateActivityLogInput = {
@@ -343,7 +343,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[18]}` +
           `${userData.user.user_id}` +
           `?from=log`;
-        console.log('userLink2', userLink);
+        this.logger.log(`userLink2: ${userLink}`);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 174,
@@ -532,7 +532,7 @@ export class PtAdminAccessResolver {
       );
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
 
-      console.log('resulttttt', Object.keys(updateCompanyDetailsInput).length);
+      this.logger.log(`resulttttt: ${Object.keys(updateCompanyDetailsInput).length}`);
       const company = await this.ptAdminAccessService.updateCompany(
         updateCompanyDetailsInput,
       );
@@ -559,7 +559,7 @@ export class PtAdminAccessResolver {
         `${linkExtensions[20]}` +
         `${company.company_id}` +
         `?from=log`;
-      console.log('companyLink', companyLink);
+      this.logger.log(`companyLink: ${companyLink}`);
 
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: templateID,
@@ -619,7 +619,7 @@ export class PtAdminAccessResolver {
         `${linkExtensions[18]}` +
         userId +
         `?from=log`;
-      console.log('userLink', userLink);
+      this.logger.log(`userLink: ${userLink}`);
 
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: 143,
@@ -747,7 +747,7 @@ export class PtAdminAccessResolver {
         `${linkExtensions[20]}` +
         `${company.companyDetails.company_id}` +
         `?from=log`;
-      console.log('companyLink', companyLink);
+      this.logger.log(`companyLink: ${companyLink}`);
 
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: 147,
@@ -841,7 +841,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[31]}` +
           `${newFinIns.id}` +
           `?from=log`;
-        console.log('financialInstitutionLink', financialInstitutionLink);
+        this.logger.log(`financialInstitutionLink: ${financialInstitutionLink}`);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 158,
@@ -998,7 +998,7 @@ export class PtAdminAccessResolver {
           `${linkExtensions[31]}` +
           `${updatedFinIns.id}` +
           `?from=log`;
-        console.log('financialInstitutionLink', financialInstitutionLink);
+        this.logger.log(`financialInstitutionLink: ${financialInstitutionLink}`);
 
         const createActivityLogInputEdit: CreateActivityLogInput = {
           event_template_id: 159,
@@ -1011,7 +1011,7 @@ export class PtAdminAccessResolver {
           is_admin: true,
           created_by: decoded?.userId,
         };
-        console.log('Activity_log_edited _FI', createActivityLogInputEdit);
+        this.logger.log(`Activity_log_edited _FI: ${JSON.stringify(createActivityLogInputEdit)}`);
         await this.activityLogService.insertActivityLog(
           createActivityLogInputEdit,
         );
@@ -1041,7 +1041,7 @@ export class PtAdminAccessResolver {
             is_admin: true,
             created_by: decoded?.userId,
           };
-          console.log('Activity_log', createActivityLogInput);
+          this.logger.log(`Activity_log: ${JSON.stringify(createActivityLogInput)}`);
           await this.activityLogService.insertActivityLog(
             createActivityLogInput,
           );

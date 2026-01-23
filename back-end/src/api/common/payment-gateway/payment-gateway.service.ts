@@ -651,7 +651,7 @@ export class PaymentGatewayService {
                 order: { company_id: 'DESC' },
               });
 
-            console.log({ activeSubscriptionDetails });
+            this.logger.log(`activeSubscriptionDetails: ${JSON.stringify(activeSubscriptionDetails)}`);
 
             if (activeSubscriptionDetails) {
               const activeIntegrations =
@@ -666,7 +666,7 @@ export class PaymentGatewayService {
                   order: { company_id: 'DESC' },
                 });
 
-              console.log({ activeIntegrations });
+              this.logger.log(`activeIntegrations: ${JSON.stringify(activeIntegrations)}`);
               if (activeIntegrations) {
                 const updateIntegrationResult = await transactionalEntityManager
                   .createQueryBuilder()
@@ -684,8 +684,8 @@ export class PaymentGatewayService {
                   })
                   .execute();
 
-                console.log({ updateIntegrationResult });
-                console.log('Integration updated for active subscriptions!');
+                this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+                this.logger.log('Integration updated for active subscriptions!');
               }
             }
           }
@@ -900,7 +900,7 @@ export class PaymentGatewayService {
               order: { company_id: 'DESC' },
             });
 
-          console.log({ expiredSubscriptionDetails });
+          this.logger.log(`expiredSubscriptionDetails: ${JSON.stringify(expiredSubscriptionDetails)}`);
 
           if (expiredSubscriptionDetails) {
             const expireIntegrations = await transactionalEntityManager.findOne(
@@ -916,7 +916,7 @@ export class PaymentGatewayService {
               },
             );
 
-            console.log({ expireIntegrations });
+            this.logger.log(`expireIntegrations: ${JSON.stringify(expireIntegrations)}`);
             if (expireIntegrations) {
               const updateIntegrationResult = await transactionalEntityManager
                 .createQueryBuilder()
@@ -933,8 +933,8 @@ export class PaymentGatewayService {
                 })
                 .execute();
 
-              console.log({ updateIntegrationResult });
-              console.log('Integration updated for expired subscriptions!');
+              this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+              this.logger.log('Integration updated for expired subscriptions!');
             }
           }
           return subscriptionResponse;

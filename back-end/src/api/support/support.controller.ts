@@ -24,7 +24,7 @@ export class SupportController {
         `Request received for handleStripeWebhook with payload: ${JSON.stringify(body)}`,
       );
 
-      console.log('Initialized Support Ticket Webhook');
+      this.logger.log('Initialized Support Ticket Webhook');
 
       // Example: capture fields
       const payload = {
@@ -36,14 +36,14 @@ export class SupportController {
         inReplyTo: body?.['In-Reply-To'], // create new ticket if inReplyTo null or Link to existing Ticket Mails by messageId
       };
 
-      console.log('Support Ticket payload: ', payload);
+      this.logger.log(`Support Ticket payload: ${JSON.stringify(payload)}`);
 
       if (payload?.messageId) {
         await this.supportService.handleMailGunWebhook(payload);
       }
 
       this.logger.log(`Respone sent back: ${JSON.stringify(payload)}`);
-      console.log('Support Ticket response back to hooks');
+      this.logger.log('Support Ticket response back to hooks');
 
       response.status(200).json({ received: true });
     } catch (error) {
@@ -51,7 +51,7 @@ export class SupportController {
       this.logger.error(
         `Errored inside the handleMailGunWebhook with message: ${errorMessage}`,
       );
-      console.log(`Failed MailGun Webhook Webhook - ${errorMessage}`);
+      this.logger.error(`Failed MailGun Webhook Webhook - ${errorMessage}`);
       return response.status(400).send(`Webhook Error: ${errorMessage}`);
     }
   }

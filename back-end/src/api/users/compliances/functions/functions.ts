@@ -113,7 +113,6 @@ export function filterComplianceContentDetails(
         content.check_number == check_number &&
         content.rule_number == rule_number,
     )[0];
-    // console.log('filteredContentDetails', filteredContentDetails);
 
     return filteredContentDetails;
   } catch (error) {
@@ -130,7 +129,6 @@ export function fetchComplianceRuleDetails(
       (rule) =>
         rule.check_number == check_number && rule.rule_number == rule_number,
     )[0];
-    // console.log('filteredRuleDetails', filteredRuleDetails);
 
     return filteredRuleDetails;
   } catch (error) {

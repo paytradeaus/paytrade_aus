@@ -67,7 +67,7 @@ export class ProjectsService {
           page_number: 1,
           page_size: 10,
         });
-        console.log('getCount', getCount);
+        this.logger.log(`Project count: ${JSON.stringify(getCount)}`);
 
         const subscriptionDetails =
           await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -110,7 +110,7 @@ export class ProjectsService {
       const createProject =
         await this.projectDetails.create(createProjectInput);
       const projectDetails = await this.projectDetails.save(createProject);
-      console.log({ project_id: projectDetails?.project_id });
+      this.logger.log(`Project created with id: ${projectDetails?.project_id}`);
       if (projectDetails) {
         projectDetails.project_id = 1000 + Number(projectDetails.project_id);
 
@@ -120,7 +120,7 @@ export class ProjectsService {
           `${linkExtensions[4]}` +
           `${projectDetails.id}` +
           `?from=log`;
-        console.log('projectLink', projectLink);
+        this.logger.log(`projectLink: ${projectLink}`);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 42,
@@ -541,7 +541,7 @@ export class ProjectsService {
             page_number: 1,
             page_size: 10,
           });
-          console.log('getCount', getCount);
+          this.logger.log(`getCount: ${JSON.stringify(getCount)}`);
 
           const subscriptionDetails =
             await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -662,7 +662,7 @@ export class ProjectsService {
           projectDetails.updated_on = moment.tz('UTC');
           projectDetails.updated_group = 'USER';
           const result = await this.projectDetails.save(projectDetails);
-          console.log(result);
+          this.logger.log(`result: ${JSON.stringify(result)}`);
           if (result && Object.keys(result).length !== 0) {
             result.project_date = result.project_date
               ? new Date(result.project_date)
@@ -679,7 +679,7 @@ export class ProjectsService {
               `${linkExtensions[4]}` +
               `${projectDetails.id}` +
               `?from=log`;
-            console.log('projectLink', projectLink);
+            this.logger.log(`projectLink: ${projectLink}`);
 
             let eventTemplateId;
             if (
@@ -769,7 +769,7 @@ export class ProjectsService {
             page_number: 1,
             page_size: 10,
           });
-          console.log('getCount', getCount);
+          this.logger.log(`getCount: ${JSON.stringify(getCount)}`);
 
           const subscriptionDetails =
             await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
@@ -887,7 +887,7 @@ export class ProjectsService {
               `${linkExtensions[4]}` +
               `${projectDetails.id}` +
               `?from=log`;
-            console.log('projectLink', projectLink);
+            this.logger.log(`projectLink: ${projectLink}`);
 
             // console.log('decoded', decoded);
             let eventTemplateId;
@@ -1115,7 +1115,7 @@ export class ProjectsService {
       })
       .getMany();
 
-    console.log(projectDetails);
+    this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
     return projectDetails;
   }
 

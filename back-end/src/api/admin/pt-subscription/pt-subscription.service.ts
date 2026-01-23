@@ -1291,7 +1291,7 @@ export class PtSubscriptionService {
     transactionalEntityManager: EntityManager,
   ) {
     try {
-      console.log('Expiry check starts');
+      this.logger.log('Expiry check starts');
       const subscriptionDetails = await transactionalEntityManager
         .createQueryBuilder(SubscriptionDetails, 'sd')
         .select('sd.id', 'id')
@@ -1341,7 +1341,7 @@ export class PtSubscriptionService {
         )
         .getRawMany();
 
-      console.log({ subscriptionDetails });
+      this.logger.log(`subscriptionDetails: ${JSON.stringify(subscriptionDetails)}`);
       if (subscriptionDetails && subscriptionDetails?.length > 0) {
         let expiredSubscriptionDetails = [],
           activeSubscriptionDetails = [];
@@ -1354,7 +1354,7 @@ export class PtSubscriptionService {
             }
           }
         }
-        console.log({ expiredSubscriptionDetails });
+        this.logger.log(`expiredSubscriptionDetails: ${JSON.stringify(expiredSubscriptionDetails)}`);
         if (
           expiredSubscriptionDetails &&
           expiredSubscriptionDetails?.length > 0
@@ -1363,7 +1363,7 @@ export class PtSubscriptionService {
             ...new Set(expiredSubscriptionDetails.map((r) => r.company_id)),
           ];
 
-          console.log({ expiredCompanyIds });
+          this.logger.log(`expiredCompanyIds: ${JSON.stringify(expiredCompanyIds)}`);
           const expireIntegrations = await transactionalEntityManager.find(
             IntegrationDetails,
             {
@@ -1375,13 +1375,13 @@ export class PtSubscriptionService {
             },
           );
 
-          console.log({ expireIntegrations });
+          this.logger.log(`expireIntegrations: ${JSON.stringify(expireIntegrations)}`);
           if (expireIntegrations && expireIntegrations?.length > 0) {
             const expiredIntegrationIds = [
               ...new Set(expireIntegrations.map((r) => r.integration_id)),
             ];
 
-            console.log({ expiredIntegrationIds });
+            this.logger.log(`expiredIntegrationIds: ${JSON.stringify(expiredIntegrationIds)}`);
             const updateIntegrationResult = await transactionalEntityManager
               .createQueryBuilder()
               .update(IntegrationDetails)
@@ -1397,14 +1397,14 @@ export class PtSubscriptionService {
               })
               .execute();
 
-            console.log({ updateIntegrationResult });
-            console.log('Integration updated for expired subscriptions!');
+            this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+            this.logger.log('Integration updated for expired subscriptions!');
           } else {
-            console.log('No integration found for expired subscriptions!');
+            this.logger.log('No integration found for expired subscriptions!');
           }
         }
 
-        console.log({ activeSubscriptionDetails });
+        this.logger.log(`activeSubscriptionDetails: ${JSON.stringify(activeSubscriptionDetails)}`);
         if (
           activeSubscriptionDetails &&
           activeSubscriptionDetails?.length > 0
@@ -1413,20 +1413,20 @@ export class PtSubscriptionService {
             ...new Set(activeSubscriptionDetails.map((r) => r.company_id)),
           ];
 
-          console.log({ activeCompanyIds });
+          this.logger.log(`activeCompanyIds: ${JSON.stringify(activeCompanyIds)}`);
 
           const activeXeroIntegrations = await transactionalEntityManager.find(
             XeroIntegrationDetails,
             { where: { company_id: In(activeCompanyIds), status: 'ACTIVE' } },
           );
-          console.log({ activeXeroIntegrations });
+          this.logger.log(`activeXeroIntegrations: ${JSON.stringify(activeXeroIntegrations)}`);
 
           if (activeXeroIntegrations && activeXeroIntegrations?.length > 0) {
             const activeXeroCompanyIds = [
               ...new Set(activeXeroIntegrations.map((r) => r.company_id)),
             ];
 
-            console.log({ activeXeroCompanyIds });
+            this.logger.log(`activeXeroCompanyIds: ${JSON.stringify(activeXeroCompanyIds)}`);
             const activeIntegrations = await transactionalEntityManager.find(
               IntegrationDetails,
               {
@@ -1439,13 +1439,13 @@ export class PtSubscriptionService {
               },
             );
 
-            console.log({ activeIntegrations });
+            this.logger.log(`activeIntegrations: ${JSON.stringify(activeIntegrations)}`);
             if (activeIntegrations && activeIntegrations?.length > 0) {
               const activeIntegrationIds = [
                 ...new Set(activeIntegrations.map((r) => r.integration_id)),
               ];
 
-              console.log({ activeIntegrationIds });
+              this.logger.log(`activeIntegrationIds: ${JSON.stringify(activeIntegrationIds)}`);
 
               const updateIntegrationResult = await transactionalEntityManager
                 .createQueryBuilder()
@@ -1463,16 +1463,15 @@ export class PtSubscriptionService {
                 })
                 .execute();
 
-              console.log({ updateIntegrationResult });
-              console.log('Integration updated for active subscriptions!');
+              this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+              this.logger.log('Integration updated for active subscriptions!');
             }
           }
         }
       }
     } catch (error) {
-      console.error(
-        'Error in check subscription expiry scheduler: ',
-        error?.message ? error.message : error,
+      this.logError(
+        `Error in check subscription expiry scheduler: ${error?.message ? error.message : error}`,
       );
     }
   }
@@ -2381,7 +2380,7 @@ export class PtSubscriptionService {
         name: name,
       });
 
-      console.log('coupon: ', coupon);
+      this.logger.log(`coupon: ${JSON.stringify(coupon)}`);
 
       return coupon;
     } catch (error) {
@@ -2949,7 +2948,7 @@ export class PtSubscriptionService {
         ptCoupon.stripe_coupon_id,
       );
 
-      console.log('couponDetail: ', couponDetail);
+      this.logger.log(`couponDetail: ${JSON.stringify(couponDetail)}`);
 
       if (!couponDetail || couponDetail.deleted) {
         throw new Error('Invalid or expired coupon');

@@ -288,7 +288,6 @@ export class SignupResolver {
       this.logger.log(
         `Request recieved while entering the client with arguments: ${JSON.stringify(createEmailVerificationInput)}`,
       );
-      console.log(JSON.stringify(createEmailVerificationInput));
       var isRecaptchaVerified = true,
         errMsg = '';
       if (
@@ -510,7 +509,7 @@ export class SignupResolver {
                     createSignupInput.email_id,
                     false,
                   );
-                  console.log(response.data['access_token']);
+                  this.logger.log(`Auth token received`);
                   const decoded = this.jwtService.decode(
                     response.data['access_token'],
                   );
@@ -608,7 +607,7 @@ export class SignupResolver {
           await this.signupService.getEmailVerifyDetails(
             createCompanySignupInput,
           );
-        console.log(createCompanySignupInput.email_id, emailVerifyDetails);
+        this.logger.log(`Email verification: ${createCompanySignupInput.email_id}, ${JSON.stringify(emailVerifyDetails)}`);
         if (emailVerifyDetails) {
           if (
             moment(emailVerifyDetails.code_expires_in)
@@ -625,7 +624,7 @@ export class SignupResolver {
                   emailVerifyDetails,
                 );
 
-              console.log('companyDetails', companyDetails);
+              this.logger.log(`companyDetails: ${JSON.stringify(companyDetails)}`);
 
               const response = await this.authService.getAuthToken(
                 decoded?.emailId,
@@ -637,7 +636,7 @@ export class SignupResolver {
                 `${process.env.LOG_BASE_URL}` +
                 `${linkExtensions[2]}` +
                 `?from=log`;
-              console.log('companyLink', companyLink);
+              this.logger.log(`companyLink: ${companyLink}`);
 
               const createActivityLogInput: CreateActivityLogInput = {
                 event_template_id: 12,
@@ -1504,7 +1503,7 @@ export class SignupResolver {
               is_admin: false,
               created_by: decoded?.userId,
             };
-            console.log('createActivityInput', createActivityLogInput);
+            this.logger.log(`createActivityInput: ${JSON.stringify(createActivityLogInput)}`);
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
@@ -1742,7 +1741,7 @@ export class SignupResolver {
             decoded,
             updateCompanySignupInput,
           );
-          console.log(checkedEmail);
+          this.logger.log(`checkedEmail: ${JSON.stringify(checkedEmail)}`);
           if (checkedEmail && checkedEmail['isUpdateAllowed'] === false) {
             return framedResponse('ERROR', checkedEmail['errMsg']);
           } else {
@@ -1766,7 +1765,7 @@ export class SignupResolver {
                   `${process.env.LOG_BASE_URL}` +
                   `${linkExtensions[2]}` +
                   `?from=log`;
-                console.log('companyLink', companyLink);
+                this.logger.log(`companyLink: ${companyLink}`);
 
                 const createActivityLogInput: CreateActivityLogInput = {
                   event_template_id: 13,
@@ -1800,7 +1799,7 @@ export class SignupResolver {
                     `${linkExtensions[2]}` +
                     `${updateCompanySignupInput.company_id}` +
                     `?from=log`;
-                  console.log('companyLink', companyLink);
+                  this.logger.log(`companyLink: ${companyLink}`);
 
                   const createActivityLogInput: CreateActivityLogInput = {
                     event_template_id: 11,
@@ -1820,7 +1819,7 @@ export class SignupResolver {
                     is_admin: false,
                     created_by: decoded?.userId,
                   };
-                  console.log('createActivityInput', createActivityLogInput);
+                  this.logger.log(`createActivityInput: ${JSON.stringify(createActivityLogInput)}`);
                   await this.activityLogService.insertActivityLog(
                     createActivityLogInput,
                   );

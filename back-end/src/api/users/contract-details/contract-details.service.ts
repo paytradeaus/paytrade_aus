@@ -168,7 +168,7 @@ export class ContractDetailsService {
               this.logger.log(
                 `Error triggering contract notices for the contract: ${JSON.stringify(noticeResult)}`,
               );
-              console.error('Error triggering contract notices:', err);
+              this.logger.error(`Error triggering contract notices: ${err}`);
               throw new Error('Notice generation failed');
             }
           }
@@ -234,14 +234,14 @@ export class ContractDetailsService {
         `${linkExtensions[6]}` +
         response.id +
         `?from=log`;
-      console.log('contractLink', contractLink);
+      this.logger.log(`contractLink: ${contractLink}`);
 
       const clientSupplierDetails = await this.clientSuppliersRepo.findOne({
         where: {
           client_supplier_id: response.client_supplier_id,
         },
       });
-      console.log('clientSupplierDetails', clientSupplierDetails);
+      this.logger.log(`clientSupplierDetails: ${JSON.stringify(clientSupplierDetails)}`);
 
       const createActivityLogInput: CreateActivityLogInput = {
         event_template_id: 57,
@@ -891,11 +891,7 @@ export class ContractDetailsService {
         },
       });
     }
-    console.log('result: ', {
-      ...contractDetails,
-      paymentClaims,
-      paymentDetails,
-    });
+    this.logger.log(`result: ${JSON.stringify({ ...contractDetails, paymentClaims, paymentDetails })}`);
     return { ...contractDetails, paymentClaims, paymentDetails };
   }
 
@@ -1118,14 +1114,8 @@ export class ContractDetailsService {
                               // transactionalEntityManager,
                             );
                         } catch (err) {
-                          console.error(
-                            'Error triggering contract notices:',
-                            err,
-                          );
-
                           this.logger.error(
-                            'Error triggering contract notices:',
-                            err,
+                            `Error triggering contract notices: ${err}`,
                           );
 
                           throw err;
@@ -1157,7 +1147,7 @@ export class ContractDetailsService {
                         `${linkExtensions[6]}` +
                         contractDetails.id +
                         `?from=log`;
-                      console.log('contractLink', contractLink);
+                      this.logger.log(`contractLink: ${contractLink}`);
 
                       const createActivityLogInput: CreateActivityLogInput = {
                         event_template_id: 58,
@@ -1450,7 +1440,7 @@ export class ContractDetailsService {
                   `${linkExtensions[6]}` +
                   contractDetails.id +
                   `?from=log`;
-                console.log('contractLink', contractLink);
+                this.logger.log(`contractLink: ${contractLink}`);
 
                 let eventTemplateId;
                 if (status === 'Completed') {
@@ -1916,7 +1906,7 @@ export class ContractDetailsService {
         contract_name: contract_name?.trim()?.toLowerCase(),
       })
       .getRawMany();
-    console.log(contractDetails);
+    this.logger.log(`contractDetails: ${JSON.stringify(contractDetails)}`);
     return contractDetails;
   }
 }

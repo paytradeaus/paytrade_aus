@@ -30,12 +30,15 @@ import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.se
 import { linkExtensions } from '../activity-log/link-extensions';
 import { SortingOrder } from 'src/api/admin/pt-admin/dto/add-admin.dto';
 import { join } from 'path';
+import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 const Handlebars = require('handlebars');
 moment.tz.setDefault('UTC');
 
 @Injectable()
 export class CommunityService {
+  private logger = new PaytradeLogger('COMMUNITY_SERVICE');
+
   constructor(
     @InjectRepository(CmtyDiscussionsIdeas)
     private discussionsIdeas: Repository<CmtyDiscussionsIdeas>,
@@ -210,7 +213,7 @@ export class CommunityService {
           authorImageFile = `data:${authorImageBase64.file_type};base64,${fileBuffer.toString('base64')}`;
         }
       } catch (error) {
-        console.error('Error reading file:', error);
+        this.logger.error(`Error reading file: ${error}`);
       }
     }
 
@@ -477,7 +480,7 @@ export class CommunityService {
                 answer_comment_owner_image_base64 = `data:${commentOwnerImage.file_type};base64,${fileBuffer.toString('base64')}`;
               }
             } catch (error) {
-              console.error('Error reading file:', error);
+              this.logger.error(`Error reading file: ${error}`);
             }
             const cleanPath = commentOwnerImage.file_path.replace(/\\/g, '/');
             answer_comment_owner_image_url = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;

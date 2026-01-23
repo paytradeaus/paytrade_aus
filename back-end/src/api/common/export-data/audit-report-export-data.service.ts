@@ -1185,7 +1185,7 @@ Each file contains records relevant to that category as part of the audit trail.
             );
 
             if (!buffer || !buffers[0]) {
-              console.warn(`No data buffer for accounting screen: ${screen}`);
+              this.logger.warn(`No data buffer for accounting screen: ${screen}`);
               continue;
             }
             const tempWorkbook = new ExcelJS.Workbook();
@@ -1197,7 +1197,7 @@ Each file contains records relevant to that category as part of the audit trail.
 
             // Avoid duplicate sheet error
             if (workbook.getWorksheet(safeSheetName)) {
-              console.warn(`Skipping duplicate sheet: ${safeSheetName}`);
+              this.logger.warn(`Skipping duplicate sheet: ${safeSheetName}`);
               continue;
             }
 
@@ -2435,10 +2435,10 @@ Each file contains records relevant to that category as part of the audit trail.
             if (response.status === 200) {
               archive.append(response.data, { name: zipPath });
             } else {
-              console.warn(`⚠️ Skipped: File not found (${fileUrl})`);
+              this.logger.warn(`⚠️ Skipped: File not found (${fileUrl})`);
             }
           } catch (err) {
-            console.error(`Failed to fetch ABA file: ${fileUrl}`, err.message);
+            this.logger.error(`Failed to fetch ABA file: ${fileUrl} - ${err.message}`);
           }
         }
 
@@ -2464,10 +2464,10 @@ Each file contains records relevant to that category as part of the audit trail.
                 name: zipPath,
               });
             } else {
-              console.warn(`⚠️ Skipped: File not found (${fileUrl})`);
+              this.logger.warn(`⚠️ Skipped: File not found (${fileUrl})`);
             }
           } catch (err) {
-            console.error(`Failed to fetch file: ${fileUrl}`, err.message);
+            this.logger.error(`Failed to fetch file: ${fileUrl} - ${err.message}`);
           }
         }
 
@@ -2520,14 +2520,13 @@ Each file contains records relevant to that category as part of the audit trail.
                   if (response.status === 200) {
                     archive.append(response.data, { name: zipPath });
                   } else {
-                    console.warn(
+                    this.logger.warn(
                       `⚠️ Could not fetch variation file: ${fileUrl}`,
                     );
                   }
                 } catch (err) {
-                  console.error(
-                    `❌ Failed to fetch variation file: ${fileUrl}`,
-                    err.message,
+                  this.logger.error(
+                    `❌ Failed to fetch variation file: ${fileUrl} - ${err.message}`,
                   );
                 }
               }

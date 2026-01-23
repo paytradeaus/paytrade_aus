@@ -287,7 +287,7 @@ export class SupportService {
     inReplyTo?: string;
   }) {
     try {
-      console.log('Whiling saving Support Ticket Details.');
+      this.logger.log('Saving Support Ticket Details.');
       const { fromEmail, subject, messageId, inReplyTo } = payload;
 
       const disclaimer = `The content of this email is confidential and intended for the recipient specified in the message only. It is strictly forbidden to share any part of this message with any third party, without the written consent of the sender. If you received this message by mistake, please reply to this message and follow it with its deletion. Then we can ensure such a mistake does not occur in the future.`;
@@ -380,11 +380,11 @@ export class SupportService {
         inReplyTo: payload?.inReplyTo,
       });
 
-      console.log('Saved Support Ticket Details.');
+      this.logger.log('Saved Support Ticket Details.');
 
       return await this.ticketMailsRepo.save(mail);
     } catch (error) {
-      console.log('Catch handleMailGunWebhook: ', error?.message);
+      this.logger.error(`Catch handleMailGunWebhook: ${error?.message}`);
       throw error;
     }
   }

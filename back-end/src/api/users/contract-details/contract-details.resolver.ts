@@ -314,10 +314,7 @@ export class ContractDetailsResolver {
       this.logger.log(
         `Response recieved while leaving the client: ${JSON.stringify(editContractDetailsRes)}`,
       );
-      console.log(
-        'editContractDetailsRes: ',
-        JSON.stringify(editContractDetailsRes),
-      );
+      this.logger.log(`editContractDetailsRes: ${JSON.stringify(editContractDetailsRes)}`);
       if (editContractDetailsRes) {
         const xeroDetails = await this.xeroService.getIntegrationDetails(
           updateContractDetailInput.company_id,

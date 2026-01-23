@@ -49,14 +49,14 @@ export class StripeWebhookService {
       const subscriptionId =
         response?.parent?.subscription_details?.subscription ?? null;
 
-      console.log({ subscriptionId });
+      this.logger.log(`subscriptionId: ${subscriptionId}`);
 
       if (!subscriptionId) throw `Subscription Id not found`;
 
       const subscription =
         await this.stripe.subscriptions.retrieve(subscriptionId);
 
-      console.log({ subscription });
+      this.logger.log(`subscription: ${JSON.stringify(subscription)}`);
 
       if (!subscription) throw `Subscription details not found`;
 
@@ -84,7 +84,7 @@ export class StripeWebhookService {
             subscriptionDetails.payment_method_id,
           );
           paymentMethod = `${paymentMethods.card.brand} *${paymentMethods.card.last4}`;
-          console.log('paymentMethod: ', paymentMethod);
+          this.logger.log(`paymentMethod: ${paymentMethod}`);
         }
 
         const data = {
@@ -150,7 +150,7 @@ export class StripeWebhookService {
           })
           .execute();
 
-        console.log('updateSubscriptionDetails: ', updateSubscriptionDetails);
+        this.logger.log(`updateSubscriptionDetails: ${JSON.stringify(updateSubscriptionDetails)}`);
         return dbResponse;
       }
       throw `Subscription Id not found`;
@@ -173,7 +173,7 @@ export class StripeWebhookService {
 
       const subscriptionId = response?.id ?? null;
 
-      console.log({ subscriptionId });
+      this.logger.log(`subscriptionId: ${subscriptionId}`);
 
       if (!subscriptionId) throw `Subscription Id not found`;
 

@@ -103,12 +103,12 @@ export class VariationsResolver {
           `${linkExtensions[7]}` +
           variationDetails.id +
           `?from=log`;
-        console.log('variationLink', variationLink);
+        this.logger.log(`variationLink: ${variationLink}`);
 
         const projectDetails = await this.projectDetailsRepo.findOne({
           where: { project_id: variationDetails.project_id },
         });
-        console.log('projectDetails', projectDetails);
+        this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
 
         //Generating project link.
         const projectLink =
@@ -116,7 +116,7 @@ export class VariationsResolver {
           `${linkExtensions[4]}` +
           `${projectDetails.id}` +
           `?from=log`;
-        console.log('projectLink', projectLink);
+        this.logger.log(`projectLink: ${projectLink}`);
 
         const createActivityLogInput: CreateActivityLogInput = {
           event_template_id: 63,
@@ -321,13 +321,13 @@ export class VariationsResolver {
             `${linkExtensions[7]}` +
             variationDetails.id +
             `?from=log`;
-          console.log('variationLink', variationLink);
+          this.logger.log(`variationLink: ${variationLink}`);
 
           const projectDetails = await this.projectDetailsRepo.findOne({
             where: { project_id: variationDetails.project_id },
             relations: ['companyDetails'],
           });
-          console.log('projectDetails', projectDetails);
+          this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
 
           //Generating project link.
           const projectLink =
@@ -335,7 +335,7 @@ export class VariationsResolver {
             `${linkExtensions[4]}` +
             `${projectDetails.id}` +
             `?from=log`;
-          console.log('projectLink', projectLink);
+          this.logger.log(`projectLink: ${projectLink}`);
 
           const createActivityLogInput: CreateActivityLogInput = {
             event_template_id:
@@ -463,12 +463,12 @@ export class VariationsResolver {
             `${linkExtensions[7]}` +
             variationDetails.id +
             `?from=log`;
-          console.log('variationLink', variationLink);
+          this.logger.log(`variationLink: ${variationLink}`);
 
           const projectDetails = await this.projectDetailsRepo.findOne({
             where: { project_id: variationDetails.project_id },
           });
-          console.log('projectDetails', projectDetails);
+          this.logger.log(`projectDetails: ${JSON.stringify(projectDetails)}`);
 
           //Generating project link.
           const projectLink =
@@ -476,7 +476,7 @@ export class VariationsResolver {
             `${linkExtensions[4]}` +
             `${projectDetails.id}` +
             `?from=log`;
-          console.log('projectLink', projectLink);
+          this.logger.log(`projectLink: ${projectLink}`);
 
           const createActivityLogInput: CreateActivityLogInput = {
             event_template_id: 65,

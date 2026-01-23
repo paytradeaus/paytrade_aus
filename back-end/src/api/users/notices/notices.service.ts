@@ -248,7 +248,7 @@ export class NoticesService {
         `Notice details Validated succesfully and returned details ${JSON.stringify(validatedNoticeDetails.notice_type)}`,
       );
 
-      console.log('%%validate----------------->>:', validatedNoticeDetails);
+      this.logger.log(`Validated notice details: ${JSON.stringify(validatedNoticeDetails)}`);
 
       // 3. Generate the notice
       const newNotice = await this.generateNotice(
@@ -1274,7 +1274,7 @@ export class NoticesService {
         `${linkExtensions[6]}` +
         cntrts.id +
         `?from=log`;
-      console.log('contractLink', contractLink);
+      this.logger.log(`contractLink: ${contractLink}`);
 
       if (cntrts) {
         if (cntrts.contractPaymentFromAccount) {
@@ -1323,7 +1323,7 @@ export class NoticesService {
           company_id: cntrts.company_id,
         };
 
-        console.log('response: triggerContractNotice', response);
+        this.logger.log(`response: triggerContractNotice: ${JSON.stringify(response)}`);
 
         return response;
       } else {
@@ -1473,7 +1473,7 @@ export class NoticesService {
           `${linkExtensions[14]}` +
           `${newNotice.data.id}` +
           `?from=log`;
-        console.log('noticeLink', noticeLink);
+        this.logger.log(`noticeLink: ${noticeLink}`);
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
@@ -1603,7 +1603,7 @@ export class NoticesService {
           `${linkExtensions[14]}` +
           `${newNotice.data.id}` +
           `?from=log`;
-        console.log('noticeLink', noticeLink);
+        this.logger.log(`noticeLink: ${noticeLink}`);
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
@@ -1723,7 +1723,7 @@ export class NoticesService {
           `${linkExtensions[14]}` +
           `${newNotice.data.id}` +
           `?from=log`;
-        console.log('noticeLink', noticeLink);
+        this.logger.log(`noticeLink: ${noticeLink}`);
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
@@ -1843,7 +1843,7 @@ export class NoticesService {
           `${linkExtensions[14]}` +
           `${newNotice.data.id}` +
           `?from=log`;
-        console.log('noticeLink', noticeLink);
+        this.logger.log(`noticeLink: ${noticeLink}`);
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
@@ -1991,7 +1991,7 @@ export class NoticesService {
         clientName: paymentClaimDetails.client_name,
         clientMail: paymentClaimDetails.client_mail,
       };
-      console.log('response', response);
+      this.logger.log(`response: ${JSON.stringify(response)}`);
 
       return response;
     } catch (error) {
@@ -2213,7 +2213,7 @@ export class NoticesService {
         `${linkExtensions[15]}` +
         `${auditDetails.id}` +
         `?from=log`;
-      console.log('auditLink', auditLink);
+      this.logger.log(`auditLink: ${auditLink}`);
 
       if (auditDetails.nil_return == 'Yes') {
         auditNotice = true;
@@ -2231,7 +2231,7 @@ export class NoticesService {
         bank_account_id: auditDetails.bank_account_id,
         company_id: auditDetails.company_id,
       };
-      console.log('response', response);
+      this.logger.log(`response: ${JSON.stringify(response)}`);
 
       return response;
     } catch (error) {
@@ -2324,7 +2324,7 @@ export class NoticesService {
         })),
       };
 
-      console.log('paymentDetails----->', mainPayment);
+      this.logger.log(`paymentDetails: ${JSON.stringify(mainPayment)}`);
 
       return mainPayment;
     } catch (error) {
@@ -2628,7 +2628,7 @@ export class NoticesService {
           manager,
         );
 
-        console.log('Payment-notices-list', noticeListWithData);
+        this.logger.log(`Payment-notices-list: ${JSON.stringify(noticeListWithData)}`);
 
         if (noticeListWithData.trustAccountPaymentNotice === true) {
           const generateNoticePayload: Partial<generateNoticeInput> = {
@@ -2650,7 +2650,7 @@ export class NoticesService {
             manager,
           );
 
-          console.log('+_+_+_+_+_+_+__+', contractNoticeStatus);
+          this.logger.log(`contractNoticeStatus: ${JSON.stringify(contractNoticeStatus)}`);
 
           if (
             noticeListWithData.trustAccDelegation === 'Paid' ||
@@ -2672,7 +2672,7 @@ export class NoticesService {
                 manager,
               );
 
-              console.log('++++++++++doc', doc);
+              this.logger.log(`doc: ${JSON.stringify(doc)}`);
             }
 
             const newMail = await this.handleGenerateMailForANotice(
@@ -2681,7 +2681,7 @@ export class NoticesService {
               manager,
             );
 
-            console.log('%$$$$$$$$$$$mail', newMail);
+            this.logger.log(`newMail: ${JSON.stringify(newMail)}`);
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
               throw new Error(`Mail generation failed: ${newMail?.message}`);
@@ -2743,7 +2743,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
             const createActivityLogInput: CreateActivityLogInput = {
               event_template_id: 128,
               admin_id:
@@ -2877,7 +2877,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
               event_template_id: 128,
@@ -3017,7 +3017,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
               event_template_id: 128,
@@ -3159,7 +3159,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -3280,7 +3280,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -3419,7 +3419,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -3556,7 +3556,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -3718,7 +3718,7 @@ export class NoticesService {
       this.logger.log(
         `Request received for triggering multiple notices of bank account ${payload.bank_account_id}.`,
       );
-      console.log('############', payload);
+      this.logger.log(`payload: ${JSON.stringify(payload)}`);
 
       const userMode =
         decoded && decoded?.userId
@@ -3733,7 +3733,7 @@ export class NoticesService {
         manager,
       );
 
-      console.log('notice_list_to_be_generated', noticeListWithData);
+      this.logger.log(`notice_list_to_be_generated: ${JSON.stringify(noticeListWithData)}`);
 
       let noticeGen = false;
 
@@ -3843,7 +3843,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -3959,7 +3959,7 @@ export class NoticesService {
               `${linkExtensions[14]}` +
               `${newNotice.data.id}` +
               `?from=log`;
-            console.log('noticeLink', noticeLink);
+            this.logger.log(`noticeLink: ${noticeLink}`);
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
@@ -4030,7 +4030,7 @@ export class NoticesService {
             );
 
             if (missingProjectIds.length > 0) {
-              console.log('Projects without a notice:', missingProjectIds);
+              this.logger.log(`Projects without a notice: ${JSON.stringify(missingProjectIds)}`);
               // Do something with the missingProjectIds array
 
               for (const projectId of missingProjectIds) {
@@ -4124,7 +4124,7 @@ export class NoticesService {
                     `${linkExtensions[14]}` +
                     `${newNotice.data.id}` +
                     `?from=log`;
-                  console.log('noticeLink', noticeLink);
+                  this.logger.log(`noticeLink: ${noticeLink}`);
 
                   //Create activity log as soon a payment claim is created.
                   const createActivityLogInput: CreateActivityLogInput = {
@@ -4184,7 +4184,7 @@ export class NoticesService {
         `Errored while triggering notices of contract: ${payload.bank_account_id} with message: ${error.message}`,
       );
       this.logger.error(`Full error stack: ${error.stack}`);
-      console.error('NOTICE GENERATION ERROR:', error);
+      this.logger.error(`NOTICE GENERATION ERROR: ${error}`);
       return framedResponse('ERROR', error.message);
     }
   }
@@ -5314,7 +5314,7 @@ export class NoticesService {
           manager,
         );
 
-        console.log('%%%%$$$$$$$$$', outstanding_amount);
+        this.logger.log(`outstanding_amount: ${outstanding_amount}`);
 
         let attachmentDetails;
 
@@ -7386,14 +7386,14 @@ export class NoticesService {
         const address_components =
           googlePlacesResponse.data.result.address_components;
         for (const component of address_components) {
-          console.log('component: ', component);
+          this.logger.log(`component: ${JSON.stringify(component)}`);
           if (component.types.includes('administrative_area_level_1')) {
-            console.log('component.short_name: ', component.short_name);
+            this.logger.log(`component.short_name: ${component.short_name}`);
             return component.short_name;
           }
         }
       } else {
-        console.log('googlePlacesResponse.data: ', googlePlacesResponse.data);
+        this.logger.log(`googlePlacesResponse.data: ${JSON.stringify(googlePlacesResponse.data)}`);
         return '';
       }
     } catch (error) {
