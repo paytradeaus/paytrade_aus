@@ -11,6 +11,10 @@ const objectStorageLogsPrefix = 'application-logs';
 let sharedObjectStorageClient: Client | null = null;
 let sharedLogBuffer: string[] = [];
 let sharedFlushTimeout: NodeJS.Timeout | null = null;
+let isFlushingInProgress = false;
+let lastFlushAttempt = 0;
+const FLUSH_INTERVAL_MS = 30000; // 30 seconds
+const MIN_FLUSH_INTERVAL_MS = 10000; // Minimum 10 seconds between flush attempts
 
 @Injectable()
 export class PaytradeLogger implements LoggerService {
@@ -121,44 +125,57 @@ export class PaytradeLogger implements LoggerService {
   }
 
   private getObjectStorageLogPath(): string {
-    return `${objectStorageLogsPrefix}/${this.dateToday}.log`;
+    // Always use current date to handle day changes
+    const today = new Date().toJSON().slice(0, 10);
+    return `${objectStorageLogsPrefix}/${today}.log`;
   }
 
   private async flushToObjectStorage(): Promise<void> {
-    if (!this.objectStorageClient || this.logBuffer.length === 0) return;
+    // Prevent concurrent flushes and respect rate limits
+    if (!sharedObjectStorageClient || sharedLogBuffer.length === 0) return;
+    if (isFlushingInProgress) return;
+    
+    const now = Date.now();
+    if (now - lastFlushAttempt < MIN_FLUSH_INTERVAL_MS) return;
 
-    const logsToWrite = [...this.logBuffer];
-    this.logBuffer = [];
+    isFlushingInProgress = true;
+    lastFlushAttempt = now;
+
+    const logsToWrite = [...sharedLogBuffer];
+    sharedLogBuffer = [];
 
     try {
       const objectPath = this.getObjectStorageLogPath();
       
       let existingContent = '';
-      const downloadResult = await this.objectStorageClient.downloadAsText(objectPath);
+      const downloadResult = await sharedObjectStorageClient.downloadAsText(objectPath);
       if (downloadResult.ok) {
         existingContent = downloadResult.value;
       }
 
       const newContent = existingContent + logsToWrite.join('\n') + '\n';
       
-      const uploadResult = await this.objectStorageClient.uploadFromText(objectPath, newContent);
+      const uploadResult = await sharedObjectStorageClient.uploadFromText(objectPath, newContent);
       if (!uploadResult.ok) {
         console.error('[PaytradeLogger] Failed to upload logs to Object Storage:', uploadResult.error);
-        this.logBuffer = [...logsToWrite, ...this.logBuffer];
+        // Put logs back at the front of the buffer
+        sharedLogBuffer = [...logsToWrite, ...sharedLogBuffer];
       }
     } catch (error) {
       console.error('[PaytradeLogger] Error flushing logs to Object Storage:', error);
-      this.logBuffer = [...logsToWrite, ...this.logBuffer];
+      sharedLogBuffer = [...logsToWrite, ...sharedLogBuffer];
+    } finally {
+      isFlushingInProgress = false;
     }
   }
 
   private scheduleFlush(): void {
-    if (this.flushTimeout) return;
+    if (sharedFlushTimeout) return;
     
-    this.flushTimeout = setTimeout(async () => {
-      this.flushTimeout = null;
+    sharedFlushTimeout = setTimeout(async () => {
+      sharedFlushTimeout = null;
       await this.flushToObjectStorage();
-    }, 5000);
+    }, FLUSH_INTERVAL_MS);
   }
 
   private writeLog(level: string, message: string): void {
@@ -214,10 +231,12 @@ export class PaytradeLogger implements LoggerService {
   }
 
   async forceFlush(): Promise<void> {
-    if (this.flushTimeout) {
-      clearTimeout(this.flushTimeout);
-      this.flushTimeout = null;
+    if (sharedFlushTimeout) {
+      clearTimeout(sharedFlushTimeout);
+      sharedFlushTimeout = null;
     }
+    // Reset the last flush attempt to allow immediate flush
+    lastFlushAttempt = 0;
     await this.flushToObjectStorage();
   }
 }
