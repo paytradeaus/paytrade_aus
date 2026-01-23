@@ -178,8 +178,24 @@ export class PaytradeLogger implements LoggerService {
     }, FLUSH_INTERVAL_MS);
   }
 
+  private formatTimestamp(): string {
+    const now = new Date();
+    // Use Australia/Sydney timezone for consistency with business operations
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: 'Australia/Sydney',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    };
+    return now.toLocaleString('en-AU', options);
+  }
+
   private writeLog(level: string, message: string): void {
-    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [${level}] ${message}`;
+    const logLine = `[${this.formatTimestamp()}] [${this.context}] [${level}] ${message}`;
     
     if (level === 'SUCCESS') {
       console.log(logLine);
@@ -211,7 +227,7 @@ export class PaytradeLogger implements LoggerService {
   }
 
   debug?(message: string) {
-    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [DEBUG] ${message}`;
+    const logLine = `[${this.formatTimestamp()}] [${this.context}] [DEBUG] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
     
     if (sharedObjectStorageClient) {
@@ -221,7 +237,7 @@ export class PaytradeLogger implements LoggerService {
   }
 
   verbose?(message: string) {
-    const logLine = `[${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}] [${this.context}] [VERBOSE] ${message}`;
+    const logLine = `[${this.formatTimestamp()}] [${this.context}] [VERBOSE] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
     
     if (sharedObjectStorageClient) {
