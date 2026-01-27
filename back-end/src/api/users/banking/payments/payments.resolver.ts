@@ -499,9 +499,14 @@ export class PaymentsResolver {
         payload?.company_id,
       );
 
+      let successMessage = 'ABA file generated successfully';
+      if (payload.mark_paid && String(payload.mark_paid).toLowerCase() === 'yes') {
+        successMessage = 'ABA file generated and payments marked as paid';
+      }
+      
       return framedResponse(
         'SUCCESS',
-        `All sub payments successfully fetched`,
+        successMessage,
         fileDetails,
       );
     } catch (error) {
