@@ -5760,8 +5760,9 @@ export class ExportDataService {
         //   '(subpayment.is_paid_confirmed = true OR subpayment.is_received_confirmed = true OR subpayment.is_retention_confirmed = true)',
         // );
       } else if (data.is_confirmed === false) {
+        // Use COALESCE to handle NULL values (matches list API behavior)
         queryBuilder.andWhere(
-          '(subpayment.is_paid_confirmed = false OR subpayment.is_received_confirmed = false OR subpayment.is_retention_confirmed = false)',
+          '(COALESCE(subpayment.is_paid_confirmed, false) = false OR COALESCE(subpayment.is_received_confirmed, false) = false OR COALESCE(subpayment.is_retention_confirmed, false) = false)',
         );
 
         queryBuilder.addSelect(
