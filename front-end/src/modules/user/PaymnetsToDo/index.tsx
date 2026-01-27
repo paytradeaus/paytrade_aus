@@ -701,7 +701,8 @@ export default function PaymentToDoList({ overViewDetails }: any) {
         getListAllAdminUsers(page, perPage);
       } else if (responseFile?.bank_account_id || responseFile?.aba_message) {
         const isNoValidTransactions = responseFile?.aba_message?.includes('No transactions qualified') || 
-                                       responseFile?.aba_message?.includes('No ABA file was generated');
+                                       responseFile?.aba_message?.includes('No ABA file was generated') ||
+                                       responseFile?.aba_message?.includes('No changes to save');
         
         if (isNoValidTransactions) {
           setAbaMarkAsPaid(null);
