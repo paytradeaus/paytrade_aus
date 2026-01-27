@@ -43,6 +43,12 @@ const server = http.createServer((req, res) => {
   const isBackend = backendPaths.some(path => url.startsWith(path));
   const isWebhook = webhookPaths.some(path => url.startsWith(path));
   
+  // Log ALL incoming requests to xero-webhook for debugging
+  if (url.includes('xero') || url.includes('webhook')) {
+    console.log(`[${new Date().toISOString()}] INCOMING REQUEST: ${req.method} ${url}`);
+    console.log(`[${new Date().toISOString()}] Headers: ${JSON.stringify(req.headers)}`);
+  }
+  
   if (isBackend) {
     if (isWebhook) {
       const chunks = [];
@@ -83,6 +89,9 @@ const server = http.createServer((req, res) => {
         const headers = { ...req.headers };
         delete headers['transfer-encoding'];
         headers['content-length'] = rawBody.length;
+        
+        console.log(`[${new Date().toISOString()}] WEBHOOK BODY RECEIVED: ${url}, size: ${rawBody.length} bytes`);
+        console.log(`[${new Date().toISOString()}] Forwarding to backend port ${BACKEND_PORT}`);
         
         const proxyReq = http.request({
           hostname: '127.0.0.1',
