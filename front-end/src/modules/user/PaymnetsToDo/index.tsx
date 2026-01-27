@@ -636,7 +636,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     }
   };
 
-  async function handleDownloadAbaFile(markPaymentsAsPaid: any = null) {
+  async function handleDownloadAbaFile(markPaymentsAsPaid: any = "yes") {
     // 🔹 Subscription check first
     if (!abaGenerationAllowed) {
       setModalHeading("Upgrade Subscription");
