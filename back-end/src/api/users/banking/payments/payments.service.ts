@@ -8,6 +8,7 @@ import {
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { Repository, EntityManager, In, Not } from 'typeorm';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 
 import {
   AddPaymentInput,
@@ -116,6 +117,7 @@ export class PaymentsService {
     private retentionReversalFns: RetentionReversalFunctions,
     private retentionStatusFns: RetentionStatusFunctions,
     private emailQueueProducer: EmailQueueProducer,
+    private objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('PAYMENTS_SERVICE');
   }
@@ -4575,20 +4577,24 @@ export class PaymentsService {
             abaFileContent += footerLine.padEnd(120, ' ') + '\n';
 
             const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
-            const outputFolderName = 'uploads/generated-aba-files';
+            const outputFolderName = 'generated_aba_files';
             const outputFileName = `${transactions[0].payment_from_account_number}-${transactions[0].payment_from_account_name.replace(/\s+/g, '_')}-${timestamp}.aba`;
 
-            // Check if the directory exists, if not, create it
-            if (!existsSync(outputFolderName)) {
-              mkdirSync(outputFolderName, { recursive: true });
+            const outputFilePath = `${outputFolderName}/${outputFileName}`;
+
+            // Upload ABA file to Object Storage
+            const fileBuffer = Buffer.from(abaFileContent, 'utf8');
+            const uploadSuccess = await this.objectStorageService.uploadFileDirect(
+              outputFilePath,
+              fileBuffer,
+            );
+
+            if (!uploadSuccess) {
+              this.logger.error(`Failed to upload ABA file to Object Storage: ${outputFilePath}`);
+              throw new Error('Failed to upload ABA file to storage');
             }
 
-            const outputFilePath = join(
-              outputFolderName,
-              outputFileName,
-            ).replace(/\\/g, '/');
-
-            fs.writeFileSync(outputFilePath, abaFileContent, 'utf8');
+            this.logger.log(`ABA file uploaded successfully to Object Storage: ${outputFilePath}`);
 
             const createFileUploadInput: Partial<CreateFileUploadInput> = {
               bank_account_id: transactions[0].bank_account_id,
