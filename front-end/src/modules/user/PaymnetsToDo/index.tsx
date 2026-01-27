@@ -1051,7 +1051,20 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           firstButtonName={abcaWarning?.isError ? "" : (abaMarkAsPaid ? "No" : "Close")}
           secondButtonName={abcaWarning?.isError ? "OK" : (abaMarkAsPaid ? "Yes" : "Update")}
         >
-          <h4 className="text_center">{abcaWarning?.data?.aba_message}</h4>
+          {abcaWarning?.isError ? (
+            <div className="text_center">
+              <h4>No Eligible Payments for ABA File</h4>
+              <p style={{ marginTop: '10px', color: '#666' }}>
+                {abcaWarning?.data?.aba_message?.includes('No transactions qualified') 
+                  ? 'None of the selected payments qualify for ABA file generation. This may be because the payments have already been processed or do not meet the required criteria.'
+                  : abcaWarning?.data?.aba_message?.includes('No changes to save')
+                  ? 'The selected payments are already in the requested state. No changes were needed.'
+                  : abcaWarning?.data?.aba_message || 'No payments are eligible for ABA file generation at this time.'}
+              </p>
+            </div>
+          ) : (
+            <h4 className="text_center">{abcaWarning?.data?.aba_message}</h4>
+          )}
         </BaseModal>
       )}
       {showNoticePopup && (
