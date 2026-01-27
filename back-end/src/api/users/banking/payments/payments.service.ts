@@ -4699,8 +4699,24 @@ export class PaymentsService {
           };
         }
       }
+
+      // If we got here without returning, no transactions qualified for ABA generation
+      if (Object.keys(groupedTransactions).length === 0) {
+        this.logger.warn('No transactions qualified for ABA file generation - all were skipped');
+        return {
+          aba_message: 'No transactions qualified for ABA file generation. Please check that payment accounts have valid account numbers and BSB numbers.',
+        };
+      }
+
+      // If mark_paid was not set, we already returned confirmation message above
+      // If we reach here with mark_paid set, something unexpected happened
+      this.logger.warn('generateAbaFile completed without returning a file - unexpected state');
+      return {
+        aba_message: 'No ABA file was generated. Please verify that payment details are complete.',
+      };
     } catch (error) {
-      // console.log'Error: ', error.message);
+      this.logger.error(`Error generating ABA file: ${error.message}`);
+      throw error;
     }
   }
 
