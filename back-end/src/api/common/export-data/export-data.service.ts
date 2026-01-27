@@ -228,8 +228,8 @@ export class ExportDataService {
 
       return token;
     } catch (error) {
-      this.logger.error(`Error in generateSignedUrl: ${error.message}`);
-      throw new Error('Failed to generate signed URL');
+      this.logger.error(`Error in generateSignedUrl: ${error.message}`, error.stack);
+      throw new Error(`Failed to generate signed URL: ${error.message}`);
     }
   }
 
