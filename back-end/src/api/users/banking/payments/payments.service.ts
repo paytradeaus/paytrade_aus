@@ -4668,29 +4668,6 @@ export class PaymentsService {
                       mark_paid_payment,
                       decoded?.userId,
                     );
-                  } else if (
-                    tx.sub_payment_type === 'Payment' &&
-                    tx.claim_type === 'Receivable' &&
-                    [
-                      'Full',
-                      'Part',
-                      'Pay Less - Full',
-                      'Pay Less - Part',
-                    ].includes(tx.payment_type)
-                  ) {
-                    // Handle Receivable type payments - use is_received_confirmed
-                    this.logger.log(`[ABA] Processing receivable payment ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
-                    const mark_paid_payment = {
-                      payment_id: tx.payment_id,
-                      is_paid_confirmed: null,
-                      is_received_confirmed: true,
-                      is_retention_confirmed: null,
-                    };
-                    await this.editDetailsOfAPayment(
-                      decoded,
-                      mark_paid_payment,
-                      decoded?.userId,
-                    );
                   } else if (tx.sub_payment_type === 'Retention Out') {
                     this.logger.log(`[ABA] Processing retention ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
                     const mark_paid_payment = {
