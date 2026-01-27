@@ -2171,9 +2171,10 @@ export class PaymentsService {
             let payment_matched, retention_out_matched, retention_in_matched;
             await Promise.all(
               paymentDetails.subPayments.map(async (element) => {
+                // Check if this is a "billable" type sub-payment that uses is_paid_confirmed
+                // Note: is_paid_confirmed can be null, false, or true - we need to handle all cases
                 if (
                   element.sub_payment_type === 'Payment' &&
-                  element.is_paid_confirmed !== null &&
                   element.is_received_confirmed === null &&
                   element.is_retention_confirmed === null
                 ) {
