@@ -4630,7 +4630,10 @@ export class PaymentsService {
             }
 
             if (String(mark_paid ? mark_paid : '').toLowerCase() === 'yes') {
+              this.logger.log(`[ABA] Marking ${transactions.length} transactions as paid...`);
+              let processedCount = 0;
               for (const tx of transactions) {
+                processedCount++;
                 try {
                   if (
                     tx.sub_payment_type === 'Payment' &&
@@ -4649,6 +4652,7 @@ export class PaymentsService {
                         'Underpayment to supplier',
                       ].includes(tx.payment_type))
                   ) {
+                    this.logger.log(`[ABA] Processing payment ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
                     const mark_paid_payment = {
                       payment_id: tx.payment_id,
                       is_paid_confirmed: true,
@@ -4661,6 +4665,7 @@ export class PaymentsService {
                       decoded?.userId,
                     );
                   } else if (tx.sub_payment_type === 'Retention Out') {
+                    this.logger.log(`[ABA] Processing retention ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
                     const mark_paid_payment = {
                       payment_id: tx.payment_id,
                       is_paid_confirmed: null,
@@ -4672,13 +4677,16 @@ export class PaymentsService {
                       mark_paid_payment,
                       decoded?.userId,
                     );
+                  } else {
+                    this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type})`);
                   }
                 } catch (markPaidError) {
                   // Gracefully handle "No changes to save" - payment may already be confirmed
                   if (String(markPaidError).includes('No changes to save')) {
-                    this.logger.log(`Payment ${tx.payment_id} already confirmed, skipping mark as paid`);
+                    this.logger.log(`[ABA] Payment ${tx.payment_id} already confirmed, skipping`);
                   } else {
                     // Re-throw other errors
+                    this.logger.error(`[ABA] Error marking payment ${tx.payment_id}: ${markPaidError}`);
                     throw markPaidError;
                   }
                 }
@@ -4687,6 +4695,7 @@ export class PaymentsService {
                   payments_to_send_notice.push(tx.payment_id);
                 }
               }
+              this.logger.log(`[ABA] Finished marking ${transactions.length} transactions as paid`);
             }
 
             return {
