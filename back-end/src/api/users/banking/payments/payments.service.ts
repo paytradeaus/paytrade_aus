@@ -4631,46 +4631,56 @@ export class PaymentsService {
 
             if (String(mark_paid ? mark_paid : '').toLowerCase() === 'yes') {
               for (const tx of transactions) {
-                if (
-                  tx.sub_payment_type === 'Payment' &&
-                  ((tx.claim_type === 'Billable' &&
-                    [
-                      'Full',
-                      'Part',
-                      'Pay Less - Full',
-                      'Pay Less - Part',
-                    ].includes(tx.payment_type)) ||
-                    [
-                      'Interest Withdrawal',
-                      'Bank Charge Applied',
-                      'Withdrawal',
-                      'Overpayment to supplier',
-                      'Underpayment to supplier',
-                    ].includes(tx.payment_type))
-                ) {
-                  const mark_paid_payment = {
-                    payment_id: tx.payment_id,
-                    is_paid_confirmed: true,
-                    is_received_confirmed: null,
-                    is_retention_confirmed: null,
-                  };
-                  await this.editDetailsOfAPayment(
-                    decoded,
-                    mark_paid_payment,
-                    decoded?.userId,
-                  );
-                } else if (tx.sub_payment_type === 'Retention Out') {
-                  const mark_paid_payment = {
-                    payment_id: tx.payment_id,
-                    is_paid_confirmed: null,
-                    is_received_confirmed: null,
-                    is_retention_confirmed: true,
-                  };
-                  await this.editDetailsOfAPayment(
-                    decoded,
-                    mark_paid_payment,
-                    decoded?.userId,
-                  );
+                try {
+                  if (
+                    tx.sub_payment_type === 'Payment' &&
+                    ((tx.claim_type === 'Billable' &&
+                      [
+                        'Full',
+                        'Part',
+                        'Pay Less - Full',
+                        'Pay Less - Part',
+                      ].includes(tx.payment_type)) ||
+                      [
+                        'Interest Withdrawal',
+                        'Bank Charge Applied',
+                        'Withdrawal',
+                        'Overpayment to supplier',
+                        'Underpayment to supplier',
+                      ].includes(tx.payment_type))
+                  ) {
+                    const mark_paid_payment = {
+                      payment_id: tx.payment_id,
+                      is_paid_confirmed: true,
+                      is_received_confirmed: null,
+                      is_retention_confirmed: null,
+                    };
+                    await this.editDetailsOfAPayment(
+                      decoded,
+                      mark_paid_payment,
+                      decoded?.userId,
+                    );
+                  } else if (tx.sub_payment_type === 'Retention Out') {
+                    const mark_paid_payment = {
+                      payment_id: tx.payment_id,
+                      is_paid_confirmed: null,
+                      is_received_confirmed: null,
+                      is_retention_confirmed: true,
+                    };
+                    await this.editDetailsOfAPayment(
+                      decoded,
+                      mark_paid_payment,
+                      decoded?.userId,
+                    );
+                  }
+                } catch (markPaidError) {
+                  // Gracefully handle "No changes to save" - payment may already be confirmed
+                  if (String(markPaidError).includes('No changes to save')) {
+                    this.logger.log(`Payment ${tx.payment_id} already confirmed, skipping mark as paid`);
+                  } else {
+                    // Re-throw other errors
+                    throw markPaidError;
+                  }
                 }
 
                 if (!payments_to_send_notice.includes(tx.payment_id)) {
