@@ -5670,7 +5670,7 @@ export class ExportDataService {
 
     if (data.sub_payment_type) {
       if (data.sub_payment_type == 'ToDo') {
-        const PaymentsToDo = ['Payment', 'Retention Out'];
+        const PaymentsToDo = ['Payment', 'Retention Out', 'Retention In'];
         queryBuilder.andWhere(
           'subpayment.sub_payment_type  IN (:...toDoPayments)',
           {
@@ -5740,8 +5740,10 @@ export class ExportDataService {
           },
         );
       } else if (data.is_confirmed === false) {
-        queryBuilder.andWhere('payments.current_status NOT IN  (:...status)', {
-          status: allowedPaidStatuses,
+        // Match the list API logic - filter by subpayment status instead of payment current_status
+        // This ensures items with paid/received payment status but unconfirmed subpayments are still shown
+        queryBuilder.andWhere('subpayment.status = :subpayment_status', {
+          subpayment_status: data.status,
         });
       }
     } else if (data.status) {
