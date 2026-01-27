@@ -192,7 +192,7 @@ export default function HomeScreenPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt="Dashboard mockup"
-                src="/images/mockupshots.png"
+                src="/images/mockupshots.png?v=2"
                 className="mockupshots"
                 loading="eager"
                 decoding="async"
