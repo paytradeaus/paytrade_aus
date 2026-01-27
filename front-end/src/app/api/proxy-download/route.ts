@@ -13,12 +13,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Construct full URL for backend - use GRAPHQL_URI base or default to localhost:3001
+    // Construct full URL for backend - use BACKEND_URL for server-to-server requests
     let fullUrl = fileUrl;
     if (fileUrl.startsWith('/')) {
-      const backendBase = process.env.NEXT_PUBLIC_GRAPHQL_URI 
-        ? process.env.NEXT_PUBLIC_GRAPHQL_URI.replace('/graphql', '')
-        : 'http://localhost:3001';
+      const backendBase = process.env.BACKEND_URL || 'http://127.0.0.1:3001';
       fullUrl = `${backendBase}${fileUrl}`;
     }
 
