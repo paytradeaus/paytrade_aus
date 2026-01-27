@@ -4651,8 +4651,6 @@ export class PaymentsService {
             if (String(mark_paid ? mark_paid : '').toLowerCase() === 'yes') {
               this.logger.log(`[ABA] Marking ${transactions.length} transactions as paid...`);
               let processedCount = 0;
-              // Track payment_ids that have been processed to also mark their Retention Outs
-              const processedPaymentIds = new Set<number>();
               
               for (const tx of transactions) {
                 processedCount++;
@@ -4675,7 +4673,6 @@ export class PaymentsService {
                       ].includes(tx.payment_type))
                   ) {
                     this.logger.log(`[ABA] Processing payment ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
-                    // Mark the Payment sub-payment as paid
                     const mark_paid_payment = {
                       payment_id: tx.payment_id,
                       is_paid_confirmed: true,
@@ -4687,9 +4684,6 @@ export class PaymentsService {
                       mark_paid_payment,
                       decoded?.userId,
                     );
-                    
-                    // Track this payment_id to also mark its Retention Out (if any)
-                    processedPaymentIds.add(tx.payment_id);
                   } else if (tx.sub_payment_type === 'Retention Out') {
                     this.logger.log(`[ABA] Processing retention ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
                     const mark_paid_payment = {
@@ -4703,8 +4697,6 @@ export class PaymentsService {
                       mark_paid_payment,
                       decoded?.userId,
                     );
-                    // Remove from set since it's already been marked
-                    processedPaymentIds.delete(tx.payment_id);
                   } else {
                     this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type}, claim_type=${tx.claim_type})`);
                   }
@@ -4729,37 +4721,6 @@ export class PaymentsService {
                 }
               }
               this.logger.log(`[ABA] Finished marking ${transactions.length} transactions as paid`);
-              
-              // Now mark any Retention Out sub-payments that weren't in the transactions list
-              // These are Retention Outs associated with Payments that were marked as paid
-              if (processedPaymentIds.size > 0) {
-                this.logger.log(`[ABA] Marking Retention Out sub-payments for ${processedPaymentIds.size} payment(s) that were processed...`);
-                for (const paymentId of processedPaymentIds) {
-                  try {
-                    this.logger.log(`[ABA] Marking Retention Out for payment_id=${paymentId}`);
-                    const mark_retention_payment = {
-                      payment_id: paymentId,
-                      is_paid_confirmed: null,
-                      is_received_confirmed: null,
-                      is_retention_confirmed: true,
-                    };
-                    await this.editDetailsOfAPayment(
-                      decoded,
-                      mark_retention_payment,
-                      decoded?.userId,
-                    );
-                  } catch (retentionError) {
-                    const errorStr = String(retentionError);
-                    // Gracefully handle known non-fatal errors
-                    if (errorStr.includes('No changes to save')) {
-                      this.logger.log(`[ABA] Retention for payment ${paymentId} already confirmed or no Retention Out exists, skipping`);
-                    } else {
-                      this.logger.warn(`[ABA] Error marking Retention Out for payment ${paymentId}: ${errorStr}, skipping`);
-                    }
-                  }
-                }
-                this.logger.log(`[ABA] Finished marking Retention Out sub-payments`);
-              }
             }
 
           return {
