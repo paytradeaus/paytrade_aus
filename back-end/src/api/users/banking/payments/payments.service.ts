@@ -2239,10 +2239,11 @@ export class PaymentsService {
                   }
                 } else if (
                   element.sub_payment_type === 'Retention Out' &&
-                  element.is_retention_confirmed !== null &&
                   element.is_paid_confirmed === null &&
                   element.is_received_confirmed === null
                 ) {
+                  // Check if this is a "retention" type sub-payment that uses is_retention_confirmed
+                  // Note: is_retention_confirmed can be null, false, or true - we need to handle all cases
                   if (
                     data.is_retention_confirmed !== undefined &&
                     element.is_retention_confirmed !==
@@ -2323,10 +2324,11 @@ export class PaymentsService {
                     element.status === 'Unmatched' ? false : true;
                 } else if (
                   element.sub_payment_type === 'Payment' &&
-                  element.is_received_confirmed !== null &&
                   element.is_paid_confirmed === null &&
                   element.is_retention_confirmed === null
                 ) {
+                  // Check if this is a "receivable" type sub-payment that uses is_received_confirmed
+                  // Note: is_received_confirmed can be null, false, or true - we need to handle all cases
                   if (
                     data.is_received_confirmed !== undefined &&
                     element.is_received_confirmed !== data.is_received_confirmed
@@ -4666,6 +4668,29 @@ export class PaymentsService {
                       mark_paid_payment,
                       decoded?.userId,
                     );
+                  } else if (
+                    tx.sub_payment_type === 'Payment' &&
+                    tx.claim_type === 'Receivable' &&
+                    [
+                      'Full',
+                      'Part',
+                      'Pay Less - Full',
+                      'Pay Less - Part',
+                    ].includes(tx.payment_type)
+                  ) {
+                    // Handle Receivable type payments - use is_received_confirmed
+                    this.logger.log(`[ABA] Processing receivable payment ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
+                    const mark_paid_payment = {
+                      payment_id: tx.payment_id,
+                      is_paid_confirmed: null,
+                      is_received_confirmed: true,
+                      is_retention_confirmed: null,
+                    };
+                    await this.editDetailsOfAPayment(
+                      decoded,
+                      mark_paid_payment,
+                      decoded?.userId,
+                    );
                   } else if (tx.sub_payment_type === 'Retention Out') {
                     this.logger.log(`[ABA] Processing retention ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
                     const mark_paid_payment = {
@@ -4680,7 +4705,7 @@ export class PaymentsService {
                       decoded?.userId,
                     );
                   } else {
-                    this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type})`);
+                    this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type}, claim_type=${tx.claim_type})`);
                   }
                 } catch (markPaidError) {
                   const errorStr = String(markPaidError);
