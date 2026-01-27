@@ -527,7 +527,7 @@ const AdminAddUser = (props: any) => {
                         />
                         <FormikControl
                           control={InputType.TEXT_FIELD}
-                          label={"Company"}
+                          label={"Business"}
                           maxLength={51}
                           name={"Company"}
                           required
