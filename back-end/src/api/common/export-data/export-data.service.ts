@@ -165,6 +165,10 @@ export class ExportDataService {
       const totalRecords = await this.getTotalRecordCount(data);
       this.logger.log(`generateSignedUrl: Total records: ${totalRecords}`);
       
+      if (totalRecords === 0) {
+        throw new Error('No records found to export');
+      }
+      
       const batchSize = 50000;
       const numBatches = Math.ceil(totalRecords / batchSize); // Calculate total batches
       this.logger.log(`generateSignedUrl: numBatches: ${numBatches}`);
@@ -4374,6 +4378,7 @@ export class ExportDataService {
   private async getTotalRecordCount(
     data: ExportExcelDataInput,
   ): Promise<number> {
+    this.logger.log(`getTotalRecordCount: screen_name = ${data.screen_name}`);
     let recordCount = 0;
     switch (data.screen_name) {
       case 'project':
@@ -4615,7 +4620,11 @@ export class ExportDataService {
           ).getCount();
         }
         break;
+      default:
+        this.logger.warn(`getTotalRecordCount: Unhandled screen_name: ${data.screen_name}`);
+        break;
     }
+    this.logger.log(`getTotalRecordCount: returning ${recordCount} for screen_name: ${data.screen_name}`);
     return recordCount;
   }
 
