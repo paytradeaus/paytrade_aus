@@ -4681,11 +4681,16 @@ export class PaymentsService {
                     this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type})`);
                   }
                 } catch (markPaidError) {
-                  // Gracefully handle "No changes to save" - payment may already be confirmed
-                  if (String(markPaidError).includes('No changes to save')) {
+                  const errorStr = String(markPaidError);
+                  // Gracefully handle known non-fatal errors - these shouldn't stop ABA file generation
+                  if (errorStr.includes('No changes to save')) {
                     this.logger.log(`[ABA] Payment ${tx.payment_id} already confirmed, skipping`);
+                  } else if (errorStr.includes('Delete the retention claim')) {
+                    this.logger.warn(`[ABA] Payment ${tx.payment_id} has retention claim constraints, skipping mark as paid`);
+                  } else if (errorStr.includes('retention') || errorStr.includes('unmatch')) {
+                    this.logger.warn(`[ABA] Payment ${tx.payment_id} has retention issues: ${errorStr}, skipping`);
                   } else {
-                    // Re-throw other errors
+                    // Re-throw unexpected errors
                     this.logger.error(`[ABA] Error marking payment ${tx.payment_id}: ${markPaidError}`);
                     throw markPaidError;
                   }
