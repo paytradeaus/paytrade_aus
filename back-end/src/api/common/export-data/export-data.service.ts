@@ -5670,7 +5670,7 @@ export class ExportDataService {
 
     if (data.sub_payment_type) {
       if (data.sub_payment_type == 'ToDo') {
-        const PaymentsToDo = ['Payment', 'Retention Out', 'Retention In'];
+        const PaymentsToDo = ['Payment', 'Retention Out'];
         queryBuilder.andWhere(
           'subpayment.sub_payment_type  IN (:...toDoPayments)',
           {
