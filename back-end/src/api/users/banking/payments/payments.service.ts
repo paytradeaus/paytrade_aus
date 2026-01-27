@@ -2173,10 +2173,12 @@ export class PaymentsService {
               paymentDetails.subPayments.map(async (element) => {
                 // Check if this is a "billable" type sub-payment that uses is_paid_confirmed
                 // Note: is_paid_confirmed can be null, false, or true - we need to handle all cases
+                // We check that is_received_confirmed and is_retention_confirmed are NOT true (i.e., null or false)
+                // This ensures we're dealing with a Billable payment type
                 if (
                   element.sub_payment_type === 'Payment' &&
-                  element.is_received_confirmed === null &&
-                  element.is_retention_confirmed === null
+                  element.is_received_confirmed !== true &&
+                  element.is_retention_confirmed !== true
                 ) {
                   if (
                     data.is_paid_confirmed !== undefined &&
@@ -2239,11 +2241,12 @@ export class PaymentsService {
                   }
                 } else if (
                   element.sub_payment_type === 'Retention Out' &&
-                  element.is_paid_confirmed === null &&
-                  element.is_received_confirmed === null
+                  element.is_paid_confirmed !== true &&
+                  element.is_received_confirmed !== true
                 ) {
                   // Check if this is a "retention" type sub-payment that uses is_retention_confirmed
                   // Note: is_retention_confirmed can be null, false, or true - we need to handle all cases
+                  // We check that is_paid_confirmed and is_received_confirmed are NOT true
                   if (
                     data.is_retention_confirmed !== undefined &&
                     element.is_retention_confirmed !==
@@ -2324,11 +2327,12 @@ export class PaymentsService {
                     element.status === 'Unmatched' ? false : true;
                 } else if (
                   element.sub_payment_type === 'Payment' &&
-                  element.is_paid_confirmed === null &&
-                  element.is_retention_confirmed === null
+                  element.is_paid_confirmed !== true &&
+                  element.is_retention_confirmed !== true
                 ) {
                   // Check if this is a "receivable" type sub-payment that uses is_received_confirmed
                   // Note: is_received_confirmed can be null, false, or true - we need to handle all cases
+                  // We check that is_paid_confirmed and is_retention_confirmed are NOT true
                   if (
                     data.is_received_confirmed !== undefined &&
                     element.is_received_confirmed !== data.is_received_confirmed
