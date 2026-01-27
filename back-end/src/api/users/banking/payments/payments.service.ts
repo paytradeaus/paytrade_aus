@@ -4405,6 +4405,7 @@ export class PaymentsService {
     decoded: any,
     company_id?: number,
   ) {
+    this.logger.log(`[ABA] generateAbaFile called with mark_paid="${mark_paid}", ${paymentList?.length || 0} payments`);
     let payments_to_send_notice = [];
     const formatField = (
       value: string | null | undefined,
