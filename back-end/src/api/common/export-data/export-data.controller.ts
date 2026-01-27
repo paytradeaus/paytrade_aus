@@ -36,7 +36,10 @@ export class ExportDataController {
     @Headers('authorization') authHeader: string,
     @Res() response,
   ) {
+    this.logger.log('Excel download request received');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      this.logger.warn('Excel download: Missing or invalid authorization header');
       throw new HttpException(
         'Authorization Token Required',
         HttpStatus.FORBIDDEN,
@@ -46,36 +49,47 @@ export class ExportDataController {
     const token = authHeader.split(' ')[1];
 
     try {
+      this.logger.log('Verifying JWT token...');
       const decoded: any = jwt.verify(token, this.jwtSecret);
+      this.logger.log(`JWT verified. fileName: ${decoded?.fileName}, filePath: ${decoded?.filePath}`);
       
       // Download from Object Storage
       const filePath = decoded?.filePath || `excel_exports/${decoded?.fileName}`;
+      this.logger.log(`Downloading from Object Storage: ${filePath}`);
+      
       const fileBuffer = await this.objectStorageService.downloadFile(filePath);
 
       if (!fileBuffer) {
+        this.logger.error(`File not found in Object Storage: ${filePath}`);
         throw new HttpException('File not found', HttpStatus.NOT_FOUND);
       }
 
+      this.logger.log(`File downloaded successfully, size: ${fileBuffer.length} bytes`);
+
       response.setHeader(
         'Content-Disposition',
-        `attachment; filename=${decoded?.fileName}`,
+        `attachment; filename="${decoded?.fileName}"`,
       );
       response.setHeader('Content-Type', decoded?.contentType);
 
       response.send(fileBuffer);
+      this.logger.log('Excel file sent to client');
       
       // Optionally delete from Object Storage after download
       try {
         await this.objectStorageService.deleteFile(filePath);
+        this.logger.log(`Deleted temp Excel file from Object Storage: ${filePath}`);
       } catch (deleteErr) {
         this.logger.warn(`Failed to delete temp Excel file: ${deleteErr.message}`);
       }
     } catch (error) {
       this.logger.error(`Error downloading Excel file: ${error.message}`);
-      return framedResponse(
-        'ERROR',
-        `Invalid or expired token: ${error.message}`,
-      );
+      if (!response.headersSent) {
+        response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          status: 'ERROR',
+          message: `Failed to download Excel file: ${error.message}`,
+        });
+      }
     }
   }
 
