@@ -47,8 +47,12 @@ export class ExportDataController {
 
     try {
       const decoded: any = jwt.verify(token, this.jwtSecret);
+      
+      // Download from Object Storage
+      const filePath = decoded?.filePath || `excel_exports/${decoded?.fileName}`;
+      const fileBuffer = await this.objectStorageService.downloadFile(filePath);
 
-      if (!existsSync(decoded?.fileName)) {
+      if (!fileBuffer) {
         throw new HttpException('File not found', HttpStatus.NOT_FOUND);
       }
 
@@ -58,14 +62,16 @@ export class ExportDataController {
       );
       response.setHeader('Content-Type', decoded?.contentType);
 
-      const fileStream = createReadStream(decoded?.fileName);
-      fileStream.pipe(response);
-
-      fileStream.on('end', () => {
-        // Delete ZIP file after it is sent
-        fs.unlinkSync(decoded?.fileName);
-      });
+      response.send(fileBuffer);
+      
+      // Optionally delete from Object Storage after download
+      try {
+        await this.objectStorageService.deleteFile(filePath);
+      } catch (deleteErr) {
+        this.logger.warn(`Failed to delete temp Excel file: ${deleteErr.message}`);
+      }
     } catch (error) {
+      this.logger.error(`Error downloading Excel file: ${error.message}`);
       return framedResponse(
         'ERROR',
         `Invalid or expired token: ${error.message}`,

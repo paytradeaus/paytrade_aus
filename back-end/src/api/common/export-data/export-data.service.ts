@@ -7,6 +7,7 @@ import * as jwt from 'jsonwebtoken';
 import { jwtConstants } from 'src/api/auth/constants';
 import * as fs from 'fs';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { ExportExcelDataInput } from './dto/export-data-excel.input';
 import { ContractDetails } from 'src/entities/contract-details.entity';
@@ -148,6 +149,7 @@ export class ExportDataService {
     private journalsService: JournalsService,
     private complianceService: CompliancesService,
     private readonly exportGateway: ExportDataGateway,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('EXPORT_DATA_SERVICE');
   }
@@ -174,26 +176,30 @@ export class ExportDataService {
       // Wait for all Excel to be generated
       await Promise.all(excelPromises);
 
-      let fileName, contentType;
+      let fileName, contentType, fileBuffer: Buffer;
       if (numBatches > 1) {
         fileName = file_name + '.zip';
         contentType = 'application/zip';
-        const zipBuffer = await this.createZipBuffer(
+        fileBuffer = await this.createZipBuffer(
           excelBuffers,
           file_name,
           '.xlsx',
         );
-        fs.writeFileSync(fileName, zipBuffer);
       } else {
         fileName = file_name + '.xlsx';
         contentType =
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        fs.writeFileSync(fileName, excelBuffers[0]);
+        fileBuffer = excelBuffers[0];
       }
+
+      // Upload to Object Storage
+      const storagePath = `excel_exports/${fileName}`;
+      await this.objectStorageService.uploadFileDirect(storagePath, fileBuffer);
+      this.logger.log(`Excel file uploaded to Object Storage: ${storagePath}`);
 
       const expiration = Math.floor(Date.now() / 1000) + 60 * 10;
       const token = jwt.sign(
-        { fileName, contentType, exp: expiration },
+        { fileName, contentType, filePath: storagePath, exp: expiration },
         this.jwtSecret,
       );
 

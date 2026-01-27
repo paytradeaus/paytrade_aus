@@ -99,6 +99,7 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - ObjectStorageService.downloadFile() normalizes paths automatically (strips leading "/", strips "uploads/" prefix)
 - ObjectStorageService.uploadFileDirect() allows direct upload with explicit object path
 - Remaining non-critical readFileSync calls (not user files): email.service.ts (email templates), write-to-image.mjs (JSON config)
+- **Excel Export Migration**: Migrated generateSignedUrl in export-data.service.ts to upload Excel files to Object Storage (`excel_exports/` folder) instead of local filesystem. Controller downloads from Object Storage and optionally deletes after download.
 
 ## Production Logging
 - **PaytradeLogger** (`back-end/src/libs/@loggers/logger.service.ts`) handles application logging
