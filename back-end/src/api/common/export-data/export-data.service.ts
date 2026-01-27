@@ -156,11 +156,18 @@ export class ExportDataService {
 
   async generateSignedUrl(data: ExportExcelDataInput): Promise<string> {
     try {
+      this.logger.log(`generateSignedUrl: Starting export for screen_name: ${data.screen_name}`);
+      
       const file_name = (await this.getFileName(data)).fileName;
+      this.logger.log(`generateSignedUrl: Got file_name: ${file_name}`);
+      
       data = { ...data, file_name };
       const totalRecords = await this.getTotalRecordCount(data);
+      this.logger.log(`generateSignedUrl: Total records: ${totalRecords}`);
+      
       const batchSize = 50000;
       const numBatches = Math.ceil(totalRecords / batchSize); // Calculate total batches
+      this.logger.log(`generateSignedUrl: numBatches: ${numBatches}`);
 
       const excelBuffers: Buffer[] = [];
       const excelPromises = [];
@@ -174,7 +181,9 @@ export class ExportDataService {
       }
 
       // Wait for all Excel to be generated
+      this.logger.log(`generateSignedUrl: Generating ${excelPromises.length} Excel buffers...`);
       await Promise.all(excelPromises);
+      this.logger.log(`generateSignedUrl: Excel buffers generated, count: ${excelBuffers.length}`);
 
       let fileName, contentType, fileBuffer: Buffer;
       if (numBatches > 1) {
