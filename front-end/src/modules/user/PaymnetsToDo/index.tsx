@@ -1062,13 +1062,8 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           secondButtonName="Yes"
         >
           <div className="text_center">
-            <h4>Generate ABA File</h4>
-            <p style={{ marginTop: '10px', color: '#666' }}>
+            <p style={{ marginTop: '10px' }}>
               Do you want to mark these payments as paid after generating the ABA file?
-            </p>
-            <p style={{ marginTop: '8px', fontSize: '0.9em', color: '#888' }}>
-              <strong>Yes:</strong> Generate ABA file and move payments to Paid list<br />
-              <strong>No:</strong> Generate ABA file but keep payments in To-Do list
             </p>
           </div>
         </BaseModal>

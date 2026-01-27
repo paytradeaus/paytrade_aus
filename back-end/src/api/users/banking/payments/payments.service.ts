@@ -4480,8 +4480,8 @@ export class PaymentsService {
         this.logger.log(`accountDetails: ${JSON.stringify(accountDetails)}`);
 
         if (accountDetails.apca_number) {
-          if (mark_paid) {
-            const { transactions, FI_id } = groupedTransactions[fromAccount];
+          // Always generate the ABA file - the mark_paid flag only determines if payments get marked as paid
+          const { transactions, FI_id } = groupedTransactions[fromAccount];
 
             let abaFileContent = '';
 
@@ -4704,17 +4704,11 @@ export class PaymentsService {
               this.logger.log(`[ABA] Finished marking ${transactions.length} transactions as paid`);
             }
 
-            return {
-              ...fileData,
-              file_path: fileData.file_path?.startsWith('/') ? fileData.file_path : `/${fileData.file_path}`,
-              notice_trigger: payments_to_send_notice,
-            };
-          } else {
-            return {
-              aba_message:
-                'Do you want to mark the payments paid and send notices for the aba files generated ?',
-            };
-          }
+          return {
+            ...fileData,
+            file_path: fileData.file_path?.startsWith('/') ? fileData.file_path : `/${fileData.file_path}`,
+            notice_trigger: payments_to_send_notice,
+          };
         } else {
           return {
             bank_account_id: accountDetails.bank_account_id,
