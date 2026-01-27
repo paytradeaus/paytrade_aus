@@ -1,0 +1,137 @@
+[
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Full",
+    "is_paid_confirmed": true,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "24"
+  },
+  {
+    "sub_payment_type": "Retention In",
+    "claim_type": "Billable",
+    "payment_type": "Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "8"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "4"
+  },
+  {
+    "sub_payment_type": "Retention Out",
+    "claim_type": "Billable",
+    "payment_type": "Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": true,
+    "count": "4"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Receivable",
+    "payment_type": "Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": true,
+    "is_retention_confirmed": null,
+    "count": "4"
+  },
+  {
+    "sub_payment_type": "Retention Out",
+    "claim_type": "Billable",
+    "payment_type": "Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "4"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": null,
+    "payment_type": "Interest Received",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": true,
+    "is_retention_confirmed": null,
+    "count": "2"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": null,
+    "payment_type": "Top Up",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": true,
+    "is_retention_confirmed": null,
+    "count": "2"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Overpayment to supplier",
+    "is_paid_confirmed": true,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Part",
+    "is_paid_confirmed": true,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Retention In",
+    "claim_type": "Billable",
+    "payment_type": "Pay Less - Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Receivable",
+    "payment_type": "Overpayment from client",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": true,
+    "is_retention_confirmed": null,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Retention Out",
+    "claim_type": "Billable",
+    "payment_type": "Pay Less - Full",
+    "is_paid_confirmed": null,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": true,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Underpayment to supplier",
+    "is_paid_confirmed": true,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "1"
+  },
+  {
+    "sub_payment_type": "Payment",
+    "claim_type": "Billable",
+    "payment_type": "Pay Less - Full",
+    "is_paid_confirmed": true,
+    "is_received_confirmed": null,
+    "is_retention_confirmed": null,
+    "count": "1"
+  }
+]

@@ -2164,6 +2164,11 @@ export class PaymentsService {
           let changesMade = false; // <-- Added flag
           let confirmedPayments = [],
             unConfirmedPayments = [];
+          
+          // Debug logging for mark_paid flow
+          this.logger.log(`[MARK_PAID_DEBUG] payment_id=${payment_id}, payment_type=${paymentDetails?.payment_type}, subPayments count=${paymentDetails?.subPayments?.length}`);
+          this.logger.log(`[MARK_PAID_DEBUG] data received: is_paid_confirmed=${data.is_paid_confirmed}, is_retention_confirmed=${data.is_retention_confirmed}, is_received_confirmed=${data.is_received_confirmed}`);
+          
           if (
             paymentDetails?.payment_type !== 'Pay - Zero' &&
             paymentDetails?.payment_type !== '3rd Party'
@@ -2171,6 +2176,8 @@ export class PaymentsService {
             let payment_matched, retention_out_matched, retention_in_matched;
             await Promise.all(
               paymentDetails.subPayments.map(async (element) => {
+                this.logger.log(`[MARK_PAID_DEBUG] Processing sub_payment_id=${element.sub_payment_id}, sub_payment_type=${element.sub_payment_type}, is_paid_confirmed=${element.is_paid_confirmed}, is_received_confirmed=${element.is_received_confirmed}, is_retention_confirmed=${element.is_retention_confirmed}`);
+                
                 // Check if this is a "billable" type sub-payment that uses is_paid_confirmed
                 // Note: is_paid_confirmed can be null, false, or true - we need to handle all cases
                 // We check that is_received_confirmed and is_retention_confirmed are NOT true (i.e., null or false)
@@ -2180,10 +2187,12 @@ export class PaymentsService {
                   element.is_received_confirmed !== true &&
                   element.is_retention_confirmed !== true
                 ) {
+                  this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} PASSED Billable condition check`);
                   if (
                     data.is_paid_confirmed !== undefined &&
                     element.is_paid_confirmed !== data.is_paid_confirmed
                   ) {
+                    this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} WILL BE UPDATED to is_paid_confirmed=${data.is_paid_confirmed}`);
                     changesMade = true;
 
                     await transactionalEntityManager
@@ -2247,11 +2256,13 @@ export class PaymentsService {
                   // Check if this is a "retention" type sub-payment that uses is_retention_confirmed
                   // Note: is_retention_confirmed can be null, false, or true - we need to handle all cases
                   // We check that is_paid_confirmed and is_received_confirmed are NOT true
+                  this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} PASSED Retention Out condition check`);
                   if (
                     data.is_retention_confirmed !== undefined &&
                     element.is_retention_confirmed !==
                     data.is_retention_confirmed
                   ) {
+                    this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} WILL BE UPDATED to is_retention_confirmed=${data.is_retention_confirmed}`);
                     changesMade = true;
                     await transactionalEntityManager
                       .createQueryBuilder()
