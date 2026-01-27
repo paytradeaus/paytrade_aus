@@ -104,6 +104,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [abcaWarning, setAbcaWarning] = useState<any>({});
   const [abaMarkAsPaid, setAbaMarkAsPaid] = useState<null | boolean>(null);
+  const [showMarkPaidConfirmation, setShowMarkPaidConfirmation] = useState(false);
   const [showNoticePopup, setShowNoticePopup] = useState(false);
   const [noticeFiles, setNoticeFiles] = useState<any[]>([]);
   const [noticeMailUuids, setNoticeMailUuids] = useState<string[]>([]);
@@ -636,16 +637,23 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     }
   };
 
-  async function handleDownloadAbaFile(markPaymentsAsPaid: any = "yes") {
-    // 🔹 Subscription check first
+  // Step 1: Initial click - show confirmation dialog
+  function handleDownloadAbaFileClick() {
     if (!abaGenerationAllowed) {
       setModalHeading("Upgrade Subscription");
       setModalBodyContent(
         `Your current subscription does not allow ABA file generation. Please upgrade your plan to enable this feature.`
       );
       setOpenPlanModal(true);
-      return; // stop here
+      return;
     }
+    // Show confirmation dialog asking if user wants to mark payments as paid
+    setShowMarkPaidConfirmation(true);
+  }
+
+  // Step 2: Generate ABA file with the chosen option
+  async function handleDownloadAbaFile(markPaymentsAsPaid: any = null) {
+    setShowMarkPaidConfirmation(false);
     setDisableAbaFileBtn(true);
     try {
       let responseFile = await GenerateABAfiles({
@@ -666,9 +674,6 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       if (responseFile?.file_path) {
         downloadABAFile(responseFile);
         if (responseFile?.notice_trigger?.length) {
-          // await TriggerPaymentNotices({
-          //   payment_ids: responseFile?.notice_trigger,
-          // });
           setLoaderInfo("Generating notice...");
           const noticeResponse = await TriggerPaymentNotices({
             payment_ids: responseFile?.notice_trigger,
@@ -704,16 +709,22 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                                        responseFile?.aba_message?.includes('No ABA file was generated') ||
                                        responseFile?.aba_message?.includes('No changes to save');
         
+        // Just show message for no transactions - no questions asked
         if (isNoValidTransactions) {
           setAbaMarkAsPaid(null);
-        } else if (responseFile?.aba_message && !responseFile?.bank_account_id) {
-          setAbaMarkAsPaid(true);
+          setAbcaWarning({
+            display: true,
+            data: responseFile,
+            isError: true,
+          });
+        } else if (responseFile?.bank_account_id) {
+          // APCA number missing - show update bank account option
+          setAbcaWarning({
+            display: true,
+            data: responseFile,
+            isError: false,
+          });
         }
-        setAbcaWarning({
-          display: true,
-          data: responseFile,
-          isError: isNoValidTransactions,
-        });
       }
     } catch {
     } finally {
@@ -887,7 +898,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                         : false
                     }
                     handleDownloadAbaFile={() => {
-                      handleDownloadAbaFile();
+                      handleDownloadAbaFileClick();
                     }}
                   />
                 )}
@@ -1031,6 +1042,37 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           </BaseModal>
         )}
       </div>
+      {showMarkPaidConfirmation && (
+        <BaseModal
+          modalId={"mark paid confirmation modal"}
+          displayModal={showMarkPaidConfirmation}
+          onHeaderIconClose={() => setShowMarkPaidConfirmation(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => {
+            // "No" button - generate ABA without marking as paid
+            handleDownloadAbaFile(null);
+            return true;
+          }}
+          onConfirm={() => {
+            // "Yes" button - generate ABA and mark as paid
+            handleDownloadAbaFile("yes");
+            return true;
+          }}
+          firstButtonName="No"
+          secondButtonName="Yes"
+        >
+          <div className="text_center">
+            <h4>Generate ABA File</h4>
+            <p style={{ marginTop: '10px', color: '#666' }}>
+              Do you want to mark these payments as paid after generating the ABA file?
+            </p>
+            <p style={{ marginTop: '8px', fontSize: '0.9em', color: '#888' }}>
+              <strong>Yes:</strong> Generate ABA file and move payments to Paid list<br />
+              <strong>No:</strong> Generate ABA file but keep payments in To-Do list
+            </p>
+          </div>
+        </BaseModal>
+      )}
       {abcaWarning?.display && (
         <BaseModal
           modalId={"abca warning modal"}
@@ -1043,13 +1085,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
               setAbcaWarning({ display: false, data: {} });
               return true;
             }
-            abaMarkAsPaid
-              ? handleDownloadAbaFile("yes")
-              : handleUpdateAbcaNumber();
+            handleUpdateAbcaNumber();
             return true;
           }}
-          firstButtonName={abcaWarning?.isError ? "" : (abaMarkAsPaid ? "No" : "Close")}
-          secondButtonName={abcaWarning?.isError ? "OK" : (abaMarkAsPaid ? "Yes" : "Update")}
+          firstButtonName={abcaWarning?.isError ? "" : "Close"}
+          secondButtonName={abcaWarning?.isError ? "OK" : "Update"}
         >
           {abcaWarning?.isError ? (
             <div className="text_center">
