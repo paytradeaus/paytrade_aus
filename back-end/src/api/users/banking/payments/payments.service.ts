@@ -5371,10 +5371,13 @@ export class PaymentsService {
 
       if (result?.length > 0) {
         result = result?.map((fileHistory) => {
-          const aba_file_path = fileHistory?.aba_file_path
-            ? process.env.UPLOAD_BASE_URL +
-            fileHistory?.aba_file_path.replace(/\\/g, '/')
+          let aba_file_path = fileHistory?.aba_file_path
+            ? fileHistory?.aba_file_path.replace(/\\/g, '/')
             : fileHistory?.aba_file_path;
+          // Ensure path starts with / for browser URL
+          if (aba_file_path && !aba_file_path.startsWith('/')) {
+            aba_file_path = '/' + aba_file_path;
+          }
           return { ...fileHistory, aba_file_path };
         });
       }
