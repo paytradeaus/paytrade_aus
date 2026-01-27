@@ -25,7 +25,7 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
 });
 
 const backendPaths = [
-  '/graphql', '/uploads', '/files', '/socket.io', '/bull-board',
+  '/graphql', '/uploads', '/files', '/socket.io', '/bull-board', '/admin/mailQueues',
   '/profile_photo', '/admin_profile_photo', '/company_logo', '/communication',
   '/trust_training_records', '/blog_banner', '/resources', '/notice-templates',
   '/notices', '/recieved-notices', '/notices_supporting_docs', '/contracts',
