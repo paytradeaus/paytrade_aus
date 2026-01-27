@@ -194,8 +194,22 @@ export class ExportDataService {
 
       // Upload to Object Storage
       const storagePath = `excel_exports/${fileName}`;
-      await this.objectStorageService.uploadFileDirect(storagePath, fileBuffer);
-      this.logger.log(`Excel file uploaded to Object Storage: ${storagePath}`);
+      this.logger.log(`Uploading Excel file to Object Storage: ${storagePath}, size: ${fileBuffer?.length || 0} bytes`);
+      
+      if (!fileBuffer || fileBuffer.length === 0) {
+        throw new Error('Excel buffer is empty, cannot upload');
+      }
+      
+      const uploadResult = await this.objectStorageService.uploadFileDirect(storagePath, fileBuffer);
+      this.logger.log(`Excel file upload result: ${JSON.stringify(uploadResult)}, path: ${storagePath}`);
+      
+      // Verify the file exists after upload
+      const verifyBuffer = await this.objectStorageService.downloadFile(storagePath);
+      if (!verifyBuffer) {
+        this.logger.error(`CRITICAL: Excel file upload verification failed - file not found at ${storagePath}`);
+        throw new Error('File upload verification failed');
+      }
+      this.logger.log(`Excel file verified in Object Storage: ${storagePath}, verified size: ${verifyBuffer.length} bytes`);
 
       const expiration = Math.floor(Date.now() / 1000) + 60 * 10;
       const token = jwt.sign(
