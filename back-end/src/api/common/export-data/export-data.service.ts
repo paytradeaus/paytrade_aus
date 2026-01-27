@@ -5574,6 +5574,11 @@ export class ExportDataService {
 
   async getSubpaymentList(data: ExportExcelDataInput) {
     const company_id = data.company_id;
+    this.logger.log(`getSubpaymentList: company_id = ${company_id}`);
+
+    if (!company_id) {
+      this.logger.warn(`getSubpaymentList: company_id is null or undefined, returning empty result`);
+    }
 
     const queryBuilder = await this.subPayments
       .createQueryBuilder('subpayment')
