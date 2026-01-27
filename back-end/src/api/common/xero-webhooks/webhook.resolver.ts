@@ -60,6 +60,8 @@ export class XeroWebhookResolver {
       
       const webhookKey = process.env.XERO_WEBHOOK_KEY?.trim();
       this.logger.log(`[Xero Webhook] XERO_WEBHOOK_KEY exists: ${!!webhookKey}, length: ${webhookKey?.length || 0}`);
+      this.logger.log(`[Xero Webhook] XERO_WEBHOOK_KEY first 10 chars: ${webhookKey?.substring(0, 10) || 'N/A'}`);
+      this.logger.log(`[Xero Webhook] XERO_WEBHOOK_KEY last 10 chars: ${webhookKey?.substring(webhookKey.length - 10) || 'N/A'}`);
       
       if (!webhookKey) {
         this.logger.error('[Xero Webhook] XERO_WEBHOOK_KEY not configured!');
