@@ -700,12 +700,18 @@ export default function PaymentToDoList({ overViewDetails }: any) {
         }
         getListAllAdminUsers(page, perPage);
       } else if (responseFile?.bank_account_id || responseFile?.aba_message) {
-        if (responseFile?.aba_message && !responseFile?.bank_account_id) {
+        const isNoValidTransactions = responseFile?.aba_message?.includes('No transactions qualified') || 
+                                       responseFile?.aba_message?.includes('No ABA file was generated');
+        
+        if (isNoValidTransactions) {
+          setAbaMarkAsPaid(null);
+        } else if (responseFile?.aba_message && !responseFile?.bank_account_id) {
           setAbaMarkAsPaid(true);
         }
         setAbcaWarning({
           display: true,
           data: responseFile,
+          isError: isNoValidTransactions,
         });
       }
     } catch {
@@ -1032,13 +1038,17 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           restrictOncloseFunctionInHeader
           onClose={() => setAbcaWarning({ display: false, data: {} })}
           onConfirm={() => {
+            if (abcaWarning?.isError) {
+              setAbcaWarning({ display: false, data: {} });
+              return true;
+            }
             abaMarkAsPaid
               ? handleDownloadAbaFile("yes")
               : handleUpdateAbcaNumber();
             return true;
           }}
-          firstButtonName={abaMarkAsPaid ? "No" : "Close"}
-          secondButtonName={abaMarkAsPaid ? "Yes" : "Update"}
+          firstButtonName={abcaWarning?.isError ? "" : (abaMarkAsPaid ? "No" : "Close")}
+          secondButtonName={abcaWarning?.isError ? "OK" : (abaMarkAsPaid ? "Yes" : "Update")}
         >
           <h4 className="text_center">{abcaWarning?.data?.aba_message}</h4>
         </BaseModal>
