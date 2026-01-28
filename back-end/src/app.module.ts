@@ -100,6 +100,7 @@ import { SupportWebhooksModule } from './api/common/support-webhooks/support-web
 import { SupportModule } from './api/support/support.module';
 import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue.module';
 import { ObjectStorageModule } from './libs/@object-storage';
+import { DatabaseBackupModule } from './libs/@database-backup';
 
 @Module({
   imports: [
@@ -280,6 +281,7 @@ import { ObjectStorageModule } from './libs/@object-storage';
     SupportModule,
     EmailQueueModule,
     ObjectStorageModule,
+    DatabaseBackupModule,
   ],
   providers: [
     AppService,
