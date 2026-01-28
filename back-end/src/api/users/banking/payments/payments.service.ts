@@ -5024,11 +5024,16 @@ export class PaymentsService {
         //   '(subpayment.is_paid_confirmed = true OR subpayment.is_received_confirmed = true OR subpayment.is_retention_confirmed = true)',
         // );
       } else if (getSubpaymentsInput.is_confirmed === false) {
-        // Filter based on sub_payment_type - only show items where their SPECIFIC confirmation field is false
-        // Payment type uses is_paid_confirmed, Retention Out uses is_retention_confirmed, Retention In uses is_received_confirmed
+        // Filter based on sub_payment_type AND claim_type to determine which confirmation field to check:
+        // - Billable + Payment: uses is_paid_confirmed
+        // - Receivable + Payment: uses is_received_confirmed  
+        // - Retention Out: uses is_retention_confirmed
+        // - Retention In: uses is_received_confirmed
         queryBuilder.andWhere(
           `(
-            (subpayment.sub_payment_type = 'Payment' AND COALESCE(subpayment.is_paid_confirmed, false) = false) OR
+            (subpayment.sub_payment_type = 'Payment' AND pc.claim_type = 'Billable' AND COALESCE(subpayment.is_paid_confirmed, false) = false) OR
+            (subpayment.sub_payment_type = 'Payment' AND pc.claim_type = 'Receivable' AND COALESCE(subpayment.is_received_confirmed, false) = false) OR
+            (subpayment.sub_payment_type = 'Payment' AND pc.claim_type IS NULL AND COALESCE(subpayment.is_paid_confirmed, false) = false AND COALESCE(subpayment.is_received_confirmed, false) = false) OR
             (subpayment.sub_payment_type = 'Retention Out' AND COALESCE(subpayment.is_retention_confirmed, false) = false) OR
             (subpayment.sub_payment_type = 'Retention In' AND COALESCE(subpayment.is_received_confirmed, false) = false)
           )`,
