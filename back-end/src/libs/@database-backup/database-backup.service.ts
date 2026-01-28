@@ -73,7 +73,7 @@ export class DatabaseBackupService {
     try {
       const files = await this.objectStorageService.listFiles('database-backups/');
       
-      if (!files || files.length <= 4) {
+      if (!files || files.length <= 7) {
         return;
       }
 
@@ -82,7 +82,7 @@ export class DatabaseBackupService {
         .sort()
         .reverse();
 
-      const filesToDelete = sortedFiles.slice(4);
+      const filesToDelete = sortedFiles.slice(7);
 
       for (const file of filesToDelete) {
         await this.objectStorageService.deleteFile(file);
