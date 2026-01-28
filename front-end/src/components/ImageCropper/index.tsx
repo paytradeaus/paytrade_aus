@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from "react";
 import ReactCrop, { centerCrop, Crop, PixelCrop } from "react-image-crop";
 import { useDebounceEffect } from "./useDebounceEffect";

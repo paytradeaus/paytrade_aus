@@ -8,6 +8,7 @@ module.exports = {
   swcMinify: true,
   compress: true,
   optimizeFonts: true,
+  transpilePackages: ['react-image-crop', 'react-toastify'],
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
