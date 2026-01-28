@@ -5024,8 +5024,14 @@ export class PaymentsService {
         //   '(subpayment.is_paid_confirmed = true OR subpayment.is_received_confirmed = true OR subpayment.is_retention_confirmed = true)',
         // );
       } else if (getSubpaymentsInput.is_confirmed === false) {
+        // Filter based on sub_payment_type - only show items where their SPECIFIC confirmation field is false
+        // Payment type uses is_paid_confirmed, Retention Out uses is_retention_confirmed, Retention In uses is_received_confirmed
         queryBuilder.andWhere(
-          '(COALESCE(subpayment.is_paid_confirmed, false) = false OR COALESCE(subpayment.is_received_confirmed, false) = false OR COALESCE(subpayment.is_retention_confirmed, false) = false)',
+          `(
+            (subpayment.sub_payment_type = 'Payment' AND COALESCE(subpayment.is_paid_confirmed, false) = false) OR
+            (subpayment.sub_payment_type = 'Retention Out' AND COALESCE(subpayment.is_retention_confirmed, false) = false) OR
+            (subpayment.sub_payment_type = 'Retention In' AND COALESCE(subpayment.is_received_confirmed, false) = false)
+          )`,
         );
 
         queryBuilder.addSelect(
