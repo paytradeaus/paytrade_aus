@@ -1,0 +1,258 @@
+
+
+
+paytrade_aus
+Files
+Commands
+Packager files
+Config files
+Secrets
+SESSION_SECRET
+••••••••
+NODE_ENV
+••••••••
+DATABASE_PORT
+••••••••
+EMAIL_USER
+••••••••
+EMAIL_PASSWORD
+••••••••
+BREVO_EMAIL_LOGIN
+••••••••
+BREVO_EMAIL_PASSWORD
+••••••••
+RECAPTCHA_URI
+••••••••
+RECAPTCHA_SECRET_KEY
+••••••••
+REDIS_HOST
+••••••••
+REDIS_PORT
+••••••••
+REDIS_PASSWORD
+••••••••
+NOTICE_PAYTRADE_ADMIN_DELEGATE
+••••••••
+SUPPORT_EMAIL
+••••••••
+COMMUNITY_EMAIL
+••••••••
+MAILGUN_DOMAIN_URL
+••••••••
+MAILGUN_DOMAIN
+••••••••
+MAILGUN_API_KEY
+••••••••
+SUPPORT_TICKET_MAIL
+••••••••
+LOG_DELETION_DAYS
+••••••••
+GOOGLE_PLACES_URI
+••••••••
+GOOGLE_PLACES_KEY
+••••••••
+ADMIN_EMAIL
+••••••••
+SENDGRID_API_KEY
+••••••••
+BULL_USER
+••••••••
+BULL_PASSWORD
+••••••••
+NEXT_PUBLIC_GA_MEASUREMENT_ID
+••••••••
+NEXT_PUBLIC_GTM_ID
+••••••••
+NEXT_PUBLIC_COOKIE_BOT_ID
+••••••••
+NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+••••••••
+NEXT_PUBLIC_RECAPTCHA_KEY
+••••••••
+NEXT_PUBLIC_SENTRY_AUTH_TOKEN
+••••••••
+DATABASE_USER
+••••••••
+DATABASE_HOST
+••••••••
+DATABASE_PASSWORD
+••••••••
+DATABASE_NAME
+••••••••
+REDIS_URL
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI
+••••••••
+XERO_CALLBACK_URL
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI_ZIP_FILE_DOWNLOAD
+••••••••
+NEXT_PUBLIC_GRAPHQL_URI_EXCEL_FILE_DOWNLOAD
+••••••••
+NEXT_PUBLIC_WEB_SOCKET_BASED_PDF_FILE_DOWNLOAD_TO_GET_URL
+••••••••
+PORT
+••••••••
+BASE_URL
+••••••••
+WEBSOCKET_PORT
+••••••••
+NEXT_PUBLIC_SOCKET_URL
+••••••••
+UPLOAD_BASE_URL
+••••••••
+STRIPE_PRODUCT_ID
+••••••••
+LOG_BASE_URL
+••••••••
+WEBHOOK_RELAY_SECRET
+••••••••
+STRIPE_SECRET_KEY
+••••••••
+STRIPE_PUBLISHABLE_KEY
+••••••••
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+••••••••
+STRIPE_WEBHOOK_SECRET
+••••••••
+XERO_CLIENT_ID
+••••••••
+XERO_CLIENT_SECRET
+••••••••
+XERO_WEBHOOK_KEY
+••••••••
+Configurations
+Configurations are similar to secrets, but should only be used for non-sensitive information. They're useful for having a variable that's different between your published app and when testing on Replit.
+BACKEND_URL
+http://127.0.0.1:3001
+BULL_PASSWORD
+admin123
+BULL_USER
+admin
+NEXT_PUBLIC_DEPLOYED_URL
+https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/
+NEXT_PUBLIC_GA_MEASUREMENT_ID
+NEXT_PUBLIC_GRAPHQL_URI
+https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc2909rsada.janeway.replit.dev/graphql
+NEXT_PUBLIC_GTM_ID
+NEXT_PUBLIC_RECAPTCHA_KEY
+PORT
+3001
+/
+Total 586
+Name	Added	Size
+application-logs
+-
+-
+audit_reports
+-
+-
+bank_statements
+-
+-
+blog_banner
+-
+-
+company_logo
+-
+-
+compulsory_attachments
+-
+-
+contracts
+-
+-
+generated_aba_files
+-
+-
+notices
+-
+-
+notices-generated
+-
+-
+original-notices-generated
+-
+-
+profile_photo
+-
+-
+transaction_csv_file_attachments
+-
+-
+Time
+Deployment
+Source
+Log
+2026-01-28 19:32:42.46
+387b3fd1
+User
+at loadSource (node:internal/modules/cjs/loader:1548:17)
+2026-01-28 19:33:25.44
+387b3fd1
+User
+at loadSource (node:internal/modules/cjs/loader:1548:17)
+2026-01-28 19:33:25.44
+387b3fd1
+User
+syscall: 'read'
+2026-01-28 19:33:25.44
+387b3fd1
+User
+at Module.load (node:internal/modules/cjs/loader:1266:32)
+2026-01-28 19:33:25.44
+387b3fd1
+User
+}
+2026-01-28 19:33:25.44
+387b3fd1
+User
+errno: -5,
+2026-01-28 19:33:25.44
+387b3fd1
+User
+at require (node:internal/modules/helpers:182:18)
+2026-01-28 19:33:25.44
+387b3fd1
+User
+at Object.readFileSync (node:fs:448:20)
+2026-01-28 19:33:25.45
+387b3fd1
+User
+[2026-01-28T14:03:25.455Z] 500 GET /user/dashboard?_rsc=oe59x
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at mod.require (/home/runner/workspace/front-end/node_modules/next/dist/server/require-hook.js:65:28)
+2026-01-28 19:33:25.80
+387b3fd1
+User
+errno: -5,
+2026-01-28 19:33:25.80
+387b3fd1
+User
+}
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at require (node:internal/modules/helpers:182:18)
+2026-01-28 19:33:25.80
+387b3fd1
+User
+⨯ Error: EIO: i/o error, read
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at Object.readFileSync (node:fs:448:20)
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at requirePage (/home/runner/workspace/front-end/node_modules/next/dist/server/require.js:109:84)
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at Module.require (node:internal/modules/cjs/loader:1289:19)
+2026-01-28 19:33:25.80
+387b3fd1
+User
+at loadSource (node:internal/modules/cjs/loader:1548:17)
