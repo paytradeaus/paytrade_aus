@@ -48,7 +48,8 @@ async function getProductIdea() {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL;
+  const rawBaseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL || '';
+  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
   const blogList = await getBlog();
   const resourceList = await getResource();
   const howToGuidesList = await getHowToGuides();

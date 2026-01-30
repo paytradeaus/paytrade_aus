@@ -1,6 +1,9 @@
 import { type MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
+  const rawBaseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL || '';
+  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
+  
   return {
     rules: [
       {
@@ -8,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
       },
     ],
-    sitemap: process.env.NEXT_PUBLIC_DEPLOYED_URL + "sitemap.xml",
+    sitemap: `${baseUrl}sitemap.xml`,
   };
 }
