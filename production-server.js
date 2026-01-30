@@ -1,5 +1,7 @@
 const http = require('http');
 const httpProxy = require('http-proxy');
+const fs = require('fs');
+const path = require('path');
 
 const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
@@ -38,8 +40,49 @@ const backendPaths = [
 const webhookPaths = ['/xero-webhook', '/stripe-webhook', '/support-mail'];
 const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
 
+const STATIC_FOLDERS = ['/json/', '/images/'];
+const MIME_TYPES = {
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
+
+function serveStaticFile(req, res, filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      console.error(`Static file not found: ${filePath}`);
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return;
+    }
+    
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
+    res.end(data);
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url || '';
+  const urlPath = url.split('?')[0];
+  
+  const isStaticFile = STATIC_FOLDERS.some(folder => urlPath.startsWith(folder));
+  if (isStaticFile) {
+    const filePath = path.join(__dirname, 'front-end', 'public', urlPath);
+    serveStaticFile(req, res, filePath);
+    return;
+  }
+  
   const isBackend = backendPaths.some(path => url.startsWith(path));
   const isWebhook = webhookPaths.some(path => url.startsWith(path));
   
