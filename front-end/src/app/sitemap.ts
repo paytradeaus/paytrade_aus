@@ -3,6 +3,9 @@ import { listAllPublishedBlogResources } from "@/modules/general/Blogs/Blogs.fun
 import { slugifyString } from "@/utils";
 import { type MetadataRoute } from "next";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function getBlog() {
   const data = await listAllPublishedBlogResources({
     listBlogResourceInput: {
@@ -48,8 +51,8 @@ async function getProductIdea() {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const rawBaseUrl = process.env.DEPLOYED_URL || process.env.NEXT_PUBLIC_DEPLOYED_URL || 'https://paytrade.app/';
-  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
+  // Hardcoded to ensure correct URL - www subdomain is not supported
+  const baseUrl = 'https://paytrade.app/';
   const blogList = await getBlog();
   const resourceList = await getResource();
   const howToGuidesList = await getHowToGuides();

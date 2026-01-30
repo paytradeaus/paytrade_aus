@@ -1,8 +1,11 @@
 import { type MetadataRoute } from "next";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function robots(): MetadataRoute.Robots {
-  const rawBaseUrl = process.env.DEPLOYED_URL || process.env.NEXT_PUBLIC_DEPLOYED_URL || 'https://paytrade.app/';
-  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`;
+  // Hardcoded to ensure correct URL - www subdomain is not supported
+  const baseUrl = 'https://paytrade.app/';
   
   return {
     rules: [
