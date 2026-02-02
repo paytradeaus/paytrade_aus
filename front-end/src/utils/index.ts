@@ -210,18 +210,14 @@ const removeCommas = (value: string): string => {
 
 const stripHtml = (html: any) => {
   if (!html) return "";
-  // Use regex-based approach that works on both server and client
-  return html
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
-    .replace(/&amp;/g, '&')  // Replace &amp; with &
-    .replace(/&lt;/g, '<')   // Replace &lt; with <
-    .replace(/&gt;/g, '>')   // Replace &gt; with >
-    .replace(/&quot;/g, '"') // Replace &quot; with "
-    .replace(/&#39;/g, "'")  // Replace &#39; with '
-    .replace(/\s+/g, ' ')    // Normalize whitespace
-    .trim()
-    .substring(0, 500);      // Limit to 500 chars for descriptions
+  const { convert } = require('html-to-text');
+  return convert(html, {
+    wordwrap: false,
+    selectors: [
+      { selector: 'a', options: { ignoreHref: true } },
+      { selector: 'img', format: 'skip' },
+    ],
+  }).substring(0, 500);
 };
 const commonCookies = {
   NAVIGATED_FROM: "navigated-from",
