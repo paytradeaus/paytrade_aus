@@ -1,9 +1,11 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from "react";
 import ReactCrop, { centerCrop, Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import { useDebounceEffect } from "./useDebounceEffect";
 import { canvasPreview } from "./canvasPreview";
 import Image from "next/image";
-import "react-image-crop/dist/ReactCrop.css";
 import BaseModal from "../BaseModal";
 
 interface ImageCropperProps {

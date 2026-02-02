@@ -14,8 +14,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 import ReCaptchaComponent from "../../../components/GoogleRecaptcha/index";
-import ImageCropper from "@/components/ImageCropper";
+import dynamic from "next/dynamic";
 import { convertCanvasToFile } from "@/utils";
+
+const ImageCropper = dynamic(() => import("@/components/ImageCropper"), {
+  ssr: false,
+});
 import { insertEmailVerificationDetails } from "@/network/existanceAPIsCheck";
 const SUBMIT = "submit";
 const SKIP = "skip";

@@ -2,8 +2,12 @@ import BaseModal from "@/components/BaseModal";
 import React, { useEffect, useRef, useState } from "react";
 import { useBusinessProfileContext } from "./BusinessProfileContext";
 import ImageUploader from "@/components/ImageUploader";
-import ImageCropper from "@/components/ImageCropper";
+import dynamic from "next/dynamic";
 import { UploadImage } from "@/shared/constant/general";
+
+const ImageCropper = dynamic(() => import("@/components/ImageCropper"), {
+  ssr: false,
+});
 import { handleSelectedImage } from "@/utils";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import SignaturePadComponent from "@/components/SignatureCanvas";

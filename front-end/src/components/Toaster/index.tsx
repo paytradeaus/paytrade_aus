@@ -1,6 +1,7 @@
 "use client";
 
 import { applicationStorage } from "@/shared/constant/general";
+import "react-toastify/dist/ReactToastify.css";
 
 import {
   toast, // Importing toast functions from react-toastify
@@ -8,7 +9,6 @@ import {
   ToastContainerProps, // Type for the toast container props
   ToastOptions, // Type for the toast options
 } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css"; // Import toastify styles
 
 // Type for container configuration, extending from ToastContainerProps
 interface ContainerConfig extends ToastContainerProps {}

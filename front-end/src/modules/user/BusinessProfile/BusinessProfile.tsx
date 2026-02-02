@@ -22,8 +22,12 @@ import {
   handleSelectedImage,
 } from "@/utils";
 import userImage from "../../../../public/images/avatar.png";
-import ImageCropper from "@/components/ImageCropper";
+import dynamic from "next/dynamic";
 import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";
+
+const ImageCropper = dynamic(() => import("@/components/ImageCropper"), {
+  ssr: false,
+});
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { useBusinessProfileContext } from "./BusinessProfileContext";
 import TrustRecordForms from "./TrustRecordForms";

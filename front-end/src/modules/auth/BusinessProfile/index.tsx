@@ -19,8 +19,12 @@ import { setCompanyDetails } from "@/redux/slices/companyRegistrationDetails";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import FormikControl from "@/components/FormikControl";
 import { buttonType, InputType, UploadImage } from "@/shared/constant/general";
-import ImageCropper from "@/components/ImageCropper";
+import dynamic from "next/dynamic";
 import CustomButton from "@/components/CustomButton/CustomButton";
+
+const ImageCropper = dynamic(() => import("@/components/ImageCropper"), {
+  ssr: false,
+});
 import BaseModal from "@/components/BaseModal";
 import Avatar from "react-avatar";
 import styles from "./businesProfile.module.css";

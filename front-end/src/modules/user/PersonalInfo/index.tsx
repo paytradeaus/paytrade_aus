@@ -28,8 +28,12 @@ import GooglePlacesInput from "@/components/GooglePlaces";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import PhoneInputField from "@/components/phoneNumberInput";
 import ImageUploader from "@/components/ImageUploader";
-import ImageCropper from "@/components/ImageCropper";
+import dynamic from "next/dynamic";
 import { AppRoutes } from "@/shared/constant/appRoutes";
+
+const ImageCropper = dynamic(() => import("@/components/ImageCropper"), {
+  ssr: false,
+});
 import { AdminRoles } from "@/shared/constant/role";
 import { useRouter, useSearchParams } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
