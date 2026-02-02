@@ -50,9 +50,11 @@
     "uninstall": "^0.0.0",
     "uuid": "^11.0.3",
     "xlsx-js-style": "^1.2.0",
-    "yup": "^1.4.0"
+    "yup": "^1.4.0",
+    "html-to-text": "^9.0.5"
   },
   "devDependencies": {
+    "@types/html-to-text": "^9.0.4",
     "@types/lodash": "^4.17.12",
     "@types/node": "^20",
     "@types/react": "^18",

@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Home from "../../../page";
 import { setMetadata } from "@/modules/general/Blogs/Blogs.functions";
-import { slugifyString, stripHtml } from "@/utils";
+import { jsonLdText, slugifyString } from "@/utils";
 export async function generateMetadata({ params }: any): Promise<Metadata> {
   const postData: any = {
     slugOrId: params?.slug[1],
@@ -74,7 +74,7 @@ export default async function Page({ params }: any) {
               "@context": "https://schema.org",
               "@type": "BlogPosting",
               headline: response?.blogResource?.title,
-              description: stripHtml(response?.blogResource?.content),
+              description: jsonLdText(response?.blogResource?.content, 200),
               author: "Paytrade Admin",
               datePublished: response?.blogResource?.published_on,
               mainEntityOfPage: {

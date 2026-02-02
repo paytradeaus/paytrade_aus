@@ -10,10 +10,11 @@ import { format } from "date-fns";
 import { jwtDecode } from "jwt-decode";
 import slugify from "slugify";
 import { io, Socket } from "socket.io-client";
+import { htmlToText } from "html-to-text";
 
 function formatDate(
   value: any,
-  formatType: string = DateFormat.DD_MM_YYYY_SLASH
+  formatType: string = DateFormat.DD_MM_YYYY_SLASH,
 ) {
   try {
     return value ? format(new Date(value), formatType) : "";
@@ -39,7 +40,7 @@ function replaceDollarSymbol(value: any) {
 function mapDropdownOptions(
   arrOptions: any[],
   labelValue: string,
-  dataValue: string
+  dataValue: string,
 ) {
   if (arrOptions?.length > 0) {
     return arrOptions.map((data: any) => {
@@ -96,7 +97,7 @@ function getSubscriptionType(decodeTokenData: any, selectedCompanyId: any) {
     // Filter to get the relevant company-specific role based on companyId
     const newData = decodeTokenData?.companySpecificRoles?.find(
       (x: { companyId: number }) =>
-        String(x.companyId) === String(selectedCompanyId)
+        String(x.companyId) === String(selectedCompanyId),
     );
 
     // Check if the company role exists and contains subscription data
@@ -134,7 +135,7 @@ function clearBrowserStorage() {
 
 function convertPositiveDecimalTwoDigit(
   value: number,
-  isCommaRequired = false
+  isCommaRequired = false,
 ) {
   if (isCommaRequired)
     return value
@@ -167,7 +168,7 @@ function handleSelectedImage(
   allowedFileTypes = UploadImage.jpegAndPng,
   fileSizeLimit = UploadImage.twoMB,
   invalidImageError = ImageErrors.INVALID_FILE_TYPE_JPG_PNG,
-  fileLimitError = ImageErrors.FILE_LIMIT_EXCEEDS_2MB
+  fileLimitError = ImageErrors.FILE_LIMIT_EXCEEDS_2MB,
 ) {
   // Validate file type
   if (!allowedFileTypes.includes(file.type)) {
@@ -209,16 +210,30 @@ const removeCommas = (value: string): string => {
 };
 
 const stripHtml = (html: any) => {
-  if (!html) return "";
-  const { convert } = require('html-to-text');
-  return convert(html, {
+  let doc = new DOMParser().parseFromString(html, "text/html");
+  return doc.body.textContent || "";
+};
+
+export const stripHtmlInServer = (html: string = ""): string => {
+  return htmlToText(html, {
     wordwrap: false,
     selectors: [
-      { selector: 'a', options: { ignoreHref: true } },
-      { selector: 'img', format: 'skip' },
+      { selector: "a", options: { ignoreHref: true } },
+      { selector: "img", format: "skip" },
     ],
-  }).substring(0, 500);
+  })
+    .replace(/\s+/g, " ")
+    .trim();
 };
+
+export const clampText = (text: string, max = 160) =>
+  text.length > max ? text.slice(0, max - 1).trim() + "…" : text;
+
+export const jsonLdText = (html: string, maxLength?: number) => {
+  const text = stripHtmlInServer(html);
+  return maxLength ? clampText(text, maxLength) : text;
+};
+
 const commonCookies = {
   NAVIGATED_FROM: "navigated-from",
 };
@@ -246,7 +261,7 @@ function handleUserActivity() {
 
 const downloadPDF = async (
   pdfUrl: string | URL | Request,
-  fileName: string
+  fileName: string,
 ) => {
   try {
     const response = await fetch(pdfUrl);
@@ -265,8 +280,7 @@ const downloadPDF = async (
 function connectWebSocket(): Promise<any> {
   return new Promise((resolve, reject) => {
     const socket: Socket = io(`${process.env.NEXT_PUBLIC_SOCKET_URL}`, {
-      transports: ["polling", "websocket"],
-      upgrade: true,
+      transports: ["websocket"],
     });
 
     socket.on("connect", () => {
@@ -308,7 +322,7 @@ function fileToBase64(file: any) {
 function base64ToFile(
   base64String: string,
   fileName: string,
-  fileType: string
+  fileType: string,
 ) {
   const byteCharacters = atob(base64String.split(",")[1]); // Decode Base64
   const byteNumbers = new Array(byteCharacters.length)

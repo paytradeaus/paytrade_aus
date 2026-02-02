@@ -1,7 +1,7 @@
 import { setMetadata } from "@/modules/general/Blogs/Blogs.functions";
 import { Metadata } from "next";
 import Home from "../../../page";
-import { slugifyString, stripHtml } from "@/utils";
+import { slugifyString, jsonLdText } from "@/utils";
 export async function generateMetadata({ params }: any): Promise<Metadata> {
   const postData: any = {
     slugOrId: params?.slug[1],
@@ -76,7 +76,7 @@ export default async function Page({ params }: any) {
               headline: "Resources | Paytrade",
               description:
                 "Detailed article on " +
-                stripHtml(response?.blogResource?.content),
+                jsonLdText(response?.blogResource?.content, 200),
               author: "Paytrade",
               datePublished: response?.blogResource?.published_on,
               mainEntityOfPage: {
