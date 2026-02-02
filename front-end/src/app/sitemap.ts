@@ -168,12 +168,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
-      url: `${baseUrl}community/discussions`,
-      lastModified: new Date(),
-      changeFrequency: "hourly",
-      priority: 1,
-    },
-    {
       url: `${baseUrl}community/product-ideas`,
       lastModified: new Date(),
       changeFrequency: "hourly",
