@@ -1,7 +1,5 @@
 const http = require('http');
 const httpProxy = require('http-proxy');
-const fs = require('fs');
-const path = require('path');
 
 const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
@@ -40,67 +38,11 @@ const backendPaths = [
 const webhookPaths = ['/xero-webhook', '/stripe-webhook', '/support-mail'];
 const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
 
-const STATIC_FOLDERS = ['/json/', '/images/'];
-const MIME_TYPES = {
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.webp': 'image/webp',
-};
-
-function serveStaticFile(req, res, urlPath) {
-  const ext = path.extname(urlPath).toLowerCase();
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-  
-  const possiblePaths = [
-    path.join(__dirname, 'front-end', 'public', urlPath),
-    path.join(__dirname, 'front-end', '.next', 'static', urlPath),
-    path.join('/home/runner/workspace', 'front-end', 'public', urlPath),
-    path.join(process.cwd(), 'front-end', 'public', urlPath),
-  ];
-  
-  function tryNextPath(index) {
-    if (index >= possiblePaths.length) {
-      console.error(`Static file not found in any path: ${urlPath}`);
-      console.error(`Tried paths: ${possiblePaths.join(', ')}`);
-      console.error(`__dirname: ${__dirname}, cwd: ${process.cwd()}`);
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not Found');
-      return;
-    }
-    
-    const filePath = possiblePaths[index];
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        tryNextPath(index + 1);
-        return;
-      }
-      
-      console.log(`Serving static file from: ${filePath}`);
-      res.writeHead(200, {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
-      });
-      res.end(data);
-    });
-  }
-  
-  tryNextPath(0);
-}
+// Static files are now served directly by Next.js frontend
+// No custom static file handling needed - let requests pass through to frontend
 
 const server = http.createServer((req, res) => {
   const url = req.url || '';
-  const urlPath = url.split('?')[0];
-  
-  const isStaticFile = STATIC_FOLDERS.some(folder => urlPath.startsWith(folder));
-  if (isStaticFile) {
-    serveStaticFile(req, res, urlPath);
-    return;
-  }
   
   const isBackend = backendPaths.some(path => url.startsWith(path));
   const isWebhook = webhookPaths.some(path => url.startsWith(path));
