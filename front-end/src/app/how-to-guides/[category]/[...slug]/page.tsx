@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Home from "../../../page";
 import { setMetadata } from "@/modules/general/Blogs/Blogs.functions";
-import { slugifyString } from "@/utils";
+import { slugifyString, stripHtml } from "@/utils";
 interface Props {
   params: {
     slug: string[];
@@ -81,7 +81,7 @@ export default async function Page({ params }: Props) {
               "@context": "https://schema.org",
               "@type": "Blog",
               headline: response?.blogResource?.title,
-              description: response?.blogResource?.content,
+              description: stripHtml(response?.blogResource?.content),
               author: "Paytrade Admin",
               datePublished: response?.blogResource?.published_on,
               mainEntityOfPage: {

@@ -51,25 +51,45 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
 };
 
-function serveStaticFile(req, res, filePath) {
-  const ext = path.extname(filePath).toLowerCase();
+function serveStaticFile(req, res, urlPath) {
+  const ext = path.extname(urlPath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      console.error(`Static file not found: ${filePath}`);
+  const possiblePaths = [
+    path.join(__dirname, 'front-end', 'public', urlPath),
+    path.join(__dirname, 'front-end', '.next', 'static', urlPath),
+    path.join('/home/runner/workspace', 'front-end', 'public', urlPath),
+    path.join(process.cwd(), 'front-end', 'public', urlPath),
+  ];
+  
+  function tryNextPath(index) {
+    if (index >= possiblePaths.length) {
+      console.error(`Static file not found in any path: ${urlPath}`);
+      console.error(`Tried paths: ${possiblePaths.join(', ')}`);
+      console.error(`__dirname: ${__dirname}, cwd: ${process.cwd()}`);
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
       return;
     }
     
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000',
-      'Cross-Origin-Resource-Policy': 'cross-origin',
+    const filePath = possiblePaths[index];
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        tryNextPath(index + 1);
+        return;
+      }
+      
+      console.log(`Serving static file from: ${filePath}`);
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+      });
+      res.end(data);
     });
-    res.end(data);
-  });
+  }
+  
+  tryNextPath(0);
 }
 
 const server = http.createServer((req, res) => {
@@ -78,8 +98,7 @@ const server = http.createServer((req, res) => {
   
   const isStaticFile = STATIC_FOLDERS.some(folder => urlPath.startsWith(folder));
   if (isStaticFile) {
-    const filePath = path.join(__dirname, 'front-end', 'public', urlPath);
-    serveStaticFile(req, res, filePath);
+    serveStaticFile(req, res, urlPath);
     return;
   }
   
