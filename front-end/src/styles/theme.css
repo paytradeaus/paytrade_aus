@@ -1427,7 +1427,7 @@ content {
 }
 
 .noise {
-  background: url(/images/noise.svg);
+  background: url(/images/noise.svg?v=1);
   background-size: 200px;
   width: 100%;
   height: 100%;

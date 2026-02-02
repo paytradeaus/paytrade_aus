@@ -75,8 +75,8 @@ export const ONBOARDING_DESCRIPTION_2 =
   "Once you've signed up, raise a support ticket and book a free 45-minute onboarding session with our experts. They will walk you through the setup and onboard your existing data.";
 
 // Lottie Sources
-export const LOTTIE_BANK_SERVICE = "/json/bankservice.json";
-export const LOTTIE_CASH_WITHDRAWAL = "/json/cashwithdrawal.json";
+export const LOTTIE_BANK_SERVICE = "/json/bankservice.json?v=1";
+export const LOTTIE_CASH_WITHDRAWAL = "/json/cashwithdrawal.json?v=1";
 
 // last section
 

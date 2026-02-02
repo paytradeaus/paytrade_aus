@@ -132,3 +132,9 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - Frontend is configured to proxy to the backend GraphQL API
 - Fixed hydration errors by consolidating GoogleTagManager, GoogleAnalytics, and Cookiebot scripts into a unified AnalyticsWrapper client component
 - Puppeteer uses system Chromium at `/nix/store/.../chromium` for PDF generation
+
+## Static File Serving (Production)
+- **Production proxy** (production-server.js) passes static file requests (`/images/`, `/json/`) to Next.js frontend for proper serving
+- **Cache-busting**: All static assets use version query params (e.g., `?v=1`) to force browser cache refresh after updates
+- If adding new static files, update version params when changing files to bust user caches
+- Static files are stored in `front-end/public/images/` and `front-end/public/json/`

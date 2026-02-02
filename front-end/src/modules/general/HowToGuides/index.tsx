@@ -45,14 +45,14 @@ export default function HowToGuidesPage() {
             description="QBCC Compliance Checklist"
             buttonText="Watch video guide"
             buttonLink="#"
-            lottieSrc="/json/cashwithdrawal.json"
+            lottieSrc="/json/cashwithdrawal.json?v=1"
           />
           <GuidesCTA
             title="Payment Processing"
             description="Processing Payment Applications"
             buttonText="Watch video guide"
             buttonLink="#"
-            lottieSrc="/json/balancetransfer.json"
+            lottieSrc="/json/balancetransfer.json?v=1"
           />
         </div>
       </div>

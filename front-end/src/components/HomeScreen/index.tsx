@@ -192,7 +192,7 @@ export default function HomeScreenPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt="Dashboard mockup"
-                src="/images/mockupshots.png?v=2"
+                src="/images/mockupshots.png?v=3"
                 className="mockupshots"
                 loading="eager"
                 decoding="async"
@@ -283,7 +283,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/gettingloan.json"
+                      src="/json/gettingloan.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -305,7 +305,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/balancetransfer.json"
+                      src="/json/balancetransfer.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -327,7 +327,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/banksafe.json"
+                      src="/json/banksafe.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -349,7 +349,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/cardholder.json"
+                      src="/json/cardholder.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -371,7 +371,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/cashwithdrawal.json"
+                      src="/json/cashwithdrawal.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -393,7 +393,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/banksupport.json"
+                      src="/json/banksupport.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -415,7 +415,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/bankdeposit.json"
+                      src="/json/bankdeposit.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -437,7 +437,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/amountcalculation.json"
+                      src="/json/amountcalculation.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -459,7 +459,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/bankservice.json"
+                      src="/json/bankservice.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -481,7 +481,7 @@ export default function HomeScreenPage() {
                       autoplay
                       loop
                       mode="normal"
-                      src="/json/bankofficer.json"
+                      src="/json/bankofficer.json?v=1"
                     ></lottie-player>
                   </div>
                   <div className="pt_featuretext">
@@ -587,7 +587,7 @@ export default function HomeScreenPage() {
                 autoplay
                 loop
                 mode="normal"
-                src="/json/bankservice.json"
+                src="/json/bankservice.json?v=1"
               ></lottie-player>
             </div>
             <div className="pt_splittext">

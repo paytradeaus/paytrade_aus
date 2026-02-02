@@ -383,7 +383,7 @@ export default function IntegrationList({
     const adatree = {
       routeLink: "",
       label: "Adatree",
-      logo: "/images/adaTree.png",
+      logo: "/images/adaTree.png?v=1",
       width: "30",
       height: "30",
       description:
