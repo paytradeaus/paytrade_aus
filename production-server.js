@@ -44,6 +44,13 @@ const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
 const server = http.createServer((req, res) => {
   const url = req.url || '';
   
+  // Health check endpoint for keeping the app warm
+  if (url === '/health' || url === '/__health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    return;
+  }
+  
   const isBackend = backendPaths.some(path => url.startsWith(path));
   const isWebhook = webhookPaths.some(path => url.startsWith(path));
   

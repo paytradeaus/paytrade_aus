@@ -101,6 +101,7 @@ import { SupportModule } from './api/support/support.module';
 import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue.module';
 import { ObjectStorageModule } from './libs/@object-storage';
 import { DatabaseBackupModule } from './libs/@database-backup';
+import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
 
 @Module({
   imports: [
@@ -282,6 +283,7 @@ import { DatabaseBackupModule } from './libs/@database-backup';
     EmailQueueModule,
     ObjectStorageModule,
     DatabaseBackupModule,
+    KeepAliveModule,
   ],
   providers: [
     AppService,
