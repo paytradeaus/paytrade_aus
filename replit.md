@@ -138,3 +138,9 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - **Cache-busting**: All static assets use version query params (e.g., `?v=1`) to force browser cache refresh after updates
 - If adding new static files, update version params when changing files to bust user caches
 - Static files are stored in `front-end/public/images/` and `front-end/public/json/`
+
+## Deployment Stability (Feb 2026)
+- **Root cause of 400 errors**: Next.js Server Actions have unique IDs per build. When users have cached pages from old deployments, their cached pages reference Server Action IDs that no longer exist.
+- **Fix**: Production proxy adds `no-store, no-cache` headers to HTML pages and RSC responses to prevent browser caching of pages that could become stale after deployment
+- **Keep-alive service**: KeepAliveModule pings `/health` every 5 minutes in production (only when `REPLIT_DEPLOYMENT=1`) for health monitoring
+- **Health endpoint**: `/health` returns JSON status for monitoring

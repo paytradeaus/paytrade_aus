@@ -22,6 +22,17 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   if (proxyRes.statusCode >= 400) {
     console.error(`[${new Date().toISOString()}] ${proxyRes.statusCode} ${req.method} ${req.url}`);
   }
+  
+  // Prevent caching of HTML pages to avoid Server Action version mismatches after deployments
+  const contentType = proxyRes.headers['content-type'] || '';
+  const url = req.url || '';
+  
+  // Don't cache HTML pages or Server Action responses
+  if (contentType.includes('text/html') || url.includes('_rsc') || req.method === 'POST') {
+    proxyRes.headers['cache-control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
+    proxyRes.headers['pragma'] = 'no-cache';
+    proxyRes.headers['expires'] = '0';
+  }
 });
 
 const backendPaths = [
