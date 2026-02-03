@@ -19,6 +19,49 @@ module.exports = {
     config.resolve.alias['@'] = path.join(__dirname, 'src');
     return config;
   },
+  // Add proper cache headers for static files to prevent 400 errors
+  async headers() {
+    return [
+      {
+        // Static assets in public folder
+        source: '/:path*.(png|jpg|jpeg|gif|svg|ico|webp|json|woff|woff2|ttf|eot)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
+        // Images folder
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        // JSON folder (Lottie animations)
+        source: '/json/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, stale-while-revalidate=86400',
+          },
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     const fileFolders = [
       'profile_photo', 'admin_profile_photo', 'company_logo', 'communication',
