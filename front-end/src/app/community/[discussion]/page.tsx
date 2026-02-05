@@ -81,20 +81,30 @@ export default async function Page({ params }: Props) {
         process.env.NEXT_PUBLIC_DEPLOYED_URL +
         `${
           params?.discussion == "product-ideas"
-            ? "community/product-ideas"
-            : "community/discussions"
+            ? "/community/product-ideas"
+            : "/community/discussions"
         }/${slugifyString(item?.category?.value || "All")}/${slugifyString(
           item?.title
         )}/${item?.id}`,
       headline: item.title,
+      text: item.content,
       articleBody: item.content,
       dateCreated: item.created_on,
+      url:
+        process.env.NEXT_PUBLIC_DEPLOYED_URL +
+        `${
+          params?.discussion == "product-ideas"
+            ? "/community/product-ideas"
+            : "/community/discussions"
+        }/${slugifyString(item?.category?.value || "All")}/${slugifyString(
+          item?.title
+        )}/${item?.id}`,
       discussionUrl:
         process.env.NEXT_PUBLIC_DEPLOYED_URL +
         `${
           params?.discussion == "product-ideas"
-            ? "community/product-ideas"
-            : "community/discussions"
+            ? "/community/product-ideas"
+            : "/community/discussions"
         }/${slugifyString(item?.category?.value || "All")}/${slugifyString(
           item?.title
         )}/${item?.id}`,

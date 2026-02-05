@@ -93,19 +93,34 @@ export default async function Page({ params }: Props) {
               "@type": "DiscussionForumPosting",
               headline: response?.title,
               description: response?.content,
-              author: response?.admin_author
-                ? response?.admin_author
-                : response?.author?.first_name +
-                  " " +
-                  response?.author?.last_name,
+              text: response?.content,
+              url:
+                process.env.NEXT_PUBLIC_DEPLOYED_URL +
+                (params?.discussion == "product-ideas"
+                  ? "/community/product-ideas"
+                  : "/community/discussions") +
+                "/" +
+                (params?.category || "All") +
+                "/" +
+                slugifyString(response?.title) +
+                "/" +
+                response?.id,
+              author: {
+                "@type": "Person",
+                name: response?.admin_author
+                  ? response?.admin_author
+                  : response?.author?.first_name +
+                    " " +
+                    response?.author?.last_name,
+              },
               datePublished: response?.created_on,
               mainEntityOfPage: {
                 "@type": "WebPage",
                 "@id":
                   process.env.NEXT_PUBLIC_DEPLOYED_URL +
                   (params?.discussion == "product-ideas"
-                    ? "community/product-ideas"
-                    : "community/discussions") +
+                    ? "/community/product-ideas"
+                    : "/community/discussions") +
                   "/" +
                   (params?.category || "All") +
                   "/" +
