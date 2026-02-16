@@ -55,6 +55,14 @@ const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
 const server = http.createServer((req, res) => {
   const url = req.url || '';
   
+  const host = (req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+  if (host === 'www.paytrade.app') {
+    const targetUrl = `https://paytrade.app${url}`;
+    res.writeHead(301, { 'Location': targetUrl });
+    res.end();
+    return;
+  }
+  
   // Health check endpoint for keeping the app warm
   if (url === '/health' || url === '/__health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
