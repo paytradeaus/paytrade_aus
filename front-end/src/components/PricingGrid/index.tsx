@@ -16,20 +16,20 @@ type Feature = {
 
 interface PlanTableProps {
   features: any[];
+  subscriptionPlanTypes?: any;
+  isYearly?: boolean;
 }
 
 const withPlanTable = (
   WrappedComponent: React.ComponentType<PlanTableProps>
 ) => {
   return (props: PlanTableProps) => {
-    // Logic for manipulating or transforming data can go here
-    const { features } = props;
-
-    return <WrappedComponent features={features} />;
+    const { features, subscriptionPlanTypes, isYearly } = props;
+    return <WrappedComponent features={features} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />;
   };
 };
 
-const PlanTable: React.FC<PlanTableProps> = ({ features }) => {
+const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, isYearly }) => {
   const [tableFeatures, setTableFeatures] = useState<any[]>([]);
   const getTheme: any = useAppSelector(
     (state: RootState) => state?.appTheme?.currentTheme
@@ -39,17 +39,49 @@ const PlanTable: React.FC<PlanTableProps> = ({ features }) => {
     return getTheme === "light";
   }
 
+  function findPlan(planList: any[], ...names: string[]) {
+    for (const name of names) {
+      const found = planList.find(
+        (p: any) => p.plan_name?.toLowerCase().trim() === name.toLowerCase()
+      );
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function getPriceRow() {
+    const planList = isYearly
+      ? subscriptionPlanTypes?.yearly_plan_list || []
+      : subscriptionPlanTypes?.monthly_plan_list || [];
+
+    const suffix = isYearly ? "/yr" : "/mo";
+    const fallback = subscriptionPlanFeatures[0];
+
+    const standardPlan = findPlan(planList, "Standard", "Premium");
+    const advancedPlan = findPlan(planList, "Advanced", "Platinum");
+    const proAuditPlan = findPlan(planList, "Pro Audit", "ProAudit", "Pro-Audit");
+
+    return {
+      name: "",
+      basicText: "Free",
+      standardText: standardPlan ? `${standardPlan.price}${suffix}` : (fallback?.standardText || ""),
+      advancedText: advancedPlan ? `${advancedPlan.price}${suffix}` : (fallback?.advancedText || ""),
+      proAuditText: proAuditPlan ? `${proAuditPlan.price}${suffix}` : (fallback?.proAuditText || ""),
+    };
+  }
+
   useEffect(() => {
     const currentCode = isLightTheme()
       ? subscriptionColorCodes.BLACK
       : subscriptionColorCodes.WHITE;
-    subscriptionPlanFeatures[0].basicColorCode = currentCode;
-    subscriptionPlanFeatures[0].standardColorCode = currentCode;
-    subscriptionPlanFeatures[0].advancedColorCode = currentCode;
-    subscriptionPlanFeatures[0].proAuditColorCode = currentCode;
 
-    setTableFeatures([...subscriptionPlanFeatures]);
-  }, [getTheme]);
+    const priceRow = subscriptionPlanTypes
+      ? { ...getPriceRow(), basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode }
+      : { ...subscriptionPlanFeatures[0], basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode };
+
+    const featureRows = subscriptionPlanFeatures.slice(1);
+    setTableFeatures([priceRow, ...featureRows]);
+  }, [getTheme, subscriptionPlanTypes, isYearly]);
 
   return (
     <div className="grid">

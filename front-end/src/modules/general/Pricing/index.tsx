@@ -187,7 +187,7 @@ export default function PricingPage() {
                 <p>Loading Plans...</p>
               )}
             </div>
-            <PlanTable features={subscriptionPlanFeatures} />
+            <PlanTable features={subscriptionPlanFeatures} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
           </div>
         </div>
       </div>
