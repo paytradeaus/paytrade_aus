@@ -39,7 +39,11 @@ const AUSTRALIAN_LOCATIONS = [
   { address: 'Toowoomba, QLD', region: 'Queensland', country: 'Australia', lat: '-27.5598', lng: '151.9507', place_id: 'ChIJJd0bHEcSkWsRwbFCw-bBBhk' },
   { address: 'Sydney, NSW', region: 'New South Wales', country: 'Australia', lat: '-33.8688', lng: '151.2093', place_id: 'ChIJP3Sa8ziYEmsRUKgyFmh9AQM' },
   { address: 'Melbourne, VIC', region: 'Victoria', country: 'Australia', lat: '-37.8136', lng: '144.9631', place_id: 'ChIJ90260rVG1moRkM2MIXVWBAQ' },
+  { address: 'Perth, WA', region: 'Western Australia', country: 'Australia', lat: '-31.9505', lng: '115.8605', place_id: 'ChIJPwLjP196MioRkMZCGSP6gSM' },
+  { address: 'Adelaide, SA', region: 'South Australia', country: 'Australia', lat: '-34.9285', lng: '138.6007', place_id: 'ChIJ1-4miA3KsGoRwgHSU15ROAQ' },
 ];
+
+const BOT_BATCH_SIZE = 10;
 
 @Injectable()
 export class CommunityBotService {
@@ -73,100 +77,199 @@ export class CommunityBotService {
 
     try {
       this.logger.log('Starting scheduled community content generation');
-      await this.generateAndPostContent();
+      await this.runContentBatch();
     } catch (error) {
       this.logger.error(`Scheduled content generation failed: ${error.message}`);
     }
   }
 
-  async generateAndPostContent(): Promise<{ discussion: CmtyDiscussionsIdeas; answer: CmtyAnswersComments } | null> {
+  async runContentBatch(): Promise<{
+    questionsCreated: number;
+    answersCreated: number;
+    botsCreated: number;
+  }> {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized. Set OPENAI_API_KEY environment variable.');
     }
 
-    const topic = await this.selectTopic();
+    const questionCount = this.randomBetween(2, 7);
+    this.logger.log(`This run will create ${questionCount} questions`);
+
     const category = await this.getDiscussionCategory();
     const existingTitles = await this.getRecentTitles();
 
-    const questionUser = await this.getOrCreateBotUser('questioner');
-    const answerUser = await this.getOrCreateBotUser('answerer');
+    let totalQuestions = 0;
+    let totalAnswers = 0;
+    let totalBotsCreated = 0;
+    const usedQuestionerIds: string[] = [];
+    const usedAnswererIds: string[] = [];
 
-    if (!questionUser || !answerUser || questionUser.id === answerUser.id) {
-      this.logger.error('Could not get two distinct bot users for Q&A');
-      return null;
+    for (let q = 0; q < questionCount; q++) {
+      try {
+        const questionUser = await this.getEligibleBot('question', [...usedQuestionerIds]);
+        if (!questionUser) {
+          this.logger.warn(`No eligible questioner bot available for question ${q + 1}, creating batch`);
+          const created = await this.createBotBatch(BOT_BATCH_SIZE);
+          totalBotsCreated += created;
+          const retryUser = await this.getEligibleBot('question', [...usedQuestionerIds]);
+          if (!retryUser) {
+            this.logger.error(`Still no eligible questioner after batch creation, skipping question ${q + 1}`);
+            continue;
+          }
+          Object.assign(questionUser || {}, retryUser);
+          if (!questionUser) continue;
+        }
+        usedQuestionerIds.push(questionUser.id);
+
+        const topic = await this.selectTopic();
+        const generated = await this.generateQAndA(topic, existingTitles);
+        if (!generated) {
+          this.logger.error(`Failed to generate Q&A for question ${q + 1}`);
+          continue;
+        }
+
+        const discussion = this.discussionsIdeas.create({
+          title: generated.questionTitle,
+          content: generated.questionContent,
+          cmty_content_type: 'Discussion',
+          discussion_idea_status: 'Active',
+          author: questionUser,
+          category: category || undefined,
+          enable_comments: true,
+          created_group: 'USER',
+          updated_group: 'USER',
+        });
+
+        const savedDiscussion = await this.discussionsIdeas.save(discussion);
+        savedDiscussion.discussion_idea_id = Number(savedDiscussion.discussion_idea_id) + 10000000;
+        const finalDiscussion = await this.discussionsIdeas.save(savedDiscussion);
+        existingTitles.push(finalDiscussion.title);
+        totalQuestions++;
+
+        this.logger.log(`Question ${q + 1}/${questionCount}: "${finalDiscussion.title}" by ${questionUser.first_name} ${questionUser.last_name}`);
+
+        const answerCount = this.randomBetween(1, 3);
+        let answersForThisQuestion = 0;
+
+        for (let a = 0; a < answerCount; a++) {
+          const excludeIds = [...usedAnswererIds, questionUser.id];
+          let answerUser = await this.getEligibleBot('answer', excludeIds);
+          if (!answerUser) {
+            this.logger.warn(`No eligible answerer bot for answer ${a + 1} on question ${q + 1}, creating batch`);
+            const created = await this.createBotBatch(BOT_BATCH_SIZE);
+            totalBotsCreated += created;
+            answerUser = await this.getEligibleBot('answer', excludeIds);
+            if (!answerUser) {
+              this.logger.error(`Still no eligible answerer after batch creation, skipping answer`);
+              continue;
+            }
+          }
+          usedAnswererIds.push(answerUser.id);
+
+          let answerContent: string;
+          if (a === 0) {
+            answerContent = generated.answerContent;
+          } else {
+            const additionalAnswer = await this.generateAdditionalAnswer(
+              finalDiscussion.title,
+              generated.questionContent,
+              generated.answerContent,
+            );
+            if (!additionalAnswer) continue;
+            answerContent = additionalAnswer;
+          }
+
+          const answer = this.answerComments.create({
+            answer_comment: answerContent,
+            answer_comment_status: 'Approved',
+            discussionIdea: finalDiscussion,
+            author: answerUser,
+            created_group: 'USER',
+            updated_group: 'USER',
+          });
+
+          const savedAnswer = await this.answerComments.save(answer);
+          savedAnswer.answer_comment_id = Number(savedAnswer.answer_comment_id) + 10000000;
+          await this.answerComments.save(savedAnswer);
+          answersForThisQuestion++;
+          totalAnswers++;
+
+          this.logger.log(`  Answer ${a + 1}/${answerCount} by ${answerUser.first_name} ${answerUser.last_name}`);
+        }
+
+        await this.discussionsIdeas.update(
+          { id: finalDiscussion.id },
+          { answer_comment_count: answersForThisQuestion },
+        );
+      } catch (error) {
+        this.logger.error(`Error creating question ${q + 1}: ${error.message}`);
+      }
     }
 
-    const generated = await this.generateQAndA(topic, existingTitles);
-    if (!generated) {
-      this.logger.error('Failed to generate Q&A content');
-      return null;
-    }
-
-    const discussion = this.discussionsIdeas.create({
-      title: generated.questionTitle,
-      content: generated.questionContent,
-      cmty_content_type: 'Discussion',
-      discussion_idea_status: 'Active',
-      author: questionUser,
-      category: category || undefined,
-      enable_comments: true,
-      created_group: 'USER',
-      updated_group: 'USER',
-    });
-
-    const savedDiscussion = await this.discussionsIdeas.save(discussion);
-    savedDiscussion.discussion_idea_id = Number(savedDiscussion.discussion_idea_id) + 10000000;
-    const finalDiscussion = await this.discussionsIdeas.save(savedDiscussion);
-
-    const answer = this.answerComments.create({
-      answer_comment: generated.answerContent,
-      answer_comment_status: 'Approved',
-      discussionIdea: finalDiscussion,
-      author: answerUser,
-      created_group: 'USER',
-      updated_group: 'USER',
-    });
-
-    const savedAnswer = await this.answerComments.save(answer);
-    savedAnswer.answer_comment_id = Number(savedAnswer.answer_comment_id) + 10000000;
-    const finalAnswer = await this.answerComments.save(savedAnswer);
-
-    await this.discussionsIdeas.update(
-      { id: finalDiscussion.id },
-      { answer_comment_count: 1 },
-    );
-
-    this.logger.log(`Bot Q&A created: "${finalDiscussion.title}" by ${questionUser.first_name} ${questionUser.last_name}, answered by ${answerUser.first_name} ${answerUser.last_name}`);
-    return { discussion: finalDiscussion, answer: finalAnswer };
+    this.logger.log(`Batch complete: ${totalQuestions} questions, ${totalAnswers} answers, ${totalBotsCreated} new bots created`);
+    return { questionsCreated: totalQuestions, answersCreated: totalAnswers, botsCreated: totalBotsCreated };
   }
 
-  private async getOrCreateBotUser(role: 'questioner' | 'answerer'): Promise<UserDetails | null> {
-    const botUsers = await this.userDetails.find({
+  private async getEligibleBot(
+    role: 'question' | 'answer',
+    excludeIds: string[],
+  ): Promise<UserDetails | null> {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const allBots = await this.userDetails.find({
       where: { is_bot: true, user_status: 'Active' },
     });
 
-    if (botUsers.length >= 2) {
-      if (role === 'questioner') {
-        return botUsers[Math.floor(Math.random() * botUsers.length)];
-      }
-      const filtered = botUsers.filter(
-        (u) => u.id !== botUsers[0]?.id,
-      );
-      return filtered[Math.floor(Math.random() * filtered.length)] || botUsers[1];
+    if (allBots.length === 0) return null;
+
+    let usedBotUserIds: number[];
+
+    if (role === 'question') {
+      const usedBots = await this.discussionsIdeas
+        .createQueryBuilder('d')
+        .select('d.author_id', 'author_id')
+        .innerJoin('d.author', 'author')
+        .where('author.is_bot = true')
+        .andWhere('d.created_on >= :monthStart', { monthStart })
+        .groupBy('d.author_id')
+        .getRawMany();
+      usedBotUserIds = usedBots.map((b) => b.author_id);
+    } else {
+      const usedBots = await this.answerComments
+        .createQueryBuilder('a')
+        .select('a.author_id', 'author_id')
+        .innerJoin('a.author', 'author')
+        .where('author.is_bot = true')
+        .andWhere('a.created_on >= :monthStart', { monthStart })
+        .groupBy('a.author_id')
+        .getRawMany();
+      usedBotUserIds = usedBots.map((b) => b.author_id);
     }
 
-    const neededCount = 2 - botUsers.length;
-    for (let i = 0; i < neededCount; i++) {
-      const newBot = await this.createBotUser();
-      if (newBot) botUsers.push(newBot);
+    const eligible = allBots.filter(
+      (bot) =>
+        !usedBotUserIds.includes(bot.user_id) &&
+        !excludeIds.includes(bot.id),
+    );
+
+    if (eligible.length === 0) return null;
+
+    return eligible[Math.floor(Math.random() * eligible.length)];
+  }
+
+  private async createBotBatch(count: number): Promise<number> {
+    let created = 0;
+    this.logger.log(`Creating batch of ${count} bot users`);
+
+    for (let i = 0; i < count; i++) {
+      const bot = await this.createBotUser();
+      if (bot) created++;
     }
 
-    if (botUsers.length < 2) {
-      this.logger.error('Could not create enough bot users');
-      return botUsers[0] || null;
-    }
-
-    return role === 'questioner' ? botUsers[0] : botUsers[1];
+    this.logger.log(`Batch creation complete: ${created}/${count} bots created`);
+    return created;
   }
 
   private async createBotUser(): Promise<UserDetails | null> {
@@ -179,7 +282,7 @@ export class CommunityBotService {
       });
       if (existingEmail) {
         this.logger.warn(`Bot email already exists: ${persona.email}, skipping`);
-        return existingEmail;
+        return null;
       }
 
       const location = AUSTRALIAN_LOCATIONS[Math.floor(Math.random() * AUSTRALIAN_LOCATIONS.length)];
@@ -306,7 +409,7 @@ Return ONLY a JSON object:
   ): Promise<{ questionTitle: string; questionContent: string; answerContent: string } | null> {
     try {
       const titlesContext = existingTitles.length > 0
-        ? `\n\nExisting discussion titles (do NOT duplicate these):\n${existingTitles.slice(0, 20).map((t) => `- ${t}`).join('\n')}`
+        ? `\n\nExisting discussion titles (do NOT duplicate these):\n${existingTitles.slice(0, 30).map((t) => `- ${t}`).join('\n')}`
         : '';
 
       const response = await this.openai.responses.create({
@@ -382,34 +485,108 @@ Respond with ONLY this JSON:
     }
   }
 
-  async triggerManualGeneration(): Promise<{ discussion: CmtyDiscussionsIdeas; answer: CmtyAnswersComments } | null> {
+  private async generateAdditionalAnswer(
+    questionTitle: string,
+    questionContent: string,
+    existingAnswer: string,
+  ): Promise<string | null> {
+    try {
+      const response = await this.openai.responses.create({
+        model: 'gpt-4o',
+        tools: [{ type: 'web_search_preview' }],
+        instructions: `You are a knowledgeable Australian construction industry professional responding to a community discussion about project trust accounts and the BIF Act. You are providing an additional perspective that differs from an existing answer.
+
+Your answer MUST be specifically about project trust accounts, BIF Act compliance, QBCC requirements, or related construction payment topics. Sound like a real industry professional with practical experience.`,
+        input: `Provide an additional answer to this community discussion:
+
+Title: "${questionTitle}"
+Question: ${questionContent}
+
+An existing answer has already been given (provide a DIFFERENT perspective, additional tips, or supplementary information — do NOT repeat the same points):
+${existingAnswer}
+
+Your answer should:
+- Be 200-400 words
+- Offer a different angle, additional practical tips, or personal experience perspective
+- Reference specific regulations or requirements where relevant
+- Use HTML formatting
+- Sound natural, like a real community member contributing
+
+Return ONLY the HTML answer content, no JSON wrapping.`,
+      });
+
+      const answerText = response.output_text.trim();
+      if (!answerText || answerText.length < 50) {
+        this.logger.error('Additional answer too short or empty');
+        return null;
+      }
+
+      return answerText;
+    } catch (error) {
+      this.logger.error(`Additional answer generation error: ${error.message}`);
+      return null;
+    }
+  }
+
+  private randomBetween(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  async triggerManualGeneration(): Promise<{
+    questionsCreated: number;
+    answersCreated: number;
+    botsCreated: number;
+  } | null> {
     this.logger.log('Manual content generation triggered');
-    return this.generateAndPostContent();
+    return this.runContentBatch();
   }
 
   async getBotStats(): Promise<{
     totalBotPosts: number;
     totalBotAnswers: number;
     totalBotUsers: number;
+    eligibleQuestionersThisMonth: number;
+    eligibleAnswerersThisMonth: number;
     lastPostDate: Date | null;
     botEnabled: boolean;
     openaiConfigured: boolean;
-    botUsers: { id: string; name: string; email: string; postsCount: number }[];
+    botUsers: { id: string; name: string; company: string; position: string; questionsThisMonth: number; answersThisMonth: number }[];
   }> {
     const botUsers = await this.userDetails.find({
       where: { is_bot: true },
     });
 
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
     const botUserDetails = [];
+    let eligibleQuestioners = 0;
+    let eligibleAnswerers = 0;
+
     for (const bot of botUsers) {
-      const postCount = await this.discussionsIdeas.count({
-        where: { author: { user_id: bot.user_id } },
-      });
+      const questionsThisMonth = await this.discussionsIdeas
+        .createQueryBuilder('d')
+        .where('d.author_id = :id', { id: bot.user_id })
+        .andWhere('d.created_on >= :monthStart', { monthStart })
+        .getCount();
+
+      const answersThisMonth = await this.answerComments
+        .createQueryBuilder('a')
+        .where('a.author_id = :id', { id: bot.user_id })
+        .andWhere('a.created_on >= :monthStart', { monthStart })
+        .getCount();
+
+      if (questionsThisMonth === 0) eligibleQuestioners++;
+      if (answersThisMonth === 0) eligibleAnswerers++;
+
       botUserDetails.push({
         id: bot.id,
         name: `${bot.first_name} ${bot.last_name}`,
-        email: bot.email_id,
-        postsCount: postCount,
+        company: bot.company_name || '',
+        position: bot.position_title || '',
+        questionsThisMonth,
+        answersThisMonth,
       });
     }
 
@@ -441,6 +618,8 @@ Respond with ONLY this JSON:
       totalBotPosts,
       totalBotAnswers,
       totalBotUsers: botUsers.length,
+      eligibleQuestionersThisMonth: eligibleQuestioners,
+      eligibleAnswerersThisMonth: eligibleAnswerers,
       lastPostDate,
       botEnabled: process.env.COMMUNITY_BOT_ENABLED !== 'false',
       openaiConfigured: !!this.openai,

@@ -21,9 +21,9 @@ export class CommunityBotResolver {
     }
     return {
       success: true,
-      discussionId: result.discussion.id,
-      title: result.discussion.title,
-      answerId: result.answer.id,
+      questionsCreated: result.questionsCreated,
+      answersCreated: result.answersCreated,
+      botsCreated: result.botsCreated,
     };
   }
 

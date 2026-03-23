@@ -162,10 +162,11 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - **Cron schedule**: Runs Mon/Wed/Fri at 9 AM UTC (configurable via cron expression)
 - **Content source**: Uses OpenAI GPT-4o with web search to generate Q&A pairs (question + answer)
 - **Bot users**: Created in `user_details` table with `is_bot = true` flag. OpenAI generates realistic Australian construction professional personas (names, company names, positions). Bot users appear as regular community members publicly — `is_bot` is internal only, not exposed in any GraphQL type/DTO
-- **Q&A orchestration**: Each run creates a discussion question from one bot user and an answer from a different bot user. All content is strictly focused on Project Trust accounts and BIF Act compliance
+- **Q&A orchestration**: Each cron run creates 2-7 discussion questions (targeting 5-20/week across 3 runs). Each question gets 1-3 answers from different bot users. All content is strictly focused on Project Trust accounts and BIF Act compliance
+- **Bot usage limits**: Each bot user can only post 1 question and 1 answer per calendar month. When the pool of eligible bots runs low, a new batch of 10 bot users is auto-created via OpenAI persona generation
 - **Topic selection**: Uses active SEO keywords when available; defaults to 15 Project Trust/BIF Act topics
 - **Duplicate prevention**: Fetches last 50 titles and instructs OpenAI not to duplicate; appends date suffix if collision detected
-- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query (shows bot user details, post/answer counts)
+- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query (shows bot user details, post/answer counts, eligible bots remaining this month)
 - **Security**: Bot users have random bcrypt-hashed passwords (not real credentials), cannot log in normally
 - **Environment variables**:
   - `OPENAI_API_KEY` - Required for content generation and bot user persona creation
