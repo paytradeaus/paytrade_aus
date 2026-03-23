@@ -33,10 +33,6 @@ externalPort = 3001
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 6379
-externalPort = 3000
-
 [workflows]
 runButton = "Project"
 
@@ -57,13 +53,13 @@ args = "Backend"
 name = "Frontend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd front-end && npm run dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd front-end && NODE_ENV=development npm run dev"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Backend"

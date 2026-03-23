@@ -59,7 +59,7 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - `NEXT_PUBLIC_DEPLOYED_URL` - Base URL for the deployed application
 
 ## Workflows
-- **Frontend**: `cd front-end && npm run dev` - Runs Next.js on port 5000
+- **Frontend**: `cd front-end && NODE_ENV=development npm run dev` - Runs Next.js on port 5000 (NODE_ENV must be overridden to `development` for CSS processing to work correctly in dev mode)
 - **Backend**: `redis-server --daemonize yes; cd back-end && npm run start:dev` - Runs NestJS on port 3001
 
 ## Recent Changes
