@@ -3,13 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import OpenAI from 'openai';
-import {
-  CmtyDiscussionsIdeas,
-} from 'src/entities/cmty-discussion-idea.entity';
-import { AdminDetails } from 'src/entities/admin-details.entity';
+import { CmtyDiscussionsIdeas } from 'src/entities/cmty-discussion-idea.entity';
+import { CmtyAnswersComments } from 'src/entities/cmty-answers-comments.entity';
 import { MasterTypes } from 'src/entities/master-types.entity';
 import { SeoKeyword } from 'src/entities/seo-keyword.entity';
+import { UserDetails } from 'src/entities/user-details.entity';
+import { Role } from 'src/api/auth/role-guard/role.enum';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import * as bcrypt from 'bcryptjs';
 
 const DEFAULT_TOPICS = [
   'Project Trust Accounts in the Australian Construction Industry',
@@ -19,14 +20,25 @@ const DEFAULT_TOPICS = [
   'Security of payment rights for subcontractors in Australia',
   'QBCC compliance requirements for project trust accounts',
   'How to set up a project trust account for construction projects',
-  'Cash flow management for construction businesses',
+  'Cash flow management for construction businesses under BIF Act',
   'Subcontractor payment protection under BIF Act',
   'Progress payment claims in the construction industry',
-  'Adjudication of payment disputes in construction',
-  'Best practices for construction payment management',
-  'Understanding retention money in building contracts',
+  'Adjudication of payment disputes under BIF Act',
+  'Best practices for construction payment management with trust accounts',
+  'Understanding retention money in building contracts under BIF Act',
   'Construction industry payment reform in Queensland',
   'Digital trust accounting solutions for builders',
+];
+
+const AUSTRALIAN_LOCATIONS = [
+  { address: 'Brisbane CBD, QLD', region: 'Queensland', country: 'Australia', lat: '-27.4698', lng: '153.0251', place_id: 'ChIJM9KBrP9ZkWsRDMKKSF1GfOg' },
+  { address: 'Gold Coast, QLD', region: 'Queensland', country: 'Australia', lat: '-28.0167', lng: '153.4000', place_id: 'ChIJ6Z2MG011kWsRoM-gdTGnLpg' },
+  { address: 'Sunshine Coast, QLD', region: 'Queensland', country: 'Australia', lat: '-26.6500', lng: '153.0667', place_id: 'ChIJfXIwm7tQkWsRn5xciNHHOZI' },
+  { address: 'Townsville, QLD', region: 'Queensland', country: 'Australia', lat: '-19.2590', lng: '146.8169', place_id: 'ChIJt_UGkbPz1GsRFAOEGBMnl70' },
+  { address: 'Cairns, QLD', region: 'Queensland', country: 'Australia', lat: '-16.9186', lng: '145.7781', place_id: 'ChIJr5Y3eFuaeWsRIHjW1BQ5log' },
+  { address: 'Toowoomba, QLD', region: 'Queensland', country: 'Australia', lat: '-27.5598', lng: '151.9507', place_id: 'ChIJJd0bHEcSkWsRwbFCw-bBBhk' },
+  { address: 'Sydney, NSW', region: 'New South Wales', country: 'Australia', lat: '-33.8688', lng: '151.2093', place_id: 'ChIJP3Sa8ziYEmsRUKgyFmh9AQM' },
+  { address: 'Melbourne, VIC', region: 'Victoria', country: 'Australia', lat: '-37.8136', lng: '144.9631', place_id: 'ChIJ90260rVG1moRkM2MIXVWBAQ' },
 ];
 
 @Injectable()
@@ -37,12 +49,14 @@ export class CommunityBotService {
   constructor(
     @InjectRepository(CmtyDiscussionsIdeas)
     private discussionsIdeas: Repository<CmtyDiscussionsIdeas>,
-    @InjectRepository(AdminDetails)
-    private adminDetails: Repository<AdminDetails>,
+    @InjectRepository(CmtyAnswersComments)
+    private answerComments: Repository<CmtyAnswersComments>,
     @InjectRepository(MasterTypes)
     private masterTypes: Repository<MasterTypes>,
     @InjectRepository(SeoKeyword)
     private seoKeywords: Repository<SeoKeyword>,
+    @InjectRepository(UserDetails)
+    private userDetails: Repository<UserDetails>,
   ) {
     if (process.env.OPENAI_API_KEY) {
       this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -54,14 +68,8 @@ export class CommunityBotService {
 
   @Cron('0 9 * * 1,3,5')
   async scheduledContentGeneration() {
-    if (!this.openai) {
-      return;
-    }
-
-    const botEnabled = process.env.COMMUNITY_BOT_ENABLED !== 'false';
-    if (!botEnabled) {
-      return;
-    }
+    if (!this.openai) return;
+    if (process.env.COMMUNITY_BOT_ENABLED === 'false') return;
 
     try {
       this.logger.log('Starting scheduled community content generation');
@@ -71,48 +79,196 @@ export class CommunityBotService {
     }
   }
 
-  async generateAndPostContent(): Promise<CmtyDiscussionsIdeas | null> {
+  async generateAndPostContent(): Promise<{ discussion: CmtyDiscussionsIdeas; answer: CmtyAnswersComments } | null> {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized. Set OPENAI_API_KEY environment variable.');
     }
 
     const topic = await this.selectTopic();
-    const botAdmin = await this.getBotAdmin();
-
-    if (!botAdmin) {
-      this.logger.error('No admin found to author bot posts. Ensure at least one active admin exists.');
-      return null;
-    }
-
     const category = await this.getDiscussionCategory();
-
     const existingTitles = await this.getRecentTitles();
 
-    const generated = await this.generateContent(topic, existingTitles);
+    const questionUser = await this.getOrCreateBotUser('questioner');
+    const answerUser = await this.getOrCreateBotUser('answerer');
 
-    if (!generated) {
-      this.logger.error('Failed to generate content');
+    if (!questionUser || !answerUser || questionUser.id === answerUser.id) {
+      this.logger.error('Could not get two distinct bot users for Q&A');
       return null;
     }
 
-    const post = this.discussionsIdeas.create({
-      title: generated.title,
-      content: generated.content,
+    const generated = await this.generateQAndA(topic, existingTitles);
+    if (!generated) {
+      this.logger.error('Failed to generate Q&A content');
+      return null;
+    }
+
+    const discussion = this.discussionsIdeas.create({
+      title: generated.questionTitle,
+      content: generated.questionContent,
       cmty_content_type: 'Discussion',
       discussion_idea_status: 'Active',
-      admin_author: botAdmin,
+      author: questionUser,
       category: category || undefined,
       enable_comments: true,
-      created_group: 'ADMIN',
-      updated_group: 'ADMIN',
+      created_group: 'USER',
+      updated_group: 'USER',
     });
 
-    const savedPost = await this.discussionsIdeas.save(post);
-    savedPost.discussion_idea_id = Number(savedPost.discussion_idea_id) + 10000000;
-    const finalPost = await this.discussionsIdeas.save(savedPost);
+    const savedDiscussion = await this.discussionsIdeas.save(discussion);
+    savedDiscussion.discussion_idea_id = Number(savedDiscussion.discussion_idea_id) + 10000000;
+    const finalDiscussion = await this.discussionsIdeas.save(savedDiscussion);
 
-    this.logger.log(`Bot generated post: "${finalPost.title}" (ID: ${finalPost.id})`);
-    return finalPost;
+    const answer = this.answerComments.create({
+      answer_comment: generated.answerContent,
+      answer_comment_status: 'Approved',
+      discussionIdea: finalDiscussion,
+      author: answerUser,
+      created_group: 'USER',
+      updated_group: 'USER',
+    });
+
+    const savedAnswer = await this.answerComments.save(answer);
+    savedAnswer.answer_comment_id = Number(savedAnswer.answer_comment_id) + 10000000;
+    const finalAnswer = await this.answerComments.save(savedAnswer);
+
+    await this.discussionsIdeas.update(
+      { id: finalDiscussion.id },
+      { answer_comment_count: 1 },
+    );
+
+    this.logger.log(`Bot Q&A created: "${finalDiscussion.title}" by ${questionUser.first_name} ${questionUser.last_name}, answered by ${answerUser.first_name} ${answerUser.last_name}`);
+    return { discussion: finalDiscussion, answer: finalAnswer };
+  }
+
+  private async getOrCreateBotUser(role: 'questioner' | 'answerer'): Promise<UserDetails | null> {
+    const botUsers = await this.userDetails.find({
+      where: { is_bot: true, user_status: 'Active' },
+    });
+
+    if (botUsers.length >= 2) {
+      if (role === 'questioner') {
+        return botUsers[Math.floor(Math.random() * botUsers.length)];
+      }
+      const filtered = botUsers.filter(
+        (u) => u.id !== botUsers[0]?.id,
+      );
+      return filtered[Math.floor(Math.random() * filtered.length)] || botUsers[1];
+    }
+
+    const neededCount = 2 - botUsers.length;
+    for (let i = 0; i < neededCount; i++) {
+      const newBot = await this.createBotUser();
+      if (newBot) botUsers.push(newBot);
+    }
+
+    if (botUsers.length < 2) {
+      this.logger.error('Could not create enough bot users');
+      return botUsers[0] || null;
+    }
+
+    return role === 'questioner' ? botUsers[0] : botUsers[1];
+  }
+
+  private async createBotUser(): Promise<UserDetails | null> {
+    try {
+      const persona = await this.generateBotPersona();
+      if (!persona) return null;
+
+      const existingEmail = await this.userDetails.findOne({
+        where: { email_id: persona.email },
+      });
+      if (existingEmail) {
+        this.logger.warn(`Bot email already exists: ${persona.email}, skipping`);
+        return existingEmail;
+      }
+
+      const location = AUSTRALIAN_LOCATIONS[Math.floor(Math.random() * AUSTRALIAN_LOCATIONS.length)];
+      const hashedPassword = await bcrypt.hash(`bot_${Date.now()}_${Math.random()}`, 10);
+
+      const botUser = this.userDetails.create({
+        first_name: persona.firstName,
+        last_name: persona.lastName,
+        email_id: persona.email,
+        position_title: persona.positionTitle,
+        company_name: persona.companyName,
+        occupation: persona.occupation,
+        user_phone_no: '0400000000',
+        user_address: location.address,
+        country: location.country,
+        region: location.region,
+        latitude: location.lat,
+        longitude: location.lng,
+        place_id: location.place_id,
+        password: hashedPassword,
+        user_status: 'Active',
+        user_role: Role.BASIC_USER,
+        is_verified: true,
+        is_bot: true,
+        user_mode: 'Normal',
+        show_popup: false,
+        created_group: 'SYSTEM',
+        updated_group: 'SYSTEM',
+      });
+
+      const saved = await this.userDetails.save(botUser);
+      this.logger.log(`Created bot user: ${saved.first_name} ${saved.last_name} (${saved.email_id})`);
+      return saved;
+    } catch (error) {
+      this.logger.error(`Failed to create bot user: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async generateBotPersona(): Promise<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    positionTitle: string;
+    companyName: string;
+    occupation: string;
+  } | null> {
+    if (!this.openai) return null;
+
+    try {
+      const response = await this.openai.responses.create({
+        model: 'gpt-4o',
+        instructions: `Generate a realistic Australian construction industry professional persona. The person works in the construction industry in Queensland or another Australian state. They would realistically use a project trust accounting platform.
+
+Create a believable persona with:
+- A common Australian name (mix of Anglo, European, Asian-Australian backgrounds)
+- A realistic construction industry job title (e.g., Project Manager, Site Supervisor, Contracts Administrator, Quantity Surveyor, Construction Manager, Estimator, Building Supervisor, Procurement Manager)
+- A realistic Australian construction company name (not a real company - make one up)
+- A professional email that looks realistic using the company name domain
+
+Return ONLY a JSON object:
+{
+  "firstName": "...",
+  "lastName": "...",
+  "email": "...",
+  "positionTitle": "...",
+  "companyName": "...",
+  "occupation": "Construction"
+}`,
+        input: 'Generate one construction professional persona.',
+      });
+
+      let cleanText = response.output_text.trim();
+      if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+      if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+      if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+      cleanText = cleanText.trim();
+
+      const parsed = JSON.parse(cleanText);
+      if (!parsed.firstName || !parsed.lastName || !parsed.email) {
+        this.logger.error('Persona generation missing required fields');
+        return null;
+      }
+
+      return parsed;
+    } catch (error) {
+      this.logger.error(`Persona generation error: ${error.message}`);
+      return null;
+    }
   }
 
   private async selectTopic(): Promise<string> {
@@ -126,24 +282,6 @@ export class CommunityBotService {
     }
 
     return DEFAULT_TOPICS[Math.floor(Math.random() * DEFAULT_TOPICS.length)];
-  }
-
-  private async getBotAdmin(): Promise<AdminDetails | null> {
-    const botAdminId = process.env.COMMUNITY_BOT_ADMIN_ID;
-
-    if (botAdminId) {
-      const admin = await this.adminDetails.findOne({
-        where: { id: botAdminId, admin_status: 'Active' },
-      });
-      if (admin) return admin;
-    }
-
-    const admin = await this.adminDetails.findOne({
-      where: { admin_status: 'Active' },
-      order: { admin_id: 'ASC' },
-    });
-
-    return admin;
   }
 
   private async getDiscussionCategory(): Promise<MasterTypes | null> {
@@ -162,108 +300,151 @@ export class CommunityBotService {
     return recent.map((p) => p.title);
   }
 
-  private async generateContent(
+  private async generateQAndA(
     topic: string,
     existingTitles: string[],
-  ): Promise<{ title: string; content: string } | null> {
+  ): Promise<{ questionTitle: string; questionContent: string; answerContent: string } | null> {
     try {
       const titlesContext = existingTitles.length > 0
-        ? `\n\nExisting post titles (do NOT duplicate these):\n${existingTitles.slice(0, 20).map((t) => `- ${t}`).join('\n')}`
+        ? `\n\nExisting discussion titles (do NOT duplicate these):\n${existingTitles.slice(0, 20).map((t) => `- ${t}`).join('\n')}`
         : '';
 
       const response = await this.openai.responses.create({
         model: 'gpt-4o',
         tools: [{ type: 'web_search_preview' }],
-        instructions: `You are a knowledgeable expert on Australian construction industry payment practices, trust accounting, and the Building Industry Fairness (Security of Payment) Act. You write engaging, informative community discussion posts for PayTrade, a platform that helps manage project trust accounts and construction payments.
+        instructions: `You are helping create community discussion content for PayTrade, an Australian platform for managing project trust accounts under the Building Industry Fairness (Security of Payment) Act (BIF Act).
 
-Your posts should:
-- Be informative and practical for construction industry professionals
-- Reference current regulations and best practices
-- Be written in a professional but approachable tone
-- Include specific, actionable insights
-- Be between 400-800 words
-- Use HTML formatting for the content (paragraphs, headings, lists)
-- Search the web for the latest information on the topic when relevant`,
-        input: `Write a community discussion post about: "${topic}"
+ALL content MUST be specifically about:
+- Project trust accounts and how they work in construction
+- The BIF Act and its requirements for head contractors, subcontractors, and principals
+- QBCC compliance and trust accounting obligations
+- Retention trust accounts in Queensland
+- Security of payment for subcontractors
+- Payment claims, adjudication, and payment schedules under BIF Act
+- How PayTrade helps manage these obligations
 
-Create a unique, engaging title and detailed content.${titlesContext}
+The content should sound like it comes from real construction industry professionals in Australia who are navigating trust accounting requirements.
 
-Respond in this exact JSON format:
+The question should sound like a genuine community member seeking practical advice.
+The answer should be detailed, helpful, and demonstrate expertise in BIF Act compliance and project trust accounting.
+
+Use web search to find the latest information about BIF Act regulations and trust accounting requirements to ensure accuracy.`,
+        input: `Create a community Q&A pair about the topic: "${topic}"
+
+The QUESTION should:
+- Sound like a real construction professional asking for practical guidance
+- Be specific to project trust accounts or BIF Act compliance
+- Target the keyword/topic naturally without keyword stuffing
+- Be concise but clear (100-200 words of content in the body)
+- Have a clear, searchable title
+
+The ANSWER should:
+- Be detailed and genuinely helpful (300-600 words)
+- Reference specific BIF Act sections or QBCC requirements where relevant
+- Provide practical, actionable advice
+- Sound like an experienced trust accounting professional
+- Use HTML formatting (paragraphs, lists where appropriate)
+${titlesContext}
+
+Respond with ONLY this JSON:
 {
-  "title": "Your unique post title here",
-  "content": "<p>Your HTML formatted content here...</p>"
-}
-
-Return ONLY the JSON object, no markdown code blocks or other text.`,
+  "questionTitle": "Clear, specific title for the discussion",
+  "questionContent": "<p>The question body in HTML...</p>",
+  "answerContent": "<p>The detailed answer in HTML...</p>"
+}`,
       });
 
-      const outputText = response.output_text;
-      let cleanText = outputText.trim();
-      if (cleanText.startsWith('```json')) {
-        cleanText = cleanText.slice(7);
-      }
-      if (cleanText.startsWith('```')) {
-        cleanText = cleanText.slice(3);
-      }
-      if (cleanText.endsWith('```')) {
-        cleanText = cleanText.slice(0, -3);
-      }
+      let cleanText = response.output_text.trim();
+      if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+      if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+      if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
       cleanText = cleanText.trim();
 
       const parsed = JSON.parse(cleanText);
 
-      if (!parsed.title || !parsed.content) {
-        this.logger.error('Generated content missing title or content');
+      if (!parsed.questionTitle || !parsed.questionContent || !parsed.answerContent) {
+        this.logger.error('Generated Q&A missing required fields');
         return null;
       }
 
       const existingPost = await this.discussionsIdeas.findOne({
-        where: { title: parsed.title },
+        where: { title: parsed.questionTitle },
       });
 
       if (existingPost) {
-        this.logger.warn(`Title already exists: "${parsed.title}", retrying with modified title`);
-        parsed.title = `${parsed.title} - ${new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}`;
+        parsed.questionTitle = `${parsed.questionTitle} - ${new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}`;
       }
 
       return parsed;
     } catch (error) {
-      this.logger.error(`OpenAI content generation error: ${error.message}`);
+      this.logger.error(`Q&A generation error: ${error.message}`);
       return null;
     }
   }
 
-  async triggerManualGeneration(): Promise<CmtyDiscussionsIdeas | null> {
+  async triggerManualGeneration(): Promise<{ discussion: CmtyDiscussionsIdeas; answer: CmtyAnswersComments } | null> {
     this.logger.log('Manual content generation triggered');
     return this.generateAndPostContent();
   }
 
   async getBotStats(): Promise<{
     totalBotPosts: number;
+    totalBotAnswers: number;
+    totalBotUsers: number;
     lastPostDate: Date | null;
     botEnabled: boolean;
     openaiConfigured: boolean;
+    botUsers: { id: string; name: string; email: string; postsCount: number }[];
   }> {
-    const botAdmin = await this.getBotAdmin();
+    const botUsers = await this.userDetails.find({
+      where: { is_bot: true },
+    });
 
+    const botUserDetails = [];
+    for (const bot of botUsers) {
+      const postCount = await this.discussionsIdeas.count({
+        where: { author: { user_id: bot.user_id } },
+      });
+      botUserDetails.push({
+        id: bot.id,
+        name: `${bot.first_name} ${bot.last_name}`,
+        email: bot.email_id,
+        postsCount: postCount,
+      });
+    }
+
+    const botUserIds = botUsers.map((b) => b.user_id);
     let totalBotPosts = 0;
+    let totalBotAnswers = 0;
     let lastPostDate: Date | null = null;
 
-    if (botAdmin) {
-      const [posts, count] = await this.discussionsIdeas.findAndCount({
-        where: { admin_author: { admin_id: botAdmin.admin_id } },
-        order: { created_on: 'DESC' },
-        take: 1,
-      });
-      totalBotPosts = count;
-      lastPostDate = posts.length > 0 ? posts[0].created_on : null;
+    if (botUserIds.length > 0) {
+      totalBotPosts = await this.discussionsIdeas
+        .createQueryBuilder('d')
+        .where('d.author_id IN (:...ids)', { ids: botUserIds })
+        .getCount();
+
+      totalBotAnswers = await this.answerComments
+        .createQueryBuilder('a')
+        .where('a.author_id IN (:...ids)', { ids: botUserIds })
+        .getCount();
+
+      const lastPost = await this.discussionsIdeas
+        .createQueryBuilder('d')
+        .where('d.author_id IN (:...ids)', { ids: botUserIds })
+        .orderBy('d.created_on', 'DESC')
+        .getOne();
+      lastPostDate = lastPost?.created_on || null;
     }
 
     return {
       totalBotPosts,
+      totalBotAnswers,
+      totalBotUsers: botUsers.length,
       lastPostDate,
       botEnabled: process.env.COMMUNITY_BOT_ENABLED !== 'false',
       openaiConfigured: !!this.openai,
+      botUsers: botUserDetails,
     };
   }
 }

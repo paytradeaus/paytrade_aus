@@ -15,14 +15,15 @@ export class CommunityBotResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.PORTAL_ADMIN)
   async triggerBotContentGeneration() {
-    const post = await this.communityBotService.triggerManualGeneration();
-    if (!post) {
+    const result = await this.communityBotService.triggerManualGeneration();
+    if (!result) {
       return { success: false, message: 'Content generation failed' };
     }
     return {
       success: true,
-      postId: post.id,
-      title: post.title,
+      discussionId: result.discussion.id,
+      title: result.discussion.title,
+      answerId: result.answer.id,
     };
   }
 

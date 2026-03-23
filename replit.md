@@ -160,10 +160,13 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 ## Community Bot (Auto-Content Generation)
 - **Module**: `back-end/src/api/common/community-bot/` - CommunityBotService, CommunityBotResolver, CommunityBotModule
 - **Cron schedule**: Runs Mon/Wed/Fri at 9 AM UTC (configurable via cron expression)
-- **Content source**: Uses OpenAI GPT-4o with web search to generate discussion posts
-- **Topic selection**: Uses active SEO keywords when available; defaults to Project Trust/BIF Act topics
-- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query
+- **Content source**: Uses OpenAI GPT-4o with web search to generate Q&A pairs (question + answer)
+- **Bot users**: Created in `user_details` table with `is_bot = true` flag. OpenAI generates realistic Australian construction professional personas (names, company names, positions). Bot users appear as regular community members publicly — `is_bot` is internal only, not exposed in any GraphQL type/DTO
+- **Q&A orchestration**: Each run creates a discussion question from one bot user and an answer from a different bot user. All content is strictly focused on Project Trust accounts and BIF Act compliance
+- **Topic selection**: Uses active SEO keywords when available; defaults to 15 Project Trust/BIF Act topics
+- **Duplicate prevention**: Fetches last 50 titles and instructs OpenAI not to duplicate; appends date suffix if collision detected
+- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query (shows bot user details, post/answer counts)
+- **Security**: Bot users have random bcrypt-hashed passwords (not real credentials), cannot log in normally
 - **Environment variables**:
-  - `OPENAI_API_KEY` - Required for content generation
+  - `OPENAI_API_KEY` - Required for content generation and bot user persona creation
   - `COMMUNITY_BOT_ENABLED` - Set to "false" to disable (default: enabled)
-  - `COMMUNITY_BOT_ADMIN_ID` - UUID of admin account to author bot posts (optional, defaults to first active admin)

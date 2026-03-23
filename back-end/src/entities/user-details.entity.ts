@@ -143,6 +143,9 @@ export class UserDetails {
   @Column({ default: true })
   show_popup: Boolean;
 
+  @Column({ default: false })
+  is_bot: boolean;
+
   @Column({ default: 0 })
   first_time_logged_in: number;
 

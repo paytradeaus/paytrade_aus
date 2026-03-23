@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CommunityBotService } from './community-bot.service';
 import { CommunityBotResolver } from './community-bot.resolver';
 import { CmtyDiscussionsIdeas } from 'src/entities/cmty-discussion-idea.entity';
+import { CmtyAnswersComments } from 'src/entities/cmty-answers-comments.entity';
 import { AdminDetails } from 'src/entities/admin-details.entity';
 import { MasterTypes } from 'src/entities/master-types.entity';
 import { SeoKeyword } from 'src/entities/seo-keyword.entity';
@@ -15,6 +16,7 @@ import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
       CmtyDiscussionsIdeas,
+      CmtyAnswersComments,
       AdminDetails,
       MasterTypes,
       SeoKeyword,
