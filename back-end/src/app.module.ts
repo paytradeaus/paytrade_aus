@@ -102,6 +102,8 @@ import { EmailQueueModule } from './libs/@email-services/email-queue/email-queue
 import { ObjectStorageModule } from './libs/@object-storage';
 import { DatabaseBackupModule } from './libs/@database-backup';
 import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
+import { SeoKeywordsModule } from './api/admin/seo-keywords/seo-keywords.module';
+import { CommunityBotModule } from './api/common/community-bot/community-bot.module';
 
 @Module({
   imports: [
@@ -284,6 +286,8 @@ import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
     ObjectStorageModule,
     DatabaseBackupModule,
     KeepAliveModule,
+    SeoKeywordsModule,
+    CommunityBotModule,
   ],
   providers: [
     AppService,

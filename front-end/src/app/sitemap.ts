@@ -1,5 +1,6 @@
 import { getList } from "@/modules/admin/AdminCommunity/community.functions";
 import { listAllPublishedBlogResources } from "@/modules/general/Blogs/Blogs.functions";
+import { getActiveSeoKeywords } from "@/modules/general/SeoKeywords/seo-keywords.functions";
 import { slugifyString } from "@/utils";
 import { type MetadataRoute } from "next";
 
@@ -287,6 +288,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   }));
 
+  let seoKeywordRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const seoData = await getActiveSeoKeywords();
+    if (seoData?.seoKeywords?.length > 0) {
+      seoKeywordRoutes = seoData.seoKeywords.map((kw: any) => ({
+        url: `${baseUrl}topics/${kw.slug}`,
+        lastModified: kw.updated_on || new Date(),
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      }));
+    }
+  } catch (e) {
+    console.log('Error fetching SEO keywords for sitemap:', e);
+  }
+
   const totalRoutes = [
     ...staticRoutes,
     ...blogCategoryRoutes,
@@ -299,6 +315,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...discussionRoutes,
     ...productIdeaCategoryRoutes,
     ...productIdeaRoutes,
+    ...seoKeywordRoutes,
   ];
   console.log(totalRoutes);
   return totalRoutes;

@@ -1,11 +1,70 @@
 const http = require('http');
 const httpProxy = require('http-proxy');
+const nodemailer = require('nodemailer');
 
 const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
 const PROXY_PORT = 5000;
 
 let backendHealthy = true;
+let lastCrashAlertSent = 0;
+const CRASH_ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function sendCrashAlertEmail(reason) {
+  const alertEmails = process.env.ADMIN_ALERT_EMAILS;
+  const brevoLogin = process.env.BREVO_EMAIL_LOGIN;
+  const brevoPass = process.env.BREVO_EMAIL_PASSWORD;
+
+  if (!alertEmails || !brevoLogin || !brevoPass) {
+    console.log(`[${new Date().toISOString()}] Crash alert skipped - ADMIN_ALERT_EMAILS or BREVO credentials not configured`);
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastCrashAlertSent < CRASH_ALERT_COOLDOWN_MS) {
+    console.log(`[${new Date().toISOString()}] Crash alert skipped - cooldown active (last sent ${Math.round((now - lastCrashAlertSent) / 60000)} minutes ago)`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: { user: brevoLogin, pass: brevoPass },
+  });
+
+  const recipients = alertEmails.split(',').map(e => e.trim()).filter(Boolean);
+  const timestamp = new Date().toISOString();
+
+  const mailOptions = {
+    from: '"PayTrade System Alert" <noreply@paytrade.app>',
+    to: recipients.join(', '),
+    subject: `[ALERT] PayTrade Backend Crash - ${timestamp}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">PayTrade Backend Crash Alert</h2>
+        </div>
+        <div style="padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">
+          <p><strong>Time:</strong> ${timestamp}</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p><strong>Action:</strong> The backend auto-restart loop will attempt to restart the service.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 0.9em;">This is an automated alert from the PayTrade production server. You will not receive another alert for 24 hours.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error(`[${new Date().toISOString()}] Failed to send crash alert email: ${err.message}`);
+    } else {
+      lastCrashAlertSent = Date.now();
+      console.log(`[${new Date().toISOString()}] Crash alert email sent to ${recipients.join(', ')}`);
+    }
+  });
+}
 
 function checkBackendHealth() {
   const req = http.request({
@@ -23,6 +82,7 @@ function checkBackendHealth() {
     } else {
       if (backendHealthy) {
         console.error(`[${new Date().toISOString()}] Backend health check returned status ${res.statusCode}`);
+        sendCrashAlertEmail(`Health check returned HTTP ${res.statusCode}`);
       }
       backendHealthy = false;
     }
@@ -31,6 +91,7 @@ function checkBackendHealth() {
   req.on('error', () => {
     if (backendHealthy) {
       console.error(`[${new Date().toISOString()}] Backend health check FAILED - port ${BACKEND_PORT} is not responding`);
+      sendCrashAlertEmail('Backend is not responding on port ' + BACKEND_PORT);
     }
     backendHealthy = false;
   });
@@ -38,6 +99,7 @@ function checkBackendHealth() {
     req.destroy();
     if (backendHealthy) {
       console.error(`[${new Date().toISOString()}] Backend health check TIMEOUT`);
+      sendCrashAlertEmail('Backend health check timed out');
     }
     backendHealthy = false;
   });

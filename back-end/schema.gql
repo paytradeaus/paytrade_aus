@@ -891,6 +891,26 @@ input AddReconciliationReportInput {
   reconcile_status: String!
 }
 
+input AddSeoKeywordInput {
+  """The SEO keyword phrase"""
+  keyword: String!
+
+  """Meta description for SEO"""
+  meta_description: String!
+
+  """HTML content for the landing page"""
+  page_content: String
+
+  """Page title for SEO"""
+  page_title: String!
+
+  """URL-friendly slug for the landing page"""
+  slug: String!
+
+  """Associated tags"""
+  tags: [String!]
+}
+
 """Input type for adding a new subscription item."""
 input AddSubscriptionItemInput {
   """User ID of the logged-in user who created this item."""
@@ -12214,6 +12234,11 @@ type InvitationResponse {
 }
 
 """
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+"""
 The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSONObject
@@ -12657,6 +12682,26 @@ type ListOfProjects {
   project_name: String
 }
 
+input ListSeoKeywordsInput {
+  """Page number"""
+  page: Int
+
+  """Items per page"""
+  perPage: Int
+
+  """Search keyword"""
+  search: String
+
+  """Sort field"""
+  sorting_field: String
+
+  """Sort order: ASC or DESC"""
+  sorting_order: String
+
+  """Filter by status: Active or Inactive"""
+  status: String
+}
+
 """Input for listing all sub-payments of a business."""
 input ListSubPaymentsInput {
   """Bank account ID to filter sub-payments."""
@@ -13076,6 +13121,12 @@ type Mutation {
     masterTypes: CreateMasterTypeInput!
   ): PTMasterTypesResponse!
 
+  """Add a new SEO keyword with landing page configuration."""
+  adminAddSeoKeyword(
+    """Input payload for creating a new SEO keyword."""
+    addSeoKeywordInput: AddSeoKeywordInput!
+  ): SeoKeywordResponse!
+
   """Adds a new subscription item."""
   adminAddSubsciptionItem(
     """
@@ -13111,6 +13162,12 @@ type Mutation {
     """Optional: Blog or Resource ID associated with the attachment"""
     blogResId: String
   ): StringResponse!
+
+  """Delete an SEO keyword."""
+  adminDeleteSeoKeyword(
+    """ID of the SEO keyword to delete."""
+    id: String!
+  ): SeoKeywordDeleteResponse!
 
   """Approves or deletes a blog comment."""
   adminManageBlogComment(
@@ -13201,6 +13258,12 @@ type Mutation {
     """Details of the master type to update"""
     masterTypes: UpdateMasterTypeInput!
   ): PTMasterTypesResponse!
+
+  """Update an existing SEO keyword."""
+  adminUpdateSeoKeyword(
+    """Input payload for updating an SEO keyword."""
+    updateSeoKeywordInput: UpdateSeoKeywordInput!
+  ): SeoKeywordResponse!
 
   """Updates an existing subscription item."""
   adminUpdateSubsciptionItem(
@@ -14538,6 +14601,7 @@ type Mutation {
     """
     payload: triggerAuditNoticesInput!
   ): triggerNoticesResponse!
+  triggerBotContentGeneration: JSON
 
   """
   Triggers all relevant notices associated with a specific contract. 
@@ -15791,6 +15855,12 @@ type Query {
     category_id: String!
   ): PTMasterTypesResponse!
 
+  """Get a single SEO keyword by ID."""
+  adminGetSeoKeyword(
+    """ID of the SEO keyword."""
+    id: String!
+  ): SeoKeywordResponse!
+
   """Fetches common setting details by its ID."""
   adminGetSettingsById(
     """The unique identifier of the common setting to fetch."""
@@ -16007,6 +16077,12 @@ type Query {
     """Optional filter to fetch master types by status."""
     status: String
   ): PTMasterTypeListResponse!
+
+  """List all SEO keywords with filtering and pagination."""
+  adminListSeoKeywords(
+    """Input payload for listing SEO keywords."""
+    listSeoKeywordsInput: ListSeoKeywordsInput!
+  ): SeoKeywordListResponse!
 
   """Lists all subscription items."""
   adminListSubscriptionItems(
@@ -16845,6 +16921,9 @@ type Query {
   """Fetch the configured accounting system details."""
   getAccountingSystemDetails: AccountingSystemResponse!
 
+  """Get all active SEO keywords (public)."""
+  getActiveSeoKeywords: SeoKeywordListResponse!
+
   """
   Retrieve activity logs with filters, pagination, and timezone formatting for the current user.
   """
@@ -17005,6 +17084,7 @@ type Query {
     """
     getClientSuppliersListForProjectsInput: GetClientSuppliersListForProjectsInput!
   ): ViewClientSuppliersListResponse!
+  getCommunityBotStats: JSON!
 
   """
   Retrieves company profile details by company ID. 
@@ -17369,6 +17449,12 @@ type Query {
     """Optional flag to filter archived projects"""
     is_archived: Boolean
   ): GetProjectsListResponse!
+
+  """Get an active SEO keyword by its URL slug (public)."""
+  getSeoKeywordBySlug(
+    """URL slug of the SEO keyword."""
+    slug: String!
+  ): SeoKeywordResponse!
 
   """Fetches side menus available for the logged-in admin."""
   getSideMenusForAdmin: SideMenuResponse!
@@ -18037,6 +18123,37 @@ input SentMailForANoticeInput {
 input SentMailForMultipleNoticesInput {
   """Array of notice IDs to send emails for."""
   ids: [String!]!
+}
+
+type SeoKeywordDeleteResponse {
+  message: String
+  status: String
+}
+
+type SeoKeywordListResponse {
+  message: String
+  seoKeywords: [SeoKeywordType!]
+  status: String
+  totalCount: Int
+}
+
+type SeoKeywordResponse {
+  data: SeoKeywordType
+  message: String
+  status: String
+}
+
+type SeoKeywordType {
+  created_on: DateTime
+  id: String
+  keyword: String
+  meta_description: String
+  page_content: String
+  page_title: String
+  slug: String
+  status: String
+  tags: [String!]
+  updated_on: DateTime
 }
 
 """Input to set the contract value for contract eligibility check"""
@@ -19792,6 +19909,32 @@ input UpdateProjectInput {
 
   """Timestamp when the project was updated."""
   updated_on: DateTime
+}
+
+input UpdateSeoKeywordInput {
+  """ID of the SEO keyword to update"""
+  id: String!
+
+  """The SEO keyword phrase"""
+  keyword: String
+
+  """Meta description for SEO"""
+  meta_description: String
+
+  """HTML content for the landing page"""
+  page_content: String
+
+  """Page title for SEO"""
+  page_title: String
+
+  """URL-friendly slug for the landing page"""
+  slug: String
+
+  """Status: Active or Inactive"""
+  status: String
+
+  """Associated tags"""
+  tags: [String!]
 }
 
 """Input for updating company or project accounting settings"""

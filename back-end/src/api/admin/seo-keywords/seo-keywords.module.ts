@@ -1,0 +1,17 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { SeoKeyword } from 'src/entities/seo-keyword.entity';
+import { SeoKeywordsService } from './seo-keywords.service';
+import { SeoKeywordsResolver } from './seo-keywords.resolver';
+import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
+import { UserDetails } from 'src/entities/user-details.entity';
+import { AdminDetails } from 'src/entities/admin-details.entity';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([SeoKeyword, UserDetails, AdminDetails]),
+  ],
+  providers: [SeoKeywordsService, SeoKeywordsResolver, JwtInternalService],
+  exports: [SeoKeywordsService],
+})
+export class SeoKeywordsModule {}

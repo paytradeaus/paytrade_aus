@@ -34,6 +34,7 @@ import { updateUserMode } from "@/redux/slices/userModeSlice";
 import { setAppUserDetails } from "@/redux/slices/userRegistrationSlice";
 import { getCookie } from "cookies-next";
 import { JSON_LD } from "@/utils/JSON-LD";
+import SeoLandingPage from "@/modules/general/SeoLandingPage";
 
 export default function Home(props: any) {
   const { screen } = props;
@@ -171,6 +172,8 @@ export default function Home(props: any) {
         return <Discussion />;
       case "TOPIC":
         return <Topic />;
+      case "SEO-LANDING":
+        return <SeoLandingPage />;
       default:
         return (
           <>

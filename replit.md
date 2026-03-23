@@ -148,3 +148,22 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - **Backend health monitoring**: production-server.js checks backend health every 30 seconds and logs state transitions (healthy → down, down → recovered)
 - **Scanner log filtering**: production-server.js filters out 404 logs from automated vulnerability scanners (.env, .php, .git probing) to reduce log noise
 - **www redirect**: 301 redirect from www.paytrade.app to paytrade.app in production-server.js
+- **Crash email alerts**: production-server.js sends email alerts to `ADMIN_ALERT_EMAILS` (comma-separated) via Brevo SMTP when backend health check fails. Rate-limited to 1 alert per 24 hours. Requires `ADMIN_ALERT_EMAILS`, `BREVO_EMAIL_LOGIN`, `BREVO_EMAIL_PASSWORD` env vars.
+
+## SEO Keywords & Landing Pages
+- **Entity**: `SeoKeyword` in `back-end/src/entities/seo-keyword.entity.ts` - stores keyword, slug, page_title, meta_description, page_content (HTML), tags, status
+- **Backend module**: `back-end/src/api/admin/seo-keywords/` - full CRUD with admin-protected mutations and public queries (`getSeoKeywordBySlug`, `getActiveSeoKeywords`)
+- **Admin UI**: `front-end/src/modules/general/SeoKeywords/` - list, add, edit pages at `/admin/seo-keywords`
+- **Public landing pages**: `front-end/src/app/topics/[slug]/page.tsx` - dynamic pages with full SEO metadata (title, description, Open Graph, canonical URL)
+- **Sitemap**: `front-end/src/app/sitemap.ts` includes active SEO keyword landing pages
+
+## Community Bot (Auto-Content Generation)
+- **Module**: `back-end/src/api/common/community-bot/` - CommunityBotService, CommunityBotResolver, CommunityBotModule
+- **Cron schedule**: Runs Mon/Wed/Fri at 9 AM UTC (configurable via cron expression)
+- **Content source**: Uses OpenAI GPT-4o with web search to generate discussion posts
+- **Topic selection**: Uses active SEO keywords when available; defaults to Project Trust/BIF Act topics
+- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query
+- **Environment variables**:
+  - `OPENAI_API_KEY` - Required for content generation
+  - `COMMUNITY_BOT_ENABLED` - Set to "false" to disable (default: enabled)
+  - `COMMUNITY_BOT_ADMIN_ID` - UUID of admin account to author bot posts (optional, defaults to first active admin)
