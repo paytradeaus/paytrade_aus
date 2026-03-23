@@ -49,17 +49,23 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
     return null;
   }
 
-  function getPriceRow() {
+  function getPlansFromApi() {
     const planList = isYearly
       ? subscriptionPlanTypes?.yearly_plan_list || []
       : subscriptionPlanTypes?.monthly_plan_list || [];
 
-    const suffix = isYearly ? "/yr" : "/mo";
-    const fallback = subscriptionPlanFeatures[0];
-
+    const freePlan = subscriptionPlanTypes?.free_plan || null;
     const standardPlan = findPlan(planList, "Standard", "Premium");
     const advancedPlan = findPlan(planList, "Advanced", "Platinum");
     const proAuditPlan = findPlan(planList, "Pro Audit", "ProAudit", "Pro-Audit");
+
+    return { freePlan, standardPlan, advancedPlan, proAuditPlan };
+  }
+
+  function getPriceRow() {
+    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
+    const suffix = isYearly ? "/yr" : "/mo";
+    const fallback = subscriptionPlanFeatures[0];
 
     return {
       name: "",
@@ -68,6 +74,70 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
       advancedText: advancedPlan ? `${advancedPlan.price}${suffix}` : (fallback?.advancedText || ""),
       proAuditText: proAuditPlan ? `${proAuditPlan.price}${suffix}` : (fallback?.proAuditText || ""),
     };
+  }
+
+  function getItemDisplayValue(plan: any, featureName: string): { text?: string; enabled?: boolean } | null {
+    if (!plan?.plan_items) return null;
+    const item = plan.plan_items.find(
+      (pi: any) => pi.item_name?.toLowerCase().trim() === featureName.toLowerCase().trim()
+    );
+    if (!item) return null;
+    if (item.is_unlimited) return { text: "Unlimited" };
+    if (item.limit_value !== null && item.limit_value !== undefined) return { text: String(item.limit_value) };
+    return { enabled: true };
+  }
+
+  function buildDynamicFeatureRows() {
+    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
+    const hardcodedRows = subscriptionPlanFeatures.slice(1);
+
+    return hardcodedRows.map((row) => {
+      const basicVal = getItemDisplayValue(freePlan, row.name);
+      const standardVal = getItemDisplayValue(standardPlan, row.name);
+      const advancedVal = getItemDisplayValue(advancedPlan, row.name);
+      const proAuditVal = getItemDisplayValue(proAuditPlan, row.name);
+
+      const updated: any = { ...row };
+
+      if (basicVal) {
+        if (basicVal.text !== undefined) {
+          updated.basicText = basicVal.text;
+          updated.basic = undefined;
+        } else if (basicVal.enabled !== undefined) {
+          updated.basic = basicVal.enabled;
+          updated.basicText = undefined;
+        }
+      }
+      if (standardVal) {
+        if (standardVal.text !== undefined) {
+          updated.standardText = standardVal.text;
+          updated.standard = undefined;
+        } else if (standardVal.enabled !== undefined) {
+          updated.standard = standardVal.enabled;
+          updated.standardText = undefined;
+        }
+      }
+      if (advancedVal) {
+        if (advancedVal.text !== undefined) {
+          updated.advancedText = advancedVal.text;
+          updated.advanced = undefined;
+        } else if (advancedVal.enabled !== undefined) {
+          updated.advanced = advancedVal.enabled;
+          updated.advancedText = undefined;
+        }
+      }
+      if (proAuditVal) {
+        if (proAuditVal.text !== undefined) {
+          updated.proAuditText = proAuditVal.text;
+          updated.proAudit = undefined;
+        } else if (proAuditVal.enabled !== undefined) {
+          updated.proAudit = proAuditVal.enabled;
+          updated.proAuditText = undefined;
+        }
+      }
+
+      return updated;
+    });
   }
 
   useEffect(() => {
@@ -79,7 +149,10 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
       ? { ...getPriceRow(), basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode }
       : { ...subscriptionPlanFeatures[0], basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode };
 
-    const featureRows = subscriptionPlanFeatures.slice(1);
+    const featureRows = subscriptionPlanTypes
+      ? buildDynamicFeatureRows()
+      : subscriptionPlanFeatures.slice(1);
+
     setTableFeatures([priceRow, ...featureRows]);
   }, [getTheme, subscriptionPlanTypes, isYearly]);
 

@@ -1,173 +1,41 @@
 # PayTrade Application
 
 ## Overview
-PayTrade is a full-stack application for managing payments, invoices, contracts, and trust accounting in the construction industry. It features a Next.js frontend and a NestJS backend with GraphQL API.
+PayTrade is a full-stack application designed to streamline payment, invoicing, contract management, and trust accounting specifically for the construction industry. It aims to provide a comprehensive solution for managing financial workflows and ensuring compliance within this sector. The project leverages modern web technologies to deliver a robust and scalable platform.
 
-## Architecture
+## User Preferences
+I prefer clear, concise communication. When making changes, prioritize iterative development and explain the high-level approach before diving into specifics. Please ask for confirmation before implementing significant architectural changes or altering core business logic.
 
-### Frontend (Next.js)
-- **Port**: 5000
-- **Framework**: Next.js 14.2.11 with React 18
-- **State Management**: Redux Toolkit
-- **API Client**: Apollo Client (GraphQL)
-- **Styling**: SCSS Modules, CSS
+## System Architecture
+The application consists of a Next.js frontend and a NestJS backend communicating via a GraphQL API.
 
-### Backend (NestJS)
-- **Port**: 3001
-- **Framework**: NestJS with GraphQL
-- **Database**: PostgreSQL with TypeORM
-- **Queue**: BullMQ with Redis
-- **Authentication**: JWT with Passport
-- **File Storage**: Replit Object Storage (bucket: `paytrade_uploads`)
+**Frontend (Next.js)**
+- **Framework**: Next.js 14.2.11 with React 18 for server-side rendering and client-side interactivity.
+- **State Management**: Redux Toolkit for predictable state management.
+- **API Client**: Apollo Client handles GraphQL queries and mutations.
+- **Styling**: SCSS Modules and standard CSS are used for styling components.
+- **UI/UX**: Dynamic pricing tables integrate backend `plan_items` with hardcoded fallbacks. Static assets are served with cache-busting versioning.
+- **SEO**: Dynamic landing pages are driven by backend-managed `SeoKeyword` entities, supporting full SEO metadata and sitemap generation.
 
-## Project Structure
-```
-├── front-end/          # Next.js frontend application
-│   ├── src/
-│   │   ├── app/        # Next.js App Router pages
-│   │   ├── components/ # Reusable components
-│   │   ├── container/  # Page containers
-│   │   ├── modules/    # Feature modules
-│   │   └── network/    # API client (Apollo)
-│   └── package.json
-├── back-end/           # NestJS backend application
-│   ├── src/
-│   │   ├── api/        # API modules (users, admin, etc.)
-│   │   ├── entities/   # TypeORM entities
-│   │   └── libs/       # Shared libraries
-│   └── package.json
-└── replit.md           # This file
-```
+**Backend (NestJS)**
+- **Framework**: NestJS provides a modular and scalable architecture for the API.
+- **Database**: PostgreSQL with TypeORM is used for relational data persistence.
+- **Queue**: BullMQ with Redis handles asynchronous job processing.
+- **Authentication**: JWT with Passport secures API endpoints.
+- **File Storage**: Replit Object Storage is the primary storage for all application files, including user uploads, generated PDFs, and application logs. A dedicated `ObjectStorageService` abstracts file operations.
+- **File Serving**: Database stores paths as `{folder}/{filename}`. Rewrites in `next.config.js` and a `DirectFileServeController` on the backend serve files from Object Storage, validating against an allowlist of folders (e.g., `company_logo`, `notices`).
+- **Logging**: A custom `PaytradeLogger` writes logs to local files and persistently to Replit Object Storage (`application-logs/`) in production, with daily cleanup.
+- **PDF Generation**: Puppeteer generates PDFs, which are immediately uploaded to Object Storage (e.g., `notices-generated/`).
+- **Community Bot**: A cron-scheduled module uses OpenAI GPT-4o to generate Q&A content for the community, creating bot users with realistic personas.
+- **Deployment Stability**: Production deployments use `no-store, no-cache` headers for HTML and RSC responses to mitigate stale cache issues with Next.js Server Actions. A `KeepAliveModule` and a backend auto-restart script enhance stability.
+- **Monitoring**: A `/health` endpoint is available for monitoring, and `production-server.js` monitors backend health, sending email alerts on failures.
 
-## Environment Variables
-
-### Backend
-- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME` - PostgreSQL connection
-- `PORT` - Backend server port (3001)
-- `REDIS_HOST`, `REDIS_PORT` - Redis connection for BullMQ (development only)
-- `REDIS_URL` - Upstash Redis URL (production only, used when REPLIT_DEPLOYMENT=1)
-- `BULL_USER`, `BULL_PASSWORD` - Bull board authentication
-
-## Redis Configuration
-- **Development**: Uses local redis-server (127.0.0.1:6379) - isolated queue for dev testing
-- **Production**: Uses Upstash Redis (REDIS_URL) - shared production queue
-- **Detection**: Uses `REPLIT_DEPLOYMENT === '1'` (automatically set in published deployments) instead of NODE_ENV
-- This separation prevents development from processing production Xero webhook jobs
-
-### Frontend
-- `NEXT_PUBLIC_GRAPHQL_URI` - GraphQL endpoint URL
-- `NEXT_PUBLIC_DEPLOYED_URL` - Base URL for the deployed application
-
-## Workflows
-- **Frontend**: `cd front-end && NODE_ENV=development npm run dev` - Runs Next.js on port 5000 (NODE_ENV must be overridden to `development` for CSS processing to work correctly in dev mode)
-- **Backend**: `redis-server --daemonize yes; cd back-end && npm run start:dev` - Runs NestJS on port 3001
-
-## Recent Changes
-- Configured for Replit environment
-- Fixed route conflicts in Next.js App Router
-- Replaced `canvas` with `@napi-rs/canvas` for better compatibility
-- Set up PostgreSQL database connection
-- Configured Redis for BullMQ job queues
-- Migrated file uploads from local filesystem to Replit Object Storage
-- Created ObjectStorageService wrapper in `back-end/src/libs/@object-storage/`
-- Added FileServeController to serve files from Object Storage at `/uploads/:folder/:filename`
-- Fixed stream handling in file-upload.resolver.ts to consume stream once
-- Added DirectFileServeController with catch-all route for serving files directly (e.g., `/company_logo/:filename`)
-- Added @Public() decorator to file serving controllers to bypass authentication
-- Fixed Object Storage buffer conversion for proper file downloads
-- Added CORS headers (Cross-Origin-Resource-Policy: cross-origin) for Next.js Image Optimization
-- Added rewrites in next.config.js for all file folder paths to proxy to backend
-- Created fileUrl.ts utility for normalizing file paths in frontend
-- **Fixed readFileSync to use ObjectStorageService** - Comprehensive migration of all local filesystem reads to ObjectStorageService.downloadFile() for production deployment
-  - Phase 1: signup.resolver.ts, user-access.resolver.ts, file-upload.resolver.ts, variations.resolver.ts, contract-details.resolver.ts, read-file-attachments.service.ts
-  - Phase 2: notices.service.ts (5+ calls), journals.resolver.ts (2 calls), journals.service.ts (1 call), transactions.service.ts (1 call), payment-claims.service.ts (1 call), community.service.ts (3 calls), pt-admin.resolver.ts (1 call), pt-admin-access.resolver.ts (1 call), pt-contents.service.ts (1 call), communication-management.service.ts (1 call)
-  - Created reusable addFileBase64FromStorage() helper in notices.service.ts
-  - Added normalizeObjectPath() in ObjectStorageService to handle various path formats (leading slashes, "uploads/" prefix)
-  - Pattern: `const fileBuffer = await objectStorageService.downloadFile(filePath); if (fileBuffer) { base64 = fileBuffer.toString('base64'); }`
-  - **File deletion migration**: Replaced all `fs.unlink()` calls in file-upload.resolver.ts with `objectStorageService.deleteFile()` for production compatibility
-  - **File path normalization**: Added `formatPublicPath()` helper to ensure all returned file paths start with `/` for browser URL compatibility. Replaced all `UPLOAD_BASE_URL` concatenations with direct slash prefix normalization across: file-upload.resolver.ts, signup.resolver.ts, variations.resolver.ts, variations.service.ts, read-file-attachments.service.ts, payments.service.ts, journals.service.ts, pt-contents.service.ts, community.service.ts
-
-## File Serving Architecture
-- Database stores file paths as `{folder}/{filename}` (e.g., `company_logo/image.jpg`)
-- Frontend uses these paths directly as image sources with leading slash
-- next.config.js rewrites proxy all file folder requests to the backend
-- DirectFileServeController validates folder against allowlist and serves from Object Storage
-- File folders: profile_photo, admin_profile_photo, company_logo, communication, trust_training_records, blog_banner, resources, notice-templates, notices, recieved-notices, notices_supporting_docs, contracts, variations, bank_statements, retention_trust_certificates, transaction_csv_file_attachments, optional_attachments, compulsory_attachments, optional_supporting_statement_attachments, audit_reports, generated_aba_files, Admin_holiday, misc, notices-generated, original-notices-generated
-
-## Object Storage Migration Notes
-- ObjectStorageModule is @Global(), making ObjectStorageService injectable in any module without explicit import
-- ObjectStorageService.downloadFile() normalizes paths automatically (strips leading "/", strips "uploads/" prefix)
-- ObjectStorageService.uploadFileDirect() allows direct upload with explicit object path
-- Remaining non-critical readFileSync calls (not user files): email.service.ts (email templates), write-to-image.mjs (JSON config)
-- **Excel Export Migration**: Migrated generateSignedUrl in export-data.service.ts to upload Excel files to Object Storage (`excel_exports/` folder) instead of local filesystem. Controller downloads from Object Storage and optionally deletes after download.
-
-## Production Logging
-- **PaytradeLogger** (`back-end/src/libs/@loggers/logger.service.ts`) handles application logging
-- **Development**: Writes logs to local `logs/YYYY-MM-DD.log` files + console output
-- **Production** (NODE_ENV=production): 
-  - Writes to local files (ephemeral)
-  - Also uploads to Object Storage at `application-logs/YYYY-MM-DD.log` (persistent)
-  - Uses buffered writes (5-second flush interval) for efficiency
-- **Log retention**: Automatic cleanup of logs older than 30 days (configurable via `LOG_DELETION_DAYS` env var)
-- **Cleanup runs**: Daily at midnight via cron job, deletes old logs from both local files and Object Storage
-- **Viewing production logs**: Use Replit Publishing > Logs tab for real-time console output, or download from Object Storage for historical logs
-- All PDF-related secrets need production values: NEXT_PUBLIC_SOCKET_URL, NEXT_PUBLIC_WEB_SOCKET_BASED_PDF_FILE_DOWNLOAD_TO_GET_URL
-- **Notice PDF Generation**: PDFs generated by Puppeteer are now uploaded to Object Storage immediately after creation:
-  - `notices-generated/` folder for annex PDFs (QBCC notices)
-  - `original-notices-generated/` folder for original notice PDFs
-  - Local temporary files are deleted after upload
-- **Email Attachments**: EmailService now reads attachments from Object Storage for all known file folders
-
-## Frontend API Endpoint Configuration
-- **All GraphQL/API calls use relative URLs** for production compatibility:
-  - Apollo Client: `/graphql` (browser) or `NEXT_PUBLIC_GRAPHQL_URI` (server-side only)
-  - File upload APIs (singleUploadApi, multipleFileUploadApi): `/graphql`
-  - Excel download: `/files/excel`
-  - Audit report download: `/files/auditReport`
-- Production proxy (production-server.js) routes requests between frontend (port 5001) and backend (port 3001)
-- next.config.js rewrites handle dev environment proxying
-
-## Notes
-- The application requires various third-party API keys (Stripe, email services, etc.) for full functionality
-- Frontend is configured to proxy to the backend GraphQL API
-- Fixed hydration errors by consolidating GoogleTagManager, GoogleAnalytics, and Cookiebot scripts into a unified AnalyticsWrapper client component
-- Puppeteer uses system Chromium at `/nix/store/.../chromium` for PDF generation
-
-## Static File Serving (Production)
-- **Production proxy** (production-server.js) passes static file requests (`/images/`, `/json/`) to Next.js frontend for proper serving
-- **Cache-busting**: All static assets use version query params (e.g., `?v=1`) to force browser cache refresh after updates
-- If adding new static files, update version params when changing files to bust user caches
-- Static files are stored in `front-end/public/images/` and `front-end/public/json/`
-
-## Deployment Stability (Feb 2026)
-- **Root cause of 400 errors**: Next.js Server Actions have unique IDs per build. When users have cached pages from old deployments, their cached pages reference Server Action IDs that no longer exist.
-- **Fix**: Production proxy adds `no-store, no-cache` headers to HTML pages and RSC responses to prevent browser caching of pages that could become stale after deployment
-- **Keep-alive service**: KeepAliveModule pings `/health` every 5 minutes in production (only when `REPLIT_DEPLOYMENT=1`) for health monitoring
-- **Health endpoint**: `/health` returns JSON status for monitoring
-- **Backend auto-restart**: start-production.sh wraps backend in a restart loop - if the backend process crashes, it automatically restarts after 5 seconds
-- **Backend health monitoring**: production-server.js checks backend health every 30 seconds and logs state transitions (healthy → down, down → recovered)
-- **Scanner log filtering**: production-server.js filters out 404 logs from automated vulnerability scanners (.env, .php, .git probing) to reduce log noise
-- **www redirect**: 301 redirect from www.paytrade.app to paytrade.app in production-server.js
-- **Crash email alerts**: production-server.js sends email alerts to `ADMIN_ALERT_EMAILS` (comma-separated) via Brevo SMTP when backend health check fails. Rate-limited to 1 alert per 24 hours. Requires `ADMIN_ALERT_EMAILS`, `BREVO_EMAIL_LOGIN`, `BREVO_EMAIL_PASSWORD` env vars.
-
-## SEO Keywords & Landing Pages
-- **Entity**: `SeoKeyword` in `back-end/src/entities/seo-keyword.entity.ts` - stores keyword, slug, page_title, meta_description, page_content (HTML), tags, status
-- **Backend module**: `back-end/src/api/admin/seo-keywords/` - full CRUD with admin-protected mutations and public queries (`getSeoKeywordBySlug`, `getActiveSeoKeywords`)
-- **Admin UI**: `front-end/src/modules/general/SeoKeywords/` - list, add, edit pages at `/admin/seo-keywords`
-- **Public landing pages**: `front-end/src/app/topics/[slug]/page.tsx` - dynamic pages with full SEO metadata (title, description, Open Graph, canonical URL)
-- **Sitemap**: `front-end/src/app/sitemap.ts` includes active SEO keyword landing pages
-
-## Community Bot (Auto-Content Generation)
-- **Module**: `back-end/src/api/common/community-bot/` - CommunityBotService, CommunityBotResolver, CommunityBotModule
-- **Cron schedule**: Runs Mon/Wed/Fri at 9 AM UTC (configurable via cron expression)
-- **Content source**: Uses OpenAI GPT-4o with web search to generate Q&A pairs (question + answer)
-- **Bot users**: Created in `user_details` table with `is_bot = true` flag. OpenAI generates realistic Australian construction professional personas (names, company names, positions). Bot users appear as regular community members publicly — `is_bot` is internal only, not exposed in any GraphQL type/DTO
-- **Q&A orchestration**: Each cron run creates 2-7 discussion questions (targeting 5-20/week across 3 runs). Each question gets 1-3 answers from different bot users. All content is strictly focused on Project Trust accounts and BIF Act compliance
-- **Bot usage limits**: Each bot user can only post 1 question and 1 answer per calendar month. When the pool of eligible bots runs low, a new batch of 10 bot users is auto-created via OpenAI persona generation
-- **Topic selection**: Uses active SEO keywords when available; defaults to 15 Project Trust/BIF Act topics
-- **Duplicate prevention**: Fetches last 50 titles and instructs OpenAI not to duplicate; appends date suffix if collision detected
-- **Admin controls**: `triggerBotContentGeneration` mutation (Portal Admin only), `getCommunityBotStats` query (shows bot user details, post/answer counts, eligible bots remaining this month)
-- **Security**: Bot users have random bcrypt-hashed passwords (not real credentials), cannot log in normally
-- **Environment variables**:
-  - `OPENAI_API_KEY` - Required for content generation and bot user persona creation
-  - `COMMUNITY_BOT_ENABLED` - Set to "false" to disable (default: enabled)
+## External Dependencies
+- **PostgreSQL**: Primary database for application data.
+- **Redis**: Used by BullMQ for job queuing.
+- **Replit Object Storage**: Cloud storage for all application files, logs, and generated content.
+- **OpenAI API**: Used by the Community Bot for content generation and bot persona creation.
+- **Puppeteer**: Used for generating PDF documents.
+- **Stripe**: For payment processing (API keys mentioned).
+- **Brevo (formerly Sendinblue)**: For email services, including crash alerts.
+- **Google Tag Manager, Google Analytics, Cookiebot**: Integrated for analytics and cookie consent.
