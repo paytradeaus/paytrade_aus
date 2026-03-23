@@ -5,22 +5,78 @@ const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
 const PROXY_PORT = 5000;
 
+let backendHealthy = true;
+
+function checkBackendHealth() {
+  const req = http.request({
+    hostname: '127.0.0.1',
+    port: BACKEND_PORT,
+    path: '/health',
+    method: 'GET',
+    timeout: 5000,
+  }, (res) => {
+    if (res.statusCode === 200) {
+      if (!backendHealthy) {
+        console.log(`[${new Date().toISOString()}] Backend recovered - port ${BACKEND_PORT} is responding`);
+      }
+      backendHealthy = true;
+    } else {
+      if (backendHealthy) {
+        console.error(`[${new Date().toISOString()}] Backend health check returned status ${res.statusCode}`);
+      }
+      backendHealthy = false;
+    }
+    res.resume();
+  });
+  req.on('error', () => {
+    if (backendHealthy) {
+      console.error(`[${new Date().toISOString()}] Backend health check FAILED - port ${BACKEND_PORT} is not responding`);
+    }
+    backendHealthy = false;
+  });
+  req.on('timeout', () => {
+    req.destroy();
+    if (backendHealthy) {
+      console.error(`[${new Date().toISOString()}] Backend health check TIMEOUT`);
+    }
+    backendHealthy = false;
+  });
+  req.end();
+}
+
+setInterval(checkBackendHealth, 30000);
+setTimeout(checkBackendHealth, 5000);
+
 const proxy = httpProxy.createProxyServer({
   ws: true,
   xfwd: true,
 });
 
 proxy.on('error', (err, req, res) => {
-  console.error('Proxy error:', err.message, 'URL:', req?.url);
+  const url = req?.url || '';
+  if (!url.includes('.env') && !url.includes('.php') && !url.includes('.git')) {
+    console.error('Proxy error:', err.message, 'URL:', url);
+  }
   if (res && res.writeHead) {
     res.writeHead(502, { 'Content-Type': 'text/plain' });
     res.end('Bad Gateway');
   }
 });
 
+const scannerPatterns = [
+  /\.env/, /\.php/, /\.git/, /\.aws/, /\.DS_Store/, /phpinfo/, /swagger/,
+  /actuator/, /wp-/, /\.yml$/, /\.xml$/, /telescope/, /debug\/default/,
+  /server-status/, /v2\/_catalog/, /exec\?cmd/, /nodesync/, /trace\.axd/,
+  /\.vscode/, /login\.action/, /@vite\/env/, /security\.txt/,
+];
+
 proxy.on('proxyRes', (proxyRes, req, res) => {
   if (proxyRes.statusCode >= 400) {
-    console.error(`[${new Date().toISOString()}] ${proxyRes.statusCode} ${req.method} ${req.url}`);
+    const reqUrl = req.url || '';
+    const isScanner = scannerPatterns.some(p => p.test(reqUrl));
+    if (!isScanner) {
+      console.error(`[${new Date().toISOString()}] ${proxyRes.statusCode} ${req.method} ${reqUrl}`);
+    }
   }
   
   // Prevent caching of HTML pages to avoid Server Action version mismatches after deployments

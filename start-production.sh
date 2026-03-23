@@ -2,21 +2,38 @@
 
 export NODE_ENV=production
 
-echo "Starting backend on port 3001..."
-cd /home/runner/workspace/back-end && PORT=3001 npm run start:prod &
+start_backend() {
+  echo "[$(date -u)] Starting backend on port 3001..."
+  cd /home/runner/workspace/back-end && PORT=3001 npm run start:prod
+  local exit_code=$?
+  echo "[$(date -u)] Backend exited with code $exit_code"
+  return $exit_code
+}
+
+start_backend_with_restart() {
+  while true; do
+    start_backend
+    echo "[$(date -u)] Backend crashed. Restarting in 5 seconds..."
+    sleep 5
+  done
+}
+
+start_backend_with_restart &
+BACKEND_PID=$!
 
 echo "Waiting for backend to be ready on port 3001..."
-for i in {1..30}; do
+for i in {1..60}; do
   if curl -s http://127.0.0.1:3001/graphql -X POST -H "Content-Type: application/json" -d '{"query":"{ __typename }"}' > /dev/null 2>&1; then
     echo "Backend is ready!"
     break
   fi
-  echo "Waiting... ($i/30)"
+  echo "Waiting... ($i/60)"
   sleep 2
 done
 
 echo "Starting frontend on port 5001..."
 cd /home/runner/workspace/front-end && npx next start -p 5001 -H 0.0.0.0 &
+FRONTEND_PID=$!
 
 echo "Waiting for frontend to be ready on port 5001..."
 for i in {1..30}; do

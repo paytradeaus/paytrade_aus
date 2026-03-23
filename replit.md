@@ -144,3 +144,7 @@ PayTrade is a full-stack application for managing payments, invoices, contracts,
 - **Fix**: Production proxy adds `no-store, no-cache` headers to HTML pages and RSC responses to prevent browser caching of pages that could become stale after deployment
 - **Keep-alive service**: KeepAliveModule pings `/health` every 5 minutes in production (only when `REPLIT_DEPLOYMENT=1`) for health monitoring
 - **Health endpoint**: `/health` returns JSON status for monitoring
+- **Backend auto-restart**: start-production.sh wraps backend in a restart loop - if the backend process crashes, it automatically restarts after 5 seconds
+- **Backend health monitoring**: production-server.js checks backend health every 30 seconds and logs state transitions (healthy → down, down → recovered)
+- **Scanner log filtering**: production-server.js filters out 404 logs from automated vulnerability scanners (.env, .php, .git probing) to reduce log noise
+- **www redirect**: 301 redirect from www.paytrade.app to paytrade.app in production-server.js
