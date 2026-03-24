@@ -17,11 +17,12 @@ function getRelevanceScore(
   candidate: SeoKeyword
 ): number {
   let score = 0;
-  if (!current.tags || !candidate.tags) return score;
-  const currentTags = new Set(current.tags.map((t) => t.toLowerCase()));
-  for (const tag of candidate.tags) {
-    if (currentTags.has(tag.toLowerCase())) {
-      score += 2;
+  if (current.tags && current.tags.length > 0 && candidate.tags && candidate.tags.length > 0) {
+    const currentTags = new Set(current.tags.map((t) => t.toLowerCase()));
+    for (const tag of candidate.tags) {
+      if (currentTags.has(tag.toLowerCase())) {
+        score += 2;
+      }
     }
   }
   const currentWords = new Set(
@@ -73,7 +74,9 @@ export default function RelatedTopics({
             kw,
             score: getRelevanceScore(currentItem, kw),
           }))
-          .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+          .sort((a: { kw: SeoKeyword; score: number }, b: { kw: SeoKeyword; score: number }) =>
+            b.score - a.score || a.kw.page_title.localeCompare(b.kw.page_title)
+          );
 
         const top = scored.slice(0, 12).map((s: { kw: SeoKeyword }) => s.kw);
         setRelatedKeywords(top);

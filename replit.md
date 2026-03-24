@@ -41,8 +41,9 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Google Tag Manager, Google Analytics, Cookiebot**: Integrated for analytics and cookie consent.
 
 ## SEO Keywords System
-- 12 SEO keywords seeded for project trust accounts, BIF Act, QBCC compliance, retention trust accounts, security of payment, and related construction industry terms
-- Seed script: `scripts/seed-seo-keywords.sql` (idempotent via `ON CONFLICT (slug) DO NOTHING`)
+- 121 SEO keywords seeded covering QBCC project trust accounts, BIF Act compliance, role-based guides (contractors, subcontractors, principals), process/how-to content, risk/penalties, and commercial/conversion pages
+- Seed scripts: `scripts/seed-seo-keywords.sql` (original 12) and `scripts/seed-seo-keywords-full.sql` (111 additional keywords, idempotent via `ON CONFLICT (slug) DO NOTHING`)
+- **SEO Interlinking**: `RelatedTopics` component (`front-end/src/modules/general/SeoLandingPage/RelatedTopics.tsx`) auto-links keyword pages to each other based on tag overlap and keyword word matching, with a "View All" toggle for browsing all topics
 - Admin page at `/admin/seo-keywords` with Export JSON / Import JSON buttons
 - Export downloads all keywords as a structured JSON array with keyword, slug, page_title, meta_description, page_content, tags, and status
 - Import supports upsert: matches by slug — updates existing keywords, creates new ones
