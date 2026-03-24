@@ -102,13 +102,20 @@ export class SeoKeywordsResolver {
     try {
       const { seoKeywords, totalCount } =
         await this.seoKeywordsService.list(listSeoKeywordsInput);
-      return framedResponse('SUCCESS', 'SEO keywords retrieved.', {
+      return {
+        status: 'SUCCESS',
+        message: 'SEO keywords retrieved.',
         seoKeywords,
         totalCount,
-      });
+      };
     } catch (error) {
       this.logger.error(`Error listing SEO keywords: ${error.message}`);
-      return framedResponse('ERROR', error.message);
+      return {
+        status: 'ERROR',
+        message: error.message,
+        seoKeywords: [],
+        totalCount: 0,
+      };
     }
   }
 
@@ -163,13 +170,20 @@ export class SeoKeywordsResolver {
   async getActiveSeoKeywords(): Promise<SeoKeywordListResponse> {
     try {
       const seoKeywords = await this.seoKeywordsService.getActiveKeywords();
-      return framedResponse('SUCCESS', 'Active SEO keywords retrieved.', {
+      return {
+        status: 'SUCCESS',
+        message: 'Active SEO keywords retrieved.',
         seoKeywords,
         totalCount: seoKeywords.length,
-      });
+      };
     } catch (error) {
       this.logger.error(`Error getting active SEO keywords: ${error.message}`);
-      return framedResponse('ERROR', error.message);
+      return {
+        status: 'ERROR',
+        message: error.message,
+        seoKeywords: [],
+        totalCount: 0,
+      };
     }
   }
 }
