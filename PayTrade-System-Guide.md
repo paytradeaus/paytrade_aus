@@ -1031,12 +1031,51 @@ This section describes the typical lifecycle of a user on PayTrade, from registr
 5. Sends notice to QBCC and relevant parties
 
 ### Phase 5: Ongoing Payment Management
-1. Subcontractor submits payment claim at `/user/claims/add`
-2. Head contractor reviews and processes claim
-3. Payment is made and recorded
-4. S75 Supporting Statement generated automatically
-5. Payment appears in trust account transactions
-6. Transaction matched via `/user/bank-accounts/match-transactions/[id]`
+
+#### 5a: Submitting a Payment Claim
+A payment claim can be submitted by either party depending on the contract relationship:
+- **Subcontractor** submits a receivable claim to the head contractor
+- **Head contractor** submits a receivable claim to the principal/client
+
+**Steps:**
+1. Navigate to **Pay Apps** in the sidebar menu (`/user/claims`)
+2. Click the **"Add Claim"** button (top-right)
+3. Select the contract the claim relates to
+4. Enter claim amount, description, and attach supporting documents
+5. Submit the claim — system generates a claim reference number
+
+#### 5b: Reviewing and Approving a Claim
+The party receiving the claim reviews and responds:
+- **Head contractor** reviews claims from subcontractors
+- **Client/Principal** reviews claims from head contractors
+
+**Steps:**
+1. Navigate to **Pay Apps** (`/user/claims`) — the claim appears under the **Billable** tab
+2. Open the claim to review amounts and documents at `/user/claims/view/[id]`
+3. Approve, partially approve, or dispute the claim
+
+#### 5c: Recording a Payment
+Once a claim is approved, a payment is recorded against it:
+1. From the claim view page (`/user/claims/view/[id]`), click **"Add Payment"**
+2. This navigates to `/user/claims/payments/add`
+3. Enter payment amount, date, and payment reference
+4. S75 Supporting Statement is generated automatically for trust account claims
+5. The payment record appears on the **Payments List** page (`/user/payments-list`)
+
+#### 5d: Payments To Do
+- Navigate to **Payments To Do** (`/user/payments-to-do`) to see all outstanding payments requiring action
+- Each item links directly to the relevant claim for processing
+
+#### 5e: Bank Transaction Reconciliation
+After payments are made through the bank, the transactions must be reconciled:
+1. Navigate to **Bank Accounts** > select the relevant account > **Account Overview** (`/user/bank-accounts/overview/[id]`)
+2. Click **"Upload Transactions"** to import a bank statement CSV file (`/user/bank-accounts/update-transactions/[id]`)
+3. Upload the CSV — the system parses and imports each transaction row
+4. Navigate to **Match Transactions** (`/user/bank-accounts/match-transactions/[id]`)
+5. The system presents unmatched bank transactions alongside unmatched claims/payments
+6. Match each bank transaction to its corresponding claim payment to confirm reconciliation
+7. Matched transactions update the trust account ledger and compliance status
+8. If a match was made in error, use **Unmatch Transactions** (`/user/bank-accounts/unmatch-transactions/[id]`) to reverse it
 
 ### Phase 6: Trust Account Administration
 1. Records trust account deposits at `/user/trust-accounting/deposits`
@@ -1058,11 +1097,28 @@ This section describes the typical lifecycle of a user on PayTrade, from registr
 5. Notices sent via email with PDF attachments
 
 ### Phase 8: Retention Management
-1. Retention amounts tracked automatically from contract terms
-2. Retention list at `/user/retention-list` shows all held retentions
-3. RTA compliance monitored
-4. Retention release triggered when contractual conditions met
-5. QBCC notices generated for retention account events
+
+#### 8a: How Retention Works
+When contracts include a retention percentage, the system automatically withholds that portion from each payment claim. These retained amounts are held in trust and tracked separately.
+
+#### 8b: Tracking Retention
+1. Navigate to **Retention List** (`/user/retention-list`) to see all retention amounts across all contracts
+2. Each entry shows the contract, the amount withheld, and the current status (held or released)
+3. Filter by project, contract, or status
+
+#### 8c: Retention Claims
+When contractual conditions for retention release are met (e.g., practical completion, defects liability period expiry):
+1. Navigate to **Pay Apps** (`/user/claims`)
+2. Click **"Add Claim"** and create a claim specifically for the retention release amount
+3. The claim references the original contract and retention terms
+4. Once approved, the retention payment is recorded and the retained amount is marked as released
+
+#### 8d: Retention Trust Account (RTA) Compliance
+1. If the project requires an RTA under the BIF Act, retention money must be held in a dedicated Retention Trust Account
+2. The system monitors that retained funds are deposited into the correct RTA
+3. Reconciliation of retention payments follows the same CSV upload and matching process described in Phase 5e
+4. QBCC notices are generated for retention account events (opening, closing, part payment, nil return)
+5. Compliance dashboard flags any RTA issues requiring action
 
 ### Phase 9: Integration & Automation (Advanced/Pro Audit)
 1. Connect Xero at `/user/integrations/xero`
