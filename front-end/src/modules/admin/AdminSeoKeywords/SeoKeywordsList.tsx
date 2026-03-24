@@ -403,12 +403,12 @@ export default function SeoKeywordsList() {
 
       {deleteModal && (
         <BaseModal
-          show={deleteModal}
+          displayModal={deleteModal}
           title="Delete SEO Keyword"
           onClose={() => setDeleteModal(false)}
           onConfirm={handleDelete}
-          confirmText="Delete"
-          cancelText="Cancel"
+          secondButtonName="Delete"
+          firstButtonName="Cancel"
         >
           <p>
             Are you sure you want to delete the keyword &quot;

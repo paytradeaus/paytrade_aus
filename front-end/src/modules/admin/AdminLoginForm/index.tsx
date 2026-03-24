@@ -102,7 +102,7 @@ export default function AdminLoginForm() {
         ).toString();
 
         setCookie("accessVerification", userTokenDetailsForMiddleware);
-        router.push(AppRoutes.ADMIN_DASHBOARD);
+        window.location.href = AppRoutes.ADMIN_DASHBOARD;
         return;
         // toast.success("Login Successful");
       }
