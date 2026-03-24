@@ -569,13 +569,11 @@ export default function UsersList() {
           </div>
           <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
             <button
-              className="contrast"
+              className="secondary"
               onClick={handleGenerateBotUsers}
               disabled={botGenerating}
-              style={{ whiteSpace: "nowrap" }}
             >
-              <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>
-              {botGenerating ? "Generating..." : "Generate Bot Users"}
+              <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>Generate Bot Users
             </button>
             <Link
               href={AppRoutes.ADMIN_NORMAL_USERS_ADD}
