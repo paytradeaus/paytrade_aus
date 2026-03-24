@@ -285,7 +285,10 @@ export default function SeoKeywordsList() {
     },
     {
       label: "Toggle Status",
-      icon: "fa-light fa-toggle-on",
+      icon: (row: any) =>
+        row.status === "Active" ? "fa-toggle-on" : "fa-toggle-off",
+      style: (row: any) =>
+        row.status === "Active" ? "secondary" : "danger",
       onClick: handleToggleStatus,
       displayByDefault: true,
     },

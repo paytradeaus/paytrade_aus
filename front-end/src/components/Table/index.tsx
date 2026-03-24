@@ -472,8 +472,8 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
                               <button
                                 key={actionIndex}
                                 className={
-                                  action.style
-                                    ? `${action.style} mr_zero_point_five`
+                                  (typeof action.style === 'function' ? action.style(rowData) : action.style)
+                                    ? `${typeof action.style === 'function' ? action.style(rowData) : action.style} mr_zero_point_five`
                                     : "secondary mr_zero_point_five"
                                 }
                                 onClick={(e) => {
@@ -483,7 +483,7 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
                                 }}
                               >
                                 {action.icon && (
-                                  <i className={`fa-light ${action.icon}`}></i>
+                                  <i className={`fa-light ${typeof action.icon === 'function' ? action.icon(rowData) : action.icon}`}></i>
                                 )}
                               </button>
                             </a>
