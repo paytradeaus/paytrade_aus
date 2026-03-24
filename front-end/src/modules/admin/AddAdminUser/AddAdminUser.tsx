@@ -156,7 +156,21 @@ const AddAdminUser = (props: any) => {
         return true;
       }),
     ...(isEdit
-      ? {}
+      ? {
+          Password: Yup.string().test(
+            "password-strength",
+            "Password does not meet requirements",
+            function (value) {
+              if (!value || value.length === 0) return true;
+              const hasUpper = /[A-Z]/.test(value);
+              const hasLower = /[a-z]/.test(value);
+              const hasNumber = /[0-9]/.test(value);
+              const hasSpecial = /[@$!%*?&]/.test(value);
+              const hasLength = value.length >= 8;
+              return hasUpper && hasLower && hasNumber && hasSpecial && hasLength;
+            }
+          ),
+        }
       : {
           Password: Yup.string().required("Password is required"),
         }),
@@ -180,8 +194,11 @@ const AddAdminUser = (props: any) => {
       if (!isPasswordValid && !isEdit) {
         return;
       }
-      const { Name, LastName, Status, Email, Group } = formik.values;
-      let payload = {
+      if (isEdit && formik.values.Password && formik.values.Password.length > 0 && !isPasswordValid) {
+        return;
+      }
+      const { Name, LastName, Status, Email, Group, Password } = formik.values;
+      let payload: any = {
         admin_status: formik?.values?.Status,
         email_id: formik?.values?.Email,
         first_name: formik?.values?.Name,
@@ -189,7 +206,6 @@ const AddAdminUser = (props: any) => {
         last_name: formik?.values?.LastName,
         signature: signature || editData?.signature || "",
         signature_type: signatureType || editData?.signature_type || "",
-        // password: formik.values.Password,
       };
       if (!signatureType && !editData?.signature_type) {
         delete payload?.signature;
@@ -197,6 +213,7 @@ const AddAdminUser = (props: any) => {
       }
       setIsLoading(true);
       if (isEdit) {
+        const hasPasswordChange = Password && Password.length > 0;
         if (
           editData?.first_name === Name &&
           editData?.last_name === LastName &&
@@ -204,20 +221,24 @@ const AddAdminUser = (props: any) => {
           editData?.admin_status === Status &&
           editData?.groupIds === Group &&
           !signature &&
-          !signatureType
+          !signatureType &&
+          !hasPasswordChange
         ) {
           setIsLoading(false);
           showInfoToast("No changes to save");
           return;
         }
-        let modifiedPayload = {
+        let modifiedPayload: any = {
           ...payload,
           id: editData?.id,
         };
+        if (hasPasswordChange) {
+          modifiedPayload.password = Password;
+        }
 
         let response = await UpdateAdminDetails(
           modifiedPayload,
-          "User status has been updated",
+          hasPasswordChange ? "Admin details and password updated successfully" : "Admin details updated successfully",
           setIsLoading
         );
         if (response) {
@@ -408,13 +429,14 @@ const AddAdminUser = (props: any) => {
   }, [PasswordCheck]);
 
   const checkFormChanges = () => {
-    const { Name, LastName, Email, Status, Group } = formik.values;
+    const { Name, LastName, Email, Status, Group, Password } = formik.values;
     if (
       Name !== editData?.first_name ||
       LastName !== editData?.last_name ||
       Email !== editData?.email_id ||
       Status !== editData?.admin_status ||
-      JSON.stringify(Group) !== JSON.stringify(editData?.groupIds)
+      JSON.stringify(Group) !== JSON.stringify(editData?.groupIds) ||
+      (Password && Password.length > 0)
     ) {
       setHasFormChanged(true);
     } else {
@@ -527,19 +549,23 @@ const AddAdminUser = (props: any) => {
                           onChange={handleEmailfieldChange}
                           onBlur={formik.handleBlur}
                         />
-                        {!isEdit && (
-                          <>
-                            <label htmlFor="password">
-                              <small>Password</small>{" "}
-                              <span className="required">*</span>
-                            </label>
+                        <>
+                          <label htmlFor="password">
+                            <small>{isEdit ? "Change Password" : "Password"}</small>{" "}
+                            {!isEdit && <span className="required">*</span>}
+                          </label>
+                          {isEdit && (
+                            <small style={{ color: "#6b7280", display: "block", marginBottom: "0.5rem" }}>
+                              Leave blank to keep the current password
+                            </small>
+                          )}
                             <div className="passwordInputWrapper">
                               <input
                                 style={{ margin: "0px" }}
                                 type={isPWDShow ? "text" : "password"}
                                 id="Password"
                                 name="Password"
-                                placeholder="Password"
+                                placeholder={isEdit ? "Enter new password" : "Password"}
                                 maxLength={16}
                                 value={formik.values.Password}
                                 onChange={handlePasswordChange}
@@ -585,8 +611,7 @@ const AddAdminUser = (props: any) => {
                                   ))}
                                 </div>
                               )}
-                          </>
-                        )}
+                        </>
                         <br />
 
                         <SearchableSelect

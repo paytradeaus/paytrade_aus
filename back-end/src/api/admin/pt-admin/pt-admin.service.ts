@@ -50,6 +50,24 @@ export class PtAdminService {
     this.logger.error(`${message}`);
   }
 
+  async getActiveAdminCount(): Promise<number> {
+    return this.adminDetails.count({
+      where: { admin_status: 'Active' as AdminStatus },
+    });
+  }
+
+  async ensureNotLastActiveAdmin(adminId: string, action: string): Promise<void> {
+    const admin = await this.adminDetails.findOne({ where: { id: adminId } });
+    if (!admin || admin.admin_status !== 'Active') return;
+
+    const activeCount = await this.getActiveAdminCount();
+    if (activeCount <= 1) {
+      throw new ForbiddenException(
+        `Cannot ${action} the last active admin user. At least one active admin must exist at all times.`,
+      );
+    }
+  }
+
   async create(addPTAdminInput: AddPTAdminInput) {
     this.logger.log(
       `New Admin add initiated with payload: ${JSON.stringify(addPTAdminInput)}`,
@@ -194,11 +212,14 @@ export class PtAdminService {
     });
     if (!admin) {
       throw new NotFoundException(`Admin details not found`);
-    }
-    // if(Role.RESTRICTED_PORTAL_ADMIN){
-    //   throw new NotFoundException(`Admin is not Super Admin`);
-    // }
-    else {
+    } else {
+      if (
+        updateAdminInput.admin_status &&
+        updateAdminInput.admin_status !== 'Active' &&
+        admin.admin_status === 'Active'
+      ) {
+        await this.ensureNotLastActiveAdmin(updateAdminInput.id, updateAdminInput.admin_status === 'Deleted' ? 'delete' : 'deactivate');
+      }
       if (updateAdminInput.password) {
         const EncrypNewPassword = await bcrypt.hashSync(
           String(updateAdminInput.password),

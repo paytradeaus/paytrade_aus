@@ -105,6 +105,7 @@ import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
 import { SeoKeywordsModule } from './api/admin/seo-keywords/seo-keywords.module';
 import { CommunityBotModule } from './api/common/community-bot/community-bot.module';
 import { AiSupportModule } from './api/common/ai-support/ai-support.module';
+import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
 
 @Module({
   imports: [
@@ -290,6 +291,7 @@ import { AiSupportModule } from './api/common/ai-support/ai-support.module';
     SeoKeywordsModule,
     CommunityBotModule,
     AiSupportModule,
+    AdminMenuSeederModule,
   ],
   providers: [
     AppService,

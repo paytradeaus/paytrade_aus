@@ -30,6 +30,13 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Deployment Stability**: Production deployments use `no-store, no-cache` headers for HTML and RSC responses to mitigate stale cache issues with Next.js Server Actions. A `KeepAliveModule` and a backend auto-restart script enhance stability.
 - **Monitoring**: A `/health` endpoint is available for monitoring, and `production-server.js` monitors backend health, sending email alerts on failures.
 
+## Admin User Management
+- **Admin Menu Seeder**: `AdminMenuSeederModule` (`back-end/src/libs/@seeders/`) runs on app bootstrap via `OnApplicationBootstrap`. Seeds 20 master menus with fixed UUIDs, updates existing menus if any field changes (including sub_menus), and grants full permissions to all active admin groups. Idempotent — safe to run on every deploy.
+- **Admin Users menu** has sub-menus for "Admin users" (`/admin/admin-users`) and "Admin groups" (`/admin/groups`) where permissions are managed.
+- **Password management**: Admin passwords can be updated via the edit form (optional "Change Password" field with full validation). Backend hashes with `bcryptjs`. Admins can only change their own password; for other admins use "Reset Password" which generates a random password and emails it.
+- **Orphan protection**: Backend `ensureNotLastActiveAdmin()` in `PtAdminService` prevents deleting or deactivating the last active admin user. Enforced in `PortalAdminUpdate` for status changes to Inactive/Deleted.
+- **SQL seed**: `scripts/seed-admin-menus.sql` is the idempotent SQL equivalent (ON CONFLICT DO NOTHING) with all 20 menus.
+
 ## External Dependencies
 - **PostgreSQL**: Primary database for application data.
 - **Redis**: Used by BullMQ for job queuing.
