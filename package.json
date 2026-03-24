@@ -15,7 +15,8 @@
   "dependencies": {
     "@replit/object-storage": "^1.0.0",
     "html-to-text": "^9.0.5",
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "nodemailer": "^8.0.3"
   },
   "main": "production-server.js",
   "keywords": [],
