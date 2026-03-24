@@ -112,7 +112,7 @@ export default function AdminSidebar() {
             {sidebarMenu?.length > 0 &&
               sidebarMenu?.map((sidebarRow: any, index: number) =>
                 !sidebarRow?.subMenus ? (
-                  <li className="cd-accordion__item" key={sidebarRow?.id}>
+                  <li className="cd-accordion__item" key={`menu-${index}-${sidebarRow?.id}`}>
                     <Link href={sidebarRow?.routePath} passHref legacyBehavior>
                       <a
                         className={`contrast ${
@@ -127,7 +127,7 @@ export default function AdminSidebar() {
                 ) : (
                   <li
                     className="cd-accordion__item cd-accordion__item--has-children"
-                    key={index}
+                    key={`menu-${index}-${sidebarRow?.id}`}
                   >
                     <input
                       className="cd-accordion__input"
@@ -149,8 +149,8 @@ export default function AdminSidebar() {
                       <span>{sidebarRow?.name}</span>
                     </label>
                     <ul className="cd-accordion__sub">
-                      {sidebarRow?.subMenus.map((listRow: any) => (
-                        <li className="cd-accordion__item">
+                      {sidebarRow?.subMenus.map((listRow: any, subIndex: number) => (
+                        <li className="cd-accordion__item" key={`sub-${index}-${subIndex}`}>
                           <Link
                             href={listRow?.routePath}
                             passHref

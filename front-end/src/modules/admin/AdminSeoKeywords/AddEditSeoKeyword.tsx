@@ -9,6 +9,7 @@ import {
   adminUpdateSeoKeyword,
   adminGetSeoKeyword,
 } from "./seo-keywords.functions";
+import { AppRoutes } from "@/shared/constant/appRoutes";
 import slugify from "slugify";
 
 export default function AddEditSeoKeyword() {
@@ -133,8 +134,8 @@ export default function AddEditSeoKeyword() {
 
   if (loading && isEdit && !formData.keyword) {
     return (
-      <div className="adminDashboard">
-        <div className="adminpagelayout">
+      <div className="container-fluid">
+        <div className="pt_box">
           <p>Loading...</p>
         </div>
       </div>
@@ -142,130 +143,132 @@ export default function AddEditSeoKeyword() {
   }
 
   return (
-    <div className="adminDashboard">
-      <BreadCrumbs
-        data={[
-          { title: "Dashboard", link: "/admin/dashboard" },
-          { title: "SEO Keywords", link: "/admin/seo-keywords" },
-        ]}
-        currentPage={isEdit ? "Edit Keyword" : "Add Keyword"}
-      />
-      <div className="adminpagelayout">
-        <h2 className="pageTitle">
-          {isEdit ? "Edit SEO Keyword" : "Add SEO Keyword"}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="pt_form">
-          <div className="formGrid">
-            <div className="formGroup">
-              <label htmlFor="keyword">Keyword *</label>
-              <input
-                type="text"
-                id="keyword"
-                name="keyword"
-                value={formData.keyword}
-                onChange={handleChange}
-                placeholder="e.g., QBCC project trust"
-                className="pt_input"
-              />
-            </div>
-
-            <div className="formGroup">
-              <label htmlFor="slug">URL Slug *</label>
-              <input
-                type="text"
-                id="slug"
-                name="slug"
-                value={formData.slug}
-                onChange={handleChange}
-                placeholder="e.g., qbcc-project-trust"
-                className="pt_input"
-              />
-              <small className="formHint">
-                Landing page URL: /topics/{formData.slug || "your-slug"}
-              </small>
-            </div>
-
-            <div className="formGroup full">
-              <label htmlFor="page_title">Page Title (SEO) *</label>
-              <input
-                type="text"
-                id="page_title"
-                name="page_title"
-                value={formData.page_title}
-                onChange={handleChange}
-                placeholder="e.g., QBCC Project Trust Accounting | Paytrade"
-                className="pt_input"
-              />
-              <small className="formHint">
-                {formData.page_title.length}/70 characters recommended
-              </small>
-            </div>
-
-            <div className="formGroup full">
-              <label htmlFor="meta_description">Meta Description *</label>
-              <textarea
-                id="meta_description"
-                name="meta_description"
-                value={formData.meta_description}
-                onChange={handleChange}
-                placeholder="A brief description for search engines..."
-                className="pt_input"
-                rows={3}
-              />
-              <small className="formHint">
-                {formData.meta_description.length}/160 characters recommended
-              </small>
-            </div>
-
-            <div className="formGroup full">
-              <label htmlFor="tags">Tags (comma-separated)</label>
-              <input
-                type="text"
-                id="tags"
-                name="tags"
-                value={formData.tags}
-                onChange={handleChange}
-                placeholder="e.g., QBCC, project trust, construction"
-                className="pt_input"
-              />
-            </div>
-
-            <div className="formGroup full">
-              <label htmlFor="page_content">Page Content (HTML)</label>
-              <textarea
-                id="page_content"
-                name="page_content"
-                value={formData.page_content}
-                onChange={handleChange}
-                placeholder="<h2>About QBCC Project Trust</h2><p>Content here...</p>"
-                className="pt_input"
-                rows={12}
-              />
-            </div>
+    <div className="container-fluid">
+      <div className="pt_title">
+        <div className="pt_breadcrumbs">
+          <BreadCrumbs
+            routePaths={[
+              { name: "Dashboard", path: AppRoutes.ADMIN_DASHBOARD },
+              { name: "SEO Keywords", path: "/admin/seo-keywords" },
+            ]}
+            activeRoute={isEdit ? "Edit Keyword" : "Add Keyword"}
+          />
+        </div>
+        <div className="grid pt_topfilters">
+          <div className="pt_pagetitle">
+            <h1>{isEdit ? "Edit SEO Keyword" : "Add SEO Keyword"}</h1>
           </div>
+        </div>
+      </div>
 
-          <div className="formActions">
-            <button
-              type="button"
-              className="pt_btn pt_btn_secondary"
-              onClick={() => router.push("/admin/seo-keywords")}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="pt_btn"
-              disabled={loading}
-            >
-              {loading
-                ? "Saving..."
-                : isEdit
-                ? "Update Keyword"
-                : "Add Keyword"}
-            </button>
-          </div>
-        </form>
+      <div className="grid">
+        <div className="pt_box">
+          <form onSubmit={handleSubmit}>
+            <div className="grid">
+              <div className="col-6">
+                <label htmlFor="keyword">Keyword *</label>
+                <input
+                  type="text"
+                  id="keyword"
+                  name="keyword"
+                  value={formData.keyword}
+                  onChange={handleChange}
+                  placeholder="e.g., QBCC project trust"
+                />
+              </div>
+
+              <div className="col-6">
+                <label htmlFor="slug">URL Slug *</label>
+                <input
+                  type="text"
+                  id="slug"
+                  name="slug"
+                  value={formData.slug}
+                  onChange={handleChange}
+                  placeholder="e.g., qbcc-project-trust"
+                />
+                <small>
+                  Landing page URL: /topics/{formData.slug || "your-slug"}
+                </small>
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="page_title">Page Title (SEO) *</label>
+                <input
+                  type="text"
+                  id="page_title"
+                  name="page_title"
+                  value={formData.page_title}
+                  onChange={handleChange}
+                  placeholder="e.g., QBCC Project Trust Accounting | Paytrade"
+                />
+                <small>
+                  {formData.page_title.length}/70 characters recommended
+                </small>
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="meta_description">Meta Description *</label>
+                <textarea
+                  id="meta_description"
+                  name="meta_description"
+                  value={formData.meta_description}
+                  onChange={handleChange}
+                  placeholder="A brief description for search engines..."
+                  rows={3}
+                />
+                <small>
+                  {formData.meta_description.length}/160 characters recommended
+                </small>
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="tags">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  id="tags"
+                  name="tags"
+                  value={formData.tags}
+                  onChange={handleChange}
+                  placeholder="e.g., QBCC, project trust, construction"
+                />
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="page_content">Page Content (HTML)</label>
+                <textarea
+                  id="page_content"
+                  name="page_content"
+                  value={formData.page_content}
+                  onChange={handleChange}
+                  placeholder="<h2>About QBCC Project Trust</h2><p>Content here...</p>"
+                  rows={12}
+                />
+              </div>
+            </div>
+
+            <div className="pt_pageactions" style={{ marginTop: "20px", gap: "10px", display: "flex" }}>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => router.push("/admin/seo-keywords")}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary"
+                disabled={loading}
+              >
+                {loading
+                  ? "Saving..."
+                  : isEdit
+                  ? "Update Keyword"
+                  : "Add Keyword"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
