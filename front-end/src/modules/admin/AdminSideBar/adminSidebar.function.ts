@@ -42,7 +42,7 @@ export async function GetSideMenusForAdmin(): Promise<any> {
           }
         }
       `,
-      fetchPolicy: "no-cache",
+      fetchPolicy: "cache-first",
     });
 
     if (response?.data?.getSideMenusForAdmin?.status === ApiResponse.SUCCESS) {

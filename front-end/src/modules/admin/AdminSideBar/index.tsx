@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTokenDetails } from "@/hooks";
 import { GetSideMenusForAdmin } from "./adminSidebar.function";
-import { useLoaderContext } from "@/context/useLoader";
 
 export default function AdminSidebar() {
   const { decodeTokenData } = useTokenDetails();
@@ -16,7 +15,6 @@ export default function AdminSidebar() {
 
   const [sidebarMenu, setSidebarMenu] = useState([]);
   const pathname = usePathname();
-  const { setLoader }: any = useLoaderContext();
 
   const dispatch = useAppDispatch();
 
@@ -27,7 +25,6 @@ export default function AdminSidebar() {
 
   async function fetchAdminSidebar() {
     try {
-      setLoader(true);
       if (decodeTokenData?.isAdmin === true) {
         const response = await GetSideMenusForAdmin();
         if (response?.length > 0) {
@@ -36,9 +33,8 @@ export default function AdminSidebar() {
           setSidebarMenu([]);
         }
       }
-      setLoader(false);
     } catch (error) {
-      setLoader(false);
+      // sidebar fetch failed silently
     }
   }
 
