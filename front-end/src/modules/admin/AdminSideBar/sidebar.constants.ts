@@ -42,6 +42,10 @@ const adminSidebar = [
         routePath: AppRoutes.ADMIN_SUBSCRIPTION_BILLING_AND_HISTORY,
         name: "Billing history",
       },
+      {
+        routePath: AppRoutes.ADMIN_SUBSCRIPTION_PRICING_TABLE,
+        name: "Pricing table",
+      },
     ],
   },
   {
@@ -138,8 +142,13 @@ const adminSidebar = [
   },
   {
     routePath: AppRoutes.RESOURCE_GUIDES_LIST,
-    icon: "fa-light fa-book-open", // Guides or learning materials
+    icon: "fa-light fa-book-open",
     name: "Resource guides",
+  },
+  {
+    routePath: AppRoutes.ADMIN_GUIDES,
+    icon: "fa-light fa-book-bookmark",
+    name: "Admin guides",
   },
   {
     routePath: AppRoutes.ADMIN_ACTIVITY_LOG,

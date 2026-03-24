@@ -1,0 +1,238 @@
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--pt-text-secondary, #6b7280);
+
+  i {
+    font-size: 2rem;
+    margin-bottom: 16px;
+  }
+}
+
+.emptyState {
+  padding: 40px;
+  text-align: center;
+  color: var(--pt-text-secondary, #6b7280);
+}
+
+.previewContainer {
+  padding: 10px 0;
+}
+
+.previewTitle {
+  font-size: 1rem;
+  margin-bottom: 16px;
+  color: var(--pt-text-primary, #111827);
+
+  i {
+    margin-right: 8px;
+    color: var(--pt-primary, #2a7b6f);
+  }
+}
+
+.previewBtn {
+  min-width: 120px;
+}
+
+.editorTable {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 8px;
+  background-color: var(--pt-bg-secondary, #f9fafb);
+  border-bottom: 2px solid var(--pt-border-color, #e5e7eb);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--pt-text-secondary, #6b7280);
+  min-width: 900px;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid var(--pt-border-color, #e5e7eb);
+  min-width: 900px;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: var(--pt-bg-hover, #f9fafb);
+  }
+
+  &.modified {
+    background-color: #fefce8;
+  }
+
+  &.newRow {
+    background-color: #ecfdf5;
+  }
+}
+
+.colOrder {
+  width: 60px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.colName {
+  flex: 1.5;
+  min-width: 160px;
+  padding: 0 4px;
+}
+
+.colValue {
+  flex: 1;
+  min-width: 120px;
+  padding: 0 4px;
+}
+
+.colStatus {
+  width: 100px;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.colActions {
+  width: 60px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.orderControls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  span {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--pt-text-secondary, #6b7280);
+  }
+}
+
+.orderBtn {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  cursor: pointer;
+  color: var(--pt-text-secondary, #6b7280);
+  font-size: 0.7rem;
+  border-radius: 3px;
+
+  &:hover:not(:disabled) {
+    background-color: var(--pt-bg-secondary, #e5e7eb);
+    color: var(--pt-text-primary, #111827);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.nameInput {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--pt-border-color, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: var(--pt-primary, #2a7b6f);
+  }
+}
+
+.cellSelect {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--pt-border-color, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  outline: none;
+  background-color: white;
+  cursor: pointer;
+
+  &:focus {
+    border-color: var(--pt-primary, #2a7b6f);
+  }
+}
+
+.customInputWrapper {
+  display: flex;
+  gap: 4px;
+}
+
+.cellInput {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--pt-border-color, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  outline: none;
+
+  &:focus {
+    border-color: var(--pt-primary, #2a7b6f);
+  }
+}
+
+.backToSelect {
+  background: none;
+  border: 1px solid var(--pt-border-color, #d1d5db);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--pt-text-secondary, #6b7280);
+
+  &:hover {
+    background-color: var(--pt-bg-secondary, #f3f4f6);
+  }
+}
+
+.statusSelect {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--pt-border-color, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+
+  &.active {
+    color: #065f46;
+    background-color: #d1fae5;
+    border-color: #a7f3d0;
+  }
+
+  &.inactive {
+    color: #92400e;
+    background-color: #fef3c7;
+    border-color: #fde68a;
+  }
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--pt-text-secondary, #9ca3af);
+  font-size: 0.9rem;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #e23b30;
+    background-color: #fef2f2;
+  }
+}

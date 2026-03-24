@@ -46,6 +46,15 @@ import {
 } from './response/gift-coupon.response';
 import { UpdateStripeCouponInput } from './dto/update-stripe-coupon';
 import { CompanyAppliedCouponListResponse } from './response/company-applied-coupon.response';
+import {
+  PricingTableFeatureListResponse,
+  PricingTableFeatureResponse,
+} from './response/pricing-table-feature.response';
+import {
+  AddPricingTableFeatureInput,
+  UpdatePricingTableFeatureInput,
+  BulkUpdatePricingTableFeaturesInput,
+} from './dto/pricing-table-feature.dto';
 var errorMessage = '';
 
 @Resolver()
@@ -1207,6 +1216,103 @@ export class PtSubscriptionResolver {
         'ERROR',
         `Errored inside the client with message: ${error.message}`,
       );
+    }
+  }
+
+  @Public()
+  @Query(() => PricingTableFeatureListResponse, {
+    name: 'getAllPricingTableFeatures',
+  })
+  async getAllPricingTableFeatures() {
+    try {
+      const features = await this.ptSubscriptionService.getAllPricingTableFeatures();
+      return framedResponse('SUCCESS', 'Pricing table features fetched', features);
+    } catch (error) {
+      this.logger.error(`Error fetching pricing table features: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Query(() => PricingTableFeatureListResponse, {
+    name: 'adminGetAllPricingTableFeatures',
+  })
+  async adminGetAllPricingTableFeatures() {
+    try {
+      const features = await this.ptSubscriptionService.getAllPricingTableFeaturesAdmin();
+      return framedResponse('SUCCESS', 'Pricing table features fetched', features);
+    } catch (error) {
+      this.logger.error(`Error fetching pricing table features: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => PricingTableFeatureResponse, {
+    name: 'adminAddPricingTableFeature',
+  })
+  async adminAddPricingTableFeature(
+    @Args('input') input: AddPricingTableFeatureInput,
+  ) {
+    try {
+      const feature = await this.ptSubscriptionService.addPricingTableFeature(input);
+      return framedResponse('SUCCESS', 'Feature added', feature);
+    } catch (error) {
+      this.logger.error(`Error adding pricing table feature: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => PricingTableFeatureResponse, {
+    name: 'adminUpdatePricingTableFeature',
+  })
+  async adminUpdatePricingTableFeature(
+    @Args('input') input: UpdatePricingTableFeatureInput,
+  ) {
+    try {
+      const feature = await this.ptSubscriptionService.updatePricingTableFeature(input);
+      return framedResponse('SUCCESS', 'Feature updated', feature);
+    } catch (error) {
+      this.logger.error(`Error updating pricing table feature: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => PricingTableFeatureResponse, {
+    name: 'adminDeletePricingTableFeature',
+  })
+  async adminDeletePricingTableFeature(
+    @Args('id') id: string,
+  ) {
+    try {
+      await this.ptSubscriptionService.deletePricingTableFeature(id);
+      return framedResponse('SUCCESS', 'Feature deleted');
+    } catch (error) {
+      this.logger.error(`Error deleting pricing table feature: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => PricingTableFeatureListResponse, {
+    name: 'adminBulkUpdatePricingTableFeatures',
+  })
+  async adminBulkUpdatePricingTableFeatures(
+    @Args('input') input: BulkUpdatePricingTableFeaturesInput,
+  ) {
+    try {
+      const features = await this.ptSubscriptionService.bulkUpdatePricingTableFeatures(input.features);
+      return framedResponse('SUCCESS', 'Features updated', features);
+    } catch (error) {
+      this.logger.error(`Error bulk updating pricing table features: ${error.message}`);
+      return framedResponse('ERROR', error.message);
     }
   }
 }

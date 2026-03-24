@@ -30,7 +30,7 @@ const MASTER_MENUS: MenuSeed[] = [
   { id: 'a0000001-0000-0000-0000-000000000006', menu_name: 'Notices',            route_path: '/admin/notices/current',        menu_order: 6,  menu_icon: 'fa-light fa-bell',               sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000007', menu_name: 'Communication',      route_path: '/admin/communication',          menu_order: 7,  menu_icon: 'fa-light fa-envelope',           sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000008', menu_name: 'Content Management', route_path: '/admin/content-management',     menu_order: 8,  menu_icon: 'fa-light fa-file-lines',         sub_menus: [{ name: '', route: '', icon: '' }] },
-  { id: 'a0000001-0000-0000-0000-000000000009', menu_name: 'Subscriptions',      route_path: '/admin/subscriptions/current',  menu_order: 9,  menu_icon: 'fa-light fa-credit-card',        sub_menus: [{ name: 'Manage plans', route: '/admin/subscriptions/current', icon: '' }, { name: 'Manage items', route: '/admin/subscriptions/items', icon: '' }, { name: 'Manage profiles', route: '/admin/subscriptions/profiles', icon: '' }, { name: 'Manage coupons', route: '/admin/subscriptions/coupons', icon: '' }, { name: 'Billing history', route: '/admin/subscriptions/billing-and-history', icon: '' }] },
+  { id: 'a0000001-0000-0000-0000-000000000009', menu_name: 'Subscriptions',      route_path: '/admin/subscriptions/current',  menu_order: 9,  menu_icon: 'fa-light fa-credit-card',        sub_menus: [{ name: 'Manage plans', route: '/admin/subscriptions/current', icon: '' }, { name: 'Manage items', route: '/admin/subscriptions/items', icon: '' }, { name: 'Manage profiles', route: '/admin/subscriptions/profiles', icon: '' }, { name: 'Manage coupons', route: '/admin/subscriptions/coupons', icon: '' }, { name: 'Billing history', route: '/admin/subscriptions/billing-and-history', icon: '' }, { name: 'Pricing table', route: '/admin/subscriptions/pricing-table', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000010', menu_name: 'Masters',            route_path: '/admin/masters',                menu_order: 10, menu_icon: 'fa-light fa-sliders',            sub_menus: [{ name: 'All masters', route: '/admin/masters', icon: '' }, { name: 'Currency', route: '/admin/currency', icon: '' }, { name: 'Financial institution', route: '/admin/financial-institution', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000011', menu_name: 'Contacts',           route_path: '/admin/contact',                menu_order: 11, menu_icon: 'fa-light fa-address-book',       sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000012', menu_name: 'Journals',           route_path: '/admin/journals',               menu_order: 12, menu_icon: 'fa-light fa-journal-whills',     sub_menus: [{ name: '', route: '', icon: '' }] },
@@ -42,6 +42,7 @@ const MASTER_MENUS: MenuSeed[] = [
   { id: 'a0000001-0000-0000-0000-000000000018', menu_name: 'Resource Guides',    route_path: '/admin/resource',               menu_order: 18, menu_icon: 'fa-light fa-book-open',          sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000019', menu_name: 'How To Guides',      route_path: '/admin/how-to-guides',          menu_order: 19, menu_icon: 'fa-light fa-chalkboard-teacher', sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000020', menu_name: 'SEO Keywords',       route_path: '/admin/seo-keywords',           menu_order: 20, menu_icon: 'fa-light fa-magnifying-glass',   sub_menus: [{ name: '', route: '', icon: '' }] },
+  { id: 'a0000001-0000-0000-0000-000000000021', menu_name: 'Admin Guides',      route_path: '/admin/admin-guides',           menu_order: 21, menu_icon: 'fa-light fa-book-bookmark',      sub_menus: [{ name: '', route: '', icon: '' }] },
 ];
 
 @Injectable()
@@ -69,9 +70,17 @@ export class AdminMenuSeederService implements OnApplicationBootstrap {
     }
   }
 
+  private buildSubMenusSQL(subMenus: SubMenu[]): string {
+    const elements = subMenus.map(
+      (sm) => `'${JSON.stringify(sm).replace(/'/g, "''")}'::json`,
+    );
+    return `ARRAY[${elements.join(', ')}]`;
+  }
+
   private async seedMenus() {
     let created = 0;
     let updated = 0;
+    const manager = this.menuRepo.manager;
 
     for (const menu of MASTER_MENUS) {
       const existing = await this.menuRepo.findOne({ where: { id: menu.id } });
@@ -86,26 +95,23 @@ export class AdminMenuSeederService implements OnApplicationBootstrap {
           existing.menu_icon !== menu.menu_icon ||
           subMenusChanged
         ) {
-          existing.menu_name = menu.menu_name;
-          existing.route_path = menu.route_path;
-          existing.menu_order = menu.menu_order;
-          existing.menu_icon = menu.menu_icon;
-          existing.sub_menus = menu.sub_menus as any;
-          await this.menuRepo.save(existing);
+          const subMenusSQL = this.buildSubMenusSQL(menu.sub_menus);
+          await manager.query(
+            `UPDATE admin_menu_details
+             SET menu_name = $1, route_path = $2, menu_order = $3,
+                 menu_icon = $4, sub_menus = ${subMenusSQL}
+             WHERE id = $5`,
+            [menu.menu_name, menu.route_path, menu.menu_order, menu.menu_icon, menu.id],
+          );
           updated++;
         }
       } else {
-        const newMenu = this.menuRepo.create({
-          id: menu.id,
-          menu_name: menu.menu_name,
-          route_path: menu.route_path,
-          menu_order: menu.menu_order,
-          menu_icon: menu.menu_icon,
-          menu_status: 'Active',
-          menu_type: 'Admin',
-          sub_menus: menu.sub_menus as any,
-        });
-        await this.menuRepo.save(newMenu);
+        const subMenusSQL = this.buildSubMenusSQL(menu.sub_menus);
+        await manager.query(
+          `INSERT INTO admin_menu_details (id, menu_name, route_path, menu_order, menu_icon, menu_status, menu_type, sub_menus)
+           VALUES ($1, $2, $3, $4, $5, 'Active', 'Admin', ${subMenusSQL})`,
+          [menu.id, menu.menu_name, menu.route_path, menu.menu_order, menu.menu_icon],
+        );
         created++;
       }
     }

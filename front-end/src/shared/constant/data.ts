@@ -131,9 +131,9 @@ const subscriptionPlanFeatures = [
   {
     name: "Bank Feeds",
     basic: false,
-    standard: true,
-    advanced: true,
-    proAudit: true,
+    standardText: "Coming soon",
+    advancedText: "Coming soon",
+    proAuditText: "Coming soon",
   },
   {
     name: "Delegate authority",

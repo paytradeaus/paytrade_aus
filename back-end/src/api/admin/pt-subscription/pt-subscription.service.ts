@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionItems } from 'src/entities/subscription-items.entity';
 import { SubscriptionPlanItems } from 'src/entities/subscription-plan-items.entity';
+import { PricingTableFeature } from 'src/entities/pricing-table-feature.entity';
 import {
   EntityManager,
   ILike,
@@ -75,6 +76,8 @@ export class PtSubscriptionService {
     private stripeCoupons: Repository<StripeCoupons>,
     @InjectRepository(CompanyCouponDetails)
     private companyCouponDetails: Repository<CompanyCouponDetails>,
+    @InjectRepository(PricingTableFeature)
+    private pricingTableFeatureRepo: Repository<PricingTableFeature>,
     private emailServices: EmailService,
     private entityManager: EntityManager,
     private emailQueueProducer: EmailQueueProducer,
@@ -3109,5 +3112,51 @@ export class PtSubscriptionService {
         );
       }
     });
+  }
+
+  async getAllPricingTableFeatures() {
+    return await this.pricingTableFeatureRepo.find({
+      where: { status: 'Active' },
+      order: { display_order: 'ASC' },
+    });
+  }
+
+  async getAllPricingTableFeaturesAdmin() {
+    return await this.pricingTableFeatureRepo.find({
+      order: { display_order: 'ASC' },
+    });
+  }
+
+  async addPricingTableFeature(input: any) {
+    const feature = this.pricingTableFeatureRepo.create(input);
+    return await this.pricingTableFeatureRepo.save(feature);
+  }
+
+  async updatePricingTableFeature(input: any) {
+    const { id, ...updateData } = input;
+    await this.pricingTableFeatureRepo.update(id, updateData);
+    return await this.pricingTableFeatureRepo.findOne({ where: { id } });
+  }
+
+  async deletePricingTableFeature(id: string) {
+    await this.pricingTableFeatureRepo.delete(id);
+    return true;
+  }
+
+  async bulkUpdatePricingTableFeatures(features: any[]) {
+    const results = [];
+    for (const feature of features) {
+      const { id, ...updateData } = feature;
+      if (id) {
+        await this.pricingTableFeatureRepo.update(id, updateData);
+        const updated = await this.pricingTableFeatureRepo.findOne({ where: { id } });
+        if (updated) results.push(updated);
+      } else {
+        const created = this.pricingTableFeatureRepo.create(updateData);
+        const saved = await this.pricingTableFeatureRepo.save(created);
+        results.push(saved);
+      }
+    }
+    return results;
   }
 }

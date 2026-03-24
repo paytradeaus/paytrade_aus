@@ -14,7 +14,7 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **State Management**: Redux Toolkit for predictable state management.
 - **API Client**: Apollo Client handles GraphQL queries and mutations.
 - **Styling**: SCSS Modules and standard CSS are used for styling components.
-- **UI/UX**: Dynamic pricing tables are driven by backend `plan_items` data from `subscription_plan_details`, `subscription_pricing_plan`, `subscription_items`, and `subscription_plan_items` tables. The `PricingGrid` component merges API data with hardcoded fallbacks in `data.ts`. Static assets are served with cache-busting versioning.
+- **UI/UX**: Dynamic pricing tables are driven by both the `pricing_table_feature` table (feature rows) and backend `plan_items` data (numeric limits/unlimited overrides). The `PricingGrid` component fetches features from `getAllPricingTableFeatures` public GraphQL query, with hardcoded fallbacks in `data.ts`. Plan-specific item overrides (unlimited, numeric limits) are merged on top. Static assets are served with cache-busting versioning.
 - **SEO**: Dynamic landing pages are driven by backend-managed `SeoKeyword` entities, supporting full SEO metadata and sitemap generation.
 
 **Backend (NestJS)**
@@ -31,11 +31,13 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Monitoring**: A `/health` endpoint is available for monitoring, and `production-server.js` monitors backend health, sending email alerts on failures.
 
 ## Admin User Management
-- **Admin Menu Seeder**: `AdminMenuSeederModule` (`back-end/src/libs/@seeders/`) runs on app bootstrap via `OnApplicationBootstrap`. Seeds 20 master menus with fixed UUIDs, updates existing menus if any field changes (including sub_menus), and grants full permissions to all active admin groups. Idempotent — safe to run on every deploy.
+- **Admin Menu Seeder**: `AdminMenuSeederModule` (`back-end/src/libs/@seeders/`) runs on app bootstrap via `OnApplicationBootstrap`. Seeds 21 master menus with fixed UUIDs, updates existing menus if any field changes (including sub_menus), and grants full permissions to all active admin groups. Uses raw SQL for `sub_menus` (json[]) updates to avoid TypeORM serialization issues. Idempotent — safe to run on every deploy.
 - **Admin Users menu** has sub-menus for "Admin users" (`/admin/admin-users`) and "Admin groups" (`/admin/groups`) where permissions are managed.
 - **Password management**: Admin passwords can be updated via the edit form (optional "Change Password" field with full validation). Backend hashes with `bcryptjs`. Admins can only change their own password; for other admins use "Reset Password" which generates a random password and emails it.
 - **Orphan protection**: Backend `ensureNotLastActiveAdmin()` in `PtAdminService` prevents deleting or deactivating the last active admin user. Enforced in `PortalAdminUpdate` for status changes to Inactive/Deleted.
-- **SQL seed**: `scripts/seed-admin-menus.sql` is the idempotent SQL equivalent (ON CONFLICT DO NOTHING) with all 20 menus.
+- **SQL seed**: `scripts/seed-admin-menus.sql` is the idempotent SQL equivalent (ON CONFLICT DO NOTHING) with all 21 menus.
+- **Admin Guides page**: `/admin/admin-guides` displays admin-only how-to guides (filtered to "Admin Panel" category). Uses existing `adminListAllBlogResources` query. Module at `front-end/src/modules/admin/AdminGuides/`.
+- **Pricing Table Editor**: `/admin/subscriptions/pricing-table` provides full CRUD management of the public pricing comparison table features. Supports inline editing, add/delete rows, drag reorder, preset value helpers ("true"=checkmark, "false"=cross, text=displayed as-is), and a preview mode. Backend entity: `PricingTableFeature` with GraphQL CRUD + bulk update. Seed SQL: `scripts/seed-pricing-table-features.sql` (25 features).
 - **Holiday table monitoring**: Dashboard banner warns when holiday coverage < 90 days (yellow/orange/red severity). Monthly cron (1st of month, 8AM UTC) sends email alert. Backend `getHolidayTableStatus` query and `sendHolidayExpiryAlert` service method.
 - **Admin recurring tasks guide**: Static HTML guide at `/admin-guide-recurring-tasks.html` covering all manual and automated admin processes.
 

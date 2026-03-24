@@ -4,6 +4,8 @@ import {
   subscriptionPlanFeatures,
 } from "@/shared/constant/data";
 import React, { useEffect, useState } from "react";
+import { gql } from "@apollo/client";
+import { client } from "@/app/api/adminApi/adminApi";
 
 type Plan = "Basic" | "Premium" | "Platinum";
 
@@ -29,11 +31,70 @@ const withPlanTable = (
   };
 };
 
+function parseFeatureValue(val: string | null | undefined): { text?: string; enabled?: boolean } {
+  if (val === null || val === undefined || val === "") return { enabled: false };
+  if (val === "true") return { enabled: true };
+  if (val === "false") return { enabled: false };
+  return { text: val };
+}
+
+function apiFeaturesToRows(apiFeatures: any[]): any[] {
+  return apiFeatures.map((f: any) => {
+    const basicParsed = parseFeatureValue(f.basic_value);
+    const standardParsed = parseFeatureValue(f.standard_value);
+    const advancedParsed = parseFeatureValue(f.advanced_value);
+    const proAuditParsed = parseFeatureValue(f.pro_audit_value);
+
+    const row: any = { name: f.feature_name };
+
+    if (basicParsed.text !== undefined) { row.basicText = basicParsed.text; } else { row.basic = basicParsed.enabled; }
+    if (standardParsed.text !== undefined) { row.standardText = standardParsed.text; } else { row.standard = standardParsed.enabled; }
+    if (advancedParsed.text !== undefined) { row.advancedText = advancedParsed.text; } else { row.advanced = advancedParsed.enabled; }
+    if (proAuditParsed.text !== undefined) { row.proAuditText = proAuditParsed.text; } else { row.proAudit = proAuditParsed.enabled; }
+
+    return row;
+  });
+}
+
+const FETCH_PRICING_FEATURES = gql`
+  query GetAllPricingTableFeatures {
+    getAllPricingTableFeatures {
+      status
+      data {
+        feature_name
+        basic_value
+        standard_value
+        advanced_value
+        pro_audit_value
+        display_order
+      }
+    }
+  }
+`;
+
 const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, isYearly }) => {
   const [tableFeatures, setTableFeatures] = useState<any[]>([]);
+  const [apiPricingFeatures, setApiPricingFeatures] = useState<any[] | null>(null);
   const getTheme: any = useAppSelector(
     (state: RootState) => state?.appTheme?.currentTheme
   );
+
+  useEffect(() => {
+    async function fetchPricingFeatures() {
+      try {
+        const response = await client.query({
+          query: FETCH_PRICING_FEATURES,
+          fetchPolicy: "network-only",
+        });
+        if (response?.data?.getAllPricingTableFeatures?.status === "SUCCESS") {
+          setApiPricingFeatures(response.data.getAllPricingTableFeatures.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch pricing features, using fallback:", err);
+      }
+    }
+    fetchPricingFeatures();
+  }, []);
 
   function isLightTheme() {
     return getTheme === "light";
@@ -87,11 +148,16 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
     return { enabled: true };
   }
 
-  function buildDynamicFeatureRows() {
-    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
-    const hardcodedRows = subscriptionPlanFeatures.slice(1);
+  function buildFeatureRows() {
+    const baseRows = apiPricingFeatures
+      ? apiFeaturesToRows(apiPricingFeatures)
+      : subscriptionPlanFeatures.slice(1);
 
-    return hardcodedRows.map((row) => {
+    if (!subscriptionPlanTypes) return baseRows;
+
+    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
+
+    return baseRows.map((row: any) => {
       const basicVal = getItemDisplayValue(freePlan, row.name);
       const standardVal = getItemDisplayValue(standardPlan, row.name);
       const advancedVal = getItemDisplayValue(advancedPlan, row.name);
@@ -100,40 +166,20 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
       const updated: any = { ...row };
 
       if (basicVal) {
-        if (basicVal.text !== undefined) {
-          updated.basicText = basicVal.text;
-          updated.basic = undefined;
-        } else if (basicVal.enabled !== undefined) {
-          updated.basic = basicVal.enabled;
-          updated.basicText = undefined;
-        }
+        if (basicVal.text !== undefined) { updated.basicText = basicVal.text; updated.basic = undefined; }
+        else if (basicVal.enabled !== undefined) { updated.basic = basicVal.enabled; updated.basicText = undefined; }
       }
       if (standardVal) {
-        if (standardVal.text !== undefined) {
-          updated.standardText = standardVal.text;
-          updated.standard = undefined;
-        } else if (standardVal.enabled !== undefined) {
-          updated.standard = standardVal.enabled;
-          updated.standardText = undefined;
-        }
+        if (standardVal.text !== undefined) { updated.standardText = standardVal.text; updated.standard = undefined; }
+        else if (standardVal.enabled !== undefined) { updated.standard = standardVal.enabled; updated.standardText = undefined; }
       }
       if (advancedVal) {
-        if (advancedVal.text !== undefined) {
-          updated.advancedText = advancedVal.text;
-          updated.advanced = undefined;
-        } else if (advancedVal.enabled !== undefined) {
-          updated.advanced = advancedVal.enabled;
-          updated.advancedText = undefined;
-        }
+        if (advancedVal.text !== undefined) { updated.advancedText = advancedVal.text; updated.advanced = undefined; }
+        else if (advancedVal.enabled !== undefined) { updated.advanced = advancedVal.enabled; updated.advancedText = undefined; }
       }
       if (proAuditVal) {
-        if (proAuditVal.text !== undefined) {
-          updated.proAuditText = proAuditVal.text;
-          updated.proAudit = undefined;
-        } else if (proAuditVal.enabled !== undefined) {
-          updated.proAudit = proAuditVal.enabled;
-          updated.proAuditText = undefined;
-        }
+        if (proAuditVal.text !== undefined) { updated.proAuditText = proAuditVal.text; updated.proAudit = undefined; }
+        else if (proAuditVal.enabled !== undefined) { updated.proAudit = proAuditVal.enabled; updated.proAuditText = undefined; }
       }
 
       return updated;
@@ -149,12 +195,10 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
       ? { ...getPriceRow(), basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode }
       : { ...subscriptionPlanFeatures[0], basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode };
 
-    const featureRows = subscriptionPlanTypes
-      ? buildDynamicFeatureRows()
-      : subscriptionPlanFeatures.slice(1);
+    const featureRows = buildFeatureRows();
 
     setTableFeatures([priceRow, ...featureRows]);
-  }, [getTheme, subscriptionPlanTypes, isYearly]);
+  }, [getTheme, subscriptionPlanTypes, isYearly, apiPricingFeatures]);
 
   return (
     <div className="grid">

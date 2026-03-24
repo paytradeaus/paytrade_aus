@@ -849,6 +849,15 @@ type AddPaymentResponse {
   status: String!
 }
 
+input AddPricingTableFeatureInput {
+  advanced_value: String
+  basic_value: String
+  display_order: Int!
+  feature_name: String!
+  pro_audit_value: String
+  standard_value: String
+}
+
 """Input payload for creating a new bank reconciliation report."""
 input AddReconciliationReportInput {
   """Ledger balance calculated from account journals."""
@@ -1421,6 +1430,10 @@ type BlogCommentDto {
 
   """Date when the comment was posted."""
   posted_on: DateTime
+}
+
+input BulkUpdatePricingTableFeaturesInput {
+  features: [UpdatePricingTableFeatureInput!]!
 }
 
 """Represents a CIS (Construction Industry Scheme) tax rate."""
@@ -13162,6 +13175,7 @@ type Mutation {
     """Details of the master type to add"""
     masterTypes: CreateMasterTypeInput!
   ): PTMasterTypesResponse!
+  adminAddPricingTableFeature(input: AddPricingTableFeatureInput!): PricingTableFeatureResponse!
 
   """Add a new SEO keyword with landing page configuration."""
   adminAddSeoKeyword(
@@ -13193,6 +13207,7 @@ type Mutation {
     """Indicates whether the subscription plan should be archived."""
     is_archived: Boolean = true
   ): PtSubscriptionPlanResponse!
+  adminBulkUpdatePricingTableFeatures(input: BulkUpdatePricingTableFeaturesInput!): PricingTableFeatureListResponse!
 
   """
   Allows admin to delete blog or resource attachments, with appropriate activity logging.
@@ -13204,6 +13219,7 @@ type Mutation {
     """Optional: Blog or Resource ID associated with the attachment"""
     blogResId: String
   ): StringResponse!
+  adminDeletePricingTableFeature(id: String!): PricingTableFeatureResponse!
 
   """Delete an SEO keyword."""
   adminDeleteSeoKeyword(
@@ -13300,6 +13316,7 @@ type Mutation {
     """Details of the master type to update"""
     masterTypes: UpdateMasterTypeInput!
   ): PTMasterTypesResponse!
+  adminUpdatePricingTableFeature(input: UpdatePricingTableFeatureInput!): PricingTableFeatureResponse!
 
   """Update an existing SEO keyword."""
   adminUpdateSeoKeyword(
@@ -15635,6 +15652,29 @@ type PaymentHistory {
   subscription_id: Float!
 }
 
+type PricingTableFeatureListResponse {
+  data: [PricingTableFeatureType!]
+  message: String!
+  status: String!
+}
+
+type PricingTableFeatureResponse {
+  data: PricingTableFeatureType
+  message: String!
+  status: String!
+}
+
+type PricingTableFeatureType {
+  advanced_value: String
+  basic_value: String
+  display_order: Int!
+  feature_name: String!
+  id: String!
+  pro_audit_value: String
+  standard_value: String
+  status: String!
+}
+
 """Response after processing filtered transactions from CSV upload."""
 type ProcessFilterCsvUpload {
   """List of transactions after applying filters."""
@@ -15836,6 +15876,7 @@ type Query {
     """
     listCommunityFlagsInput: ListCommunityFlagsInput!
   ): likeVoteFlagListResponse!
+  adminGetAllPricingTableFeatures: PricingTableFeatureListResponse!
 
   """Fetches blog/resource details by ID."""
   adminGetBlogResourceById(
@@ -17013,6 +17054,7 @@ type Query {
     """ID of the company to fetch all card details for."""
     company_id: Float!
   ): GetAllCardDetailsResponse!
+  getAllPricingTableFeatures: PricingTableFeatureListResponse!
 
   """Fetch all reconciliation reports for the given filter criteria."""
   getAllReconciliationReportList(
@@ -19925,6 +19967,17 @@ input UpdateOrderInput {
   The unique identifier of the FAQ entry that previously occupied the target position. Can be null if there is no previous FAQ.
   """
   previousFaqId: String
+}
+
+input UpdatePricingTableFeatureInput {
+  advanced_value: String
+  basic_value: String
+  display_order: Int
+  feature_name: String
+  id: String!
+  pro_audit_value: String
+  standard_value: String
+  status: String
 }
 
 """Input type for updating details of an existing project."""

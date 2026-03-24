@@ -203,6 +203,10 @@ export const AppRoutes = {
   HOW_TO_GUIDES_EDIT: "/admin/how-to-guides/edit/",
   HOW_TO_GUIDES_VIEWS: "/how-to-guides/",
 
+  ADMIN_GUIDES: "/admin/admin-guides",
+
+  ADMIN_SUBSCRIPTION_PRICING_TABLE: "/admin/subscriptions/pricing-table",
+
   USER_ACCESS: "/user/company/user-access",
   INVITATION: "/user/company/invitations",
   COMPANY_EDIT_USER: "/user/company/user-access/edit",

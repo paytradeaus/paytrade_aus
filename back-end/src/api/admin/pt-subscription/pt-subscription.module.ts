@@ -26,6 +26,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
+import { PricingTableFeature } from 'src/entities/pricing-table-feature.entity';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
       StripeCoupons,
       CompanyCouponDetails,
       IntegrationDetails,
+      PricingTableFeature,
     ]),
     BullModule.registerQueue({
       name: 'mailQueue',
