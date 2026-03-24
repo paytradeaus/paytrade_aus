@@ -453,13 +453,12 @@ export default function AdminMenuEditor() {
       )}
 
       <BaseModal
-        show={deleteModal.open}
+        displayModal={deleteModal.open}
         title="Delete Menu"
-        handleClose={() => setDeleteModal({ open: false, index: -1, name: "" })}
-        primaryButtonLabel="Delete"
-        secondaryButtonLabel="Cancel"
-        onPrimaryClick={handleDelete}
-        onSecondaryClick={() => setDeleteModal({ open: false, index: -1, name: "" })}
+        onClose={() => setDeleteModal({ open: false, index: -1, name: "" })}
+        firstButtonName="Cancel"
+        secondButtonName="Delete"
+        onConfirm={handleDelete}
       >
         <p>
           Are you sure you want to delete <strong>{deleteModal.name}</strong>?
