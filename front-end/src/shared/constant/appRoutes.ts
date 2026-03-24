@@ -204,6 +204,7 @@ export const AppRoutes = {
   HOW_TO_GUIDES_VIEWS: "/how-to-guides/",
 
   ADMIN_GUIDES: "/admin/admin-guides",
+  ADMIN_MENU_MANAGEMENT: "/admin/admin-menus",
 
   ADMIN_SUBSCRIPTION_PRICING_TABLE: "/admin/subscriptions/pricing-table",
 

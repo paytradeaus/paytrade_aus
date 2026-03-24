@@ -4,8 +4,9 @@ import {
   AdminGroupDetails,
   GroupStatus,
 } from '../../../entities/admin-group-details.entity';
-import { ILike, In, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { ILike, In, Not, Repository, SelectQueryBuilder, DataSource } from 'typeorm';
 import { AddGroupInput, MenuPrivileges } from './dto/add.group.dto';
+import { AddAdminMenuInput, UpdateAdminMenuInput } from './dto/admin-menu.dto';
 import { UpdateGroupInput } from './dto/update.group.dto';
 import { AdminMenuDetails } from '../../../entities/admin-menu-details.entity';
 import { AdminGroupMenuPriv } from '../../../entities/admin-group-menu-priv.entity';
@@ -406,5 +407,131 @@ export class PtGroupsService {
         }),
       };
     });
+  }
+
+  private buildSubMenusSQL(subMenus: any[]): string {
+    if (!subMenus || subMenus.length === 0) {
+      return `ARRAY['{"name":"","route":"","icon":""}'::json]`;
+    }
+    const elements = subMenus.map(
+      (sm) => `'${JSON.stringify({ name: sm.name || '', route: sm.route || '', icon: sm.icon || '' }).replace(/'/g, "''")}'::json`,
+    );
+    return `ARRAY[${elements.join(', ')}]`;
+  }
+
+  async adminFetchAllMenuDetails() {
+    return await this.adminmenudetails.find({
+      where: { menu_status: Not('Deleted') as any },
+      order: { menu_order: 'ASC' },
+    });
+  }
+
+  async adminAddMenu(input: AddAdminMenuInput) {
+    const manager = this.adminmenudetails.manager;
+    const subMenusSQL = this.buildSubMenusSQL(input.sub_menus);
+
+    const result = await manager.query(
+      `INSERT INTO admin_menu_details (menu_name, route_path, menu_order, menu_icon, menu_description, menu_status, menu_type, sub_menus)
+       VALUES ($1, $2, $3, $4, $5, $6, 'Admin', ${subMenusSQL})
+       RETURNING id`,
+      [input.menu_name, input.route_path, input.menu_order, input.menu_icon || '', input.menu_description || '', input.menu_status || 'Active'],
+    );
+
+    const newId = result[0]?.id;
+    if (newId) {
+      const activeGroups = await this.admingroupdetails.find({
+        where: { group_status: 'Active' as any },
+      });
+      for (const group of activeGroups) {
+        const priv = this.admingroupmenupriv.create({
+          group_id: group.id,
+          menu_id: newId,
+          all_permission: true,
+          list_permission: true,
+          insert_permission: true,
+          update_permission: true,
+          delete_permission: true,
+          export_permission: true,
+          print_permission: true,
+          view_permission: true,
+        });
+        await this.admingroupmenupriv.save(priv);
+      }
+    }
+
+    return await this.adminmenudetails.findOne({ where: { id: newId } });
+  }
+
+  async adminUpdateMenu(input: UpdateAdminMenuInput) {
+    const existing = await this.adminmenudetails.findOne({ where: { id: input.id } });
+    if (!existing) {
+      throw new NotFoundException(`Menu with id ${input.id} not found`);
+    }
+
+    const manager = this.adminmenudetails.manager;
+    const subMenusSQL = input.sub_menus ? this.buildSubMenusSQL(input.sub_menus) : null;
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
+
+    if (input.menu_name !== undefined && input.menu_name !== null) {
+      updates.push(`menu_name = $${paramIdx++}`);
+      params.push(input.menu_name);
+    }
+    if (input.route_path !== undefined && input.route_path !== null) {
+      updates.push(`route_path = $${paramIdx++}`);
+      params.push(input.route_path);
+    }
+    if (input.menu_order !== undefined && input.menu_order !== null) {
+      updates.push(`menu_order = $${paramIdx++}`);
+      params.push(input.menu_order);
+    }
+    if (input.menu_icon !== undefined && input.menu_icon !== null) {
+      updates.push(`menu_icon = $${paramIdx++}`);
+      params.push(input.menu_icon);
+    }
+    if (input.menu_description !== undefined && input.menu_description !== null) {
+      updates.push(`menu_description = $${paramIdx++}`);
+      params.push(input.menu_description);
+    }
+    if (input.menu_status !== undefined && input.menu_status !== null) {
+      updates.push(`menu_status = $${paramIdx++}`);
+      params.push(input.menu_status);
+    }
+    if (subMenusSQL) {
+      updates.push(`sub_menus = ${subMenusSQL}`);
+    }
+
+    if (updates.length > 0) {
+      params.push(input.id);
+      await manager.query(
+        `UPDATE admin_menu_details SET ${updates.join(', ')} WHERE id = $${paramIdx}`,
+        params,
+      );
+    }
+
+    return await this.adminmenudetails.findOne({ where: { id: input.id } });
+  }
+
+  async adminDeleteMenu(id: string) {
+    const existing = await this.adminmenudetails.findOne({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Menu with id ${id} not found`);
+    }
+
+    await this.admingroupmenupriv.delete({ menu_id: id });
+    await this.adminmenudetails.delete({ id });
+
+    return true;
+  }
+
+  async adminBulkUpdateMenus(menus: UpdateAdminMenuInput[]) {
+    const results: any[] = [];
+    for (const menu of menus) {
+      const updated = await this.adminUpdateMenu(menu);
+      if (updated) results.push(updated);
+    }
+    return results;
   }
 }

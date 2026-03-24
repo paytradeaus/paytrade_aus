@@ -43,6 +43,7 @@ const MASTER_MENUS: MenuSeed[] = [
   { id: 'a0000001-0000-0000-0000-000000000019', menu_name: 'How To Guides',      route_path: '/admin/how-to-guides',          menu_order: 19, menu_icon: 'fa-light fa-chalkboard-teacher', sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000020', menu_name: 'SEO Keywords',       route_path: '/admin/seo-keywords',           menu_order: 20, menu_icon: 'fa-light fa-magnifying-glass',   sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000021', menu_name: 'Admin Guides',      route_path: '/admin/admin-guides',           menu_order: 21, menu_icon: 'fa-light fa-book-bookmark',      sub_menus: [{ name: '', route: '', icon: '' }] },
+  { id: 'a0000001-0000-0000-0000-000000000022', menu_name: 'Admin Menus',       route_path: '/admin/admin-menus',            menu_order: 22, menu_icon: 'fa-light fa-bars',               sub_menus: [{ name: '', route: '', icon: '' }] },
 ];
 
 @Injectable()
@@ -73,30 +74,36 @@ export class AdminMenuSeederService implements OnApplicationBootstrap {
 
   private async cleanupOldDuplicates() {
     const manager = this.menuRepo.manager;
-    const seededIds = MASTER_MENUS.map((m) => m.id);
+    const seededRoutes = new Map(MASTER_MENUS.map((m) => [m.route_path, m.id]));
 
     const allMenus = await this.menuRepo.find();
-    const oldMenuIds = allMenus
-      .filter((m) => !seededIds.includes(m.id))
-      .map((m) => m.id);
+    const seededIds = MASTER_MENUS.map((m) => m.id);
 
-    if (oldMenuIds.length === 0) return;
+    const oldDuplicateIds: string[] = [];
+    for (const menu of allMenus) {
+      if (seededIds.includes(menu.id)) continue;
+      if (seededRoutes.has(menu.route_path)) {
+        oldDuplicateIds.push(menu.id);
+      }
+    }
 
-    for (const oldId of oldMenuIds) {
+    if (oldDuplicateIds.length === 0) return;
+
+    for (const oldId of oldDuplicateIds) {
       await manager.query(
         `DELETE FROM admin_group_menu_priv WHERE menu_id = $1`,
         [oldId],
       );
     }
 
-    const placeholders = oldMenuIds.map((_, i) => `$${i + 1}`).join(', ');
+    const placeholders = oldDuplicateIds.map((_, i) => `$${i + 1}`).join(', ');
     await manager.query(
       `DELETE FROM admin_menu_details WHERE id IN (${placeholders})`,
-      oldMenuIds,
+      oldDuplicateIds,
     );
 
     this.logger.log(
-      `Cleaned up ${oldMenuIds.length} old duplicate menu(s) and their permissions`,
+      `Cleaned up ${oldDuplicateIds.length} old duplicate menu(s) and their permissions`,
     );
   }
 

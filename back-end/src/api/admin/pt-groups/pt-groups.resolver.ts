@@ -16,6 +16,8 @@ import {
 } from './response/pt-group-menu.response';
 import { Public } from 'src/api/auth/jwt-guard/public.decorator';
 import { MenuListResponse } from './response/pt-menu-list.response';
+import { AdminMenuDetailResponse, AdminMenuDetailListResponse } from './response/pt-admin-menu.response';
+import { AddAdminMenuInput, UpdateAdminMenuInput, BulkUpdateAdminMenuInput } from './dto/admin-menu.dto';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
@@ -469,6 +471,81 @@ export class PtGroupsResolver {
       const errMsg = error.message ? error.message : error;
       this.logger.error(`Errored inside the client with message: ${errMsg}`);
       return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Query(() => AdminMenuDetailListResponse, {
+    name: 'adminFetchAllMenuDetails',
+    description: 'Fetches all admin menus with full details.',
+  })
+  async adminFetchAllMenuDetails() {
+    try {
+      const response = await this.ptGroupsService.adminFetchAllMenuDetails();
+      return framedResponse('SUCCESS', 'Admin menus fetched successfully', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => AdminMenuDetailResponse, {
+    name: 'adminAddMenu',
+    description: 'Add a new admin menu.',
+  })
+  async adminAddMenu(@Args('input') input: AddAdminMenuInput) {
+    try {
+      const response = await this.ptGroupsService.adminAddMenu(input);
+      return framedResponse('SUCCESS', 'Menu added successfully', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => AdminMenuDetailResponse, {
+    name: 'adminUpdateMenu',
+    description: 'Update an existing admin menu.',
+  })
+  async adminUpdateMenu(@Args('input') input: UpdateAdminMenuInput) {
+    try {
+      const response = await this.ptGroupsService.adminUpdateMenu(input);
+      return framedResponse('SUCCESS', 'Menu updated successfully', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => AdminMenuDetailResponse, {
+    name: 'adminDeleteMenu',
+    description: 'Delete an admin menu.',
+  })
+  async adminDeleteMenu(@Args('id') id: string) {
+    try {
+      await this.ptGroupsService.adminDeleteMenu(id);
+      return framedResponse('SUCCESS', 'Menu deleted successfully');
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Mutation(() => AdminMenuDetailListResponse, {
+    name: 'adminBulkUpdateMenus',
+    description: 'Bulk update admin menus.',
+  })
+  async adminBulkUpdateMenus(@Args('input') input: BulkUpdateAdminMenuInput) {
+    try {
+      const response = await this.ptGroupsService.adminBulkUpdateMenus(input.menus);
+      return framedResponse('SUCCESS', 'Menus updated successfully', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
     }
   }
 }

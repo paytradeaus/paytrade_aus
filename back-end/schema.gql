@@ -223,6 +223,16 @@ type ActivityLogResponse {
   status: String!
 }
 
+input AddAdminMenuInput {
+  menu_description: String = ""
+  menu_icon: String = ""
+  menu_name: String!
+  menu_order: Float!
+  menu_status: String = "Active"
+  route_path: String!
+  sub_menus: [SubMenuInput!]
+}
+
 """Input type for adding a comment to an answer in a discussion idea."""
 input AddAnswerCommentInput {
   """Text content of the answer comment."""
@@ -1184,6 +1194,35 @@ input AdminCreateUserInput {
   user_timezone: String
 }
 
+type AdminMenuDetail {
+  id: String!
+  menu_description: String
+  menu_icon: String
+  menu_name: String!
+  menu_order: Int!
+  menu_status: String
+  route_path: String!
+  sub_menus: [AdminMenuSubMenu!]
+}
+
+type AdminMenuDetailListResponse {
+  data: [AdminMenuDetail!]
+  message: String!
+  status: String!
+}
+
+type AdminMenuDetailResponse {
+  data: AdminMenuDetail
+  message: String!
+  status: String!
+}
+
+type AdminMenuSubMenu {
+  icon: String
+  name: String
+  route: String
+}
+
 """Input type for updating a financial institution by admin"""
 input AdminUpdateFinInsInput {
   """Maximum length allowed for account numbers at this institution"""
@@ -1430,6 +1469,10 @@ type BlogCommentDto {
 
   """Date when the comment was posted."""
   posted_on: DateTime
+}
+
+input BulkUpdateAdminMenuInput {
+  menus: [UpdateAdminMenuInput!]!
 }
 
 input BulkUpdatePricingTableFeaturesInput {
@@ -13175,6 +13218,9 @@ type Mutation {
     """Details of the master type to add"""
     masterTypes: CreateMasterTypeInput!
   ): PTMasterTypesResponse!
+
+  """Add a new admin menu."""
+  adminAddMenu(input: AddAdminMenuInput!): AdminMenuDetailResponse!
   adminAddPricingTableFeature(input: AddPricingTableFeatureInput!): PricingTableFeatureResponse!
 
   """Add a new SEO keyword with landing page configuration."""
@@ -13207,6 +13253,9 @@ type Mutation {
     """Indicates whether the subscription plan should be archived."""
     is_archived: Boolean = true
   ): PtSubscriptionPlanResponse!
+
+  """Bulk update admin menus."""
+  adminBulkUpdateMenus(input: BulkUpdateAdminMenuInput!): AdminMenuDetailListResponse!
   adminBulkUpdatePricingTableFeatures(input: BulkUpdatePricingTableFeaturesInput!): PricingTableFeatureListResponse!
 
   """
@@ -13219,6 +13268,9 @@ type Mutation {
     """Optional: Blog or Resource ID associated with the attachment"""
     blogResId: String
   ): StringResponse!
+
+  """Delete an admin menu."""
+  adminDeleteMenu(id: String!): AdminMenuDetailResponse!
   adminDeletePricingTableFeature(id: String!): PricingTableFeatureResponse!
 
   """Delete an SEO keyword."""
@@ -13316,6 +13368,9 @@ type Mutation {
     """Details of the master type to update"""
     masterTypes: UpdateMasterTypeInput!
   ): PTMasterTypesResponse!
+
+  """Update an existing admin menu."""
+  adminUpdateMenu(input: UpdateAdminMenuInput!): AdminMenuDetailResponse!
   adminUpdatePricingTableFeature(input: UpdatePricingTableFeatureInput!): PricingTableFeatureResponse!
 
   """Update an existing SEO keyword."""
@@ -15876,6 +15931,9 @@ type Query {
     """
     listCommunityFlagsInput: ListCommunityFlagsInput!
   ): likeVoteFlagListResponse!
+
+  """Fetches all admin menus with full details."""
+  adminFetchAllMenuDetails: AdminMenuDetailListResponse!
   adminGetAllPricingTableFeatures: PricingTableFeatureListResponse!
 
   """Fetches blog/resource details by ID."""
@@ -18534,6 +18592,12 @@ type SubMenu {
   route: String
 }
 
+input SubMenuInput {
+  icon: String! = ""
+  name: String!
+  route: String!
+}
+
 """Represents a newly submitted contact message."""
 type SubmitAContact {
   """Unique identifier of the submitted contact."""
@@ -19324,6 +19388,17 @@ input UpdateAdminInput {
 
   """Type of signature"""
   signature_type: String
+}
+
+input UpdateAdminMenuInput {
+  id: String!
+  menu_description: String
+  menu_icon: String
+  menu_name: String
+  menu_order: Float
+  menu_status: String
+  route_path: String
+  sub_menus: [SubMenuInput!]
 }
 
 """Input type for updating an existing answer comment."""

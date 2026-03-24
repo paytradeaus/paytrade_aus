@@ -151,6 +151,11 @@ const adminSidebar = [
     name: "Admin guides",
   },
   {
+    routePath: AppRoutes.ADMIN_MENU_MANAGEMENT,
+    icon: "fa-light fa-bars",
+    name: "Admin menus",
+  },
+  {
     routePath: AppRoutes.ADMIN_ACTIVITY_LOG,
     icon: "fa-light fa-rectangle-history-circle-user",
     name: "Activity log",
