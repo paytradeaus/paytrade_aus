@@ -332,23 +332,19 @@ export default function SeoKeywordsList() {
           <div className="pt_pagetitle">
             <h1>SEO Keywords</h1>
           </div>
-          <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
-            <button
-              className="secondary"
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              <i className={exporting ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-export"}></i>
-              {exporting ? "Exporting..." : "Export JSON"}
-            </button>
-            <button
-              className="secondary"
-              onClick={() => importFileRef.current?.click()}
-              disabled={importing}
-            >
-              <i className={importing ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-import"}></i>
-              {importing ? "Importing..." : "Import JSON"}
-            </button>
+          <div className="pt_pageactions">
+            <a className="pt_addnewbutton" onClick={handleExport}>
+              <button className="secondary" disabled={exporting}>
+                <i className={exporting ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-export"}></i>
+                {exporting ? "Exporting..." : "Export JSON"}
+              </button>
+            </a>
+            <a className="pt_addnewbutton" onClick={() => importFileRef.current?.click()}>
+              <button className="secondary" disabled={importing}>
+                <i className={importing ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-import"}></i>
+                {importing ? "Importing..." : "Import JSON"}
+              </button>
+            </a>
             <input
               type="file"
               ref={importFileRef}
