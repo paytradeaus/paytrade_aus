@@ -20,28 +20,39 @@ export class KeepAliveService {
     try {
       const healthUrl = new URL('/health', this.appUrl).toString();
       
-      await new Promise<void>((resolve) => {
+      const result = await new Promise<{ statusCode: number; body: string }>((resolve) => {
         const req = https.get(healthUrl, { timeout: 10000 }, (res) => {
-          if (res.statusCode === 200) {
-            this.logger.log(`Keep-alive ping successful: ${res.statusCode}`);
-          } else {
-            this.logger.warn(`Keep-alive ping returned: ${res.statusCode}`);
-          }
-          res.resume();
-          resolve();
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            resolve({ statusCode: res.statusCode, body: data });
+          });
         });
 
         req.on('error', (err) => {
           this.logger.error(`Keep-alive ping failed: ${err.message}`);
-          resolve();
+          resolve({ statusCode: 0, body: err.message });
         });
 
         req.on('timeout', () => {
           req.destroy();
           this.logger.warn('Keep-alive ping timeout');
-          resolve();
+          resolve({ statusCode: 0, body: 'timeout' });
         });
       });
+
+      if (result.statusCode === 200) {
+        this.logger.log(`Keep-alive ping successful: ${result.statusCode}`);
+      } else if (result.statusCode === 503) {
+        try {
+          const status = JSON.parse(result.body);
+          this.logger.warn(`Keep-alive: service degraded - backend: ${status.backend}, frontend: ${status.frontend}`);
+        } catch {
+          this.logger.warn(`Keep-alive ping returned: ${result.statusCode}`);
+        }
+      } else if (result.statusCode > 0) {
+        this.logger.warn(`Keep-alive ping returned: ${result.statusCode}`);
+      }
     } catch (error) {
       this.logger.error(`Keep-alive error: ${error.message}`);
     }

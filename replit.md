@@ -27,8 +27,8 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Logging**: A custom `PaytradeLogger` writes logs to local files and persistently to Replit Object Storage (`application-logs/`) in production, with daily cleanup.
 - **PDF Generation**: Puppeteer generates PDFs, which are immediately uploaded to Object Storage (e.g., `notices-generated/`).
 - **Community Bot**: A cron-scheduled module uses OpenAI GPT-4o to generate Q&A content for the community, creating bot users with realistic personas.
-- **Deployment Stability**: Production deployments use `no-store, no-cache` headers for HTML and RSC responses to mitigate stale cache issues with Next.js Server Actions. A `KeepAliveModule` and a backend auto-restart script enhance stability.
-- **Monitoring**: A `/health` endpoint is available for monitoring, and `production-server.js` monitors backend health, sending email alerts on failures.
+- **Deployment Stability**: Production deployments use `no-store, no-cache` headers for HTML and RSC responses to mitigate stale cache issues with Next.js Server Actions. Both backend and frontend have auto-restart loops in `start-production.sh`. The proxy uses `changeOrigin: true` for frontend requests to prevent Next.js host header validation issues (400 errors on static assets).
+- **Monitoring**: `/health` endpoint returns real status of both backend and frontend (200 when both healthy, 503 with details when degraded). `production-server.js` monitors both backend (port 3001) and frontend (port 5001) health every 30 seconds, sending Brevo email alerts on failures. `KeepAliveService` pings `/health` every 5 minutes and logs degraded status details.
 
 ## Admin User Management
 - **Admin Menu Seeder**: `AdminMenuSeederModule` (`back-end/src/libs/@seeders/`) runs on app bootstrap via `OnApplicationBootstrap`. Seeds 22 master menus with fixed UUIDs, updates existing menus if any field changes (including sub_menus), cleans up old duplicate menus, and grants full permissions to all active admin groups. Uses raw SQL for `sub_menus` (json[]) updates to avoid TypeORM serialization issues. Idempotent — safe to run on every deploy.

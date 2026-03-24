@@ -31,8 +31,23 @@ for i in {1..60}; do
   sleep 2
 done
 
-echo "Starting frontend on port 5001..."
-cd /home/runner/workspace/front-end && npx next start -p 5001 -H 0.0.0.0 &
+start_frontend() {
+  echo "[$(date -u)] Starting frontend on port 5001..."
+  cd /home/runner/workspace/front-end && npx next start -p 5001 -H 0.0.0.0
+  local exit_code=$?
+  echo "[$(date -u)] Frontend exited with code $exit_code"
+  return $exit_code
+}
+
+start_frontend_with_restart() {
+  while true; do
+    start_frontend
+    echo "[$(date -u)] Frontend crashed. Restarting in 5 seconds..."
+    sleep 5
+  done
+}
+
+start_frontend_with_restart &
 FRONTEND_PID=$!
 
 echo "Waiting for frontend to be ready on port 5001..."

@@ -7,6 +7,9 @@ const BACKEND_PORT = 3001;
 const PROXY_PORT = 5000;
 
 let backendHealthy = true;
+let frontendHealthy = true;
+let frontendFailCount = 0;
+const FRONTEND_FAIL_THRESHOLD = 3;
 let lastCrashAlertSent = 0;
 const CRASH_ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -106,8 +109,55 @@ function checkBackendHealth() {
   req.end();
 }
 
+function checkFrontendHealth() {
+  const req = http.request({
+    hostname: '127.0.0.1',
+    port: FRONTEND_PORT,
+    path: '/',
+    method: 'HEAD',
+    timeout: 10000,
+    headers: { 'host': '127.0.0.1' },
+  }, (res) => {
+    if (res.statusCode < 500) {
+      if (!frontendHealthy) {
+        console.log(`[${new Date().toISOString()}] Frontend recovered - port ${FRONTEND_PORT} is responding (${res.statusCode})`);
+      }
+      frontendHealthy = true;
+      frontendFailCount = 0;
+    } else {
+      frontendFailCount++;
+      console.error(`[${new Date().toISOString()}] Frontend health check returned status ${res.statusCode} (fail ${frontendFailCount}/${FRONTEND_FAIL_THRESHOLD})`);
+      if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
+        frontendHealthy = false;
+        sendCrashAlertEmail(`Frontend is returning HTTP ${res.statusCode} on port ${FRONTEND_PORT}`);
+      }
+    }
+    res.resume();
+  });
+  req.on('error', (err) => {
+    frontendFailCount++;
+    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
+      console.error(`[${new Date().toISOString()}] Frontend health check FAILED - port ${FRONTEND_PORT} is not responding: ${err.message}`);
+      frontendHealthy = false;
+      sendCrashAlertEmail('Frontend is not responding on port ' + FRONTEND_PORT);
+    }
+  });
+  req.on('timeout', () => {
+    req.destroy();
+    frontendFailCount++;
+    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
+      console.error(`[${new Date().toISOString()}] Frontend health check TIMEOUT`);
+      frontendHealthy = false;
+      sendCrashAlertEmail('Frontend health check timed out');
+    }
+  });
+  req.end();
+}
+
 setInterval(checkBackendHealth, 30000);
+setInterval(checkFrontendHealth, 30000);
 setTimeout(checkBackendHealth, 5000);
+setTimeout(checkFrontendHealth, 10000);
 
 const proxy = httpProxy.createProxyServer({
   ws: true,
@@ -181,10 +231,16 @@ const server = http.createServer((req, res) => {
     return;
   }
   
-  // Health check endpoint for keeping the app warm
   if (url === '/health' || url === '/__health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    const status = backendHealthy && frontendHealthy ? 'ok' : 'degraded';
+    const code = backendHealthy && frontendHealthy ? 200 : 503;
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status,
+      timestamp: new Date().toISOString(),
+      backend: backendHealthy ? 'ok' : 'unhealthy',
+      frontend: frontendHealthy ? 'ok' : 'unhealthy',
+    }));
     return;
   }
   
@@ -277,7 +333,7 @@ const server = http.createServer((req, res) => {
       proxy.web(req, res, { target: `http://127.0.0.1:${BACKEND_PORT}` });
     }
   } else {
-    proxy.web(req, res, { target: `http://127.0.0.1:${FRONTEND_PORT}` });
+    proxy.web(req, res, { target: `http://127.0.0.1:${FRONTEND_PORT}`, changeOrigin: true });
   }
 });
 
@@ -288,7 +344,7 @@ server.on('upgrade', (req, socket, head) => {
     console.log('WebSocket upgrade for socket.io');
     proxy.ws(req, socket, head, { target: `http://127.0.0.1:${BACKEND_PORT}` });
   } else {
-    proxy.ws(req, socket, head, { target: `http://127.0.0.1:${FRONTEND_PORT}` });
+    proxy.ws(req, socket, head, { target: `http://127.0.0.1:${FRONTEND_PORT}`, changeOrigin: true });
   }
 });
 
