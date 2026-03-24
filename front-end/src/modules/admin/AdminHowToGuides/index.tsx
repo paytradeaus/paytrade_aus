@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import BreadCrumbs from "@/components/BreadCrumbs";
 import FormikControl from "@/components/FormikControl";
@@ -25,6 +25,7 @@ import {
   AdminListAllBlogResources,
   AdminUpdateBlogResource,
 } from "../AdminBlog/BlogList/blogList.function";
+import { AdminAddBlogResource } from "../AdminBlog/addBlog/addEditBlog.function";
 import {
   blogListHeaders,
   blogRenderData,
@@ -37,7 +38,7 @@ import {
   GenerateSignedUrl,
   getPDFUrl,
 } from "@/utils/export";
-import { showErrorToast } from "@/components/Toaster";
+import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 
 export default function AdminHowToGuides() {
   const [blogResourceDate, setBlogResourceData] = useState<any[]>([]);
@@ -61,6 +62,11 @@ export default function AdminHowToGuides() {
   const [buttonClickFrom, setButtonClickFrom] = useState<any>({});
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importData, setImportData] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isAnyFilterActive =
     search || statusType || authorValue || categoryValue;
 
@@ -307,6 +313,175 @@ export default function AdminHowToGuides() {
     }
   };
 
+  const handleExportJSON = async () => {
+    setExporting(true);
+    try {
+      let allGuides: any[] = [];
+      let page = 1;
+      const perPage = 100;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await AdminListAllBlogResources({
+          page,
+          perPage,
+          keyWord: "",
+          status: "",
+          category: "",
+          author: null,
+          contentType: "howToGuide",
+          sortingOrder: "",
+          sortingField: "",
+        });
+
+        if (response?.blogResources?.length > 0) {
+          allGuides = [...allGuides, ...response.blogResources];
+          hasMore = allGuides.length < (response.totalCount || 0);
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allGuides.length > 0) {
+        const exportData = allGuides.map((guide: any) => ({
+          title: guide.title,
+          content: guide.content,
+          content_type: guide.content_type,
+          blog_status: guide.blog_status,
+          category_id: guide.category?.id || "",
+          category_name: guide.category?.value || "",
+          tags: guide.tags || [],
+          enable_comments: guide.enable_comments,
+          urlSlug: guide.urlSlug,
+          banner_file_path: guide.banner?.file_path || null,
+          video_link: guide.video_link || null,
+        }));
+
+        const blob = new Blob(
+          [JSON.stringify({ guides: exportData, exportedAt: new Date().toISOString(), version: 1 }, null, 2)],
+          { type: "application/json" }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `how-to-guides-export-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showSuccessToast(`Exported ${exportData.length} guides successfully`);
+      } else {
+        showErrorToast("No guides found to export");
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      showErrorToast("Failed to export guides");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".json")) {
+      showErrorToast("Please select a JSON file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (!parsed?.guides || !Array.isArray(parsed.guides)) {
+          showErrorToast("Invalid file format: missing 'guides' array");
+          return;
+        }
+        setImportData(parsed.guides);
+        setImportModalVisible(true);
+      } catch {
+        showErrorToast("Invalid JSON file");
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleImportConfirm = async () => {
+    setImporting(true);
+    setImportModalVisible(false);
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    const categoryData = await AdminFetchAllMasterTypeDetails("How To Guide Category");
+    const categoryByLabel: Record<string, string> = {};
+    const categoryById: Record<string, string> = {};
+    categoryData?.forEach((cat: any) => {
+      categoryByLabel[cat.label.trim().toLowerCase()] = cat.value;
+      categoryById[cat.value] = cat.value;
+    });
+
+    for (const guide of importData) {
+      try {
+        let categoryId = guide.category_id && categoryById[guide.category_id]
+          ? guide.category_id
+          : null;
+
+        if (!categoryId) {
+          const label = (guide.category_name || guide.category || "").trim().toLowerCase();
+          categoryId = categoryByLabel[label];
+        }
+
+        if (!categoryId) {
+          const categoryRef = guide.category_name || guide.category || "unknown";
+          errors.push(`"${guide.title}": category "${categoryRef}" not found`);
+          failCount++;
+          continue;
+        }
+
+        const payload = {
+          title: guide.title,
+          content: guide.content,
+          content_type: guide.content_type || "howToGuide",
+          blog_status: guide.blog_status || "Draft",
+          categoryId,
+          tags: guide.tags || [],
+          enable_comments: guide.enable_comments ?? false,
+          video_link: guide.video_link || null,
+        };
+
+        const result = await AdminAddBlogResource(payload);
+        if (result?.id) {
+          successCount++;
+        } else {
+          errors.push(`"${guide.title}": creation failed`);
+          failCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to import guide: ${guide.title}`, error);
+        errors.push(`"${guide.title}": ${error instanceof Error ? error.message : "unknown error"}`);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      showSuccessToast(`Imported ${successCount} guide(s) successfully${failCount > 0 ? `, ${failCount} failed` : ""}`);
+      fetchBlogLists();
+    } else {
+      showErrorToast(`Import failed: ${failCount} guide(s) could not be imported`);
+    }
+
+    if (errors.length > 0) {
+      console.error("Import errors:", errors);
+    }
+
+    setImporting(false);
+    setImportData([]);
+  };
+
   const handleDownloadPdfFile = async () => {
     setDisablePDFBtn(true);
     try {
@@ -349,7 +524,32 @@ export default function AdminHowToGuides() {
           <div className="pt_pagetitle">
             <h1>How to guides</h1>
           </div>
-          <div className="pt_pageactions">
+          <div className="pt_pageactions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <button
+              className="secondary"
+              onClick={handleExportJSON}
+              disabled={exporting}
+              title="Export all guides as JSON"
+            >
+              <i className="fa-light fa-file-export"></i>
+              {exporting ? "Exporting..." : "Export JSON"}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              title="Import guides from JSON file"
+            >
+              <i className="fa-light fa-file-import"></i>
+              {importing ? "Importing..." : "Import JSON"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: "none" }}
+              onChange={handleImportFileSelect}
+            />
             <Link href={"/admin/how-to-guides/add"} passHref legacyBehavior>
               <a className="pt_addnewbutton">
                 <button className="secondary">
@@ -497,6 +697,37 @@ export default function AdminHowToGuides() {
               Are you sure you wish to {buttonClickFrom?.from} this how to
               guides?
             </p>
+          </BaseModal>
+        )}
+        {importModalVisible && (
+          <BaseModal
+            modalId={"import guides modal"}
+            displayModal={importModalVisible}
+            title="Import How-To Guides"
+            onClose={() => {
+              setImportModalVisible(false);
+              setImportData([]);
+            }}
+            onConfirm={() => {
+              handleImportConfirm();
+              return true;
+            }}
+          >
+            <div>
+              <p>
+                Ready to import <strong>{importData.length}</strong> guide(s).
+                Guides will be created as new entries.
+              </p>
+              <div style={{ maxHeight: "200px", overflowY: "auto", marginTop: "10px" }}>
+                <ul style={{ paddingLeft: "20px", margin: 0 }}>
+                  {importData.map((guide: any, idx: number) => (
+                    <li key={idx} style={{ marginBottom: "4px" }}>
+                      {guide.title} <span style={{ color: "#888", fontSize: "12px" }}>({guide.category})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </BaseModal>
         )}
       </div>

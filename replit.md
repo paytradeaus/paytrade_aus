@@ -44,7 +44,12 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - 26 how-to guides seeded into the `blog_resource` table with `content_type = 'howToGuide'`
 - Categories stored in `master_types` with `master_type = 'How To Guide Category'`: Getting Started, Projects & Contracts, Payments & Claims, Bank & Trust Accounts, Trust Accounting, Compliance & Notices, Integrations, Community, Admin Panel, User Flows
 - Guide screenshots stored in `front-end/public/guide-screenshots/` (25 PNG files)
+- Each guide has a `bannerImage` linked to a `file_attachments` row pointing to its screenshot (one unique file_attachment per guide due to UNIQUE constraint on `bannerImage`)
+- 4 Admin Panel category guides are set to `Unpublished` (hidden from public `/how-to-guides/` but manageable in admin)
+- 22 user-facing guides remain `Published`
 - Guides are publicly viewable at `/how-to-guides/[category]/[slug]/[id]`
-- Admin-managed at `/admin/how-to-guides`
+- Admin-managed at `/admin/how-to-guides` with Export JSON / Import JSON buttons for backup and restore
+- Export downloads all guides as a structured JSON file with category IDs + labels, content, tags, status, and banner paths
+- Import reads a JSON file, validates categories (by ID with label fallback), and creates guides via the existing `adminAddBlogResource` mutation
 - Seeder script: `scripts/capture-screenshots-and-seed-guides.js`
 - Comprehensive system documentation: `PayTrade-System-Guide.md`
