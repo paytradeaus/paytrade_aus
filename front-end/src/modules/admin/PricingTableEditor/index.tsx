@@ -306,12 +306,9 @@ export default function PricingTableEditor() {
           <div className="pt_pagetitle">
             <h1>Pricing Table Features</h1>
           </div>
-          <div
-            className="pt_pageactions"
-            style={{ display: "flex", gap: "10px", alignItems: "center" }}
-          >
+          <div className="pt_pageactions">
             <button
-              className={`secondary ${styles.previewBtn}`}
+              className="secondary"
               onClick={() => setShowPreview(!showPreview)}
             >
               <i
@@ -333,13 +330,14 @@ export default function PricingTableEditor() {
               onClick={addNewRow}
               disabled={showPreview}
             >
-              <i className="fa-light fa-plus"></i>
+              <i className="fa-light fa-hexagon-plus"></i>
               Add Feature
             </button>
             <button
-              className="primary"
+              className="secondary"
               onClick={handleSaveAll}
               disabled={!hasChanges || saving || showPreview}
+              style={hasChanges && !saving && !showPreview ? { background: "var(--river)", color: "var(--wind)" } : undefined}
             >
               <i
                 className={`fa-light ${
@@ -407,121 +405,133 @@ export default function PricingTableEditor() {
               </div>
             </div>
           ) : (
-            <div className={styles.editorTable}>
-              <div className={styles.tableHeader}>
-                <div className={styles.colOrder}>#</div>
-                <div className={styles.colName}>Feature Name</div>
-                <div className={styles.colValue}>Basic</div>
-                <div className={styles.colValue}>Standard</div>
-                <div className={styles.colValue}>Advanced</div>
-                <div className={styles.colValue}>Pro Audit</div>
-                <div className={styles.colStatus}>Status</div>
-                <div className={styles.colActions}>Actions</div>
-              </div>
-              {features.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <p>No features configured yet. Click &quot;Add Feature&quot; to get started.</p>
-                </div>
-              ) : (
-                features.map((feature, index) => (
-                  <div
-                    key={feature.id || `new-${index}`}
-                    className={`${styles.tableRow} ${
-                      feature.isModified ? styles.modified : ""
-                    } ${feature.isNew ? styles.newRow : ""}`}
-                  >
-                    <div className={styles.colOrder}>
-                      <div className={styles.orderControls}>
-                        <button
-                          onClick={() => moveRow(index, "up")}
-                          disabled={index === 0}
-                          className={styles.orderBtn}
-                          title="Move up"
-                        >
-                          <i className="fa-light fa-chevron-up"></i>
-                        </button>
-                        <span>{feature.display_order}</span>
-                        <button
-                          onClick={() => moveRow(index, "down")}
-                          disabled={index === features.length - 1}
-                          className={styles.orderBtn}
-                          title="Move down"
-                        >
-                          <i className="fa-light fa-chevron-down"></i>
-                        </button>
-                      </div>
-                    </div>
-                    <div className={styles.colName}>
-                      <input
-                        type="text"
-                        value={feature.feature_name}
-                        onChange={(e) =>
-                          updateFeature(index, "feature_name", e.target.value)
+            <div className="pt_defaulttable_scroll">
+              <table className="pt_defaulttable">
+                <thead>
+                  <tr>
+                    <th style={{ width: "70px", textAlign: "center" }}>#</th>
+                    <th style={{ minWidth: "180px" }}>Feature Name</th>
+                    <th style={{ minWidth: "130px" }}>Basic</th>
+                    <th style={{ minWidth: "130px" }}>Standard</th>
+                    <th style={{ minWidth: "130px" }}>Advanced</th>
+                    <th style={{ minWidth: "130px" }}>Pro Audit</th>
+                    <th style={{ width: "110px" }}>Status</th>
+                    <th style={{ width: "60px", textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {features.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className={styles.emptyState}>
+                        No features configured yet. Click &quot;Add Feature&quot; to get started.
+                      </td>
+                    </tr>
+                  ) : (
+                    features.map((feature, index) => (
+                      <tr
+                        key={feature.id || `new-${index}`}
+                        className={
+                          feature.isNew
+                            ? styles.newRow
+                            : feature.isModified
+                            ? styles.modifiedRow
+                            : ""
                         }
-                        className={styles.nameInput}
-                        placeholder="Feature name"
-                      />
-                    </div>
-                    <div className={styles.colValue}>
-                      <ValueCell
-                        value={feature.basic_value || "false"}
-                        onChange={(val) =>
-                          updateFeature(index, "basic_value", val)
-                        }
-                      />
-                    </div>
-                    <div className={styles.colValue}>
-                      <ValueCell
-                        value={feature.standard_value || "false"}
-                        onChange={(val) =>
-                          updateFeature(index, "standard_value", val)
-                        }
-                      />
-                    </div>
-                    <div className={styles.colValue}>
-                      <ValueCell
-                        value={feature.advanced_value || "false"}
-                        onChange={(val) =>
-                          updateFeature(index, "advanced_value", val)
-                        }
-                      />
-                    </div>
-                    <div className={styles.colValue}>
-                      <ValueCell
-                        value={feature.pro_audit_value || "false"}
-                        onChange={(val) =>
-                          updateFeature(index, "pro_audit_value", val)
-                        }
-                      />
-                    </div>
-                    <div className={styles.colStatus}>
-                      <select
-                        value={feature.status}
-                        onChange={(e) =>
-                          updateFeature(index, "status", e.target.value)
-                        }
-                        className={`${styles.statusSelect} ${
-                          feature.status === "Active"
-                            ? styles.active
-                            : styles.inactive
-                        }`}
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-                    <div className={styles.colActions}>
-                      <button
-                        onClick={() => handleDelete(feature)}
-                        className={styles.deleteBtn}
-                        title="Delete feature"
-                      >
-                        <i className="fa-light fa-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+                        <td style={{ textAlign: "center" }}>
+                          <div className={styles.orderControls}>
+                            <button
+                              onClick={() => moveRow(index, "up")}
+                              disabled={index === 0}
+                              className={styles.orderBtn}
+                              title="Move up"
+                            >
+                              <i className="fa-light fa-chevron-up"></i>
+                            </button>
+                            <span>{feature.display_order}</span>
+                            <button
+                              onClick={() => moveRow(index, "down")}
+                              disabled={index === features.length - 1}
+                              className={styles.orderBtn}
+                              title="Move down"
+                            >
+                              <i className="fa-light fa-chevron-down"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={feature.feature_name}
+                            onChange={(e) =>
+                              updateFeature(index, "feature_name", e.target.value)
+                            }
+                            className={styles.nameInput}
+                            placeholder="Feature name"
+                          />
+                        </td>
+                        <td className={styles.valueTd}>
+                          <ValueCell
+                            value={feature.basic_value || "false"}
+                            onChange={(val) =>
+                              updateFeature(index, "basic_value", val)
+                            }
+                          />
+                        </td>
+                        <td className={styles.valueTd}>
+                          <ValueCell
+                            value={feature.standard_value || "false"}
+                            onChange={(val) =>
+                              updateFeature(index, "standard_value", val)
+                            }
+                          />
+                        </td>
+                        <td className={styles.valueTd}>
+                          <ValueCell
+                            value={feature.advanced_value || "false"}
+                            onChange={(val) =>
+                              updateFeature(index, "advanced_value", val)
+                            }
+                          />
+                        </td>
+                        <td className={styles.valueTd}>
+                          <ValueCell
+                            value={feature.pro_audit_value || "false"}
+                            onChange={(val) =>
+                              updateFeature(index, "pro_audit_value", val)
+                            }
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={feature.status}
+                            onChange={(e) =>
+                              updateFeature(index, "status", e.target.value)
+                            }
+                            className={`${styles.statusSelect} ${
+                              feature.status === "Active"
+                                ? styles.active
+                                : styles.inactive
+                            }`}
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                          </select>
+                        </td>
+                        <td className={styles.actionsTd}>
+                          <button
+                            onClick={() => handleDelete(feature)}
+                            className={styles.deleteBtn}
+                            title="Delete feature"
+                          >
+                            <i className="fa-light fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
