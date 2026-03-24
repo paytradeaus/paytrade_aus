@@ -47,7 +47,7 @@ export class KeepAliveService {
         try {
           const status = JSON.parse(result.body);
           this.logger.warn(`Keep-alive: service degraded - backend: ${status.backend}, frontend: ${status.frontend}`);
-        } catch {
+        } catch (e) {
           this.logger.warn(`Keep-alive ping returned: ${result.statusCode}`);
         }
       } else if (result.statusCode > 0) {
