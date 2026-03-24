@@ -36,6 +36,34 @@ const VALUE_OPTIONS = [
   { label: "Manual", value: "Manual" },
 ];
 
+const DEFAULT_FEATURES: Omit<FeatureRow, "id">[] = [
+  { feature_name: "Users", display_order: 1, basic_value: "1", standard_value: "5", advanced_value: "Unlimited", pro_audit_value: "Unlimited", status: "Active" },
+  { feature_name: "Projects", display_order: 2, basic_value: "1", standard_value: "1", advanced_value: "10", pro_audit_value: "Unlimited", status: "Active" },
+  { feature_name: "Trusts", display_order: 3, basic_value: "2", standard_value: "2", advanced_value: "10", pro_audit_value: "Unlimited", status: "Active" },
+  { feature_name: "Trust 7 year history", display_order: 4, basic_value: "2", standard_value: "2", advanced_value: "10", pro_audit_value: "Unlimited", status: "Active" },
+  { feature_name: "Principals", display_order: 5, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Head Contractors", display_order: 6, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Sub Contracts", display_order: 7, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Notices", display_order: 8, basic_value: "Manual", standard_value: "Automated", advanced_value: "Automated", pro_audit_value: "Automated", status: "Active" },
+  { feature_name: "ABA Generation", display_order: 9, basic_value: "false", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Bank Fees", display_order: 10, basic_value: "false", standard_value: "Coming soon", advanced_value: "Coming soon", pro_audit_value: "Coming soon", status: "Active" },
+  { feature_name: "Delegate authority", display_order: 11, basic_value: "false", standard_value: "false", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Xero Integration", display_order: 12, basic_value: "false", standard_value: "false", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Onboarding support", display_order: 13, basic_value: "false", standard_value: "false", advanced_value: "1 hour", pro_audit_value: "3 hours", status: "Active" },
+  { feature_name: "Audit export", display_order: 14, basic_value: "false", standard_value: "false", advanced_value: "false", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Trust account records", display_order: 15, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Community", display_order: 16, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Eligibility checks", display_order: 17, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Account opening", display_order: 18, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Progress claim", display_order: 19, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Payment schedule", display_order: 20, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Compliance monitoring", display_order: 21, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Retention record", display_order: 22, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Notice management", display_order: 23, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Contract management", display_order: 24, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+  { feature_name: "Accountant access", display_order: 25, basic_value: "true", standard_value: "true", advanced_value: "true", pro_audit_value: "true", status: "Active" },
+];
+
 function ValueCell({
   value,
   onChange,
@@ -153,6 +181,16 @@ export default function PricingTableEditor() {
     (updated[index] as any)[field] = value;
     updated[index].isModified = true;
     setFeatures(updated);
+    setHasChanges(true);
+  };
+
+  const applyFallback = () => {
+    const fallbackRows: FeatureRow[] = DEFAULT_FEATURES.map((f) => ({
+      ...f,
+      isNew: true,
+      isModified: true,
+    }));
+    setFeatures(fallbackRows);
     setHasChanges(true);
   };
 
@@ -281,6 +319,15 @@ export default function PricingTableEditor() {
               ></i>
               {showPreview ? "Edit Mode" : "Preview"}
             </button>
+            {features.length === 0 && !showPreview && (
+              <button
+                className="secondary"
+                onClick={applyFallback}
+              >
+                <i className="fa-light fa-arrow-rotate-left"></i>
+                Apply Fallback
+              </button>
+            )}
             <button
               className="secondary"
               onClick={addNewRow}
