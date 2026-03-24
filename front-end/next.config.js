@@ -10,7 +10,6 @@ module.exports = {
   optimizeFonts: true,
   transpilePackages: ['react-image-crop', 'react-toastify'],
   allowedDevOrigins: ['*.replit.dev', '*.janeway.replit.dev'],
-  serverExternalPackages: [],
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
