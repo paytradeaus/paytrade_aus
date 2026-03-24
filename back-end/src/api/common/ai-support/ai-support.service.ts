@@ -13,6 +13,7 @@ import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { MasterTypes } from 'src/entities/master-types.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { Role } from 'src/api/auth/role-guard/role.enum';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -141,12 +142,14 @@ export class AiSupportService {
       .getMany();
 
     for (const disc of discussions) {
+      const discCatSlug = this.slugify(disc.category?.value || 'general');
+      const discTitleSlug = this.slugify(disc.title);
       results.push({
         id: disc.id,
         type: 'discussion',
         title: disc.title,
         snippet: this.truncate(this.stripHtml(disc.content), 150),
-        url: `/community/discussions/${disc.discussion_idea_id}`,
+        url: `/community/discussions/${discCatSlug}/${discTitleSlug}/${disc.id}`,
         category: disc.category?.value || 'Discussion',
       });
     }
@@ -154,6 +157,7 @@ export class AiSupportService {
     const answers = await this.answersRepo
       .createQueryBuilder('ans')
       .leftJoinAndSelect('ans.discussionIdea', 'disc')
+      .leftJoinAndSelect('disc.category', 'discCat')
       .where('ans.answer_comment_status = :status', { status: 'Approved' })
       .andWhere('ans.answer_comment ILIKE :pattern', { pattern: searchPattern })
       .andWhere('disc.discussion_idea_status = :dStatus', { dStatus: 'Active' })
@@ -162,16 +166,29 @@ export class AiSupportService {
 
     for (const ans of answers) {
       if (ans.discussionIdea) {
+        const ansCatSlug = this.slugify(ans.discussionIdea.category?.value || 'general');
+        const ansTitleSlug = this.slugify(ans.discussionIdea.title);
         results.push({
           id: ans.id,
           type: 'answer',
           title: ans.discussionIdea.title || 'Community Answer',
           snippet: this.truncate(this.stripHtml(ans.answer_comment), 150),
-          url: `/community/discussions/${ans.discussionIdea.discussion_idea_id}`,
+          url: `/community/discussions/${ansCatSlug}/${ansTitleSlug}/${ans.discussionIdea.id}`,
           category: 'Community Answer',
         });
       }
     }
+
+    results.sort((a, b) => {
+      const queryLower = trimmed.toLowerCase();
+      const aTitle = (a.title || '').toLowerCase();
+      const bTitle = (b.title || '').toLowerCase();
+      const aExact = aTitle.includes(queryLower) ? 1 : 0;
+      const bExact = bTitle.includes(queryLower) ? 1 : 0;
+      if (aExact !== bExact) return bExact - aExact;
+      const typePriority: Record<string, number> = { faq: 0, guide: 1, discussion: 2, answer: 3 };
+      return (typePriority[a.type] ?? 4) - (typePriority[b.type] ?? 4);
+    });
 
     const totalCount = results.length;
     const start = (safePage - 1) * safePerPage;
@@ -302,13 +319,6 @@ export class AiSupportService {
 
     if (bestTier === 'paid' && bestCompanyId) {
       const cutoff = new Date(Date.now() - PAID_WINDOW_MS);
-      const used = await this.aiSupportUsage.count({
-        where: {
-          company_id: bestCompanyId,
-          asked_at: new Date(cutoff.getTime()) as any,
-        },
-      });
-
       const actualUsed = await this.aiSupportUsage
         .createQueryBuilder('u')
         .where('u.company_id = :companyId', { companyId: bestCompanyId })
@@ -370,9 +380,55 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
     return response.output_text || 'I was unable to generate a response. Please contact our support team for help.';
   }
 
+  private async getOrCreateAiBotUser(): Promise<UserDetails | null> {
+    const AI_BOT_EMAIL = 'ai-support@paytrade.app';
+
+    let botUser = await this.userDetails.findOne({
+      where: { email_id: AI_BOT_EMAIL },
+    });
+
+    if (!botUser) {
+      try {
+        const bcrypt = await import('bcryptjs');
+        const hashedPassword = await bcrypt.hash(`ai_bot_${Date.now()}`, 10);
+        botUser = this.userDetails.create({
+          first_name: 'PayTrade',
+          last_name: 'AI',
+          email_id: AI_BOT_EMAIL,
+          position_title: 'AI Support Assistant',
+          company_name: 'PayTrade',
+          occupation: 'AI Assistant',
+          user_phone_no: '0000000000',
+          user_address: 'Brisbane CBD, QLD',
+          country: 'Australia',
+          region: 'Queensland',
+          password: hashedPassword,
+          user_status: 'Active',
+          user_role: Role.BASIC_USER,
+          is_verified: true,
+          is_bot: true,
+          user_mode: 'Normal',
+          show_popup: false,
+          created_group: 'SYSTEM',
+          updated_group: 'SYSTEM',
+        });
+        botUser = await this.userDetails.save(botUser);
+        this.logger.log(`Created PayTrade AI bot user: ${botUser.user_id}`);
+      } catch (err) {
+        this.logger.error(`Failed to create AI bot user: ${err.message}`);
+        return null;
+      }
+    }
+
+    return botUser;
+  }
+
   private async postToCommunity(userId: number, question: string, answer: string): Promise<string | null> {
     const user = await this.userDetails.findOne({ where: { user_id: userId } });
     if (!user) return null;
+
+    const botUser = await this.getOrCreateAiBotUser();
+    if (!botUser) return null;
 
     let category = await this.masterTypes.findOne({
       where: { value: 'General', master_type: 'Discussion Category' },
@@ -405,11 +461,12 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
     saved.discussion_idea_id = Number(saved.discussion_idea_id) + 10000000;
     const finalDisc = await this.discussionsRepo.save(saved);
 
+    const sanitisedAnswer = this.escapeHtml(answer);
     const answerRecord = this.answersRepo.create({
-      answer_comment: `<p><em>This answer was generated by PayTrade AI and may not be fully accurate. Please verify important details with PayTrade support.</em></p>\n${answer}`,
+      answer_comment: `<p><em>This answer was generated by PayTrade AI and may not be fully accurate. Please verify important details with PayTrade support.</em></p><p>${sanitisedAnswer.replace(/\n/g, '</p><p>')}</p>`,
       answer_comment_status: 'Approved',
       discussionIdea: finalDisc,
-      author: user,
+      author: botUser,
       created_group: 'SYSTEM',
       updated_group: 'SYSTEM',
     });
