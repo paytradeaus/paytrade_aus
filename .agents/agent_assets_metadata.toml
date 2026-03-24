@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "a2a30PHR7zvkwSC5wzUII"
+uri = "file://PayTrade-System-Guide.md"
+type = "text"
+title = "PayTrade Complete System Guide"
