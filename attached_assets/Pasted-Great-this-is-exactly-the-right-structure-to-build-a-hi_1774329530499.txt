@@ -1,0 +1,272 @@
+Great — this is exactly the right structure to build a **highly scalable SEO content engine** for Pay Trade.
+
+Below is a **strategic keyword page list** designed to:
+
+* Capture **high-intent search traffic (compliance, setup, requirements)**
+* Cover **long-tail queries (how-to, roles, mistakes)**
+* Build **topical authority around QBCC + BIF Act + Project Trusts**
+* Feed your **guides, blog, and community content dynamically**
+
+---
+
+# 🔑 CORE SEO KEYWORD PAGE LIST (READY TO INPUT)
+
+You can copy these directly into your system.
+
+---
+
+## 🧱 1. PRIMARY / HIGH-INTENT PAGES (MUST HAVE)
+
+### 1.
+
+* **Keyword:** QBCC Project Trust Account
+* **URL Slug:** qbcc-project-trust-account
+* **Page Title:** QBCC Project Trust Accounts Explained (QLD Guide)
+* **Meta Description:** Learn how QBCC project trust accounts work in Queensland, including setup, compliance requirements, and obligations under the BIF Act.
+* **Tags:** QBCC, project trust, Queensland construction, BIF Act
+* **Page Content (HTML):**
+
+```html
+<h2>QBCC Project Trust Accounts</h2>
+<p>This guide explains how project trust accounts work under QBCC regulations in Queensland.</p>
+```
+
+---
+
+### 2.
+
+* **Keyword:** BIF Act Queensland Project Trust
+* **URL Slug:** bif-act-project-trust-qld
+* **Page Title:** BIF Act Project Trust Requirements in Queensland
+* **Meta Description:** Understand project trust requirements under the BIF Act in Queensland, including who needs one and how to comply.
+* **Tags:** BIF Act, project trust, QLD law, construction compliance
+
+---
+
+### 3.
+
+* **Keyword:** Project Trust Account Requirements QLD
+* **URL Slug:** project-trust-requirements-qld
+* **Page Title:** Project Trust Account Requirements in Queensland
+* **Meta Description:** Full breakdown of project trust account requirements in QLD, including thresholds, contracts, and responsibilities.
+* **Tags:** project trust requirements, QBCC rules, compliance
+
+---
+
+### 4.
+
+* **Keyword:** How to Set Up a Project Trust Account
+* **URL Slug:** setup-project-trust-account
+* **Page Title:** How to Set Up a Project Trust Account (QLD Step-by-Step)
+* **Meta Description:** Step-by-step guide to setting up a project trust account in Queensland under QBCC regulations.
+* **Tags:** setup, trust account, QBCC, construction finance
+
+---
+
+### 5.
+
+* **Keyword:** QBCC Trust Account Software
+* **URL Slug:** qbcc-trust-account-software
+* **Page Title:** QBCC Trust Account Software for Project Compliance
+* **Meta Description:** Discover software solutions for managing QBCC trust accounts and staying compliant with the BIF Act.
+* **Tags:** software, trust accounting, QBCC, SaaS
+
+---
+
+## 🏗️ 2. ROLE-BASED PAGES (HIGH CONVERSION)
+
+### 6.
+
+* **Keyword:** Project Trust for Head Contractors
+* **URL Slug:** project-trust-head-contractors
+* **Page Title:** Project Trust Requirements for Head Contractors (QLD)
+* **Meta Description:** What head contractors must do to comply with project trust account laws in Queensland.
+* **Tags:** head contractor, QBCC, compliance
+
+---
+
+### 7.
+
+* **Keyword:** Project Trust for Subcontractors
+* **URL Slug:** project-trust-subcontractors
+* **Page Title:** Project Trust Accounts for Subcontractors Explained
+* **Meta Description:** Learn how project trust accounts affect subcontractors and payment protections under the BIF Act.
+* **Tags:** subcontractors, payments, BIF Act
+
+---
+
+### 8.
+
+* **Keyword:** Project Trust for Principals
+* **URL Slug:** project-trust-principals
+* **Page Title:** What Principals Need to Know About Project Trusts
+* **Meta Description:** A guide for principals on project trust requirements and obligations in Queensland construction projects.
+* **Tags:** principals, developers, trust accounts
+
+---
+
+## ⚙️ 3. PROCESS / HOW-TO PAGES (LONG-TAIL TRAFFIC)
+
+### 9.
+
+* **Keyword:** How Project Trust Accounts Work
+* **URL Slug:** how-project-trust-accounts-work
+* **Page Title:** How Project Trust Accounts Work in Queensland
+* **Meta Description:** A simple explanation of how project trust accounts operate and protect payments in construction.
+
+---
+
+### 10.
+
+* **Keyword:** Project Trust Payment Process
+* **URL Slug:** project-trust-payment-process
+* **Page Title:** Project Trust Payment Process Explained
+* **Meta Description:** Understand how payments flow through project trust accounts and who controls them.
+
+---
+
+### 11.
+
+* **Keyword:** Trust Account Record Keeping QBCC
+* **URL Slug:** trust-account-record-keeping-qbcc
+* **Page Title:** QBCC Trust Account Record Keeping Requirements
+* **Meta Description:** Learn what records must be kept for project trust accounts and how to stay compliant.
+
+---
+
+### 12.
+
+* **Keyword:** Project Trust Audit Requirements
+* **URL Slug:** project-trust-audit-requirements
+* **Page Title:** Project Trust Audit Requirements (QLD)
+* **Meta Description:** Understand audit requirements for project trust accounts under QBCC regulations.
+
+---
+
+## ⚠️ 4. PROBLEMS / RISKS (HIGH CLICK-THROUGH)
+
+### 13.
+
+* **Keyword:** QBCC Trust Account Penalties
+* **URL Slug:** qbcc-trust-account-penalties
+* **Page Title:** QBCC Trust Account Penalties and Fines
+* **Meta Description:** Learn the penalties for non-compliance with project trust account rules in Queensland.
+
+---
+
+### 14.
+
+* **Keyword:** Common Project Trust Mistakes
+* **URL Slug:** project-trust-mistakes
+* **Page Title:** Common Project Trust Mistakes to Avoid
+* **Meta Description:** Avoid costly errors when managing project trust accounts in Queensland construction.
+
+---
+
+### 15.
+
+* **Keyword:** Project Trust Compliance Checklist
+* **URL Slug:** project-trust-compliance-checklist
+* **Page Title:** Project Trust Compliance Checklist (QLD)
+* **Meta Description:** A practical checklist to ensure your project trust account meets QBCC requirements.
+
+---
+
+## 📈 5. COMMERCIAL / CONVERSION PAGES
+
+### 16.
+
+* **Keyword:** Project Trust Account Software Australia
+* **URL Slug:** project-trust-software-australia
+* **Page Title:** Best Project Trust Account Software in Australia
+* **Meta Description:** Compare project trust account software solutions for compliance and efficiency.
+
+---
+
+### 17.
+
+* **Keyword:** QBCC Compliance Software
+* **URL Slug:** qbcc-compliance-software
+* **Page Title:** QBCC Compliance Software for Construction Businesses
+* **Meta Description:** Tools and software to manage QBCC compliance and trust accounting obligations.
+
+---
+
+## 🧠 6. EDUCATIONAL / AUTHORITY BUILDING
+
+### 18.
+
+* **Keyword:** What is a Project Trust Account
+* **URL Slug:** what-is-project-trust-account
+* **Page Title:** What is a Project Trust Account? (QLD Guide)
+* **Meta Description:** A beginner-friendly explanation of project trust accounts in Queensland construction.
+
+---
+
+### 19.
+
+* **Keyword:** Security of Payment Queensland
+* **URL Slug:** security-of-payment-queensland
+* **Page Title:** Security of Payment in Queensland Explained
+* **Meta Description:** Learn how security of payment laws work in Queensland construction.
+
+---
+
+### 20.
+
+* **Keyword:** Construction Trust Accounts Australia
+* **URL Slug:** construction-trust-accounts-australia
+* **Page Title:** Construction Trust Accounts in Australia Explained
+* **Meta Description:** Overview of trust account systems across Australia and how they compare.
+
+---
+
+# 🧠 HOW TO USE THIS (IMPORTANT FOR YOUR SYSTEM)
+
+You’re building something very powerful here — this is how to maximise it:
+
+### 1. Each keyword page becomes a **content hub**
+
+* All guides, posts, Q&A auto-tagged → published here
+* Internal linking between pages (massive SEO boost)
+
+### 2. Auto-tag content using AI
+
+When a user creates:
+
+* Guide → map to 1–3 keywords
+* Community Q → map automatically
+* Blog → keyword assigned
+
+### 3. Add structured sections to each page:
+
+* Featured guide
+* Latest discussions
+* Related FAQs
+* “Tools” (Pay Trade CTA)
+
+---
+
+# 🚀 HIGH-IMPACT ADDITION (YOU SHOULD ADD)
+
+Create these extra system fields later:
+
+* **Search Intent:** informational / commercial / compliance
+* **Primary Audience:** contractor / subcontractor / principal
+* **Related Keywords:** (for internal linking)
+
+---
+
+# ⚡ FINAL THOUGHT
+
+If you execute this properly:
+
+* You’ll dominate **“QBCC + Project Trust” search space**
+* You’ll create a **self-growing SEO moat**
+* Your community content becomes **indexed, ranked, and compounding**
+
+---
+
+If you want next step, I can:
+✅ Generate **100+ long-tail keyword pages automatically**
+✅ Or design the **AI auto-tagging + publishing logic for your system**

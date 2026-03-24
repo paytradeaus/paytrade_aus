@@ -4,6 +4,7 @@ import { getSeoKeywordBySlug } from "../SeoKeywords/seo-keywords.functions";
 import { useParams } from "next/navigation";
 import DOMPurify from "dompurify";
 import styles from "./SeoLandingPage.module.css";
+import RelatedTopics from "./RelatedTopics";
 
 interface SeoKeywordData {
   id: string;
@@ -89,6 +90,12 @@ export default function SeoLandingPage({
           />
         </div>
       )}
+
+      <RelatedTopics
+        currentSlug={keywordData.slug}
+        currentKeyword={keywordData.keyword}
+        currentTags={keywordData.tags}
+      />
 
       <div className={styles.ctaSection}>
         <h2>Ready to get started?</h2>
