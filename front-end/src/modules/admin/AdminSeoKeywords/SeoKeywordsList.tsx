@@ -268,6 +268,14 @@ export default function SeoKeywordsList() {
 
   const actions = [
     {
+      label: "View",
+      icon: "fa-light fa-eye",
+      onClick: (row: any) => {
+        window.open(`/topics/${row.slug}`, "_blank");
+      },
+      displayByDefault: true,
+    },
+    {
       label: "Edit",
       icon: "fa-light fa-pen-to-square",
       onClick: (row: any) => {
