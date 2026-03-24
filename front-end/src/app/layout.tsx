@@ -17,6 +17,7 @@ import { LoaderProvider } from "@/context/useLoader";
 import AnalyticsWrapper from "@/components/Analytics/AnalyticsWrapper";
 import MultiTabManager from "@/components/MultiTabManager";
 import seoMetadata from "@/utils/seoMetadata";
+import NextTopLoader from "nextjs-toploader";
 
 const outfit = Outfit({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
@@ -53,6 +54,13 @@ export default function RootLayout({
       </head>
 
       <body className={outfit.className} suppressHydrationWarning>
+        <NextTopLoader
+          color="#dc3545"
+          height={3}
+          showSpinner={false}
+          speed={300}
+          shadow="0 0 10px #dc3545, 0 0 5px #dc3545"
+        />
         <AnalyticsWrapper
           gtmId={process.env.NEXT_PUBLIC_GTM_ID || ""}
           gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ""}
