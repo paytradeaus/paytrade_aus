@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import BreadCrumbs from "@/components/BreadCrumbs";
 import DynamicTable from "@/components/Table";
@@ -9,6 +9,7 @@ import {
   adminListSeoKeywords,
   adminDeleteSeoKeyword,
   adminUpdateSeoKeyword,
+  adminAddSeoKeyword,
 } from "./seo-keywords.functions";
 import { formatDate } from "@/utils";
 import { DD_MM_YYYY } from "@/shared/constant/identificationNumbers";
@@ -46,6 +47,9 @@ export default function SeoKeywordsList() {
   const [tableLoader, setTableLoader] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<any>(null);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const fetchKeywords = async () => {
@@ -103,6 +107,165 @@ export default function SeoKeywordsList() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const allKeywords: any[] = [];
+      let page = 1;
+      const perPage = 100;
+      let hasMore = true;
+
+      while (hasMore) {
+        const result = await adminListSeoKeywords({
+          listSeoKeywordsInput: {
+            page,
+            perPage,
+            sorting_order: "ASC",
+          },
+        });
+        const batch = result?.seoKeywords || [];
+        allKeywords.push(...batch);
+        hasMore = allKeywords.length < (result?.totalCount || 0);
+        page++;
+      }
+
+      const exportData = allKeywords.map((kw: any) => ({
+        keyword: kw.keyword,
+        slug: kw.slug,
+        page_title: kw.page_title,
+        meta_description: kw.meta_description,
+        page_content: kw.page_content || "",
+        tags: kw.tags || [],
+        status: kw.status,
+      }));
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `seo-keywords-export-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showSuccessToast(`Exported ${exportData.length} SEO keywords.`);
+    } catch (error) {
+      showErrorToast("Failed to export SEO keywords.");
+    }
+    setExporting(false);
+  };
+
+  const fetchAllExistingKeywords = async () => {
+    const allKeywords: any[] = [];
+    let page = 1;
+    const perPage = 100;
+    let hasMore = true;
+    while (hasMore) {
+      const result = await adminListSeoKeywords({
+        listSeoKeywordsInput: { page, perPage, sorting_order: "ASC" },
+      });
+      const batch = result?.seoKeywords || [];
+      allKeywords.push(...batch);
+      hasMore = allKeywords.length < (result?.totalCount || 0);
+      page++;
+    }
+    return allKeywords;
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      if (!Array.isArray(importData)) {
+        showErrorToast("Invalid format: expected a JSON array.");
+        return;
+      }
+
+      const existing = await fetchAllExistingKeywords();
+      const slugToId = new Map(existing.map((kw: any) => [kw.slug, kw.id]));
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const kw of importData) {
+        if (!kw.keyword || !kw.slug || !kw.page_title || !kw.meta_description) {
+          skipped++;
+          errors.push(`Missing required fields for "${kw.keyword || kw.slug || "unknown"}"`);
+          continue;
+        }
+
+        const existingId = slugToId.get(kw.slug);
+
+        if (existingId) {
+          const result = await adminUpdateSeoKeyword({
+            updateSeoKeywordInput: {
+              id: existingId,
+              keyword: kw.keyword,
+              slug: kw.slug,
+              page_title: kw.page_title,
+              meta_description: kw.meta_description,
+              page_content: kw.page_content || undefined,
+              tags: kw.tags?.length > 0 ? kw.tags : undefined,
+              status: kw.status || undefined,
+            },
+          });
+          if (result?.status === "SUCCESS") {
+            updated++;
+          } else {
+            skipped++;
+            errors.push(`"${kw.keyword}": ${result?.message || "update failed"}`);
+          }
+        } else {
+          const result = await adminAddSeoKeyword({
+            addSeoKeywordInput: {
+              keyword: kw.keyword,
+              slug: kw.slug,
+              page_title: kw.page_title,
+              meta_description: kw.meta_description,
+              page_content: kw.page_content || undefined,
+              tags: kw.tags?.length > 0 ? kw.tags : undefined,
+            },
+          });
+          if (result?.status === "SUCCESS") {
+            created++;
+          } else {
+            skipped++;
+            errors.push(`"${kw.keyword}": ${result?.message || "create failed"}`);
+          }
+        }
+      }
+
+      const parts: string[] = [];
+      if (created > 0) parts.push(`${created} created`);
+      if (updated > 0) parts.push(`${updated} updated`);
+      if (parts.length > 0) {
+        showSuccessToast(`Import complete: ${parts.join(", ")}.`);
+      }
+      if (skipped > 0) {
+        showErrorToast(`${skipped} skipped: ${errors.slice(0, 3).join("; ")}`);
+      }
+
+      fetchKeywords();
+    } catch (error) {
+      showErrorToast("Failed to parse import file. Ensure it is valid JSON.");
+    } finally {
+      if (importFileRef.current) {
+        importFileRef.current.value = "";
+      }
+      setImporting(false);
+    }
+  };
+
   const actions = [
     {
       label: "Edit",
@@ -157,7 +320,30 @@ export default function SeoKeywordsList() {
           <div className="pt_pagetitle">
             <h1>SEO Keywords</h1>
           </div>
-          <div className="pt_pageactions">
+          <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              <i className={exporting ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-export"}></i>
+              {exporting ? "Exporting..." : "Export JSON"}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => importFileRef.current?.click()}
+              disabled={importing}
+            >
+              <i className={importing ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-import"}></i>
+              {importing ? "Importing..." : "Import JSON"}
+            </button>
+            <input
+              type="file"
+              ref={importFileRef}
+              accept=".json"
+              style={{ display: "none" }}
+              onChange={handleImport}
+            />
             <Link href="/admin/seo-keywords/add" passHref legacyBehavior>
               <a className="pt_addnewbutton">
                 <button className="secondary">

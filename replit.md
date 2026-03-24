@@ -40,6 +40,14 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Brevo (formerly Sendinblue)**: For email services, including crash alerts.
 - **Google Tag Manager, Google Analytics, Cookiebot**: Integrated for analytics and cookie consent.
 
+## SEO Keywords System
+- 12 SEO keywords seeded for project trust accounts, BIF Act, QBCC compliance, retention trust accounts, security of payment, and related construction industry terms
+- Seed script: `scripts/seed-seo-keywords.sql` (idempotent via `ON CONFLICT (slug) DO NOTHING`)
+- Admin page at `/admin/seo-keywords` with Export JSON / Import JSON buttons
+- Export downloads all keywords as a structured JSON array with keyword, slug, page_title, meta_description, page_content, tags, and status
+- Import supports upsert: matches by slug — updates existing keywords, creates new ones
+- Import preserves status field from the JSON file
+
 ## How-To Guides System
 - 26 how-to guides seeded into the `blog_resource` table with `content_type = 'howToGuide'`
 - Categories stored in `master_types` with `master_type = 'How To Guide Category'`: Getting Started, Projects & Contracts, Payments & Claims, Bank & Trust Accounts, Trust Accounting, Compliance & Notices, Integrations, Community, Admin Panel, User Flows
