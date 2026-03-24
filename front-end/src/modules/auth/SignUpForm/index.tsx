@@ -258,7 +258,7 @@ export default function SignUpForm() {
         <div className="inner">
           <div className="pt_signup">
             <h4>Join paytrade today</h4>
-            <p>Create a new paytrade account today and save 90%!</p>
+            <p>Create a new paytrade account today</p>
             {/* <FormikControl
               control={InputType.TEXT_FIELD}
               label={"Email"}
