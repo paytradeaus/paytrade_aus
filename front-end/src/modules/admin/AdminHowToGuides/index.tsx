@@ -70,6 +70,9 @@ export default function AdminHowToGuides() {
   const [missingCategories, setMissingCategories] = useState<string[]>([]);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [creatingCategories, setCreatingCategories] = useState(false);
+  const [duplicateGuides, setDuplicateGuides] = useState<{ title: string; existingId: string }[]>([]);
+  const [duplicateAction, setDuplicateAction] = useState<"skip" | "overwrite">("skip");
+  const [existingGuidesMap, setExistingGuidesMap] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isAnyFilterActive =
     search || statusType || authorValue || categoryValue;
@@ -407,6 +410,38 @@ export default function AdminHowToGuides() {
     return byLabel[label] || null;
   };
 
+  const fetchAllExistingGuides = async (): Promise<Record<string, string>> => {
+    const map: Record<string, string> = {};
+    let page = 1;
+    const perPage = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await AdminListAllBlogResources({
+        page,
+        perPage,
+        keyWord: "",
+        status: "",
+        category: "",
+        author: null,
+        contentType: "howToGuide",
+        sortingOrder: "",
+        sortingField: "",
+      });
+
+      if (response?.blogResources?.length > 0) {
+        for (const g of response.blogResources) {
+          if (g.title) map[g.title.toLowerCase().trim()] = g.id;
+        }
+        hasMore = Object.keys(map).length < (response.totalCount || 0);
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+    return map;
+  };
+
   const handleImportFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -428,7 +463,11 @@ export default function AdminHowToGuides() {
         const guides = parsed.guides;
         setImportData(guides);
 
-        const { byId, byLabel } = await fetchCategoryMaps();
+        const [{ byId, byLabel }, guidesMap] = await Promise.all([
+          fetchCategoryMaps(),
+          fetchAllExistingGuides(),
+        ]);
+        setExistingGuidesMap(guidesMap);
 
         const neededCategories = new Set<string>();
         for (const guide of guides) {
@@ -438,6 +477,15 @@ export default function AdminHowToGuides() {
             if (catName) neededCategories.add(catName);
           }
         }
+
+        const dupes = guides
+          .filter((g: any) => guidesMap[g.title?.toLowerCase()?.trim()])
+          .map((g: any) => ({
+            title: g.title,
+            existingId: guidesMap[g.title.toLowerCase().trim()],
+          }));
+        setDuplicateGuides(dupes);
+        setDuplicateAction("skip");
 
         if (neededCategories.size > 0) {
           setMissingCategories(Array.from(neededCategories));
@@ -484,6 +532,8 @@ export default function AdminHowToGuides() {
     setImporting(true);
     setImportModalVisible(false);
     let successCount = 0;
+    let skipCount = 0;
+    let overwriteCount = 0;
     let failCount = 0;
     const errors: string[] = [];
 
@@ -500,23 +550,53 @@ export default function AdminHowToGuides() {
           continue;
         }
 
-        const payload = {
-          title: guide.title,
-          content: guide.content,
-          content_type: guide.content_type || "howToGuide",
-          blog_status: guide.blog_status || "Draft",
-          categoryId,
-          tags: guide.tags || [],
-          enable_comments: guide.enable_comments ?? false,
-          video_link: guide.video_link || null,
-        };
+        const titleKey = guide.title?.toLowerCase()?.trim();
+        const existingId = existingGuidesMap[titleKey];
 
-        const result = await AdminAddBlogResource(payload);
-        if (result?.id) {
-          successCount++;
+        if (existingId) {
+          if (duplicateAction === "skip") {
+            skipCount++;
+            continue;
+          }
+
+          const updatePayload = {
+            id: existingId,
+            title: guide.title,
+            content: guide.content,
+            content_type: guide.content_type || "howToGuide",
+            blog_status: guide.blog_status || "Draft",
+            categoryId,
+            tags: guide.tags || [],
+            enable_comments: guide.enable_comments ?? false,
+            video_link: guide.video_link || null,
+          };
+
+          const result = await AdminUpdateBlogResource(updatePayload, "");
+          if (result) {
+            overwriteCount++;
+          } else {
+            errors.push(`"${guide.title}": update failed`);
+            failCount++;
+          }
         } else {
-          errors.push(`"${guide.title}": creation failed`);
-          failCount++;
+          const payload = {
+            title: guide.title,
+            content: guide.content,
+            content_type: guide.content_type || "howToGuide",
+            blog_status: guide.blog_status || "Draft",
+            categoryId,
+            tags: guide.tags || [],
+            enable_comments: guide.enable_comments ?? false,
+            video_link: guide.video_link || null,
+          };
+
+          const result = await AdminAddBlogResource(payload);
+          if (result?.id) {
+            successCount++;
+          } else {
+            errors.push(`"${guide.title}": creation failed`);
+            failCount++;
+          }
         }
       } catch (error) {
         console.error(`Failed to import guide: ${guide.title}`, error);
@@ -525,11 +605,19 @@ export default function AdminHowToGuides() {
       }
     }
 
-    if (successCount > 0) {
-      showSuccessToast(`Imported ${successCount} guide(s) successfully${failCount > 0 ? `, ${failCount} failed` : ""}`);
+    const parts: string[] = [];
+    if (successCount > 0) parts.push(`${successCount} created`);
+    if (overwriteCount > 0) parts.push(`${overwriteCount} updated`);
+    if (skipCount > 0) parts.push(`${skipCount} skipped`);
+    if (failCount > 0) parts.push(`${failCount} failed`);
+
+    if (successCount > 0 || overwriteCount > 0) {
+      showSuccessToast(`Import complete: ${parts.join(", ")}`);
       fetchBlogLists();
+    } else if (skipCount > 0 && failCount === 0) {
+      showSuccessToast(`All ${skipCount} guide(s) already exist and were skipped`);
     } else {
-      showErrorToast(`Import failed: ${failCount} guide(s) could not be imported`);
+      showErrorToast(`Import failed: ${parts.join(", ")}`);
     }
 
     if (errors.length > 0) {
@@ -538,6 +626,8 @@ export default function AdminHowToGuides() {
 
     setImporting(false);
     setImportData([]);
+    setDuplicateGuides([]);
+    setExistingGuidesMap({});
   };
 
   const handleDownloadPdfFile = async () => {
@@ -800,6 +890,8 @@ export default function AdminHowToGuides() {
             onClose={() => {
               setImportModalVisible(false);
               setImportData([]);
+              setDuplicateGuides([]);
+              setExistingGuidesMap({});
             }}
             onConfirm={() => {
               handleImportConfirm();
@@ -809,15 +901,74 @@ export default function AdminHowToGuides() {
             <div>
               <p>
                 Ready to import <strong>{importData.length}</strong> guide(s).
-                Guides will be created as new entries.
+                {duplicateGuides.length === 0 && " All guides are new and will be created."}
               </p>
+              {duplicateGuides.length > 0 && (
+                <div style={{
+                  background: "#fff8e1",
+                  border: "1px solid #ffe082",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  margin: "12px 0",
+                }}>
+                  <p style={{ margin: "0 0 8px 0", fontWeight: 600, color: "#e65100" }}>
+                    <i className="fa-light fa-triangle-exclamation" style={{ marginRight: "6px" }}></i>
+                    {duplicateGuides.length} guide(s) already exist
+                  </p>
+                  <div style={{ maxHeight: "100px", overflowY: "auto", marginBottom: "10px" }}>
+                    <ul style={{ paddingLeft: "20px", margin: 0, fontSize: "13px" }}>
+                      {duplicateGuides.map((d, idx) => (
+                        <li key={idx} style={{ marginBottom: "2px", color: "#555" }}>{d.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div style={{ display: "flex", gap: "16px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="duplicateAction"
+                        checked={duplicateAction === "skip"}
+                        onChange={() => setDuplicateAction("skip")}
+                      />
+                      <span>Skip duplicates</span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="duplicateAction"
+                        checked={duplicateAction === "overwrite"}
+                        onChange={() => setDuplicateAction("overwrite")}
+                      />
+                      <span>Overwrite with imported data</span>
+                    </label>
+                  </div>
+                </div>
+              )}
               <div style={{ maxHeight: "200px", overflowY: "auto", marginTop: "10px" }}>
                 <ul style={{ paddingLeft: "20px", margin: 0 }}>
-                  {importData.map((guide: any, idx: number) => (
-                    <li key={idx} style={{ marginBottom: "4px" }}>
-                      {guide.title} <span style={{ color: "#888", fontSize: "12px" }}>({guide.category_name || guide.category})</span>
-                    </li>
-                  ))}
+                  {importData.map((guide: any, idx: number) => {
+                    const isDupe = existingGuidesMap[guide.title?.toLowerCase()?.trim()];
+                    return (
+                      <li key={idx} style={{ marginBottom: "4px", color: isDupe ? "#888" : "inherit" }}>
+                        {guide.title}
+                        <span style={{ color: "#888", fontSize: "12px", marginLeft: "4px" }}>
+                          ({guide.category_name || guide.category})
+                        </span>
+                        {isDupe && (
+                          <span style={{
+                            fontSize: "11px",
+                            marginLeft: "6px",
+                            padding: "1px 6px",
+                            borderRadius: "3px",
+                            background: "#fff3e0",
+                            color: "#e65100",
+                          }}>
+                            {duplicateAction === "skip" ? "will skip" : "will overwrite"}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
