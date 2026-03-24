@@ -104,7 +104,7 @@ export default function Select({
       >
         {/* Display a placeholder option when options are available and no value is selected */}
         {((options?.length > 0 && !value) || options?.length === 0) && (
-          <option value="" selected disabled={disableAllOptions || disabled}>
+          <option value="" disabled={disableAllOptions || disabled}>
             {placeholder}
           </option>
         )}
