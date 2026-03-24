@@ -104,6 +104,7 @@ import { DatabaseBackupModule } from './libs/@database-backup';
 import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
 import { SeoKeywordsModule } from './api/admin/seo-keywords/seo-keywords.module';
 import { CommunityBotModule } from './api/common/community-bot/community-bot.module';
+import { AiSupportModule } from './api/common/ai-support/ai-support.module';
 
 @Module({
   imports: [
@@ -288,6 +289,7 @@ import { CommunityBotModule } from './api/common/community-bot/community-bot.mod
     KeepAliveModule,
     SeoKeywordsModule,
     CommunityBotModule,
+    AiSupportModule,
   ],
   providers: [
     AppService,

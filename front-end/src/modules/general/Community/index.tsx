@@ -160,6 +160,14 @@ export default function Community() {
                   preventClick={true}
                 />
               </form>
+              <div style={{ marginTop: "0.75rem" }}>
+                <Link href="/support" style={{ textDecoration: "none" }}>
+                  <button className="secondary outline" style={{ fontSize: "0.9rem" }}>
+                    <i className="fa-light fa-robot" style={{ marginRight: "0.4rem" }}></i>
+                    Ask PayTrade AI
+                  </button>
+                </Link>
+              </div>
             </div>
 
             <div className="left">

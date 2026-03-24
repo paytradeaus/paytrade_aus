@@ -138,6 +138,7 @@ export default function GuestNavbar() {
                     <div className="megamenuinner" style={{ width: "400px" }}>
                       <div className="grid">
                         <div>
+                          <Link href="/support">Help & AI Search</Link>
                           <Link href="/get-support">Get support</Link>
                           <Link href={"/faq"}>FAQs</Link>
                           <Link href={AppRoutes.COMMUNITY}>Community</Link>

@@ -35,6 +35,7 @@ import { setAppUserDetails } from "@/redux/slices/userRegistrationSlice";
 import { getCookie } from "cookies-next";
 import { JSON_LD } from "@/utils/JSON-LD";
 import SeoLandingPage from "@/modules/general/SeoLandingPage";
+import AiSupportPage from "@/modules/general/AiSupport";
 
 export default function Home(props: any) {
   const { screen } = props;
@@ -106,6 +107,8 @@ export default function Home(props: any) {
         return <FaqsPage />;
       case "SUPPORT":
         return <SupportPage />;
+      case "AI_SUPPORT":
+        return <AiSupportPage />;
       case "HOW-TO-GUIDES":
         return (
           <BlogsPage

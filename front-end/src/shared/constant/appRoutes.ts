@@ -222,6 +222,7 @@ export const AppRoutes = {
   COMMUNITY_START_DISCUSSION: "/community/start-discussion",
   CREATE_PRODUCT_IDEAS: "/community/create-product-idea",
   SUPPORT: "/get-support",
+  AI_SUPPORT: "/support",
 
   USER_INTEGRATION: "/user/integrations",
   USER_INTEGRATION_ARCHIVED: "/user/integrations/archived",

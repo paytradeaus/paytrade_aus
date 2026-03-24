@@ -61,3 +61,19 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - Import reads a JSON file, validates categories (by ID with label fallback), and creates guides via the existing `adminAddBlogResource` mutation
 - Seeder script: `scripts/capture-screenshots-and-seed-guides.js`
 - Comprehensive system documentation: `PayTrade-System-Guide.md`
+
+## AI Support Assistant
+- Multi-step support flow at `/support` with search, AI answers, and contact support fallback
+- **Step 1**: Search bar queries FAQs, how-to guides, community discussions, and community answers via `searchSupport` GraphQL query (public, no auth required)
+- **Step 2**: "Ask PayTrade AI" button expands AI section (auth required)
+- **Step 3**: AI answer from OpenAI GPT-4o using PayTrade System Guide as context; answer auto-posted to community
+- **Step 4**: "Still need help?" links to `/get-support` contact form
+- **Rate Limiting**: `ai_support_usage` table tracks usage. Free tier: 2 questions/hour (personal). Paid tier: 20 questions/day (shared company pool). User gets highest tier across all company memberships
+- **Abuse Controls**: HTML stripping, 500-char max, SHA-256 duplicate detection (5-min window), prompt injection guard in system prompt
+- **Tier Detection**: `company_user_roles` (user_id, status=Active) → `subscription_details` (company_id) → `subscription_plan_details` (plan_type: Free|Paid)
+- **Backend**: `AiSupportModule` at `back-end/src/api/common/ai-support/` with service, resolver, DTOs, responses
+- **Entity**: `AiSupportUsage` at `back-end/src/entities/ai-support-usage.entity.ts` (user_id, company_id, question, question_hash, asked_at)
+- **Frontend**: `AiSupportPage` at `front-end/src/modules/general/AiSupport/` with functions file
+- **Route**: `/support` page at `front-end/src/app/support/page.tsx` (screen="AI_SUPPORT")
+- **Navigation**: Added to GuestNavbar Support dropdown, GuestFooter, and HomeMobileSidebar; "Ask PayTrade AI" button on community page
+- **OpenAI Pattern**: Uses `this.openai.responses.create({ model: 'gpt-4o', instructions: ..., input: ... })`

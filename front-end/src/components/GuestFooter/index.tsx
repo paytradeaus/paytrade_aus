@@ -132,6 +132,11 @@ export default function GuestFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/support" className="contrast">
+                  Help & AI Search
+                </Link>
+              </li>
+              <li>
                 <Link href="/get-support" className="contrast">
                   Contact support
                 </Link>

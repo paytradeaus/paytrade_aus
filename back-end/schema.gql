@@ -1232,6 +1232,14 @@ input AdminUpdateHolidayInput {
   recurring_every_year: Boolean
 }
 
+type AiAnswerResponse {
+  answer: String
+  communityPostId: String
+  message: String
+  remainingQuota: Int
+  status: String!
+}
+
 """Access token returned when an admin successfully logs in as a user"""
 type AllowAdminToLoginAsUser {
   """JWT access token for the impersonated user"""
@@ -1257,6 +1265,10 @@ type AllowAdminToLoginAsUserResponse {
 
   """Status of the operation (e.g., SUCCESS or FAILED)"""
   status: String!
+}
+
+input AskAiSupportInput {
+  question: String!
 }
 
 """Represents an audit report with optional details."""
@@ -13287,6 +13299,9 @@ type Mutation {
     updateAdminInput: UpdateUserDetailsInput!
   ): PTUserResponse!
 
+  """Ask PayTrade AI a question. Requires authentication."""
+  askAiSupport(askAiSupportInput: AskAiSupportInput!): AiAnswerResponse!
+
   """
   Attach a payment method to a company's billing profile for subscription payments.
   """
@@ -17817,6 +17832,9 @@ type Query {
     payload: SearchContactByEmailInput!
   ): SearchContactByEmailIdResponse!
 
+  """Search FAQs, how-to guides, and community discussions."""
+  searchSupport(searchSupportInput: SearchSupportInput!): SearchSupportResponse!
+
   "\n    Switches the mode of a specified user.\n    Logs the activity and records who initiated the change.\n    Applicable for Normal and Admin user modes.\n    "
   switchModeOfAnUser(
     """
@@ -18066,6 +18084,27 @@ type SearchContactByEmailIdResponse {
 input SearchContactByEmailInput {
   """Email to search for within contacts."""
   searchEmail: String!
+}
+
+type SearchResultItem {
+  category: String
+  id: String!
+  snippet: String
+  title: String!
+  type: String!
+  url: String
+}
+
+input SearchSupportInput {
+  page: Int = 1
+  perPage: Int = 10
+  query: String!
+}
+
+type SearchSupportResponse {
+  results: [SearchResultItem!]!
+  status: String!
+  totalCount: Int!
 }
 
 """Simplified support ticket info for search results."""
