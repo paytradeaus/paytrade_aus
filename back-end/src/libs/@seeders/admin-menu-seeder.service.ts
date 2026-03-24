@@ -62,12 +62,42 @@ export class AdminMenuSeederService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     try {
+      await this.cleanupOldDuplicates();
       await this.seedMenus();
       await this.grantPermissionsToAllGroups();
       this.logger.log('Admin menu seeding complete');
     } catch (error) {
       this.logger.error(`Admin menu seeding failed: ${error.message}`);
     }
+  }
+
+  private async cleanupOldDuplicates() {
+    const manager = this.menuRepo.manager;
+    const seededIds = MASTER_MENUS.map((m) => m.id);
+
+    const allMenus = await this.menuRepo.find();
+    const oldMenuIds = allMenus
+      .filter((m) => !seededIds.includes(m.id))
+      .map((m) => m.id);
+
+    if (oldMenuIds.length === 0) return;
+
+    for (const oldId of oldMenuIds) {
+      await manager.query(
+        `DELETE FROM admin_group_menu_priv WHERE menu_id = $1`,
+        [oldId],
+      );
+    }
+
+    const placeholders = oldMenuIds.map((_, i) => `$${i + 1}`).join(', ');
+    await manager.query(
+      `DELETE FROM admin_menu_details WHERE id IN (${placeholders})`,
+      oldMenuIds,
+    );
+
+    this.logger.log(
+      `Cleaned up ${oldMenuIds.length} old duplicate menu(s) and their permissions`,
+    );
   }
 
   private buildSubMenusSQL(subMenus: SubMenu[]): string {
