@@ -1739,39 +1739,41 @@ export class PtSubscriptionService {
       .andWhere(`pd.plan_type = 'Free' AND pd.plan_status = 'Active'`)
       .getRawOne();
 
-    const free_plan = {
-      id: result.id,
-      plan_id: result.plan_id,
-      stripe_product_id: result.stripe_product_id,
-      plan_name: result.plan_name,
-      description: result.description,
-      plan_type: result.plan_type,
-      plan_status: result.plan_status,
-      price_id: result.price_id,
-      stripe_price_id: result.stripe_price_id,
-      price_name: result.price_name,
-      bill_cycle: result.bill_cycle,
-      price: formatCurrency(result.price),
-      unformatted_price: result.price,
-      trial_period: result.trial_period,
-      is_active: result.is_active,
-      is_deleted: result.is_deleted,
-      plan_items: result?.plan_items?.map((plan) => {
-        return {
-          id: plan.id,
-          plan_item_id: plan.plan_item_id,
-          item_id: plan.item_id,
-          item_name: plan.item_name,
-          description: plan.description,
-          item_status: plan.item_status,
-          limit_type: plan.limit_type,
-          dropdown_type: plan.dropdown_type,
-          unit_type: plan.unit_type,
-          limit_value: plan.limit_value,
-          is_unlimited: plan.is_unlimited,
-        };
-      }),
-    };
+    const free_plan = result
+      ? {
+          id: result.id,
+          plan_id: result.plan_id,
+          stripe_product_id: result.stripe_product_id,
+          plan_name: result.plan_name,
+          description: result.description,
+          plan_type: result.plan_type,
+          plan_status: result.plan_status,
+          price_id: result.price_id,
+          stripe_price_id: result.stripe_price_id,
+          price_name: result.price_name,
+          bill_cycle: result.bill_cycle,
+          price: formatCurrency(result.price),
+          unformatted_price: result.price,
+          trial_period: result.trial_period,
+          is_active: result.is_active,
+          is_deleted: result.is_deleted,
+          plan_items: result?.plan_items?.map((plan) => {
+            return {
+              id: plan.id,
+              plan_item_id: plan.plan_item_id,
+              item_id: plan.item_id,
+              item_name: plan.item_name,
+              description: plan.description,
+              item_status: plan.item_status,
+              limit_type: plan.limit_type,
+              dropdown_type: plan.dropdown_type,
+              unit_type: plan.unit_type,
+              limit_value: plan.limit_value,
+              is_unlimited: plan.is_unlimited,
+            };
+          }),
+        }
+      : null;
 
     const monthlyQueryBuilder = await this.subscriptionPlanDetails
       .createQueryBuilder('pd')

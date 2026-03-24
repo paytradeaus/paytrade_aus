@@ -14,7 +14,7 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **State Management**: Redux Toolkit for predictable state management.
 - **API Client**: Apollo Client handles GraphQL queries and mutations.
 - **Styling**: SCSS Modules and standard CSS are used for styling components.
-- **UI/UX**: Dynamic pricing tables integrate backend `plan_items` with hardcoded fallbacks. Static assets are served with cache-busting versioning.
+- **UI/UX**: Dynamic pricing tables are driven by backend `plan_items` data from `subscription_plan_details`, `subscription_pricing_plan`, `subscription_items`, and `subscription_plan_items` tables. The `PricingGrid` component merges API data with hardcoded fallbacks in `data.ts`. Static assets are served with cache-busting versioning.
 - **SEO**: Dynamic landing pages are driven by backend-managed `SeoKeyword` entities, supporting full SEO metadata and sitemap generation.
 
 **Backend (NestJS)**
@@ -39,3 +39,12 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Stripe**: For payment processing (API keys mentioned).
 - **Brevo (formerly Sendinblue)**: For email services, including crash alerts.
 - **Google Tag Manager, Google Analytics, Cookiebot**: Integrated for analytics and cookie consent.
+
+## How-To Guides System
+- 26 how-to guides seeded into the `blog_resource` table with `content_type = 'howToGuide'`
+- Categories stored in `master_types` with `master_type = 'How To Guide Category'`: Getting Started, Projects & Contracts, Payments & Claims, Bank & Trust Accounts, Trust Accounting, Compliance & Notices, Integrations, Community, Admin Panel, User Flows
+- Guide screenshots stored in `front-end/public/guide-screenshots/` (25 PNG files)
+- Guides are publicly viewable at `/how-to-guides/[category]/[slug]/[id]`
+- Admin-managed at `/admin/how-to-guides`
+- Seeder script: `scripts/capture-screenshots-and-seed-guides.js`
+- Comprehensive system documentation: `PayTrade-System-Guide.md`
