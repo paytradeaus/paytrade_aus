@@ -20049,7 +20049,7 @@ input UpdatePricingTableFeatureInput {
   basic_value: String
   display_order: Int
   feature_name: String
-  id: String!
+  id: String
   pro_audit_value: String
   standard_value: String
   status: String

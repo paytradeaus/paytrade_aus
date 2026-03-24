@@ -23,7 +23,7 @@ export class AddPricingTableFeatureInput {
 
 @InputType()
 export class UpdatePricingTableFeatureInput {
-  @Field()
+  @Field({ nullable: true })
   id: string;
 
   @Field({ nullable: true })
