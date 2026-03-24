@@ -77,20 +77,20 @@
 .showAllButton {
   display: block;
   margin: 32px auto 0;
-  padding: 12px 28px;
-  background: transparent;
-  border: 2px solid #1a73e8;
+  padding: 0;
+  background: none;
+  border: none;
   color: #1a73e8;
-  border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .showAllButton:hover {
-  background-color: #1a73e8;
-  color: #fff;
+  color: #1557b0;
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
