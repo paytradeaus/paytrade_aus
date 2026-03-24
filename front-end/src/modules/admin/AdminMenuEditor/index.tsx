@@ -31,9 +31,8 @@ interface MenuRow {
   isModified?: boolean;
 }
 
-const BREADCRUMBS = [
-  { label: "Dashboard", link: AppRoutes.ADMIN_DASHBOARD },
-  { label: "Admin Menus", link: "" },
+const ROUTE_PATHS = [
+  { name: "Dashboard", path: AppRoutes.ADMIN_DASHBOARD },
 ];
 
 export default function AdminMenuEditor() {
@@ -230,7 +229,7 @@ export default function AdminMenuEditor() {
   if (loading) {
     return (
       <div className="main-content">
-        <BreadCrumbs breadCrumbs={BREADCRUMBS} />
+        <BreadCrumbs routePaths={ROUTE_PATHS} activeRoute="Admin Menus" />
         <div className={styles.loadingState}>
           <i className="fa-light fa-spinner fa-spin" />
           <span>Loading admin menus...</span>
@@ -241,7 +240,7 @@ export default function AdminMenuEditor() {
 
   return (
     <div className="main-content">
-      <BreadCrumbs breadCrumbs={BREADCRUMBS} />
+      <BreadCrumbs routePaths={ROUTE_PATHS} activeRoute="Admin Menus" />
       <div className="d-flex align-items-center justify-content-between mb-3">
         <h4 className="mb-0">Admin Menu Management</h4>
         <div className="d-flex gap-2">
