@@ -270,8 +270,9 @@ export default function SeoKeywordsList() {
     {
       label: "Edit",
       icon: "fa-light fa-pen-to-square",
-      onClick: (row: any) =>
-        router.push(`/admin/seo-keywords/edit/${row.id}`),
+      onClick: (row: any) => {
+        window.location.href = `/admin/seo-keywords/edit/${row.id}`;
+      },
       displayByDefault: true,
     },
     {
