@@ -718,22 +718,204 @@ The project overview page provides a centralized view of:
 
 | Page | URL | Description |
 |------|-----|-------------|
-| **Integration List** | `/user/integrations` | View active integrations |
+| **Integration List** | `/user/integrations` | View all integrations, connect/disconnect/pause |
 | **Archived** | `/user/integrations/archived` | View disconnected integrations |
-| **Xero Dashboard** | `/user/integrations/xero` | Xero connection status and actions |
-| **Xero Settings** | `/user/integrations/xero/settings` | Configure Xero sync settings |
-| **Xero Bank Accounts** | `/user/integrations/xero/bankAccounts` | Map Xero bank accounts |
-| **Xero Invoices** | `/user/integrations/xero/invoices` | View synced invoices |
-| **Xero Bills** | `/user/integrations/xero/bills` | View synced bills |
-| **Sync Log** | `/user/integrations/xero/syncLogDetails/[id]` | View sync history and errors |
+| **Xero Dashboard** | `/user/integrations/xero` | Connection status, sync statistics, onboarding wizard, sync logs |
+| **Xero Settings** | `/user/integrations/xero/settings` | Chart of accounts, tax rates, tracking categories, sync preferences |
+| **Xero Bank Accounts** | `/user/integrations/xero/bankAccounts` | Map Xero bank accounts to PayTrade trust/cash accounts |
+| **Xero Contacts** | `/user/integrations/xero/contacts` | Map Xero contacts to PayTrade clients/suppliers |
+| **Xero Projects** | `/user/integrations/xero/projects` | Map Xero tracking category options to PayTrade projects |
+| **Xero Contracts** | `/user/integrations/xero/contracts` | Map Xero tracking category options to PayTrade contracts |
+| **Xero Invoices** | `/user/integrations/xero/invoices` | View and manage synced invoices |
+| **Xero Bills** | `/user/integrations/xero/bills` | View and manage synced bills |
+| **Sync Log Details** | `/user/integrations/xero/syncLogDetails/[id]` | View detailed sync history, compare records, resolve errors |
 
-### Xero Features
-- OAuth2 connection to Xero (`/xero/callback`)
-- Sync contacts (clients/suppliers) between PayTrade and Xero
-- Sync invoices and bills
-- Map Xero bank accounts to PayTrade trust accounts
-- Automatic project mapping
-- Detailed sync logs for troubleshooting
+### 19.1 Connection and Authentication
+
+- **OAuth2 Flow:** Users click "Connect" on the Integration List page, which redirects to Xero for authorisation. After granting consent, Xero redirects back to PayTrade via `/xero/callback` with an auth code.
+- **Token Storage:** Access and refresh tokens are stored in the `XeroIntegrationDetails` entity, linked to the company.
+- **Automatic Token Refresh:** A BullMQ job (`xero-refresh-token`) runs every 23 hours to refresh tokens before they expire.
+- **Re-authentication:** If a refresh token fails (e.g., user revoked access in Xero), the system returns an `XERO_REFRESH` status, automatically redirecting the user to re-authorise.
+- **Integration Actions:** From the Integration List, users can Connect, Disconnect, Pause, Unpause, or Delete the Xero integration.
+- **Subscription Check:** The system verifies the company is on an Advanced or Pro Audit plan before allowing connection.
+
+### 19.2 Onboarding Wizard (Xero Dashboard)
+
+The Xero Dashboard provides a 6-step onboarding wizard for initial setup:
+
+1. **Settings/Mapping** — Configure chart of accounts, tax rates, and tracking categories
+2. **Bank Account Mapping** — Link Xero bank accounts to PayTrade trust/cash accounts
+3. **Contact Mapping** — Link Xero contacts to PayTrade clients/suppliers
+4. **Project Tracking Category Mapping** — Map a Xero tracking category to represent PayTrade projects
+5. **Contract Tracking Category Mapping** — Map a Xero tracking category to represent PayTrade contracts
+6. **Activate** — Set the integration to Active status
+
+The dashboard also displays sync statistics (Synced vs. Pending counts) for Bank Accounts, Contacts, Projects, Contracts, Bills, and Invoices, and a table of recent Sync Logs.
+
+### 19.3 Xero Settings Configuration
+
+#### Chart of Account Mappings
+Users map PayTrade financial activities to specific Xero account codes:
+
+| Setting | Purpose |
+|---------|---------|
+| **Invoice Code** | Revenue account for synced receivable invoices |
+| **Bill Code** | Expense account for synced payable bills |
+| **Retention Payable Retained Code** | Account for retention amounts held (payable) |
+| **Retention Payable Release Code** | Account for retention amounts released (payable) |
+| **Retention Receivable Retained Code** | Account for retention amounts held (receivable) |
+| **Retention Receivable Release Code** | Account for retention amounts released (receivable) |
+| **Liability Payable Code** | Account for payable liabilities (defects period) |
+| **Liability Receivable Code** | Account for receivable liabilities (defects period) |
+
+Users can also create new Xero accounts directly from this screen by specifying Account Type, Code, and Name.
+
+#### Tax Rate Configuration
+- **Invoice Tax Code:** Default tax rate for invoices synced to Xero
+- **Bill Tax Code:** Default tax rate for bills synced to Xero
+- Users can create new tax rates with custom components, compound tax support, and report tax type (Input, Output, None, Exempt)
+
+#### Tracking Categories
+- **Project Tracking Category:** A Xero tracking category that represents PayTrade "Projects"
+- **Contract Tracking Category:** A Xero tracking category that represents PayTrade "Contracts"
+- The system prevents using the same tracking category for both
+- Users can create new tracking categories directly from Settings
+
+#### Sync Preferences (Draft vs. Approved)
+
+| Direction | Setting | Options |
+|-----------|---------|---------|
+| PayTrade → Xero | Invoice sync status | Draft or Approved |
+| PayTrade → Xero | Bill sync status | Draft or Approved |
+| PayTrade → Xero | Payment sync status | Draft or Approved |
+| Xero → PayTrade | Invoice sync status | Draft or Approved |
+| Xero → PayTrade | Bill sync status | Draft or Approved |
+| Xero → PayTrade | Payment sync status | Draft or Approved |
+
+#### Other Settings
+- **Reference Format:** Customise the reference prefix for synced documents
+- **Webhook Wait Time:** Delay (0–60 minutes) for background sync processing
+
+### 19.4 Entity Mapping (Bank Accounts, Contacts, Projects, Contracts)
+
+Each mapping module follows the same pattern with three tabs:
+
+- **PayTrade [Entity]s Tab:** Shows entities in PayTrade that are not yet mapped
+- **Xero [Entity]s Tab:** Shows entities in Xero that are not yet mapped
+- **Mapped Tab:** Shows successfully linked entity pairs
+
+#### Mapping Methods
+
+1. **Auto Map:** Automatically matches entities by name. Available via the "AUTO MAP" button on the Mapped tab.
+2. **Manual Map:** User selects the corresponding entity from a searchable dropdown modal.
+3. **Sync to Xero:** Creates a new record in Xero from a PayTrade entity and establishes the mapping.
+4. **Sync to PayTrade:** Creates a new record in PayTrade from a Xero entity and establishes the mapping.
+5. **Unmap:** Breaks an existing link between two entities, allowing re-mapping.
+
+#### Bank Account Mapping
+- Links Xero bank accounts to PayTrade Cash Accounts, Project Trust Accounts (PTA), or Retention Trust Accounts (RTA)
+- Critical for invoice/bill sync — the correct trust account must be linked
+
+#### Contact Mapping
+- Links Xero contacts to PayTrade clients and suppliers
+- Contacts must be mapped before invoices/bills referencing them can sync
+- Users can import contacts from Xero into PayTrade
+
+#### Project and Contract Mapping
+- Uses Xero Tracking Category Options (not separate Xero entities)
+- Each PayTrade project/contract maps to a tracking category option in Xero
+- Tracking categories must be configured in Settings before mapping
+
+### 19.5 Invoice and Bill Synchronisation
+
+#### PayTrade → Xero Export
+1. **Eligibility:** Only payment claims with status "Draft" or "Confirmed" can be exported
+2. **Pre-checks:** System validates that the client/supplier, project, and contract are all mapped to Xero
+3. **Account Validation:** Verifies required Xero account codes (revenue, liability, retention) and tax codes are configured
+4. **Payload Construction:**
+   - Determines type: `ACCREC` (Receivable/Invoice) or `ACCPAY` (Payable/Bill)
+   - Maps dates, reference numbers, GST settings, and line items
+   - **Retention Handling:** If retention is applicable, the system splits amounts across multiple line items using dedicated retention account codes
+5. **Status:** Created in Xero as Draft or Approved based on sync preferences
+6. **Tracking:** The resulting Xero Invoice ID is saved in `XeroInvoicesBills` entity
+
+#### Xero → PayTrade Import
+1. **Duplicate Check:** Ensures the Xero invoice isn't already mapped to a PayTrade claim
+2. **Validation:**
+   - At least one line item required
+   - Valid tracking categories (Project/Contract) must be present
+   - Account codes and tax codes must match PayTrade configuration
+   - Total amount cannot exceed the contract size
+3. **Retention Calculation:** Back-calculates original item prices and retention percentages from Xero's specialised line items
+4. **Claim Creation:** Creates the payment claim in PayTrade via `addPaymentClaim`
+5. **Status:** Created as Draft or Approved based on sync preferences
+
+#### Field Mapping
+
+| PayTrade Field | Xero Field | Notes |
+|----------------|------------|-------|
+| Payment Claim ID | Reference | Prefixed with "Claim" or "Retention claim" |
+| Claim Type | Type | Billable → ACCPAY, Receivable → ACCREC |
+| Received/Sent Date | Date | Depends on claim type direction |
+| Due Date | Due Date | |
+| Total (incl. GST) | Unit Amount | Adjusted by retention if applicable |
+| Description | Description | Line item description |
+| Project | Tracking Category | Uses project tracking category from settings |
+| Contract | Tracking Category | Uses contract tracking category from settings |
+
+### 19.6 Payment Synchronisation
+
+- Payments applied to invoices/bills sync between systems
+- Supports overpayments and credit notes
+- Payment sync follows the same Draft/Approved preference as invoices/bills
+
+### 19.7 Automated Sync
+
+#### Daily Cron Job
+- Runs at **1:00 PM UTC daily** via `XeroSchedulerService`
+- Iterates through all active integrations
+- Performs a full refresh: accounts → contacts → projects → contracts → invoices
+
+#### Xero Webhooks
+- Receives real-time events from Xero at `/xero-webhook`
+- Supported events: `CONTACT.CREATE`, `CONTACT.UPDATE`, `INVOICE.CREATE`, `INVOICE.UPDATE`
+- Events are queued via Redis/BullMQ (`XeroWebhookQueueConsumer`) for reliable processing
+- Configurable wait time (0–60 minutes) delays processing to batch rapid changes
+
+### 19.8 Sync Logs and Error Resolution
+
+Every sync operation creates a log entry in `XeroSyncLogs` with:
+- Sync type (Contacts, Invoices, Bills, Payments, etc.)
+- Status (Succeeded or Failed)
+- Error code and message (if failed)
+- API payload sent/received
+- Snapshots of both PayTrade and Xero records for comparison
+
+#### Sync Log Details Page
+- **Visual Comparison:** Side-by-side table comparing PayTrade fields vs. Xero fields
+- **Status Indicators:** Each field marked "Ok" (green) or "Failed" (red)
+- **Request/Response:** Shows the actual API payload and any error messages
+
+#### Error Resolution Flow
+When a sync fails, users click "Resolve" and the system determines the appropriate fix:
+
+1. **Automatic Resolution:**
+   - Missing entity in Xero → System creates it automatically
+   - Missing entity in PayTrade → System creates it automatically
+   - Then retries the sync
+
+2. **Redirect Resolution:**
+   - Missing required fields → Redirects user to the edit page to fill in missing data
+   - Invalid account codes → Redirects to Xero Settings to fix configuration
+
+3. **Manual Mapping Resolution:**
+   - Unmapped entities (bank account, contact, project, contract) → Opens a searchable dropdown modal for the user to select the correct match
+   - After mapping, the sync is retried automatically
+
+4. **Special Cases:**
+   - Overpayment errors → Prompts for missing overpayment fields
+   - Document requirements → Prompts user to upload mandatory documents
+   - Reason/description required → Opens a text area for user input
 
 ---
 
