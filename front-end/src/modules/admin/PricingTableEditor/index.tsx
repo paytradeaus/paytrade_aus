@@ -12,7 +12,7 @@ import {
   DeletePricingTableFeature,
   BulkUpdatePricingTableFeatures,
 } from "./pricingTableEditor.functions";
-import styles from "./pricingTableEditor.module.scss";
+import styles from "./pricingTableEditor.module.css";
 
 interface FeatureRow {
   id?: string;

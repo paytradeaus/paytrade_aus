@@ -5,7 +5,7 @@ import BreadCrumbs from "@/components/BreadCrumbs";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { AdminFetchAdminGuides } from "./adminGuides.functions";
 import { stripHtml } from "@/utils";
-import styles from "./adminGuides.module.scss";
+import styles from "./adminGuides.module.css";
 
 export default function AdminGuides() {
   const [guides, setGuides] = useState<any[]>([]);
