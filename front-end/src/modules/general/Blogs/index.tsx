@@ -18,6 +18,12 @@ const BlogContent = () => null;
 // Wrap the placeholder component with the HOC
 const BlogBox = withBlogBox(BlogContent);
 
+function extractFirstImage(html: string): string | null {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
 export default function BlogsPage({
   contentType,
   title,
@@ -124,7 +130,7 @@ export default function BlogsPage({
                             "/" +
                             blog?.id
                           }
-                          imageSrc={blog?.banner?.file_path || DefaultImage}
+                          imageSrc={blog?.banner?.file_path || extractFirstImage(blog?.content) || DefaultImage}
                           title={blog?.title}
                           description={
                             blog?.category?.value || "No description"
