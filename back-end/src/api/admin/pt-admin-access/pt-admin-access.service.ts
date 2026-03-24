@@ -47,6 +47,7 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { UpdateBusinessFreeAccessInput } from './dto/ptadmin-update-free-access.dto';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 
 @Injectable()
 export class PtAdminAccessService {
@@ -79,6 +80,7 @@ export class PtAdminAccessService {
     private readonly signupService: SignupService,
     private readonly emailServices: EmailService,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.logger = new PaytradeLogger('ADMIN_ACCESS_SERVICE');
   }
@@ -920,11 +922,18 @@ export class PtAdminAccessService {
     try {
       const { filePath } = payload;
 
-      if (!fs.existsSync) {
-        throw new Error('Excel not found');
-      }
+      let workbook;
 
-      const workbook = XLSX.readFile(filePath, { cellDates: true });
+      const fileBuffer = await this.objectStorageService.downloadFile(filePath);
+      if (fileBuffer) {
+        this.logger.log(`Reading Excel from Object Storage: ${filePath}`);
+        workbook = XLSX.read(fileBuffer, { cellDates: true, type: 'buffer' });
+      } else if (fs.existsSync(filePath)) {
+        this.logger.log(`Reading Excel from local filesystem: ${filePath}`);
+        workbook = XLSX.readFile(filePath, { cellDates: true });
+      } else {
+        throw new Error(`Excel file not found: ${filePath}`);
+      }
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
 
