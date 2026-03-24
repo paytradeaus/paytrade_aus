@@ -41,6 +41,7 @@ import {
 import {
   HolidayDetailsResponse,
   HolidayListResponse,
+  HolidayTableStatusResponse,
 } from './response/pt-holidays.response';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
@@ -1390,6 +1391,32 @@ export class PtAdminAccessResolver {
       return framedResponse(
         'ERROR',
         `Errored inside the client with message: ${error.message}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Query(() => HolidayTableStatusResponse, {
+    name: 'getHolidayTableStatus',
+    description: 'Checks if the holiday table has sufficient future dates.',
+  })
+  async getHolidayTableStatus(): Promise<any> {
+    try {
+      const status =
+        await this.ptAdminAccessService.getHolidayTableStatus();
+      return framedResponse(
+        'SUCCESS',
+        'Holiday table status retrieved',
+        status,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error checking holiday table status: ${error.message}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Error checking holiday table status: ${error.message}`,
       );
     }
   }

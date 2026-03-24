@@ -8,6 +8,7 @@ import {
   FetchAllNewCompanies,
   FetchAllNewUsers,
   FetchAllProjectsWithComplianceIssues,
+  FetchHolidayTableStatus,
 } from "./adminDashboardPage.functions";
 import { getNoticesListServices } from "@/modules/user/Notices/notices.functions";
 import BaseModal from "@/components/BaseModal";
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
   const [noticesData, setNoticesData] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [processedUsersData, setProcessedUsersData] = useState([]);
+  const [holidayStatus, setHolidayStatus] = useState<any>(null);
 
   const router = useRouter();
   const dispatch = useDispatch();
@@ -55,6 +57,18 @@ export default function AdminDashboard() {
     fetchFailedSubscriptions();
     fetchTrustAccountingIssues();
     fetchUnsentNotices();
+    fetchHolidayStatus();
+  }
+
+  async function fetchHolidayStatus() {
+    try {
+      const response = await FetchHolidayTableStatus();
+      if (response) {
+        setHolidayStatus(response);
+      }
+    } catch (error) {
+      console.error("Error fetching holiday status:", error);
+    }
   }
 
   async function fetchUsersData() {
@@ -158,6 +172,86 @@ export default function AdminDashboard() {
   };
   return (
     <div className="container-fluid">
+      {holidayStatus?.warning && (
+        <div
+          style={{
+            padding: "16px 20px",
+            marginBottom: "20px",
+            borderRadius: "8px",
+            backgroundColor:
+              holidayStatus.days_remaining <= 0
+                ? "#fef2f2"
+                : holidayStatus.days_remaining <= 30
+                  ? "#fff7ed"
+                  : "#fffbeb",
+            border: `1px solid ${
+              holidayStatus.days_remaining <= 0
+                ? "#fecaca"
+                : holidayStatus.days_remaining <= 30
+                  ? "#fed7aa"
+                  : "#fde68a"
+            }`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span
+              style={{
+                fontSize: "20px",
+                color:
+                  holidayStatus.days_remaining <= 0
+                    ? "#dc2626"
+                    : holidayStatus.days_remaining <= 30
+                      ? "#ea580c"
+                      : "#d97706",
+              }}
+            >
+              {holidayStatus.days_remaining <= 0 ? "\u26A0" : "\u23F0"}
+            </span>
+            <div>
+              <strong
+                style={{
+                  color:
+                    holidayStatus.days_remaining <= 0
+                      ? "#991b1b"
+                      : holidayStatus.days_remaining <= 30
+                        ? "#9a3412"
+                        : "#92400e",
+                  fontSize: "14px",
+                }}
+              >
+                Holiday Table{" "}
+                {holidayStatus.days_remaining <= 0
+                  ? "Expired"
+                  : "Attention Needed"}
+              </strong>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: "13px",
+                  color: "#374151",
+                }}
+              >
+                {holidayStatus.status_message}
+                {holidayStatus.latest_holiday_date && (
+                  <span style={{ marginLeft: "8px", color: "#6b7280" }}>
+                    (Latest date: {holidayStatus.latest_holiday_date})
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          <CustomButton
+            buttonType={buttonType.CONTRAST}
+            buttonName="Manage Holidays"
+            actionType="button"
+            onClick={() => router.push(AppRoutes.ADMIN_HOLIDAYS_LIST)}
+          />
+        </div>
+      )}
       <div className="pt_title">
         <div className="pt_breadcrumbs">
           <span>Dashboard</span>

@@ -2,6 +2,39 @@ import { apolloClient } from "@/network/apolloClient";
 import { ApiResponse } from "@/shared/constant/messages";
 import { gql } from "@apollo/client";
 
+export async function FetchHolidayTableStatus(): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetHolidayTableStatus {
+          getHolidayTableStatus {
+            data {
+              warning
+              days_remaining
+              latest_holiday_date
+              total_active_holidays
+              status_message
+            }
+            message
+            status
+          }
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getHolidayTableStatus?.status === ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getHolidayTableStatus?.data;
+    } else {
+      return null;
+    }
+  } catch (error: any) {
+    return null;
+  }
+}
+
 export async function FetchAllNewUsers(): Promise<any> {
   try {
     const response = await apolloClient.query({

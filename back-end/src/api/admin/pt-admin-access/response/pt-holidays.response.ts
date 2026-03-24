@@ -1,4 +1,4 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { ObjectType, Field, Int } from '@nestjs/graphql';
 import { categoryStatus } from 'src/entities/master-types.entity';
 
 @ObjectType({ description: 'Details of a holiday' })
@@ -65,4 +65,34 @@ export class HolidayListResponse {
 
   @Field({ nullable: true, description: 'List of holidays with total count' })
   data?: HolidayList;
+}
+
+@ObjectType({ description: 'Holiday table coverage status data' })
+export class HolidayTableStatusData {
+  @Field({ description: 'Whether the holiday table needs attention' })
+  warning: boolean;
+
+  @Field(() => Int, { description: 'Days of holiday coverage remaining from today' })
+  days_remaining: number;
+
+  @Field({ nullable: true, description: 'The latest holiday date in the table' })
+  latest_holiday_date: string;
+
+  @Field(() => Int, { description: 'Total active holidays in the table' })
+  total_active_holidays: number;
+
+  @Field({ description: 'Human-readable status message' })
+  status_message: string;
+}
+
+@ObjectType({ description: 'Response for holiday table status check' })
+export class HolidayTableStatusResponse {
+  @Field({ description: 'Status of the API response' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field({ nullable: true, description: 'Holiday table status data' })
+  data?: HolidayTableStatusData;
 }

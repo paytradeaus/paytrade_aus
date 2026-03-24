@@ -12153,6 +12153,36 @@ type HolidayRecordData {
   recurring_every_year: String
 }
 
+"""Holiday table coverage status data"""
+type HolidayTableStatusData {
+  """Days of holiday coverage remaining from today"""
+  days_remaining: Int!
+
+  """The latest holiday date in the table"""
+  latest_holiday_date: String
+
+  """Human-readable status message"""
+  status_message: String!
+
+  """Total active holidays in the table"""
+  total_active_holidays: Int!
+
+  """Whether the holiday table needs attention"""
+  warning: Boolean!
+}
+
+"""Response for holiday table status check"""
+type HolidayTableStatusResponse {
+  """Holiday table status data"""
+  data: HolidayTableStatusData
+
+  """Response message"""
+  message: String!
+
+  """Status of the API response"""
+  status: String!
+}
+
 """Details of an integrated provider for a company"""
 type IntegrationDetails {
   """Company identifier associated with the integration"""
@@ -17237,6 +17267,9 @@ type Query {
     """Unique identifier of the admin group."""
     Id: String!
   ): PTGroupMenuResponse!
+
+  """Checks if the holiday table has sufficient future dates."""
+  getHolidayTableStatus: HolidayTableStatusResponse!
 
   """Fetches a list of all integrations associated with a specific company."""
   getIntegrationListsForCompany(

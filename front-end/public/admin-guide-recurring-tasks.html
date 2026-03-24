@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayTrade Admin Guide - Recurring Tasks</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; background: #f8f9fa; line-height: 1.6; }
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+    h1 { font-size: 28px; color: #1a1a2e; margin-bottom: 8px; }
+    .subtitle { color: #6b7280; font-size: 16px; margin-bottom: 32px; }
+    .task-card { background: #fff; border-radius: 12px; padding: 28px; margin-bottom: 24px; border: 1px solid #e5e7eb; }
+    .task-card h2 { font-size: 20px; color: #1a1a2e; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+    .task-card h2 .icon { font-size: 24px; }
+    .frequency { display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin-bottom: 12px; }
+    .frequency.critical { background: #fef2f2; color: #dc2626; }
+    .frequency.auto { background: #f0fdf4; color: #16a34a; }
+    .task-card p { margin-bottom: 12px; color: #374151; }
+    .task-card ul { padding-left: 20px; margin-bottom: 12px; }
+    .task-card li { margin-bottom: 6px; color: #4b5563; }
+    .task-card .steps { background: #f9fafb; border-radius: 8px; padding: 16px; margin-top: 12px; }
+    .task-card .steps h3 { font-size: 14px; color: #111827; margin-bottom: 8px; }
+    .task-card .steps ol { padding-left: 20px; }
+    .task-card .steps li { margin-bottom: 4px; font-size: 14px; color: #4b5563; }
+    .nav-link { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .nav-link:hover { text-decoration: underline; }
+    .section-divider { border: none; border-top: 2px solid #e5e7eb; margin: 40px 0; }
+    .section-title { font-size: 22px; color: #1a1a2e; margin-bottom: 20px; }
+    .auto-badge { display: inline-block; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+    .manual-badge { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; color: #ea580c; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PayTrade Admin Guide: Recurring Tasks</h1>
+    <p class="subtitle">Essential maintenance tasks that keep PayTrade running smoothly. Some are automated, others require periodic manual action.</p>
+
+    <hr class="section-divider">
+    <h2 class="section-title">Manual Admin Tasks</h2>
+
+    <div class="task-card">
+      <h2><span class="icon">📅</span> Update Public Holidays <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency critical">Ad-hoc &mdash; required before current dates run out</div>
+      <p>The holiday table drives all business day calculations for payment claim due dates and QBCC notice deadlines. If the table runs out of future dates, these calculations will be incorrect.</p>
+      <p><strong>Why it matters:</strong> Payment claims use business days (excluding weekends and public holidays) to calculate statutory deadlines. Missing holidays mean incorrect due dates, which can create compliance issues for your users.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Go to <a class="nav-link" href="/admin/holidays">Admin &rarr; Holidays</a></li>
+          <li>Check the latest date in the list &mdash; if it's within the next 3 months, add more</li>
+          <li>Add each state/territory public holiday for the upcoming year(s)</li>
+          <li>For recurring holidays (e.g., Christmas, New Year), tick "Recurring every year" &mdash; these get auto-copied each December</li>
+          <li>For one-off holidays (e.g., Queen's Birthday varies), add them manually each year</li>
+          <li>You can also bulk import holidays from an Excel file using the Import button</li>
+        </ol>
+      </div>
+      <p style="margin-top: 12px; font-size: 13px; color: #6b7280;"><strong>Dashboard alert:</strong> A warning banner appears on the admin dashboard when holiday coverage drops below 90 days. An email alert is also sent monthly if action is needed.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">📋</span> Submit &amp; Confirm QBCC Notices <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">As they arise &mdash; check dashboard daily</div>
+      <p>When users perform certain actions (opening a trust account, making payments, closing accounts), the system automatically generates QBCC notices. These notices need admin review and confirmation before being sent to the QBCC.</p>
+      <p><strong>Why it matters:</strong> QBCC notices are a legal compliance requirement under the BIF Act. Delays in sending notices can put users at risk of non-compliance.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Check the <strong>NOTICES</strong> panel on your <a class="nav-link" href="/admin/dashboard">Dashboard</a> &mdash; this shows unsent notices</li>
+          <li>Click into each notice to review the generated PDF document</li>
+          <li>Verify the details are correct (account names, dates, amounts)</li>
+          <li>Click "Save &amp; Send" to mark as sent and dispatch to QBCC</li>
+          <li>You can also go to <a class="nav-link" href="/admin/notices/current">Admin &rarr; Notices</a> for the full list</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">✅</span> Monitor Compliance Issues <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">Daily check recommended</div>
+      <p>The system tracks compliance status for all projects with trust accounts. When issues are detected (missing notices, overdue actions), they appear on your dashboard.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Check the <strong>COMPLIANCE</strong> panel on your <a class="nav-link" href="/admin/dashboard">Dashboard</a></li>
+          <li>Review each flagged project to understand the compliance gap</li>
+          <li>Contact the user if they need to take action, or resolve from admin side</li>
+          <li>Full list at <a class="nav-link" href="/admin/compliances">Admin &rarr; Compliances</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">💳</span> Review Failed Subscriptions <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">Weekly check recommended</div>
+      <p>When subscription payments fail (expired cards, insufficient funds), these appear on the dashboard. Admins should follow up with affected businesses.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Check the <strong>SUBSCRIPTIONS</strong> panel on your <a class="nav-link" href="/admin/dashboard">Dashboard</a></li>
+          <li>Click on a failed subscription to contact the business's primary admin</li>
+          <li>Full history at <a class="nav-link" href="/admin/subscriptions/billing-history?status=failed">Admin &rarr; Subscriptions &rarr; Billing History</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">🏦</span> Resolve Trust Accounting Issues <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">As they arise</div>
+      <p>When journal entries have balance errors or bank accounts show discrepancies, they are flagged on the dashboard. These require investigation and resolution.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Check the <strong>TRUST ACCOUNTING ISSUES</strong> panel on your <a class="nav-link" href="/admin/dashboard">Dashboard</a></li>
+          <li>Review the flagged accounts for journal or balance check errors</li>
+          <li>Contact the business admin to resolve discrepancies</li>
+          <li>Full list at <a class="nav-link" href="/admin/journals?balance-check=error">Admin &rarr; Journals</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">👥</span> Review New User Registrations <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">Daily check recommended</div>
+      <p>New users and businesses that sign up appear on your dashboard. Review them to ensure they are legitimate and their setup is progressing correctly.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Check <strong>NEW USERS</strong> and <strong>NEW BUSINESSES</strong> panels on your <a class="nav-link" href="/admin/dashboard">Dashboard</a></li>
+          <li>Click into each to review their details and status</li>
+          <li>Full lists at <a class="nav-link" href="/admin/users">Admin &rarr; Users</a> and <a class="nav-link" href="/admin/business">Admin &rarr; Businesses</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">📝</span> Manage SEO Keywords &amp; Content <span class="manual-badge">MANUAL</span></h2>
+      <div class="frequency">Periodically &mdash; as needed for marketing</div>
+      <p>SEO keyword landing pages drive organic traffic. Periodically review and update keywords, page content, and meta descriptions to maintain search rankings.</p>
+      <div class="steps">
+        <h3>How to do it:</h3>
+        <ol>
+          <li>Go to <a class="nav-link" href="/admin/seo-keywords">Admin &rarr; SEO Keywords</a></li>
+          <li>Review keyword statuses &mdash; publish new ones, update existing content</li>
+          <li>Use Export JSON to back up all keywords before major changes</li>
+          <li>Use Import JSON to bulk update or restore keywords</li>
+        </ol>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+    <h2 class="section-title">Automated Tasks (No Action Needed)</h2>
+    <p style="margin-bottom: 20px; color: #6b7280;">These processes run automatically. They're listed here for awareness so you know what the system handles on its own.</p>
+
+    <div class="task-card">
+      <h2><span class="icon">🔄</span> Recurring Holiday Mapping <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">December 31st each year at 11:50 PM UTC</div>
+      <p>The system automatically copies holidays marked as "Recurring every year" to the next calendar year. Non-recurring holidays (like Easter, which changes date) are not copied &mdash; a reminder email is sent on December 15th to prompt manual addition.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">📧</span> Holiday Expiry Email Alerts <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">1st of every month at 8:00 AM UTC</div>
+      <p>If the holiday table has fewer than 90 days of coverage remaining, an email alert is sent to the admin. This ensures you have advance warning before the table runs out.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">📩</span> Pending QBCC Notice Reminders <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Daily at midnight UTC</div>
+      <p>The system sends reminder emails for QBCC notices that remain in "Pending" status, ensuring no notice is forgotten. This runs as a nightly batch.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">🛡️</span> Project Compliance Checks <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Daily at 8:00 AM UTC</div>
+      <p>All project compliance statuses are recalculated each morning. Any new issues are flagged and appear on the admin dashboard.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">💾</span> Database Backups <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Weekly (production only)</div>
+      <p>A full PostgreSQL database backup (pg_dump) is created weekly, uploaded to Object Storage, and old backups beyond 7 iterations are cleaned up. No action required.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">🔗</span> Xero Integration Sync <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Daily at 1:00 PM UTC</div>
+      <p>For businesses with active Xero integrations, the system refreshes OAuth tokens and syncs data (Accounts, Contacts, Projects, Contracts, Invoices). It also deactivates integrations for expired subscriptions.</p>
+      <p><strong>Admin action only if:</strong> A user reports their Xero sync has stopped working &mdash; they may need to re-authenticate their Xero connection.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">🤖</span> Community Bot Content <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Scheduled via cron</div>
+      <p>The community bot uses AI (GPT-4o) to generate realistic Q&amp;A content for the community section. It creates bot users with realistic personas and posts relevant questions and answers about construction trust accounting.</p>
+    </div>
+
+    <div class="task-card">
+      <h2><span class="icon">❤️</span> Health Monitoring &amp; Auto-Restart <span class="auto-badge">AUTOMATIC</span></h2>
+      <div class="frequency auto">Continuous (production only)</div>
+      <p>The production server monitors the backend's <code>/health</code> endpoint. If the backend becomes unresponsive, it automatically restarts it and sends an email alert via Brevo. The <code>KeepAliveModule</code> ensures the server stays warm.</p>
+    </div>
+
+  </div>
+</body>
+</html>

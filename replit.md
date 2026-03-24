@@ -36,6 +36,8 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Password management**: Admin passwords can be updated via the edit form (optional "Change Password" field with full validation). Backend hashes with `bcryptjs`. Admins can only change their own password; for other admins use "Reset Password" which generates a random password and emails it.
 - **Orphan protection**: Backend `ensureNotLastActiveAdmin()` in `PtAdminService` prevents deleting or deactivating the last active admin user. Enforced in `PortalAdminUpdate` for status changes to Inactive/Deleted.
 - **SQL seed**: `scripts/seed-admin-menus.sql` is the idempotent SQL equivalent (ON CONFLICT DO NOTHING) with all 20 menus.
+- **Holiday table monitoring**: Dashboard banner warns when holiday coverage < 90 days (yellow/orange/red severity). Monthly cron (1st of month, 8AM UTC) sends email alert. Backend `getHolidayTableStatus` query and `sendHolidayExpiryAlert` service method.
+- **Admin recurring tasks guide**: Static HTML guide at `/admin-guide-recurring-tasks.html` covering all manual and automated admin processes.
 
 ## External Dependencies
 - **PostgreSQL**: Primary database for application data.

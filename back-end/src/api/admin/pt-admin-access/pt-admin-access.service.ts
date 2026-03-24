@@ -1277,6 +1277,108 @@ export class PtAdminAccessService {
     }
   }
 
+  async getHolidayTableStatus(): Promise<{
+    warning: boolean;
+    days_remaining: number;
+    latest_holiday_date: string | null;
+    total_active_holidays: number;
+    status_message: string;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeHolidaysCount = await this.holidayDetails.count({
+      where: { holiday_status: 'Active' as any },
+    });
+
+    const latestHoliday = await this.holidayDetails
+      .createQueryBuilder('holiday')
+      .where('holiday.holiday_status = :status', { status: 'Active' })
+      .orderBy('holiday.holiday_date', 'DESC')
+      .getOne();
+
+    if (!latestHoliday) {
+      return {
+        warning: true,
+        days_remaining: 0,
+        latest_holiday_date: null,
+        total_active_holidays: 0,
+        status_message:
+          'No active holidays found. Please add public holidays to ensure accurate business day calculations.',
+      };
+    }
+
+    const latestDate = new Date(latestHoliday.holiday_date);
+    latestDate.setHours(0, 0, 0, 0);
+    const diffMs = latestDate.getTime() - today.getTime();
+    const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+    const WARNING_THRESHOLD_DAYS = 90;
+    const isWarning = daysRemaining <= WARNING_THRESHOLD_DAYS;
+
+    let statusMessage: string;
+    if (daysRemaining <= 0) {
+      statusMessage =
+        'Holiday table has expired! All dates are in the past. Please add future public holidays immediately.';
+    } else if (daysRemaining <= 30) {
+      statusMessage = `Critical: Only ${daysRemaining} days of holiday coverage remaining. Add future dates now.`;
+    } else if (daysRemaining <= WARNING_THRESHOLD_DAYS) {
+      statusMessage = `Holiday table coverage ends in ${daysRemaining} days. Please add holidays for the upcoming period.`;
+    } else {
+      statusMessage = `Holiday table is up to date with coverage for the next ${daysRemaining} days.`;
+    }
+
+    return {
+      warning: isWarning,
+      days_remaining: daysRemaining,
+      latest_holiday_date: latestDate.toISOString().split('T')[0],
+      total_active_holidays: activeHolidaysCount,
+      status_message: statusMessage,
+    };
+  }
+
+  async sendHolidayExpiryAlert(): Promise<void> {
+    const status = await this.getHolidayTableStatus();
+    if (!status.warning) return;
+
+    const portalAdmin = await this.adminDetails.findOne({
+      where: {
+        admin_role: Role.PORTAL_ADMIN,
+        admin_status: 'Active',
+      },
+    });
+
+    if (!portalAdmin) return;
+
+    const adminEmail =
+      process.env.NOTICE_PAYTRADE_ADMIN_DELEGATE || portalAdmin.email_id;
+
+    const mailDetails = {
+      toEmail: adminEmail,
+      subject: `Action Required: Holiday Table ${status.days_remaining <= 0 ? 'Expired' : 'Expiring Soon'} - ${status.days_remaining} days remaining`,
+      template: 'header-footer-email',
+      mailBody: `
+        <h2>Holiday Table Maintenance Required</h2>
+        <p>Dear ${portalAdmin.first_name},</p>
+        <p>${status.status_message}</p>
+        <p><strong>Details:</strong></p>
+        <ul>
+          <li>Days of coverage remaining: <strong>${status.days_remaining}</strong></li>
+          <li>Latest holiday date: <strong>${status.latest_holiday_date || 'None'}</strong></li>
+          <li>Total active holidays: <strong>${status.total_active_holidays}</strong></li>
+        </ul>
+        <p>Please log in to the admin panel and navigate to <strong>Holidays</strong> to add future public holiday dates.</p>
+        <p>Accurate holidays are essential for correct business day calculations on payment claims and QBCC notices.</p>
+      `,
+      mail_type: EmailTypeEnum.holidayReminder,
+    };
+
+    await this.emailQueueProducer.emailQueueProducer(mailDetails);
+    this.logger.log(
+      `Holiday expiry alert sent: ${status.days_remaining} days remaining`,
+    );
+  }
+
   // async exportAllCompanies() {
   //   const companies = await this.companyDetails.find();
 
