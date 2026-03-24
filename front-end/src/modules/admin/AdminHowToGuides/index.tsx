@@ -26,6 +26,7 @@ import {
   AdminUpdateBlogResource,
 } from "../AdminBlog/BlogList/blogList.function";
 import { AdminAddBlogResource } from "../AdminBlog/addBlog/addEditBlog.function";
+import { AdminAddMasterTypeDetails } from "../masters/addMastersList/addMastersList.functions";
 import {
   blogListHeaders,
   blogRenderData,
@@ -66,6 +67,9 @@ export default function AdminHowToGuides() {
   const [importData, setImportData] = useState<any[]>([]);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [missingCategories, setMissingCategories] = useState<string[]>([]);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [creatingCategories, setCreatingCategories] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isAnyFilterActive =
     search || statusType || authorValue || categoryValue;
@@ -229,7 +233,7 @@ export default function AdminHowToGuides() {
   useEffect(() => {
     (async () => {
       const [categoryData, authorsResponse] = await Promise.all([
-        AdminFetchAllMasterTypeDetails("Blog Category"),
+        AdminFetchAllMasterTypeDetails("How To Guide Category" as any),
         AdminListAllBlogResAuthors(),
       ]);
       if (categoryData?.length > 0) {
@@ -382,7 +386,28 @@ export default function AdminHowToGuides() {
     }
   };
 
-  const handleImportFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fetchCategoryMaps = async () => {
+    const categoryData = await AdminFetchAllMasterTypeDetails("How To Guide Category" as any);
+    const byLabel: Record<string, string> = {};
+    const byId: Record<string, string> = {};
+    categoryData?.forEach((cat: any) => {
+      byLabel[cat.label.trim().toLowerCase()] = cat.value;
+      byId[cat.value] = cat.value;
+    });
+    return { byLabel, byId };
+  };
+
+  const resolveCategoryId = (
+    guide: any,
+    byId: Record<string, string>,
+    byLabel: Record<string, string>
+  ): string | null => {
+    if (guide.category_id && byId[guide.category_id]) return guide.category_id;
+    const label = (guide.category_name || guide.category || "").trim().toLowerCase();
+    return byLabel[label] || null;
+  };
+
+  const handleImportFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -392,21 +417,67 @@ export default function AdminHowToGuides() {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (!parsed?.guides || !Array.isArray(parsed.guides)) {
           showErrorToast("Invalid file format: missing 'guides' array");
           return;
         }
-        setImportData(parsed.guides);
-        setImportModalVisible(true);
+
+        const guides = parsed.guides;
+        setImportData(guides);
+
+        const { byId, byLabel } = await fetchCategoryMaps();
+
+        const neededCategories = new Set<string>();
+        for (const guide of guides) {
+          const catId = resolveCategoryId(guide, byId, byLabel);
+          if (!catId) {
+            const catName = (guide.category_name || guide.category || "").trim();
+            if (catName) neededCategories.add(catName);
+          }
+        }
+
+        if (neededCategories.size > 0) {
+          setMissingCategories(Array.from(neededCategories));
+          setCategoryModalVisible(true);
+        } else {
+          setImportModalVisible(true);
+        }
       } catch {
         showErrorToast("Invalid JSON file");
       }
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCreateMissingCategories = async () => {
+    setCreatingCategories(true);
+    let allCreated = true;
+
+    for (const catName of missingCategories) {
+      const result = await AdminAddMasterTypeDetails(
+        { master_type: "How To Guide Category", value: catName, description: "", status: "Active" },
+        `Category "${catName}" created`
+      );
+      if (!result) {
+        showErrorToast(`Failed to create category "${catName}"`);
+        allCreated = false;
+      }
+    }
+
+    setCreatingCategories(false);
+    setCategoryModalVisible(false);
+    setMissingCategories([]);
+
+    if (allCreated) {
+      setImportModalVisible(true);
+    } else {
+      showErrorToast("Some categories could not be created. Please try again.");
+      setImportData([]);
+    }
   };
 
   const handleImportConfirm = async () => {
@@ -416,24 +487,11 @@ export default function AdminHowToGuides() {
     let failCount = 0;
     const errors: string[] = [];
 
-    const categoryData = await AdminFetchAllMasterTypeDetails("How To Guide Category");
-    const categoryByLabel: Record<string, string> = {};
-    const categoryById: Record<string, string> = {};
-    categoryData?.forEach((cat: any) => {
-      categoryByLabel[cat.label.trim().toLowerCase()] = cat.value;
-      categoryById[cat.value] = cat.value;
-    });
+    const { byId, byLabel } = await fetchCategoryMaps();
 
     for (const guide of importData) {
       try {
-        let categoryId = guide.category_id && categoryById[guide.category_id]
-          ? guide.category_id
-          : null;
-
-        if (!categoryId) {
-          const label = (guide.category_name || guide.category || "").trim().toLowerCase();
-          categoryId = categoryByLabel[label];
-        }
+        const categoryId = resolveCategoryId(guide, byId, byLabel);
 
         if (!categoryId) {
           const categoryRef = guide.category_name || guide.category || "unknown";
@@ -699,6 +757,41 @@ export default function AdminHowToGuides() {
             </p>
           </BaseModal>
         )}
+        {categoryModalVisible && (
+          <BaseModal
+            modalId={"missing categories modal"}
+            displayModal={categoryModalVisible}
+            title="Missing Categories"
+            onClose={() => {
+              setCategoryModalVisible(false);
+              setMissingCategories([]);
+              setImportData([]);
+            }}
+            onConfirm={() => {
+              handleCreateMissingCategories();
+              return true;
+            }}
+          >
+            <div>
+              <p>
+                The following <strong>{missingCategories.length}</strong> guide
+                {missingCategories.length === 1 ? " category doesn't" : " categories don't"} exist
+                yet. Would you like to create them before importing?
+              </p>
+              <ul style={{ paddingLeft: "20px", margin: "12px 0" }}>
+                {missingCategories.map((cat, idx) => (
+                  <li key={idx} style={{ marginBottom: "4px", fontWeight: 500 }}>{cat}</li>
+                ))}
+              </ul>
+              {creatingCategories && (
+                <p style={{ color: "#1a73e8" }}>
+                  <i className="fa-light fa-spinner-third fa-spin" style={{ marginRight: "6px" }}></i>
+                  Creating categories...
+                </p>
+              )}
+            </div>
+          </BaseModal>
+        )}
         {importModalVisible && (
           <BaseModal
             modalId={"import guides modal"}
@@ -722,7 +815,7 @@ export default function AdminHowToGuides() {
                 <ul style={{ paddingLeft: "20px", margin: 0 }}>
                   {importData.map((guide: any, idx: number) => (
                     <li key={idx} style={{ marginBottom: "4px" }}>
-                      {guide.title} <span style={{ color: "#888", fontSize: "12px" }}>({guide.category})</span>
+                      {guide.title} <span style={{ color: "#888", fontSize: "12px" }}>({guide.category_name || guide.category})</span>
                     </li>
                   ))}
                 </ul>
