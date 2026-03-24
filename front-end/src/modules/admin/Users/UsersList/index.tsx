@@ -26,13 +26,14 @@ import {
   AdminListAllUsers,
   AdminResetUserPassword,
   AllowAdminToLoginAsUser,
+  GenerateBotUsers,
 } from "../users.functions";
 import {
   downloadExcelFileFromAPI,
   GenerateSignedUrl,
   getPDFUrl,
 } from "@/utils/export";
-import { showErrorToast, showWarningToast } from "@/components/Toaster";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/components/Toaster";
 import { useRouter } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
 import { AdminUpdateUser } from "../../AdminAddUser/adminAddUser.functions";
@@ -75,6 +76,7 @@ export default function UsersList() {
 
   const [isPWDShow, setIsPWDShow] = useState(false);
   const [sortValues, setSortValues] = useState<any>("");
+  const [botGenerating, setBotGenerating] = useState(false);
 
   const isAnyFilterActive = statusType !== "" || searchValue;
 
@@ -511,6 +513,23 @@ export default function UsersList() {
     setSearchValue(value);
   }
 
+  const handleGenerateBotUsers = async () => {
+    setBotGenerating(true);
+    try {
+      const result = await GenerateBotUsers(5);
+      if (result?.success) {
+        showSuccessToast(result.message || `Created ${result.botsCreated} bot users`);
+        fetchUsersLists();
+      } else {
+        showErrorToast(result?.message || "Failed to generate bot users");
+      }
+    } catch (error: any) {
+      showErrorToast("Failed to generate bot users");
+    } finally {
+      setBotGenerating(false);
+    }
+  };
+
   async function handleOptionSelection() {
     setLoader(true);
 
@@ -548,7 +567,16 @@ export default function UsersList() {
           <div className="pt_pagetitle">
             <h1>Manage users</h1>
           </div>
-          <div className="pt_pageactions">
+          <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="contrast"
+              onClick={handleGenerateBotUsers}
+              disabled={botGenerating}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>
+              {botGenerating ? "Generating..." : "Generate Bot Users"}
+            </button>
             <Link
               href={AppRoutes.ADMIN_NORMAL_USERS_ADD}
               passHref

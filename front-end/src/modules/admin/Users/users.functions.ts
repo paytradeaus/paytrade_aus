@@ -136,6 +136,23 @@ export const AdminResetUserPassword = async (
   }
 };
 
+export const GenerateBotUsers = async (count: number = 5): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation GenerateBotUsers($count: Float!) {
+          generateBotUsers(count: $count)
+        }
+      `,
+      variables: { count },
+    });
+    return response?.data?.generateBotUsers;
+  } catch (error: any) {
+    console.log("GenerateBotUsers ~ error:", error);
+    return null;
+  }
+};
+
 export const AllowAdminToLoginAsUser = async (
   data: any,
   successMsg?: string,

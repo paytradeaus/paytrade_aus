@@ -14032,6 +14032,9 @@ type Mutation {
     """
     payload: ExportAuditReportInput!
   ): auditExportResponse!
+  generateBotAnswers(discussionId: String!): JSON!
+  generateBotQuestion: JSON!
+  generateBotUsers(count: Float! = 5): JSON!
 
   "\n    Generates a document for a specified notice.\n    Returns document details including download links.\n    "
   generateDocForANotice(

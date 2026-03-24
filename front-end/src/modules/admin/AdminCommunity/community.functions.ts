@@ -60,6 +60,56 @@ export async function getList(inputData: any) {
   }
 }
 
+export async function generateBotQuestion() {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation GenerateBotQuestion {
+          generateBotQuestion
+        }
+      `,
+    });
+    return response?.data?.generateBotQuestion;
+  } catch (error: any) {
+    console.log("generateBotQuestion ~ error:", error);
+    return null;
+  }
+}
+
+export async function generateBotAnswers(discussionId: string) {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation GenerateBotAnswers($discussionId: String!) {
+          generateBotAnswers(discussionId: $discussionId)
+        }
+      `,
+      variables: { discussionId },
+    });
+    return response?.data?.generateBotAnswers;
+  } catch (error: any) {
+    console.log("generateBotAnswers ~ error:", error);
+    return null;
+  }
+}
+
+export async function getCommunityBotStats() {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetCommunityBotStats {
+          getCommunityBotStats
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    return response?.data?.getCommunityBotStats;
+  } catch (error: any) {
+    console.log("getCommunityBotStats ~ error:", error);
+    return null;
+  }
+}
+
 export async function getReportedList(inputData: any) {
   try {
     const response = await apolloClient.query({

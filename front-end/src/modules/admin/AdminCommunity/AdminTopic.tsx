@@ -17,7 +17,11 @@ import {
 import Link from "next/link";
 import { slugifyString } from "@/utils";
 import BaseModal from "@/components/BaseModal";
-import { showInfoToast, showSuccessToast } from "@/components/Toaster";
+import {
+  showErrorToast,
+  showInfoToast,
+  showSuccessToast,
+} from "@/components/Toaster";
 import {
   discussionRenderData,
   discussionsHeader,
@@ -25,6 +29,7 @@ import {
   productIdeaRenderData,
   tabOptionsList,
 } from "./community.constant";
+import { generateBotQuestion, generateBotAnswers } from "./community.functions";
 
 interface AdminTopicProps {
   value: string;
@@ -52,6 +57,9 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
     value === "discussion" ? "Discussions" : "Product ideas"
   );
   const [sortValues, setSortValues] = useState<any>("");
+  const [botQuestionLoading, setBotQuestionLoading] = useState(false);
+  const [botAnswerLoading, setBotAnswerLoading] = useState<string | null>(null);
+  const [openBotAnswerConfirm, setOpenBotAnswerConfirm] = useState(false);
 
   useEffect(() => {
     getListData();
@@ -165,6 +173,46 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
     });
   };
 
+  const handleGenerateBotQuestion = async () => {
+    setBotQuestionLoading(true);
+    try {
+      const result = await generateBotQuestion();
+      if (result?.success) {
+        showSuccessToast(
+          `Bot question created: "${result.questionTitle}" with ${result.answersCreated} answer(s)`
+        );
+        getListData();
+      } else {
+        showErrorToast(result?.message || "Failed to generate bot question");
+      }
+    } catch (error: any) {
+      showErrorToast("Failed to generate bot question");
+    } finally {
+      setBotQuestionLoading(false);
+    }
+  };
+
+  const handleGenerateBotAnswers = async () => {
+    if (!selectedRowData) return;
+    setBotAnswerLoading(selectedRowData.id);
+    setOpenBotAnswerConfirm(false);
+    try {
+      const result = await generateBotAnswers(selectedRowData.id);
+      if (result?.success) {
+        showSuccessToast(
+          `Generated ${result.answersCreated} bot answer(s) for this discussion`
+        );
+        getListData();
+      } else {
+        showErrorToast(result?.message || "Failed to generate bot answers");
+      }
+    } catch (error: any) {
+      showErrorToast("Failed to generate bot answers");
+    } finally {
+      setBotAnswerLoading(null);
+    }
+  };
+
   const actions = [
     {
       label: "View",
@@ -181,6 +229,20 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
       },
       displayByDefault: true,
     },
+    ...(value === "discussion"
+      ? [
+          {
+            label: "Generate Bot Answers",
+            icon: "fa-light fa-robot",
+            style: "primary",
+            onClick: (row: any) => {
+              setSelectedRowData(row);
+              setOpenBotAnswerConfirm(true);
+            },
+            displayByDefault: true,
+          },
+        ]
+      : []),
     {
       label: "Delete",
       icon: "fa-light fa-trash",
@@ -245,7 +307,18 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
           <div className="pt_pagetitle">
             <h1>{activeTab}</h1>
           </div>
-          <div className="pt_pageactions">
+          <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
+            {value === "discussion" && (
+              <button
+                className="contrast"
+                onClick={handleGenerateBotQuestion}
+                disabled={botQuestionLoading}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                <i className={botQuestionLoading ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>
+                {botQuestionLoading ? "Generating..." : "Generate Bot Question"}
+              </button>
+            )}
             <a className="pt_addnewbutton">
               <Link
                 href={
@@ -341,6 +414,26 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
           }}
         >
           <h4 className="text_center">Are you sure you wish to delete?</h4>
+        </BaseModal>
+      )}
+      {openBotAnswerConfirm && (
+        <BaseModal
+          displayModal={openBotAnswerConfirm}
+          onClose={() => setOpenBotAnswerConfirm(false)}
+          secondButtonName="Generate"
+          firstButtonName="Cancel"
+          title=""
+          onConfirm={() => {
+            handleGenerateBotAnswers();
+            return true;
+          }}
+        >
+          <h4 className="text_center">
+            Generate 1-3 bot answers for this discussion?
+          </h4>
+          <p className="text_center" style={{ marginTop: "8px", color: "#666" }}>
+            This will use AI to create realistic community responses.
+          </p>
         </BaseModal>
       )}
     </div>

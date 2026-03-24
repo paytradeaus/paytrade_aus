@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { CommunityBotService } from './community-bot.service';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
@@ -25,6 +25,74 @@ export class CommunityBotResolver {
       answersCreated: result.answersCreated,
       botsCreated: result.botsCreated,
     };
+  }
+
+  @Mutation(() => GraphQLJSON)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  async generateBotUsers(
+    @Args('count', { type: () => Number, defaultValue: 5 }) count: number,
+  ) {
+    try {
+      const clampedCount = Math.min(Math.max(count, 1), 20);
+      const created = await this.communityBotService.createBotBatch(clampedCount);
+      return {
+        success: true,
+        botsCreated: created,
+        message: `Successfully created ${created} bot users`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        botsCreated: 0,
+        message: error.message || 'Failed to create bot users',
+      };
+    }
+  }
+
+  @Mutation(() => GraphQLJSON)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  async generateBotQuestion() {
+    try {
+      const result = await this.communityBotService.generateSingleQuestion();
+      if (!result) {
+        return { success: false, message: 'Question generation failed' };
+      }
+      return {
+        success: true,
+        questionTitle: result.questionTitle,
+        answersCreated: result.answersCreated,
+        botsCreated: result.botsCreated,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to generate question',
+      };
+    }
+  }
+
+  @Mutation(() => GraphQLJSON)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  async generateBotAnswers(
+    @Args('discussionId', { type: () => String }) discussionId: string,
+  ) {
+    try {
+      const result = await this.communityBotService.generateAnswersForDiscussion(discussionId);
+      return {
+        success: true,
+        answersCreated: result.answersCreated,
+        botsCreated: result.botsCreated,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        answersCreated: 0,
+        message: error.message || 'Failed to generate answers',
+      };
+    }
   }
 
   @Query(() => GraphQLJSON)

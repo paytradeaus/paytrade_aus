@@ -259,7 +259,7 @@ export class CommunityBotService {
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
-  private async createBotBatch(count: number): Promise<number> {
+  async createBotBatch(count: number): Promise<number> {
     let created = 0;
     this.logger.log(`Creating batch of ${count} bot users`);
 
@@ -530,6 +530,191 @@ Return ONLY the HTML answer content, no JSON wrapping.`,
 
   private randomBetween(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  async generateSingleQuestion(): Promise<{
+    questionTitle: string;
+    answersCreated: number;
+    botsCreated: number;
+  } | null> {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized. Set OPENAI_API_KEY environment variable.');
+    }
+
+    this.logger.log('Manual single question generation triggered');
+
+    const category = await this.getDiscussionCategory();
+    const existingTitles = await this.getRecentTitles();
+    let botsCreated = 0;
+
+    let questionUser = await this.getEligibleBot('question', []);
+    if (!questionUser) {
+      const created = await this.createBotBatch(BOT_BATCH_SIZE);
+      botsCreated += created;
+      questionUser = await this.getEligibleBot('question', []);
+      if (!questionUser) {
+        throw new Error('No eligible bot users available to post a question');
+      }
+    }
+
+    const topic = await this.selectTopic();
+    const generated = await this.generateQAndA(topic, existingTitles);
+    if (!generated) {
+      throw new Error('Failed to generate Q&A content');
+    }
+
+    const discussion = this.discussionsIdeas.create({
+      title: generated.questionTitle,
+      content: generated.questionContent,
+      cmty_content_type: 'Discussion',
+      discussion_idea_status: 'Active',
+      author: questionUser,
+      category: category || undefined,
+      enable_comments: true,
+      created_group: 'USER',
+      updated_group: 'USER',
+    });
+
+    const savedDiscussion = await this.discussionsIdeas.save(discussion);
+    savedDiscussion.discussion_idea_id = Number(savedDiscussion.discussion_idea_id) + 10000000;
+    const finalDiscussion = await this.discussionsIdeas.save(savedDiscussion);
+
+    const answerCount = this.randomBetween(1, 3);
+    let answersCreated = 0;
+
+    for (let a = 0; a < answerCount; a++) {
+      const excludeIds = [questionUser.id];
+      let answerUser = await this.getEligibleBot('answer', excludeIds);
+      if (!answerUser) {
+        const created = await this.createBotBatch(BOT_BATCH_SIZE);
+        botsCreated += created;
+        answerUser = await this.getEligibleBot('answer', excludeIds);
+        if (!answerUser) continue;
+      }
+
+      let answerContent: string;
+      if (a === 0) {
+        answerContent = generated.answerContent;
+      } else {
+        const additionalAnswer = await this.generateAdditionalAnswer(
+          finalDiscussion.title,
+          generated.questionContent,
+          generated.answerContent,
+        );
+        if (!additionalAnswer) continue;
+        answerContent = additionalAnswer;
+      }
+
+      const answer = this.answerComments.create({
+        answer_comment: answerContent,
+        answer_comment_status: 'Approved',
+        discussionIdea: finalDiscussion,
+        author: answerUser,
+        created_group: 'USER',
+        updated_group: 'USER',
+      });
+
+      const savedAnswer = await this.answerComments.save(answer);
+      savedAnswer.answer_comment_id = Number(savedAnswer.answer_comment_id) + 10000000;
+      await this.answerComments.save(savedAnswer);
+      answersCreated++;
+    }
+
+    await this.discussionsIdeas.update(
+      { id: finalDiscussion.id },
+      { answer_comment_count: answersCreated },
+    );
+
+    this.logger.log(`Single question generated: "${finalDiscussion.title}" with ${answersCreated} answers`);
+    return {
+      questionTitle: finalDiscussion.title,
+      answersCreated,
+      botsCreated,
+    };
+  }
+
+  async generateAnswersForDiscussion(discussionId: string): Promise<{
+    answersCreated: number;
+    botsCreated: number;
+  }> {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized. Set OPENAI_API_KEY environment variable.');
+    }
+
+    const discussion = await this.discussionsIdeas.findOne({
+      where: { id: discussionId },
+      relations: ['author'],
+    });
+
+    if (!discussion) {
+      throw new Error('Discussion not found');
+    }
+
+    if (discussion.cmty_content_type !== 'Discussion') {
+      throw new Error('Bot answers can only be generated for discussions, not product ideas');
+    }
+
+    if (discussion.discussion_idea_status !== 'Active') {
+      throw new Error('Discussion must be active to generate bot answers');
+    }
+
+    this.logger.log(`Generating answers for discussion: "${discussion.title}"`);
+
+    let botsCreated = 0;
+    let answersCreated = 0;
+    const answerCount = this.randomBetween(1, 3);
+    const excludeAuthorId = discussion.author?.id;
+
+    const existingAnswers = await this.answerComments.find({
+      where: { discussionIdea: { id: discussionId } },
+      order: { created_on: 'DESC' },
+      take: 1,
+    });
+
+    const referenceAnswer = existingAnswers.length > 0
+      ? existingAnswers[0].answer_comment
+      : discussion.content;
+
+    for (let a = 0; a < answerCount; a++) {
+      const excludeIds = excludeAuthorId ? [excludeAuthorId] : [];
+      let answerUser = await this.getEligibleBot('answer', excludeIds);
+      if (!answerUser) {
+        const created = await this.createBotBatch(BOT_BATCH_SIZE);
+        botsCreated += created;
+        answerUser = await this.getEligibleBot('answer', excludeIds);
+        if (!answerUser) continue;
+      }
+
+      const answerContent = await this.generateAdditionalAnswer(
+        discussion.title,
+        discussion.content,
+        referenceAnswer,
+      );
+      if (!answerContent) continue;
+
+      const answer = this.answerComments.create({
+        answer_comment: answerContent,
+        answer_comment_status: 'Approved',
+        discussionIdea: discussion,
+        author: answerUser,
+        created_group: 'USER',
+        updated_group: 'USER',
+      });
+
+      const savedAnswer = await this.answerComments.save(answer);
+      savedAnswer.answer_comment_id = Number(savedAnswer.answer_comment_id) + 10000000;
+      await this.answerComments.save(savedAnswer);
+      answersCreated++;
+    }
+
+    const currentCount = discussion.answer_comment_count || 0;
+    await this.discussionsIdeas.update(
+      { id: discussion.id },
+      { answer_comment_count: currentCount + answersCreated },
+    );
+
+    this.logger.log(`Generated ${answersCreated} answers for "${discussion.title}"`);
+    return { answersCreated, botsCreated };
   }
 
   async triggerManualGeneration(): Promise<{
