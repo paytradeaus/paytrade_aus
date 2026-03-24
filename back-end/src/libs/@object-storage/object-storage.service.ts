@@ -210,7 +210,7 @@ export class ObjectStorageService {
         const bytes = value as unknown as Uint8Array;
         return Buffer.from(bytes);
       } else {
-        this.logger.error(`Failed to download file: ${result.error}`);
+        this.logger.error(`Failed to download file ${normalizedPath}: ${JSON.stringify(result.error)}`);
         return null;
       }
     } catch (error) {
