@@ -232,10 +232,11 @@ const AdminTopic: React.FC<AdminTopicProps> = ({ value }) => {
     ...(value === "discussion"
       ? [
           {
-            label: "Generate Bot Answers",
-            icon: "fa-light fa-robot",
+            label: botAnswerLoading ? "Generating..." : "Generate Bot Answers",
+            icon: botAnswerLoading ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot",
             style: "primary",
             onClick: (row: any) => {
+              if (botAnswerLoading) return;
               setSelectedRowData(row);
               setOpenBotAnswerConfirm(true);
             },
