@@ -70,6 +70,8 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **Step 3**: AI answer from OpenAI GPT-4o using PayTrade System Guide as context; answer auto-posted to community
 - **Step 4**: "Still need help?" links to `/get-support` contact form
 - **Rate Limiting**: `ai_support_usage` table tracks usage. Free tier: 2 questions/hour (personal). Paid tier: 20 questions/day (shared company pool). User gets highest tier across all company memberships
+- **Relevance Gate**: Low-cost GPT-4o-mini pre-check rejects off-topic questions before they consume quota or pollute community content. Returns `OFF_TOPIC` status with friendly message. Also flags questions needing web search for legal/regulatory data.
+- **Web Search Enrichment**: For complex BIF Act / QBCC legal questions, the relevance gate flags `needs_web_search`. The main GPT-4o call then uses OpenAI's `web_search_preview` tool to fetch current legal data, regulations, and court decisions — compensating for training data cutoffs.
 - **Abuse Controls**: HTML stripping, 500-char max, SHA-256 duplicate detection (5-min window), prompt injection guard in system prompt
 - **Tier Detection**: `company_user_roles` (user_id, status=Active) → `subscription_details` (company_id) → `subscription_plan_details` (plan_type: Free|Paid)
 - **Backend**: `AiSupportModule` at `back-end/src/api/common/ai-support/` with service, resolver, DTOs, responses

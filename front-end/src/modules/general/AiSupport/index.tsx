@@ -140,6 +140,11 @@ export default function AiSupportPage() {
         setAiAnswer(result.answer || "");
         setRemainingQuota(result.remainingQuota);
         setCommunityPostId(result.communityPostId);
+      } else if (result.status === "OFF_TOPIC") {
+        setAiError(
+          result.message ||
+            "We don't think this is a topic we can help with. Please contact support for further assistance."
+        );
       } else if (result.status === "RATE_LIMITED") {
         setAiError(result.message || "Rate limit reached.");
       } else {

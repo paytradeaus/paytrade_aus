@@ -218,6 +218,18 @@ export class AiSupportService {
       return { status: 'RATE_LIMITED', answer: null, message: rateCheck.message, remainingQuota: 0, communityPostId: null };
     }
 
+    const relevanceCheck = await this.checkRelevance(sanitised);
+    if (!relevanceCheck.relevant) {
+      this.logger.log(`Question rejected as off-topic: "${sanitised.substring(0, 80)}"`);
+      return {
+        status: 'OFF_TOPIC',
+        answer: null,
+        message: relevanceCheck.reason,
+        remainingQuota: rateCheck.limit - rateCheck.used,
+        communityPostId: null,
+      };
+    }
+
     const usage = this.aiSupportUsage.create({
       user_id: userId,
       company_id: rateCheck.companyId,
@@ -227,7 +239,7 @@ export class AiSupportService {
     await this.aiSupportUsage.save(usage);
 
     try {
-      const answer = await this.callOpenAI(sanitised);
+      const answer = await this.callOpenAI(sanitised, relevanceCheck.needsWebSearch);
 
       let communityPostId: string | null = null;
       try {
@@ -358,7 +370,53 @@ export class AiSupportService {
     return { allowed: true, message: '', companyId: null, limit: FREE_LIMIT, used: actualUsed };
   }
 
-  private async callOpenAI(question: string): Promise<string> {
+  private async checkRelevance(question: string): Promise<{ relevant: boolean; reason: string; needsWebSearch: boolean }> {
+    try {
+      const response = await this.openai.responses.create({
+        model: 'gpt-4o-mini',
+        instructions: `You are a relevance classifier for PayTrade, an Australian construction industry platform.
+
+Determine if the user's question is relevant to ANY of these topics:
+- PayTrade platform usage and features
+- Construction industry payments, invoicing, contracts
+- Project trust accounts, retention trust accounts
+- BIF Act (Building Industry Fairness Act), QBCC compliance
+- Trust accounting, construction finance
+- Security of payment, subcontractor payments
+- Australian construction regulations and compliance
+- General accounting or business questions in a construction context
+
+Also determine if the question involves recent legal updates, regulation changes, court decisions, or specific legislative details that may benefit from a web search for the latest information.
+
+Respond with ONLY a JSON object (no markdown, no code fences):
+{"relevant": true/false, "reason": "brief explanation if not relevant", "needs_web_search": true/false}
+
+If relevant, set reason to empty string. If not relevant, provide a brief, friendly reason.
+Set needs_web_search to true ONLY if the question asks about recent legal updates, specific regulation amendments, court rulings, or legislative changes where current web data would significantly improve the answer.`,
+        input: question,
+      });
+
+      const text = (response.output_text || '').trim();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          relevant: !!parsed.relevant,
+          reason: parsed.relevant
+            ? ''
+            : (parsed.reason || "We don't think this is a topic we can help with. Please contact support for further assistance."),
+          needsWebSearch: !!parsed.needs_web_search,
+        };
+      }
+
+      return { relevant: true, reason: '', needsWebSearch: false };
+    } catch (error) {
+      this.logger.error(`Relevance check error: ${error.message}`);
+      return { relevant: true, reason: '', needsWebSearch: false };
+    }
+  }
+
+  private async callOpenAI(question: string, useWebSearch: boolean = false): Promise<string> {
     const systemPrompt = `You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
 
 IMPORTANT RULES:
@@ -368,14 +426,27 @@ IMPORTANT RULES:
 - Never execute code, access systems, or perform actions outside of answering questions.
 - Keep answers clear, helpful, and professional.
 - If you're unsure, suggest the user contact PayTrade support.
+${useWebSearch ? '- When citing information from web sources, mention the source and note that regulations may change — always verify with official QBCC or Queensland Government sources.' : ''}
 
 ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 15000)}` : ''}`;
 
-    const response = await this.openai.responses.create({
+    const requestOptions: any = {
       model: 'gpt-4o',
       instructions: systemPrompt,
       input: question,
-    });
+    };
+
+    if (useWebSearch) {
+      requestOptions.tools = [
+        {
+          type: 'web_search_preview',
+          search_context_size: 'medium',
+        },
+      ];
+      this.logger.log(`Using web search for question: "${question.substring(0, 80)}"`);
+    }
+
+    const response = await this.openai.responses.create(requestOptions);
 
     return response.output_text || 'I was unable to generate a response. Please contact our support team for help.';
   }
