@@ -233,69 +233,95 @@ export default function AiSupportPage() {
                       <h6 style={{ marginBottom: "0.75rem" }}>
                         {totalCount} result{totalCount !== 1 ? "s" : ""} found
                       </h6>
-                      {searchResults.map((result) => (
-                        <Link
-                          key={`${result.type}-${result.id}`}
-                          href={result.url || "#"}
-                          style={{ textDecoration: "none", color: "inherit" }}
-                        >
-                          <div
-                            style={{
-                              padding: "0.75rem 1rem",
-                              background: "var(--card-background-color)",
-                              borderRadius: "8px",
-                              marginBottom: "0.5rem",
-                              cursor: "pointer",
-                              transition: "background 0.2s",
-                            }}
-                          >
+                      {["faq", "guide", "discussion", "answer"]
+                        .filter((type) =>
+                          searchResults.some((r) => r.type === type)
+                        )
+                        .map((type) => (
+                          <div key={type} style={{ marginBottom: "1rem" }}>
                             <div
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: "0.5rem",
-                                marginBottom: "0.25rem",
+                                marginBottom: "0.5rem",
+                                paddingBottom: "0.25rem",
+                                borderBottom:
+                                  "1px solid var(--muted-border-color)",
                               }}
                             >
-                              <i className={getResultIcon(result.type)} />
+                              <i className={getResultIcon(type)} />
                               <span
                                 style={{
-                                  fontSize: "0.75rem",
-                                  opacity: 0.6,
+                                  fontWeight: 600,
+                                  fontSize: "0.85rem",
                                   textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
                                 }}
                               >
-                                {getResultLabel(result.type)}
+                                {getResultLabel(type)}s
                               </span>
-                              {result.category && (
-                                <span
+                            </div>
+                            {searchResults
+                              .filter((r) => r.type === type)
+                              .map((result) => (
+                                <Link
+                                  key={`${result.type}-${result.id}`}
+                                  href={result.url || "#"}
                                   style={{
-                                    fontSize: "0.7rem",
-                                    opacity: 0.5,
-                                    marginLeft: "auto",
+                                    textDecoration: "none",
+                                    color: "inherit",
                                   }}
                                 >
-                                  {result.category}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontWeight: 600 }}>
-                              {result.title}
-                            </div>
-                            {result.snippet && (
-                              <div
-                                style={{
-                                  fontSize: "0.85rem",
-                                  opacity: 0.7,
-                                  marginTop: "0.25rem",
-                                }}
-                              >
-                                {result.snippet}
-                              </div>
-                            )}
+                                  <div
+                                    style={{
+                                      padding: "0.75rem 1rem",
+                                      background:
+                                        "var(--card-background-color)",
+                                      borderRadius: "8px",
+                                      marginBottom: "0.5rem",
+                                      cursor: "pointer",
+                                      transition: "background 0.2s",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.5rem",
+                                        marginBottom: "0.25rem",
+                                      }}
+                                    >
+                                      {result.category && (
+                                        <span
+                                          style={{
+                                            fontSize: "0.7rem",
+                                            opacity: 0.5,
+                                          }}
+                                        >
+                                          {result.category}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ fontWeight: 600 }}>
+                                      {result.title}
+                                    </div>
+                                    {result.snippet && (
+                                      <div
+                                        style={{
+                                          fontSize: "0.85rem",
+                                          opacity: 0.7,
+                                          marginTop: "0.25rem",
+                                        }}
+                                      >
+                                        {result.snippet}
+                                      </div>
+                                    )}
+                                  </div>
+                                </Link>
+                              ))}
                           </div>
-                        </Link>
-                      ))}
+                        ))}
                     </div>
                   )}
 

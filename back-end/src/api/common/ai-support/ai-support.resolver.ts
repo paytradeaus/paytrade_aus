@@ -43,6 +43,7 @@ export class AiSupportResolver {
     }
   }
 
+  @UseGuards(JwtAuthGuard)
   @Mutation(() => AiAnswerResponse, {
     name: 'askAiSupport',
     description: 'Ask PayTrade AI a question. Requires authentication.',
