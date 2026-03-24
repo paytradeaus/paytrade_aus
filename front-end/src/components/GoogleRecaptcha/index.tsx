@@ -32,9 +32,12 @@ function GoogleRecaptchaWrapper({
    * Calls the verification function when the verification button is clicked or the form is submitted.
    */
   function handleReCaptchaVerify() {
-    //Functions
-    // Check if executeRecaptcha function is available
     if (!executeRecaptcha) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("Dev mode: skipping reCAPTCHA verification");
+        onVerify("dev-bypass-token");
+        return;
+      }
       console.log("Execute recaptcha not yet available");
       onError?.("reCAPTCHA verification is not available. Please try again.");
       return;
@@ -42,11 +45,15 @@ function GoogleRecaptchaWrapper({
 
     executeRecaptcha("formSubmit")
       .then((gReCaptchaToken) => {
-        // Call the onVerify callback function with the reCAPTCHA token
         onVerify(gReCaptchaToken);
       })
       .catch((error) => {
         console.error("reCAPTCHA error:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Dev mode: bypassing reCAPTCHA after error");
+          onVerify("dev-bypass-token");
+          return;
+        }
         onError?.("reCAPTCHA error occurred. Please try again.");
       });
   }

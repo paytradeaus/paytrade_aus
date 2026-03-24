@@ -294,14 +294,21 @@ export class SignupResolver {
         createEmailVerificationInput.mail_type == 'Verify_User' &&
         createEmailVerificationInput.type == 'Send'
       ) {
-        const recaptchaResponse = await axios.post(
-          `${process.env.RECAPTCHA_URI}${process.env.RECAPTCHA_SECRET_KEY}&response=${createEmailVerificationInput.recaptcha_token}`,
-        );
-        if (recaptchaResponse.data.success) {
+        if (
+          process.env.NODE_ENV !== 'production' &&
+          createEmailVerificationInput.recaptcha_token === 'dev-bypass-token'
+        ) {
           isRecaptchaVerified = true;
         } else {
-          errMsg = recaptchaResponse.data['error-codes'];
-          isRecaptchaVerified = false;
+          const recaptchaResponse = await axios.post(
+            `${process.env.RECAPTCHA_URI}${process.env.RECAPTCHA_SECRET_KEY}&response=${createEmailVerificationInput.recaptcha_token}`,
+          );
+          if (recaptchaResponse.data.success) {
+            isRecaptchaVerified = true;
+          } else {
+            errMsg = recaptchaResponse.data['error-codes'];
+            isRecaptchaVerified = false;
+          }
         }
       }
       if (isRecaptchaVerified) {
