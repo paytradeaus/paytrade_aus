@@ -14,6 +14,12 @@ import { useTokenDetails } from "@/hooks";
 import { useRouter } from "next/navigation";
 import DefaultImage from "../../../../public/images/blogimage1.png";
 import { slugifyString } from "@/utils";
+
+function extractFirstImage(html: string): string | null {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { setBlogDetailsForRouting } from "@/redux/slices/dashboardSlices";
 import { useAppDispatch } from "@/redux/store";
@@ -160,17 +166,21 @@ export default function contentDetailPage({
                   <h4>{blogDetails?.blogResource?.title}</h4>
                   <article>
                     {!blogDetails?.blogResource?.video_link && (
-                      <Image
-                        src={
-                          blogDetails?.blogResource?.banner?.file_path ||
-                          DefaultImage
-                        }
-                        layout="responsive"
-                        alt={blogDetails?.blogResource?.title}
-                        className="d-inline-block align-top"
-                        width={500}
-                        height={300}
-                      />
+                      <div style={{ maxHeight: "300px", overflow: "hidden", borderRadius: "8px", marginBottom: "20px" }}>
+                        <Image
+                          src={
+                            blogDetails?.blogResource?.banner?.file_path ||
+                            extractFirstImage(blogDetails?.blogResource?.content) ||
+                            DefaultImage
+                          }
+                          alt={blogDetails?.blogResource?.title}
+                          className="d-inline-block align-top"
+                          width={800}
+                          height={300}
+                          style={{ width: "100%", height: "auto", maxHeight: "300px", objectFit: "cover" }}
+                          unoptimized
+                        />
+                      </div>
                     )}
                     <div
                       dangerouslySetInnerHTML={{
@@ -299,12 +309,13 @@ export default function contentDetailPage({
                             className="pt_blogbox"
                           >
                             <Image
-                              style={{ height: "250px" }}
-                              src={val?.banner?.file_path || DefaultImage}
+                              style={{ height: "250px", objectFit: "cover" }}
+                              src={val?.banner?.file_path || extractFirstImage(val?.content) || DefaultImage}
                               alt={val?.title || ""}
                               className="d-inline-block align-top"
                               width={500}
                               height={300}
+                              unoptimized
                             />
                             <h4>{val?.title || ""}</h4>
                             <p>{val?.category?.value || ""}</p>

@@ -37,6 +37,7 @@ export async function fetchCategoryList(inputData: Object) {
                     value
                   }
                   comments_count
+                  content
                   content_type
                   created_on
                   id
@@ -141,6 +142,7 @@ export async function listAllPublishedBlogResources(inputData: Object) {
                 id
                 enable_comments
                 created_on
+                content
                 content_type
                 category {
                   value
