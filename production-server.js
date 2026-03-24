@@ -164,6 +164,14 @@ const proxy = httpProxy.createProxyServer({
   xfwd: true,
 });
 
+proxy.on('proxyReq', (proxyReq, req, res, options) => {
+  const targetPort = options.target && options.target.port;
+  if (String(targetPort) === String(FRONTEND_PORT)) {
+    proxyReq.setHeader('host', `localhost:${FRONTEND_PORT}`);
+    proxyReq.removeHeader('x-forwarded-host');
+  }
+});
+
 proxy.on('error', (err, req, res) => {
   const url = req?.url || '';
   if (!url.includes('.env') && !url.includes('.php') && !url.includes('.git')) {
