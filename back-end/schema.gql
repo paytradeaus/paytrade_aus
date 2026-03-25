@@ -12647,6 +12647,9 @@ input ListBlogResourceInput {
   """End date for filtering resources"""
   end_date: DateTime
 
+  """Filter to only show featured resources"""
+  featured: Boolean
+
   """Search keyword to filter resources"""
   keyword: String
 
@@ -19430,6 +19433,9 @@ input UpdateBlogResourceInput {
   """Flag indicating whether comments are enabled for this blog"""
   enable_comments: Boolean
 
+  """Whether this resource is featured in the welcome dialog"""
+  featured: Boolean
+
   """Unique ID of the blog resource to update"""
   id: String!
 
@@ -23001,6 +23007,9 @@ type ptBlogResource {
 
   """Flag to indicate if comments are enabled for this blog."""
   enable_comments: Boolean
+
+  """Whether this resource is featured in the welcome dialog."""
+  featured: Boolean
 
   """Unique identifier of the blog resource."""
   id: String!

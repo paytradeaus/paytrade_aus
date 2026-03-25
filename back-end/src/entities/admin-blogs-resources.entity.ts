@@ -95,6 +95,9 @@ export class BlogResource {
   // @JoinTable()
   // attachments?: FileAttachments[];
 
+  @Column({ type: 'boolean', default: false })
+  featured: boolean;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

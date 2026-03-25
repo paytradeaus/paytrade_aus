@@ -797,6 +797,9 @@ export class PtContentsService {
         keyword: `%${listBlogResourceInput.keyword.toLowerCase()}%`,
       });
     }
+    if (listBlogResourceInput.featured === true) {
+      queryBuilder.andWhere('blogs.featured = :featured', { featured: true });
+    }
 
     const skip =
       (listBlogResourceInput.page - 1) * listBlogResourceInput.perPage;

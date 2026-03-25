@@ -193,6 +193,12 @@ export class ptBlogResource {
     description: 'Optional additional attachment for the blog resource.',
   })
   attachment: attachmentDto;
+
+  @Field({
+    nullable: true,
+    description: 'Whether this resource is featured in the welcome dialog.',
+  })
+  featured: boolean;
 }
 
 @ObjectType({

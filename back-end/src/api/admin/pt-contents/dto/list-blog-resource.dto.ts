@@ -60,6 +60,12 @@ export class ListBlogResourceInput {
 
   @Field({
     nullable: true,
+    description: 'Filter to only show featured resources',
+  })
+  featured?: boolean;
+
+  @Field({
+    nullable: true,
     description: 'Field to sort by, e.g., "created_on"',
   })
   sorting_field?: string;

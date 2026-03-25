@@ -91,6 +91,7 @@ export default function UserDashboard() {
       listBlogResourceInput: {
         contentType: "howToGuide",
         category: "",
+        featured: true,
         page: 1,
         perPage: 6,
       },
@@ -634,7 +635,7 @@ export default function UserDashboard() {
                       >
                         <div className="image-wrapper">
                           <Image
-                            src={val?.banner?.file_path || DefaultImage}
+                            src={val?.banner?.file_path ? (val.banner.file_path.startsWith('/') ? val.banner.file_path : `/${val.banner.file_path}`) : DefaultImage}
                             alt={val?.title}
                             layout="fill"
                             objectFit="cover"

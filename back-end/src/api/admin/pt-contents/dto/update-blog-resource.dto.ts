@@ -54,4 +54,10 @@ export class UpdateBlogResourceInput {
     description: 'Updated list of tags associated with the blog resource',
   })
   tags?: string[];
+
+  @Field({
+    nullable: true,
+    description: 'Whether this resource is featured in the welcome dialog',
+  })
+  featured?: boolean;
 }
