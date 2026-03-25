@@ -6,3 +6,9 @@ id = "a2a30PHR7zvkwSC5wzUII"
 uri = "file://PayTrade-System-Guide.md"
 type = "text"
 title = "PayTrade System Guide (Updated)"
+
+[[outputs]]
+id = "I4NuIqZbcrntbozzpK7GP"
+uri = "file://PayTrade-Demo-Workflow.md"
+type = "text"
+title = "PayTrade Full Workflow Demo"
