@@ -12,3 +12,9 @@ id = "I4NuIqZbcrntbozzpK7GP"
 uri = "file://PayTrade-Demo-Workflow.md"
 type = "text"
 title = "PayTrade Full Workflow Demo"
+
+[[outputs]]
+id = "txc2VIPHEws2p7LnI9Y9K"
+uri = "file://MIGRATION-TO-R2.md"
+type = "text"
+title = "PayTrade Migration Plan: Replit → R2 + Railway"
