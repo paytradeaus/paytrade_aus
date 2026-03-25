@@ -16,6 +16,7 @@ import { ToastifyContainer } from "@/components/Toaster";
 import { LoaderProvider } from "@/context/useLoader";
 import AnalyticsWrapper from "@/components/Analytics/AnalyticsWrapper";
 import MultiTabManager from "@/components/MultiTabManager";
+import GlobalErrorHandler from "@/components/GlobalErrorHandler";
 import seoMetadata from "@/utils/seoMetadata";
 import NextTopLoader from "nextjs-toploader";
 
@@ -68,6 +69,7 @@ export default function RootLayout({
         />
         <ReduxProvider>
           <LoaderProvider>
+            <GlobalErrorHandler />
             <Suspense>
               <ToastifyContainer />
               {children}
