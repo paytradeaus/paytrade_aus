@@ -14,7 +14,7 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - **State Management**: Redux Toolkit for predictable state management.
 - **API Client**: Apollo Client handles GraphQL queries and mutations.
 - **Styling**: SCSS Modules and standard CSS are used for styling components.
-- **UI/UX**: Dynamic pricing tables are driven by both the `pricing_table_feature` table (feature rows) and backend `plan_items` data (numeric limits/unlimited overrides). The `PricingGrid` component fetches features from `getAllPricingTableFeatures` public GraphQL query, with hardcoded fallbacks in `data.ts`. Plan-specific item overrides (unlimited, numeric limits) are merged on top. Static assets are served with cache-busting versioning.
+- **UI/UX**: Dynamic pricing tables are driven by both the `pricing_table_feature` table (feature rows) and backend `plan_items` data (numeric limits/unlimited overrides). The `PricingGrid` component fetches features from `getAllPricingTableFeatures` public GraphQL query, with hardcoded fallbacks in `data.ts` (used only if API call fails). Plan-specific item overrides (unlimited, numeric limits) are merged on top. The `PricingGrid` is exported directly (no HOC wrapper). The parent `Pricing/index.tsx` no longer passes or manages feature data — all feature sourcing is internal to `PricingGrid`. Static assets are served with cache-busting versioning.
 - **SEO**: Dynamic landing pages are driven by backend-managed `SeoKeyword` entities, supporting full SEO metadata and sitemap generation.
 
 **Backend (NestJS)**

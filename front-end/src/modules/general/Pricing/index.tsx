@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import TitleSection from "../../../components/TitleSection";
 import PricingPlansHOC from "@/components/PricingCards";
 import PlanTable from "@/components/PricingGrid";
-import { features } from "./Pricing.constants";
 import {
   BUTTON_SIGNUP_TEXT,
   BUTTON_VIEWFAQ_TEXT,
@@ -18,15 +17,13 @@ import { AppRoutes } from "@/shared/constant/appRoutes";
 import { setCurentHomePage } from "@/redux/slices/homePage";
 import { useAppDispatch } from "@/redux/store";
 import { useRouter } from "next/navigation";
-import { subscriptionPlanFeatures } from "@/shared/constant/data";
 
 export default function PricingPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
   const [subscriptionPlanTypes, setSubscriptionPlanTypes] = useState<any>([]);
   const [plans, setPlans] = useState<any[]>([]);
-  const [isYearly, setIsYearly] = useState(false); // State for toggle
-  const [features, setFeatures] = useState<any>([]);
+  const [isYearly, setIsYearly] = useState(false);
   const dispatch = useAppDispatch();
   const router = useRouter();
 
@@ -75,29 +72,6 @@ export default function PricingPage() {
         OfferMonths: null,
       })),
     ];
-  }
-
-  function transformFeatures(data: any) {
-    const freePlanItems = data?.free_plan?.plan_items || [];
-    const monthlyPlanItems = data?.monthly_plan_list?.[0]?.plan_items || [];
-    const yearlyPlanItems = data?.yearly_plan_list?.[0]?.plan_items || [];
-
-    const featureSet = new Set([
-      ...freePlanItems.map((item: any) => item.item_name),
-      ...monthlyPlanItems.map((item: any) => item.item_name),
-      ...yearlyPlanItems.map((item: any) => item.item_name),
-    ]);
-
-    return Array.from(featureSet).map((featureName) => ({
-      name: featureName,
-      basic: freePlanItems.some((item: any) => item.item_name === featureName),
-      premium: monthlyPlanItems.some(
-        (item: any) => item.item_name === featureName
-      ),
-      platinum: yearlyPlanItems.some(
-        (item: any) => item.item_name === featureName
-      ),
-    }));
   }
 
   useEffect(() => {
@@ -187,7 +161,7 @@ export default function PricingPage() {
                 <p>Loading Plans...</p>
               )}
             </div>
-            <PlanTable features={subscriptionPlanFeatures} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
+            <PlanTable features={[]} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
           </div>
         </div>
       </div>

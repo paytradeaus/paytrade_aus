@@ -22,14 +22,6 @@ interface PlanTableProps {
   isYearly?: boolean;
 }
 
-const withPlanTable = (
-  WrappedComponent: React.ComponentType<PlanTableProps>
-) => {
-  return (props: PlanTableProps) => {
-    const { features, subscriptionPlanTypes, isYearly } = props;
-    return <WrappedComponent features={features} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />;
-  };
-};
 
 function parseFeatureValue(val: string | null | undefined): { text?: string; enabled?: boolean } {
   if (val === null || val === undefined || val === "") return { enabled: false };
@@ -310,33 +302,6 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
                   </td>
                 </tr>
               ))}
-            {/* Uncomment and update the following section if you have plan selection buttons */}
-            {/* <tr class="fullbuttons">
-          <td></td>
-          <td class="centered">
-            <a>
-              <button class="contrast" disabled>
-                Current plan
-              </button>
-            </a>
-          </td>
-          <td class="centered">
-            <a href="upgrade.html">
-              <button class="secondary">
-                Choose plan
-                <i class="fa-light fa-arrow-right right"></i>
-              </button>
-            </a>
-          </td>
-          <td class="centered">
-            <a href="upgrade.html">
-              <button>
-                Choose plan
-                <i class="fa-light fa-arrow-right right"></i>
-              </button>
-            </a>
-          </td>
-        </tr> */}
           </tbody>
         </table>
       </div>
@@ -344,4 +309,4 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
   );
 };
 
-export default withPlanTable(PlanTable);
+export default PlanTable;
