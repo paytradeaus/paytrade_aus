@@ -2,7 +2,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { getSeoKeywordBySlug } from "../SeoKeywords/seo-keywords.functions";
 import { useParams } from "next/navigation";
-import DOMPurify from "dompurify";
+
+const sanitizeHtml = (html: string, options?: any): string => {
+  if (typeof window === "undefined") return html;
+  const DOMPurify = require("dompurify");
+  return DOMPurify.default ? DOMPurify.default.sanitize(html, options) : DOMPurify.sanitize(html, options);
+};
 import styles from "./SeoLandingPage.module.css";
 import RelatedTopics from "./RelatedTopics";
 
@@ -77,7 +82,7 @@ export default function SeoLandingPage({
           <div
             className={styles.content}
             dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(keywordData.page_content, {
+              __html: sanitizeHtml(keywordData.page_content, {
                 ALLOWED_TAGS: [
                   "p", "h1", "h2", "h3", "h4", "h5", "h6",
                   "ul", "ol", "li", "a", "strong", "em", "b", "i",
