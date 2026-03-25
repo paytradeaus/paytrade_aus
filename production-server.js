@@ -17,119 +17,141 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PayTrade - Maintenance</title>
+  <title>PayTrade - We'll be right back</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #f0f7f5 0%, #e8f4f8 50%, #f5f0ff 100%);
+      font-family: 'Outfit', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      background: #f8f9fa;
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 20px;
     }
-    .container {
-      text-align: center;
-      max-width: 520px;
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       background: white;
-      border-radius: 16px;
+      border-bottom: 1px solid #eee;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      z-index: 10;
+    }
+    .navbar svg { height: 36px; width: auto; }
+    .card {
+      text-align: center;
+      max-width: 540px;
+      width: 100%;
+      background: white;
+      border-radius: 12px;
       padding: 48px 40px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 32px;
-    }
-    .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: #2a7b6f;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 700;
-      font-size: 20px;
-    }
-    .logo-text {
-      font-size: 28px;
-      font-weight: 300;
-      color: #1a1a1a;
-    }
-    .logo-text span { color: #2a7b6f; font-weight: 600; }
-    .icon {
-      width: 64px;
-      height: 64px;
-      background: #f0f7f5;
+    .icon-wrap {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(174deg, #ff6358 0%, #e23b30 100%);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 24px;
-      font-size: 28px;
+      margin: 0 auto 28px;
     }
+    .icon-wrap svg { width: 40px; height: 40px; }
     h1 {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: #0e1315;
       margin-bottom: 12px;
     }
     p {
       font-size: 15px;
       color: #6b7280;
-      line-height: 1.6;
+      line-height: 1.7;
       margin-bottom: 8px;
     }
-    .status {
-      display: inline-block;
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       margin-top: 24px;
-      padding: 8px 20px;
-      background: #fef3c7;
-      color: #92400e;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .retry {
-      margin-top: 24px;
-    }
-    .retry a {
-      display: inline-block;
-      padding: 10px 28px;
-      background: #2a7b6f;
-      color: white;
-      text-decoration: none;
+      padding: 10px 24px;
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #fed7aa;
       border-radius: 8px;
       font-size: 14px;
       font-weight: 500;
-      transition: background 0.2s;
     }
-    .retry a:hover { background: #1f5f56; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #f97316;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 12px 36px;
+      background: linear-gradient(174deg, #1583d8 0%, #104f93 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
     .footer {
       margin-top: 32px;
-      font-size: 12px;
+      font-size: 13px;
       color: #9ca3af;
+    }
+    @media (max-width: 480px) {
+      .card { padding: 32px 24px; }
+      .navbar { padding: 12px 20px; }
     }
   </style>
   <meta http-equiv="refresh" content="30">
 </head>
 <body>
-  <div class="container">
-    <div class="logo">
-      <div class="logo-icon">P</div>
-      <div class="logo-text"><span>pay</span>trade</div>
+  <nav class="navbar">
+    <svg width="140" height="36" viewBox="0 0 509 135" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M306.824 96V31.872H313.544V96H306.824ZM295.4 56.928V50.88H324.872V56.928H295.4ZM329.329 96V50.88H336.049V96H329.329ZM336.049 69.696L333.265 68.448C333.265 62.752 334.641 58.24 337.393 54.912C340.209 51.584 344.049 49.92 348.913 49.92C351.153 49.92 353.201 50.336 355.057 51.168C356.913 51.936 358.641 53.184 360.241 54.912L355.825 59.616C354.737 58.4 353.521 57.536 352.177 57.024C350.897 56.512 349.425 56.256 347.761 56.256C344.305 56.256 341.489 57.408 339.313 59.712C337.137 61.952 336.049 65.28 336.049 69.696ZM380.581 96.96C376.293 96.96 372.453 95.936 369.061 93.888C365.669 91.776 362.981 88.96 360.997 85.44C359.077 81.92 358.117 77.952 358.117 73.536C358.117 69.056 359.077 65.056 360.997 61.536C362.981 57.952 365.669 55.136 369.061 53.088C372.453 50.976 376.261 49.92 380.485 49.92C383.941 49.92 387.013 50.624 389.701 52.032C392.453 53.376 394.661 55.296 396.325 57.792C398.053 60.224 399.109 63.072 399.493 66.336V80.448C399.109 83.712 398.053 86.592 396.325 89.088C394.661 91.584 392.453 93.536 389.701 94.944C387.013 96.288 383.973 96.96 380.581 96.96ZM381.637 90.528C386.309 90.528 390.053 88.96 392.869 85.824C395.749 82.688 397.189 78.56 397.189 73.44C397.189 70.048 396.517 67.072 395.173 64.512C393.893 61.888 392.069 59.872 389.701 58.464C387.397 56.992 384.677 56.256 381.541 56.256C378.341 56.256 375.493 56.992 372.997 58.464C370.565 59.936 368.613 61.984 367.141 64.608C365.733 67.168 365.029 70.112 365.029 73.44C365.029 76.768 365.733 79.712 367.141 82.272C368.613 84.832 370.597 86.848 373.093 88.32C375.589 89.792 378.437 90.528 381.637 90.528ZM396.805 96V83.904L398.149 72.768L396.805 61.92V50.88H403.525V96H396.805ZM431.554 96.96C427.394 96.96 423.649 95.936 420.321 93.888C416.993 91.84 414.337 89.056 412.353 85.536C410.433 81.952 409.473 77.952 409.473 73.536C409.473 69.056 410.433 65.056 412.353 61.536C414.337 57.952 416.993 55.136 420.321 53.088C423.649 50.976 427.394 49.92 431.554 49.92C434.945 49.92 438.017 50.592 440.769 51.936C443.522 53.28 445.729 55.2 447.393 57.696C449.121 60.128 450.177 63.008 450.561 66.336V80.736C450.177 84 449.121 86.848 447.393 89.28C445.729 91.712 443.522 93.6 440.769 94.944C438.017 96.288 434.945 96.96 431.554 96.96ZM432.61 90.528C435.81 90.528 438.626 89.824 441.058 88.416C443.49 86.944 445.378 84.928 446.722 82.368C448.13 79.744 448.834 76.768 448.834 73.44C448.834 70.048 448.13 67.072 446.722 64.512C445.378 61.952 443.49 59.936 441.058 58.464C438.626 56.992 435.842 56.256 432.706 56.256C429.57 56.256 426.786 56.992 424.354 58.464C421.986 59.936 420.13 61.952 418.786 64.512C417.442 67.072 416.77 70.048 416.77 73.44C416.77 76.768 417.442 79.744 418.786 82.368C420.13 84.928 421.986 86.944 424.354 88.416C426.722 89.824 429.474 90.528 432.61 90.528ZM448.45 96V84.384L449.794 73.344L448.45 62.4V31.872H455.17V96H448.45ZM479.215 96.96C474.991 96.96 471.183 95.936 467.791 93.888C464.463 91.84 461.807 89.056 459.823 85.536C457.903 81.952 456.943 77.952 456.943 73.536C456.943 69.056 457.871 65.024 459.727 61.44C461.647 57.856 464.239 55.04 467.503 52.992C470.831 50.944 474.607 49.92 478.831 49.92C483.055 49.92 486.735 50.912 489.871 52.896C493.007 54.816 495.439 57.504 497.167 60.96C498.959 64.352 499.855 68.288 499.855 72.768C499.855 73.408 499.823 74.08 499.759 74.784C499.759 75.424 499.695 76.096 499.567 76.8H462.127V71.136H496.207L493.423 73.152C493.423 69.888 492.815 67.04 491.599 64.608C490.383 62.112 488.655 60.16 486.415 58.752C484.175 57.344 481.583 56.64 478.639 56.64C475.695 56.64 473.071 57.344 470.767 58.752C468.527 60.16 466.767 62.144 465.487 64.704C464.271 67.2 463.663 70.08 463.663 73.344C463.663 76.672 464.303 79.616 465.583 82.176C466.863 84.736 468.687 86.752 471.055 88.224C473.423 89.632 476.111 90.336 479.119 90.336C481.743 90.336 484.079 89.824 486.127 88.8C488.239 87.712 489.999 86.208 491.407 84.288L496.015 88.512C494.159 91.2 491.727 93.312 488.719 94.848C485.711 96.256 482.575 96.96 479.215 96.96Z" fill="#0e1315"/>
+      <path d="M178.144 96.96C174.688 96.96 171.584 96.256 168.832 94.848C166.08 93.44 163.808 91.52 162.016 89.088C160.288 86.592 159.232 83.712 158.848 80.448V66.336C159.232 63.008 160.32 60.128 162.112 57.696C163.904 55.2 166.176 53.28 168.928 51.936C171.744 50.592 174.816 49.92 178.144 49.92C182.304 49.92 186.048 50.976 189.376 53.088C192.704 55.136 195.328 57.952 197.248 61.536C199.232 65.056 200.224 69.056 200.224 73.536C200.224 77.952 199.264 81.92 197.344 85.44C195.424 88.96 192.768 91.776 189.376 93.888C186.048 95.936 182.304 96.96 178.144 96.96ZM176.992 90.528C180.192 90.528 183.008 89.824 185.44 88.416C187.872 86.944 189.76 84.928 191.104 82.368C192.512 79.744 193.216 76.768 193.216 73.44C193.216 70.048 192.512 67.072 191.104 64.512C189.76 61.952 187.872 59.936 185.44 58.464C183.008 56.992 180.224 56.256 177.088 56.256C173.952 56.256 171.168 56.992 168.736 58.464C166.368 59.936 164.512 61.952 163.168 64.512C161.824 67.072 161.152 70.048 161.152 73.44C161.152 76.768 161.824 79.744 163.168 82.368C164.512 84.928 166.368 86.944 168.736 88.416C171.104 89.824 173.856 90.528 176.992 90.528ZM154.816 115.008V50.88H161.536V62.4L160.192 73.344L161.536 84.384V115.008H154.816ZM227.676 96.96C223.388 96.96 219.548 95.936 216.156 93.888C212.764 91.776 210.076 88.96 208.092 85.44C206.172 81.92 205.212 77.952 205.212 73.536C205.212 69.056 206.172 65.056 208.092 61.536C210.076 57.952 212.764 55.136 216.156 53.088C219.548 50.976 223.356 49.92 227.58 49.92C231.036 49.92 234.108 50.624 236.796 52.032C239.548 53.376 241.756 55.296 243.42 57.792C245.148 60.224 246.204 63.072 246.588 66.336V80.448C246.204 83.712 245.148 86.592 243.42 89.088C241.756 91.584 239.548 93.536 236.796 94.944C234.108 96.288 231.068 96.96 227.676 96.96ZM228.732 90.528C233.404 90.528 237.148 88.96 239.964 85.824C242.844 82.688 244.284 78.56 244.284 73.44C244.284 70.048 243.612 67.072 242.268 64.512C240.988 61.888 239.164 59.872 236.796 58.464C234.492 56.992 231.772 56.256 228.636 56.256C225.436 56.256 222.588 56.992 220.092 58.464C217.66 59.936 215.708 61.984 214.236 64.608C212.828 67.168 212.124 70.112 212.124 73.44C212.124 76.768 212.828 79.712 214.236 82.272C215.708 84.832 217.692 86.848 220.188 88.32C222.684 89.792 225.532 90.528 228.732 90.528ZM243.9 96V83.904L245.244 72.768L243.9 61.92V50.88H250.62V96H243.9Z" fill="#e23b30"/>
+      <circle cx="62" cy="73" r="62" fill="url(#paint0_maint)"/>
+      <path d="M38.6415 68.8879H54.1167L48.1972 101.293L31.2 108.6L38.6415 68.8879Z" fill="#F7F7F7"/>
+      <path d="M68.2618 68.8876H81.3797L83.4343 56.7357H40.3666L33.1755 42.2012C33.1755 42.2012 79.6412 42.2012 81.7748 42.2012C83.9084 42.2012 89.4401 41.9629 93.7863 48.9523C98.1326 55.9416 97.0263 62.5336 95.1297 68.8876C93.2332 75.2415 86.4372 81.3858 80.7475 83.5017C75.0578 85.6176 65.496 85.8053 65.496 85.8053L68.2618 68.8876Z" fill="#F7F7F7"/>
+      <defs><linearGradient id="paint0_maint" x1="0" y1="11" x2="124" y2="135" gradientUnits="userSpaceOnUse"><stop stop-color="#FF6358"/><stop offset="1" stop-color="#E23B30"/></linearGradient></defs>
+    </svg>
+  </nav>
+  <div class="card">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
     </div>
-    <div class="icon">&#128736;</div>
     <h1>We'll be right back</h1>
-    <p>We're performing some quick maintenance to improve your experience. This should only take a few minutes.</p>
+    <p>We're performing a quick update to improve your experience. This should only take a few minutes.</p>
     <p>Your data is safe and all services will resume shortly.</p>
-    <div class="status">&#9679; Maintenance in progress</div>
-    <div class="retry"><a href="/">Try again</a></div>
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      Maintenance in progress
+    </div>
+    <div><a href="/" class="btn">Try again</a></div>
     <div class="footer">This page will automatically refresh in 30 seconds.</div>
   </div>
 </body>
