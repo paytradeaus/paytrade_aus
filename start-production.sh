@@ -3,7 +3,7 @@
 export NODE_ENV=production
 
 echo "Starting production proxy on port 5000 immediately..."
-cd /home/runner/workspace && NODE_OPTIONS='--max-old-space-size=256' node production-server.js &
+cd /home/runner/workspace && NODE_OPTIONS='--max-old-space-size=128' node production-server.js &
 PROXY_PID=$!
 
 sleep 2
@@ -11,7 +11,7 @@ echo "Proxy started (PID $PROXY_PID), now starting backend..."
 
 start_backend() {
   echo "[$(date -u)] Starting backend on port 3001..."
-  cd /home/runner/workspace/back-end && PORT=3001 NODE_OPTIONS='--max-old-space-size=1536' npm run start:prod
+  cd /home/runner/workspace/back-end && PORT=3001 NODE_OPTIONS='--max-old-space-size=768' npm run start:prod
   local exit_code=$?
   echo "[$(date -u)] Backend exited with code $exit_code"
   return $exit_code
@@ -59,10 +59,10 @@ start_frontend() {
   STANDALONE_SERVER=$(find_standalone_server)
   if [ -n "$STANDALONE_SERVER" ]; then
     echo "[$(date -u)] Using standalone server: $STANDALONE_SERVER"
-    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=512' node "$STANDALONE_SERVER"
+    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=256' node "$STANDALONE_SERVER"
   else
     echo "[$(date -u)] No standalone server found, using npx next start..."
-    __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=1536' npx next start -p 5001 -H 0.0.0.0
+    __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=512' npx next start -p 5001 -H 0.0.0.0
   fi
 
   local exit_code=$?
