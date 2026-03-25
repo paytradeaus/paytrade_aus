@@ -627,6 +627,9 @@ function proxyToFrontendWithRetry(req, res) {
 
   res.on('close', cleanup);
 
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000;
+
   const attempt = (retryCount) => {
     if (clientAborted) return;
 
@@ -649,7 +652,7 @@ function proxyToFrontendWithRetry(req, res) {
       if (proxyRes.statusCode === 500 && retryCount > 0) {
         proxyRes.resume();
         console.log(`[${new Date().toISOString()}] EIO retry: ${method} ${url} returned 500, retrying (${retryCount} left)...`);
-        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        retryTimer = setTimeout(() => attempt(retryCount - 1), RETRY_DELAY);
         return;
       }
 
@@ -677,7 +680,7 @@ function proxyToFrontendWithRetry(req, res) {
       if (clientAborted) return;
       if (retryCount > 0) {
         console.log(`[${new Date().toISOString()}] EIO retry: ${method} ${url} errored (${err.message}), retrying (${retryCount} left)...`);
-        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        retryTimer = setTimeout(() => attempt(retryCount - 1), RETRY_DELAY);
         return;
       }
       console.error('Frontend proxy error:', err.message, 'URL:', url);
@@ -690,7 +693,7 @@ function proxyToFrontendWithRetry(req, res) {
       proxyReq.destroy();
       if (clientAborted) return;
       if (retryCount > 0) {
-        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        retryTimer = setTimeout(() => attempt(retryCount - 1), RETRY_DELAY);
         return;
       }
       if (!res.headersSent) {
@@ -701,7 +704,7 @@ function proxyToFrontendWithRetry(req, res) {
     proxyReq.end();
   };
 
-  attempt(2);
+  attempt(MAX_RETRIES);
 }
 
 server.on('upgrade', (req, socket, head) => {
