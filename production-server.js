@@ -411,7 +411,7 @@ setTimeout(checkFrontendHealth, 10000);
 
 const proxy = httpProxy.createProxyServer({
   ws: true,
-  xfwd: true,
+  xfwd: false,
   changeOrigin: true,
 });
 
@@ -592,10 +592,15 @@ const HOP_BY_HOP_HEADERS = [
   'te', 'trailers', 'transfer-encoding', 'upgrade', 'proxy-connection',
 ];
 
+const STRIP_FORWARD_HEADERS = [
+  'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-server',
+];
+
 function sanitizeHeaders(rawHeaders) {
   const cleaned = {};
   for (const [key, value] of Object.entries(rawHeaders)) {
-    if (!HOP_BY_HOP_HEADERS.includes(key.toLowerCase())) {
+    const lower = key.toLowerCase();
+    if (!HOP_BY_HOP_HEADERS.includes(lower) && !STRIP_FORWARD_HEADERS.includes(lower)) {
       cleaned[key] = value;
     }
   }
