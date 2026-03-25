@@ -159,6 +159,208 @@ const MAINTENANCE_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+const LOADING_RETRY_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayTrade</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: linear-gradient(174deg, rgba(253,254,254,0.6) 0%, rgba(235,242,249,0.6) 100%); min-height: 100vh; }
+    #fader {
+      position: fixed;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      z-index: 999999;
+      background: linear-gradient(174deg, rgba(253,254,254,0.85) 0%, rgba(235,242,249,0.85) 100%);
+      backdrop-filter: blur(20px);
+    }
+    .loaderwrap {
+      height: 175px; width: 175px;
+      display: block;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .loader, .loader:after { border-radius: 50%; width: 175px; height: 175px; }
+    .loader {
+      margin: 0 auto;
+      font-size: 10px;
+      position: relative;
+      text-indent: -9999em;
+      border-top: 0.8em solid rgba(255,255,255,0.2);
+      border-right: 0.8em solid rgba(255,255,255,0.2);
+      border-bottom: 0.8em solid rgba(255,255,255,0.2);
+      border-left: 0.8em solid #ffffff;
+      transform: translateZ(0);
+      animation: load8 0.5s infinite linear;
+    }
+    @keyframes load8 { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .loaderlogo {
+      height: 64px; width: 64px;
+      display: block;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background-image: url("/images/favicon.png");
+      background-position: center;
+      background-size: contain;
+      background-repeat: no-repeat;
+    }
+    .loader-status {
+      position: absolute;
+      top: calc(50% + 120px);
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .loader-status p {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .loader-status .countdown {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .loader-status .success {
+      color: #10b981;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div id="fader">
+    <div class="loaderwrap">
+      <div class="loader"></div>
+      <div class="loaderlogo"></div>
+    </div>
+    <div class="loader-status">
+      <p id="message">Reconnecting...</p>
+      <div class="countdown" id="retryInfo">Retrying in <span id="countdown">5</span>s</div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var maxRetries = 6;
+      var attempt = 0;
+      var delays = [5, 5, 8, 10, 15, 20];
+      var currentUrl = window.location.href;
+
+      function tryReload() {
+        attempt++;
+        fetch(currentUrl, { method: 'GET', cache: 'no-store', redirect: 'follow' })
+          .then(function(resp) {
+            if (resp.ok || (resp.status >= 300 && resp.status < 400)) {
+              document.getElementById('message').textContent = 'Ready!';
+              document.getElementById('message').className = 'success';
+              document.getElementById('retryInfo').style.display = 'none';
+              setTimeout(function() { window.location.reload(); }, 400);
+            } else if (attempt < maxRetries) {
+              startCountdown(delays[attempt] || 20);
+            } else {
+              document.getElementById('message').textContent = 'Please refresh the page in a moment.';
+              document.getElementById('retryInfo').style.display = 'none';
+            }
+          })
+          .catch(function() {
+            if (attempt < maxRetries) {
+              startCountdown(delays[attempt] || 20);
+            } else {
+              document.getElementById('message').textContent = 'Please refresh the page in a moment.';
+              document.getElementById('retryInfo').style.display = 'none';
+            }
+          });
+      }
+
+      function startCountdown(seconds) {
+        var remaining = seconds;
+        var el = document.getElementById('countdown');
+        el.textContent = remaining;
+        var timer = setInterval(function() {
+          remaining--;
+          el.textContent = remaining;
+          if (remaining <= 0) {
+            clearInterval(timer);
+            tryReload();
+          }
+        }, 1000);
+      }
+
+      startCountdown(delays[0]);
+    })();
+  </script>
+</body>
+</html>`;
+
+let loadingPageCountToday = 0;
+let loadingPageCountDate = new Date().toISOString().slice(0, 10);
+let lastEioAlertSentDate = '';
+
+function serveLoadingRetryPage(res) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== loadingPageCountDate) {
+    loadingPageCountToday = 0;
+    loadingPageCountDate = today;
+  }
+  loadingPageCountToday++;
+  res.writeHead(503, {
+    'Content-Type': 'text/html',
+    'Cache-Control': 'no-store, no-cache',
+    'Retry-After': '5',
+  });
+  res.end(LOADING_RETRY_HTML);
+  sendEioDailyAlert();
+}
+
+function sendEioDailyAlert() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (lastEioAlertSentDate === today) return;
+
+  const alertEmails = process.env.ADMIN_ALERT_EMAILS;
+  const brevoLogin = process.env.BREVO_EMAIL_LOGIN;
+  const brevoPass = process.env.BREVO_EMAIL_PASSWORD;
+  if (!alertEmails || !brevoLogin || !brevoPass) return;
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: { user: brevoLogin, pass: brevoPass },
+  });
+
+  const recipients = alertEmails.split(',').map(e => e.trim()).filter(Boolean);
+  const timestamp = new Date().toISOString();
+
+  transporter.sendMail({
+    from: '"PayTrade System Alert" <noreply@paytrade.app>',
+    to: recipients.join(', '),
+    subject: '[INFO] PayTrade EIO Recovery - Loading Page Shown - ' + today,
+    html: '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">' +
+      '<div style="background: #f59e0b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">' +
+      '<h2 style="margin: 0;">PayTrade EIO Recovery Notice</h2></div>' +
+      '<div style="padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">' +
+      '<p><strong>Time:</strong> ' + timestamp + '</p>' +
+      '<p><strong>Issue:</strong> A temporary filesystem error (EIO) caused a page to fail after all retries. ' +
+      'The user was shown the standard loading screen with auto-retry while the frontend restarts.</p>' +
+      '<p><strong>Loading pages served today:</strong> ' + loadingPageCountToday + '</p>' +
+      '<p><strong>Status:</strong> Auto-recovery in progress. The frontend will restart and warm up automatically.</p>' +
+      '<hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">' +
+      '<p style="color: #666; font-size: 0.9em;">This alert is sent once per day. No action is needed unless these become frequent.</p>' +
+      '</div></div>',
+  }, (err) => {
+    if (err) {
+      console.error('[' + new Date().toISOString() + '] Failed to send EIO daily alert: ' + err.message);
+    } else {
+      lastEioAlertSentDate = today;
+      console.log('[' + new Date().toISOString() + '] EIO daily alert sent to ' + recipients.join(', '));
+    }
+  });
+}
+
 function serveMaintenancePage(res) {
   res.writeHead(503, {
     'Content-Type': 'text/html',
@@ -702,6 +904,19 @@ function proxyToFrontendWithRetry(req, res) {
 
       if (proxyRes.statusCode === 500 && retryCount === 0) {
         trackEioError(url);
+        proxyRes.resume();
+        if (url.includes('_rsc')) {
+          console.error(`[${new Date().toISOString()}] RSC 500 for ${url} - returning error to trigger client reload`);
+          res.writeHead(500, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+          res.end('Internal Server Error');
+          return;
+        }
+        const isPageRequest = !url.includes('_next/') && (req.headers['accept'] || '').includes('text/html');
+        if (isPageRequest) {
+          console.error(`[${new Date().toISOString()}] Serving loading page for ${method} ${url} (500 after all retries)`);
+          serveLoadingRetryPage(res);
+          return;
+        }
       }
 
       const contentType = proxyRes.headers['content-type'] || '';
