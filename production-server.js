@@ -10,8 +10,139 @@ let backendHealthy = true;
 let frontendHealthy = true;
 let frontendFailCount = 0;
 const FRONTEND_FAIL_THRESHOLD = 3;
-let lastCrashAlertSent = 0;
-const CRASH_ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+let maintenanceAlertSent = false;
+
+const MAINTENANCE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayTrade - Maintenance</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #f0f7f5 0%, #e8f4f8 50%, #f5f0ff 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      text-align: center;
+      max-width: 520px;
+      background: white;
+      border-radius: 16px;
+      padding: 48px 40px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: #2a7b6f;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+    }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 300;
+      color: #1a1a1a;
+    }
+    .logo-text span { color: #2a7b6f; font-weight: 600; }
+    .icon {
+      width: 64px;
+      height: 64px;
+      background: #f0f7f5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 28px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .status {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 8px 20px;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .retry {
+      margin-top: 24px;
+    }
+    .retry a {
+      display: inline-block;
+      padding: 10px 28px;
+      background: #2a7b6f;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .retry a:hover { background: #1f5f56; }
+    .footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+  <meta http-equiv="refresh" content="30">
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      <div class="logo-text"><span>pay</span>trade</div>
+    </div>
+    <div class="icon">&#128736;</div>
+    <h1>We'll be right back</h1>
+    <p>We're performing some quick maintenance to improve your experience. This should only take a few minutes.</p>
+    <p>Your data is safe and all services will resume shortly.</p>
+    <div class="status">&#9679; Maintenance in progress</div>
+    <div class="retry"><a href="/">Try again</a></div>
+    <div class="footer">This page will automatically refresh in 30 seconds.</div>
+  </div>
+</body>
+</html>`;
+
+function serveMaintenancePage(res) {
+  res.writeHead(503, {
+    'Content-Type': 'text/html',
+    'Cache-Control': 'no-store, no-cache',
+    'Retry-After': '30',
+  });
+  res.end(MAINTENANCE_HTML);
+}
 
 function sendCrashAlertEmail(reason) {
   const alertEmails = process.env.ADMIN_ALERT_EMAILS;
@@ -20,12 +151,6 @@ function sendCrashAlertEmail(reason) {
 
   if (!alertEmails || !brevoLogin || !brevoPass) {
     console.log(`[${new Date().toISOString()}] Crash alert skipped - ADMIN_ALERT_EMAILS or BREVO credentials not configured`);
-    return;
-  }
-
-  const now = Date.now();
-  if (now - lastCrashAlertSent < CRASH_ALERT_COOLDOWN_MS) {
-    console.log(`[${new Date().toISOString()}] Crash alert skipped - cooldown active (last sent ${Math.round((now - lastCrashAlertSent) / 60000)} minutes ago)`);
     return;
   }
 
@@ -42,18 +167,19 @@ function sendCrashAlertEmail(reason) {
   const mailOptions = {
     from: '"PayTrade System Alert" <noreply@paytrade.app>',
     to: recipients.join(', '),
-    subject: `[ALERT] PayTrade Backend Crash - ${timestamp}`,
+    subject: `[ALERT] PayTrade Down - Maintenance Page Active - ${timestamp}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">PayTrade Backend Crash Alert</h2>
+          <h2 style="margin: 0;">PayTrade Service Alert</h2>
         </div>
         <div style="padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">
           <p><strong>Time:</strong> ${timestamp}</p>
-          <p><strong>Reason:</strong> ${reason}</p>
-          <p><strong>Action:</strong> The backend auto-restart loop will attempt to restart the service.</p>
+          <p><strong>Issue:</strong> ${reason}</p>
+          <p><strong>Status:</strong> The maintenance page is now being shown to visitors.</p>
+          <p><strong>Action:</strong> The auto-restart loop will attempt to recover the service. If this does not resolve, a manual re-publish may be required.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #666; font-size: 0.9em;">This is an automated alert from the PayTrade production server. You will not receive another alert for 24 hours.</p>
+          <p style="color: #666; font-size: 0.9em;">You will receive a recovery email when the service comes back online. No further alerts will be sent until then.</p>
         </div>
       </div>
     `,
@@ -61,10 +187,52 @@ function sendCrashAlertEmail(reason) {
 
   transporter.sendMail(mailOptions, (err, info) => {
     if (err) {
-      console.error(`[${new Date().toISOString()}] Failed to send crash alert email: ${err.message}`);
+      console.error(`[${new Date().toISOString()}] Failed to send alert email: ${err.message}`);
     } else {
-      lastCrashAlertSent = Date.now();
-      console.log(`[${new Date().toISOString()}] Crash alert email sent to ${recipients.join(', ')}`);
+      console.log(`[${new Date().toISOString()}] Alert email sent to ${recipients.join(', ')}`);
+    }
+  });
+}
+
+function sendRecoveryEmail() {
+  const alertEmails = process.env.ADMIN_ALERT_EMAILS;
+  const brevoLogin = process.env.BREVO_EMAIL_LOGIN;
+  const brevoPass = process.env.BREVO_EMAIL_PASSWORD;
+
+  if (!alertEmails || !brevoLogin || !brevoPass) return;
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: { user: brevoLogin, pass: brevoPass },
+  });
+
+  const recipients = alertEmails.split(',').map(e => e.trim()).filter(Boolean);
+  const timestamp = new Date().toISOString();
+
+  const mailOptions = {
+    from: '"PayTrade System Alert" <noreply@paytrade.app>',
+    to: recipients.join(', '),
+    subject: `[RECOVERED] PayTrade Back Online - ${timestamp}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #2a7b6f; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">PayTrade Service Recovered</h2>
+        </div>
+        <div style="padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">
+          <p><strong>Time:</strong> ${timestamp}</p>
+          <p><strong>Status:</strong> All services are back online. The maintenance page has been removed.</p>
+        </div>
+      </div>
+    `,
+  };
+
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error(`[${new Date().toISOString()}] Failed to send recovery email: ${err.message}`);
+    } else {
+      console.log(`[${new Date().toISOString()}] Recovery email sent to ${recipients.join(', ')}`);
     }
   });
 }
@@ -85,73 +253,100 @@ function checkBackendHealth() {
     } else {
       if (backendHealthy) {
         console.error(`[${new Date().toISOString()}] Backend health check returned status ${res.statusCode}`);
-        sendCrashAlertEmail(`Health check returned HTTP ${res.statusCode}`);
       }
       backendHealthy = false;
+      enterMaintenanceMode(`Backend health check returned HTTP ${res.statusCode}`);
     }
     res.resume();
   });
   req.on('error', () => {
     if (backendHealthy) {
       console.error(`[${new Date().toISOString()}] Backend health check FAILED - port ${BACKEND_PORT} is not responding`);
-      sendCrashAlertEmail('Backend is not responding on port ' + BACKEND_PORT);
     }
     backendHealthy = false;
+    enterMaintenanceMode('Backend is not responding on port ' + BACKEND_PORT);
   });
   req.on('timeout', () => {
     req.destroy();
     if (backendHealthy) {
       console.error(`[${new Date().toISOString()}] Backend health check TIMEOUT`);
-      sendCrashAlertEmail('Backend health check timed out');
     }
     backendHealthy = false;
+    enterMaintenanceMode('Backend health check timed out');
   });
   req.end();
 }
 
+const FRONTEND_HEALTH_PATHS = ['/', '/pricing', '/blog'];
+let frontendHealthPathIndex = 0;
+
 function checkFrontendHealth() {
+  const checkPath = FRONTEND_HEALTH_PATHS[frontendHealthPathIndex % FRONTEND_HEALTH_PATHS.length];
+  frontendHealthPathIndex++;
+
   const req = http.request({
     hostname: '127.0.0.1',
     port: FRONTEND_PORT,
-    path: '/',
+    path: checkPath,
     method: 'HEAD',
     timeout: 10000,
     headers: { 'host': '127.0.0.1' },
   }, (res) => {
     if (res.statusCode < 500) {
       if (!frontendHealthy) {
-        console.log(`[${new Date().toISOString()}] Frontend recovered - port ${FRONTEND_PORT} is responding (${res.statusCode})`);
+        console.log(`[${new Date().toISOString()}] Frontend recovered - ${checkPath} responding (${res.statusCode})`);
       }
       frontendHealthy = true;
       frontendFailCount = 0;
+      exitMaintenanceMode();
     } else {
       frontendFailCount++;
-      console.error(`[${new Date().toISOString()}] Frontend health check returned status ${res.statusCode} (fail ${frontendFailCount}/${FRONTEND_FAIL_THRESHOLD})`);
-      if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
+      console.error(`[${new Date().toISOString()}] Frontend health check ${checkPath} returned ${res.statusCode} (fail ${frontendFailCount}/${FRONTEND_FAIL_THRESHOLD})`);
+      if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD) {
         frontendHealthy = false;
-        sendCrashAlertEmail(`Frontend is returning HTTP ${res.statusCode} on port ${FRONTEND_PORT}`);
+        enterMaintenanceMode(`Frontend returning HTTP ${res.statusCode} on ${checkPath}`);
       }
     }
     res.resume();
   });
   req.on('error', (err) => {
     frontendFailCount++;
-    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
-      console.error(`[${new Date().toISOString()}] Frontend health check FAILED - port ${FRONTEND_PORT} is not responding: ${err.message}`);
+    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD) {
+      if (frontendHealthy) {
+        console.error(`[${new Date().toISOString()}] Frontend health check FAILED - ${checkPath} not responding: ${err.message}`);
+      }
       frontendHealthy = false;
-      sendCrashAlertEmail('Frontend is not responding on port ' + FRONTEND_PORT);
+      enterMaintenanceMode(`Frontend not responding on ${checkPath}: ${err.message}`);
     }
   });
   req.on('timeout', () => {
     req.destroy();
     frontendFailCount++;
-    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD && frontendHealthy) {
-      console.error(`[${new Date().toISOString()}] Frontend health check TIMEOUT`);
+    if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD) {
+      if (frontendHealthy) {
+        console.error(`[${new Date().toISOString()}] Frontend health check TIMEOUT on ${checkPath}`);
+      }
       frontendHealthy = false;
-      sendCrashAlertEmail('Frontend health check timed out');
+      enterMaintenanceMode(`Frontend health check timed out on ${checkPath}`);
     }
   });
   req.end();
+}
+
+function enterMaintenanceMode(reason) {
+  if (!maintenanceAlertSent) {
+    maintenanceAlertSent = true;
+    console.error(`[${new Date().toISOString()}] MAINTENANCE MODE ACTIVE: ${reason}`);
+    sendCrashAlertEmail(reason);
+  }
+}
+
+function exitMaintenanceMode() {
+  if (maintenanceAlertSent && backendHealthy && frontendHealthy) {
+    console.log(`[${new Date().toISOString()}] MAINTENANCE MODE ENDED - all services recovered`);
+    maintenanceAlertSent = false;
+    sendRecoveryEmail();
+  }
 }
 
 setInterval(checkBackendHealth, 30000);
@@ -169,9 +364,8 @@ proxy.on('error', (err, req, res) => {
   if (!url.includes('.env') && !url.includes('.php') && !url.includes('.git')) {
     console.error('Proxy error:', err.message, 'URL:', url);
   }
-  if (res && res.writeHead) {
-    res.writeHead(502, { 'Content-Type': 'text/plain' });
-    res.end('Bad Gateway');
+  if (res && res.writeHead && !res.headersSent) {
+    serveMaintenancePage(res);
   }
 });
 
@@ -191,11 +385,9 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
     }
   }
   
-  // Prevent caching of HTML pages to avoid Server Action version mismatches after deployments
   const contentType = proxyRes.headers['content-type'] || '';
   const url = req.url || '';
   
-  // Don't cache HTML pages or Server Action responses
   if (contentType.includes('text/html') || url.includes('_rsc') || req.method === 'POST') {
     proxyRes.headers['cache-control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
     proxyRes.headers['pragma'] = 'no-cache';
@@ -215,10 +407,7 @@ const backendPaths = [
 ];
 
 const webhookPaths = ['/xero-webhook', '/stripe-webhook', '/support-mail'];
-const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1MB limit for webhook payloads
-
-// Static files are now served directly by Next.js frontend
-// No custom static file handling needed - let requests pass through to frontend
+const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024;
 
 const server = http.createServer((req, res) => {
   const url = req.url || '';
@@ -240,6 +429,7 @@ const server = http.createServer((req, res) => {
       timestamp: new Date().toISOString(),
       backend: backendHealthy ? 'ok' : 'unhealthy',
       frontend: frontendHealthy ? 'ok' : 'unhealthy',
+      maintenance: maintenanceAlertSent,
     }));
     return;
   }
@@ -247,10 +437,14 @@ const server = http.createServer((req, res) => {
   const isBackend = backendPaths.some(path => url.startsWith(path));
   const isWebhook = webhookPaths.some(path => url.startsWith(path));
   
-  // Log ALL incoming requests to xero-webhook for debugging
   if (url.includes('xero') || url.includes('webhook')) {
     console.log(`[${new Date().toISOString()}] INCOMING REQUEST: ${req.method} ${url}`);
     console.log(`[${new Date().toISOString()}] Headers: ${JSON.stringify(req.headers)}`);
+  }
+
+  if (!frontendHealthy && !isBackend && !url.startsWith('/_next/')) {
+    serveMaintenancePage(res);
+    return;
   }
   
   if (isBackend) {
