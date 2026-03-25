@@ -568,13 +568,15 @@ export default function UsersList() {
             <h1>Manage users</h1>
           </div>
           <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
-            <button
-              className="secondary"
-              onClick={handleGenerateBotUsers}
-              disabled={botGenerating}
-            >
-              <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>Generate Bot Users
-            </button>
+            {decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE && (
+              <button
+                className="secondary"
+                onClick={handleGenerateBotUsers}
+                disabled={botGenerating}
+              >
+                <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>Generate Bot Users
+              </button>
+            )}
             <Link
               href={AppRoutes.ADMIN_NORMAL_USERS_ADD}
               passHref
