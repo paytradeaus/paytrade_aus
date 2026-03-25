@@ -331,13 +331,13 @@ export default function AiSupportPage() {
                   )}
 
                   {hasSearched && !isSearching && (
-                  <div
-                    style={{
-                      borderTop: "1px solid var(--muted-border-color)",
-                      paddingTop: "1.5rem",
-                      marginTop: "1rem",
-                    }}
-                  >
+                    <div
+                      style={{
+                        borderTop: "1px solid var(--muted-border-color)",
+                        paddingTop: "1.5rem",
+                        marginTop: "1rem",
+                      }}
+                    >
                     {!showAiSection ? (
                       <div style={{ textAlign: "center" }}>
                         <i
@@ -511,7 +511,7 @@ export default function AiSupportPage() {
                         )}
                       </div>
                     )}
-                  </div>
+                    </div>
                   )}
 
                   <div
