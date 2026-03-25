@@ -54,6 +54,12 @@ export default function RootLayout({
       </head>
 
       <body className={outfit.className} suppressHydrationWarning>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `(function(){window.addEventListener("error",function(e){var s=e.filename||"";if(!e.error||s.indexOf("cookiebot")>-1||s.indexOf("googletagmanager")>-1||s.indexOf("stripe")>-1||s.indexOf("gtag")>-1||s.indexOf("consent")>-1){e.preventDefault();e.stopImmediatePropagation();return false;}});window.addEventListener("unhandledrejection",function(e){if(!e.reason||!(e.reason instanceof Error)){e.preventDefault();e.stopImmediatePropagation();return false;}});})();`,
+          }}
+        />
         <NextTopLoader
           color="#dc3545"
           height={3}

@@ -11,12 +11,13 @@ interface AnalyticsWrapperProps {
 
 export default function AnalyticsWrapper({ gtmId, gaId, cookiebotId }: AnalyticsWrapperProps) {
   const [mounted, setMounted] = useState(false);
+  const isDev = process.env.NODE_ENV === "development";
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted || isDev) return null;
 
   return (
     <>
