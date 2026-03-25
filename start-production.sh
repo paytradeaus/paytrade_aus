@@ -2,6 +2,13 @@
 
 export NODE_ENV=production
 
+echo "Starting production proxy on port 5000 immediately..."
+cd /home/runner/workspace && node production-server.js &
+PROXY_PID=$!
+
+sleep 2
+echo "Proxy started (PID $PROXY_PID), now starting backend..."
+
 start_backend() {
   echo "[$(date -u)] Starting backend on port 3001..."
   cd /home/runner/workspace/back-end && PORT=3001 npm run start:prod
@@ -60,5 +67,6 @@ for i in {1..30}; do
   sleep 2
 done
 
-echo "Starting production proxy on port 5000..."
-cd /home/runner/workspace && exec node production-server.js
+echo "All services started. Proxy PID=$PROXY_PID, Backend PID=$BACKEND_PID, Frontend PID=$FRONTEND_PID"
+
+wait $PROXY_PID
