@@ -76,11 +76,11 @@ The application consists of a Next.js frontend and a NestJS backend communicatin
 - Comprehensive system documentation: `PayTrade-System-Guide.md`
 
 ## AI Support Assistant
-- Multi-step support flow at `/support` with search, AI answers, and contact support fallback
+- Search-first support flow at `/support` — users must search before the AI option appears
 - **Step 1**: Search bar queries FAQs, how-to guides, community discussions, and community answers via `searchSupport` GraphQL query (public, no auth required)
-- **Step 2**: "Ask PayTrade AI" button expands AI section (auth required)
-- **Step 3**: AI answer from OpenAI GPT-4o using PayTrade System Guide as context; answer auto-posted to community
-- **Step 4**: "Still need help?" links to `/get-support` contact form
+- **Step 2**: After search results appear, "Didn't find what you needed?" section shows with "Ask PayTrade AI" button (auth required)
+- **Step 3**: AI answer from OpenAI GPT-4o using PayTrade System Guide as context (50,000 chars); answer auto-posted to community. Response format instructions ensure detailed step-by-step answers with specific page URLs, button names, and field references.
+- **Step 4**: "Still need help?" links to `/get-support` contact form (always visible)
 - **Rate Limiting**: `ai_support_usage` table tracks usage. Free tier: 2 questions/hour (personal). Paid tier: 20 questions/day (shared company pool). User gets highest tier across all company memberships
 - **Relevance Gate**: Low-cost GPT-4o-mini pre-check rejects off-topic questions before they consume quota or pollute community content. Returns `OFF_TOPIC` status with friendly message. Also flags questions needing web search for legal/regulatory data.
 - **Web Search Enrichment**: For complex BIF Act / QBCC legal questions, the relevance gate flags `needs_web_search`. The main GPT-4o call then uses OpenAI's `web_search_preview` tool to fetch current legal data, regulations, and court decisions — compensating for training data cutoffs.

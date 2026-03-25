@@ -428,7 +428,14 @@ IMPORTANT RULES:
 - If you're unsure, suggest the user contact PayTrade support.
 ${useWebSearch ? '- When citing information from web sources, mention the source and note that regulations may change — always verify with official QBCC or Queensland Government sources.' : ''}
 
-${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 15000)}` : ''}`;
+RESPONSE FORMAT:
+- Provide detailed, step-by-step answers referencing specific PayTrade pages and navigation paths where applicable.
+- Include the exact menu names, page URLs, button names, and field names the user will see in the application.
+- When explaining a multi-step process, number each step clearly and describe what the user should do at each stage.
+- If there are prerequisites (e.g., subscription plan requirements, mapping steps), mention them upfront.
+- Where relevant, mention related features or next steps the user might want to know about.
+
+${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 50000)}` : ''}`;
 
     const requestOptions: any = {
       model: 'gpt-4o',

@@ -178,8 +178,8 @@ export default function AiSupportPage() {
                 <div className="pt_login">
                   <h1>Help & AI Search</h1>
                   <h5>
-                    Search our knowledge base or ask PayTrade AI for help with
-                    your question.
+                    Search our FAQs, guides and community discussions to find
+                    your answer.
                   </h5>
 
                   <form onSubmit={handleSearchSubmit}>
@@ -330,6 +330,7 @@ export default function AiSupportPage() {
                     </div>
                   )}
 
+                  {hasSearched && !isSearching && (
                   <div
                     style={{
                       borderTop: "1px solid var(--muted-border-color)",
@@ -339,7 +340,26 @@ export default function AiSupportPage() {
                   >
                     {!showAiSection ? (
                       <div style={{ textAlign: "center" }}>
-                        <h5>Can&apos;t find what you&apos;re looking for?</h5>
+                        <i
+                          className="fa-light fa-robot"
+                          style={{
+                            fontSize: "2rem",
+                            opacity: 0.5,
+                            display: "block",
+                            marginBottom: "0.5rem",
+                          }}
+                        />
+                        <h5>Didn&apos;t find what you needed?</h5>
+                        <p
+                          style={{
+                            fontSize: "0.9rem",
+                            opacity: 0.7,
+                            marginBottom: "1rem",
+                          }}
+                        >
+                          Ask our AI assistant for a detailed answer to your
+                          question.
+                        </p>
                         <CustomButton
                           actionType="button"
                           buttonName="Ask PayTrade AI"
@@ -492,6 +512,7 @@ export default function AiSupportPage() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   <div
                     style={{
