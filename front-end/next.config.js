@@ -8,7 +8,6 @@ module.exports = {
   swcMinify: true,
   compress: true,
   optimizeFonts: true,
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   transpilePackages: ['react-image-crop', 'react-toastify'],
   allowedDevOrigins: ['*.replit.dev', '*.janeway.replit.dev'],
   experimental: {
