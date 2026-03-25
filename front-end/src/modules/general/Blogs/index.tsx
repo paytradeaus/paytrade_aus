@@ -135,7 +135,7 @@ export default function BlogsPage({
                             "/" +
                             blog?.id
                           }
-                          imageSrc={ensureLeadingSlash(blog?.banner?.file_path) || extractFirstImage(blog?.content) || DefaultImage}
+                          imageSrc={ensureLeadingSlash(blog?.banner?.file_path) || extractFirstImage(blog?.content) || DefaultImage.src}
                           title={blog?.title}
                           description={
                             blog?.category?.value || "No description"
