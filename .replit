@@ -72,7 +72,7 @@ outputType = "console"
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "start-production.sh"]
-build = ["bash", "-c", "cd /home/runner/workspace/front-end && NODE_OPTIONS='--max-old-space-size=3072' npm run build && cd /home/runner/workspace/back-end && npm run build"]
+build = ["bash", "build-production.sh"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-955fa95e-cfbd-48f9-9426-0d3a9ee63b30"

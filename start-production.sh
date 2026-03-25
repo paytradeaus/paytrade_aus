@@ -40,7 +40,19 @@ done
 
 start_frontend() {
   echo "[$(date -u)] Starting frontend on port 5001..."
-  cd /home/runner/workspace/front-end && __NEXT_PRIVATE_ORIGIN=http://localhost:5001 npx next start -p 5001 -H 0.0.0.0
+  cd /home/runner/workspace/front-end
+
+  if [ -f .next/standalone/front-end/server.js ]; then
+    echo "[$(date -u)] Using standalone server..."
+    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 node .next/standalone/front-end/server.js
+  elif [ -f .next/standalone/server.js ]; then
+    echo "[$(date -u)] Using standalone server (root)..."
+    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 node .next/standalone/server.js
+  else
+    echo "[$(date -u)] Using npx next start..."
+    __NEXT_PRIVATE_ORIGIN=http://localhost:5001 npx next start -p 5001 -H 0.0.0.0
+  fi
+
   local exit_code=$?
   echo "[$(date -u)] Frontend exited with code $exit_code"
   return $exit_code
