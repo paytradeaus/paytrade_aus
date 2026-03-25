@@ -907,8 +907,10 @@ function proxyToFrontendWithRetry(req, res) {
         proxyRes.resume();
         if (url.includes('_rsc')) {
           console.error(`[${new Date().toISOString()}] RSC 500 for ${url} - returning error to trigger client reload`);
-          res.writeHead(500, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
-          res.end('Internal Server Error');
+          if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+            res.end('Internal Server Error');
+          }
           return;
         }
         const isPageRequest = !url.includes('_next/') && (req.headers['accept'] || '').includes('text/html');
@@ -917,6 +919,11 @@ function proxyToFrontendWithRetry(req, res) {
           serveLoadingRetryPage(res);
           return;
         }
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+          res.end('Internal Server Error');
+        }
+        return;
       }
 
       const contentType = proxyRes.headers['content-type'] || '';
@@ -933,6 +940,10 @@ function proxyToFrontendWithRetry(req, res) {
         }
       }
 
+      if (res.headersSent) {
+        proxyRes.resume();
+        return;
+      }
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
       proxyRes.pipe(res);
     });
