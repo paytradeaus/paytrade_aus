@@ -46,25 +46,6 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
-        {process.env.NODE_ENV === "development" && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-(function(){
-  var blocked=['cookiebot','googletagmanager','gtag/js','consent.cookiebot','js.stripe.com'];
-  function isThirdParty(s){for(var i=0;i<blocked.length;i++){if(s.indexOf(blocked[i])!==-1)return true;}return false;}
-  window.addEventListener('error',function(e){
-    var s=e.filename||'';
-    if(s&&isThirdParty(s)){e.preventDefault();e.stopImmediatePropagation();}
-  },true);
-  window.addEventListener('unhandledrejection',function(e){
-    if(!e.reason||!(e.reason instanceof Error)){e.preventDefault();e.stopImmediatePropagation();}
-  },true);
-})();
-`,
-            }}
-          />
-        )}
         <link
           rel="preconnect"
           href="https://consentcdn.cookiebot.com"
