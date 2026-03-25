@@ -318,7 +318,7 @@ const FRONTEND_HEALTH_PATHS = [
   '/', '/pricing', '/blog', '/how-to-guides',
   '/user/dashboard', '/user/projects', '/user/payments-list',
   '/admin/dashboard', '/admin/users',
-  '/support', '/about',
+  '/support',
 ];
 let frontendHealthPathIndex = 0;
 const routeFailCounts = {};
