@@ -1,0 +1,1282 @@
+2026-03-25T06:02:03Z info: Deployment: f4c23fb5-ca08-469e-bb3c-48605aa1c65c
+2026-03-25T06:02:03Z info: Build: f9426388-69b0-4634-ac04-5cb79d1ae3b5
+2026-03-25T06:02:03Z info: Running Security Scan
+2026-03-25T06:02:18Z info: Security Scan Complete
+2026-03-25T06:02:18Z info: Connecting to builder
+2026-03-25T06:02:19Z info: Builder connected
+2026-03-25T06:02:19Z info: Installing packages
+--> npm install
+
+
+> paytrade-monorepo@1.0.0 postinstall
+> cd front-end && npm install --legacy-peer-deps && cd ../back-end && npm install --legacy-peer-deps
+
+
+
+removed 57 packages, and audited 456 packages in 3s
+
+
+66 packages are looking for funding
+
+  run `npm fund` for details
+
+
+7 vulnerabilities (1 moderate, 5 high, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+
+npm warn deprecated @types/jimp@0.2.28: This is a stub types definition for jimp (https://github.com/oliver-moran/jimp#readme). jimp provides its own type definitions, so you don't need @types/jimp installed!
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+
+
+added 669 packages, and audited 1687 packages in 58s
+
+228 packages are looking for funding
+
+  run `npm fund` for details
+
+
+62 vulnerabilities (10 low, 32 moderate, 18 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+
+up to date, audited 104 packages in 1m
+
+26 packages are looking for funding
+
+  run `npm fund` for details
+
+
+7 vulnerabilities (6 low, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.12.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+npm notice To update run: npm install -g npm@11.12.0
+npm notice
+
+2026-03-25T06:03:22Z info: Starting Build
+=== Building Frontend ===
+
+
+> paytrade-frontend-v2@0.1.0 build
+> next build
+
+
+  ▲ Next.js 14.2.35
+
+  - Environments: .env
+  - Experiments (use with caution):
+    · missingSuspenseWithCSRBailout
+
+   Creating an optimized production build ...
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/paytrade.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 6 items } -> webpack/lib/ModuleWarning -> Warning
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/custom.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 2 items } -> webpack/lib/ModuleWarning -> Warning
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/theme.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 1 items } -> webpack/lib/ModuleWarning -> Warning
+
+ ⚠ Compiled with warnings
+
+
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+Warning
+
+(362:3) autoprefixer: end value has mixed support, consider using flex-end instead
+
+Import trace for requested module:
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+./src/styles/custom.css
+
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+Warning
+
+(1190:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+./src/styles/custom.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(1415:3) autoprefixer: end value has mixed support, consider using flex-end instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(2408:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(2450:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytr
+   Linting and checking validity of types ...
+
+ ⨯ ESLint must be installed in order to run during builds: npm install --save-dev eslint
+
+   Collecting page data ...
+
+   Generating static pages (0/164) ...
+
+   Generating static pages (41/164) 
+
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+   Generating static pages (82/164) 
+
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+   Generating static pages (123/164) 
+
+ ✓ Generating static pages (164/164)
+
+   Finalizing page optimization ...
+
+   Collecting build traces ...
+
+Route (app)                                                       Size     First Load JS
+┌ ○ /                                                             267 B           535 kB
+├ ○ /_not-found                                                   883 B          89.2 kB
+├ ○ /accountants                                                  303 B           535 kB
+├ ○ /admin/activity-log                                           2.63 kB         757 kB
+├ ○ /admin/admin-guides                                           7.3 kB          169 kB
+├ ○ /admin/admin-menus                                            9.88 kB         176 kB
+├ ○ /admin/admin-users                                            5.59 kB         763 kB
+├ ○ /admin/admin-users/add                                        191 B           280 kB
+├ ƒ /admin/admin-users/edit/[id]                                  190 B           280 kB
+├ ○ /admin/blog                                                   4.04 kB         806 kB
+├ ○ /admin/blog/add                                               204 B           341 kB
+├ ƒ /admin/blog/edit/[id]                                         203 B           341 kB
+├ ○ /admin/business                                               8.85 kB         827 kB
+├ ○ /admin/business/add                                           209 B           420 kB
+├ ƒ /admin/business/edit/[id]                                     209 B           420 kB
+├ ○ /admin/communication                                          5.22 kB         754 kB
+├ ○ /admin/communication/add                                      190 B           282 kB
+├ ƒ /admin/communication/view/[id]                                189 B           282 kB
+├ ○ /admin/community/discussions                                  207 B           806 kB
+├ ƒ /admin/community/discussions/comments/[uuid]/[id]             181 B           265 kB
+├ ƒ /admin/community/discussions/comments/archived/[uuid]/[id]    181 B           265 kB
+├ ƒ /admin/community/discussions/comments/reported/[...id]        198 B           771 kB
+├ ƒ /admin/community/discussions/reported/[...id]                 198 B           771 kB
+├ ○ /admin/community/product-ideas                                206 B           806 kB
+├ ƒ /admin/community/product-ideas/comments/[uuid]/[id]           181 B           265 kB
+├ ƒ /admin/community/product-ideas/comments/archived/[uuid]/[id]  180 B           265 kB
+├ ƒ /admin/community/product-ideas/comments/reported/[...id]      199 B           771 kB
+├ ƒ /admin/community/product-ideas/reported/[...id]               198 B           771 kB
+├ ○ /admin/compliances                                            6.83 kB         797 kB
+├ ○ /admin/compliances/overview                                   167 B           207 kB
+├ ○ /admin/contact                                                6.67 kB         797 kB
+├ ƒ /admin/contact/[...id]                                        6.85 kB         269 kB
+├ ○ /admin/content-management                                     5.39 kB         754 kB
+├ ƒ /admin/content-management/[...id]                             10.7 kB         231 kB
+├ ○ /admin/content-management/email                               5.45 kB         754 kB
+├ ƒ /admin/content-management/email/[...id]                       10.5 kB         231 kB
+├ ○ /admin/content-management/faq                                 8.92 kB         763 kB
+├ ○ /admin/content-management/faq/add                             180 B           262 kB
+├ ƒ /admin/content-management/faq/edit/[...id]                    180 B           262 kB
+├ ○ /admin/currency                                               6.1 kB          797 kB
+├ ○ /admin/currency/add                                           181 B           245 kB
+├ ƒ /admin/currency/edit/[id]                                     180 B           245 kB
+├ ○ /admin/dashboard                                              3.15 kB         263 kB
+├ ○ /admin/dashboard/contact                                      5.58 kB         281 kB
+├ ○ /admin/delegation                                             5.28 kB         796 kB
+├ 
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+=== Setting up standalone assets ===
+
+Found standalone server at: .next/standalone/server.js
+Copying public/ to .next/standalone/public...
+
+  Done. File count: 112
+Copying .next/static/ to .next/standalone/.next/static...
+
+  Done. File count: 443
+Standalone setup complete.
+  Server: .next/standalone/server.js
+
+  Public files: 112
+
+  Static files: 443
+
+
+=== Building Backend ===
+
+
+> pay-trade@0.0.1 build
+> nest build
+
+
+
+=== Running production migrations ===
+
+psql:scripts/migrate-production.sql:12: NOTICE:  relation "ai_support_usage" already exists, skipping
+
+CREATE TABLE
+
+psql:scripts/migrate-production.sql:15: NOTICE:  column "featured" of relation "blog_resource" already exists, skipping
+
+ALTER TABLE
+
+UPDATE 5
+
+
+=== Build complete ===
+
+2026-03-25T06:05:39Z info: Pushing pid1 binary layer...
+2026-03-25T06:05:41Z info: Created pid1 binary layer
+2026-03-25T06:05:43Z info: Pushing Repl layer...
+2026-03-25T06:05:43Z info: Pushing hosting layer...
+2026-03-25T06:05:43Z info: Retrieved cached nix layer
+2026-03-25T06:05:44Z info: Created hosting layer
+2026-03-25T06:07:33Z info: Created Repl layer
+2026-03-25T06:07:36Z info: Pushed image manifest
+2026-03-25T06:07:39Z info: Pushed soci index manifest
+2026-03-25T06:07:42Z info: Creating virtual machine
+2026-03-25T06:07:58Z info: Virtual machine created
+2026-03-25T06:07:58Z info: Waiting for deployment to be ready
+2026-03-25T06:02:03Z info: Deployment: f4c23fb5-ca08-469e-bb3c-48605aa1c65c
+2026-03-25T06:02:03Z info: Build: f9426388-69b0-4634-ac04-5cb79d1ae3b5
+2026-03-25T06:02:03Z info: Running Security Scan
+2026-03-25T06:02:18Z info: Security Scan Complete
+2026-03-25T06:02:18Z info: Connecting to builder
+2026-03-25T06:02:19Z info: Builder connected
+2026-03-25T06:02:19Z info: Installing packages
+--> npm install
+
+
+> paytrade-monorepo@1.0.0 postinstall
+> cd front-end && npm install --legacy-peer-deps && cd ../back-end && npm install --legacy-peer-deps
+
+
+
+removed 57 packages, and audited 456 packages in 3s
+
+
+66 packages are looking for funding
+
+  run `npm fund` for details
+
+
+7 vulnerabilities (1 moderate, 5 high, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+
+npm warn deprecated @types/jimp@0.2.28: This is a stub types definition for jimp (https://github.com/oliver-moran/jimp#readme). jimp provides its own type definitions, so you don't need @types/jimp installed!
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+
+
+added 669 packages, and audited 1687 packages in 58s
+
+228 packages are looking for funding
+
+  run `npm fund` for details
+
+
+62 vulnerabilities (10 low, 32 moderate, 18 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+
+up to date, audited 104 packages in 1m
+
+26 packages are looking for funding
+
+  run `npm fund` for details
+
+
+7 vulnerabilities (6 low, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.12.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+npm notice To update run: npm install -g npm@11.12.0
+npm notice
+
+2026-03-25T06:03:22Z info: Starting Build
+=== Building Frontend ===
+
+
+> paytrade-frontend-v2@0.1.0 build
+> next build
+
+
+  ▲ Next.js 14.2.35
+
+  - Environments: .env
+  - Experiments (use with caution):
+    · missingSuspenseWithCSRBailout
+
+   Creating an optimized production build ...
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/paytrade.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 6 items } -> webpack/lib/ModuleWarning -> Warning
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/custom.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 2 items } -> webpack/lib/ModuleWarning -> Warning
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!/home/runner/workspace/front-end/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!/home/runner/workspace/front-end/src/styles/theme.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 1 items } -> webpack/lib/ModuleWarning -> Warning
+
+ ⚠ Compiled with warnings
+
+
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+Warning
+
+(362:3) autoprefixer: end value has mixed support, consider using flex-end instead
+
+Import trace for requested module:
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+./src/styles/custom.css
+
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+Warning
+
+(1190:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/custom.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/custom.css
+./src/styles/custom.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(1415:3) autoprefixer: end value has mixed support, consider using flex-end instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(2408:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+Warning
+
+(2450:3) autoprefixer: start value has mixed support, consider using flex-start instead
+
+Import trace for requested module:
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytrade.css
+./src/styles/paytrade.css
+
+./src/styles/paytrade.css.webpack[javascript/auto]!=!./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[12].use[3]!./src/styles/paytr
+   Linting and checking validity of types ...
+
+ ⨯ ESLint must be installed in order to run during builds: npm install --save-dev eslint
+
+   Collecting page data ...
+
+   Generating static pages (0/164) ...
+
+   Generating static pages (41/164) 
+
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllDiscussionIdeas ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+   Generating static pages (82/164) 
+
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+listAllPublishedBlogResources ~ error: t [ApolloError]: fetch failed
+    at new t (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:115893)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:94825
+    at o (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60645)
+    at /home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60560
+    at new Promise (<anonymous>)
+    at Object.then (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60527)
+    at Object.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:60655)
+    at g (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:181516)
+    at b (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182017)
+    at t.error (/home/runner/workspace/front-end/.next/server/chunks/1527.js:13:182570) {
+  graphQLErrors: [],
+  protocolErrors: [],
+  clientErrors: [],
+  networkError: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  },
+  extraInfo: undefined,
+  cause: TypeError: fetch failed
+      at node:internal/deps/undici/undici:14902:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+    [cause]: Error: connect ECONNREFUSED 127.0.0.1:3001
+        at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+        at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3001
+    }
+  }
+}
+
+   Generating static pages (123/164) 
+
+ ✓ Generating static pages (164/164)
+
+   Finalizing page optimization ...
+
+   Collecting build traces ...
+
+Route (app)                                                       Size     First Load JS
+┌ ○ /                                                             267 B           535 kB
+├ ○ /_not-found                                                   883 B          89.2 kB
+├ ○ /accountants                                                  303 B           535 kB
+├ ○ /admin/activity-log                                           2.63 kB         757 kB
+├ ○ /admin/admin-guides                                           7.3 kB          169 kB
+├ ○ /admin/admin-menus                                            9.88 kB         176 kB
+├ ○ /admin/admin-users                                            5.59 kB         763 kB
+├ ○ /admin/admin-users/add                                        191 B           280 kB
+├ ƒ /admin/admin-users/edit/[id]                                  190 B           280 kB
+├ ○ /admin/blog                                                   4.04 kB         806 kB
+├ ○ /admin/blog/add                                               204 B           341 kB
+├ ƒ /admin/blog/edit/[id]                                         203 B           341 kB
+├ ○ /admin/business                                               8.85 kB         827 kB
+├ ○ /admin/business/add                                           209 B           420 kB
+├ ƒ /admin/business/edit/[id]                                     209 B           420 kB
+├ ○ /admin/communication                                          5.22 kB         754 kB
+├ ○ /admin/communication/add                                      190 B           282 kB
+├ ƒ /admin/communication/view/[id]                                189 B           282 kB
+├ ○ /admin/community/discussions                                  207 B           806 kB
+├ ƒ /admin/community/discussions/comments/[uuid]/[id]             181 B           265 kB
+├ ƒ /admin/community/discussions/comments/archived/[uuid]/[id]    181 B           265 kB
+├ ƒ /admin/community/discussions/comments/reported/[...id]        198 B           771 kB
+├ ƒ /admin/community/discussions/reported/[...id]                 198 B           771 kB
+├ ○ /admin/community/product-ideas                                206 B           806 kB
+├ ƒ /admin/community/product-ideas/comments/[uuid]/[id]           181 B           265 kB
+├ ƒ /admin/community/product-ideas/comments/archived/[uuid]/[id]  180 B           265 kB
+├ ƒ /admin/community/product-ideas/comments/reported/[...id]      199 B           771 kB
+├ ƒ /admin/community/product-ideas/reported/[...id]               198 B           771 kB
+├ ○ /admin/compliances                                            6.83 kB         797 kB
+├ ○ /admin/compliances/overview                                   167 B           207 kB
+├ ○ /admin/contact                                                6.67 kB         797 kB
+├ ƒ /admin/contact/[...id]                                        6.85 kB         269 kB
+├ ○ /admin/content-management                                     5.39 kB         754 kB
+├ ƒ /admin/content-management/[...id]                             10.7 kB         231 kB
+├ ○ /admin/content-management/email                               5.45 kB         754 kB
+├ ƒ /admin/content-management/email/[...id]                       10.5 kB         231 kB
+├ ○ /admin/content-management/faq                                 8.92 kB         763 kB
+├ ○ /admin/content-management/faq/add                             180 B           262 kB
+├ ƒ /admin/content-management/faq/edit/[...id]                    180 B           262 kB
+├ ○ /admin/currency                                               6.1 kB          797 kB
+├ ○ /admin/currency/add                                           181 B           245 kB
+├ ƒ /admin/currency/edit/[id]                                     180 B           245 kB
+├ ○ /admin/dashboard                                              3.15 kB         263 kB
+├ ○ /admin/dashboard/contact                                      5.58 kB         281 kB
+├ ○ /admin/delegation                                             5.28 kB         796 kB
+├ 
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+=== Setting up standalone assets ===
+
+Found standalone server at: .next/standalone/server.js
+Copying public/ to .next/standalone/public...
+
+  Done. File count: 112
+Copying .next/static/ to .next/standalone/.next/static...
+
+  Done. File count: 443
+Standalone setup complete.
+  Server: .next/standalone/server.js
+
+  Public files: 112
+
+  Static files: 443
+
+
+=== Building Backend ===
+
+
+> pay-trade@0.0.1 build
+> nest build
+
+
+
+=== Running production migrations ===
+
+psql:scripts/migrate-production.sql:12: NOTICE:  relation "ai_support_usage" already exists, skipping
+
+CREATE TABLE
+
+psql:scripts/migrate-production.sql:15: NOTICE:  column "featured" of relation "blog_resource" already exists, skipping
+
+ALTER TABLE
+
+UPDATE 5
+
+
+=== Build complete ===
+
+2026-03-25T06:05:39Z info: Pushing pid1 binary layer...
+2026-03-25T06:05:41Z info: Created pid1 binary layer
+2026-03-25T06:05:43Z info: Pushing Repl layer...
+2026-03-25T06:05:43Z info: Pushing hosting layer...
+2026-03-25T06:05:43Z info: Retrieved cached nix layer
+2026-03-25T06:05:44Z info: Created hosting layer
+2026-03-25T06:07:33Z info: Created Repl layer
+2026-03-25T06:07:36Z info: Pushed image manifest
+2026-03-25T06:07:39Z info: Pushed soci index manifest
+2026-03-25T06:07:42Z info: Creating virtual machine
+2026-03-25T06:07:58Z info: Virtual machine created
+2026-03-25T06:07:58Z info: Waiting for deployment to be ready
+starting up user application
+Proxy started (PID 17), now starting backend...
+Waiting for backend to be ready on port 3001...
+Starting production proxy on port 5000 immediately...
+forwarding local port 5000 to external port 80 (mapped as 1104)
+[Wed Mar 25 06:08:45 AM UTC 2026] Starting backend on port 3001...
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-03-25T06:08:48Z info: Deployment successful
