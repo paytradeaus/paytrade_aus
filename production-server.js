@@ -267,19 +267,34 @@ function checkBackendHealth() {
     method: 'GET',
     timeout: 5000,
   }, (res) => {
-    if (res.statusCode === 200) {
-      if (!backendHealthy) {
-        console.log(`[${new Date().toISOString()}] Backend recovered - port ${BACKEND_PORT} is responding`);
+    let body = '';
+    res.on('data', (chunk) => { body += chunk; });
+    res.on('end', () => {
+      if (res.statusCode === 200) {
+        if (!backendHealthy) {
+          console.log(`[${new Date().toISOString()}] Backend recovered - port ${BACKEND_PORT} is responding`);
+        }
+        backendHealthy = true;
+        exitMaintenanceMode();
+      } else {
+        let detail = `HTTP ${res.statusCode}`;
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed.checks) {
+            const failing = Object.entries(parsed.checks)
+              .filter(([, v]) => v !== 'ok')
+              .map(([k, v]) => `${k}=${v}`)
+              .join(', ');
+            if (failing) detail += ` (${failing})`;
+          }
+        } catch (e) {}
+        if (backendHealthy) {
+          console.error(`[${new Date().toISOString()}] Backend health check DEGRADED: ${detail}`);
+        }
+        backendHealthy = false;
+        enterMaintenanceMode(`Backend health check: ${detail}`);
       }
-      backendHealthy = true;
-    } else {
-      if (backendHealthy) {
-        console.error(`[${new Date().toISOString()}] Backend health check returned status ${res.statusCode}`);
-      }
-      backendHealthy = false;
-      enterMaintenanceMode(`Backend health check returned HTTP ${res.statusCode}`);
-    }
-    res.resume();
+    });
   });
   req.on('error', () => {
     if (backendHealthy) {
