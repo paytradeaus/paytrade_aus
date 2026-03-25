@@ -299,8 +299,14 @@ function checkBackendHealth() {
   req.end();
 }
 
-const FRONTEND_HEALTH_PATHS = ['/', '/pricing', '/blog'];
+const FRONTEND_HEALTH_PATHS = [
+  '/', '/pricing', '/blog', '/how-to-guides',
+  '/user/dashboard', '/user/projects', '/user/payments-list',
+  '/admin/dashboard', '/admin/users',
+  '/support', '/about',
+];
 let frontendHealthPathIndex = 0;
+const routeFailCounts = {};
 
 function checkFrontendHealth() {
   const checkPath = FRONTEND_HEALTH_PATHS[frontendHealthPathIndex % FRONTEND_HEALTH_PATHS.length];
@@ -315,18 +321,30 @@ function checkFrontendHealth() {
     headers: { 'host': '127.0.0.1' },
   }, (res) => {
     if (res.statusCode < 500) {
-      if (!frontendHealthy) {
-        console.log(`[${new Date().toISOString()}] Frontend recovered - ${checkPath} responding (${res.statusCode})`);
+      if (routeFailCounts[checkPath] > 0) {
+        console.log(`[${new Date().toISOString()}] Route recovered: ${checkPath} (${res.statusCode})`);
       }
-      frontendHealthy = true;
+      routeFailCounts[checkPath] = 0;
       frontendFailCount = 0;
-      exitMaintenanceMode();
+      if (!frontendHealthy) {
+        const anyStillFailing = Object.values(routeFailCounts).some(c => c >= FRONTEND_FAIL_THRESHOLD);
+        if (!anyStillFailing) {
+          frontendHealthy = true;
+          console.log(`[${new Date().toISOString()}] Frontend recovered - all routes healthy`);
+          exitMaintenanceMode();
+        }
+      }
     } else {
+      routeFailCounts[checkPath] = (routeFailCounts[checkPath] || 0) + 1;
       frontendFailCount++;
-      console.error(`[${new Date().toISOString()}] Frontend health check ${checkPath} returned ${res.statusCode} (fail ${frontendFailCount}/${FRONTEND_FAIL_THRESHOLD})`);
+      console.error(`[${new Date().toISOString()}] Frontend health check ${checkPath} returned ${res.statusCode} (route fails: ${routeFailCounts[checkPath]}, total: ${frontendFailCount}/${FRONTEND_FAIL_THRESHOLD})`);
       if (frontendFailCount >= FRONTEND_FAIL_THRESHOLD) {
         frontendHealthy = false;
-        enterMaintenanceMode(`Frontend returning HTTP ${res.statusCode} on ${checkPath}`);
+        const failingRoutes = Object.entries(routeFailCounts)
+          .filter(([, c]) => c > 0)
+          .map(([path, c]) => `${path}(${c})`)
+          .join(', ');
+        enterMaintenanceMode(`Frontend returning 500s on routes: ${failingRoutes}`);
       }
     }
     res.resume();
