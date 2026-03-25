@@ -338,8 +338,8 @@ export class CommunityBotService {
         instructions: `Generate a realistic Australian construction industry professional persona. The person works in the construction industry in Queensland or another Australian state. They would realistically use a project trust accounting platform.
 
 Create a believable persona with:
-- A common Australian name (mix of Anglo, European, Asian-Australian backgrounds)
-- A realistic construction industry job title (e.g., Project Manager, Site Supervisor, Contracts Administrator, Quantity Surveyor, Construction Manager, Estimator, Building Supervisor, Procurement Manager)
+- A realistic Australian name. IMPORTANT: Use a wide variety of surnames — do NOT repeat common defaults like Nguyen, Smith, Jones, Williams, or Brown. Draw from the full diversity of Australian surnames including Anglo-Celtic (e.g., O'Brien, Fitzpatrick, Sullivan, McAllister, Gallagher, Whitfield, Ashworth, Pemberton), European (e.g., Kostopoulos, Moretti, Schneider, Petrov, Johansson, Dubois), Middle Eastern (e.g., Al-Hashimi, Khoury, Haddad), Pacific Islander (e.g., Taufa, Manu), Indigenous Australian, and Asian-Australian (e.g., Tanaka, Sharma, Phan, Lim, Nakamura, Kaur) backgrounds. Be creative and unique each time.
+- A realistic construction industry job title (e.g., Project Manager, Site Supervisor, Contracts Administrator, Quantity Surveyor, Construction Manager, Estimator, Building Supervisor, Procurement Manager, Foreman, Safety Officer, Design Manager, Civil Engineer)
 - A realistic Australian construction company name (not a real company - make one up)
 - A professional email that looks realistic using the company name domain
 
@@ -352,7 +352,7 @@ Return ONLY a JSON object:
   "companyName": "...",
   "occupation": "Construction"
 }`,
-        input: 'Generate one construction professional persona.',
+        input: 'Generate one unique construction professional persona with a surname that is NOT Nguyen, Smith, Jones, Williams, Brown, Taylor, or Wilson.',
       });
 
       let cleanText = response.output_text.trim();
