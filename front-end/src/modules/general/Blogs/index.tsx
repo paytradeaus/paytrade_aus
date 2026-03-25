@@ -24,6 +24,11 @@ function extractFirstImage(html: string): string | null {
   return match ? match[1] : null;
 }
 
+function ensureLeadingSlash(path: string | undefined | null): string | null {
+  if (!path) return null;
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
 export default function BlogsPage({
   contentType,
   title,
@@ -130,7 +135,7 @@ export default function BlogsPage({
                             "/" +
                             blog?.id
                           }
-                          imageSrc={blog?.banner?.file_path || extractFirstImage(blog?.content) || DefaultImage}
+                          imageSrc={ensureLeadingSlash(blog?.banner?.file_path) || extractFirstImage(blog?.content) || DefaultImage}
                           title={blog?.title}
                           description={
                             blog?.category?.value || "No description"

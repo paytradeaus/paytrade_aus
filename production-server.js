@@ -527,7 +527,10 @@ const server = http.createServer((req, res) => {
       proxy.web(req, res, { target: `http://127.0.0.1:${BACKEND_PORT}` });
     }
   } else {
-    proxy.web(req, res, { target: `http://127.0.0.1:${FRONTEND_PORT}`, changeOrigin: true });
+    proxy.web(req, res, {
+      target: `http://127.0.0.1:${FRONTEND_PORT}`,
+      headers: { host: `localhost:${FRONTEND_PORT}` },
+    });
   }
 });
 
@@ -538,7 +541,10 @@ server.on('upgrade', (req, socket, head) => {
     console.log('WebSocket upgrade for socket.io');
     proxy.ws(req, socket, head, { target: `http://127.0.0.1:${BACKEND_PORT}` });
   } else {
-    proxy.ws(req, socket, head, { target: `http://127.0.0.1:${FRONTEND_PORT}`, changeOrigin: true });
+    proxy.ws(req, socket, head, {
+      target: `http://127.0.0.1:${FRONTEND_PORT}`,
+      headers: { host: `localhost:${FRONTEND_PORT}` },
+    });
   }
 });
 
