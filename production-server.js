@@ -550,12 +550,126 @@ const server = http.createServer((req, res) => {
       proxy.web(req, res, { target: `http://127.0.0.1:${BACKEND_PORT}` });
     }
   } else {
+    proxyToFrontendWithRetry(req, res);
+  }
+});
+
+const HOP_BY_HOP_HEADERS = [
+  'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+  'te', 'trailers', 'transfer-encoding', 'upgrade', 'proxy-connection',
+];
+
+function sanitizeHeaders(rawHeaders) {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (!HOP_BY_HOP_HEADERS.includes(key.toLowerCase())) {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
+function proxyToFrontendWithRetry(req, res) {
+  const url = req.url || '';
+  const method = req.method || 'GET';
+  const isRetryable = (method === 'GET' || method === 'HEAD');
+
+  if (!isRetryable) {
     proxy.web(req, res, {
       target: `http://127.0.0.1:${FRONTEND_PORT}`,
       headers: { host: `localhost:${FRONTEND_PORT}` },
     });
+    return;
   }
-});
+
+  let clientAborted = false;
+  let activeProxyReq = null;
+  let retryTimer = null;
+
+  const cleanup = () => {
+    clientAborted = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    if (activeProxyReq) { activeProxyReq.destroy(); activeProxyReq = null; }
+  };
+
+  res.on('close', cleanup);
+
+  const attempt = (retryCount) => {
+    if (clientAborted) return;
+
+    const headers = sanitizeHeaders(req.headers);
+    headers['host'] = `localhost:${FRONTEND_PORT}`;
+    delete headers['content-length'];
+
+    const options = {
+      hostname: '127.0.0.1',
+      port: FRONTEND_PORT,
+      path: url,
+      method: method,
+      headers: headers,
+      timeout: 15000,
+    };
+
+    const proxyReq = http.request(options, (proxyRes) => {
+      if (clientAborted) { proxyRes.resume(); return; }
+
+      if (proxyRes.statusCode === 500 && retryCount > 0) {
+        proxyRes.resume();
+        console.log(`[${new Date().toISOString()}] EIO retry: ${method} ${url} returned 500, retrying (${retryCount} left)...`);
+        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        return;
+      }
+
+      const contentType = proxyRes.headers['content-type'] || '';
+      if (contentType.includes('text/html') || url.includes('_rsc')) {
+        proxyRes.headers['cache-control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
+        proxyRes.headers['pragma'] = 'no-cache';
+        proxyRes.headers['expires'] = '0';
+      }
+
+      if (proxyRes.statusCode >= 400) {
+        const isScanner = scannerPatterns.some(p => p.test(url));
+        if (!isScanner) {
+          console.error(`[${new Date().toISOString()}] ${proxyRes.statusCode} ${method} ${url}`);
+        }
+      }
+
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    activeProxyReq = proxyReq;
+
+    proxyReq.on('error', (err) => {
+      if (clientAborted) return;
+      if (retryCount > 0) {
+        console.log(`[${new Date().toISOString()}] EIO retry: ${method} ${url} errored (${err.message}), retrying (${retryCount} left)...`);
+        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        return;
+      }
+      console.error('Frontend proxy error:', err.message, 'URL:', url);
+      if (!res.headersSent) {
+        serveMaintenancePage(res);
+      }
+    });
+
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      if (clientAborted) return;
+      if (retryCount > 0) {
+        retryTimer = setTimeout(() => attempt(retryCount - 1), 200);
+        return;
+      }
+      if (!res.headersSent) {
+        serveMaintenancePage(res);
+      }
+    });
+
+    proxyReq.end();
+  };
+
+  attempt(2);
+}
 
 server.on('upgrade', (req, socket, head) => {
   const url = req.url || '';
