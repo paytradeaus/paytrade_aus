@@ -59,7 +59,7 @@ start_frontend() {
   STANDALONE_SERVER=$(find_standalone_server)
   if [ -n "$STANDALONE_SERVER" ]; then
     echo "[$(date -u)] Using standalone server: $STANDALONE_SERVER"
-    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=256' node "$STANDALONE_SERVER"
+    PORT=5001 HOSTNAME=0.0.0.0 __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=512' node "$STANDALONE_SERVER"
   else
     echo "[$(date -u)] No standalone server found, using npx next start..."
     __NEXT_PRIVATE_ORIGIN=http://localhost:5001 NODE_OPTIONS='--max-old-space-size=512' npx next start -p 5001 -H 0.0.0.0
