@@ -1,6 +1,8 @@
 const http = require('http');
+const fs = require('fs');
 const httpProxy = require('http-proxy');
 const nodemailer = require('nodemailer');
+const { exec } = require('child_process');
 
 const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
@@ -360,6 +362,7 @@ function checkFrontendHealth() {
           .map(([path, c]) => `${path}(${c})`)
           .join(', ');
         enterMaintenanceMode(`Frontend returning 500s on routes: ${failingRoutes}`);
+        trackEioError(checkPath);
       }
     }
     res.resume();
@@ -386,6 +389,42 @@ function checkFrontendHealth() {
     }
   });
   req.end();
+}
+
+let eioErrorCount = 0;
+let eioErrorWindowStart = 0;
+let lastFrontendRestart = 0;
+const EIO_ERROR_THRESHOLD = 3;
+const EIO_ERROR_WINDOW = 60000;
+const FRONTEND_RESTART_COOLDOWN = 120000;
+
+function trackEioError(url) {
+  const now = Date.now();
+  if (now - eioErrorWindowStart > EIO_ERROR_WINDOW) {
+    eioErrorCount = 0;
+    eioErrorWindowStart = now;
+  }
+  eioErrorCount++;
+  
+  if (eioErrorCount >= EIO_ERROR_THRESHOLD && (now - lastFrontendRestart) > FRONTEND_RESTART_COOLDOWN) {
+    console.error(`[${new Date().toISOString()}] EIO auto-restart: ${eioErrorCount} errors in ${EIO_ERROR_WINDOW/1000}s window. Restarting frontend...`);
+    lastFrontendRestart = now;
+    eioErrorCount = 0;
+    
+    const pidFile = '/tmp/next-frontend.pid';
+    try {
+      const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+      if (pid && !isNaN(pid)) {
+        process.kill(pid, 'SIGTERM');
+        console.log(`[${new Date().toISOString()}] Frontend process (PID ${pid}) killed. Restart loop will bring it back.`);
+      } else {
+        console.error(`[${new Date().toISOString()}] Invalid PID in ${pidFile}`);
+      }
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Failed to kill frontend via pidfile: ${err.message}. Falling back to pkill.`);
+      exec('pkill -f "next start -p 5001"', () => {});
+    }
+  }
 }
 
 function enterMaintenanceMode(reason) {
@@ -659,6 +698,10 @@ function proxyToFrontendWithRetry(req, res) {
         console.log(`[${new Date().toISOString()}] EIO retry: ${method} ${url} returned 500, retrying (${retryCount} left)...`);
         retryTimer = setTimeout(() => attempt(retryCount - 1), RETRY_DELAY);
         return;
+      }
+
+      if (proxyRes.statusCode === 500 && retryCount === 0) {
+        trackEioError(url);
       }
 
       const contentType = proxyRes.headers['content-type'] || '';
