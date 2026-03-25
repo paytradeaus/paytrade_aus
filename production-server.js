@@ -379,6 +379,7 @@ setTimeout(checkFrontendHealth, 10000);
 const proxy = httpProxy.createProxyServer({
   ws: true,
   xfwd: true,
+  changeOrigin: true,
 });
 
 proxy.on('error', (err, req, res) => {
