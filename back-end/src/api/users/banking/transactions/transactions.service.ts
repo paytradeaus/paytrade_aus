@@ -2946,6 +2946,7 @@ export class TransactionsService {
         .leftJoin('p.contractDetails', 'cont')
         .where('sp.status = :status', { status: 'Unmatched' })
         .andWhere('p.current_status != :delstatus', { delstatus: 'Deleted' })
+        .andWhere('p.company_id = :companyId', { companyId: company_id })
         .andWhere(
           '(p.payment_from_account = :bankAccId OR p.payment_to_account = :bankAccId OR p.retention_account = :bankAccId)',
           { bankAccId: bank_account_id },
@@ -3104,9 +3105,9 @@ export class TransactionsService {
 
           if (response?.status === 'SUCCESS') {
             succeeded++;
-            const responseData = response?.data as any;
+            const responseData = response?.data as Record<string, unknown>;
             if (responseData?.payment_Ids) {
-              allPaymentIds.push(...responseData.payment_Ids);
+              allPaymentIds.push(...(responseData.payment_Ids as number[]));
             }
             results.push({
               transaction_id: pair.transaction_id,
