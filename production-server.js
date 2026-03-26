@@ -596,9 +596,13 @@ function checkFrontendHealth() {
 let eioErrorCount = 0;
 let eioErrorWindowStart = 0;
 let lastFrontendRestart = 0;
-const EIO_ERROR_THRESHOLD = 3;
+let eioRestartCount = 0;
+let eioRestartWindowStart = 0;
+const EIO_ERROR_THRESHOLD = 10;
 const EIO_ERROR_WINDOW = 60000;
-const FRONTEND_RESTART_COOLDOWN = 120000;
+const FRONTEND_RESTART_COOLDOWN = 300000;
+const MAX_RESTARTS_PER_WINDOW = 2;
+const RESTART_ESCALATION_WINDOW = 600000;
 
 function trackEioError(url) {
   const now = Date.now();
@@ -607,11 +611,24 @@ function trackEioError(url) {
     eioErrorWindowStart = now;
   }
   eioErrorCount++;
+
+  if (now - eioRestartWindowStart > RESTART_ESCALATION_WINDOW) {
+    eioRestartCount = 0;
+    eioRestartWindowStart = now;
+  }
+
+  if (eioRestartCount >= MAX_RESTARTS_PER_WINDOW) {
+    if (eioErrorCount === EIO_ERROR_THRESHOLD) {
+      console.error(`[${new Date().toISOString()}] EIO storm: ${eioRestartCount} restarts in ${RESTART_ESCALATION_WINDOW/60000}min window. Suppressing further restarts — waiting for filesystem to stabilize.`);
+    }
+    return;
+  }
   
   if (eioErrorCount >= EIO_ERROR_THRESHOLD && (now - lastFrontendRestart) > FRONTEND_RESTART_COOLDOWN) {
     console.error(`[${new Date().toISOString()}] EIO auto-restart: ${eioErrorCount} errors in ${EIO_ERROR_WINDOW/1000}s window. Restarting frontend...`);
     lastFrontendRestart = now;
     eioErrorCount = 0;
+    eioRestartCount++;
     
     const pidFile = '/tmp/next-frontend.pid';
     try {
