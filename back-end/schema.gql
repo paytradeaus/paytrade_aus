@@ -13272,6 +13272,11 @@ type Mutation {
     blogResId: String
   ): StringResponse!
 
+  """
+  Permanently deletes a company and all associated data. Super admin only.
+  """
+  adminDeleteCompany(company_id: Float!): StringResponse!
+
   """Delete an admin menu."""
   adminDeleteMenu(id: String!): AdminMenuDetailResponse!
   adminDeletePricingTableFeature(id: String!): PricingTableFeatureResponse!
@@ -15950,6 +15955,9 @@ type Query {
     """ID of the company to fetch details for."""
     company_id: Float!
   ): PTCompanyResponse!
+
+  """Returns dependency counts for a company before deletion."""
+  adminGetCompanyDependencies(company_id: Float!): StringResponse!
 
   """Fetches content details by heading."""
   adminGetContentByHead(

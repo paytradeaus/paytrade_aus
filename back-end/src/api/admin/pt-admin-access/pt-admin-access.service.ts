@@ -1591,4 +1591,107 @@ export class PtAdminAccessService {
       throw error;
     }
   }
+
+  async getCompanyDependencies(companyId: number): Promise<any> {
+    const counts: Record<string, number> = {};
+    const queries: Array<{ key: string; sql: string }> = [
+      { key: 'users', sql: `SELECT COUNT(*)::int as count FROM company_user_roles WHERE company_id = $1` },
+      { key: 'projects', sql: `SELECT COUNT(*)::int as count FROM project_details WHERE company_id = $1` },
+      { key: 'contracts', sql: `SELECT COUNT(*)::int as count FROM contract_details WHERE company_id = $1` },
+      { key: 'bank_accounts', sql: `SELECT COUNT(*)::int as count FROM bank_accounts WHERE company_id = $1` },
+      { key: 'claims', sql: `SELECT COUNT(*)::int as count FROM payment_claims WHERE company_id = $1` },
+      { key: 'payments', sql: `SELECT COUNT(*)::int as count FROM payment_details WHERE company_id = $1` },
+      { key: 'journal_entries', sql: `SELECT COUNT(*)::int as count FROM journal_entries WHERE company_id = $1` },
+      { key: 'transactions', sql: `SELECT COUNT(*)::int as count FROM transaction_details WHERE company_id = $1` },
+      { key: 'reconciliation_reports', sql: `SELECT COUNT(*)::int as count FROM reconciliation_report WHERE company_id = $1` },
+      { key: 'clients_suppliers', sql: `SELECT COUNT(*)::int as count FROM client_suppliers_details WHERE company_id = $1` },
+      { key: 'notices', sql: `SELECT COUNT(*)::int as count FROM notices_details WHERE company_id = $1` },
+      { key: 'invitations', sql: `SELECT COUNT(*)::int as count FROM invitations WHERE company_id = $1` },
+      { key: 'subscriptions', sql: `SELECT COUNT(*)::int as count FROM subscription_details WHERE company_id = $1` },
+      { key: 'integrations', sql: `SELECT COUNT(*)::int as count FROM integration_details WHERE company_id = $1` },
+      { key: 'activity_logs', sql: `SELECT COUNT(*)::int as count FROM activity_log_new WHERE company_id = $1` },
+      { key: 'variations', sql: `SELECT COUNT(*)::int as count FROM variation_details WHERE company_id = $1` },
+      { key: 'audit_reports', sql: `SELECT COUNT(*)::int as count FROM audit_report WHERE company_id = $1` },
+      { key: 'ai_support_usage', sql: `SELECT COUNT(*)::int as count FROM ai_support_usage WHERE company_id = $1` },
+    ];
+
+    for (const q of queries) {
+      try {
+        const result = await this.companyDetails.query(q.sql, [companyId]);
+        counts[q.key] = result?.[0]?.count || 0;
+      } catch (err) {
+        this.logger.error(`Dependency check for ${q.key} failed: ${err.message}`);
+        counts[q.key] = -1;
+      }
+    }
+
+    const totalRecords = Object.values(counts).reduce((sum, c) => sum + c, 0);
+    return { counts, totalRecords };
+  }
+
+  async deleteCompanyAndAllData(companyId: number): Promise<{ deletedCounts: Record<string, number> }> {
+    const company = await this.getCompanyById(companyId);
+    if (!company) {
+      throw new NotFoundException('Company not found');
+    }
+
+    const deletedCounts: Record<string, number> = {};
+    const runner = this.companyDetails.manager.connection.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+
+    try {
+      const deleteSteps: Array<{ key: string; sql: string }> = [
+        { key: 'ai_support_usage', sql: `DELETE FROM ai_support_usage WHERE company_id = $1` },
+        { key: 'activity_logs', sql: `DELETE FROM activity_log_new WHERE company_id = $1` },
+        { key: 'invitations', sql: `DELETE FROM invitations WHERE company_id = $1` },
+        { key: 'xero_sync_logs', sql: `DELETE FROM xero_sync_logs WHERE integration_id IN (SELECT integration_id FROM xero_integration_details WHERE company_id = $1)` },
+        { key: 'xero_integrations', sql: `DELETE FROM xero_integration_details WHERE company_id = $1` },
+        { key: 'integrations', sql: `DELETE FROM integration_details WHERE company_id = $1` },
+        { key: 'subscription_transactions', sql: `DELETE FROM subscription_transactions WHERE subscription_id IN (SELECT id FROM subscription_details WHERE company_id = $1)` },
+        { key: 'generate_aba_history', sql: `DELETE FROM generate_aba_file_history WHERE company_id = $1` },
+        { key: 'journal_entries', sql: `DELETE FROM journal_entries WHERE company_id = $1` },
+        { key: 'retention_summaries', sql: `DELETE FROM retention_summary WHERE company_id = $1` },
+        { key: 'retention_details', sql: `DELETE FROM retention_details WHERE company_id = $1` },
+        { key: 'sub_payments', sql: `DELETE FROM sub_payments WHERE payment_id IN (SELECT id FROM payment_details WHERE company_id = $1)` },
+        { key: 'payments', sql: `DELETE FROM payment_details WHERE company_id = $1` },
+        { key: 'claim_invoices', sql: `DELETE FROM payment_claim_invoices WHERE claim_id IN (SELECT id FROM payment_claims WHERE company_id = $1)` },
+        { key: 'claims', sql: `DELETE FROM payment_claims WHERE company_id = $1` },
+        { key: 'audit_reports', sql: `DELETE FROM audit_report WHERE company_id = $1` },
+        { key: 'reconciliation_reports', sql: `DELETE FROM reconciliation_report WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE company_id = $1)` },
+        { key: 'transactions', sql: `DELETE FROM transaction_details WHERE company_id = $1` },
+        { key: 'bank_statements', sql: `DELETE FROM bank_statements WHERE bank_account_id IN (SELECT id FROM bank_accounts WHERE company_id = $1)` },
+        { key: 'pta_compliances', sql: `DELETE FROM pta_compliances WHERE project_id IN (SELECT id FROM project_details WHERE company_id = $1)` },
+        { key: 'rta_compliances', sql: `DELETE FROM rta_compliances WHERE project_id IN (SELECT id FROM project_details WHERE company_id = $1)` },
+        { key: 'compliance_of_projects', sql: `DELETE FROM compliance_of_projects WHERE project_id IN (SELECT id FROM project_details WHERE company_id = $1)` },
+        { key: 'notice_mail', sql: `DELETE FROM notice_mail WHERE notice_id IN (SELECT notice_id FROM notices_details WHERE company_id = $1)` },
+        { key: 'notices', sql: `DELETE FROM notices_details WHERE company_id = $1` },
+        { key: 'variations', sql: `DELETE FROM variation_details WHERE company_id = $1` },
+        { key: 'contracts', sql: `DELETE FROM contract_details WHERE company_id = $1` },
+        { key: 'projects', sql: `DELETE FROM project_details WHERE company_id = $1` },
+        { key: 'bank_accounts', sql: `DELETE FROM bank_accounts WHERE company_id = $1` },
+        { key: 'clients_suppliers', sql: `DELETE FROM client_suppliers_details WHERE company_id = $1` },
+        { key: 'subscriptions', sql: `DELETE FROM subscription_details WHERE company_id = $1` },
+        { key: 'company_coupons', sql: `DELETE FROM company_coupon_details WHERE company_id = $1` },
+        { key: 'company_user_roles', sql: `DELETE FROM company_user_roles WHERE company_id = $1` },
+        { key: 'file_attachments', sql: `DELETE FROM file_attachments WHERE company_id = $1` },
+        { key: 'company', sql: `DELETE FROM company_details WHERE company_id = $1` },
+      ];
+
+      for (const step of deleteSteps) {
+        const result = await runner.query(step.sql, [companyId]);
+        deletedCounts[step.key] = result?.[1] || 0;
+      }
+
+      await runner.commitTransaction();
+      this.logger.log(`Company ${companyId} (${company.company_name}) fully deleted. Counts: ${JSON.stringify(deletedCounts)}`);
+      return { deletedCounts };
+    } catch (error) {
+      await runner.rollbackTransaction();
+      this.logger.error(`Company delete failed, transaction rolled back: ${error.message}`);
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
 }

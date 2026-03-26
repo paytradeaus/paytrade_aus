@@ -3,6 +3,70 @@ import { ApiResponse } from "@/shared/constant/messages";
 import { gql } from "@apollo/client";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 
+export const AdminGetCompanyDependencies = async (
+  companyId: number
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query AdminGetCompanyDependencies($company_id: Float!) {
+          adminGetCompanyDependencies(company_id: $company_id) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { company_id: companyId },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.adminGetCompanyDependencies?.status === ApiResponse.SUCCESS
+    ) {
+      return JSON.parse(response.data.adminGetCompanyDependencies.message);
+    }
+    return null;
+  } catch (error: any) {
+    console.error("GraphQL Error:", error);
+    return null;
+  }
+};
+
+export const AdminDeleteCompany = async (
+  companyId: number
+): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminDeleteCompany($company_id: Float!) {
+          adminDeleteCompany(company_id: $company_id) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { company_id: companyId },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.adminDeleteCompany?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response.data.adminDeleteCompany.message);
+      return true;
+    }
+    if (
+      response?.data?.adminDeleteCompany?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response.data.adminDeleteCompany.message);
+      return false;
+    }
+    return false;
+  } catch (error: any) {
+    showErrorToast(error.message || "Failed to delete company");
+    console.error("GraphQL Error:", error);
+    return false;
+  }
+};
+
 export const AdminListAllCompanies = async (
   data: any,
   setLoading?: Function

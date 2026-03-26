@@ -1,4 +1,4 @@
-import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Float, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 import { HttpException, HttpStatus, UseGuards } from '@nestjs/common';
 import { RolesGuard } from 'src/api/auth/role-guard/roles.guard';
@@ -584,6 +584,68 @@ export class PtAdminAccessResolver {
 
         return error;
       });
+      return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'adminGetCompanyDependencies',
+    description: 'Returns dependency counts for a company before deletion.',
+  })
+  async adminGetCompanyDependencies(
+    @Args('company_id', { type: () => Float }) companyId: number,
+  ): Promise<any> {
+    try {
+      this.log(`Request received for company dependency check: ${companyId}`);
+      const result = await this.ptAdminAccessService.getCompanyDependencies(companyId);
+      return framedResponse('SUCCESS', JSON.stringify(result));
+    } catch (error) {
+      this.logError(`Error checking company dependencies: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'adminDeleteCompany',
+    description: 'Permanently deletes a company and all associated data. Super admin only.',
+  })
+  async adminDeleteCompany(
+    @Context() context,
+    @Args('company_id', { type: () => Float }) companyId: number,
+  ): Promise<any> {
+    try {
+      this.log(`Request received for company deletion: ${companyId}`);
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const company = await this.ptAdminAccessService.getCompanyById(companyId);
+      if (!company) {
+        return framedResponse('ERROR', 'Company not found');
+      }
+
+      const companyName = company.company_name;
+      const result = await this.ptAdminAccessService.deleteCompanyAndAllData(companyId);
+
+      const createActivityLogInput: CreateActivityLogInput = {
+        event_template_id: 149,
+        admin_id: decoded?.userId,
+        dynamic_values: {
+          action: 'Deleted',
+          companyName: companyName,
+        },
+        is_admin: true,
+        created_by: decoded?.userId,
+      };
+      await this.activityLogService.insertActivityLog(createActivityLogInput);
+
+      this.log(`Company ${companyId} (${companyName}) permanently deleted by admin ${decoded?.userId}`);
+      return framedResponse('SUCCESS', `Company "${companyName}" and all associated data have been permanently deleted.`);
+    } catch (error) {
+      this.logError(`Error deleting company: ${error.message}`);
+      const errMsg = await handleError(error).catch((error) => error);
       return framedResponse('ERROR', errMsg);
     }
   }
