@@ -189,8 +189,8 @@ export class SignupService {
           let createSubscriptionInput: CreateSubscriptionInput = {
             company_id: companyDetails.company_id,
             plan_id: subscriptionPlanDetails.plan_id,
-            price_id: subscriptionPlanDetails.price_id,
-            amount: subscriptionPlanDetails.price,
+            price_id: subscriptionPlanDetails.price_id ?? null,
+            amount: subscriptionPlanDetails.price ?? 0,
             start_date: moment.tz('UTC'),
             created_by: userDetails.user_id,
             created_on: moment.tz('UTC'),
@@ -319,8 +319,8 @@ export class SignupService {
           let createSubscriptionInput: CreateSubscriptionInput = {
             company_id: companyDetails.company_id,
             plan_id: subscriptionPlanDetails.plan_id,
-            price_id: subscriptionPlanDetails.price_id,
-            amount: subscriptionPlanDetails.price,
+            price_id: subscriptionPlanDetails.price_id ?? null,
+            amount: subscriptionPlanDetails.price ?? 0,
             start_date: moment.tz('UTC'),
             created_by: createCompanySignupInput.created_by,
             created_on: moment.tz('UTC'),
@@ -420,8 +420,8 @@ export class SignupService {
     let createSubscriptionInput: CreateSubscriptionInput = {
       company_id: company_id,
       plan_id: subscriptionPlanDetails.plan_id,
-      price_id: subscriptionPlanDetails.price_id,
-      amount: subscriptionPlanDetails.price,
+      price_id: subscriptionPlanDetails.price_id ?? null,
+      amount: subscriptionPlanDetails.price ?? 0,
       start_date: moment.tz('UTC'),
       created_by: userId,
       created_on: moment.tz('UTC'),
