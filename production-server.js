@@ -1,8 +1,52 @@
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 const httpProxy = require('http-proxy');
 const nodemailer = require('nodemailer');
 const { exec } = require('child_process');
+
+const NEXT_STATIC_DIR = path.join(__dirname, 'front-end', '.next', 'static');
+const MIME_TYPES = {
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.json': 'application/json',
+  '.map': 'application/json',
+};
+
+function serveNextStatic(req, res, urlPath) {
+  const relativePath = urlPath.replace('/_next/static/', '');
+  const filePath = path.join(NEXT_STATIC_DIR, relativePath);
+  const safePath = path.resolve(filePath);
+  if (!safePath.startsWith(NEXT_STATIC_DIR)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden');
+    return true;
+  }
+  try {
+    if (fs.existsSync(safePath) && fs.statSync(safePath).isFile()) {
+      const ext = path.extname(safePath).toLowerCase();
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      fs.createReadStream(safePath).pipe(res);
+      return true;
+    }
+  } catch (e) {
+    console.error(`[${new Date().toISOString()}] Static file serve error: ${e.message}`);
+  }
+  return false;
+}
 
 const FRONTEND_PORT = 5001;
 const BACKEND_PORT = 3001;
@@ -762,6 +806,12 @@ const server = http.createServer((req, res) => {
     console.log(`[${new Date().toISOString()}] Headers: ${JSON.stringify(req.headers)}`);
   }
 
+  if (url.startsWith('/_next/static/')) {
+    if (serveNextStatic(req, res, url)) {
+      return;
+    }
+  }
+
   if (!frontendHealthy && !isBackend && !url.startsWith('/_next/')) {
     serveMaintenancePage(res);
     return;
@@ -957,12 +1007,7 @@ function proxyToFrontendWithRetry(req, res) {
       }
 
       if (proxyRes.statusCode === 400 && url.includes('/_next/static/')) {
-        proxyRes.resume();
-        if (!res.headersSent) {
-          res.writeHead(404, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
-          res.end('Not Found - stale chunk');
-        }
-        return;
+        console.error(`[${new Date().toISOString()}] 400 on static asset: ${url} - passing through (may be host validation)`);
       }
 
       if (proxyRes.statusCode >= 400) {
