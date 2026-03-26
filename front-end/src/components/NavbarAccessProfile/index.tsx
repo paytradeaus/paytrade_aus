@@ -231,7 +231,9 @@ export default function NavbarAccessProfile() {
         ? {
             admin_id: decodedToken?.userId || null,
           }
-        : {};
+        : {
+            user_id: decodedToken?.userId || null,
+          };
 
       const proxypayload = {
         user_id: decodedToken?.userId || null,
