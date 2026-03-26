@@ -505,7 +505,6 @@ const AdminAddUser = (props: any) => {
                           showError={
                             formik.touched.Email && formik.errors.Email
                           }
-                          disabled={isEdit}
                           value={formik.values.Email}
                           onChange={handleEmailfieldChange}
                           onBlur={formik.handleBlur}
