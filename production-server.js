@@ -13,6 +13,7 @@ let frontendHealthy = true;
 let frontendFailCount = 0;
 const FRONTEND_FAIL_THRESHOLD = 3;
 let maintenanceAlertSent = false;
+let frontendEverReady = false;
 
 const MAINTENANCE_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -545,10 +546,15 @@ function checkFrontendHealth() {
       }
       routeFailCounts[checkPath] = 0;
       frontendFailCount = 0;
+      if (!frontendEverReady) {
+        frontendEverReady = true;
+        console.log(`[${new Date().toISOString()}] Frontend first ready - initial startup complete`);
+      }
       if (!frontendHealthy) {
         const anyStillFailing = Object.values(routeFailCounts).some(c => c >= FRONTEND_FAIL_THRESHOLD);
         if (!anyStillFailing) {
           frontendHealthy = true;
+          frontendEverReady = true;
           console.log(`[${new Date().toISOString()}] Frontend recovered - all routes healthy`);
           exitMaintenanceMode();
         }
@@ -985,7 +991,11 @@ function proxyToFrontendWithRetry(req, res) {
       }
       console.error('Frontend proxy error:', err.message, 'URL:', url);
       if (!res.headersSent) {
-        serveMaintenancePage(res);
+        if (!frontendEverReady) {
+          serveLoadingRetryPage(res);
+        } else {
+          serveMaintenancePage(res);
+        }
       }
     });
 
@@ -997,7 +1007,11 @@ function proxyToFrontendWithRetry(req, res) {
         return;
       }
       if (!res.headersSent) {
-        serveMaintenancePage(res);
+        if (!frontendEverReady) {
+          serveLoadingRetryPage(res);
+        } else {
+          serveMaintenancePage(res);
+        }
       }
     });
 
