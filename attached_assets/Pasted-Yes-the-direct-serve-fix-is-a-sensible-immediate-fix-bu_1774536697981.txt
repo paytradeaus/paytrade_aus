@@ -1,0 +1,58 @@
+Yes — the direct-serve fix is a sensible immediate fix, but the proper resolution is to fix the proxying model so Next.js sees the real public host, not `localhost:5001`.
+
+What’s going wrong is that newer Next.js releases added stricter host/origin validation around requests, and Next.js explicitly uses `Host` or `X-Forwarded-Host` for same-origin checks in some paths. If your proxy rewrites the request to `Host: localhost:5001`, you can end up with requests that look cross-origin from Next.js’s point of view, even though the browser requested `paytrade.app`. ([Next.js][1])
+
+So the clean fix is:
+
+1. **Preserve the external host through the proxy**
+   Forward:
+
+   * `Host: paytrade.app`
+   * `X-Forwarded-Host: paytrade.app`
+   * `X-Forwarded-Proto: https`
+   * `X-Forwarded-For: ...`
+
+   Do **not** replace `Host` with `localhost:5001` unless you have a very specific reason. That rewrite is the root smell here. The long-standing guidance for reverse-proxy setups is that the app needs the forwarded host/proto context to reconstruct the real request correctly. ([GitHub][2])
+
+2. **Stop translating all `_next/static/*` 400s into 404 stale-chunk errors**
+   That rule is too aggressive. A 400 can mean request validation failed, not that the asset is missing. Your current rule masked the real problem and turned a recoverable proxy/config issue into a guaranteed broken page.
+
+3. **Keep serving `/_next/static/*` directly from disk**
+   That is actually a good production pattern for immutable build artifacts. Next.js’s static/build assets are intended to be cacheable, and immutable assets are safe to serve directly with long-lived caching. ([Next.js][3])
+
+4. **Deploy atomically**
+   Make sure the HTML and the `.next/static` directory come from the same build. If the proxy serves assets from an old build while the app server serves HTML from a new build, you really will get stale chunk failures.
+
+5. **Verify server actions separately**
+   If you use Server Actions and still have a proxy in front, you may also need `serverActions.allowedOrigins` for any legitimate proxy-origin scenarios, but that is for action requests, not for fixing static chunk delivery. ([Next.js][4])
+
+A good target architecture is:
+
+* Public traffic → proxy on `paytrade.app`
+* Proxy forwards app/page/API traffic to Next.js with public host headers preserved
+* Proxy serves `/_next/static/*` from `.next/static/*` directly
+* No blanket “400 means stale chunk” rewriting
+
+So I would treat your current filesystem-serving change as the **right hotfix**, but not the whole fix. The **proper** resolution is to also correct the proxy headers so Next.js receives the real external host and scheme. That removes the underlying host-validation mismatch instead of just routing around it. ([Next.js][1])
+
+A practical checklist for your developers:
+
+```text
+[ ] Proxy preserves Host as paytrade.app
+[ ] Proxy sets X-Forwarded-Host = paytrade.app
+[ ] Proxy sets X-Forwarded-Proto = https
+[ ] Proxy sets X-Forwarded-For
+[ ] /_next/static/* served directly from .next/static/*
+[ ] Remove 400 -> 404 stale-chunk fallback rule
+[ ] Single release artifact for HTML + static chunks
+[ ] Redeploy and hard-refresh test
+[ ] Check browser network tab for 200s on CSS/JS chunks
+[ ] Check Server Actions separately if used
+```
+
+If you want, I can help you turn this into an exact Railway/Nginx/Caddy/Node proxy config for Pay Trade.
+
+[1]: https://nextjs.org/docs/13/app/building-your-application/data-fetching/server-actions-and-mutations?utm_source=chatgpt.com "Server Actions and Mutations - Data Fetching"
+[2]: https://github.com/vercel/next.js/discussions/34571?utm_source=chatgpt.com "routing behind reverse proxies (use x-forwarded-host for ..."
+[3]: https://nextjs.org/docs/app/guides/self-hosting?utm_source=chatgpt.com "Guides: Self-Hosting"
+[4]: https://nextjs.org/docs/app/api-reference/config/next-config-js/serverActions?utm_source=chatgpt.com "next.config.js: serverActions"

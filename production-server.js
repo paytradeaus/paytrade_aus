@@ -907,16 +907,22 @@ const HOP_BY_HOP_HEADERS = [
 ];
 
 const STRIP_FORWARD_HEADERS = [
-  'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-server',
+  'x-forwarded-port', 'x-forwarded-server',
 ];
 
-function sanitizeHeaders(rawHeaders) {
+function sanitizeHeaders(rawHeaders, originalHost) {
   const cleaned = {};
   for (const [key, value] of Object.entries(rawHeaders)) {
     const lower = key.toLowerCase();
     if (!HOP_BY_HOP_HEADERS.includes(lower) && !STRIP_FORWARD_HEADERS.includes(lower)) {
       cleaned[key] = value;
     }
+  }
+  const publicHost = originalHost || 'paytrade.app';
+  cleaned['x-forwarded-host'] = publicHost;
+  cleaned['x-forwarded-proto'] = 'https';
+  if (!cleaned['x-forwarded-for'] && rawHeaders['x-forwarded-for']) {
+    cleaned['x-forwarded-for'] = rawHeaders['x-forwarded-for'];
   }
   return cleaned;
 }
@@ -927,9 +933,14 @@ function proxyToFrontendWithRetry(req, res) {
   const isRetryable = (method === 'GET' || method === 'HEAD');
 
   if (!isRetryable) {
+    const origHost = (req.headers.host || '').replace(/:\d+$/, '');
     proxy.web(req, res, {
       target: `http://127.0.0.1:${FRONTEND_PORT}`,
-      headers: { host: `localhost:${FRONTEND_PORT}` },
+      headers: {
+        host: `localhost:${FRONTEND_PORT}`,
+        'x-forwarded-host': origHost || 'paytrade.app',
+        'x-forwarded-proto': 'https',
+      },
     });
     return;
   }
@@ -952,7 +963,8 @@ function proxyToFrontendWithRetry(req, res) {
   const attempt = (retryCount) => {
     if (clientAborted) return;
 
-    const headers = sanitizeHeaders(req.headers);
+    const originalHost = (req.headers.host || '').replace(/:\d+$/, '');
+    const headers = sanitizeHeaders(req.headers, originalHost);
     headers['host'] = `localhost:${FRONTEND_PORT}`;
     delete headers['content-length'];
 
