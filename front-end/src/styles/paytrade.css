@@ -176,23 +176,12 @@ body #fader {
   position: fixed;
   left: 0px;
   top: 0px;
-  width: calc(100% + 20px);
-  height: 100%;
-  z-index: 999999;
-  background-repeat: no-repeat;
-  pointer-events: none;
-  background-position: center center;
-  background: var(--boxgradienttransparent);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999999 !important;
+  background: var(--boxgradient);
   animation-duration: 300ms;
   animation-timing-function: ease-in-out;
-  -webkit-transform: translateZ(0);
-  -moz-transform: translateZ(0);
-  -ms-transform: translateZ(0);
-  -o-transform: translateZ(0);
-  transform: translateZ(0);
-  z-index: 99999999 !important;
   display: block;
 }
 
