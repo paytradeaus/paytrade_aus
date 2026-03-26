@@ -267,7 +267,7 @@ export default function UsersList() {
         setDependencyLoading(true);
         setDeleteModalOpen(true);
         setDependencyData(null);
-        const deps = await AdminGetUserDependencies(row?.user_id);
+        const deps = await AdminGetUserDependencies(Number(row?.user_id));
         setDependencyData(deps);
         setDependencyLoading(false);
       },
