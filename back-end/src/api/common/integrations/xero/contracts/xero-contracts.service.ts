@@ -1441,27 +1441,39 @@ export class XeroContractsService {
       const existingXeroContracts =
         contracts[0]?.options?.map((c) => c.trackingOptionID) || [];
 
-      // Fetch all contract IDs from DB in a single query
-      const contractIdsInDb = await this.xeroContractDetails.find({
-        where: {
-          contract_id: In(existingXeroContracts),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['contract_id'],
-      });
-      const existingContractIds = new Set(
-        contractIdsInDb.map((c) => c.contract_id),
-      );
-      const existingContractIdsSet = new Set(existingContractIds);
+      let contractIdsInDb = [];
+      let existingContractIds = new Set<string>();
+      let existingContractIdsSet = new Set<string>();
+      let unFoundContractIdsInDb = [];
 
-      //Existing contracts need to be archived if not present in xero
-      const unFoundContractIdsInDb = await this.xeroContractDetails.find({
-        where: {
-          contract_id: Not(In(existingXeroContracts)),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['contract_id', 'pt_contract_id', 'contract_name'],
-      });
+      if (existingXeroContracts.length > 0) {
+        contractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            contract_id: In(existingXeroContracts),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id'],
+        });
+        existingContractIds = new Set(
+          contractIdsInDb.map((c) => c.contract_id),
+        );
+        existingContractIdsSet = new Set(existingContractIds);
+
+        unFoundContractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            contract_id: Not(In(existingXeroContracts)),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id', 'pt_contract_id', 'contract_name'],
+        });
+      } else {
+        unFoundContractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id', 'pt_contract_id', 'contract_name'],
+        });
+      }
 
       if (unFoundContractIdsInDb && unFoundContractIdsInDb?.length > 0) {
         const deletePtContractIds = unFoundContractIdsInDb.map(
@@ -1470,7 +1482,7 @@ export class XeroContractsService {
 
         this.logger.log(`unFoundContractIdsInDb: ${JSON.stringify(unFoundContractIdsInDb)}, deletePtContractIds: ${JSON.stringify(deletePtContractIds)}`);
 
-        await this.xeroContractDetails
+        const archiveQuery = this.xeroContractDetails
           .createQueryBuilder()
           .update(XeroContractDetails)
           .set({
@@ -1478,15 +1490,24 @@ export class XeroContractsService {
             updated_by: decoded.userId,
             updated_on: moment.tz('UTC'),
             updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
-          })
-          .where(
+          });
+
+        if (existingXeroContracts.length > 0) {
+          archiveQuery.where(
             'contract_id NOT IN (:...contract_id) AND integration_id = :integration_id',
             {
               contract_id: existingXeroContracts,
               integration_id: xeroDetails.integration_id,
             },
-          )
-          .execute();
+          );
+        } else {
+          archiveQuery.where(
+            'integration_id = :integration_id',
+            { integration_id: xeroDetails.integration_id },
+          );
+        }
+
+        await archiveQuery.execute();
 
         const deletePtContractDetails = await this.contractDetails.find({
           where: {

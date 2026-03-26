@@ -2292,27 +2292,39 @@ export class XeroSchedulerService {
       const existingXeroProjects =
         projects[0]?.options?.map((p) => p.trackingOptionID) || [];
 
-      const projectIdsInDb = await this.xeroProjectDetails.find({
-        where: {
-          project_id: In(existingXeroProjects),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['project_id'],
-      });
-      const existingProjectIds = new Set(
-        projectIdsInDb.map((p) => p.project_id),
-      );
+      let projectIdsInDb = [];
+      let existingProjectIds = new Set<string>();
+      let existingProjectIdsSet = new Set<string>();
+      let unFoundProjectIdsInDb = [];
 
-      const existingProjectIdsSet = new Set(existingProjectIds);
+      if (existingXeroProjects.length > 0) {
+        projectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            project_id: In(existingXeroProjects),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id'],
+        });
+        existingProjectIds = new Set(
+          projectIdsInDb.map((p) => p.project_id),
+        );
+        existingProjectIdsSet = new Set(existingProjectIds);
 
-      //Existing projects need to be archived if not present in xero
-      const unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
-        where: {
-          project_id: Not(In(existingXeroProjects)),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['project_id', 'pt_project_id', 'project_name'],
-      });
+        unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            project_id: Not(In(existingXeroProjects)),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id', 'pt_project_id', 'project_name'],
+        });
+      } else {
+        unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id', 'pt_project_id', 'project_name'],
+        });
+      }
 
       if (unFoundProjectIdsInDb && unFoundProjectIdsInDb?.length > 0) {
         const deletePtProjectIds = unFoundProjectIdsInDb.map(
@@ -3365,26 +3377,39 @@ export class XeroSchedulerService {
       const existingXeroContracts =
         contracts[0]?.options?.map((c) => c.trackingOptionID) || [];
 
-      const contractIdsInDb = await this.xeroContractDetails.find({
-        where: {
-          contract_id: In(existingXeroContracts),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['contract_id'],
-      });
-      const existingContractIds = new Set(
-        contractIdsInDb.map((c) => c.contract_id),
-      );
-      const existingContractIdsSet = new Set(existingContractIds);
+      let contractIdsInDb = [];
+      let existingContractIds = new Set<string>();
+      let existingContractIdsSet = new Set<string>();
+      let unFoundContractIdsInDb = [];
 
-      //Existing contracts need to be archived if not present in xero
-      const unFoundContractIdsInDb = await this.xeroContractDetails.find({
-        where: {
-          contract_id: Not(In(existingXeroContracts)),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['contract_id', 'pt_contract_id', 'contract_name'],
-      });
+      if (existingXeroContracts.length > 0) {
+        contractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            contract_id: In(existingXeroContracts),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id'],
+        });
+        existingContractIds = new Set(
+          contractIdsInDb.map((c) => c.contract_id),
+        );
+        existingContractIdsSet = new Set(existingContractIds);
+
+        unFoundContractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            contract_id: Not(In(existingXeroContracts)),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id', 'pt_contract_id', 'contract_name'],
+        });
+      } else {
+        unFoundContractIdsInDb = await this.xeroContractDetails.find({
+          where: {
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['contract_id', 'pt_contract_id', 'contract_name'],
+        });
+      }
 
       if (unFoundContractIdsInDb && unFoundContractIdsInDb?.length > 0) {
         const deletePtContractIds = unFoundContractIdsInDb.map(
