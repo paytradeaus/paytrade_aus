@@ -249,7 +249,7 @@ export default function BusinessProfilesList() {
         setDependencyLoading(true);
         setDeleteModalOpen(true);
         setDependencyData(null);
-        const deps = await AdminGetCompanyDependencies(row?.company_id);
+        const deps = await AdminGetCompanyDependencies(Number(row?.company_id));
         setDependencyData(deps);
         setDependencyLoading(false);
       },
