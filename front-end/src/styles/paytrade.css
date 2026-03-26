@@ -183,7 +183,8 @@ body #fader {
   pointer-events: none;
   background-position: center center;
   background: var(--boxgradienttransparent);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   animation-duration: 300ms;
   animation-timing-function: ease-in-out;
   -webkit-transform: translateZ(0);
