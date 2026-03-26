@@ -5,7 +5,8 @@ import { AppRoutes } from "@/shared/constant/appRoutes";
 import { buttonType, InputType } from "@/shared/constant/general";
 import { deleteCookie, getCookie, setCookie } from "cookies-next";
 import { jwtDecode, JwtPayload } from "jwt-decode";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter as useNextRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useState } from "react";
 import { loginByEmailId } from "./loginService";
 import { useFormik } from "formik";
@@ -329,10 +330,10 @@ export default function LoginForm() {
         <br />
 
         <CustomButton
-          buttonName={"Sign in"}
+          buttonName={loading ? "Signing in..." : "Sign in"}
           buttonType={buttonType.SECONDARY}
           actionType="submit"
-          // onClick={() => router.push(AppRoutes.USER_DASHBOARD)}
+          disabled={loading}
           inputButton
         />
         <CustomButton
