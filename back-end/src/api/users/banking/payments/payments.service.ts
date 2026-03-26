@@ -136,7 +136,7 @@ export class PaymentsService {
     });
   }
 
-  async addPayment(decoded, data: AddPaymentInput, userId?: number) {
+  async addPayment(decoded, data: AddPaymentInput, userId?: number, externalManager?: EntityManager) {
     try {
       const {
         payment_claim_id,
@@ -160,8 +160,7 @@ export class PaymentsService {
       } = data;
 
       let payment_id;
-      const response = await this.entityManager.transaction(
-        async (transactionalEntityManager) => {
+      const execute = async (transactionalEntityManager: EntityManager) => {
           this.logger.log(
             `Handling request for adding a payment with data: ${JSON.stringify(data)}`,
           );
@@ -1262,15 +1261,15 @@ export class PaymentsService {
               notices: noticeResult?.data,
             },
           );
-        },
-      );
+      };
+      const response = externalManager ? await execute(externalManager) : await this.entityManager.transaction(execute);
 
       if (!response) {
         this.logger.log(`Payment addition failed`);
         throw `Unable to add payment details`;
       }
 
-      if (response) {
+      if (response && !externalManager) {
         if (response.data.notices?.mails_to_sent.length) {
           for (let i = 0; i < response.data.notices?.mails_to_sent.length; i++) {
             const mailDetails = response.data.notices?.mails_to_sent[i];

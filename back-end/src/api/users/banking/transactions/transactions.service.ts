@@ -884,10 +884,10 @@ export class TransactionsService {
     transaction_ids: string[],
     sub_payment_ids: number[],
     userID: number,
+    externalManager?: EntityManager,
   ) {
     try {
-      return await this.entityManager.transaction(
-        async (transactionalEntityManager) => {
+      const execute = async (transactionalEntityManager: EntityManager) => {
           this.logger.log(
             `Handling request for fetching matching payments for transaction with IDs: ${JSON.stringify(transaction_ids)}`,
           );
@@ -1443,8 +1443,8 @@ export class TransactionsService {
               payment_Ids: PaymentIdsNotice,
             },
           );
-        },
-      );
+      };
+      return externalManager ? await execute(externalManager) : await this.entityManager.transaction(execute);
     } catch (error) {
       this.logger.error(
         `Errored while matching transactions with message: ${error}`,
@@ -3163,193 +3163,194 @@ export class TransactionsService {
         `Handling quick adjust and match for txn ${transaction_id} and sub_payment ${sub_payment_id}`,
       );
 
-      const txn = await this.transactionDetailsRepo
-        .createQueryBuilder('t')
-        .select([
-          't.id AS id',
-          't.txn_amount AS txn_amount',
-          't.bank_account_id AS bank_account_id',
-          't.company_id AS company_id',
-        ])
-        .where('t.id = :id', { id: transaction_id })
-        .andWhere('t.is_matched = :isMatched', { isMatched: false })
-        .getRawOne();
+      return await this.entityManager.transaction(async (em) => {
+        const txn = await em
+          .createQueryBuilder(TransactionDetails, 't')
+          .select([
+            't.id AS id',
+            't.txn_amount AS txn_amount',
+            't.bank_account_id AS bank_account_id',
+            't.company_id AS company_id',
+          ])
+          .where('t.id = :id', { id: transaction_id })
+          .andWhere('t.is_matched = :isMatched', { isMatched: false })
+          .getRawOne();
 
-      if (!txn) {
-        throw new Error('Transaction not found or already matched.');
-      }
+        if (!txn) {
+          throw new Error('Transaction not found or already matched.');
+        }
 
-      const payment = await this.subPaymentsRepo
-        .createQueryBuilder('sp')
-        .select([
-          'sp.id AS id',
-          'sp.sub_payment_id AS sub_payment_id',
-          'sp.payment_id AS payment_id',
-          'sp.amount AS amount',
-          'p.payment_claim_id AS payment_claim_id',
-          'p.payment_from_account AS payment_from_account',
-          'p.payment_to_account AS payment_to_account',
-          'p.retention_account AS retention_account',
-          'p.client_supplier_id AS client_supplier_id',
-          'p.project_id AS project_id',
-          'p.contract_id AS contract_id',
-          'p.company_id AS company_id',
-          'p.payment_type AS parent_payment_type',
-          'pc.claim_type AS claim_type',
-        ])
-        .leftJoin('sp.paymentDetails', 'p')
-        .leftJoin('p.paymentClaims', 'pc')
-        .where('sp.sub_payment_id = :spid', { spid: sub_payment_id })
-        .andWhere('sp.status = :status', { status: 'Unmatched' })
-        .getRawOne();
+        const payment = await em
+          .createQueryBuilder(SubPayments, 'sp')
+          .select([
+            'sp.id AS id',
+            'sp.sub_payment_id AS sub_payment_id',
+            'sp.payment_id AS payment_id',
+            'sp.amount AS amount',
+            'p.payment_claim_id AS payment_claim_id',
+            'p.payment_from_account AS payment_from_account',
+            'p.payment_to_account AS payment_to_account',
+            'p.retention_account AS retention_account',
+            'p.client_supplier_id AS client_supplier_id',
+            'p.project_id AS project_id',
+            'p.contract_id AS contract_id',
+            'p.company_id AS company_id',
+            'p.payment_type AS parent_payment_type',
+            'pc.claim_type AS claim_type',
+          ])
+          .leftJoin('sp.paymentDetails', 'p')
+          .leftJoin('p.paymentClaims', 'pc')
+          .where('sp.sub_payment_id = :spid', { spid: sub_payment_id })
+          .andWhere('sp.status = :status', { status: 'Unmatched' })
+          .getRawOne();
 
-      if (!payment) {
-        throw new Error('Sub-payment not found or already matched.');
-      }
+        if (!payment) {
+          throw new Error('Sub-payment not found or already matched.');
+        }
 
-      const txnCompanyId = parseInt(txn.company_id);
-      const paymentCompanyId = parseInt(payment.company_id);
-      if (txnCompanyId !== paymentCompanyId) {
-        throw new Error(
-          'Transaction and payment do not belong to the same company.',
-        );
-      }
-
-      if (txnCompanyId !== decoded.companyId) {
-        throw new Error(
-          'Transaction does not belong to the caller company.',
-        );
-      }
-
-      const bankAccId = parseInt(txn.bank_account_id);
-      const payFromAcc = parseInt(payment.payment_from_account);
-      const payToAcc = parseInt(payment.payment_to_account);
-      const retAcc = payment.retention_account
-        ? parseInt(payment.retention_account)
-        : null;
-      if (
-        bankAccId !== payFromAcc &&
-        bankAccId !== payToAcc &&
-        bankAccId !== retAcc
-      ) {
-        throw new Error(
-          'Payment does not belong to the same bank account as the transaction.',
-        );
-      }
-
-      const txnAmount = parseFloat(txn.txn_amount);
-      const paymentAmount = parseFloat(payment.amount);
-      const difference = parseFloat((txnAmount - paymentAmount).toFixed(2));
-
-      if (Math.abs(difference) < 0.005) {
-        const matchResult = await this.matchTxnsToPayments(
-          [transaction_id],
-          [sub_payment_id],
-          userID,
-        );
-        if (matchResult?.status !== 'SUCCESS') {
+        const txnCompanyId = parseInt(txn.company_id);
+        const paymentCompanyId = parseInt(payment.company_id);
+        if (txnCompanyId !== paymentCompanyId) {
           throw new Error(
-            matchResult?.message || 'Exact matching failed.',
+            'Transaction and payment do not belong to the same company.',
           );
         }
-        return framedResponse('SUCCESS', 'Exact match applied.', {
-          adjustment_payment_id: 0,
-          adjustment_type: 'none',
-          adjustment_amount: 0,
-          payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
-        });
-      }
 
-      const claimType = payment.claim_type;
-      const isOverpayment = Math.abs(txnAmount) > Math.abs(paymentAmount);
-      let adjustmentType: string;
+        if (txnCompanyId !== decoded.companyId) {
+          throw new Error(
+            'Transaction does not belong to the caller company.',
+          );
+        }
 
-      if (claimType === 'Receivable') {
-        adjustmentType = isOverpayment
-          ? 'Overpayment from client'
-          : 'Underpayment from client';
-      } else {
-        adjustmentType = isOverpayment
-          ? 'Overpayment to supplier'
-          : 'Underpayment to supplier';
-      }
+        const bankAccId = parseInt(txn.bank_account_id);
+        const payFromAcc = parseInt(payment.payment_from_account);
+        const payToAcc = parseInt(payment.payment_to_account);
+        const retAcc = payment.retention_account
+          ? parseInt(payment.retention_account)
+          : null;
+        if (
+          bankAccId !== payFromAcc &&
+          bankAccId !== payToAcc &&
+          bankAccId !== retAcc
+        ) {
+          throw new Error(
+            'Payment does not belong to the same bank account as the transaction.',
+          );
+        }
 
-      const adjustmentAmount = Math.abs(difference);
+        const txnAmount = parseFloat(txn.txn_amount);
+        const paymentAmount = parseFloat(payment.amount);
+        const difference = parseFloat((txnAmount - paymentAmount).toFixed(2));
 
-      const isPaidType = [
-        'Overpayment to supplier',
-        'Underpayment to supplier',
-      ].includes(adjustmentType);
+        if (Math.abs(difference) < 0.005) {
+          const matchResult = await this.matchTxnsToPayments(
+            [transaction_id],
+            [sub_payment_id],
+            userID,
+            em,
+          );
+          if (matchResult?.status !== 'SUCCESS') {
+            throw new Error(
+              matchResult?.message || 'Exact matching failed.',
+            );
+          }
+          return framedResponse('SUCCESS', 'Exact match applied.', {
+            adjustment_payment_id: 0,
+            adjustment_type: 'none',
+            adjustment_amount: 0,
+            payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
+          });
+        }
 
-      const adjustmentPaymentData = {
-        company_id: payment.company_id || txn.company_id,
-        payment_claim_id: payment.payment_claim_id,
-        project_id: payment.project_id,
-        contract_id: payment.contract_id,
-        client_supplier_id: payment.client_supplier_id,
-        payment_type: adjustmentType,
-        payment_from_account: payment.payment_from_account,
-        payment_to_account: payment.payment_to_account,
-        payment_amount: adjustmentAmount,
-        total_amount: adjustmentAmount,
-        associated_payment_id: payment.payment_id,
-        input_date: new Date(),
-        payment_date: new Date(),
-        cash_retention: false,
-        is_paid_confirmed: isPaidType ? true : null,
-        is_received_confirmed: isPaidType ? null : true,
-      };
+        const claimType = payment.claim_type;
+        const isOverpayment = Math.abs(txnAmount) > Math.abs(paymentAmount);
+        let adjustmentType: string;
 
-      const addPaymentResult = await this.paymentsService.addPayment(
-        decoded,
-        adjustmentPaymentData as unknown as AddPaymentInput,
-        userID,
-      );
+        if (claimType === 'Receivable') {
+          adjustmentType = isOverpayment
+            ? 'Overpayment from client'
+            : 'Underpayment from client';
+        } else {
+          adjustmentType = isOverpayment
+            ? 'Overpayment to supplier'
+            : 'Underpayment to supplier';
+        }
 
-      if (!addPaymentResult?.data?.payment_id) {
-        throw new Error('Failed to create adjustment payment.');
-      }
+        const adjustmentAmount = Math.abs(difference);
 
-      const newPaymentId = addPaymentResult.data.payment_id;
+        const isPaidType = [
+          'Overpayment to supplier',
+          'Underpayment to supplier',
+        ].includes(adjustmentType);
 
-      const newSubPayment = await this.subPaymentsRepo
-        .createQueryBuilder('sp')
-        .select(['sp.sub_payment_id AS sub_payment_id'])
-        .leftJoin('sp.paymentDetails', 'p')
-        .where('p.payment_id = :pid', { pid: newPaymentId })
-        .andWhere('sp.status = :status', { status: 'Unmatched' })
-        .getRawOne();
+        const adjustmentPaymentData = {
+          company_id: payment.company_id || txn.company_id,
+          payment_claim_id: payment.payment_claim_id,
+          project_id: payment.project_id,
+          contract_id: payment.contract_id,
+          client_supplier_id: payment.client_supplier_id,
+          payment_type: adjustmentType,
+          payment_from_account: payment.payment_from_account,
+          payment_to_account: payment.payment_to_account,
+          payment_amount: adjustmentAmount,
+          total_amount: adjustmentAmount,
+          associated_payment_id: payment.payment_id,
+          input_date: new Date(),
+          payment_date: new Date(),
+          cash_retention: false,
+          is_paid_confirmed: isPaidType ? true : null,
+          is_received_confirmed: isPaidType ? null : true,
+        };
 
-      if (!newSubPayment) {
-        throw new Error('Adjustment sub-payment not found after creation.');
-      }
-
-      const matchResult = await this.matchTxnsToPayments(
-        [transaction_id],
-        [sub_payment_id, newSubPayment.sub_payment_id],
-        userID,
-      );
-
-      if (matchResult?.status !== 'SUCCESS') {
-        await this.entityManager.transaction(async (em) => {
-          await em.delete(SubPayments, { payment_id: newPaymentId });
-          await em.delete(PaymentDetails, { payment_id: newPaymentId });
-        });
-        throw new Error(
-          matchResult?.message || 'Matching failed after adjustment creation. Adjustment payment reversed.',
+        const addPaymentResult = await this.paymentsService.addPayment(
+          decoded,
+          adjustmentPaymentData as unknown as AddPaymentInput,
+          userID,
+          em,
         );
-      }
 
-      return framedResponse(
-        'SUCCESS',
-        `Quick adjust and match completed. Created ${adjustmentType} of $${adjustmentAmount.toFixed(2)}.`,
-        {
-          adjustment_payment_id: newPaymentId,
-          adjustment_type: adjustmentType,
-          adjustment_amount: adjustmentAmount,
-          payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
-        },
-      );
+        if (!addPaymentResult?.data?.payment_id) {
+          throw new Error('Failed to create adjustment payment.');
+        }
+
+        const newPaymentId = addPaymentResult.data.payment_id;
+
+        const newSubPayment = await em
+          .createQueryBuilder(SubPayments, 'sp')
+          .select(['sp.sub_payment_id AS sub_payment_id'])
+          .leftJoin('sp.paymentDetails', 'p')
+          .where('p.payment_id = :pid', { pid: newPaymentId })
+          .andWhere('sp.status = :status', { status: 'Unmatched' })
+          .getRawOne();
+
+        if (!newSubPayment) {
+          throw new Error('Adjustment sub-payment not found after creation.');
+        }
+
+        const matchResult = await this.matchTxnsToPayments(
+          [transaction_id],
+          [sub_payment_id, newSubPayment.sub_payment_id],
+          userID,
+          em,
+        );
+
+        if (matchResult?.status !== 'SUCCESS') {
+          throw new Error(
+            matchResult?.message || 'Matching failed after adjustment creation.',
+          );
+        }
+
+        return framedResponse(
+          'SUCCESS',
+          `Quick adjust and match completed. Created ${adjustmentType} of $${adjustmentAmount.toFixed(2)}.`,
+          {
+            adjustment_payment_id: newPaymentId,
+            adjustment_type: adjustmentType,
+            adjustment_amount: adjustmentAmount,
+            payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
+          },
+        );
+      });
     } catch (error) {
       this.logger.error(
         `Errored during quick adjust and match: ${error.message}`,
