@@ -1138,6 +1138,7 @@ export class TransactionsResolver {
         await this.transactionsService.batchMatchExactTransactions(
           matchPairs,
           decoded?.userId,
+          decoded?.companyId,
         );
 
       if (

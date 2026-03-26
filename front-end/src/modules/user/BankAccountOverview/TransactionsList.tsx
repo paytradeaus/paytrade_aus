@@ -532,8 +532,23 @@ export default function Transactions() {
   }
 
   function getMatchBadge(txnId: string) {
+    if (smartMatchLoading) return null;
     const match = matchesMap[txnId];
-    if (!match) return null;
+    if (!match) {
+      return (
+        <span
+          style={{
+            display: "inline-block",
+            padding: "2px 8px",
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "#9ca3af",
+          }}
+        >
+          —
+        </span>
+      );
+    }
     if (match.match_quality === "exact") {
       return (
         <span
@@ -577,7 +592,20 @@ export default function Transactions() {
         </span>
       );
     }
-    return null;
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          padding: "2px 8px",
+          borderRadius: "4px",
+          fontSize: "11px",
+          fontWeight: 500,
+          color: "#9ca3af",
+        }}
+      >
+        —
+      </span>
+    );
   }
 
   function handleResetFilters() {

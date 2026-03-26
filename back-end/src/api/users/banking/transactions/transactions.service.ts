@@ -3049,6 +3049,7 @@ export class TransactionsService {
   async batchMatchExactTransactions(
     matchPairs: Array<{ transaction_id: string; sub_payment_ids: number[] }>,
     userID: number,
+    callerCompanyId?: number,
   ) {
     try {
       this.logger.log(
@@ -3062,6 +3063,23 @@ export class TransactionsService {
 
       for (const pair of matchPairs) {
         try {
+          if (callerCompanyId) {
+            const txn = await this.transactionDetailsRepo
+              .createQueryBuilder('t')
+              .select(['t.company_id AS company_id'])
+              .where('t.id = :id', { id: pair.transaction_id })
+              .getRawOne();
+            if (!txn || parseInt(txn.company_id) !== callerCompanyId) {
+              failed++;
+              results.push({
+                transaction_id: pair.transaction_id,
+                success: false,
+                error: 'Transaction does not belong to the caller company.',
+              });
+              continue;
+            }
+          }
+
           const response = await this.matchTxnsToPayments(
             [pair.transaction_id],
             pair.sub_payment_ids,
@@ -3123,6 +3141,11 @@ export class TransactionsService {
     decoded: any,
     userID: number,
   ) {
+    const queryRunner =
+      this.transactionDetailsRepo.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
       this.logger.log(
         `Handling quick adjust and match for txn ${transaction_id} and sub_payment ${sub_payment_id}`,
@@ -3172,16 +3195,41 @@ export class TransactionsService {
         throw new Error('Sub-payment not found or already matched.');
       }
 
+      const txnCompanyId = parseInt(txn.company_id);
+      const paymentCompanyId = parseInt(payment.company_id);
+      if (txnCompanyId !== paymentCompanyId) {
+        throw new Error(
+          'Transaction and payment do not belong to the same company.',
+        );
+      }
+
+      const bankAccId = parseInt(txn.bank_account_id);
+      const payFromAcc = parseInt(payment.payment_from_account);
+      const payToAcc = parseInt(payment.payment_to_account);
+      const retAcc = payment.retention_account
+        ? parseInt(payment.retention_account)
+        : null;
+      if (
+        bankAccId !== payFromAcc &&
+        bankAccId !== payToAcc &&
+        bankAccId !== retAcc
+      ) {
+        throw new Error(
+          'Payment does not belong to the same bank account as the transaction.',
+        );
+      }
+
       const txnAmount = parseFloat(txn.txn_amount);
       const paymentAmount = parseFloat(payment.amount);
       const difference = parseFloat((txnAmount - paymentAmount).toFixed(2));
 
-      if (difference === 0) {
+      if (Math.abs(difference) < 0.005) {
         const matchResult = await this.matchTxnsToPayments(
           [transaction_id],
           [sub_payment_id],
           userID,
         );
+        await queryRunner.commitTransaction();
         return framedResponse('SUCCESS', 'Exact match applied.', {
           adjustment_payment_id: 0,
           adjustment_type: 'none',
@@ -3260,6 +3308,8 @@ export class TransactionsService {
         userID,
       );
 
+      await queryRunner.commitTransaction();
+
       return framedResponse(
         'SUCCESS',
         `Quick adjust and match completed. Created ${adjustmentType} of $${adjustmentAmount.toFixed(2)}.`,
@@ -3271,10 +3321,13 @@ export class TransactionsService {
         },
       );
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       this.logger.error(
         `Errored during quick adjust and match: ${error.message}`,
       );
       throw new Error(error);
+    } finally {
+      await queryRunner.release();
     }
   }
 
