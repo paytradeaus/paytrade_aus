@@ -950,6 +950,15 @@ function proxyToFrontendWithRetry(req, res) {
         proxyRes.headers['expires'] = '0';
       }
 
+      if (proxyRes.statusCode === 400 && url.includes('/_next/static/')) {
+        proxyRes.resume();
+        if (!res.headersSent) {
+          res.writeHead(404, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+          res.end('Not Found - stale chunk');
+        }
+        return;
+      }
+
       if (proxyRes.statusCode >= 400) {
         const isScanner = scannerPatterns.some(p => p.test(url));
         if (!isScanner) {
