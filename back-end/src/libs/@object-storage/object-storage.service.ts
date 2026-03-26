@@ -83,6 +83,9 @@ export class ObjectStorageService {
       case 'Admin_holiday':
         baseDir = 'Admin_holiday';
         break;
+      case 'Content_image':
+        baseDir = 'content_images';
+        break;
       default:
         baseDir = 'misc';
     }

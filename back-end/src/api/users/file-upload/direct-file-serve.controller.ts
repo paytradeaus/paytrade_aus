@@ -11,7 +11,8 @@ const ALLOWED_FOLDERS = [
   'variations', 'bank_statements', 'retention_trust_certificates',
   'transaction_csv_file_attachments', 'optional_attachments', 'compulsory_attachments',
   'optional_supporting_statement_attachments', 'audit_reports', 'generated_aba_files',
-  'Admin_holiday', 'misc', 'notices-generated', 'original-notices-generated'
+  'Admin_holiday', 'misc', 'notices-generated', 'original-notices-generated',
+  'content_images'
 ];
 
 @Controller()
