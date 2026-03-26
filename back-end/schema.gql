@@ -13287,6 +13287,9 @@ type Mutation {
     id: String!
   ): SeoKeywordDeleteResponse!
 
+  """Permanently deletes a user and all associated data. Super admin only."""
+  adminDeleteUser(user_id: Float!): StringResponse!
+
   """Approves or deletes a blog comment."""
   adminManageBlogComment(
     """Input payload to approve or delete a blog or resource comment."""
@@ -14486,6 +14489,9 @@ type Mutation {
     """Unique ID of the failed notice to regenerate"""
     noticeId: Float!
   ): RegenerateNoticeResponse!
+
+  """Sends a data deletion request email to admin on behalf of the user."""
+  requestDataDeletion(entity_name: String, request_type: String!): StringResponse!
 
   "\n    Allows a user to request access to a company's account.\n    Prevents excessive retry attempts.\n    Sends join request notification to administrators.\n    "
   requestToJoinCompany(
@@ -16036,6 +16042,9 @@ type Query {
     """ID of the user to fetch details for."""
     user_id: Float!
   ): PTUserResponse!
+
+  """Returns dependency counts for a user before deletion."""
+  adminGetUserDependencies(user_id: Float!): StringResponse!
 
   """Fetches a gift coupon by its ID."""
   adminGiftCouponById(

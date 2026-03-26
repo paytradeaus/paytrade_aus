@@ -153,6 +153,64 @@ export const GenerateBotUsers = async (count: number = 5): Promise<any> => {
   }
 };
 
+export const AdminGetUserDependencies = async (
+  userId: number
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query AdminGetUserDependencies($user_id: Float!) {
+          adminGetUserDependencies(user_id: $user_id) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { user_id: userId },
+      fetchPolicy: "no-cache",
+    });
+    if (response?.data?.adminGetUserDependencies?.status === ApiResponse.SUCCESS) {
+      return JSON.parse(response.data.adminGetUserDependencies.message);
+    }
+    return null;
+  } catch (error: any) {
+    console.error("GraphQL Error:", error);
+    return null;
+  }
+};
+
+export const AdminDeleteUser = async (
+  userId: number
+): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminDeleteUser($user_id: Float!) {
+          adminDeleteUser(user_id: $user_id) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { user_id: userId },
+      fetchPolicy: "no-cache",
+    });
+    if (response?.data?.adminDeleteUser?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(response.data.adminDeleteUser.message);
+      return true;
+    }
+    if (response?.data?.adminDeleteUser?.status === ApiResponse.ERROR) {
+      showErrorToast(response.data.adminDeleteUser.message);
+      return false;
+    }
+    return false;
+  } catch (error: any) {
+    showErrorToast(error?.message || "Failed to delete user");
+    console.error("GraphQL Error:", error);
+    return false;
+  }
+};
+
 export const AllowAdminToLoginAsUser = async (
   data: any,
   successMsg?: string,

@@ -651,6 +651,96 @@ export class PtAdminAccessResolver {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'adminGetUserDependencies',
+    description: 'Returns dependency counts for a user before deletion.',
+  })
+  async adminGetUserDependencies(
+    @Args('user_id', { type: () => Float }) userId: number,
+  ): Promise<any> {
+    try {
+      this.log(`Request received for user dependency check: ${userId}`);
+      const result = await this.ptAdminAccessService.getUserDependencies(userId);
+      return framedResponse('SUCCESS', JSON.stringify(result));
+    } catch (error) {
+      this.logError(`Error checking user dependencies: ${error.message}`);
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'adminDeleteUser',
+    description: 'Permanently deletes a user and all associated data. Super admin only.',
+  })
+  async adminDeleteUser(
+    @Context() context,
+    @Args('user_id', { type: () => Float }) userId: number,
+  ): Promise<any> {
+    try {
+      this.log(`Request received for user deletion: ${userId}`);
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result = await this.ptAdminAccessService.deleteUserAndAllData(userId);
+
+      const createActivityLogInput: CreateActivityLogInput = {
+        event_template_id: 149,
+        admin_id: decoded?.userId,
+        dynamic_values: {
+          action: 'Deleted User',
+          userId: userId,
+        },
+        is_admin: true,
+        created_by: decoded?.userId,
+      };
+      await this.activityLogService.insertActivityLog(createActivityLogInput);
+
+      this.log(`User ${userId} permanently deleted by admin ${decoded?.userId}`);
+      return framedResponse('SUCCESS', `User and all associated data have been permanently deleted.`);
+    } catch (error) {
+      this.logError(`Error deleting user: ${error.message}`);
+      const errMsg = await handleError(error).catch((error) => error);
+      return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => StringResponse, {
+    name: 'requestDataDeletion',
+    description: 'Sends a data deletion request email to admin on behalf of the user.',
+  })
+  async requestDataDeletion(
+    @Context() context,
+    @Args('request_type', { type: () => String }) requestType: string,
+    @Args('entity_name', { type: () => String, nullable: true }) entityName: string,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const user = await this.ptAdminAccessService.getUserById(decoded?.userId);
+      if (!user) {
+        return framedResponse('ERROR', 'User not found');
+      }
+
+      const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+      await this.ptAdminAccessService.sendDataDeletionRequestEmail(
+        userName,
+        user.email_id,
+        requestType,
+        entityName || '',
+      );
+
+      this.log(`Data deletion request sent by user ${decoded?.userId} (${user.email_id}) - type: ${requestType}`);
+      return framedResponse('SUCCESS', 'Your data deletion request has been submitted. Our team will review and process it shortly.');
+    } catch (error) {
+      this.logError(`Error processing data deletion request: ${error.message}`);
+      const errMsg = await handleError(error).catch((error) => error);
+      return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
   @Mutation(() => PTUserResponse, {
     name: 'AdminCreateUserDetails',

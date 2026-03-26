@@ -1592,6 +1592,117 @@ export class PtAdminAccessService {
     }
   }
 
+  async getUserDependencies(userId: number): Promise<any> {
+    const counts: Record<string, number> = {};
+    const queries: Array<{ key: string; sql: string }> = [
+      { key: 'companies', sql: `SELECT COUNT(*)::int as count FROM company_user_roles WHERE user_id = $1` },
+      { key: 'claims', sql: `SELECT COUNT(*)::int as count FROM payment_claims WHERE created_by = $1` },
+      { key: 'payments', sql: `SELECT COUNT(*)::int as count FROM payment_details WHERE created_by = $1` },
+      { key: 'journal_entries', sql: `SELECT COUNT(*)::int as count FROM journal_entries WHERE created_by = $1` },
+      { key: 'notices', sql: `SELECT COUNT(*)::int as count FROM notices_details WHERE created_by = $1` },
+      { key: 'invitations', sql: `SELECT COUNT(*)::int as count FROM invitations WHERE user_id = $1` },
+      { key: 'activity_logs', sql: `SELECT COUNT(*)::int as count FROM activity_log_new WHERE user_id = $1` },
+      { key: 'ai_support_usage', sql: `SELECT COUNT(*)::int as count FROM ai_support_usage WHERE user_id = $1` },
+      { key: 'file_attachments', sql: `SELECT COUNT(*)::int as count FROM file_attachments WHERE user_id = $1` },
+    ];
+
+    for (const q of queries) {
+      try {
+        const result = await this.userDetails.query(q.sql, [userId]);
+        counts[q.key] = result?.[0]?.count || 0;
+      } catch (err) {
+        this.logger.error(`User dependency check for ${q.key} failed: ${err.message}`);
+        counts[q.key] = -1;
+      }
+    }
+
+    const totalRecords = Object.values(counts).reduce((sum, c) => sum + c, 0);
+    return { counts, totalRecords };
+  }
+
+  async deleteUserAndAllData(userId: number): Promise<{ deletedCounts: Record<string, number> }> {
+    const user = await this.userDetails.findOne({ where: { user_id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const deletedCounts: Record<string, number> = {};
+    const runner = this.userDetails.manager.connection.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+
+    try {
+      const deleteSteps: Array<{ key: string; sql: string }> = [
+        { key: 'ai_support_usage', sql: `DELETE FROM ai_support_usage WHERE user_id = $1` },
+        { key: 'activity_logs', sql: `DELETE FROM activity_log_new WHERE user_id = $1` },
+        { key: 'invitations', sql: `DELETE FROM invitations WHERE user_id = $1` },
+        { key: 'file_attachments', sql: `DELETE FROM file_attachments WHERE user_id = $1` },
+        { key: 'company_user_roles', sql: `DELETE FROM company_user_roles WHERE user_id = $1` },
+        { key: 'user', sql: `DELETE FROM user_details WHERE user_id = $1` },
+      ];
+
+      for (const step of deleteSteps) {
+        const result = await runner.query(step.sql, [userId]);
+        deletedCounts[step.key] = result?.[1] || 0;
+      }
+
+      await runner.commitTransaction();
+      this.logger.log(`User ${userId} (${user.email_id}) fully deleted. Counts: ${JSON.stringify(deletedCounts)}`);
+      return { deletedCounts };
+    } catch (error) {
+      await runner.rollbackTransaction();
+      this.logger.error(`User delete failed, transaction rolled back: ${error.message}`);
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
+
+  async sendDataDeletionRequestEmail(
+    userName: string,
+    userEmail: string,
+    requestType: string,
+    entityName: string,
+  ): Promise<void> {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.SUPPORT_EMAIL;
+    if (!adminEmail) {
+      this.logger.error('No ADMIN_EMAIL or SUPPORT_EMAIL configured for data deletion request');
+      throw new Error('Email configuration missing — unable to send data deletion request');
+    }
+
+    const subject = `Data Deletion Request - ${requestType === 'business' ? 'Business Profile' : 'User Account'}`;
+    const mailBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #dc3545; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="color: #fff; margin: 0; font-size: 20px;">Data Deletion Request</h2>
+        </div>
+        <div style="background: #f8f9fa; padding: 24px; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="margin: 0 0 16px 0; font-size: 14px; color: #333;">A user has requested deletion of their data under privacy/data protection regulations.</p>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 8px; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6;">Request Type</td><td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${requestType === 'business' ? 'Business Profile Deletion' : 'User Account Deletion'}</td></tr>
+            <tr><td style="padding: 8px; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6;">User Name</td><td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${userName}</td></tr>
+            <tr><td style="padding: 8px; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6;">User Email</td><td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${userEmail}</td></tr>
+            ${requestType === 'business' ? `<tr><td style="padding: 8px; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6;">Business Name</td><td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${entityName}</td></tr>` : ''}
+            <tr><td style="padding: 8px; font-weight: 600; color: #495057;">Requested At</td><td style="padding: 8px;">${new Date().toISOString()}</td></tr>
+          </table>
+          <div style="margin-top: 20px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">
+            <p style="margin: 0; font-size: 13px; color: #856404;"><strong>Action Required:</strong> Please review this request and process the data deletion within the required timeframe as per applicable privacy regulations.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const mailDetails = {
+      toEmail: adminEmail,
+      subject,
+      template: 'header-footer-email',
+      mailBody,
+      mail_type: 'DATA_DELETION_REQUEST',
+    };
+    await this.emailServices.sendMail(mailDetails);
+    this.logger.log(`Data deletion request email sent for ${userEmail} (${requestType})`);
+  }
+
   async getCompanyDependencies(companyId: number): Promise<any> {
     const counts: Record<string, number> = {};
     const queries: Array<{ key: string; sql: string }> = [

@@ -9,6 +9,7 @@ import {
   NUMBER_REGEX,
   UploadImage,
 } from "@/shared/constant/general";
+import { requestDataDeletion } from "@/modules/user/PersonalInfo/personalInfo.functions";
 import Image from "next/image";
 import { entityType } from "./BusinessProfile.constant";
 import PhoneInputField from "@/components/phoneNumberInput";
@@ -101,6 +102,7 @@ export default function BusinessProfile({ isEditable }: any) {
   const [searchValue, setSearchValue] = useState("");
   const debouncedSearchTerm = useCustomDebounce(searchValue, DEBOUNCE_TIMER); // Debounce delay of 700ms
   const [clearImageName, setClearImageName] = useState(false);
+  const [deletionRequestSending, setDeletionRequestSending] = useState(false);
   const queryParams = useSearchParams();
   const IsActivity: any = queryParams.get("from");
   const [initialRender, setInitialRender] = useState(true);
@@ -798,6 +800,49 @@ export default function BusinessProfile({ isEditable }: any) {
                 </div>
                 <br />
                 <br />
+                <div style={{
+                  border: "1px solid #f5c6cb",
+                  borderRadius: "8px",
+                  padding: "20px",
+                  background: "#fff5f5",
+                  marginBottom: "20px",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+                    <i className="fa-light fa-shield-exclamation" style={{ color: "#dc3545", fontSize: "20px", marginRight: "10px" }}></i>
+                    <h4 style={{ margin: 0, color: "#dc3545", fontSize: "16px", fontWeight: "700" }}>Delete My Data</h4>
+                  </div>
+                  <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#666", lineHeight: "1.5" }}>
+                    Under applicable privacy regulations, you have the right to request deletion of your business profile data. 
+                    Submitting this request will notify our team, who will review and process it accordingly.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (deletionRequestSending) return;
+                      setDeletionRequestSending(true);
+                      await requestDataDeletion("business", formik?.values?.companyName || "");
+                      setDeletionRequestSending(false);
+                    }}
+                    disabled={deletionRequestSending}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid #dc3545",
+                      color: "#dc3545",
+                      padding: "8px 20px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      cursor: deletionRequestSending ? "not-allowed" : "pointer",
+                      opacity: deletionRequestSending ? 0.6 : 1,
+                    }}
+                  >
+                    {deletionRequestSending ? (
+                      <><i className="fa-light fa-spinner-third fa-spin" style={{ marginRight: "6px" }}></i>Sending...</>
+                    ) : (
+                      <><i className="fa-light fa-envelope" style={{ marginRight: "6px" }}></i>Request Business Data Deletion</>
+                    )}
+                  </button>
+                </div>
                 <div className="grid">
                   <input
                     type="submit"

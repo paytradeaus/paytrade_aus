@@ -113,3 +113,34 @@ export const deleteUserImage = async (data: any): Promise<any> => {
     return false;
   }
 };
+
+export const requestDataDeletion = async (
+  requestType: string,
+  entityName?: string
+): Promise<boolean> => {
+  try {
+    const response = await client.mutate({
+      mutation: gql`
+        mutation RequestDataDeletion($request_type: String!, $entity_name: String) {
+          requestDataDeletion(request_type: $request_type, entity_name: $entity_name) {
+            status
+            message
+          }
+        }
+      `,
+      variables: {
+        request_type: requestType,
+        entity_name: entityName || "",
+      },
+    });
+    if (response?.data?.requestDataDeletion?.status === SUCCESS) {
+      showSuccessToast(response?.data?.requestDataDeletion?.message || "Your data deletion request has been submitted.");
+      return true;
+    }
+    showErrorToast(response?.data?.requestDataDeletion?.message || "Failed to submit request");
+    return false;
+  } catch (error: any) {
+    showErrorToast(error.message || "Failed to submit data deletion request");
+    return false;
+  }
+};

@@ -27,6 +27,8 @@ import {
   AdminResetUserPassword,
   AllowAdminToLoginAsUser,
   GenerateBotUsers,
+  AdminGetUserDependencies,
+  AdminDeleteUser,
 } from "../users.functions";
 import {
   downloadExcelFileFromAPI,
@@ -77,6 +79,14 @@ export default function UsersList() {
   const [isPWDShow, setIsPWDShow] = useState(false);
   const [sortValues, setSortValues] = useState<any>("");
   const [botGenerating, setBotGenerating] = useState(false);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [dependencyData, setDependencyData] = useState<any>(null);
+  const [dependencyLoading, setDependencyLoading] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAnyFilterActive = statusType !== "" || searchValue;
 
@@ -248,6 +258,21 @@ export default function UsersList() {
           },
         ]
       : []),
+    {
+      label: "Delete",
+      icon: "fa-light fa-trash-can",
+      style: "danger",
+      onClick: async (row: IUserListDetail) => {
+        setDeleteTarget(row);
+        setDependencyLoading(true);
+        setDeleteModalOpen(true);
+        setDependencyData(null);
+        const deps = await AdminGetUserDependencies(row?.user_id);
+        setDependencyData(deps);
+        setDependencyLoading(false);
+      },
+      conditionalApiDisplayKey: "allowdelete",
+    },
   ];
 
   // Row click handler
@@ -287,6 +312,7 @@ export default function UsersList() {
               unblock: listObj?.user_status === "Blocked",
               allowfreeplan: !listObj?.is_free_plan_eligible,
               freeplanallowed: listObj?.is_free_plan_eligible,
+              allowdelete: decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE,
             },
           };
         });
@@ -791,6 +817,200 @@ export default function UsersList() {
         >
           {/* Modal heading can be placed here if needed */}
           <div className="text_center">{popUpHeaderMsg}</div>
+        </BaseModal>
+      )}
+      {deleteModalOpen && (
+        <BaseModal
+          modalId="deleteUserImpactModal"
+          displayModal={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setDeleteTarget(null);
+            setDependencyData(null);
+          }}
+          onConfirm={async () => {
+            if (dependencyLoading || !dependencyData) return false;
+            setDeleteModalOpen(false);
+            setDeleteConfirmOpen(true);
+            return true;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName={dependencyLoading ? "Loading..." : !dependencyData ? "Error — Close and Retry" : "Proceed to Delete"}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              background: "#fff3cd",
+              border: "2px solid #dc3545",
+              borderRadius: "8px",
+              padding: "16px",
+              marginBottom: "16px",
+            }}>
+              <i className="fa-solid fa-triangle-exclamation" style={{ color: "#dc3545", fontSize: "32px", marginBottom: "8px", display: "block" }}></i>
+              <h3 style={{ color: "#dc3545", margin: "0 0 8px 0", fontSize: "18px", fontWeight: "700" }}>
+                PERMANENT DATA DELETION
+              </h3>
+              <p style={{ color: "#856404", margin: "0", fontSize: "14px", fontWeight: "600" }}>
+                You are about to permanently delete user <strong>{deleteTarget?.first_name} {deleteTarget?.last_name}</strong> ({deleteTarget?.email_id}) and ALL associated data. This action cannot be undone.
+              </p>
+            </div>
+
+            {dependencyLoading ? (
+              <div style={{ padding: "20px", color: "#666" }}>
+                <i className="fa-light fa-spinner-third fa-spin" style={{ marginRight: "8px" }}></i>
+                Checking dependencies...
+              </div>
+            ) : dependencyData ? (
+              <div style={{ textAlign: "left" }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: "15px", fontWeight: "600", color: "#333" }}>
+                  The following data will be permanently removed:
+                </h4>
+                <div style={{
+                  background: "#f8f9fa",
+                  border: "1px solid #dee2e6",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  maxHeight: "240px",
+                  overflowY: "auto",
+                }}>
+                  {Object.entries(dependencyData?.counts || {}).map(([key, count]: [string, any]) => {
+                    if (count === 0) return null;
+                    const isCompanyData = ["claims", "payments", "journal_entries", "notices"].includes(key);
+                    const labels: Record<string, string> = {
+                      companies: "Company Memberships",
+                      claims: "Payment Claims (created by user)",
+                      payments: "Payments (created by user)",
+                      journal_entries: "Journal Entries (created by user)",
+                      notices: "Notices (created by user)",
+                      invitations: "Invitations",
+                      activity_logs: "Activity Logs",
+                      ai_support_usage: "AI Support Usage",
+                      file_attachments: "File Attachments",
+                    };
+                    return (
+                      <div key={key} style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "6px 8px",
+                        borderBottom: "1px solid #eee",
+                        fontSize: "14px",
+                      }}>
+                        <span style={{ color: isCompanyData ? "#856404" : "#495057" }}>
+                          {labels[key] || key}
+                          {isCompanyData && <small style={{ display: "block", fontSize: "11px", color: "#999" }}>Company data — will not be deleted</small>}
+                        </span>
+                        <span style={{
+                          fontWeight: "700",
+                          color: count === -1 ? "#856404" : isCompanyData ? "#856404" : "#dc3545",
+                          minWidth: "40px",
+                          textAlign: "right",
+                        }}>{count === -1 ? "?" : count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{
+                  marginTop: "12px",
+                  padding: "10px",
+                  background: "#f8d7da",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  color: "#721c24",
+                  textAlign: "center",
+                }}>
+                  Total records to be deleted: {dependencyData?.totalRecords || 0}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: "20px", color: "#dc3545" }}>
+                Failed to load dependency data. Please try again.
+              </div>
+            )}
+          </div>
+        </BaseModal>
+      )}
+      {deleteConfirmOpen && (
+        <BaseModal
+          modalId="deleteUserConfirmModal"
+          displayModal={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setDeleteConfirmText("");
+            setDeleteTarget(null);
+            setDependencyData(null);
+          }}
+          onConfirm={async () => {
+            if (deleteConfirmText !== "DELETE") return false;
+            setIsDeleting(true);
+            const success = await AdminDeleteUser(deleteTarget?.user_id);
+            setIsDeleting(false);
+            if (success) {
+              setDeleteConfirmOpen(false);
+              setDeleteModalOpen(false);
+              setDeleteTarget(null);
+              setDependencyData(null);
+              setDeleteConfirmText("");
+              await fetchUsersLists();
+            }
+            return success;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName={isDeleting ? "Deleting..." : "DELETE PERMANENTLY"}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              background: "#dc3545",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}>
+              <i className="fa-solid fa-skull-crossbones" style={{ color: "#fff", fontSize: "40px", marginBottom: "12px", display: "block" }}></i>
+              <h2 style={{ color: "#fff", margin: "0 0 8px 0", fontSize: "22px", fontWeight: "800", letterSpacing: "1px" }}>
+                FINAL WARNING
+              </h2>
+              <p style={{ color: "#ffcdd2", margin: "0", fontSize: "14px", fontWeight: "500" }}>
+                This will permanently destroy all data for <strong style={{ color: "#fff" }}>{deleteTarget?.first_name} {deleteTarget?.last_name}</strong> ({deleteTarget?.email_id}). There is no recovery option.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "#333",
+                marginBottom: "8px",
+              }}>
+                Type <strong style={{ color: "#dc3545" }}>DELETE</strong> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  textAlign: "center",
+                  border: deleteConfirmText === "DELETE" ? "2px solid #dc3545" : "2px solid #dee2e6",
+                  borderRadius: "6px",
+                  letterSpacing: "3px",
+                  textTransform: "uppercase",
+                  boxSizing: "border-box",
+                }}
+                autoFocus
+              />
+            </div>
+
+            {deleteConfirmText !== "" && deleteConfirmText !== "DELETE" && (
+              <small style={{ color: "#dc3545", fontSize: "12px" }}>
+                <i className="fa-light fa-circle-xmark" style={{ marginRight: "4px" }}></i>
+                Please type exactly DELETE to proceed
+              </small>
+            )}
+          </div>
         </BaseModal>
       )}
     </div>
