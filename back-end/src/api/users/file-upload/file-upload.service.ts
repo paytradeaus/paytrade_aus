@@ -318,7 +318,7 @@ export class FileUploadService {
             .createQueryBuilder()
             .update(BlogResource)
             .set({
-              banner: savedFile,
+              banner: { id: savedFile.id } as any,
               updated_by: decoded?.userId,
               updated_on: moment.tz('UTC'),
               updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
