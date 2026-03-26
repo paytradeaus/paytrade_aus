@@ -1447,6 +1447,72 @@ type BankProjectDetail {
   project_name: String!
 }
 
+"""Data for batch match response."""
+type BatchMatchData {
+  """Total failed."""
+  failed: Float!
+
+  """Payment IDs for notice triggering."""
+  payment_ids: [Float!]
+
+  """Results per match pair."""
+  results: [BatchMatchResult!]!
+
+  """Total succeeded."""
+  succeeded: Float!
+}
+
+"""Response for batch match operation."""
+type BatchMatchResponse {
+  """Batch match results."""
+  data: BatchMatchData
+
+  """Message describing the response."""
+  message: String!
+
+  """Status of the API response."""
+  status: String!
+}
+
+"""Result of a single match in batch operation."""
+type BatchMatchResult {
+  """Error message if failed."""
+  error: String
+
+  """Whether match succeeded."""
+  success: Boolean!
+
+  """Transaction ID."""
+  transaction_id: String!
+}
+
+"""Data for batch suggested matches."""
+type BatchSuggestedMatchesData {
+  """Count of exact matches found."""
+  exact_match_count: Float!
+
+  """List of suggested matches."""
+  matches: [SuggestedMatchItem!]!
+
+  """Count of near matches found."""
+  near_match_count: Float!
+
+  """Total unmatched transactions."""
+  total_unmatched: Float!
+}
+
+"""Response for batch suggested matches."""
+type BatchSuggestedMatchesResponse {
+  """Suggested match data."""
+  data: BatchSuggestedMatchesData
+
+  """Message describing the response."""
+  message: String!
+
+  """Status of the API response."""
+  status: String!
+}
+
 """Represents a comment on a blog resource."""
 type BlogCommentDto {
   """Text content of the comment."""
@@ -13450,6 +13516,15 @@ type Mutation {
     company_id: Float!
   ): AutoMapResponse!
 
+  """Match multiple transaction-payment pairs in a single batch operation."""
+  batchMatchExactTransactions(
+    """List of sub-payment ID arrays, one per transaction."""
+    sub_payment_ids: [[Float!]!]!
+
+    """List of transaction IDs to match."""
+    transaction_ids: [String!]!
+  ): BatchMatchResponse!
+
   """
   Unmatch multiple transactions from their linked payments in a single operation.
   """
@@ -14475,6 +14550,17 @@ type Mutation {
     filePath: String!
   ): ProcessFilterCsvUpload!
   processXeroWebhook(events: String!): String!
+
+  """
+  Create an adjustment payment and match it together with the original payment to the transaction.
+  """
+  quickAdjustAndMatch(
+    """Sub-payment ID of the near-match payment."""
+    sub_payment_id: Float!
+
+    """Transaction ID to adjust and match."""
+    transaction_id: String!
+  ): QuickAdjustMatchResponse!
 
   """
   Refreshes all Xero-related data (accounts, contacts, projects, contracts) for a given company.
@@ -16859,6 +16945,17 @@ type Query {
     payload: FetchBankStatementDetailsInput!
   ): FetchBankStatementDetailsResponse!
 
+  """
+  Fetch suggested payment matches for all unmatched transactions in a bank account.
+  """
+  fetchBatchSuggestedMatches(
+    """Bank account ID to find matches for."""
+    bank_account_id: Float!
+
+    """Company ID."""
+    company_id: Float!
+  ): BatchSuggestedMatchesResponse!
+
   """Fetch client/supplier details relevant to a specific payment claim."""
   fetchClientSupplierDetailsForPaymentClaim(
     """
@@ -18082,6 +18179,33 @@ type Query {
   ): ViewSyncLogResponse!
 }
 
+"""Data for quick adjust and match response."""
+type QuickAdjustMatchData {
+  """Adjustment amount."""
+  adjustment_amount: Float!
+
+  """Adjustment payment ID created."""
+  adjustment_payment_id: Float!
+
+  """Adjustment payment type."""
+  adjustment_type: String!
+
+  """Payment IDs for notice triggering."""
+  payment_ids: [Float!]
+}
+
+"""Response for quick adjust and match."""
+type QuickAdjustMatchResponse {
+  """Adjust-match result."""
+  data: QuickAdjustMatchData
+
+  """Message describing the response."""
+  message: String!
+
+  """Status of the API response."""
+  status: String!
+}
+
 """Represents a newly raised support ticket with its unique ID."""
 type RaiseATicket {
   """Unique identifier of the newly raised ticket."""
@@ -19003,6 +19127,81 @@ type SubscriptionPricingPlanResponse {
 
   """Status of the response."""
   status: String!
+}
+
+"""A transaction with its suggested match."""
+type SuggestedMatchItem {
+  """Difference amount (txn - payment). 0 for exact."""
+  difference_amount: Float!
+
+  """Match quality: exact, near, or none."""
+  match_quality: String!
+
+  """Best matching payment."""
+  suggested_payment: SuggestedMatchPayment
+
+  """Transaction UUID."""
+  transaction_id: String!
+
+  """Transaction amount (signed)."""
+  txn_amount: Float!
+}
+
+"""Suggested sub-payment match for a transaction."""
+type SuggestedMatchPayment {
+  """Sub-payment amount."""
+  amount: Float!
+
+  """Claim amount."""
+  claim_amount: Float
+
+  """Claim type."""
+  claim_type: String
+
+  """Client/supplier name."""
+  client_supplier_name: String
+
+  """Contract name."""
+  contract_name: String
+
+  """UUID of the sub_payment row."""
+  id: String!
+
+  """Payment claim ID."""
+  payment_claim_id: Float
+
+  """Payment date."""
+  payment_date: DateTime
+
+  """Payment from account ID."""
+  payment_from_account: Float
+
+  """Payment from account name."""
+  payment_from_account_name: String
+
+  """Parent payment ID."""
+  payment_id: Float!
+
+  """Payment to account ID."""
+  payment_to_account: Float
+
+  """Payment to account name."""
+  payment_to_account_name: String
+
+  """Payment type."""
+  payment_type: String
+
+  """Project name."""
+  project_name: String
+
+  """Retention account."""
+  retention_account: Float
+
+  """Sub-payment ID."""
+  sub_payment_id: Float!
+
+  """Sub-payment type."""
+  sub_payment_type: String
 }
 
 """Details of a support ticket including user information and messages."""

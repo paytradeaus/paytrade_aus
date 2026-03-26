@@ -22,6 +22,9 @@ import {
   ProcessFilterCsvUpload,
   csvTemplateFileDetailsResponse,
   fetchAllUnmatchedTransactionsOfACompanyResponse,
+  BatchSuggestedMatchesResponse,
+  BatchMatchResponse,
+  QuickAdjustMatchResponse,
 } from './transactions.response';
 import { TransactionsService } from './transactions.service';
 import {
@@ -1044,6 +1047,205 @@ export class TransactionsResolver {
       return framedResponse(
         'ERROR',
         `Errored while fetching all unmatched transactions of a company with message: ${error}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN, Role.STANDARD_USER)
+  @Query(() => BatchSuggestedMatchesResponse, {
+    name: 'fetchBatchSuggestedMatches',
+    description:
+      'Fetch suggested payment matches for all unmatched transactions in a bank account.',
+  })
+  async fetchBatchSuggestedMatches(
+    @Context() context,
+    @Args('bank_account_id', {
+      type: () => Number,
+      description: 'Bank account ID to find matches for.',
+    })
+    bank_account_id: number,
+    @Args('company_id', {
+      type: () => Number,
+      description: 'Company ID.',
+    })
+    company_id: number,
+  ) {
+    try {
+      this.logger.log(
+        `Request received for batch suggested matches for bank account: ${bank_account_id}`,
+      );
+
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const timezone = decoded?.timezone || 'UTC';
+
+      return await this.transactionsService.fetchBatchSuggestedMatches(
+        bank_account_id,
+        company_id,
+        timezone,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while fetching batch suggested matches: ${error.message}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored while fetching batch suggested matches: ${error.message}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN, Role.STANDARD_USER)
+  @Mutation(() => BatchMatchResponse, {
+    name: 'batchMatchExactTransactions',
+    description:
+      'Match multiple transaction-payment pairs in a single batch operation.',
+  })
+  async batchMatchExactTransactions(
+    @Context() context,
+    @Args('transaction_ids', {
+      type: () => [String],
+      description: 'List of transaction IDs to match.',
+    })
+    transaction_ids: string[],
+    @Args('sub_payment_ids', {
+      type: () => [[Number]],
+      description: 'List of sub-payment ID arrays, one per transaction.',
+    })
+    sub_payment_ids: number[][],
+  ) {
+    try {
+      this.logger.log(
+        `Request received for batch match of ${transaction_ids.length} pairs.`,
+      );
+
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      if (transaction_ids.length !== sub_payment_ids.length) {
+        return framedResponse(
+          'ERROR',
+          'transaction_ids and sub_payment_ids arrays must have the same length.',
+        );
+      }
+
+      const matchPairs = transaction_ids.map((tid, idx) => ({
+        transaction_id: tid,
+        sub_payment_ids: sub_payment_ids[idx],
+      }));
+
+      const result =
+        await this.transactionsService.batchMatchExactTransactions(
+          matchPairs,
+          decoded?.userId,
+        );
+
+      if (
+        result?.data?.payment_ids &&
+        result.data.payment_ids.length > 0
+      ) {
+        for (const payment_id of result.data.payment_ids) {
+          const paymentDetails =
+            await this.paymentsService.fetchPaymentDetails(payment_id);
+          if (paymentDetails?.project_id) {
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Project Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Retention Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Errored during batch match: ${error.message}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored during batch match: ${error.message}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN, Role.STANDARD_USER)
+  @Mutation(() => QuickAdjustMatchResponse, {
+    name: 'quickAdjustAndMatch',
+    description:
+      'Create an adjustment payment and match it together with the original payment to the transaction.',
+  })
+  async quickAdjustAndMatch(
+    @Context() context,
+    @Args('transaction_id', {
+      type: () => String,
+      description: 'Transaction ID to adjust and match.',
+    })
+    transaction_id: string,
+    @Args('sub_payment_id', {
+      type: () => Number,
+      description: 'Sub-payment ID of the near-match payment.',
+    })
+    sub_payment_id: number,
+  ) {
+    try {
+      this.logger.log(
+        `Request received for quick adjust and match: txn=${transaction_id}, sp=${sub_payment_id}`,
+      );
+
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result = await this.transactionsService.quickAdjustAndMatch(
+        transaction_id,
+        sub_payment_id,
+        decoded,
+        decoded?.userId,
+      );
+
+      if (
+        result?.data?.payment_ids &&
+        result.data.payment_ids.length > 0
+      ) {
+        for (const payment_id of result.data.payment_ids) {
+          const paymentDetails =
+            await this.paymentsService.fetchPaymentDetails(payment_id);
+          if (paymentDetails?.project_id) {
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Project Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Retention Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Errored during quick adjust and match: ${error.message}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored during quick adjust and match: ${error.message}`,
       );
     }
   }

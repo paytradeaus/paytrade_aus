@@ -384,3 +384,171 @@ export class fetchAllUnmatchedTransactionsOfACompanyResponse {
   })
   data: FetchAllUnmatchedTransactionsOfACompany[];
 }
+
+@ObjectType({ description: 'Suggested sub-payment match for a transaction.' })
+export class SuggestedMatchPayment {
+  @Field({ description: 'UUID of the sub_payment row.' })
+  id: string;
+
+  @Field({ description: 'Sub-payment ID.' })
+  sub_payment_id: number;
+
+  @Field({ description: 'Parent payment ID.' })
+  payment_id: number;
+
+  @Field({ nullable: true, description: 'Sub-payment type.' })
+  sub_payment_type: string;
+
+  @Field(() => Float, { description: 'Sub-payment amount.' })
+  amount: number;
+
+  @Field({ nullable: true, description: 'Payment type.' })
+  payment_type: string;
+
+  @Field({ nullable: true, description: 'Payment date.' })
+  payment_date: Date;
+
+  @Field({ nullable: true, description: 'Claim type.' })
+  claim_type: string;
+
+  @Field({ nullable: true, description: 'Client/supplier name.' })
+  client_supplier_name: string;
+
+  @Field({ nullable: true, description: 'Payment from account name.' })
+  payment_from_account_name: string;
+
+  @Field({ nullable: true, description: 'Payment to account name.' })
+  payment_to_account_name: string;
+
+  @Field({ nullable: true, description: 'Project name.' })
+  project_name: string;
+
+  @Field({ nullable: true, description: 'Contract name.' })
+  contract_name: string;
+
+  @Field(() => Float, { nullable: true, description: 'Claim amount.' })
+  claim_amount: number;
+
+  @Field({ nullable: true, description: 'Payment claim ID.' })
+  payment_claim_id: number;
+
+  @Field({ nullable: true, description: 'Payment from account ID.' })
+  payment_from_account: number;
+
+  @Field({ nullable: true, description: 'Payment to account ID.' })
+  payment_to_account: number;
+
+  @Field({ nullable: true, description: 'Retention account.' })
+  retention_account: number;
+}
+
+@ObjectType({ description: 'A transaction with its suggested match.' })
+export class SuggestedMatchItem {
+  @Field({ description: 'Transaction UUID.' })
+  transaction_id: string;
+
+  @Field(() => Float, { description: 'Transaction amount (signed).' })
+  txn_amount: number;
+
+  @Field({ description: 'Match quality: exact, near, or none.' })
+  match_quality: string;
+
+  @Field(() => Float, { description: 'Difference amount (txn - payment). 0 for exact.' })
+  difference_amount: number;
+
+  @Field(() => SuggestedMatchPayment, { nullable: true, description: 'Best matching payment.' })
+  suggested_payment: SuggestedMatchPayment;
+}
+
+@ObjectType({ description: 'Data for batch suggested matches.' })
+export class BatchSuggestedMatchesData {
+  @Field(() => [SuggestedMatchItem], { description: 'List of suggested matches.' })
+  matches: SuggestedMatchItem[];
+
+  @Field({ description: 'Total unmatched transactions.' })
+  total_unmatched: number;
+
+  @Field({ description: 'Count of exact matches found.' })
+  exact_match_count: number;
+
+  @Field({ description: 'Count of near matches found.' })
+  near_match_count: number;
+}
+
+@ObjectType({ description: 'Response for batch suggested matches.' })
+export class BatchSuggestedMatchesResponse {
+  @Field({ description: 'Status of the API response.' })
+  status: string;
+
+  @Field({ description: 'Message describing the response.' })
+  message: string;
+
+  @Field(() => BatchSuggestedMatchesData, { nullable: true, description: 'Suggested match data.' })
+  data: BatchSuggestedMatchesData;
+}
+
+@ObjectType({ description: 'Result of a single match in batch operation.' })
+export class BatchMatchResult {
+  @Field({ description: 'Transaction ID.' })
+  transaction_id: string;
+
+  @Field({ description: 'Whether match succeeded.' })
+  success: boolean;
+
+  @Field({ nullable: true, description: 'Error message if failed.' })
+  error: string;
+}
+
+@ObjectType({ description: 'Data for batch match response.' })
+export class BatchMatchData {
+  @Field(() => [BatchMatchResult], { description: 'Results per match pair.' })
+  results: BatchMatchResult[];
+
+  @Field({ description: 'Total succeeded.' })
+  succeeded: number;
+
+  @Field({ description: 'Total failed.' })
+  failed: number;
+
+  @Field(() => [Float], { nullable: true, description: 'Payment IDs for notice triggering.' })
+  payment_ids: number[];
+}
+
+@ObjectType({ description: 'Response for batch match operation.' })
+export class BatchMatchResponse {
+  @Field({ description: 'Status of the API response.' })
+  status: string;
+
+  @Field({ description: 'Message describing the response.' })
+  message: string;
+
+  @Field(() => BatchMatchData, { nullable: true, description: 'Batch match results.' })
+  data: BatchMatchData;
+}
+
+@ObjectType({ description: 'Data for quick adjust and match response.' })
+export class QuickAdjustMatchData {
+  @Field({ description: 'Adjustment payment ID created.' })
+  adjustment_payment_id: number;
+
+  @Field({ description: 'Adjustment payment type.' })
+  adjustment_type: string;
+
+  @Field(() => Float, { description: 'Adjustment amount.' })
+  adjustment_amount: number;
+
+  @Field(() => [Float], { nullable: true, description: 'Payment IDs for notice triggering.' })
+  payment_ids: number[];
+}
+
+@ObjectType({ description: 'Response for quick adjust and match.' })
+export class QuickAdjustMatchResponse {
+  @Field({ description: 'Status of the API response.' })
+  status: string;
+
+  @Field({ description: 'Message describing the response.' })
+  message: string;
+
+  @Field(() => QuickAdjustMatchData, { nullable: true, description: 'Adjust-match result.' })
+  data: QuickAdjustMatchData;
+}

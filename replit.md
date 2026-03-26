@@ -31,6 +31,7 @@ The application features a Next.js frontend and a NestJS backend communicating v
 - **SEO Keywords System**: Backend-managed keywords drive dynamic landing pages, with interlinking and admin CRUD functionality including import/export.
 - **How-To Guides System**: Guides are stored in `blog_resource` with categorized content, banner images, and admin management including import/export.
 - **AI Support Assistant**: A search-first support flow at `/support`. Users search FAQs/guides, then can "Ask PayTrade AI" (OpenAI GPT-4o). Features include rate limiting, a relevance gate, web search enrichment for legal questions, and abuse controls. AI answers are auto-posted to the community.
+- **Smart Reconciliation Matching**: QuickBooks-style smart matching system for bank transactions. Backend: `fetchBatchSuggestedMatches` (query), `batchMatchExactTransactions` (mutation), `quickAdjustAndMatch` (mutation) in `transactions.service.ts`/`resolver.ts`. Frontend: Smart Match toggle in TransactionsList (localStorage `pt_smart_match`), inline match quality indicators (exact=green, near=amber), expandable rows with payment details, one-click match/adjust-and-match, and "Match All Exact" batch button. DynamicTable supports `renderExpandedRow` prop. Quick-adjust auto-creates over/under payments to bridge discrepancies before matching.
 
 ## External Dependencies
 - **PostgreSQL**: Primary application database.

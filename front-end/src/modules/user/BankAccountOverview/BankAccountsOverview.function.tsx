@@ -638,6 +638,187 @@ async function DeletePayments(data: any) {
   }
 }
 
+async function FetchBatchSuggestedMatches(data: {
+  bank_account_id: number;
+  company_id: number;
+}): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query FetchBatchSuggestedMatches(
+          $bankAccountId: Float!
+          $companyId: Float!
+        ) {
+          fetchBatchSuggestedMatches(
+            bank_account_id: $bankAccountId
+            company_id: $companyId
+          ) {
+            data {
+              matches {
+                transaction_id
+                txn_amount
+                match_quality
+                difference_amount
+                suggested_payment {
+                  id
+                  sub_payment_id
+                  payment_id
+                  sub_payment_type
+                  amount
+                  payment_type
+                  payment_date
+                  claim_type
+                  client_supplier_name
+                  payment_from_account_name
+                  payment_to_account_name
+                  project_name
+                  contract_name
+                  claim_amount
+                  payment_claim_id
+                  payment_from_account
+                  payment_to_account
+                  retention_account
+                }
+              }
+              total_unmatched
+              exact_match_count
+              near_match_count
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        bankAccountId: data.bank_account_id,
+        companyId: data.company_id,
+      },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.fetchBatchSuggestedMatches?.status === ApiResponse.SUCCESS
+    ) {
+      return response?.data?.fetchBatchSuggestedMatches?.data;
+    }
+    if (
+      response?.data?.fetchBatchSuggestedMatches?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.fetchBatchSuggestedMatches?.message);
+      return null;
+    }
+  } catch (error: any) {
+    return null;
+  }
+}
+
+async function BatchMatchExactTransactions(data: {
+  transaction_ids: string[];
+  sub_payment_ids: number[][];
+}): Promise<any> {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation BatchMatchExactTransactions(
+          $transactionIds: [String!]!
+          $subPaymentIds: [[Float!]!]!
+        ) {
+          batchMatchExactTransactions(
+            transaction_ids: $transactionIds
+            sub_payment_ids: $subPaymentIds
+          ) {
+            data {
+              results {
+                transaction_id
+                success
+                error
+              }
+              succeeded
+              failed
+              payment_ids
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        transactionIds: data.transaction_ids,
+        subPaymentIds: data.sub_payment_ids,
+      },
+    });
+
+    if (
+      response?.data?.batchMatchExactTransactions?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        response?.data?.batchMatchExactTransactions?.message ||
+          "Transactions matched successfully"
+      );
+      return response?.data?.batchMatchExactTransactions?.data;
+    }
+    if (
+      response?.data?.batchMatchExactTransactions?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.batchMatchExactTransactions?.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast("Failed to batch match transactions");
+    return null;
+  }
+}
+
+async function QuickAdjustAndMatch(data: {
+  transaction_id: string;
+  sub_payment_id: number;
+}): Promise<any> {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation QuickAdjustAndMatch(
+          $transactionId: String!
+          $subPaymentId: Float!
+        ) {
+          quickAdjustAndMatch(
+            transaction_id: $transactionId
+            sub_payment_id: $subPaymentId
+          ) {
+            data {
+              adjustment_payment_id
+              adjustment_type
+              adjustment_amount
+              payment_ids
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        transactionId: data.transaction_id,
+        subPaymentId: data.sub_payment_id,
+      },
+    });
+
+    if (response?.data?.quickAdjustAndMatch?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(
+        response?.data?.quickAdjustAndMatch?.message ||
+          "Adjust and match completed"
+      );
+      return response?.data?.quickAdjustAndMatch?.data;
+    }
+    if (response?.data?.quickAdjustAndMatch?.status === ApiResponse.ERROR) {
+      showErrorToast(response?.data?.quickAdjustAndMatch?.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast("Failed to adjust and match");
+    return null;
+  }
+}
+
 export {
   fetchBankAccountDetails,
   AdminlistAllFinancialInstitution,
@@ -653,4 +834,7 @@ export {
   fetchBankStatementById,
   // getListActionButtons,
   DeletePayments,
+  FetchBatchSuggestedMatches,
+  BatchMatchExactTransactions,
+  QuickAdjustAndMatch,
 };

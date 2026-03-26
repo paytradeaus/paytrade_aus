@@ -40,6 +40,7 @@ type DynamicTableProps = {
     } | null
   ) => void;
   headerClassName?: string;
+  renderExpandedRow?: (row: any) => React.ReactNode | null;
 };
 
 const entriesPerPageOptions = [10, 25, 50, 100];
@@ -75,6 +76,7 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
   onTableDataClick = () => {},
   onSortChange = () => {},
   headerClassName = "",
+  renderExpandedRow,
 }) => {
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [allSelected, setAllSelected] = useState<boolean>(false);
@@ -398,11 +400,10 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
             {!showLoader &&
               sortedData?.length > 0 &&
               sortedData.map((rowData: any, renderDataIndex) => (
+                <React.Fragment key={renderDataIndex}>
                 <tr
-                  key={renderDataIndex}
                   onClick={() => onRowClick(rowData)}
                   className={hoverOnRowClick ? "cu-pointer" : ""}
-                  // className={tableDataStyle(dataKey)}
                 >
                   {enableCheckbox && (
                     <td style={{ width: "0" }}>
@@ -492,6 +493,8 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
                     </td>
                   )}
                 </tr>
+                {renderExpandedRow && renderExpandedRow(rowData)}
+                </React.Fragment>
               ))}
             {showLoader && (
               <tr>

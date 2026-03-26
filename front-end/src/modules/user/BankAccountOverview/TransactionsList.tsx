@@ -1,7 +1,7 @@
 import GridExportActions from "@/components/GridExportActions";
 import TabSwitch from "@/components/TabSwitch";
 import { buttonType, InputType, NA, TabType } from "@/shared/constant/general";
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useState } from "react";
 import CryptoJS from "crypto-js";
 import {
   TransactionExcelColumnNames,
@@ -28,6 +28,9 @@ import { useBankAccountOverviewContext } from "./BankAccountOverviewContext";
 import {
   DeleteTransactions,
   FetchAllTransactions,
+  FetchBatchSuggestedMatches,
+  BatchMatchExactTransactions,
+  QuickAdjustAndMatch,
 } from "./BankAccountsOverview.function";
 import DynamicTable from "@/components/Table";
 import BaseModal from "@/components/BaseModal";
@@ -94,6 +97,19 @@ export default function Transactions() {
   const [openExcludeCheck, setOpenExcludeCheck] = useState(false);
   const [sortValues, setSortValues] = useState<any>("");
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
+
+  const [smartMatchEnabled, setSmartMatchEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("pt_smart_match") === "true";
+    }
+    return false;
+  });
+  const [suggestedMatches, setSuggestedMatches] = useState<any>(null);
+  const [matchesMap, setMatchesMap] = useState<Record<string, any>>({});
+  const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
+  const [smartMatchLoading, setSmartMatchLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showBatchConfirm, setShowBatchConfirm] = useState(false);
 
   useEffect(() => {
     if (queryParamsStatus == "Matched") {
@@ -401,6 +417,169 @@ export default function Transactions() {
     }
   }
 
+  const fetchSmartMatches = useCallback(async () => {
+    if (!smartMatchEnabled || transactionTab !== "To Review") {
+      setSuggestedMatches(null);
+      setMatchesMap({});
+      return;
+    }
+    const bankAccId = getBankAccountId();
+    const companyId = getCompanyIdFromStorage();
+    if (!bankAccId || !companyId) return;
+
+    setSmartMatchLoading(true);
+    try {
+      const data = await FetchBatchSuggestedMatches({
+        bank_account_id: bankAccId,
+        company_id: companyId,
+      });
+      if (data) {
+        setSuggestedMatches(data);
+        const map: Record<string, any> = {};
+        data.matches?.forEach((m: any) => {
+          map[m.transaction_id] = m;
+        });
+        setMatchesMap(map);
+      }
+    } catch {
+    } finally {
+      setSmartMatchLoading(false);
+    }
+  }, [smartMatchEnabled, transactionTab]);
+
+  useEffect(() => {
+    fetchSmartMatches();
+  }, [fetchSmartMatches]);
+
+  function handleToggleSmartMatch() {
+    const newVal = !smartMatchEnabled;
+    setSmartMatchEnabled(newVal);
+    localStorage.setItem("pt_smart_match", String(newVal));
+    if (!newVal) {
+      setExpandedTxnId(null);
+      setSuggestedMatches(null);
+      setMatchesMap({});
+    }
+  }
+
+  async function handleExactMatch(txnId: string, subPaymentId: number) {
+    setActionLoading(txnId);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: [txnId],
+        sub_payment_ids: [[subPaymentId]],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(1, 10);
+        setRefreshOverview(new Date().getTime());
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleAdjustAndMatch(txnId: string, subPaymentId: number) {
+    setActionLoading(txnId);
+    try {
+      const result = await QuickAdjustAndMatch({
+        transaction_id: txnId,
+        sub_payment_id: subPaymentId,
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(1, 10);
+        setRefreshOverview(new Date().getTime());
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleBatchMatchAllExact() {
+    if (!suggestedMatches?.matches) return;
+    const exactMatches = suggestedMatches.matches.filter(
+      (m: any) => m.match_quality === "exact" && m.suggested_payment
+    );
+    if (exactMatches.length === 0) {
+      showWarningToast("No exact matches available.");
+      return;
+    }
+    setShowBatchConfirm(false);
+    setLoader(true);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: exactMatches.map((m: any) => m.transaction_id),
+        sub_payment_ids: exactMatches.map((m: any) => [
+          m.suggested_payment.sub_payment_id,
+        ]),
+      });
+      if (result) {
+        if (result.failed > 0 && result.succeeded > 0) {
+          showWarningToast(
+            `${result.succeeded} matched, ${result.failed} failed.`
+          );
+        }
+        getListAllAdminArticles(1, 10);
+        setRefreshOverview(new Date().getTime());
+        fetchSmartMatches();
+      }
+    } finally {
+      setLoader(false);
+    }
+  }
+
+  function getMatchBadge(txnId: string) {
+    const match = matchesMap[txnId];
+    if (!match) return null;
+    if (match.match_quality === "exact") {
+      return (
+        <span
+          className="valid smallbutton"
+          style={{
+            display: "inline-block",
+            padding: "2px 8px",
+            borderRadius: "4px",
+            fontSize: "11px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
+          }}
+        >
+          Exact Match
+        </span>
+      );
+    }
+    if (match.match_quality === "near") {
+      return (
+        <span
+          style={{
+            display: "inline-block",
+            padding: "2px 8px",
+            borderRadius: "4px",
+            fontSize: "11px",
+            fontWeight: 600,
+            backgroundColor: "#f5a623",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
+          }}
+        >
+          Near Match (${Math.abs(match.difference_amount).toFixed(2)})
+        </span>
+      );
+    }
+    return null;
+  }
+
   function handleResetFilters() {
     setTransactionTab("To Review");
     setSelectedDate("All");
@@ -570,6 +749,147 @@ export default function Transactions() {
     }
   }
 
+  const smartMatchRenderData =
+    smartMatchEnabled && transactionTab === "To Review"
+      ? [
+          ...transactionsRenderData,
+          {
+            key: "_smart_match",
+            render: (row: any) => getMatchBadge(row?.id),
+          },
+        ]
+      : transactionsRenderData;
+
+  const smartMatchHeaders =
+    smartMatchEnabled && transactionTab === "To Review"
+      ? [...transactionsHeader, { title: "Match", restrictSorting: true }]
+      : transactionsHeader;
+
+  const renderExpandedRow = (row: any) => {
+    if (!smartMatchEnabled || expandedTxnId !== row?.id) return null;
+    const match = matchesMap[row?.id];
+    if (!match || !match.suggested_payment) return null;
+
+    const sp = match.suggested_payment;
+    const isExact = match.match_quality === "exact";
+    const isLoading = actionLoading === row?.id;
+
+    return (
+      <tr>
+        <td colSpan={10} style={{ padding: 0 }}>
+          <div
+            style={{
+              background: "#f8f9fc",
+              border: "1px solid #e2e6ed",
+              borderRadius: "6px",
+              margin: "4px 12px 8px",
+              padding: "16px 20px",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr auto",
+                gap: "12px",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div
+                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
+                >
+                  Payment Type
+                </div>
+                <div style={{ fontWeight: 500, fontSize: "13px" }}>
+                  {sp.payment_type || "—"}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#6b7280",
+                    marginTop: 4,
+                  }}
+                >
+                  {sp.client_supplier_name || ""}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
+                >
+                  Amount
+                </div>
+                <div style={{ fontWeight: 600, fontSize: "13px" }}>
+                  $ {convertPositiveDecimalTwoDigit(Math.abs(sp.amount))}
+                </div>
+                {!isExact && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#f5a623",
+                      marginTop: 4,
+                    }}
+                  >
+                    Difference: $
+                    {Math.abs(match.difference_amount).toFixed(2)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div
+                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
+                >
+                  Details
+                </div>
+                <div style={{ fontSize: "12px" }}>
+                  {sp.project_name && (
+                    <span>{sp.project_name}</span>
+                  )}
+                  {sp.contract_name && (
+                    <span style={{ marginLeft: 4 }}>
+                      / {sp.contract_name}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: "11px", color: "#6b7280" }}>
+                  {sp.payment_from_account_name || ""} →{" "}
+                  {sp.payment_to_account_name || ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {isExact ? (
+                  <CustomButton
+                    buttonType={buttonType.PRIMARY}
+                    actionType="button"
+                    buttonName={isLoading ? "Matching..." : "Match"}
+                    iconClassName="fa-light fa-check"
+                    onClick={() =>
+                      handleExactMatch(row.id, sp.sub_payment_id)
+                    }
+                    disabled={isLoading}
+                  />
+                ) : (
+                  <CustomButton
+                    buttonType={buttonType.SECONDARY}
+                    actionType="button"
+                    buttonName={
+                      isLoading ? "Processing..." : "Adjust & Match"
+                    }
+                    iconClassName="fa-light fa-sliders"
+                    onClick={() =>
+                      handleAdjustAndMatch(row.id, sp.sub_payment_id)
+                    }
+                    disabled={isLoading}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <Fragment>
       <div className="pt_pageactions">
@@ -593,10 +913,65 @@ export default function Transactions() {
             tabOptions={transactionsTabOptions}
             onChange={(value: any) => {
               setSelectedRows([]);
+              setExpandedTxnId(null);
               setTransactionTab(value);
             }}
             tabValue={transactionTab}
           />
+          {transactionTab === "To Review" && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginLeft: "16px",
+                gap: "6px",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: smartMatchEnabled ? "#2563eb" : "#6b7280",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={smartMatchEnabled}
+                  onChange={handleToggleSmartMatch}
+                  style={{ cursor: "pointer" }}
+                />
+                Smart Match
+              </label>
+              {smartMatchEnabled && suggestedMatches && (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "#6b7280",
+                    marginLeft: "4px",
+                  }}
+                >
+                  ({suggestedMatches.exact_match_count} exact
+                  {suggestedMatches.near_match_count > 0 &&
+                    `, ${suggestedMatches.near_match_count} near`}
+                  )
+                </span>
+              )}
+              {smartMatchEnabled &&
+                suggestedMatches?.exact_match_count > 0 && (
+                  <CustomButton
+                    buttonType={buttonType.PRIMARY}
+                    actionType="button"
+                    buttonName={`Match All Exact (${suggestedMatches.exact_match_count})`}
+                    iconClassName="fa-light fa-check-double"
+                    onClick={() => setShowBatchConfirm(true)}
+                  />
+                )}
+            </div>
+          )}
         </div>
         <GridExportActions
           excelFile={{
@@ -736,7 +1111,9 @@ export default function Transactions() {
         headers={
           transactionTab === "To Review" || transactionTab === "All"
             ? [
-                ...transactionsHeader,
+                ...(smartMatchEnabled && transactionTab === "To Review"
+                  ? smartMatchHeaders
+                  : transactionsHeader),
                 { title: "Actions", restrictSorting: true },
               ]
             : transactionTab === "Matched"
@@ -747,18 +1124,36 @@ export default function Transactions() {
             : transactionsHeader
         }
         gridData={transactionData ?? []}
-        renderRowList={transactionsRenderData}
-        showLoader={loader}
+        renderRowList={
+          smartMatchEnabled && transactionTab === "To Review"
+            ? smartMatchRenderData
+            : transactionsRenderData
+        }
+        showLoader={loader || smartMatchLoading}
         gridActions={gridActions || []}
         displayAllStaticActions={transactionTab === "All" ? false : true}
         enableCheckbox={transactionTab === "To Review" || false}
-        loaderColSpan={10}
+        loaderColSpan={
+          smartMatchEnabled && transactionTab === "To Review" ? 11 : 10
+        }
         currentPage={currentPage}
         onGridCheckboxChange={(selectedData: any) => {
           setSelectedRows(selectedData);
         }}
         hoverOnRowClick
-        onTableDataClick={(rowData: any) => handlePaymentsNavigation(rowData)}
+        onTableDataClick={(rowData: any) => {
+          if (
+            smartMatchEnabled &&
+            transactionTab === "To Review" &&
+            matchesMap[rowData?.id]
+          ) {
+            setExpandedTxnId(
+              expandedTxnId === rowData?.id ? null : rowData?.id
+            );
+          } else {
+            handlePaymentsNavigation(rowData);
+          }
+        }}
         onSortChange={(sortConfig) => {
           if (transactionData?.length > 0) {
             setSortValues(sortConfig);
@@ -769,6 +1164,11 @@ export default function Transactions() {
         onPageChange={(value: any) => handlePageChange(value)}
         totalEntries={totalRows}
         selectedCheckboxRows={selectedRows}
+        renderExpandedRow={
+          smartMatchEnabled && transactionTab === "To Review"
+            ? renderExpandedRow
+            : undefined
+        }
       />
       {displayConfirmationModal && (
         <BaseModal
@@ -818,6 +1218,31 @@ export default function Transactions() {
           >
             Please ensure two equal and opposite transactions are selected form
             the transaction lists to exclude.
+          </p>
+        </BaseModal>
+      )}
+
+      {showBatchConfirm && (
+        <BaseModal
+          modalId="batch-match-confirm"
+          displayModal={showBatchConfirm}
+          onHeaderIconClose={() => setShowBatchConfirm(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => setShowBatchConfirm(false)}
+          onConfirm={() => {
+            handleBatchMatchAllExact();
+            return true;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName="Match All"
+        >
+          <h4 className="text_center">
+            Match {suggestedMatches?.exact_match_count || 0} exact transaction
+            {(suggestedMatches?.exact_match_count || 0) !== 1 ? "s" : ""}?
+          </h4>
+          <p style={{ textAlign: "center", fontSize: "13px", color: "#6b7280" }}>
+            This will match all transactions where the amount exactly equals the
+            payment amount.
           </p>
         </BaseModal>
       )}

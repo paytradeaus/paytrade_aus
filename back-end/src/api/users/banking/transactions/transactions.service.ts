@@ -2877,6 +2877,407 @@ export class TransactionsService {
     };
   }
 
+  async fetchBatchSuggestedMatches(
+    bank_account_id: number,
+    company_id: number,
+    timezone: string,
+  ) {
+    try {
+      this.logger.log(
+        `Handling request for batch suggested matches for bank account: ${bank_account_id}`,
+      );
+
+      const unmatchedTxns = await this.transactionDetailsRepo
+        .createQueryBuilder('t')
+        .select([
+          't.id AS id',
+          't.txn_amount AS txn_amount',
+          't.txn_date AS txn_date',
+          't.description AS description',
+          't.bank_account_id AS bank_account_id',
+        ])
+        .where('t.bank_account_id = :bank_account_id', { bank_account_id })
+        .andWhere('t.company_id = :company_id', { company_id })
+        .andWhere('t.status IN (:...statuses)', {
+          statuses: ['To Review', 'Unmatched'],
+        })
+        .andWhere('t.is_matched = :isMatched', { isMatched: false })
+        .orderBy('t.txn_date', 'DESC')
+        .getRawMany();
+
+      if (!unmatchedTxns.length) {
+        return framedResponse('SUCCESS', 'No unmatched transactions found.', {
+          matches: [],
+          total_unmatched: 0,
+          exact_match_count: 0,
+          near_match_count: 0,
+        });
+      }
+
+      const unmatchedPayments = await this.subPaymentsRepo
+        .createQueryBuilder('sp')
+        .select([
+          'sp.id AS id',
+          'sp.sub_payment_id AS sub_payment_id',
+          'sp.payment_id AS payment_id',
+          'sp.sub_payment_type AS sub_payment_type',
+          'sp.amount AS amount',
+          'p.payment_type AS payment_type',
+          'p.payment_date AS payment_date',
+          'p.payment_from_account AS payment_from_account',
+          'p.payment_to_account AS payment_to_account',
+          'p.retention_account AS retention_account',
+          'pc.claim_type AS claim_type',
+          'pc.claim_amount AS claim_amount',
+          'pc.payment_claim_id AS payment_claim_id',
+          'cs.client_supplier_name AS client_supplier_name',
+          'fa.account_name AS payment_from_account_name',
+          'ta.account_name AS payment_to_account_name',
+          'proj.project_name AS project_name',
+          'cont.contract_name AS contract_name',
+        ])
+        .leftJoin('sp.paymentDetails', 'p')
+        .leftJoin('p.paymentClaims', 'pc')
+        .leftJoin('p.clientSupplierDetails', 'cs')
+        .leftJoin('p.paymentFromAccount', 'fa')
+        .leftJoin('p.paymentToAccount', 'ta')
+        .leftJoin('p.projectDetails', 'proj')
+        .leftJoin('p.contractDetails', 'cont')
+        .where('sp.status = :status', { status: 'Unmatched' })
+        .andWhere('p.current_status != :delstatus', { delstatus: 'Deleted' })
+        .andWhere(
+          '(p.payment_from_account = :bankAccId OR p.payment_to_account = :bankAccId OR p.retention_account = :bankAccId)',
+          { bankAccId: bank_account_id },
+        )
+        .andWhere('p.payment_date IS NOT NULL')
+        .getRawMany();
+
+      const matches = [];
+      let exactCount = 0;
+      let nearCount = 0;
+      const nearMatchThreshold = 0.10;
+      const EPSILON = 0.005;
+      const consumedSubPaymentIds = new Set<number>();
+
+      for (const txn of unmatchedTxns) {
+        const txnAmount = parseFloat(txn.txn_amount);
+        let bestMatch = null;
+        let bestDiff = Infinity;
+        let bestQuality = 'none';
+
+        for (const payment of unmatchedPayments) {
+          if (consumedSubPaymentIds.has(payment.sub_payment_id)) continue;
+
+          const paymentAmount = parseFloat(payment.amount);
+          const diff = Math.abs(txnAmount - paymentAmount);
+          const absTxn = Math.abs(txnAmount);
+          const proportionalThreshold = absTxn > 0 ? absTxn * nearMatchThreshold : nearMatchThreshold;
+
+          if (diff < bestDiff) {
+            if (diff <= EPSILON) {
+              bestMatch = payment;
+              bestDiff = diff;
+              bestQuality = 'exact';
+            } else if (diff <= proportionalThreshold) {
+              bestMatch = payment;
+              bestDiff = diff;
+              bestQuality = 'near';
+            } else if (!bestMatch) {
+              bestMatch = null;
+              bestQuality = 'none';
+            }
+          }
+        }
+
+        if (bestMatch) {
+          consumedSubPaymentIds.add(bestMatch.sub_payment_id);
+        }
+
+        if (bestQuality === 'exact') exactCount++;
+        if (bestQuality === 'near') nearCount++;
+
+        const matchItem: any = {
+          transaction_id: txn.id,
+          txn_amount: txnAmount,
+          match_quality: bestQuality,
+          difference_amount: bestMatch ? parseFloat((txnAmount - parseFloat(bestMatch.amount)).toFixed(2)) : 0,
+          suggested_payment: bestMatch
+            ? {
+                id: bestMatch.id,
+                sub_payment_id: bestMatch.sub_payment_id,
+                payment_id: bestMatch.payment_id,
+                sub_payment_type: bestMatch.sub_payment_type,
+                amount: parseFloat(bestMatch.amount),
+                payment_type: bestMatch.payment_type,
+                payment_date: bestMatch.payment_date,
+                claim_type: bestMatch.claim_type,
+                client_supplier_name: bestMatch.client_supplier_name,
+                payment_from_account_name: bestMatch.payment_from_account_name,
+                payment_to_account_name: bestMatch.payment_to_account_name,
+                project_name: bestMatch.project_name,
+                contract_name: bestMatch.contract_name,
+                claim_amount: bestMatch.claim_amount ? parseFloat(bestMatch.claim_amount) : null,
+                payment_claim_id: bestMatch.payment_claim_id,
+                payment_from_account: bestMatch.payment_from_account,
+                payment_to_account: bestMatch.payment_to_account,
+                retention_account: bestMatch.retention_account,
+              }
+            : null,
+        };
+
+        matches.push(matchItem);
+      }
+
+      return framedResponse(
+        'SUCCESS',
+        'Batch suggested matches fetched successfully.',
+        {
+          matches,
+          total_unmatched: unmatchedTxns.length,
+          exact_match_count: exactCount,
+          near_match_count: nearCount,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while fetching batch suggested matches: ${error.message}`,
+      );
+      throw new Error(error);
+    }
+  }
+
+  async batchMatchExactTransactions(
+    matchPairs: Array<{ transaction_id: string; sub_payment_ids: number[] }>,
+    userID: number,
+  ) {
+    try {
+      this.logger.log(
+        `Handling batch match for ${matchPairs.length} pairs`,
+      );
+
+      const results = [];
+      let succeeded = 0;
+      let failed = 0;
+      const allPaymentIds: number[] = [];
+
+      for (const pair of matchPairs) {
+        try {
+          const response = await this.matchTxnsToPayments(
+            [pair.transaction_id],
+            pair.sub_payment_ids,
+            userID,
+          );
+
+          if (response?.status === 'SUCCESS') {
+            succeeded++;
+            const responseData = response?.data as any;
+            if (responseData?.payment_Ids) {
+              allPaymentIds.push(...responseData.payment_Ids);
+            }
+            results.push({
+              transaction_id: pair.transaction_id,
+              success: true,
+              error: null,
+            });
+          } else {
+            failed++;
+            results.push({
+              transaction_id: pair.transaction_id,
+              success: false,
+              error: response?.message || 'Match failed',
+            });
+          }
+        } catch (err) {
+          failed++;
+          results.push({
+            transaction_id: pair.transaction_id,
+            success: false,
+            error: err.message,
+          });
+        }
+      }
+
+      const uniquePaymentIds = [...new Set(allPaymentIds)];
+
+      return framedResponse(
+        succeeded > 0 ? 'SUCCESS' : 'ERROR',
+        `Batch match complete: ${succeeded} succeeded, ${failed} failed.`,
+        {
+          results,
+          succeeded,
+          failed,
+          payment_ids: uniquePaymentIds,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored during batch match: ${error.message}`,
+      );
+      throw new Error(error);
+    }
+  }
+
+  async quickAdjustAndMatch(
+    transaction_id: string,
+    sub_payment_id: number,
+    decoded: any,
+    userID: number,
+  ) {
+    try {
+      this.logger.log(
+        `Handling quick adjust and match for txn ${transaction_id} and sub_payment ${sub_payment_id}`,
+      );
+
+      const txn = await this.transactionDetailsRepo
+        .createQueryBuilder('t')
+        .select([
+          't.id AS id',
+          't.txn_amount AS txn_amount',
+          't.bank_account_id AS bank_account_id',
+          't.company_id AS company_id',
+        ])
+        .where('t.id = :id', { id: transaction_id })
+        .andWhere('t.is_matched = :isMatched', { isMatched: false })
+        .getRawOne();
+
+      if (!txn) {
+        throw new Error('Transaction not found or already matched.');
+      }
+
+      const payment = await this.subPaymentsRepo
+        .createQueryBuilder('sp')
+        .select([
+          'sp.id AS id',
+          'sp.sub_payment_id AS sub_payment_id',
+          'sp.payment_id AS payment_id',
+          'sp.amount AS amount',
+          'p.payment_claim_id AS payment_claim_id',
+          'p.payment_from_account AS payment_from_account',
+          'p.payment_to_account AS payment_to_account',
+          'p.retention_account AS retention_account',
+          'p.client_supplier_id AS client_supplier_id',
+          'p.project_id AS project_id',
+          'p.contract_id AS contract_id',
+          'p.company_id AS company_id',
+          'p.payment_type AS parent_payment_type',
+          'pc.claim_type AS claim_type',
+        ])
+        .leftJoin('sp.paymentDetails', 'p')
+        .leftJoin('p.paymentClaims', 'pc')
+        .where('sp.sub_payment_id = :spid', { spid: sub_payment_id })
+        .andWhere('sp.status = :status', { status: 'Unmatched' })
+        .getRawOne();
+
+      if (!payment) {
+        throw new Error('Sub-payment not found or already matched.');
+      }
+
+      const txnAmount = parseFloat(txn.txn_amount);
+      const paymentAmount = parseFloat(payment.amount);
+      const difference = parseFloat((txnAmount - paymentAmount).toFixed(2));
+
+      if (difference === 0) {
+        const matchResult = await this.matchTxnsToPayments(
+          [transaction_id],
+          [sub_payment_id],
+          userID,
+        );
+        return framedResponse('SUCCESS', 'Exact match applied.', {
+          adjustment_payment_id: 0,
+          adjustment_type: 'none',
+          adjustment_amount: 0,
+          payment_ids: (matchResult?.data as any)?.payment_Ids || [],
+        });
+      }
+
+      const claimType = payment.claim_type;
+      const isOverpayment = Math.abs(txnAmount) > Math.abs(paymentAmount);
+      let adjustmentType: string;
+
+      if (claimType === 'Receivable') {
+        adjustmentType = isOverpayment
+          ? 'Overpayment from client'
+          : 'Underpayment from client';
+      } else {
+        adjustmentType = isOverpayment
+          ? 'Overpayment to supplier'
+          : 'Underpayment to supplier';
+      }
+
+      const adjustmentAmount = Math.abs(difference);
+
+      const isPaidType = [
+        'Overpayment to supplier',
+        'Underpayment to supplier',
+      ].includes(adjustmentType);
+
+      const adjustmentPaymentData: any = {
+        company_id: payment.company_id || txn.company_id,
+        payment_claim_id: payment.payment_claim_id,
+        project_id: payment.project_id,
+        contract_id: payment.contract_id,
+        client_supplier_id: payment.client_supplier_id,
+        payment_type: adjustmentType,
+        payment_from_account: payment.payment_from_account,
+        payment_to_account: payment.payment_to_account,
+        payment_amount: adjustmentAmount,
+        total_amount: adjustmentAmount,
+        associated_payment_id: payment.payment_id,
+        input_date: new Date(),
+        payment_date: new Date(),
+        cash_retention: false,
+        is_paid_confirmed: isPaidType ? true : null,
+        is_received_confirmed: isPaidType ? null : true,
+      };
+
+      const addPaymentResult = await this.paymentsService.addPayment(
+        decoded,
+        adjustmentPaymentData,
+        userID,
+      );
+
+      if (!addPaymentResult?.data?.payment_id) {
+        throw new Error('Failed to create adjustment payment.');
+      }
+
+      const newPaymentId = addPaymentResult.data.payment_id;
+
+      const newSubPayment = await this.subPaymentsRepo
+        .createQueryBuilder('sp')
+        .select(['sp.sub_payment_id AS sub_payment_id'])
+        .leftJoin('sp.paymentDetails', 'p')
+        .where('p.payment_id = :pid', { pid: newPaymentId })
+        .andWhere('sp.status = :status', { status: 'Unmatched' })
+        .getRawOne();
+
+      if (!newSubPayment) {
+        throw new Error('Adjustment sub-payment not found after creation.');
+      }
+
+      const matchResult = await this.matchTxnsToPayments(
+        [transaction_id],
+        [sub_payment_id, newSubPayment.sub_payment_id],
+        userID,
+      );
+
+      return framedResponse(
+        'SUCCESS',
+        `Quick adjust and match completed. Created ${adjustmentType} of $${adjustmentAmount.toFixed(2)}.`,
+        {
+          adjustment_payment_id: newPaymentId,
+          adjustment_type: adjustmentType,
+          adjustment_amount: adjustmentAmount,
+          payment_ids: (matchResult?.data as any)?.payment_Ids || [],
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored during quick adjust and match: ${error.message}`,
+      );
+      throw new Error(error);
+    }
+  }
+
   async fetchAllUnmatchedTransactionsOfACompany(
     data: FetchAllUnmatchedTransactionsOfACompanyInput,
   ) {
