@@ -2752,6 +2752,13 @@ a.pt_selectbox:hover p {
 
 .pt_hometoptextinner button {
   margin: 0 var(--space-s) 0 0;
+  display: inline-block;
+  width: auto;
+}
+
+.pt_hometoptextinner a {
+  display: inline-block;
+  width: auto;
 }
 
 .pt_hometoptext p {
@@ -2821,6 +2828,7 @@ a.pt_selectbox:hover p {
 .pt_tool h4 {
   font-size: var(--step-0);
   color: var(--crab);
+  margin-bottom: var(--space-2xs);
 }
 
 .pt_tooltext {
