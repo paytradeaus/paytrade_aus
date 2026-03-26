@@ -1354,28 +1354,40 @@ export class XeroProjectsService {
       );
       const existingXeroProjects =
         projects[0]?.options?.map((p) => p.trackingOptionID) || [];
-      // Fetch all project IDs from DB in a single query
-      const projectIdsInDb = await this.xeroProjectDetails.find({
-        where: {
-          project_id: In(existingXeroProjects),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['project_id'],
-      });
-      const existingProjectIds = new Set(
-        projectIdsInDb.map((p) => p.project_id),
-      );
 
-      const existingProjectIdsSet = new Set(existingProjectIds);
+      let projectIdsInDb = [];
+      let existingProjectIds = new Set<string>();
+      let existingProjectIdsSet = new Set<string>();
+      let unFoundProjectIdsInDb = [];
 
-      //Existing projects need to be archived if not present in xero
-      const unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
-        where: {
-          project_id: Not(In(existingXeroProjects)),
-          integration_id: xeroDetails.integration_id,
-        },
-        select: ['project_id', 'pt_project_id', 'project_name'],
-      });
+      if (existingXeroProjects.length > 0) {
+        projectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            project_id: In(existingXeroProjects),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id'],
+        });
+        existingProjectIds = new Set(
+          projectIdsInDb.map((p) => p.project_id),
+        );
+        existingProjectIdsSet = new Set(existingProjectIds);
+
+        unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            project_id: Not(In(existingXeroProjects)),
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id', 'pt_project_id', 'project_name'],
+        });
+      } else {
+        unFoundProjectIdsInDb = await this.xeroProjectDetails.find({
+          where: {
+            integration_id: xeroDetails.integration_id,
+          },
+          select: ['project_id', 'pt_project_id', 'project_name'],
+        });
+      }
 
       if (unFoundProjectIdsInDb && unFoundProjectIdsInDb?.length > 0) {
         const deletePtProjectIds = unFoundProjectIdsInDb.map(
@@ -1384,7 +1396,7 @@ export class XeroProjectsService {
 
         this.logger.log(`unFoundProjectIdsInDb: ${JSON.stringify(unFoundProjectIdsInDb)}, deletePtProjectIds: ${JSON.stringify(deletePtProjectIds)}`);
 
-        await this.xeroProjectDetails
+        const archiveQuery = this.xeroProjectDetails
           .createQueryBuilder()
           .update(XeroProjectDetails)
           .set({
@@ -1392,15 +1404,24 @@ export class XeroProjectsService {
             updated_by: decoded.userId,
             updated_on: moment.tz('UTC'),
             updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
-          })
-          .where(
+          });
+
+        if (existingXeroProjects.length > 0) {
+          archiveQuery.where(
             'project_id NOT IN (:...project_id) AND integration_id = :integration_id',
             {
               project_id: existingXeroProjects,
               integration_id: xeroDetails.integration_id,
             },
-          )
-          .execute();
+          );
+        } else {
+          archiveQuery.where(
+            'integration_id = :integration_id',
+            { integration_id: xeroDetails.integration_id },
+          );
+        }
+
+        await archiveQuery.execute();
 
         const deletePtProjectDetails = await this.projectDetails.find({
           where: {

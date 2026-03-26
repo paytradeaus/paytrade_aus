@@ -1965,6 +1965,12 @@ export class NoticesService {
         .where('pc.payment_claim_id = :payment_claim_id', { payment_claim_id })
         .getRawOne();
 
+      if (!paymentClaimDetails) {
+        throw new Error(
+          `Payment claim not found for payment_claim_id: ${payment_claim_id}`,
+        );
+      }
+
       //Generating payment claim link to view edited payment claim.
       const paymentClaimLink = generatePaymentClaimLink({
         cash_retention_type: paymentClaimDetails.cash_retention_type,
