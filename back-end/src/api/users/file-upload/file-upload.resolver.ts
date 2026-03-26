@@ -942,72 +942,80 @@ export class FileUploadResolver {
         blogResId,
       );
 
-      if (fileDetails) {
-        try {
-          await this.objectStorageService.deleteFile(fileDetails.file_path);
-          this.logger.log('file was deleted from Object Storage');
-        } catch (storageErr) {
-          this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+      if (!fileDetails || !fileDetails.attachment_id) {
+        this.logger.log('No file attachment found - clearing banner reference');
+        if (blogResId) {
+          await this.fileUploadService.clearBlogAttachmentReference(
+            blogResId,
+            attachmentType,
+          );
         }
-        const deleteFileResponse = await this.fileUploadService.deleteBlogFile(
-          decoded,
-          attachmentType,
-          fileDetails.attachment_id,
-          blogResId,
-        );
-        this.logger.log(
-          `Response recieved while deleting: ${JSON.stringify(deleteFileResponse.affected)}`,
-        );
-
-        const blogRes =
-          await this.ptContentsService.getBlogResourceById(blogResId);
-
-        const blogLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[24]}` +
-          blogResId +
-          `?from=log`;
-        this.logger.log(`blogLink: ${blogLink}`);
-
-        const resourceLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[25]}` +
-          blogResId +
-          `?from=log`;
-        this.logger.log(`resourceLink: ${resourceLink}`);
-
-        let attachType;
-
-        if (attachmentType === 'Resource_attachments') {
-          attachType = 'attachment';
-        } else if (attachmentType === 'Blog_banner') {
-          attachType = 'banner';
-        }
-
-        let eventTemplateId;
-        if (blogRes.content_type === 'Blog') {
-          eventTemplateId = 189;
-        } else if (blogRes.content_type === 'Resource') {
-          eventTemplateId = 188;
-        }
-
-        const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: eventTemplateId,
-          admin_id: decoded?.userId,
-          dynamic_values: {
-            attachType: attachType,
-            blogName: blogRes.title,
-            blogLink,
-            resourceLink,
-          },
-          is_admin: true,
-          created_by: decoded?.userId,
-        };
-        this.logger.log(`ActivityLog_Input: ${JSON.stringify(createActivityLogInput)}`);
-        await this.activityLogService.insertActivityLog(createActivityLogInput);
-        return framedResponse('SUCCESS', `File deleted Successfully`);
+        return framedResponse('SUCCESS', `Image removed successfully`);
       }
-      return framedResponse('ERROR', `Image not found`);
+
+      try {
+        await this.objectStorageService.deleteFile(fileDetails.file_path);
+        this.logger.log('file was deleted from Object Storage');
+      } catch (storageErr) {
+        this.logger.error(`Failed to delete file from Object Storage: ${storageErr.message}`);
+      }
+      const deleteFileResponse = await this.fileUploadService.deleteBlogFile(
+        decoded,
+        attachmentType,
+        fileDetails.attachment_id,
+        blogResId,
+      );
+      this.logger.log(
+        `Response recieved while deleting: ${JSON.stringify(deleteFileResponse.affected)}`,
+      );
+
+      const blogRes =
+        await this.ptContentsService.getBlogResourceById(blogResId);
+
+      const blogLink =
+        `${process.env.LOG_BASE_URL}` +
+        `${linkExtensions[24]}` +
+        blogResId +
+        `?from=log`;
+      this.logger.log(`blogLink: ${blogLink}`);
+
+      const resourceLink =
+        `${process.env.LOG_BASE_URL}` +
+        `${linkExtensions[25]}` +
+        blogResId +
+        `?from=log`;
+      this.logger.log(`resourceLink: ${resourceLink}`);
+
+      let attachType;
+
+      if (attachmentType === 'Resource_attachments') {
+        attachType = 'attachment';
+      } else if (attachmentType === 'Blog_banner') {
+        attachType = 'banner';
+      }
+
+      let eventTemplateId;
+      if (blogRes.content_type === 'Blog') {
+        eventTemplateId = 189;
+      } else if (blogRes.content_type === 'Resource') {
+        eventTemplateId = 188;
+      }
+
+      const createActivityLogInput: CreateActivityLogInput = {
+        event_template_id: eventTemplateId,
+        admin_id: decoded?.userId,
+        dynamic_values: {
+          attachType: attachType,
+          blogName: blogRes.title,
+          blogLink,
+          resourceLink,
+        },
+        is_admin: true,
+        created_by: decoded?.userId,
+      };
+      this.logger.log(`ActivityLog_Input: ${JSON.stringify(createActivityLogInput)}`);
+      await this.activityLogService.insertActivityLog(createActivityLogInput);
+      return framedResponse('SUCCESS', `File deleted Successfully`);
     } catch (error) {
       this.logger.error(
         `Errored inside the client with message: ${error.message}`,

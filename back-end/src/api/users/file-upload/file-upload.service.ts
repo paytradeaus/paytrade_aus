@@ -754,6 +754,27 @@ export class FileUploadService {
     return await queryBuilder.getRawOne();
   }
 
+  async clearBlogAttachmentReference(
+    blogResId: string,
+    attachmentType: string,
+  ) {
+    if (attachmentType === 'Blog_banner') {
+      await this.blogResources
+        .createQueryBuilder()
+        .update()
+        .set({ banner: null } as any)
+        .where('id = :id', { id: blogResId })
+        .execute();
+    } else if (attachmentType === 'Resource_attachments') {
+      await this.blogResources
+        .createQueryBuilder()
+        .update()
+        .set({ attachment: null })
+        .where('id = :id', { id: blogResId })
+        .execute();
+    }
+  }
+
   async getFileDetails(
     attachment_type: string,
     user_id?: number,

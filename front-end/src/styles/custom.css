@@ -712,7 +712,7 @@ small i {
 }
 
 .edit-bar {
-  min-height: 200px !important;
+  min-height: 500px !important;
   border-top: 1px solid darkgray;
   background: white;
   /* color: #babec2 !important; */
@@ -1112,7 +1112,7 @@ small i {
 }
 
 [data-theme="dark"] .edit-bar {
-  min-height: 200px !important;
+  min-height: 500px !important;
   border-top: 1px solid darkgray;
   background: transparent !important;
 }
