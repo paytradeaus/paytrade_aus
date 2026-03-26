@@ -1148,11 +1148,9 @@ export class TransactionsResolver {
           decoded.companyId,
         );
 
-      if (
-        result?.data?.payment_ids &&
-        result.data.payment_ids.length > 0
-      ) {
-        for (const payment_id of result.data.payment_ids) {
+      const batchPaymentIds = (result?.data as Record<string, unknown>)?.payment_ids as number[] | undefined;
+      if (batchPaymentIds && batchPaymentIds.length > 0) {
+        for (const payment_id of batchPaymentIds) {
           const paymentDetails =
             await this.paymentsService.fetchPaymentDetails(payment_id);
           if (paymentDetails?.project_id) {
@@ -1227,11 +1225,9 @@ export class TransactionsResolver {
         decoded.userId,
       );
 
-      if (
-        result?.data?.payment_ids &&
-        result.data.payment_ids.length > 0
-      ) {
-        for (const payment_id of result.data.payment_ids) {
+      const qaPaymentIds = (result?.data as Record<string, unknown>)?.payment_ids as number[] | undefined;
+      if (qaPaymentIds && qaPaymentIds.length > 0) {
+        for (const payment_id of qaPaymentIds) {
           const paymentDetails =
             await this.paymentsService.fetchPaymentDetails(payment_id);
           if (paymentDetails?.project_id) {

@@ -40,6 +40,7 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { getStatusForUpdateInDB } from 'src/libs/@json/get-payment-status';
 import { PaymentClaimsService } from '../payment-claims/payment-claims.service';
 import { PaymentsService } from '../payments/payments.service';
+import { AddPaymentInput } from '../payments/payments.input';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { UserDetails } from 'src/entities/user-details.entity';
@@ -3153,14 +3154,9 @@ export class TransactionsService {
   async quickAdjustAndMatch(
     transaction_id: string,
     sub_payment_id: number,
-    decoded: any,
+    decoded: { companyId: number; timezone?: string; [key: string]: unknown },
     userID: number,
   ) {
-    const queryRunner =
-      this.transactionDetailsRepo.manager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
       this.logger.log(
         `Handling quick adjust and match for txn ${transaction_id} and sub_payment ${sub_payment_id}`,
@@ -3218,8 +3214,7 @@ export class TransactionsService {
         );
       }
 
-      const callerCompanyId = decoded?.companyId;
-      if (callerCompanyId && txnCompanyId !== callerCompanyId) {
+      if (txnCompanyId !== decoded.companyId) {
         throw new Error(
           'Transaction does not belong to the caller company.',
         );
@@ -3256,12 +3251,11 @@ export class TransactionsService {
             matchResult?.message || 'Exact matching failed.',
           );
         }
-        await queryRunner.commitTransaction();
         return framedResponse('SUCCESS', 'Exact match applied.', {
           adjustment_payment_id: 0,
           adjustment_type: 'none',
           adjustment_amount: 0,
-          payment_ids: (matchResult?.data as any)?.payment_Ids || [],
+          payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
         });
       }
 
@@ -3286,7 +3280,7 @@ export class TransactionsService {
         'Underpayment to supplier',
       ].includes(adjustmentType);
 
-      const adjustmentPaymentData: any = {
+      const adjustmentPaymentData = {
         company_id: payment.company_id || txn.company_id,
         payment_claim_id: payment.payment_claim_id,
         project_id: payment.project_id,
@@ -3307,7 +3301,7 @@ export class TransactionsService {
 
       const addPaymentResult = await this.paymentsService.addPayment(
         decoded,
-        adjustmentPaymentData,
+        adjustmentPaymentData as unknown as AddPaymentInput,
         userID,
       );
 
@@ -3336,12 +3330,14 @@ export class TransactionsService {
       );
 
       if (matchResult?.status !== 'SUCCESS') {
+        await this.entityManager.transaction(async (em) => {
+          await em.delete(SubPayments, { payment_id: newPaymentId });
+          await em.delete(PaymentDetails, { payment_id: newPaymentId });
+        });
         throw new Error(
-          matchResult?.message || 'Matching failed after adjustment creation.',
+          matchResult?.message || 'Matching failed after adjustment creation. Adjustment payment reversed.',
         );
       }
-
-      await queryRunner.commitTransaction();
 
       return framedResponse(
         'SUCCESS',
@@ -3350,17 +3346,14 @@ export class TransactionsService {
           adjustment_payment_id: newPaymentId,
           adjustment_type: adjustmentType,
           adjustment_amount: adjustmentAmount,
-          payment_ids: (matchResult?.data as any)?.payment_Ids || [],
+          payment_ids: (matchResult?.data as Record<string, unknown>)?.payment_Ids || [],
         },
       );
     } catch (error) {
-      await queryRunner.rollbackTransaction();
       this.logger.error(
         `Errored during quick adjust and match: ${error.message}`,
       );
-      throw new Error(error);
-    } finally {
-      await queryRunner.release();
+      throw new Error(error.message || error);
     }
   }
 
