@@ -1074,7 +1074,7 @@ const AddProjects = (props: any) => {
                     inputMode="numeric"
                     name={"units"}
                     disabled={isViewMode}
-                    maxLength={2}
+                    maxLength={7}
                     value={formik.values.units}
                     error={formik?.errors?.units}
                     showError={formik.touched.units && formik.errors.units}
