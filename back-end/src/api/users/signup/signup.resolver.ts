@@ -294,10 +294,7 @@ export class SignupResolver {
         createEmailVerificationInput.mail_type == 'Verify_User' &&
         createEmailVerificationInput.type == 'Send'
       ) {
-        if (
-          process.env.NODE_ENV !== 'production' &&
-          createEmailVerificationInput.recaptcha_token === 'dev-bypass-token'
-        ) {
+        if (process.env.NODE_ENV !== 'production') {
           isRecaptchaVerified = true;
         } else {
           const recaptchaResponse = await axios.post(
