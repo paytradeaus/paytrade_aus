@@ -4413,6 +4413,25 @@ a.pt_linksbox {
     display: inline-block;
   }
 
+  .pt_nav {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .pt_nav nav {
+    height: auto;
+    line-height: normal;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  nav li .cta {
+    padding: var(--space-3xs) var(--space-xs);
+    font-size: var(--step--1);
+    white-space: nowrap;
+    margin-bottom: 0;
+  }
+
   .pt_sidemenu {
     width: 280px;
     padding-right: var(--space-s);
@@ -4442,6 +4461,28 @@ a.pt_linksbox {
   .logo {
     width: 120px;
     height: 40px;
+  }
+
+  .pt_nav {
+    padding: var(--space-3xs) var(--space-3xs);
+  }
+
+  .pt_nav nav {
+    height: auto;
+    line-height: normal;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .pt_nav ul li.navbutton {
+    margin: 0 2px 0 0;
+  }
+
+  nav li .cta {
+    padding: var(--space-3xs) var(--space-2xs);
+    font-size: var(--step--2);
+    white-space: nowrap;
+    margin-bottom: 0;
   }
 }
 
