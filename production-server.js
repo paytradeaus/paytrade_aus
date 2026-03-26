@@ -5,7 +5,7 @@ const httpProxy = require('http-proxy');
 const nodemailer = require('nodemailer');
 const { exec } = require('child_process');
 
-const NEXT_STATIC_DIR = path.join(__dirname, 'front-end', '.next', 'static');
+const NEXT_STATIC_DIR = path.resolve(path.join(__dirname, 'front-end', '.next', 'static'));
 const MIME_TYPES = {
   '.js': 'application/javascript',
   '.css': 'text/css',
@@ -25,7 +25,7 @@ function serveNextStatic(req, res, urlPath) {
   const relativePath = urlPath.replace('/_next/static/', '');
   const filePath = path.join(NEXT_STATIC_DIR, relativePath);
   const safePath = path.resolve(filePath);
-  if (!safePath.startsWith(NEXT_STATIC_DIR)) {
+  if (!safePath.startsWith(NEXT_STATIC_DIR + path.sep)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('Forbidden');
     return true;

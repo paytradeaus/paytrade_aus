@@ -12,7 +12,6 @@ import {
   DeletePricingTableFeature,
   BulkUpdatePricingTableFeatures,
 } from "./pricingTableEditor.functions";
-import styles from "./pricingTableEditor.module.css";
 
 interface FeatureRow {
   id?: string;
@@ -93,23 +92,23 @@ function ValueCell({
 
   if (isCustom) {
     return (
-      <div className={styles.customInputWrapper}>
+      <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
         <input
           type="text"
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          className={styles.cellInput}
           placeholder="Custom value"
           disabled={disabled}
         />
         <button
-          className={styles.backToSelect}
+          className="outline secondary"
           onClick={() => {
             setIsCustom(false);
             onChange("true");
           }}
           title="Back to presets"
           disabled={disabled}
+          style={{ padding: "var(--space-3xs) var(--space-2xs)", whiteSpace: "nowrap" }}
         >
           <i className="fa-light fa-list"></i>
         </button>
@@ -121,7 +120,6 @@ function ValueCell({
     <select
       value={isPreset ? value : "__custom__"}
       onChange={handleSelectChange}
-      className={styles.cellSelect}
       disabled={disabled}
     >
       {VALUE_OPTIONS.map((opt) => (
@@ -288,9 +286,9 @@ export default function PricingTableEditor() {
   };
 
   return (
-    <div className="container-fluid">
-      <div className="pt_title">
-        <div className="pt_breadcrumbs">
+    <div>
+      <div className="container-fluid">
+        <div className="pt_title">
           <BreadCrumbs
             routePaths={[
               { name: "Dashboard", path: AppRoutes.ADMIN_DASHBOARD },
@@ -301,239 +299,238 @@ export default function PricingTableEditor() {
             ]}
             activeRoute={"Pricing Table"}
           />
-        </div>
-        <div className="grid pt_topfilters">
-          <div className="pt_pagetitle">
-            <h1>Pricing Table Features</h1>
-          </div>
-          <div className="pt_pageactions">
-            <button
-              className="secondary"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              <i
-                className={`fa-light ${showPreview ? "fa-table" : "fa-eye"}`}
-              ></i>
-              {showPreview ? "Edit Mode" : "Preview"}
-            </button>
-            {features.length === 0 && !showPreview && (
+
+          <div className="grid pt_topfilters">
+            <div className="pt_pagetitle">
+              <h1>Pricing Table Features</h1>
+            </div>
+            <div className="pt_pageactions">
               <button
                 className="secondary"
-                onClick={applyFallback}
+                onClick={() => setShowPreview(!showPreview)}
               >
-                <i className="fa-light fa-arrow-rotate-left"></i>
-                Apply Fallback
+                <i
+                  className={`fa-light ${showPreview ? "fa-table" : "fa-eye"}`}
+                ></i>
+                {showPreview ? "Edit Mode" : "Preview"}
               </button>
-            )}
-            <button
-              className="secondary"
-              onClick={addNewRow}
-              disabled={showPreview}
-            >
-              <i className="fa-light fa-hexagon-plus"></i>
-              Add Feature
-            </button>
-            <button
-              className="secondary"
-              onClick={handleSaveAll}
-              disabled={!hasChanges || saving || showPreview}
-              style={hasChanges && !saving && !showPreview ? { background: "var(--river)", color: "var(--wind)" } : undefined}
-            >
-              <i
-                className={`fa-light ${
-                  saving ? "fa-spinner-third fa-spin" : "fa-floppy-disk"
-                }`}
-              ></i>
-              {saving ? "Saving..." : "Save All Changes"}
-            </button>
+              {features.length === 0 && !showPreview && (
+                <button
+                  className="secondary"
+                  onClick={applyFallback}
+                >
+                  <i className="fa-light fa-arrow-rotate-left"></i>
+                  Apply Fallback
+                </button>
+              )}
+              <button
+                className="secondary"
+                onClick={addNewRow}
+                disabled={showPreview}
+              >
+                <i className="fa-light fa-hexagon-plus"></i>
+                Add Feature
+              </button>
+              <button
+                className="secondary"
+                onClick={handleSaveAll}
+                disabled={!hasChanges || saving || showPreview}
+                style={hasChanges && !saving && !showPreview ? { background: "var(--river)", color: "var(--wind)" } : undefined}
+              >
+                <i
+                  className={`fa-light ${
+                    saving ? "fa-spinner-third fa-spin" : "fa-floppy-disk"
+                  }`}
+                ></i>
+                {saving ? "Saving..." : "Save All Changes"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid">
-        <div className="pt_box">
-          {loading ? (
-            <div className={styles.loadingState}>
-              <i className="fa-light fa-spinner-third fa-spin"></i>
-              <p>Loading pricing table features...</p>
-            </div>
-          ) : showPreview ? (
-            <div className={styles.previewContainer}>
-              <h3 className={styles.previewTitle}>
-                <i className="fa-light fa-eye"></i> Pricing Table Preview
-              </h3>
+        <div className="grid">
+          <div className="pt_box">
+            {loading ? (
+              <div className="text_center" style={{ padding: "60px 20px" }}>
+                <i className="fa-light fa-spinner-third fa-spin" style={{ fontSize: "2rem", marginBottom: "16px", display: "block" }}></i>
+                <p>Loading pricing table features...</p>
+              </div>
+            ) : showPreview ? (
+              <div>
+                <h3 style={{ fontSize: "1rem", marginBottom: "16px" }}>
+                  <i className="fa-light fa-eye" style={{ marginRight: "8px", color: "var(--river)" }}></i>
+                  Pricing Table Preview
+                </h3>
+                <div className="pt_defaulttable_scroll">
+                  <table className="pt_defaulttable">
+                    <thead>
+                      <tr>
+                        <th>Feature</th>
+                        <th className="centered">Basic</th>
+                        <th className="centered">Standard</th>
+                        <th className="centered">Advanced</th>
+                        <th className="centered">Pro Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="largeicon">
+                        <td></td>
+                        <td className="centered">Free</td>
+                        <td className="centered">$10.00/mo</td>
+                        <td className="centered">$100.00/mo</td>
+                        <td className="centered">$300.00/mo</td>
+                      </tr>
+                      {features
+                        .filter((f) => f.status === "Active")
+                        .map((feature, idx) => (
+                          <tr className="largeicon" key={feature.id || idx}>
+                            <td>{feature.feature_name}</td>
+                            <td className="centered">
+                              <PreviewCell value={feature.basic_value} />
+                            </td>
+                            <td className="centered">
+                              <PreviewCell value={feature.standard_value} />
+                            </td>
+                            <td className="centered">
+                              <PreviewCell value={feature.advanced_value} />
+                            </td>
+                            <td className="centered">
+                              <PreviewCell value={feature.pro_audit_value} />
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
               <div className="pt_defaulttable_scroll">
                 <table className="pt_defaulttable">
                   <thead>
                     <tr>
-                      <th>Feature</th>
-                      <th className="centered">Basic</th>
-                      <th className="centered">Standard</th>
-                      <th className="centered">Advanced</th>
-                      <th className="centered">Pro Audit</th>
+                      <th className="centered" style={{ width: "70px" }}>#</th>
+                      <th style={{ minWidth: "180px" }}>Feature Name</th>
+                      <th style={{ minWidth: "130px" }}>Basic</th>
+                      <th style={{ minWidth: "130px" }}>Standard</th>
+                      <th style={{ minWidth: "130px" }}>Advanced</th>
+                      <th style={{ minWidth: "130px" }}>Pro Audit</th>
+                      <th style={{ width: "110px" }}>Status</th>
+                      <th className="centered" style={{ width: "100px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="largeicon">
-                      <td></td>
-                      <td className="centered">Free</td>
-                      <td className="centered">$10.00/mo</td>
-                      <td className="centered">$100.00/mo</td>
-                      <td className="centered">$300.00/mo</td>
-                    </tr>
-                    {features
-                      .filter((f) => f.status === "Active")
-                      .map((feature, idx) => (
-                        <tr className="largeicon" key={feature.id || idx}>
-                          <td>{feature.feature_name}</td>
+                    {features.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text_center" style={{ padding: "40px" }}>
+                          No features configured yet. Click &quot;Add Feature&quot; to get started.
+                        </td>
+                      </tr>
+                    ) : (
+                      features.map((feature, index) => (
+                        <tr
+                          key={feature.id || `new-${index}`}
+                          style={
+                            feature.isNew
+                              ? { backgroundColor: "#ecfdf5" }
+                              : feature.isModified
+                              ? { backgroundColor: "#fefce8" }
+                              : undefined
+                          }
+                        >
                           <td className="centered">
-                            <PreviewCell value={feature.basic_value} />
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", justifyContent: "center" }}>
+                              <button
+                                onClick={() => moveRow(index, "up")}
+                                disabled={index === 0}
+                                className="outline secondary"
+                                title="Move up"
+                                style={{ padding: "2px 6px", border: "none", background: "none" }}
+                              >
+                                <i className="fa-light fa-chevron-up"></i>
+                              </button>
+                              <span style={{ fontWeight: 500, minWidth: "20px", textAlign: "center" }}>{feature.display_order}</span>
+                              <button
+                                onClick={() => moveRow(index, "down")}
+                                disabled={index === features.length - 1}
+                                className="outline secondary"
+                                title="Move down"
+                                style={{ padding: "2px 6px", border: "none", background: "none" }}
+                              >
+                                <i className="fa-light fa-chevron-down"></i>
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={feature.feature_name}
+                              onChange={(e) =>
+                                updateFeature(index, "feature_name", e.target.value)
+                              }
+                              placeholder="Feature name"
+                            />
+                          </td>
+                          <td>
+                            <ValueCell
+                              value={feature.basic_value || "false"}
+                              onChange={(val) =>
+                                updateFeature(index, "basic_value", val)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <ValueCell
+                              value={feature.standard_value || "false"}
+                              onChange={(val) =>
+                                updateFeature(index, "standard_value", val)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <ValueCell
+                              value={feature.advanced_value || "false"}
+                              onChange={(val) =>
+                                updateFeature(index, "advanced_value", val)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <ValueCell
+                              value={feature.pro_audit_value || "false"}
+                              onChange={(val) =>
+                                updateFeature(index, "pro_audit_value", val)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <select
+                              value={feature.status}
+                              onChange={(e) =>
+                                updateFeature(index, "status", e.target.value)
+                              }
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Inactive">Inactive</option>
+                            </select>
                           </td>
                           <td className="centered">
-                            <PreviewCell value={feature.standard_value} />
-                          </td>
-                          <td className="centered">
-                            <PreviewCell value={feature.advanced_value} />
-                          </td>
-                          <td className="centered">
-                            <PreviewCell value={feature.pro_audit_value} />
+                            <button
+                              onClick={() => handleDelete(feature)}
+                              className="contrast"
+                              title="Delete feature"
+                              style={{ padding: "var(--space-3xs) var(--space-2xs)" }}
+                            >
+                              <i className="fa-light fa-trash"></i>
+                            </button>
                           </td>
                         </tr>
-                      ))}
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
-          ) : (
-            <div className="pt_defaulttable_scroll">
-              <table className="pt_defaulttable">
-                <thead>
-                  <tr>
-                    <th style={{ width: "70px", textAlign: "center" }}>#</th>
-                    <th style={{ minWidth: "180px" }}>Feature Name</th>
-                    <th style={{ minWidth: "130px" }}>Basic</th>
-                    <th style={{ minWidth: "130px" }}>Standard</th>
-                    <th style={{ minWidth: "130px" }}>Advanced</th>
-                    <th style={{ minWidth: "130px" }}>Pro Audit</th>
-                    <th style={{ width: "110px" }}>Status</th>
-                    <th style={{ width: "60px", textAlign: "center" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {features.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className={styles.emptyState}>
-                        No features configured yet. Click &quot;Add Feature&quot; to get started.
-                      </td>
-                    </tr>
-                  ) : (
-                    features.map((feature, index) => (
-                      <tr
-                        key={feature.id || `new-${index}`}
-                        className={
-                          feature.isNew
-                            ? styles.newRow
-                            : feature.isModified
-                            ? styles.modifiedRow
-                            : ""
-                        }
-                      >
-                        <td style={{ textAlign: "center" }}>
-                          <div className={styles.orderControls}>
-                            <button
-                              onClick={() => moveRow(index, "up")}
-                              disabled={index === 0}
-                              className={styles.orderBtn}
-                              title="Move up"
-                            >
-                              <i className="fa-light fa-chevron-up"></i>
-                            </button>
-                            <span>{feature.display_order}</span>
-                            <button
-                              onClick={() => moveRow(index, "down")}
-                              disabled={index === features.length - 1}
-                              className={styles.orderBtn}
-                              title="Move down"
-                            >
-                              <i className="fa-light fa-chevron-down"></i>
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            value={feature.feature_name}
-                            onChange={(e) =>
-                              updateFeature(index, "feature_name", e.target.value)
-                            }
-                            className={styles.nameInput}
-                            placeholder="Feature name"
-                          />
-                        </td>
-                        <td className={styles.valueTd}>
-                          <ValueCell
-                            value={feature.basic_value || "false"}
-                            onChange={(val) =>
-                              updateFeature(index, "basic_value", val)
-                            }
-                          />
-                        </td>
-                        <td className={styles.valueTd}>
-                          <ValueCell
-                            value={feature.standard_value || "false"}
-                            onChange={(val) =>
-                              updateFeature(index, "standard_value", val)
-                            }
-                          />
-                        </td>
-                        <td className={styles.valueTd}>
-                          <ValueCell
-                            value={feature.advanced_value || "false"}
-                            onChange={(val) =>
-                              updateFeature(index, "advanced_value", val)
-                            }
-                          />
-                        </td>
-                        <td className={styles.valueTd}>
-                          <ValueCell
-                            value={feature.pro_audit_value || "false"}
-                            onChange={(val) =>
-                              updateFeature(index, "pro_audit_value", val)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={feature.status}
-                            onChange={(e) =>
-                              updateFeature(index, "status", e.target.value)
-                            }
-                            className={`${styles.statusSelect} ${
-                              feature.status === "Active"
-                                ? styles.active
-                                : styles.inactive
-                            }`}
-                          >
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                          </select>
-                        </td>
-                        <td className={styles.actionsTd}>
-                          <button
-                            onClick={() => handleDelete(feature)}
-                            className={styles.deleteBtn}
-                            title="Delete feature"
-                          >
-                            <i className="fa-light fa-trash"></i>
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -551,10 +548,10 @@ export default function PricingTableEditor() {
             return true;
           }}
         >
-          <p>
+          <h4 className="text_center">
             Are you sure you want to delete the feature &quot;
             {deleteTarget?.feature_name}&quot;?
-          </p>
+          </h4>
         </BaseModal>
       )}
     </div>
