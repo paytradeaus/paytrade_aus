@@ -2955,8 +2955,8 @@ export class TransactionsService {
       const matches = [];
       let exactCount = 0;
       let nearCount = 0;
-      const nearMatchThreshold = 0.10;
       const EPSILON = 0.005;
+      const NEAR_MATCH_TOLERANCE = 5.00;
       const consumedSubPaymentIds = new Set<number>();
 
       for (const txn of unmatchedTxns) {
@@ -2970,15 +2970,13 @@ export class TransactionsService {
 
           const paymentAmount = parseFloat(payment.amount);
           const diff = Math.abs(txnAmount - paymentAmount);
-          const absTxn = Math.abs(txnAmount);
-          const proportionalThreshold = absTxn > 0 ? absTxn * nearMatchThreshold : nearMatchThreshold;
 
           if (diff < bestDiff) {
             if (diff <= EPSILON) {
               bestMatch = payment;
               bestDiff = diff;
               bestQuality = 'exact';
-            } else if (diff <= proportionalThreshold) {
+            } else if (diff <= NEAR_MATCH_TOLERANCE) {
               bestMatch = payment;
               bestDiff = diff;
               bestQuality = 'near';
@@ -3075,6 +3073,23 @@ export class TransactionsService {
                 transaction_id: pair.transaction_id,
                 success: false,
                 error: 'Transaction does not belong to the caller company.',
+              });
+              continue;
+            }
+
+            const foreignPayments = await this.subPaymentsRepo
+              .createQueryBuilder('sp')
+              .innerJoin('sp.payment', 'p')
+              .select('sp.sub_payment_id', 'sub_payment_id')
+              .where('sp.sub_payment_id IN (:...ids)', { ids: pair.sub_payment_ids })
+              .andWhere('p.company_id != :companyId', { companyId: callerCompanyId })
+              .getRawMany();
+            if (foreignPayments.length > 0) {
+              failed++;
+              results.push({
+                transaction_id: pair.transaction_id,
+                success: false,
+                error: 'One or more sub-payments do not belong to the caller company.',
               });
               continue;
             }
@@ -3203,6 +3218,13 @@ export class TransactionsService {
         );
       }
 
+      const callerCompanyId = decoded?.companyId;
+      if (callerCompanyId && txnCompanyId !== callerCompanyId) {
+        throw new Error(
+          'Transaction does not belong to the caller company.',
+        );
+      }
+
       const bankAccId = parseInt(txn.bank_account_id);
       const payFromAcc = parseInt(payment.payment_from_account);
       const payToAcc = parseInt(payment.payment_to_account);
@@ -3229,6 +3251,11 @@ export class TransactionsService {
           [sub_payment_id],
           userID,
         );
+        if (matchResult?.status !== 'SUCCESS') {
+          throw new Error(
+            matchResult?.message || 'Exact matching failed.',
+          );
+        }
         await queryRunner.commitTransaction();
         return framedResponse('SUCCESS', 'Exact match applied.', {
           adjustment_payment_id: 0,
@@ -3307,6 +3334,12 @@ export class TransactionsService {
         [sub_payment_id, newSubPayment.sub_payment_id],
         userID,
       );
+
+      if (matchResult?.status !== 'SUCCESS') {
+        throw new Error(
+          matchResult?.message || 'Matching failed after adjustment creation.',
+        );
+      }
 
       await queryRunner.commitTransaction();
 

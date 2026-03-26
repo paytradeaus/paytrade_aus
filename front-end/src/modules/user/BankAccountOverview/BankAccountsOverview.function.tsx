@@ -640,19 +640,12 @@ async function DeletePayments(data: any) {
 
 async function FetchBatchSuggestedMatches(data: {
   bank_account_id: number;
-  company_id: number;
 }): Promise<any> {
   try {
     const response = await apolloClient.query({
       query: gql`
-        query FetchBatchSuggestedMatches(
-          $bankAccountId: Float!
-          $companyId: Float!
-        ) {
-          fetchBatchSuggestedMatches(
-            bank_account_id: $bankAccountId
-            company_id: $companyId
-          ) {
+        query FetchBatchSuggestedMatches($bankAccountId: Float!) {
+          fetchBatchSuggestedMatches(bank_account_id: $bankAccountId) {
             data {
               matches {
                 transaction_id
@@ -691,7 +684,6 @@ async function FetchBatchSuggestedMatches(data: {
       `,
       variables: {
         bankAccountId: data.bank_account_id,
-        companyId: data.company_id,
       },
       fetchPolicy: "no-cache",
     });

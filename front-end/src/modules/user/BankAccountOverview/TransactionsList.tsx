@@ -424,14 +424,12 @@ export default function Transactions() {
       return;
     }
     const bankAccId = getBankAccountId();
-    const companyId = getCompanyIdFromStorage();
-    if (!bankAccId || !companyId) return;
+    if (!bankAccId) return;
 
     setSmartMatchLoading(true);
     try {
       const data = await FetchBatchSuggestedMatches({
         bank_account_id: bankAccId,
-        company_id: companyId,
       });
       if (data) {
         setSuggestedMatches(data);
@@ -1173,7 +1171,8 @@ export default function Transactions() {
           if (
             smartMatchEnabled &&
             transactionTab === "To Review" &&
-            matchesMap[rowData?.id]
+            matchesMap[rowData?.id] &&
+            matchesMap[rowData?.id].match_quality !== "none"
           ) {
             setExpandedTxnId(
               expandedTxnId === rowData?.id ? null : rowData?.id

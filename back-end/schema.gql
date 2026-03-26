@@ -16951,9 +16951,6 @@ type Query {
   fetchBatchSuggestedMatches(
     """Bank account ID to find matches for."""
     bank_account_id: Float!
-
-    """Company ID."""
-    company_id: Float!
   ): BatchSuggestedMatchesResponse!
 
   """Fetch client/supplier details relevant to a specific payment claim."""

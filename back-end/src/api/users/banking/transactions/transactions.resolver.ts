@@ -1065,11 +1065,6 @@ export class TransactionsResolver {
       description: 'Bank account ID to find matches for.',
     })
     bank_account_id: number,
-    @Args('company_id', {
-      type: () => Number,
-      description: 'Company ID.',
-    })
-    company_id: number,
   ) {
     try {
       this.logger.log(
@@ -1078,6 +1073,11 @@ export class TransactionsResolver {
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
       const timezone = decoded?.timezone || 'UTC';
+      const company_id = decoded?.companyId;
+
+      if (!company_id) {
+        return framedResponse('ERROR', 'Company context not available.');
+      }
 
       return await this.transactionsService.fetchBatchSuggestedMatches(
         bank_account_id,
@@ -1122,6 +1122,13 @@ export class TransactionsResolver {
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
 
+      if (!decoded?.companyId) {
+        return framedResponse(
+          'ERROR',
+          'Company context is required for batch matching.',
+        );
+      }
+
       if (transaction_ids.length !== sub_payment_ids.length) {
         return framedResponse(
           'ERROR',
@@ -1137,8 +1144,8 @@ export class TransactionsResolver {
       const result =
         await this.transactionsService.batchMatchExactTransactions(
           matchPairs,
-          decoded?.userId,
-          decoded?.companyId,
+          decoded.userId,
+          decoded.companyId,
         );
 
       if (
@@ -1206,11 +1213,18 @@ export class TransactionsResolver {
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
 
+      if (!decoded?.companyId) {
+        return framedResponse(
+          'ERROR',
+          'Company context is required for quick adjust and match.',
+        );
+      }
+
       const result = await this.transactionsService.quickAdjustAndMatch(
         transaction_id,
         sub_payment_id,
         decoded,
-        decoded?.userId,
+        decoded.userId,
       );
 
       if (
