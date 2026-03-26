@@ -5108,24 +5108,29 @@ export class NoticesService {
         )
         .getOne();
 
-      const payment_claim_details = await useRepo(
-        this.paymentClaimsRepo,
-      ).findOne({
-        where: { payment_claim_id: notice.payment_claim_id },
-      });
+      const payment_claim_details = notice.payment_claim_id
+        ? await useRepo(this.paymentClaimsRepo).findOne({
+            where: { payment_claim_id: notice.payment_claim_id },
+          })
+        : null;
 
-      const claimDate =
-        payment_claim_details.claim_type === 'Billable'
+      const claimDate = payment_claim_details
+        ? payment_claim_details.claim_type === 'Billable'
           ? payment_claim_details.received_date
-          : payment_claim_details.sent_date;
+          : payment_claim_details.sent_date
+        : null;
 
-      const claim_invoice_details = await useRepo(this.claimInvoiceRepo).find({
-        where: { payment_claim_id: notice.payment_claim_id },
-      });
+      const claim_invoice_details = notice.payment_claim_id
+        ? await useRepo(this.claimInvoiceRepo).find({
+            where: { payment_claim_id: notice.payment_claim_id },
+          })
+        : [];
 
-      const payment_details = await useRepo(this.paymentsRepo).findOne({
-        where: { payment_id: notice.payment_id },
-      });
+      const payment_details = notice.payment_id
+        ? await useRepo(this.paymentsRepo).findOne({
+            where: { payment_id: notice.payment_id },
+          })
+        : null;
 
       let retention_details;
       if (payment_details?.retention_id) {
