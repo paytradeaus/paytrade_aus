@@ -313,6 +313,7 @@ body #fader {
   width: 100%;
   margin: auto;
   position: relative;
+  overflow-x: hidden;
 }
 
 .pt_dashboard {

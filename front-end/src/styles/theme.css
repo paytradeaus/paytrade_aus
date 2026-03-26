@@ -128,11 +128,12 @@ html {
   text-rendering: optimizeLegibility;
   text-wrap: pretty;
   scroll-behavior: smooth;
-  min-width: 480px;
+  overflow-x: hidden;
 }
 
 body {
   position: relative;
+  overflow-x: hidden;
 }
 
 a {
