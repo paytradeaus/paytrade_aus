@@ -46,3 +46,4 @@ logs/
 /tmp/logs/
 *.sql
 backup_*.sql
+dump.rdb
