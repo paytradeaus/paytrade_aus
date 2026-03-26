@@ -844,7 +844,6 @@ const AddBusinessProfiles = (props: any) => {
                         label={"Email"}
                         required
                         name={"Email"}
-                        disabled={isEdit}
                         error={formik.errors.Email}
                         showError={formik.touched.Email && formik.errors.Email}
                         onChange={handleEmailfieldChange}
