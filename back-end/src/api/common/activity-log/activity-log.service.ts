@@ -81,17 +81,25 @@ export class ActivityLogService {
       ? 'ADMIN'
       : 'USER';
 
-    const fetchedUserDetails = await this.userDetails.findOne({
-      where: { user_id: createActivityLogInput.from_user },
-      select: ['user_mode'],
-    });
+    if (!createActivityLogInput.is_admin && !createActivityLogInput.from_user) {
+      this.log('Skipping activity log insert: from_user is null for non-admin event');
+      return null;
+    }
+
+    let userMode = null;
+    if (!createActivityLogInput.is_admin && createActivityLogInput.from_user) {
+      const fetchedUserDetails = await this.userDetails.findOne({
+        where: { user_id: createActivityLogInput.from_user },
+        select: ['user_mode'],
+      });
+      userMode = fetchedUserDetails?.user_mode ?? null;
+    }
+
     createActivityLogInput.event_date = moment.tz('UTC');
     const activityLogDetails = await this.activityLog.create({
       ...createActivityLogInput,
       ...{
-        user_mode: !createActivityLogInput.is_admin
-          ? fetchedUserDetails.user_mode
-          : null,
+        user_mode: userMode,
       },
     });
     return await this.activityLog.save(activityLogDetails);
