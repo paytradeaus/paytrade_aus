@@ -22,8 +22,8 @@ COPY package*.json ./
 COPY front-end/package*.json ./front-end/
 COPY back-end/package*.json ./back-end/
 
-RUN cd front-end && npm install --legacy-peer-deps
-RUN cd back-end && npm install --legacy-peer-deps
+RUN cd front-end && npm ci --legacy-peer-deps
+RUN cd back-end && npm ci --legacy-peer-deps
 
 COPY . .
 
