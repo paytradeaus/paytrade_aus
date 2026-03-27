@@ -8,6 +8,7 @@ npm run build
 echo ""
 echo "=== Building Backend ==="
 cd /home/runner/workspace/back-end
+rm -rf dist
 npm run build
 
 echo ""
