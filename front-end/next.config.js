@@ -9,7 +9,7 @@ module.exports = {
   compress: true,
   optimizeFonts: true,
   transpilePackages: ['react-image-crop', 'react-toastify'],
-  allowedDevOrigins: ['*.replit.dev', '*.janeway.replit.dev'],
+  allowedDevOrigins: ['*.replit.dev', '*.janeway.replit.dev', '*.up.railway.app'],
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
@@ -81,6 +81,10 @@ module.exports = {
     }));
 
     return [
+      {
+        source: '/health',
+        destination: `${BACKEND_URL}/health`,
+      },
       {
         source: '/graphql',
         destination: `${BACKEND_URL}/graphql`,

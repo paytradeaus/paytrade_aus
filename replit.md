@@ -15,7 +15,8 @@ The application features a Next.js frontend and a NestJS backend communicating v
 - **API Client**: Apollo Client for GraphQL.
 - **Styling**: SCSS Modules and standard CSS.
 - **UI/UX**: Dynamic pricing tables integrate backend `plan_items` and `pricing_table_feature` data. SEO is driven by backend-managed `SeoKeyword` entities.
-- **Deployment Stability**: Frontend uses `npx next start` for production, with auto-restart loops, host header proxying, and automatic retry mechanisms for transient errors. Key routes are pre-warmed after restarts.
+- **Deployment Stability**: Frontend uses `npx next start` for production. On Replit: auto-restart loops, host header proxying, route pre-warming via `start-production.sh`. On Railway: simplified `start-railway.sh` with Dockerfile.
+- **Multi-Environment**: Dev (Replit workflows), Staging (Replit published), Production (Railway). Migration plan in `MIGRATION-TO-R2.md`.
 
 **Backend (NestJS)**
 - **Framework**: NestJS.

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 
-const baseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL ?? "https://paytradeaus.replit.app/";
+const baseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL ?? "https://paytrade.app/";
 
 const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 
