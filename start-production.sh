@@ -39,6 +39,10 @@ for i in {1..60}; do
   sleep 2
 done
 
+echo "[$(date -u)] Running R2 file migration (Replit → Cloudflare R2)..."
+node /home/runner/workspace/back-end/scripts/migrate-to-r2.js
+echo "[$(date -u)] R2 migration step complete."
+
 WARMUP_ROUTES=(
   "/"
   "/pricing"
