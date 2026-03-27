@@ -1,41 +1,52 @@
-# PayTrade Migration: Replit → Cloudflare R2 + External Host
+# PayTrade Migration Plan: Multi-Environment Setup
 
-## Current Architecture
-- **Frontend**: Next.js 14 on port 5001
-- **Backend**: NestJS on port 3001
-- **Proxy**: Node.js production-server.js on port 5000 (handles EIO retries, maintenance pages, health checks)
-- **Database**: PostgreSQL (Replit-managed)
-- **Queue**: Redis + BullMQ
-- **File Storage**: Replit Object Storage (`@replit/object-storage`)
-- **Email**: Brevo SMTP + Mailgun
-- **Payments**: Stripe
-- **Accounting**: Xero integration (OAuth + webhooks)
-- **Error Tracking**: Sentry
-- **Analytics**: Google Analytics, GTM, Cookiebot
+## Target Architecture
 
-## Post-Migration Architecture
-- **Frontend + Backend**: Railway (or Render/Fly.io)
-- **Database**: Railway PostgreSQL (or external managed Postgres)
-- **Queue**: Railway Redis (or Upstash)
-- **File Storage**: Cloudflare R2 (S3-compatible)
-- **Everything else**: Unchanged (Stripe, Xero, Brevo, Sentry, etc.)
-- **No more**: production-server.js proxy, EIO workarounds, warmup scripts
+| Environment | Platform | Database | Redis | File Storage | Domain |
+|---|---|---|---|---|---|
+| **Dev** | Replit (workflows) | Replit PostgreSQL | Local Redis | Cloudflare R2 | `*.replit.dev` |
+| **Staging** | Replit (published) | Replit PostgreSQL | Replit Redis | Cloudflare R2 | `staging.paytrade.app` or `*.replit.app` |
+| **Production** | Railway | Railway PostgreSQL | Railway Redis | Cloudflare R2 | `paytrade.app` |
+
+All three environments share the same R2 bucket (using path prefixes or the same flat structure) — or use separate buckets per environment if preferred.
+
+---
+
+## PROGRESS TRACKER
+
+| Step | Status | Notes |
+|---|---|---|
+| 1. Set up Cloudflare R2 | DONE | Bucket `paytrade` created, API tokens configured |
+| 2. Rewrite ObjectStorageService for R2 | DONE | `@aws-sdk/client-s3`, Replit read-fallback retained |
+| 3. Replace REPLIT_DEPLOYMENT checks | DONE | All replaced with `NODE_ENV === 'production'` |
+| 4. Migrate existing files to R2 | DONE | Auto-runs on publish via `start-production.sh` |
+| 5. Update PaytradeLogger for R2 | DONE | Logs flush to R2 in production |
+| 6. Fix production build output | DONE | `tsconfig.build.json` fixed, `dist/main.js` correct |
+| 7. Create Dockerfile for Railway | TODO | |
+| 8. Create `railway.toml` config | TODO | |
+| 9. Set up Railway project + services | TODO | PostgreSQL + Redis + Web service |
+| 10. Migrate database to Railway | TODO | pg_dump from Replit → import to Railway |
+| 11. Puppeteer / Chromium on Railway | TODO | Dockerfile needs Chromium |
+| 12. Configure staging on Replit | TODO | Separate env vars for staging domain |
+| 13. DNS cutover | TODO | Point `paytrade.app` to Railway |
+| 14. Post-cutover verification | TODO | Full test checklist |
+| 15. Remove Replit-only code | TODO | After Railway is stable |
 
 ---
 
 ## FULL SECRETS INVENTORY
 
 ### Backend Secrets (set on Railway)
-| Variable | Current Source | Notes |
+| Variable | Current Source | Railway Action |
 |---|---|---|
-| `DATABASE_URL` | Replit PostgreSQL | New Railway Postgres URL |
-| `REDIS_URL` | Replit Redis | New Railway Redis URL |
+| `DATABASE_URL` | Replit PostgreSQL | Railway Postgres URL (auto-provided) |
+| `REDIS_URL` | Replit Redis | Railway Redis URL (auto-provided) |
 | `STRIPE_SECRET_KEY` | Replit secret | Copy as-is |
-| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard | Generate NEW secret for new webhook URL |
+| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard | Same if domain stays `paytrade.app` |
 | `XERO_CLIENT_ID` | Replit secret | Copy as-is |
 | `XERO_CLIENT_SECRET` | Replit secret | Copy as-is |
-| `XERO_CALLBACK_URL` | Replit secret | Change to `https://paytrade.app/` |
-| `XERO_WEBHOOK_KEY` | Replit secret | Copy as-is (unless Xero requires re-registration) |
+| `XERO_CALLBACK_URL` | Replit secret | Keep `https://paytrade.app/` |
+| `XERO_WEBHOOK_KEY` | Replit secret | Copy as-is |
 | `WEBHOOK_RELAY_SECRET` | Replit secret | Copy as-is |
 | `SUPPORT_WEBHOOK_KEY` | Replit secret | Copy as-is |
 | `OPENAI_API_KEY` | Replit secret | Copy as-is |
@@ -45,22 +56,21 @@
 | `BULL_USER` | Replit secret | Copy as-is |
 | `BULL_PASSWORD` | Replit secret | Copy as-is |
 | `RECAPTCHA_SECRET_KEY` | Replit secret | Copy as-is |
-| `UPLOAD_BASE_URL` | Replit secret | Change to R2 public URL |
-| `LOG_BASE_URL` | Replit secret | Change to R2 public URL or internal path |
+| `UPLOAD_BASE_URL` | Replit secret | Keep or update to R2 public URL |
 | `LOG_DELETION_DAYS` | Replit config | Copy as-is (default 30) |
-| `NODE_ENV` | Set to `production` | |
-| `PORT` | Set to `3001` | |
-| `R2_ACCOUNT_ID` | NEW | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | NEW | R2 API token key |
-| `R2_SECRET_ACCESS_KEY` | NEW | R2 API token secret |
-| `R2_BUCKET_NAME` | NEW | e.g. `paytrade-files` |
-| `R2_PUBLIC_URL` | NEW | R2 custom domain or public bucket URL |
+| `NODE_ENV` | — | Set to `production` |
+| `PORT` | — | Set to `3001` |
+| `R2_ACCOUNT_ID` | Replit secret | Copy as-is |
+| `R2_ACCESS_KEY_ID` | Replit secret | Copy as-is |
+| `R2_SECRET_ACCESS_KEY` | Replit secret | Copy as-is |
+| `R2_BUCKET_NAME` | Replit secret | Copy as-is (`paytrade`) |
+| `R2_PUBLIC_URL` | Replit secret | Copy as-is (optional) |
 
-### Frontend Secrets (set on Railway or in build env)
-| Variable | Notes |
+### Frontend Secrets (build-time on Railway)
+| Variable | Railway Value |
 |---|---|
-| `NEXT_PUBLIC_GRAPHQL_URI` | Change to `https://paytrade.app/graphql` (or backend URL) |
-| `NEXT_PUBLIC_SOCKET_URL` | Change to backend WebSocket URL |
+| `NEXT_PUBLIC_GRAPHQL_URI` | `https://paytrade.app/graphql` |
+| `NEXT_PUBLIC_SOCKET_URL` | `https://paytrade.app` |
 | `NEXT_PUBLIC_DEPLOYED_URL` | `https://paytrade.app` |
 | `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY` | Copy as-is |
 | `NEXT_PUBLIC_RECAPTCHA_KEY` | Copy as-is |
@@ -73,235 +83,243 @@
 ### Secrets NOT Needed on Railway
 | Variable | Why |
 |---|---|
-| `REPLIT_DEPLOYMENT` | Replace with `NODE_ENV === 'production'` check |
-| `REPLIT_DEV_DOMAIN` | Not needed off Replit |
-| `REPLIT_DOMAINS` | Not needed off Replit |
+| `REPLIT_DEPLOYMENT` | Already replaced with `NODE_ENV === 'production'` |
+| `REPLIT_DEV_DOMAIN` | Replit-specific, removed from code |
+| `REPLIT_DOMAINS` | Replit-specific, removed from code |
 
 ---
 
 ## WEBHOOK INVENTORY
 
-### Webhooks that need URL updates on external dashboards
+| Service | Webhook URL | Action Required |
+|---|---|---|
+| **Stripe** | `https://paytrade.app/stripe-webhook` | None — domain stays same |
+| **Xero** | `https://paytrade.app/xero-webhook` | None — domain stays same |
+| **Xero OAuth** | `XERO_CALLBACK_URL` env var | None — already `https://paytrade.app/` |
+| **Brevo inbound** | `https://paytrade.app/support-mail-brevo` | None — domain stays same |
+| **Support ticket** | `https://paytrade.app/support-ticket/webhook` | None — domain stays same |
 
-| Service | Current Webhook URL | New Webhook URL | Where to Change |
-|---|---|---|---|
-| **Stripe** | `https://paytrade.app/stripe-webhook` | Same (if domain stays) | Stripe Dashboard → Webhooks |
-| **Xero** | `https://paytrade.app/xero-webhook` | Same (if domain stays) | Xero Developer Portal → App → Webhooks |
-| **Xero OAuth callback** | Uses `XERO_CALLBACK_URL` env var + `xero/callback` | Update env var | Xero Developer Portal → App → Redirect URIs |
-| **Brevo inbound** | `https://paytrade.app/support-mail-brevo` | Same (if domain stays) | Brevo Dashboard → Inbound Parsing |
-| **Support ticket** | `https://paytrade.app/support-ticket/webhook` | Same (if domain stays) | Wherever configured |
-
-**Key insight**: If `paytrade.app` DNS points to the new host, all webhook URLs stay the same. No changes needed in Stripe/Xero/Brevo dashboards — they'll just resolve to the new server instead of Replit.
+Since `paytrade.app` DNS simply moves from Replit to Railway, all webhook URLs remain valid. No third-party dashboard changes needed.
 
 ---
 
-## THIRD-PARTY DASHBOARD UPDATES
+## THIRD-PARTY DASHBOARD CHECKS
 
-| Service | What to Check | Action |
-|---|---|---|
-| **Google reCAPTCHA** | Allowed domains | Verify `paytrade.app` is listed (should already be) |
-| **Google Places API** | API key restrictions | Verify domain restriction includes `paytrade.app` |
-| **Cookiebot** | Registered domains | Verify `paytrade.app` is registered (should already be) |
-| **Sentry** | Allowed origins | Verify DSN accepts requests from new server IP |
-| **Stripe** | Webhook signing secret | Only regenerate if creating a new webhook endpoint |
-| **Xero** | Redirect URI | Must match `XERO_CALLBACK_URL` exactly |
-| **Brevo** | Sending domain | Verify SPF/DKIM records stay valid (DNS dependent) |
-| **Google Analytics/GTM** | Data streams | No change needed — tied to domain, not server |
-
-**Firebase**: Not used. No Firebase packages, no Firebase Auth, no FCM, no Firestore.
-
-**Social Login**: Not used. Auth is internal JWT only. Xero OAuth is for accounting integration, not user login.
-
-**Push Notifications**: Not used. Real-time is via Socket.io.
+| Service | What to Verify |
+|---|---|
+| Google reCAPTCHA | `paytrade.app` in allowed domains (already is) |
+| Google Places API | Domain restriction includes `paytrade.app` (already does) |
+| Cookiebot | `paytrade.app` registered (already is) |
+| Sentry | DSN works from any server IP (it does) |
+| Google Analytics/GTM | Domain-based, no change needed |
+| Stripe | Webhook signing secret stays the same |
+| Xero | Redirect URI matches `XERO_CALLBACK_URL` |
+| Brevo | SPF/DKIM DNS records unaffected |
 
 ---
 
 ## STEP-BY-STEP MIGRATION
 
-### Step 1: Set Up Cloudflare R2 (15 min)
+### Phase 1: Code Preparation (COMPLETE)
 
-1. Log into Cloudflare dashboard
-2. Go to R2 → Create Bucket → name it `paytrade-files`
-3. Create an API token: R2 → Manage R2 API Tokens → Create
-   - Permissions: Object Read & Write
-   - Save the `Access Key ID` and `Secret Access Key`
-4. Optionally set up a custom domain for public file access (e.g. `files.paytrade.app`)
-5. Note down: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`
+- [x] Set up Cloudflare R2 bucket and API tokens
+- [x] Rewrite `ObjectStorageService` to use `@aws-sdk/client-s3` with R2
+- [x] Add Replit Object Storage read-fallback for migration period
+- [x] Replace all `REPLIT_DEPLOYMENT` checks with `NODE_ENV === 'production'`
+- [x] Remove `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS` references from backend
+- [x] Update `PaytradeLogger` to use R2 instead of Replit Object Storage
+- [x] Create and run migration script (Replit → R2 file copy)
+- [x] Fix production build output (`tsconfig.build.json`)
+- [x] Verify R2 connectivity (upload/download/delete tested)
+- [x] Publish and confirm migration runs on deploy
 
-### Step 2: Swap ObjectStorageService to S3-Compatible (30 min)
+### Phase 2: Railway Setup
 
-The entire app uses one abstraction: `back-end/src/libs/@object-storage/object-storage.service.ts`
+#### Step 7: Create Dockerfile
 
-Replace `@replit/object-storage` with `@aws-sdk/client-s3`:
+Railway needs a Dockerfile since the app uses Puppeteer (requires Chromium).
 
-```
-npm install @aws-sdk/client-s3
-npm uninstall @replit/object-storage
-```
+```dockerfile
+FROM node:20-slim
 
-Rewrite the service to use the S3 SDK with R2 endpoint:
-- `uploadFile` → `PutObjectCommand`
-- `downloadFile` → `GetObjectCommand`
-- `deleteFile` → `DeleteObjectCommand`
-- `listFiles` → `ListObjectsV2Command`
-- `fileExists` → `HeadObjectCommand`
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-liberation \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
-The R2 endpoint format: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-All callers of `ObjectStorageService` remain unchanged — they use the same method signatures.
+WORKDIR /app
 
-### Step 3: Replace REPLIT_DEPLOYMENT Checks (10 min)
+COPY package*.json ./
+COPY front-end/package*.json ./front-end/
+COPY back-end/package*.json ./back-end/
 
-Find and replace across backend:
-- `process.env.REPLIT_DEPLOYMENT === '1'` → `process.env.NODE_ENV === 'production'`
+RUN cd front-end && npm install --legacy-peer-deps
+RUN cd back-end && npm install --legacy-peer-deps
 
-Files to update:
-- `back-end/src/app.module.ts` (Redis TLS config)
-- `back-end/src/libs/@keep-alive/keep-alive.service.ts`
-- `back-end/src/libs/@database-backup/database-backup.service.ts`
-- `back-end/src/libs/@loggers/logger.service.ts`
-- `back-end/src/api/common/xero-webhooks/webhook.service.ts` (queue vs sync processing)
+COPY . .
 
-Also update `back-end/src/libs/@object-storage/object-storage.service.ts` to remove `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS` references — use `UPLOAD_BASE_URL` or `R2_PUBLIC_URL` instead.
+RUN cd front-end && npm run build
+RUN cd back-end && rm -rf dist && npm run build
 
-### Step 4: Simplify Production Start Scripts (10 min)
+EXPOSE 3001 5001
 
-On Railway, you don't need:
-- `production-server.js` (no EIO proxy needed)
-- `start-production.sh` (no warmup/restart loops needed)
-- The maintenance page / loading retry page
-
-Railway start command for backend:
-```
-cd back-end && npm run start:prod
+CMD ["bash", "start-railway.sh"]
 ```
 
-Railway start command for frontend:
-```
-cd front-end && npx next start -p 5001 -H 0.0.0.0
+#### Step 8: Create `railway.toml`
+
+```toml
+[build]
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
 ```
 
-Or run both from a simple script without the EIO workarounds.
+#### Step 9: Create `start-railway.sh`
 
-If running as a single Railway service, use a Procfile or simple start script:
+Simple start script without Replit workarounds:
+
 ```bash
 #!/bin/bash
-cd /app/back-end && npm run start:prod &
+export NODE_ENV=production
+
+# Start backend
+cd /app/back-end && node dist/main &
+BACKEND_PID=$!
+
+# Wait for backend
+echo "Waiting for backend..."
+for i in {1..30}; do
+  if curl -s http://127.0.0.1:3001/health > /dev/null 2>&1; then
+    echo "Backend ready!"
+    break
+  fi
+  sleep 2
+done
+
+# Start frontend
 cd /app/front-end && npx next start -p 5001 -H 0.0.0.0 &
-wait
+FRONTEND_PID=$!
+
+wait $BACKEND_PID $FRONTEND_PID
 ```
 
-Alternatively, run frontend and backend as two separate Railway services for better scaling.
-
-### Step 5: Set Up Railway Project (20 min)
+#### Step 10: Set Up Railway Project
 
 1. Create Railway account → New Project
-2. Connect to GitHub repo
-3. Add PostgreSQL service → get `DATABASE_URL`
-4. Add Redis service → get `REDIS_URL`
+2. Connect GitHub repo (push code to GitHub first if not already)
+3. Add PostgreSQL plugin → auto-provides `DATABASE_URL`
+4. Add Redis plugin → auto-provides `REDIS_URL`
 5. Add web service from repo
 6. Set all environment variables from the secrets inventory above
-7. Configure build command: `cd front-end && npm run build && cd ../back-end && npm run build`
-8. Configure start command (see Step 4)
-9. Set port to 5000 (or whichever port Railway expects)
+7. Railway detects the Dockerfile and builds automatically
 
-### Step 6: Migrate Database (20 min)
+### Phase 3: Database Migration
 
-1. Export from Replit PostgreSQL:
-   ```
-   pg_dump $DATABASE_URL --no-owner --no-acl > paytrade-dump.sql
+#### Step 11: Migrate Database
+
+1. Export from Replit:
+   ```bash
+   pg_dump "$DATABASE_URL" --no-owner --no-acl > /tmp/paytrade-dump.sql
    ```
 2. Import to Railway PostgreSQL:
+   ```bash
+   psql "$RAILWAY_DATABASE_URL" < /tmp/paytrade-dump.sql
    ```
-   psql $RAILWAY_DATABASE_URL < paytrade-dump.sql
+3. Run pending migrations:
+   ```bash
+   psql "$RAILWAY_DATABASE_URL" -f scripts/migrate-production.sql
    ```
-3. Run any pending migrations:
-   ```
-   psql $RAILWAY_DATABASE_URL < scripts/migrate-production.sql
-   ```
-4. Verify data: spot-check users, companies, subscriptions tables
+4. Verify: spot-check users, companies, subscriptions, payments tables
 
-### Step 7: Migrate Files from Replit Object Storage to R2 (30 min)
+### Phase 4: Testing on Railway
 
-Write a one-time migration script:
-1. List all files in Replit Object Storage
-2. Download each file
-3. Upload to R2 with the same key/path
+#### Step 12: Test Checklist
 
-This preserves all existing file paths so database references remain valid.
+Before switching DNS, test on Railway's temporary domain:
 
-Key folders to migrate:
-- `profile_photo/`
-- `company_logo/`
-- `contracts/`
-- `bank_statements/`
-- `audit_reports/`
-- `notice-templates/`
-- `notices-generated/`
-- `application-logs/`
-- `database-backups/`
-
-### Step 8: Test on Railway (30 min)
-
-Use a staging subdomain (e.g. `staging.paytrade.app`) pointing to Railway.
-
-Test checklist:
-- [ ] App loads without 500/EIO errors
+- [ ] App loads without errors
 - [ ] Login works (JWT auth)
-- [ ] Dashboard loads and shows data
+- [ ] Dashboard loads with data
 - [ ] File upload works (profile photo, documents)
-- [ ] File download/viewing works
-- [ ] PDF generation (Puppeteer — may need Chromium on Railway)
+- [ ] File download/viewing works (from R2)
+- [ ] PDF generation (Puppeteer + Chromium)
 - [ ] Stripe payment flow
-- [ ] Stripe webhook fires correctly
+- [ ] Stripe webhook receives events
 - [ ] Xero OAuth connect flow
 - [ ] Xero webhook receives events
 - [ ] Email sending (Brevo)
-- [ ] Support form with reCAPTCHA
-- [ ] Community bot cron job runs
+- [ ] reCAPTCHA validation
+- [ ] Community bot cron runs
 - [ ] Database backup cron runs
 - [ ] WebSocket connections work
 - [ ] Admin panel fully functional
 - [ ] SEO pages / sitemap loads
+- [ ] AI Support assistant works
 
-### Step 9: Puppeteer Check (10 min)
+### Phase 5: DNS Cutover
 
-PayTrade uses Puppeteer for PDF generation. On Railway:
-- Install Chromium via buildpack or Dockerfile
-- Set `PUPPETEER_EXECUTABLE_PATH` if needed
-- Railway supports buildpacks: `heroku/nodejs` + `puppeteer` buildpack
-- Alternatively, use `@sparticuz/chromium` package for serverless-friendly Chromium
+#### Step 13: Switch DNS
 
-### Step 10: DNS Cutover (5 min + propagation wait)
+1. Lower TTL to 300s on `paytrade.app` (do this 24h before cutover)
+2. Update `paytrade.app` CNAME/A record to point to Railway's domain
+3. Wait for propagation (usually <1 hour with low TTL)
+4. Verify site loads on `paytrade.app` via Railway
 
-1. In your DNS provider (Cloudflare, Namecheap, etc.):
-   - Change `paytrade.app` A/CNAME record to point to Railway's provided domain
-   - Keep TTL low (300s) before cutover for fast propagation
-2. On Replit, the published deployment becomes your staging environment
-   - Point a staging subdomain to it (e.g. `staging.paytrade.app`)
-   - Or just use Replit's default `.replit.app` domain
+#### Step 14: Post-Cutover Verification
 
-Since `paytrade.app` will now resolve to Railway:
-- All webhook URLs stay the same (Stripe, Xero, Brevo — no dashboard changes needed)
-- OAuth callback URLs stay the same
-- reCAPTCHA, Google Places, Cookiebot — all domain-bound, no changes needed
-- Analytics continues working — tied to the domain
+1. Test all webhook flows (Stripe, Xero, Brevo)
+2. Upload a file → verify it lands in R2
+3. Generate a PDF → verify it works
+4. Monitor for 30 minutes — no errors
+5. Check cron jobs are running
 
-### Step 11: Post-Cutover Verification (15 min)
+### Phase 6: Configure Replit Environments
 
-1. Verify the site loads on `paytrade.app` via Railway
-2. Trigger a Stripe test webhook from Stripe dashboard → verify it arrives
-3. Test Xero OAuth flow end-to-end
-4. Upload a file → verify it lands in R2
-5. Generate a PDF notice → verify it works
-6. Check cron jobs are running (community bot, DB backup, log cleanup)
-7. Monitor for 30 minutes — no EIO errors should appear
+#### Step 15: Configure Replit as Dev + Staging
 
-### Step 12: Configure Replit as Staging (5 min)
+**Dev environment** (workflows — already working):
+- Uses Replit PostgreSQL
+- Uses local Redis
+- `NODE_ENV=development`
+- Same R2 bucket (or a separate `paytrade-dev` bucket)
 
-1. Update Replit's `NEXT_PUBLIC_DEPLOYED_URL` to staging domain
-2. Keep Replit's database as staging database (separate from production)
-3. Dev workflow stays as-is — code in Replit, push to GitHub, Railway auto-deploys
+**Staging environment** (Replit published):
+- Uses Replit PostgreSQL (same as dev, or create a second DB)
+- Uses Replit Redis
+- `NODE_ENV=production`
+- Point `staging.paytrade.app` to Replit's `.replit.app` domain
+- Or just use the `.replit.app` URL directly for staging
+
+Update Replit's production env vars:
+- `NEXT_PUBLIC_DEPLOYED_URL` → `https://staging.paytrade.app`
+- `DEPLOYED_URL` → `https://staging.paytrade.app`
+
+### Phase 7: Cleanup
+
+#### Step 16: Remove Replit-Only Code (after Railway stable for 1+ week)
+
+- Remove `@replit/object-storage` fallback from `ObjectStorageService`
+- Remove `production-server.js`
+- Remove `start-production.sh` (keep for Replit staging, or simplify)
+- Remove EIO retry/maintenance page code
+- Remove keep-alive service
+- Remove route pre-warming
+- Remove `@replit/object-storage` from `package.json`
+- Clean up migration script from `start-production.sh`
 
 ---
 
@@ -309,43 +327,40 @@ Since `paytrade.app` will now resolve to Railway:
 
 - Stripe keys (same keys, same domain)
 - Google Analytics / GTM (domain-based)
-- Cookiebot (domain-based, `paytrade.app` already registered)
-- Sentry (DSN-based, server IP doesn't matter)
-- Brevo SMTP sending (credential-based, not domain-bound for sending)
+- Cookiebot (domain-based)
+- Sentry (DSN-based)
+- Brevo SMTP (credential-based)
 - OpenAI API (key-based)
-- Google reCAPTCHA (verify `paytrade.app` is in allowed domains — likely already is)
-- Google Places API (verify domain restriction — likely already covers `paytrade.app`)
-- All internal JWT auth (no external OAuth for user login)
-- Socket.io WebSockets (just works on any host)
+- Google reCAPTCHA (domain `paytrade.app` already allowed)
+- Google Places API (domain restriction already covers `paytrade.app`)
+- JWT auth (internal, no external OAuth for user login)
+- Socket.io WebSockets (works on any host)
 
-## THINGS THAT DISAPPEAR (Not Needed on Railway)
+## THINGS THAT DISAPPEAR ON RAILWAY
 
 - `production-server.js` (EIO proxy)
 - `start-production.sh` (warmup/restart loops)
 - EIO auto-restart mechanism
 - Loading retry page
-- Maintenance page (Railway has its own)
+- Maintenance page
 - Route pre-warming
 - `x-forwarded-host` stripping
-- Keep-alive service (Railway manages process lifecycle)
+- Keep-alive service
 
 ---
 
-## TIMELINE ESTIMATE
+## TIMELINE ESTIMATE (Remaining Work)
 
-| Step | Time |
-|---|---|
-| 1. Set up R2 bucket + API token | 15 min |
-| 2. Rewrite ObjectStorageService for S3/R2 | 30 min |
-| 3. Replace REPLIT_DEPLOYMENT checks | 10 min |
-| 4. Simplify start scripts | 10 min |
-| 5. Set up Railway project + env vars | 20 min |
-| 6. Migrate database | 20 min |
-| 7. Migrate files to R2 | 30 min |
-| 8. Test everything | 30 min |
-| 9. Puppeteer setup | 10 min |
-| 10. DNS cutover | 5 min + propagation |
-| 11. Post-cutover verification | 15 min |
-| 12. Configure Replit as staging | 5 min |
-| **Total active work** | **~3 hours** |
-| **DNS propagation wait** | Up to 24-48 hours (usually <1 hour with low TTL) |
+| Step | Time | Owner |
+|---|---|---|
+| 7. Create Dockerfile | 15 min | Agent |
+| 8. Create railway.toml + start script | 10 min | Agent |
+| 9. Set up Railway project + env vars | 20 min | User |
+| 10. Push code to GitHub | 10 min | User |
+| 11. Migrate database | 20 min | Agent + User |
+| 12. Test everything on Railway | 30 min | User |
+| 13. DNS cutover | 5 min + propagation | User |
+| 14. Post-cutover verification | 15 min | User |
+| 15. Configure Replit as staging | 10 min | Agent |
+| 16. Remove Replit-only code | 15 min | Agent (after 1 week) |
+| **Total remaining** | **~2.5 hours active work** | |
