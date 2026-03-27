@@ -3,18 +3,46 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { Cron } from '@nestjs/schedule';
-import { Client } from '@replit/object-storage';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 
 const logsDirectory = 'logs';
 const objectStorageLogsPrefix = 'application-logs';
 
-let sharedObjectStorageClient: Client | null = null;
+let sharedR2Client: S3Client | null = null;
+let sharedR2Bucket: string | null = null;
+let sharedR2Initialized = false;
 let sharedLogBuffer: string[] = [];
 let sharedFlushTimeout: NodeJS.Timeout | null = null;
 let isFlushingInProgress = false;
 let lastFlushAttempt = 0;
-const FLUSH_INTERVAL_MS = 30000; // 30 seconds
-const MIN_FLUSH_INTERVAL_MS = 10000; // Minimum 10 seconds between flush attempts
+const FLUSH_INTERVAL_MS = 30000;
+const MIN_FLUSH_INTERVAL_MS = 10000;
+
+function getR2Client(): S3Client | null {
+  if (sharedR2Initialized) return sharedR2Client;
+  sharedR2Initialized = true;
+
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  sharedR2Bucket = process.env.R2_BUCKET_NAME || 'paytrade';
+
+  if (accountId && accessKeyId && secretAccessKey) {
+    sharedR2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+  }
+
+  return sharedR2Client;
+}
 
 @Injectable()
 export class PaytradeLogger implements LoggerService {
@@ -24,8 +52,7 @@ export class PaytradeLogger implements LoggerService {
   private readonly isProduction: boolean;
 
   constructor(context?: string) {
-    // Use REPLIT_DEPLOYMENT to detect actual production deployment
-    this.isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+    this.isProduction = process.env.NODE_ENV === 'production';
     this.dateToday = new Date().toJSON().slice(0, 10);
     this.context = context;
 
@@ -34,42 +61,21 @@ export class PaytradeLogger implements LoggerService {
     }
     this.logFilePath = path.join(logsDirectory, `${this.dateToday}.log`);
 
-    if (this.isProduction && !sharedObjectStorageClient) {
-      console.log(`[PaytradeLogger] Production mode detected (NODE_ENV=${process.env.NODE_ENV}), initializing Object Storage logging...`);
-      try {
-        sharedObjectStorageClient = new Client();
-        console.log('[PaytradeLogger] Object Storage client initialized successfully');
-      } catch (error) {
-        console.error('[PaytradeLogger] Failed to initialize Object Storage client:', error);
+    if (this.isProduction && !sharedR2Initialized) {
+      const client = getR2Client();
+      if (client) {
+        console.log('[PaytradeLogger] Production mode detected, R2 log storage initialized');
+      } else {
+        console.log('[PaytradeLogger] Production mode but R2 not configured, logs are local-only');
       }
     }
-  }
-
-  private get objectStorageClient(): Client | null {
-    return sharedObjectStorageClient;
-  }
-
-  private get logBuffer(): string[] {
-    return sharedLogBuffer;
-  }
-
-  private set logBuffer(value: string[]) {
-    sharedLogBuffer = value;
-  }
-
-  private get flushTimeout(): NodeJS.Timeout | null {
-    return sharedFlushTimeout;
-  }
-
-  private set flushTimeout(value: NodeJS.Timeout | null) {
-    sharedFlushTimeout = value;
   }
 
   @Cron('0 0 * * *')
   async handleCron() {
     await this.deleteOldFiles();
-    if (this.isProduction) {
-      await this.deleteOldObjectStorageLogs();
+    if (this.isProduction && sharedR2Client) {
+      await this.deleteOldR2Logs();
     }
   }
 
@@ -93,49 +99,51 @@ export class PaytradeLogger implements LoggerService {
     }
   }
 
-  async deleteOldObjectStorageLogs(): Promise<void> {
-    if (!this.objectStorageClient) return;
+  async deleteOldR2Logs(): Promise<void> {
+    if (!sharedR2Client || !sharedR2Bucket) return;
 
     const days = Number(process.env.LOG_DELETION_DAYS) || 30;
     const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     try {
-      const listResult = await this.objectStorageClient.list({ prefix: objectStorageLogsPrefix });
-      if (!listResult.ok) {
-        console.error('Failed to list Object Storage logs:', listResult.error);
-        return;
-      }
+      const response = await sharedR2Client.send(
+        new ListObjectsV2Command({
+          Bucket: sharedR2Bucket,
+          Prefix: objectStorageLogsPrefix,
+        }),
+      );
 
-      for (const obj of listResult.value) {
-        const dateMatch = obj.name.match(/(\d{4}-\d{2}-\d{2})\.log$/);
+      if (!response.Contents) return;
+
+      for (const obj of response.Contents) {
+        const dateMatch = obj.Key?.match(/(\d{4}-\d{2}-\d{2})\.log$/);
         if (dateMatch) {
           const fileDate = new Date(dateMatch[1]);
           if (fileDate < cutoffDate) {
-            const deleteResult = await this.objectStorageClient.delete(obj.name);
-            if (deleteResult.ok) {
-              console.log(`Deleted Object Storage log: ${obj.name}`);
-            } else {
-              console.error(`Failed to delete Object Storage log ${obj.name}:`, deleteResult.error);
-            }
+            await sharedR2Client.send(
+              new DeleteObjectCommand({
+                Bucket: sharedR2Bucket,
+                Key: obj.Key,
+              }),
+            );
+            console.log(`Deleted R2 log: ${obj.Key}`);
           }
         }
       }
     } catch (error) {
-      console.error('Error deleting old Object Storage logs:', error);
+      console.error('Error deleting old R2 logs:', error);
     }
   }
 
-  private getObjectStorageLogPath(): string {
-    // Always use current date to handle day changes
+  private getR2LogPath(): string {
     const today = new Date().toJSON().slice(0, 10);
     return `${objectStorageLogsPrefix}/${today}.log`;
   }
 
-  private async flushToObjectStorage(): Promise<void> {
-    // Prevent concurrent flushes and respect rate limits
-    if (!sharedObjectStorageClient || sharedLogBuffer.length === 0) return;
+  private async flushToR2(): Promise<void> {
+    if (!sharedR2Client || !sharedR2Bucket || sharedLogBuffer.length === 0) return;
     if (isFlushingInProgress) return;
-    
+
     const now = Date.now();
     if (now - lastFlushAttempt < MIN_FLUSH_INTERVAL_MS) return;
 
@@ -146,24 +154,37 @@ export class PaytradeLogger implements LoggerService {
     sharedLogBuffer = [];
 
     try {
-      const objectPath = this.getObjectStorageLogPath();
-      
+      const objectPath = this.getR2LogPath();
+
       let existingContent = '';
-      const downloadResult = await sharedObjectStorageClient.downloadAsText(objectPath);
-      if (downloadResult.ok) {
-        existingContent = downloadResult.value;
+      try {
+        const getResponse = await sharedR2Client.send(
+          new GetObjectCommand({
+            Bucket: sharedR2Bucket,
+            Key: objectPath,
+          }),
+        );
+        if (getResponse.Body) {
+          existingContent = await (getResponse.Body as any).transformToString('utf-8');
+        }
+      } catch (e: any) {
+        if (e?.name !== 'NoSuchKey' && e?.$metadata?.httpStatusCode !== 404) {
+          throw e;
+        }
       }
 
       const newContent = existingContent + logsToWrite.join('\n') + '\n';
-      
-      const uploadResult = await sharedObjectStorageClient.uploadFromText(objectPath, newContent);
-      if (!uploadResult.ok) {
-        console.error('[PaytradeLogger] Failed to upload logs to Object Storage:', uploadResult.error);
-        // Put logs back at the front of the buffer
-        sharedLogBuffer = [...logsToWrite, ...sharedLogBuffer];
-      }
+
+      await sharedR2Client.send(
+        new PutObjectCommand({
+          Bucket: sharedR2Bucket,
+          Key: objectPath,
+          Body: Buffer.from(newContent, 'utf-8'),
+          ContentType: 'text/plain',
+        }),
+      );
     } catch (error) {
-      console.error('[PaytradeLogger] Error flushing logs to Object Storage:', error);
+      console.error('[PaytradeLogger] Error flushing logs to R2:', error);
       sharedLogBuffer = [...logsToWrite, ...sharedLogBuffer];
     } finally {
       isFlushingInProgress = false;
@@ -172,22 +193,21 @@ export class PaytradeLogger implements LoggerService {
 
   private scheduleFlush(): void {
     if (sharedFlushTimeout) return;
-    
+
     sharedFlushTimeout = setTimeout(async () => {
       sharedFlushTimeout = null;
-      await this.flushToObjectStorage();
+      await this.flushToR2();
     }, FLUSH_INTERVAL_MS);
   }
 
   private formatTimestamp(): string {
     const now = new Date();
-    // Use UTC for consistent timestamps across all users
     return now.toISOString();
   }
 
   private writeLog(level: string, message: string): void {
     const logLine = `[${this.formatTimestamp()}] [${this.context}] [${level}] ${message}`;
-    
+
     if (level === 'SUCCESS') {
       console.log(logLine);
     } else if (level === 'ERROR') {
@@ -198,8 +218,7 @@ export class PaytradeLogger implements LoggerService {
 
     fs.appendFileSync(this.logFilePath, logLine + '\n');
 
-    // Use shared client directly - don't rely on instance isProduction flag
-    if (sharedObjectStorageClient) {
+    if (sharedR2Client) {
       sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
@@ -220,8 +239,8 @@ export class PaytradeLogger implements LoggerService {
   debug?(message: string) {
     const logLine = `[${this.formatTimestamp()}] [${this.context}] [DEBUG] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
-    
-    if (sharedObjectStorageClient) {
+
+    if (sharedR2Client) {
       sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
@@ -230,8 +249,8 @@ export class PaytradeLogger implements LoggerService {
   verbose?(message: string) {
     const logLine = `[${this.formatTimestamp()}] [${this.context}] [VERBOSE] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
-    
-    if (sharedObjectStorageClient) {
+
+    if (sharedR2Client) {
       sharedLogBuffer.push(logLine);
       this.scheduleFlush();
     }
@@ -242,8 +261,7 @@ export class PaytradeLogger implements LoggerService {
       clearTimeout(sharedFlushTimeout);
       sharedFlushTimeout = null;
     }
-    // Reset the last flush attempt to allow immediate flush
     lastFlushAttempt = 0;
-    await this.flushToObjectStorage();
+    await this.flushToR2();
   }
 }

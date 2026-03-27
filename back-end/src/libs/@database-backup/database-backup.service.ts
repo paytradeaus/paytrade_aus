@@ -17,7 +17,7 @@ export class DatabaseBackupService {
 
   @Cron(CronExpression.EVERY_WEEK)
   async handleWeeklyBackup() {
-    if (process.env.NODE_ENV !== 'production' && process.env.REPLIT_DEPLOYMENT !== '1') {
+    if (process.env.NODE_ENV !== 'production') {
       this.logger.log('Skipping backup - not in production environment');
       return;
     }

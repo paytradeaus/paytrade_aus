@@ -224,8 +224,7 @@ import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module'
     }),
     BullModule.forRoot({
       connection:
-        // Use REPLIT_DEPLOYMENT to detect actual production deployment
-        process.env.REPLIT_DEPLOYMENT === '1' && process.env.REDIS_URL
+        process.env.NODE_ENV === 'production' && process.env.REDIS_URL
           ? {
               url: process.env.REDIS_URL,
               tls: process.env.REDIS_URL.startsWith('rediss://')

@@ -22,8 +22,8 @@ The application features a Next.js frontend and a NestJS backend communicating v
 - **Database**: PostgreSQL with TypeORM.
 - **Queue**: BullMQ with Redis for asynchronous jobs.
 - **Authentication**: JWT with Passport.
-- **File Storage**: Replit Object Storage for all application files, managed by `ObjectStorageService`. Files are served via a `DirectFileServeController`.
-- **Logging**: Custom `PaytradeLogger` writes to local files and Replit Object Storage.
+- **File Storage**: Cloudflare R2 (primary) with Replit Object Storage read-fallback for pre-migration files. Managed by `ObjectStorageService` using `@aws-sdk/client-s3`. R2 endpoint: `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, bucket configured via `R2_BUCKET_NAME`. Files served via `DirectFileServeController`. Migration script at `back-end/scripts/migrate-to-r2.ts` copies existing Replit files to R2.
+- **Logging**: Custom `PaytradeLogger` writes to local files and Cloudflare R2 (in production).
 - **PDF Generation**: Puppeteer generates PDFs, uploaded to Object Storage.
 - **Community Bot**: A cron-scheduled module uses OpenAI GPT-4o to generate Q&A content.
 - **Monitoring**: A `/health` endpoint checks database connectivity. `production-server.js` monitors both backend and frontend health, sending email alerts on failures. Auto-restart mechanisms (EIO Auto-Restart) are in place for critical errors.
@@ -36,7 +36,8 @@ The application features a Next.js frontend and a NestJS backend communicating v
 ## External Dependencies
 - **PostgreSQL**: Primary application database.
 - **Redis**: Used for BullMQ job queuing.
-- **Replit Object Storage**: Cloud storage for application files and logs.
+- **Cloudflare R2**: Primary cloud storage for application files and logs (S3-compatible). Replit Object Storage retained as read-fallback during migration.
+- **R2 Secrets**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (optional).
 - **OpenAI API**: Used for AI content generation and support.
 - **Puppeteer**: For PDF document generation.
 - **Stripe**: For payment processing.

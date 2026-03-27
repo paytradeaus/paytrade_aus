@@ -29,9 +29,7 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
   }
 
   onModuleInit() {
-    // Only run consumer in actual production deployment to avoid dev consuming production events
-    // REPLIT_DEPLOYMENT is automatically set to '1' when published
-    const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+    const isProduction = process.env.NODE_ENV === 'production';
     if (!isProduction) {
       this.logger.log('Xero webhook queue consumer disabled in development');
       return;

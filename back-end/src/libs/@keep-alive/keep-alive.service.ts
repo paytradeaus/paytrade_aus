@@ -9,7 +9,7 @@ export class KeepAliveService {
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async keepAlive() {
-    if (process.env.REPLIT_DEPLOYMENT !== '1') {
+    if (process.env.NODE_ENV !== 'production') {
       return;
     }
 
