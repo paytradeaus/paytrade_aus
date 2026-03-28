@@ -1,9 +1,8 @@
 #!/bin/bash
 export NODE_ENV=production
 
-RAILWAY_PORT=${PORT:-5000}
+FRONTEND_PORT=${PORT:-5000}
 BACKEND_PORT=3001
-FRONTEND_PORT=$RAILWAY_PORT
 
 echo "[$(date -u)] Starting PayTrade on Railway..."
 echo "  Frontend (public): port $FRONTEND_PORT"
