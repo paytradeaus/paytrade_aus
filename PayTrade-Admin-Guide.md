@@ -191,4 +191,62 @@ Admin accounts are stored separately in the `admin_details` table (not `user_det
 
 ---
 
+## Xero Integration — Technical Administration
+
+This section covers the technical configuration and processing details of the Xero integration. These settings are not exposed to end users and are managed by administrators or developers.
+
+### Webhook Processing
+
+When changes are made in Xero (new contacts, updated invoices, payments applied), Xero sends webhook events to PayTrade at the `/xero-webhook` endpoint.
+
+**Supported webhook event types:**
+- `CONTACT.CREATE` — New contact created in Xero
+- `CONTACT.UPDATE` — Existing contact modified in Xero
+- `INVOICE.CREATE` — New invoice or bill created in Xero
+- `INVOICE.UPDATE` — Existing invoice or bill modified (e.g., payment applied, status changed)
+
+**Processing pipeline:**
+1. Webhook events are validated using the `WEBHOOK_RELAY_SECRET` to verify they originate from Xero
+2. Valid events are pushed to a Redis queue (`xero_webhook_queue`)
+3. The `XeroWebhookQueueConsumer` polls the queue every 10 seconds and processes up to 10 events per batch
+4. For `INVOICE.UPDATE` events: if the company's `wait_time` setting is > 0, the event is routed to the BullMQ delayed queue (`xero-wait-queue`) instead of immediate processing. See "Processing Wait Time" below.
+5. The consumer authenticates as the company's primary admin to perform sync operations
+
+### Processing Wait Time (Technical Detail)
+
+The `wait_time` field on `XeroIntegrationDetails` (0–60 minutes) controls how long the system delays processing `INVOICE.UPDATE` webhook events. This exists because construction payment types often involve multiple sequential Xero operations (e.g., payment + credit note + bank transfer) that arrive as separate events.
+
+**Implementation:**
+- When `wait_time > 0` and the event is an `UPDATE` (not `CREATE`), the `XeroWaitQueueService` schedules a BullMQ job with a delay of `wait_time × 60 × 1000` milliseconds
+- The job has 5 retry attempts with a fixed 5-minute backoff between retries
+- `CREATE` events bypass the wait time entirely and are processed immediately
+- The daily cron (1:00 PM UTC via `XeroSchedulerService`) also bypasses the wait time — it reads the complete current state in a single pass
+
+**Configuration:** Users set this in Xero Settings → Other Settings → Processing Wait Time. The value is stored in `xero_integration_details.wait_time`.
+
+**Key source files:**
+| File | Responsibility |
+|---|---|
+| `back-end/src/api/common/xero-webhooks/webhook.service.ts` | Webhook event handling, wait time decision logic |
+| `back-end/src/api/common/xero-webhooks/waitQueue/webhookWait.service.ts` | BullMQ delayed job scheduling |
+| `back-end/src/api/common/xero-webhooks/waitQueue/webhookWait.worker.ts` | Delayed job worker (processes after wait time elapses) |
+| `back-end/src/api/common/xero-webhooks/webhook-queue-consumer.service.ts` | Redis queue consumer for immediate webhook processing |
+
+### Daily Cron Sync (Technical Detail)
+
+- Runs at 1:00 PM UTC via `XeroSchedulerService` using `@nestjs/schedule`
+- Iterates through all `XeroIntegrationDetails` records with `status = 'ACTIVE'`
+- Performs a full sequential refresh: bank accounts → contacts → projects → contracts → invoices/bills
+- Authenticates as each company's primary admin to perform operations
+- Does not use the processing wait time — reads complete state directly from Xero
+
+### Token Management
+
+- Access tokens expire after ~30 minutes
+- A BullMQ job (`xero-refresh-token`) runs every 23 hours to refresh tokens proactively
+- If a refresh token fails (e.g., user revoked access in Xero), the system returns `XERO_REFRESH` status, triggering re-authorisation on next user interaction
+- Tokens are stored in `XeroIntegrationDetails` entity, linked to the company
+
+---
+
 *Admin functions are managed by portal administrators. The admin panel is separate from the user-facing application and requires admin credentials to access.*

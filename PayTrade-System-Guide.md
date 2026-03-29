@@ -927,38 +927,60 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
 
 ### 19.9 Sync Logs and Error Resolution
 
-Every sync operation creates a log entry in `XeroSyncLogs` with:
-- Sync type (Contacts, Invoices, Bills, Payments, etc.)
-- Status (Succeeded or Failed)
-- Error code and message (if failed)
-- API payload sent/received
-- Snapshots of both PayTrade and Xero records for comparison
+Every sync operation is logged and visible from the **Xero Dashboard**. The Sync Log shows each sync attempt with its status (Succeeded or Failed), the type of record (Contact, Invoice, Bill, Payment), and a timestamp.
 
-#### Sync Log Details Page
+#### Viewing Sync Log Details
+
+Click any sync log entry to open the details page, which shows:
 - **Visual Comparison:** Side-by-side table comparing PayTrade fields vs. Xero fields
 - **Status Indicators:** Each field marked "Ok" (green) or "Failed" (red)
-- **Request/Response:** Shows the actual API payload and any error messages
+- **Error Message:** A plain-language description of what went wrong
 
-#### Error Resolution Flow
-When a sync fails, users click "Resolve" and the system determines the appropriate fix:
+#### Resolving Sync Failures
 
-1. **Automatic Resolution:**
-   - Missing entity in Xero → System creates it automatically
-   - Missing entity in PayTrade → System creates it automatically
-   - Then retries the sync
+When a sync fails, the Sync Log Details page shows a **"Resolve"** button. Clicking it will guide you through the appropriate fix — in most cases you do not need to know the technical details. The system determines the resolution type automatically:
 
-2. **Redirect Resolution:**
-   - Missing required fields → Redirects user to the edit page to fill in missing data
-   - Invalid account codes → Redirects to Xero Settings to fix configuration
+| What Failed | What You'll Be Asked To Do |
+|---|---|
+| **Unmapped contact** | Select the matching PayTrade client or supplier from a dropdown |
+| **Unmapped project** | Select the matching PayTrade project from a dropdown |
+| **Unmapped contract** | Select the matching PayTrade contract from a dropdown (only when smart resolution cannot determine it — see 19.5) |
+| **Unmapped bank account** | Select the matching PayTrade bank account from a dropdown |
+| **Missing or invalid account codes** | Redirected to Xero Settings to correct the chart of accounts configuration |
+| **Missing required fields** | Redirected to the relevant edit page to fill in the missing data |
+| **Overpayment details missing** | Prompted to provide the missing overpayment information |
 
-3. **Manual Mapping Resolution:**
-   - Unmapped entities (bank account, contact, project, contract) → Opens a searchable dropdown modal for the user to select the correct match
-   - After mapping, the sync is retried automatically
+After you complete the resolution step, the sync retries automatically.
 
-4. **Special Cases:**
-   - Overpayment errors → Prompts for missing overpayment fields
-   - Document requirements → Prompts user to upload mandatory documents
-   - Reason/description required → Opens a text area for user input
+#### Sync Types That Will Always Need More Information
+
+Some sync failures cannot be resolved automatically and will always require you to provide additional information:
+
+| Scenario | Why It Needs Your Input |
+|---|---|
+| **Multiple contracts for the same supplier and project** | PayTrade cannot determine which contract the claim belongs to — you need to select the correct one |
+| **New contact in Xero not yet in PayTrade** | The contact needs to be created or mapped in PayTrade before the invoice can sync |
+| **Account codes changed in Xero** | If your Xero chart of accounts has been modified, PayTrade's settings need updating to match |
+| **Overpayment or credit note without a linked original payment** | PayTrade needs to know which original payment the overpayment or credit note relates to |
+| **Invoice total exceeds contract value** | The claim amount is larger than the contract allows — review the contract value and any approved variations |
+
+#### What To Do If a Sync Keeps Failing
+
+1. **Check the Sync Log Details** — read the error message and follow the "Resolve" prompts
+2. **Verify your Xero Settings** — ensure account codes, tax codes, and tracking categories are correctly configured at Xero Settings → Chart of Accounts
+3. **Check entity mappings** — confirm that the relevant contacts, projects, and bank accounts are mapped on the Xero mapping pages
+4. **Wait for processing** — if a payment sync hasn't appeared yet, it may still be within the Processing Wait Time (see 19.7). Payment syncs involving part payments, pay less, or overpayments will wait for the configured delay before processing
+5. **Check the daily sync** — if a real-time sync failed, the daily sync (1:00 PM UTC) will attempt to process it again with a fresh read of the complete state from Xero
+6. **Re-trigger manually** — use the "Resolve" button on the Sync Log Details page to retry after making corrections
+
+#### When To Contact Support
+
+Contact PayTrade support if:
+- A sync failure persists after following the resolution steps above
+- The error message references an internal system error rather than a mapping or configuration issue
+- The same record fails repeatedly across multiple daily syncs
+- You see errors related to Xero authentication or token refresh (this may indicate the Xero connection needs to be re-authorised)
+- You believe the sync result is incorrect (e.g., a payment was classified as the wrong type)
 
 ---
 
