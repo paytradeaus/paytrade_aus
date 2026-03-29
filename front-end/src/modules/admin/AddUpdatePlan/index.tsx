@@ -198,6 +198,9 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
           formData: formValues,
           gridData: updateSelectedItems,
         });
+
+        // [Replit Update 2026-03-29] Re-validate after patching to clear stale errors from validateOnMount
+        setTimeout(() => formik.validateForm(), 0);
       } else {
         setWrongIdCheck(true);
       }
