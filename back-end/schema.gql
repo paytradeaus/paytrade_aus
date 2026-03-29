@@ -14664,6 +14664,12 @@ type Mutation {
     payload: SetContractValueToCheckContractEligibilityInput!
   ): SetContractValueToCheckContractEligibilityResponse!
 
+  """Set the user smart match toggle preference."""
+  setSmartMatchPreference(
+    """Whether smart match is enabled."""
+    enabled: Boolean!
+  ): QuickAdjustMatchResponse!
+
   """
   Silence compliance notifications and rules for a project to stop email alerts temporarily.
   """
@@ -17723,6 +17729,9 @@ type Query {
 
   """Fetches side menus available for the logged-in admin."""
   getSideMenusForAdmin: SideMenuResponse!
+
+  """Get the current user smart match toggle preference."""
+  getSmartMatchPreference: Boolean!
 
   """Get the next possible start date for an audit of a given bank account."""
   getStartAuditDate(

@@ -31,6 +31,8 @@ import {
   FetchBatchSuggestedMatches,
   BatchMatchExactTransactions,
   QuickAdjustAndMatch,
+  GetSmartMatchPreference,
+  SetSmartMatchPreference,
 } from "./BankAccountsOverview.function";
 import DynamicTable from "@/components/Table";
 import BaseModal from "@/components/BaseModal";
@@ -98,12 +100,7 @@ export default function Transactions() {
   const [sortValues, setSortValues] = useState<any>("");
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
 
-  const [smartMatchEnabled, setSmartMatchEnabled] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("pt_smart_match") === "true";
-    }
-    return false;
-  });
+  const [smartMatchEnabled, setSmartMatchEnabled] = useState(false);
   const [suggestedMatches, setSuggestedMatches] = useState<any>(null);
   const [matchesMap, setMatchesMap] = useState<Record<string, any>>({});
   const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
@@ -115,6 +112,10 @@ export default function Transactions() {
     if (queryParamsStatus == "Matched") {
       setTransactionTab(queryParamsStatus);
     }
+  }, []);
+
+  useEffect(() => {
+    GetSmartMatchPreference().then((val) => setSmartMatchEnabled(val));
   }, []);
 
   // Define actions dynamically
@@ -452,7 +453,7 @@ export default function Transactions() {
   function handleToggleSmartMatch() {
     const newVal = !smartMatchEnabled;
     setSmartMatchEnabled(newVal);
-    localStorage.setItem("pt_smart_match", String(newVal));
+    SetSmartMatchPreference(newVal);
     if (!newVal) {
       setExpandedTxnId(null);
       setSuggestedMatches(null);
@@ -534,31 +535,13 @@ export default function Transactions() {
     const match = matchesMap[txnId];
     if (!match) {
       return (
-        <span
-          style={{
-            display: "inline-block",
-            padding: "2px 8px",
-            fontSize: "11px",
-            fontWeight: 500,
-            color: "#9ca3af",
-          }}
-        >
-          —
-        </span>
+        <span className="smallbutton rivertext">—</span>
       );
     }
     if (match.match_quality === "exact") {
       return (
         <span
           className="valid smallbutton"
-          style={{
-            display: "inline-block",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
           onClick={(e) => {
             e.stopPropagation();
             setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
@@ -571,16 +554,7 @@ export default function Transactions() {
     if (match.match_quality === "near") {
       return (
         <span
-          style={{
-            display: "inline-block",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontWeight: 600,
-            backgroundColor: "#f5a623",
-            color: "#fff",
-            cursor: "pointer",
-          }}
+          className="contrast smallbutton"
           onClick={(e) => {
             e.stopPropagation();
             setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
@@ -591,18 +565,7 @@ export default function Transactions() {
       );
     }
     return (
-      <span
-        style={{
-          display: "inline-block",
-          padding: "2px 8px",
-          borderRadius: "4px",
-          fontSize: "11px",
-          fontWeight: 500,
-          color: "#9ca3af",
-        }}
-      >
-        —
-      </span>
+      <span className="smallbutton rivertext">—</span>
     );
   }
 
@@ -801,88 +764,45 @@ export default function Transactions() {
     const isLoading = actionLoading === row?.id;
 
     return (
-      <tr>
-        <td colSpan={10} style={{ padding: 0 }}>
-          <div
-            style={{
-              background: "#f8f9fc",
-              border: "1px solid #e2e6ed",
-              borderRadius: "6px",
-              margin: "4px 12px 8px",
-              padding: "16px 20px",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr auto",
-                gap: "12px",
-                alignItems: "center",
-              }}
-            >
+      <tr className="pt_expandtable">
+        <td colSpan={10} className="pt_records">
+          <div className="pt_expandtable">
+            <div className="pt_records">
               <div>
-                <div
-                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
-                >
-                  Payment Type
-                </div>
-                <div style={{ fontWeight: 500, fontSize: "13px" }}>
-                  {sp.payment_type || "—"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#6b7280",
-                    marginTop: 4,
-                  }}
-                >
+                <small className="rivertext">Payment Type</small>
+                <div>{sp.payment_type || "—"}</div>
+                <small className="rivertext">
                   {sp.client_supplier_name || ""}
-                </div>
+                </small>
               </div>
               <div>
-                <div
-                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
-                >
-                  Amount
-                </div>
-                <div style={{ fontWeight: 600, fontSize: "13px" }}>
+                <small className="rivertext">Amount</small>
+                <div>
                   $ {convertPositiveDecimalTwoDigit(Math.abs(sp.amount))}
                 </div>
                 {!isExact && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#f5a623",
-                      marginTop: 4,
-                    }}
-                  >
+                  <small className="contrast">
                     Difference: $
                     {Math.abs(match.difference_amount).toFixed(2)}
-                  </div>
+                  </small>
                 )}
               </div>
               <div>
-                <div
-                  style={{ fontSize: "11px", color: "#6b7280", marginBottom: 2 }}
-                >
-                  Details
-                </div>
-                <div style={{ fontSize: "12px" }}>
+                <small className="rivertext">Details</small>
+                <div>
                   {sp.project_name && (
                     <span>{sp.project_name}</span>
                   )}
                   {sp.contract_name && (
-                    <span style={{ marginLeft: 4 }}>
-                      / {sp.contract_name}
-                    </span>
+                    <span> / {sp.contract_name}</span>
                   )}
                 </div>
-                <div style={{ fontSize: "11px", color: "#6b7280" }}>
+                <small className="rivertext">
                   {sp.payment_from_account_name || ""} →{" "}
                   {sp.payment_to_account_name || ""}
-                </div>
+                </small>
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div>
                 {isExact ? (
                   <CustomButton
                     buttonType={buttonType.PRIMARY}

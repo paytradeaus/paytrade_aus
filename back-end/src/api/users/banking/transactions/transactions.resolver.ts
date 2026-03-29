@@ -1260,4 +1260,56 @@ export class TransactionsResolver {
       );
     }
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Query(() => Boolean, {
+    name: 'getSmartMatchPreference',
+    description: 'Get the current user smart match toggle preference.',
+  })
+  async getSmartMatchPreference(@Context() context): Promise<boolean> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded?.companyId || !decoded?.userId) {
+        return false;
+      }
+      return this.transactionsService.getSmartMatchPreference(
+        decoded.companyId,
+        decoded.userId,
+      );
+    } catch (error) {
+      this.logger.error(`Error fetching smart match preference: ${error.message}`);
+      return false;
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Mutation(() => QuickAdjustMatchResponse, {
+    name: 'setSmartMatchPreference',
+    description: 'Set the user smart match toggle preference.',
+  })
+  async setSmartMatchPreference(
+    @Context() context,
+    @Args('enabled', {
+      type: () => Boolean,
+      description: 'Whether smart match is enabled.',
+    })
+    enabled: boolean,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded?.companyId || !decoded?.userId) {
+        return framedResponse('ERROR', 'Company context is required.');
+      }
+      return this.transactionsService.setSmartMatchPreference(
+        decoded.companyId,
+        decoded.userId,
+        enabled,
+      );
+    } catch (error) {
+      this.logger.error(`Error setting smart match preference: ${error.message}`);
+      return framedResponse('ERROR', `Error setting smart match preference: ${error.message}`);
+    }
+  }
 }

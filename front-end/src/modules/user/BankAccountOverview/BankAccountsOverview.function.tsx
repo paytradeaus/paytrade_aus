@@ -811,6 +811,43 @@ async function QuickAdjustAndMatch(data: {
   }
 }
 
+async function GetSmartMatchPreference(): Promise<boolean> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetSmartMatchPreference {
+          getSmartMatchPreference
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    return response?.data?.getSmartMatchPreference === true;
+  } catch {
+    return false;
+  }
+}
+
+async function SetSmartMatchPreference(enabled: boolean): Promise<boolean> {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation SetSmartMatchPreference($enabled: Boolean!) {
+          setSmartMatchPreference(enabled: $enabled) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { enabled },
+    });
+    return (
+      response?.data?.setSmartMatchPreference?.status === ApiResponse.SUCCESS
+    );
+  } catch {
+    return false;
+  }
+}
+
 export {
   fetchBankAccountDetails,
   AdminlistAllFinancialInstitution,
@@ -829,4 +866,6 @@ export {
   FetchBatchSuggestedMatches,
   BatchMatchExactTransactions,
   QuickAdjustAndMatch,
+  GetSmartMatchPreference,
+  SetSmartMatchPreference,
 };

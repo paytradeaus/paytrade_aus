@@ -37,10 +37,12 @@ import { csvTemplateFileDetailsResponse } from './transactions.response';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
+import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { getStatusForUpdateInDB } from 'src/libs/@json/get-payment-status';
 import { PaymentClaimsService } from '../payment-claims/payment-claims.service';
 import { PaymentsService } from '../payments/payments.service';
 import { AddPaymentInput } from '../payments/payments.input';
+import { PaymentTypes } from 'src/libs/@paytrade-types/paytrade-types';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { UserDetails } from 'src/entities/user-details.entity';
@@ -2958,7 +2960,8 @@ export class TransactionsService {
       let exactCount = 0;
       let nearCount = 0;
       const EPSILON = 0.005;
-      const NEAR_MATCH_TOLERANCE = 5.00;
+      const parsedTolerance = parseFloat(process.env.SMART_MATCH_TOLERANCE || '5.00');
+      const NEAR_MATCH_TOLERANCE = isNaN(parsedTolerance) ? 5.00 : parsedTolerance;
       const consumedSubPaymentIds = new Set<number>();
 
       for (const txn of unmatchedTxns) {
@@ -3283,28 +3286,27 @@ export class TransactionsService {
           'Underpayment to supplier',
         ].includes(adjustmentType);
 
-        const adjustmentPaymentData = {
-          company_id: payment.company_id || txn.company_id,
-          payment_claim_id: payment.payment_claim_id,
-          project_id: payment.project_id,
-          contract_id: payment.contract_id,
-          client_supplier_id: payment.client_supplier_id,
-          payment_type: adjustmentType,
-          payment_from_account: payment.payment_from_account,
-          payment_to_account: payment.payment_to_account,
-          payment_amount: adjustmentAmount,
-          total_amount: adjustmentAmount,
-          associated_payment_id: payment.payment_id,
-          input_date: new Date(),
-          payment_date: new Date(),
-          cash_retention: false,
-          is_paid_confirmed: isPaidType ? true : null,
-          is_received_confirmed: isPaidType ? null : true,
-        };
+        const adjustmentPaymentData = new AddPaymentInput();
+        adjustmentPaymentData.company_id = parseInt(payment.company_id || txn.company_id);
+        adjustmentPaymentData.payment_claim_id = parseInt(payment.payment_claim_id);
+        adjustmentPaymentData.project_id = parseInt(payment.project_id);
+        adjustmentPaymentData.contract_id = payment.contract_id ? parseInt(payment.contract_id) : undefined;
+        adjustmentPaymentData.client_supplier_id = parseInt(payment.client_supplier_id);
+        adjustmentPaymentData.payment_type = adjustmentType as PaymentTypes;
+        adjustmentPaymentData.payment_from_account = parseInt(payment.payment_from_account);
+        adjustmentPaymentData.payment_to_account = parseInt(payment.payment_to_account);
+        adjustmentPaymentData.payment_amount = adjustmentAmount;
+        adjustmentPaymentData.total_amount = adjustmentAmount;
+        adjustmentPaymentData.associated_payment_id = parseInt(payment.payment_id);
+        adjustmentPaymentData.input_date = new Date();
+        adjustmentPaymentData.payment_date = new Date();
+        adjustmentPaymentData.cash_retention = false;
+        adjustmentPaymentData.is_paid_confirmed = isPaidType ? true : null;
+        adjustmentPaymentData.is_received_confirmed = isPaidType ? null : true;
 
         const addPaymentResult = await this.paymentsService.addPayment(
           decoded,
-          adjustmentPaymentData as unknown as AddPaymentInput,
+          adjustmentPaymentData,
           userID,
           em,
         );
@@ -3403,6 +3405,53 @@ export class TransactionsService {
       this.logger.error(
         `Errored while fetching all unmatched transactions of a company with message: ${error}`,
       );
+      throw error;
+    }
+  }
+
+  async getSmartMatchPreference(
+    companyId: number,
+    userId: number,
+  ): Promise<boolean> {
+    try {
+      const role = await this.entityManager
+        .createQueryBuilder(CompanyUserRoles, 'cur')
+        .select("cur.email_preferences::JSON as email_preferences")
+        .where('cur.company_id = :companyId', { companyId })
+        .andWhere('cur.user_id = :userId', { userId })
+        .getRawOne();
+
+      return role?.email_preferences?.smart_match === true;
+    } catch (error) {
+      this.logger.error(`Error fetching smart match preference: ${error.message}`);
+      return false;
+    }
+  }
+
+  async setSmartMatchPreference(
+    companyId: number,
+    userId: number,
+    enabled: boolean,
+  ): Promise<{ status: string; message: string }> {
+    try {
+      const role = await this.entityManager.findOne(CompanyUserRoles, {
+        where: { company_id: companyId, user_id: userId },
+      });
+
+      if (!role) {
+        throw new Error('User role not found for this company.');
+      }
+
+      const currentPrefs = role.email_preferences || {};
+      role.email_preferences = { ...currentPrefs, smart_match: enabled };
+      await this.entityManager.save(CompanyUserRoles, role);
+
+      return framedResponse(
+        'SUCCESS',
+        `Smart match preference ${enabled ? 'enabled' : 'disabled'}.`,
+      );
+    } catch (error) {
+      this.logger.error(`Error setting smart match preference: ${error.message}`);
       throw error;
     }
   }
