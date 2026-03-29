@@ -747,7 +747,7 @@ The Xero Dashboard provides a 6-step onboarding wizard for initial setup:
 2. **Bank Account Mapping** — Link Xero bank accounts to PayTrade trust/cash accounts
 3. **Contact Mapping** — Link Xero contacts to PayTrade clients/suppliers
 4. **Project Tracking Category Mapping** — Map a Xero tracking category to represent PayTrade projects
-5. **Contract Tracking Category Mapping** — Map a Xero tracking category to represent PayTrade contracts
+5. **Contract Tracking Category Mapping** *(optional)* — Map a Xero tracking category to represent PayTrade contracts. This step is optional — the system can auto-resolve contracts using smart matching (see 19.5).
 6. **Activate** — Set the integration to Active status
 
 The dashboard also displays sync statistics (Synced vs. Pending counts) for Bank Accounts, Contacts, Projects, Contracts, Bills, and Invoices, and a table of recent Sync Logs.
@@ -823,14 +823,27 @@ Each mapping module follows the same pattern with three tabs:
 
 #### Project and Contract Mapping
 - Uses Xero Tracking Category Options (not separate Xero entities)
-- Each PayTrade project/contract maps to a tracking category option in Xero
+- Each PayTrade project maps to a tracking category option in Xero — this is required
+- Contract mapping is **optional** — see section 19.5 for smart contract resolution
 - Tracking categories must be configured in Settings before mapping
 
-### 19.5 Invoice and Bill Synchronisation
+### 19.5 Smart Contract Resolution *(Updated 2026-03-29)*
+
+Contract tracking category mapping is optional. The system uses a smart resolution process to determine which contract a claim belongs to:
+
+1. **Tracking ID match:** If a contract tracking category is configured and the contract is mapped, it is used directly.
+2. **Single contract match:** If tracking doesn't resolve, the system checks how many active contracts exist for the same supplier and project. If there is exactly one, it is used automatically.
+3. **Amount match:** If multiple contracts exist, the system compares the claim/invoice total against each contract's adjusted value (initial contract sum + approved variations). If exactly one matches, it is used.
+4. **Ambiguity failure:** The sync only fails if none of the above resolve a unique contract. The user is prompted to map the contract via the Sync Log Details resolve workflow.
+
+**When is contract mapping required?**
+Only when a supplier has 2+ contracts under the same project AND the claim amount doesn't uniquely match one contract's value. This is an edge case.
+
+### 19.6 Invoice and Bill Synchronisation
 
 #### PayTrade → Xero Export
 1. **Eligibility:** Only payment claims with status "Draft" or "Confirmed" can be exported
-2. **Pre-checks:** System validates that the client/supplier, project, and contract are all mapped to Xero
+2. **Pre-checks:** System validates that the client/supplier and project are mapped to Xero (contract mapping is optional — see 19.5)
 3. **Account Validation:** Verifies required Xero account codes (revenue, liability, retention) and tax codes are configured
 4. **Payload Construction:**
    - Determines type: `ACCREC` (Receivable/Invoice) or `ACCPAY` (Payable/Bill)
@@ -843,7 +856,7 @@ Each mapping module follows the same pattern with three tabs:
 1. **Duplicate Check:** Ensures the Xero invoice isn't already mapped to a PayTrade claim
 2. **Validation:**
    - At least one line item required
-   - Valid tracking categories (Project/Contract) must be present
+   - Valid project tracking category must be present (contract tracking is optional — resolved via smart matching per 19.5)
    - Account codes and tax codes must match PayTrade configuration
    - Total amount cannot exceed the contract size
 3. **Retention Calculation:** Back-calculates original item prices and retention percentages from Xero's specialised line items
@@ -863,13 +876,13 @@ Each mapping module follows the same pattern with three tabs:
 | Project | Tracking Category | Uses project tracking category from settings |
 | Contract | Tracking Category | Uses contract tracking category from settings |
 
-### 19.6 Payment Synchronisation
+### 19.7 Payment Synchronisation
 
 - Payments applied to invoices/bills sync between systems
 - Supports overpayments and credit notes
 - Payment sync follows the same Draft/Approved preference as invoices/bills
 
-### 19.7 Automated Sync
+### 19.8 Automated Sync
 
 #### Daily Cron Job
 - Runs at **1:00 PM UTC daily** via `XeroSchedulerService`
@@ -882,7 +895,7 @@ Each mapping module follows the same pattern with three tabs:
 - Events are queued via Redis/BullMQ (`XeroWebhookQueueConsumer`) for reliable processing
 - Configurable wait time (0–60 minutes) delays processing to batch rapid changes
 
-### 19.8 Sync Logs and Error Resolution
+### 19.9 Sync Logs and Error Resolution
 
 Every sync operation creates a log entry in `XeroSyncLogs` with:
 - Sync type (Contacts, Invoices, Bills, Payments, etc.)

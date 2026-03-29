@@ -398,41 +398,9 @@ export class XeroInvoicesService {
         return false;
       }
 
-      if (!xeroDetails.contract_category_id) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'createInvoiceOrBillInXero',
-          api_payload: {
-            payment_claim_id: data.payment_claim_id,
-            category_type: 'contract',
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: claimDetails.claim_type == 'Billable' ? 300 : 302,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {
-            xeroId: null,
-            paytradeId: claimDetails?.id,
-          },
-          reference_id: claimDetails?.id,
-          history: [
-            `API triggered from claim ${claimDetails?.payment_claim_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Failed',
-          },
-          error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-          xero_records: [],
-          paytrade_records: [claimDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      }
+      // [Replit Update 2026-03-29] Contract tracking category is now optional.
+      // Sync proceeds without contract tracking if contract_category_id is not configured.
+      // Previously this was a hard block that caused unnecessary sync failures.
 
       let expectedCodeCheck = null;
 
@@ -591,7 +559,7 @@ export class XeroInvoicesService {
         return false;
       }
 
-      const xeroContractDetails = claimDetails.contract_id
+      let xeroContractDetails = claimDetails.contract_id
         ? await this.xeroContractDetails.findOne({
             where: {
               pt_contract_id: claimDetails.contract_id,
@@ -600,44 +568,17 @@ export class XeroInvoicesService {
           })
         : null;
 
+      // [Replit Update 2026-03-29] Contract mapping is now optional for export.
+      // If the specific contract is not mapped, the sync proceeds without contract tracking
+      // on the Xero line items. This prevents unnecessary sync failures when contract mapping
+      // is not configured. The contract is already known in PayTrade via claimDetails.contract_id;
+      // the only impact is that Xero line items won't carry the contract tracking category.
+      // The user can still map contracts later for richer Xero reporting.
       if (claimDetails.status !== 'Draft' && !xeroContractDetails) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'createInvoiceOrBillInXero',
-          api_payload: {
-            payment_claim_id: data.payment_claim_id,
-            contract_id: claimDetails.contract_id,
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: claimDetails.claim_type == 'Billable' ? 91 : 103,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {
-            xeroId: null,
-            paytradeId: claimDetails?.id,
-          },
-          reference_id: claimDetails?.id,
-          history: [
-            `API triggered from claim ${claimDetails?.payment_claim_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Failed',
-          },
-          error_message: `Contract details not mapped`,
-          xero_records: [],
-          paytrade_records: [claimDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
+        this.logger.log(
+          `[Replit Update 2026-03-29] Contract ${claimDetails.contract_id} not mapped to Xero for claim ${claimDetails.payment_claim_id}. ` +
+          `Proceeding without contract tracking category on Xero line items.`
+        );
       }
 
       const xeroProjectDetails = claimDetails.project_id
@@ -661,7 +602,7 @@ export class XeroInvoicesService {
           log_template_id: claimDetails.claim_type == 'Billable' ? 92 : 104,
           dynamic_values: {},
           project_id: null,
-          contract_id: xeroContractDetails.id,
+          contract_id: xeroContractDetails?.id,
           reference: {
             xeroId: null,
             paytradeId: claimDetails?.id,
@@ -711,7 +652,7 @@ export class XeroInvoicesService {
           log_template_id: claimDetails.claim_type == 'Billable' ? 93 : 105,
           dynamic_values: {},
           project_id: xeroProjectDetails.id,
-          contract_id: xeroContractDetails.id,
+          contract_id: xeroContractDetails?.id,
           reference: {
             xeroId: null,
             paytradeId: claimDetails?.id,
@@ -763,11 +704,13 @@ export class XeroInvoicesService {
           : {};
 
       const lineItemTrackings = [];
-      if (contractTracking) {
+      // [Replit Update 2026-03-29] Only push tracking entries with valid IDs to avoid
+      // sending empty objects to the Xero API which causes validation failures.
+      if (contractTracking?.trackingCategoryID && contractTracking?.trackingOptionID) {
         lineItemTrackings.push(contractTracking);
       }
 
-      if (projectTracking) {
+      if (projectTracking?.trackingCategoryID && projectTracking?.trackingOptionID) {
         lineItemTrackings.push(projectTracking);
       }
 
@@ -1013,7 +956,7 @@ export class XeroInvoicesService {
               log_template_id: claimDetails.claim_type === 'Billable' ? 50 : 63,
               dynamic_values: { id: xeroResponse?.id },
               project_id: xeroProjectDetails.id,
-              contract_id: xeroContractDetails.id,
+              contract_id: xeroContractDetails?.id,
               reference: {
                 xeroId: xeroResponse?.id,
                 paytradeId: claimDetails?.id,
@@ -1056,7 +999,7 @@ export class XeroInvoicesService {
               log_template_id: claimDetails.claim_type == 'Billable' ? 55 : 68,
               dynamic_values: {},
               project_id: xeroProjectDetails.id,
-              contract_id: xeroContractDetails.id,
+              contract_id: xeroContractDetails?.id,
               reference: {
                 xeroId: null,
                 paytradeId: claimDetails?.id,
@@ -1100,7 +1043,7 @@ export class XeroInvoicesService {
             log_template_id: claimDetails.claim_type == 'Billable' ? 55 : 68,
             dynamic_values: {},
             project_id: xeroProjectDetails.id,
-            contract_id: xeroContractDetails.id,
+            contract_id: xeroContractDetails?.id,
             reference: {
               xeroId: null,
               paytradeId: claimDetails?.id,
@@ -1310,39 +1253,11 @@ export class XeroInvoicesService {
       return false;
     }
 
-    if (!xeroDetails.contract_category_id) {
-      await this.xeroService.insertXeroSyncLogs(decoded, {
-        id: data?.sync_id,
-        api_name: 'createInvoiceOrBillInPaytrade',
-        api_payload: {
-          invoice_id: data.invoice_id,
-          category_type: 'contract',
-        },
-        integration_id: xeroDetails.integration_id,
-        log_template_id:
-          invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 316 : 317,
-        dynamic_values: {},
-        project_id: checkExistenceInDb?.project_id,
-        contract_id: checkExistenceInDb?.contract_id,
-        reference: {
-          xeroId: checkExistenceInDb?.id,
-          paytradeId: null,
-        },
-        reference_id: checkExistenceInDb?.id,
-        history: [`API triggered from claim ${invoice_id}`, 'Import failed'],
-        important_checks: {
-          'Import data format validation': 'Ok',
-          'Import tracking id validation': 'Failed',
-        },
-        error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-        xero_records: [invoiceDetails],
-        paytrade_records: [],
-        new_records: null,
-        updated_records: null,
-        synced_records: null,
-      });
-      return false;
-    }
+    // [Replit Update 2026-03-29] Contract tracking category is now optional for import.
+    // If contract_category_id is not configured, the import proceeds and attempts to
+    // resolve the contract using smart matching (single contract for supplier+project,
+    // or by matching claim amount against contract value + approved variations).
+    // Previously this was a hard block that caused unnecessary import failures.
 
     // Get new claim - project/contract mapping validation
     let contractTrackingId = null;
@@ -1744,6 +1659,8 @@ export class XeroInvoicesService {
     //   return false;
     // }
 
+    // [Replit Update 2026-03-29] Contract tracking ID lookup (non-blocking).
+    // Contract mapping is now optional — smart resolution happens after project is resolved.
     const xeroContractDetails = contractTrackingId
       ? await this.xeroContractDetails.findOne({
           where: {
@@ -1753,93 +1670,12 @@ export class XeroInvoicesService {
         })
       : null;
 
-    if (
-      invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
-      !xeroContractDetails
-    ) {
-      await this.xeroService.insertXeroSyncLogs(decoded, {
-        id: data?.sync_id,
-        api_name: 'createInvoiceOrBillInPaytrade',
-        api_payload: {
-          invoice_id: data.invoice_id,
-        },
-        integration_id: xeroDetails.integration_id,
-        log_template_id:
-          invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 145 : 146,
-        dynamic_values: {},
-        project_id: checkExistenceInDb?.project_id,
-        contract_id: checkExistenceInDb?.contract_id,
-        reference: {
-          xeroId: checkExistenceInDb?.id,
-          paytradeId: null,
-        },
-        reference_id: checkExistenceInDb?.id,
-        history: [`API triggered from claim ${invoice_id}`, 'Import failed'],
-        important_checks: {
-          'Import data format validation': 'Ok',
-          'Import tracking id validation': 'Ok',
-          'Import account type validation': 'Ok',
-          'Import tax type validation': 'Ok',
-          'Client/Supplier mapping validation': 'Ok',
-          'Contract mapping validation': 'Failed',
-        },
-        error_message: `Contract details not found`,
-        xero_records: [invoiceDetails],
-        paytrade_records: [],
-        new_records: null,
-        updated_records: null,
-        synced_records: null,
-      });
-      return false;
-    }
-
-    const contractDetails =
+    let contractDetails =
       xeroContractDetails && xeroContractDetails?.pt_contract_id
         ? await this.contractDetails.findOne({
             where: { contract_id: xeroContractDetails.pt_contract_id },
           })
         : null;
-
-    if (
-      invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
-      !contractDetails
-    ) {
-      await this.xeroService.insertXeroSyncLogs(decoded, {
-        id: data?.sync_id,
-        api_name: 'createInvoiceOrBillInPaytrade',
-        api_payload: {
-          invoice_id: data.invoice_id,
-          contract_id: contractTrackingId,
-        },
-        integration_id: xeroDetails.integration_id,
-        log_template_id:
-          invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 143 : 144,
-        dynamic_values: {},
-        project_id: checkExistenceInDb?.project_id,
-        contract_id: checkExistenceInDb?.contract_id,
-        reference: {
-          xeroId: checkExistenceInDb?.id,
-          paytradeId: null,
-        },
-        reference_id: checkExistenceInDb?.id,
-        history: [`API triggered from claim ${invoice_id}`, 'Import failed'],
-        important_checks: {
-          'Import data format validation': 'Ok',
-          'Import tracking id validation': 'Ok',
-          'Import account type validation': 'Ok',
-          'Import tax type validation': 'Ok',
-          'Client/Supplier mapping validation': 'Ok',
-          'Contract mapping validation': 'Failed',
-        },
-        error_message: `Contract details not mapped`,
-        xero_records: [invoiceDetails],
-        paytrade_records: [],
-        new_records: null,
-        updated_records: null,
-        synced_records: null,
-      });
-      return false;
-    }
 
     const xeroProjectDetails = projectTrackingId
       ? await this.xeroProjectDetails.findOne({
@@ -1941,9 +1777,105 @@ export class XeroInvoicesService {
       return false;
     }
 
+    // [Replit Update 2026-03-29] Smart contract resolution for import.
+    // If contract was not resolved via tracking ID, attempt automatic resolution:
+    // 1. Single contract for this supplier+project → use it.
+    // 2. Multiple contracts → match by claim amount vs contract value (initial sum + agreed variations).
+    // 3. Fail only if genuinely ambiguous.
     if (
       invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
-      clientSuppliersDetails.client_supplier_id !==
+      !contractDetails &&
+      xeroContactDetails?.pt_contact_id
+    ) {
+      this.logger.log(
+        `[Replit Update 2026-03-29] Contract not resolved via tracking for invoice ${invoice_id}. ` +
+        `Attempting smart contract resolution for supplier ${xeroContactDetails.pt_contact_id}.`
+      );
+
+      const candidateContracts = await this.contractDetails.find({
+        where: {
+          company_id: company_id,
+          client_supplier_id: xeroContactDetails.pt_contact_id,
+          ...(projectDetails?.project_id
+            ? { project_id: projectDetails.project_id }
+            : {}),
+          contract_status: In(['Draft', 'In Progress', 'Completed']),
+        },
+        relations: ['variationDetails'],
+      });
+
+      if (candidateContracts.length === 1) {
+        contractDetails = candidateContracts[0];
+        this.logger.log(
+          `[Replit Update 2026-03-29] Smart match: single contract found (contract_id: ${contractDetails.contract_id}). Auto-resolved.`
+        );
+      } else if (candidateContracts.length > 1) {
+        const claimTotal = Math.abs(Number(invoiceDetails.total || 0));
+        const amountMatches = candidateContracts.filter((contract) => {
+          const agreedVariations = (contract.variationDetails || [])
+            .filter((v) => v.variation_status === 'Agreed')
+            .reduce((sum, v) => sum + Number(v.variation_amount || 0), 0);
+          const contractTotal = Number(contract.initial_contract_sum || 0) + agreedVariations;
+          return Math.abs(contractTotal - claimTotal) <= 0.01;
+        });
+
+        if (amountMatches.length === 1) {
+          contractDetails = amountMatches[0];
+          this.logger.log(
+            `[Replit Update 2026-03-29] Smart match: amount-matched contract found ` +
+            `(contract_id: ${contractDetails.contract_id}, amount: ${claimTotal}). Auto-resolved.`
+          );
+        } else {
+          this.logger.log(
+            `[Replit Update 2026-03-29] Smart match failed: ${candidateContracts.length} contracts found, ` +
+            `${amountMatches.length} amount matches. Cannot auto-resolve.`
+          );
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id,
+            api_name: 'createInvoiceOrBillInPaytrade',
+            api_payload: {
+              invoice_id: data.invoice_id,
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id:
+              invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 145 : 146,
+            dynamic_values: {},
+            project_id: checkExistenceInDb?.project_id,
+            contract_id: checkExistenceInDb?.contract_id,
+            reference: {
+              xeroId: checkExistenceInDb?.id,
+              paytradeId: null,
+            },
+            reference_id: checkExistenceInDb?.id,
+            history: [`API triggered from claim ${invoice_id}`, 'Import failed'],
+            important_checks: {
+              'Import data format validation': 'Ok',
+              'Import tracking id validation': 'Ok',
+              'Import account type validation': 'Ok',
+              'Import tax type validation': 'Ok',
+              'Client/Supplier mapping validation': 'Ok',
+              'Contract mapping validation': 'Failed',
+            },
+            error_message: `Multiple contracts found for this supplier and project. Please map the contract in Xero tracking categories to resolve.`,
+            xero_records: [invoiceDetails],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          return false;
+        }
+      } else {
+        this.logger.log(
+          `[Replit Update 2026-03-29] No candidate contracts found for supplier ${xeroContactDetails.pt_contact_id}. Proceeding without contract.`
+        );
+      }
+    }
+
+    if (
+      invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
+      contractDetails &&
+      clientSuppliersDetails?.client_supplier_id !==
         contractDetails.client_supplier_id
     ) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -1985,7 +1917,8 @@ export class XeroInvoicesService {
 
     if (
       invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
-      projectDetails.project_id !== contractDetails.project_id
+      contractDetails &&
+      projectDetails?.project_id !== contractDetails.project_id
     ) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: data?.sync_id,
@@ -2384,6 +2317,7 @@ export class XeroInvoicesService {
     //Get new claim- Invoice type check - Validate against contract size OK
     if (
       invoiceDetails?.status !== Invoice.StatusEnum.DRAFT &&
+      contractDetails &&
       Number(invoiceDetails.total) >
         Number(contractDetails.initial_contract_sum)
     ) {
@@ -3589,7 +3523,7 @@ export class XeroInvoicesService {
           log_template_id: claimDetails.claim_type == 'Billable' ? 117 : 129,
           dynamic_values: {},
           project_id: null,
-          contract_id: xeroContractDetails.id,
+          contract_id: xeroContractDetails?.id,
           reference: {
             xeroId: null,
             paytradeId: claimDetails?.id,
@@ -3646,11 +3580,12 @@ export class XeroInvoicesService {
             : {};
 
         const lineItemTrackings = [];
-        if (contractTracking) {
+        // [Replit Update 2026-03-29] Only push tracking entries with valid IDs.
+        if (contractTracking?.trackingCategoryID && contractTracking?.trackingOptionID) {
           lineItemTrackings.push(contractTracking);
         }
 
-        if (projectTracking) {
+        if (projectTracking?.trackingCategoryID && projectTracking?.trackingOptionID) {
           lineItemTrackings.push(projectTracking);
         }
 
@@ -3890,7 +3825,7 @@ export class XeroInvoicesService {
                   claimDetails.claim_type == 'Billable' ? 53 : 66,
                 dynamic_values: { id: xeroResponse?.id },
                 project_id: xeroProjectDetails.id,
-                contract_id: xeroContractDetails.id,
+                contract_id: xeroContractDetails?.id,
                 reference: {
                   xeroId: xeroResponse?.id,
                   paytradeId: claimDetails?.id,
@@ -3933,7 +3868,7 @@ export class XeroInvoicesService {
                   claimDetails.claim_type == 'Billable' ? 306 : 307,
                 dynamic_values: {},
                 project_id: xeroProjectDetails.id,
-                contract_id: xeroContractDetails.id,
+                contract_id: xeroContractDetails?.id,
                 reference: {
                   xeroId: invoiceBillDetails?.id,
                   paytradeId: claimDetails?.id,
@@ -3976,7 +3911,7 @@ export class XeroInvoicesService {
               log_template_id: claimDetails.claim_type == 'Billable' ? 56 : 69,
               dynamic_values: {},
               project_id: xeroProjectDetails.id,
-              contract_id: xeroContractDetails.id,
+              contract_id: xeroContractDetails?.id,
               reference: {
                 xeroId: null,
                 paytradeId: claimDetails?.id,
@@ -4020,7 +3955,7 @@ export class XeroInvoicesService {
             log_template_id: claimDetails.claim_type == 'Billable' ? 304 : 305,
             dynamic_values: {},
             project_id: xeroProjectDetails.id,
-            contract_id: xeroContractDetails.id,
+            contract_id: xeroContractDetails?.id,
             reference: {
               xeroId: null,
               paytradeId: claimDetails?.id,

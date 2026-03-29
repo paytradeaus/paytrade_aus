@@ -485,38 +485,9 @@ export class XeroPaymentsService {
         return false;
       }
 
-      if (!xeroDetails.contract_category_id) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'createPaymentInXero',
-          api_payload: { ...data, category_type: 'contract' },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 329,
-          dynamic_values: {},
-          project_id: xeroInvoicesBills?.project_id,
-          contract_id: xeroInvoicesBills?.contract_id,
-          reference: {
-            xeroId: null,
-            paytradeId: paymentDetails?.id,
-          },
-          reference_id: paymentDetails?.id,
-          history: [
-            `API triggered from payment ${paymentDetails?.payment_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Failed',
-          },
-          error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-          xero_records: [],
-          paytrade_records: [paymentDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      }
+      // [Replit Update 2026-03-29] Contract tracking category is now optional for payment sync.
+      // Sync proceeds without contract tracking if contract_category_id is not configured.
+      // Previously this was a hard block that caused unnecessary sync failures.
 
       if (
         (xeroInvoicesBills.type === String(Invoice.TypeEnum.ACCPAY) &&
@@ -687,6 +658,9 @@ export class XeroPaymentsService {
         return false;
       }
 
+      // [Replit Update 2026-03-29] Contract mapping is now optional for payment export.
+      // If the contract is not mapped to Xero, the sync proceeds without contract tracking.
+      // Previously both xeroContractDetails and pt_contract_id were hard blocks.
       const xeroContractDetails = xeroInvoicesBills?.contract_id
         ? await this.xeroContractDetails.findOne({
             where: {
@@ -696,81 +670,11 @@ export class XeroPaymentsService {
           })
         : null;
 
-      if (!xeroContractDetails) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'createPaymentInXero',
-          api_payload: { ...data },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 188,
-          dynamic_values: {},
-          project_id: xeroInvoicesBills?.project_id,
-          contract_id: xeroInvoicesBills?.contract_id,
-          reference: {
-            xeroId: null,
-            paytradeId: paymentDetails?.id,
-          },
-          reference_id: paymentDetails?.id,
-          history: [
-            `API triggered from payment ${paymentDetails?.payment_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Failed',
-          },
-          error_message: `Contract details not found`,
-          xero_records: [],
-          paytrade_records: [paymentDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      }
-
-      if (!xeroContractDetails.pt_contract_id) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'createPaymentInXero',
-          api_payload: {
-            ...data,
-            mapping_contract_id: xeroInvoicesBills?.contract_id,
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 189,
-          dynamic_values: {},
-          project_id: xeroInvoicesBills?.project_id,
-          contract_id: xeroInvoicesBills?.contract_id,
-          reference: {
-            xeroId: null,
-            paytradeId: paymentDetails?.id,
-          },
-          reference_id: paymentDetails?.id,
-          history: [
-            `API triggered from payment ${paymentDetails?.payment_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Failed',
-          },
-          error_message: `Contract details not mapped`,
-          xero_records: [],
-          paytrade_records: [paymentDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
+      if (!xeroContractDetails || !xeroContractDetails.pt_contract_id) {
+        this.logger.log(
+          `[Replit Update 2026-03-29] Contract not mapped to Xero for payment ${payment_id}. ` +
+          `Proceeding without contract tracking category.`
+        );
       }
 
       const xeroProjectDetails = xeroInvoicesBills?.project_id

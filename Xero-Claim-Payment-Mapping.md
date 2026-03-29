@@ -235,36 +235,81 @@ All account codes are configured per company in the Xero Integration Settings (`
 
 ---
 
-## 6. Entity Mapping Reference
+## 6. Contract Mapping: Optional with Smart Resolution
+
+*Updated 2026-03-29*
+
+Contract mapping (linking PayTrade contracts to Xero Tracking Category options) is **optional**. The system no longer fails the sync simply because a contract tracking category or specific contract mapping is missing. This eliminates unnecessary sync failures for the common case where a supplier has only one contract per project.
+
+### 6.1 Export (PayTrade → Xero)
+
+When exporting a claim to Xero:
+
+- If the contract is mapped → the contract tracking category is included on each line item (as before).
+- If the contract is **not** mapped → the sync proceeds without the contract tracking category. The invoice/bill is created in Xero with only the project tracking category on line items.
+- The claim is still correctly linked to its PayTrade contract — the only impact is reduced granularity in Xero's tracking reports.
+
+### 6.2 Import (Xero → PayTrade) — Smart Contract Resolution
+
+When importing an invoice/bill from Xero, the system attempts to resolve the PayTrade contract in this order:
+
+1. **Tracking ID match** (existing behaviour): If the invoice carries a contract tracking category and the tracking option is mapped to a PayTrade contract, use it directly.
+
+2. **Single contract match** (new): If tracking doesn't resolve a contract, the system queries all active contracts for the same supplier and project. If only **one** contract exists, it is used automatically.
+
+3. **Amount match** (new): If multiple contracts exist for the same supplier and project, the system compares the invoice total against each contract's adjusted value (`initial_contract_sum + sum of approved variations`). If exactly **one** contract matches the amount (within $0.01), it is used automatically.
+
+4. **Fail on ambiguity**: The sync only fails if multiple contracts exist, none are uniquely identified by amount, and no tracking category is mapped. The sync log will show: *"Multiple contracts found for this supplier and project. Please map the contract in Xero tracking categories to resolve."*
+
+### 6.3 When Is Contract Mapping Still Required?
+
+Contract mapping is only strictly needed when **all** of the following are true:
+- The same supplier has **2 or more** contracts under the same project
+- The claim total does **not** uniquely match one contract's value (contract sum + approved variations)
+- The Xero invoice does not carry a contract tracking category
+
+This is an edge case. For most users, project mapping alone is sufficient.
+
+### 6.4 Sync Failure Resolution
+
+When a sync does fail due to contract ambiguity:
+- The failure is recorded in the **Sync Log** and visible on the Xero Dashboard
+- The Sync Log Details page shows a "Resolve" button that opens a mapping modal
+- The user can select the correct contract from a searchable dropdown
+- After mapping, the sync can be re-triggered
+
+---
+
+## 7. Entity Mapping Reference
 
 | PayTrade Entity | Xero Entity | Mapping Table | Key Fields |
 |---|---|---|---|
 | Bank Account (Cash/PTA/RTA) | Bank Account | `XeroBankAccountDetails` | `pt_bank_account_id` → `account_id` |
 | Contact (Client/Supplier) | Contact | `XeroContactDetails` | `pt_contact_id` → `contact_id` |
 | Project | Tracking Category Option | `XeroProjectDetails` | `pt_project_id` → `trackingOptionID` |
-| Contract | Tracking Category Option | `XeroContractDetails` | `pt_contract_id` → `trackingOptionID` |
+| Contract (optional) | Tracking Category Option | `XeroContractDetails` | `pt_contract_id` → `trackingOptionID` |
 
 ---
 
-## 7. Validation Checks (Import from Xero)
+## 8. Validation Checks (Import from Xero)
 
 When importing invoices or payments from Xero, the system runs these validation checks and logs the result:
 
 | Check | What It Validates |
 |---|---|
 | Import data format validation | Line item structure matches expected patterns (e.g., retention must have 2 lines) |
-| Import tracking id validation | Project and contract tracking categories are present and mapped |
+| Import tracking id validation | Project tracking category is present and mapped |
 | Import account type validation | All line item account codes match configured codes |
 | Import tax type validation | Tax types are valid for the claim direction |
 | Client/Supplier mapping validation | Xero contact is mapped to a PayTrade contact |
-| Contract mapping validation | Tracking option maps to a PayTrade contract |
+| Contract mapping validation | Contract resolved via tracking, single-contract match, or amount match (optional — only fails on genuine ambiguity) |
 | Project mapping validation | Tracking option maps to a PayTrade project |
 
-If any check fails, the import is rejected and a detailed sync log is created with the specific failure reason.
+If any check fails, the import is rejected and a detailed sync log is created with the specific failure reason. Contract mapping failures only occur when multiple contracts exist for the same supplier and project and cannot be disambiguated by amount.
 
 ---
 
-## 8. GST Handling
+## 9. GST Handling
 
 | Setting | Behaviour |
 |---|---|
@@ -273,7 +318,7 @@ If any check fails, the import is rejected and a detailed sync log is created wi
 
 ---
 
-## 9. Internal Journal Entries (Trust Accounts)
+## 10. Internal Journal Entries (Trust Accounts)
 
 When a claim is confirmed and the contract is linked to a trust account, PayTrade also creates internal journal entries:
 
