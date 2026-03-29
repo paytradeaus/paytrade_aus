@@ -1,0 +1,105 @@
+## Syncing Invoices and Bills with Xero
+
+Export payment claims from PayTrade to Xero, or import invoices and bills from Xero into PayTrade. This guide covers both directions.
+
+## Before You Begin
+
+Before syncing invoices or bills, make sure:
+
+- Your Xero integration is Active
+- Account codes (invoice code, bill code, retention codes) are configured in "Xero Account Mapping and Settings"
+- Tax rates are set for invoices and bills
+- The relevant contact, project, and contract are all mapped (see "Mapping Bank Accounts, Contacts, Projects and Contracts in Xero")
+Important: The system validates all mappings before syncing. If any contact, project, contract, or account code is missing, the sync will fail with a specific error in the Sync Log.
+
+## PayTrade to Xero (Exporting Claims)
+
+PayTrade payment claims are exported to Xero as either Invoices (receivable claims) or Bills (billable claims).
+
+## How to Export
+
+1Create a Payment Claim
+Create or confirm a payment claim in PayTrade. Only claims with status "Draft" or "Confirmed" can be exported.
+
+2Navigate to Xero Invoices or Bills
+On the Xero Dashboard, click "View all" next to Invoices or Bills.
+
+3Go to the PayTrade Tab
+Click the "PayTrade Invoices" or "PayTrade Bills" tab to see claims ready for export.
+
+4Click Sync to Xero
+Select the claim and click "Sync to Xero". The system validates all mappings and creates the item in Xero.
+
+5Verify on Mapped Tab
+The synced item appears on the "Mapped" tab with links to both the PayTrade claim and the Xero record.
+
+## What Gets Synced
+
+ | PayTrade Field  | Xero Field  | Notes
+ | Payment Claim ID  | Reference  | Prefixed with "Claim" or "Retention claim"
+ | Claim Type  | Type  | Billable = ACCPAY (Bill), Receivable = ACCREC (Invoice)
+ | Dates  | Date / Due Date  | Direction-dependent
+ | Total (incl. GST)  | Unit Amount  | Adjusted by retention if applicable
+ | Description  | Description  | Line item description
+ | Project  | Tracking Category  | Uses project tracking category
+ | Contract  | Tracking Category  | Uses contract tracking category
+
+## Retention Handling on Export
+
+When a claim includes retention, the system automatically splits the amount across multiple line items using the dedicated retention account codes configured in Settings. The main line item uses the invoice/bill code, and retention amounts use the retention payable/receivable codes.
+
+## Xero to PayTrade (Importing Invoices/Bills)
+
+## How to Import
+
+1Create in Xero
+Create an invoice or bill in Xero. Make sure it includes the correct tracking categories for both Project and Contract.
+
+2Navigate to Xero Invoices or Bills
+On the Xero Dashboard, click "View all" next to Invoices or Bills.
+
+3Go to the Xero Tab
+Click the "Xero Invoices" or "Xero Bills" tab to see items available for import.
+
+4Click Sync to PayTrade
+Select the item and click "Sync to PayTrade".
+
+5Verify in PayTrade
+The system creates a payment claim in PayTrade. Check the Claims list to see the imported claim.
+
+## Import Validation
+
+The system performs several checks before importing:
+
+- At least one line item is required
+- Valid tracking categories (Project and Contract) must be present on the invoice
+- Account codes and tax codes must match your PayTrade configuration
+- The total amount cannot exceed the contract size
+- The invoice must not already be mapped to an existing PayTrade claim
+
+If retention line items are present, the system back-calculates the original item prices and retention percentages automatically.
+
+## Using Auto Map for Bulk Mapping
+
+On the Mapped tab, click the "Auto Map" button to automatically match all unmapped invoices/bills by reference number. This is useful when you have many items to map at once.
+
+## Unmap an Invoice or Bill
+
+If an invoice or bill was incorrectly mapped:
+
+1Go to the Mapped Tab
+Navigate to Xero Invoices or Bills and click the Mapped tab.
+
+2Click Unmap
+Find the incorrect mapping and click "Unmap". The items return to their respective PayTrade or Xero tabs.
+
+## Common Sync Errors
+
+ | Error  | Cause  | Fix
+ | Contact mismatch  | Invoice contact does not match mapped contact for the contract  | Update the contact mapping or fix the invoice in Xero
+ | Project mismatch  | Invoice tracking category does not match mapped project  | Update the project mapping or fix the tracking category on the invoice
+ | Contract mismatch  | Invoice contract tracking does not match mapped contract  | Update the contract mapping or fix the tracking category
+ | Account code mismatch  | Invoice uses a different account code than configured  | Update the account code in Xero Settings or fix the invoice
+ | Tax code mismatch  | Invoice uses a different tax rate than configured  | Update the tax code in Xero Settings or fix the invoice
+ | S75 pending payment  | A bill has a pending payment and an invoice is created  | Fill in the reason for the pending payment in the error log
+Tip: For detailed error resolution steps, see "Understanding Xero Sync Logs and Error Resolution".

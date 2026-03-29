@@ -1,0 +1,113 @@
+## Mapping Bank Accounts, Contacts, Projects and Contracts in Xero
+
+Link your Xero entities to their PayTrade counterparts. This is required before any invoice, bill, or payment can sync.
+
+## How Entity Mapping Works
+
+Each mapping screen follows the same three-tab pattern:
+
+- Mapped Tab: Shows successfully linked entity pairs. Use "Auto Map" to automatically match by name, or "Unmap" to break a link.
+
+- PayTrade Tab: Shows PayTrade entities that are not yet mapped. You can "Manual Map" to link to an existing Xero entity, or "Sync to Xero" to create the entity in Xero automatically.
+
+- Xero Tab: Shows Xero entities not yet mapped. You can "Manual Map" to link to an existing PayTrade entity, or "Sync to PayTrade" to create the entity in PayTrade automatically.
+
+Each tab includes a search field to quickly find specific entities.
+
+## Bank Account Mapping
+
+Navigate to Xero Bank Accounts on the Xero Dashboard.
+
+1Review Your Xero Bank Accounts
+The Xero tab lists all bank accounts from your Xero organisation.
+
+2Map to PayTrade Accounts
+For each Xero bank account, click "Manual Map" and select the corresponding PayTrade account — this can be a Cash Account, Project Trust Account (PTA), or Retention Trust Account (RTA).
+
+3Or Use Auto Map
+Click "Auto Map" on the Mapped tab to automatically match accounts by name.
+
+4Or Sync New Accounts
+If a Xero bank account has no PayTrade counterpart, click "Sync to PayTrade" to create one. If a PayTrade account has no Xero counterpart, click "Sync to Xero" to create one.
+
+Important: Bank account mapping is critical for invoice and bill sync. The correct trust account must be linked before claims involving that account can sync.
+
+## Contact Mapping
+
+Navigate to Xero Contacts on the Xero Dashboard.
+
+1Review Contacts
+The Xero tab shows all contacts from Xero. The PayTrade tab shows all clients and suppliers from PayTrade.
+
+2Map Contacts
+For each contact, click "Manual Map" and select the matching client or supplier. Or use "Auto Map" to match by name.
+
+3Import from Xero
+Click "Sync to PayTrade" to create a new PayTrade client/supplier from a Xero contact.
+
+4Export to Xero
+Click "Sync to Xero" to create a new Xero contact from a PayTrade client/supplier.
+
+Important: Contacts must be mapped before any invoice or bill referencing them can sync. If you see a sync error about a missing contact, check this mapping first.
+
+## Project Mapping
+
+Navigate to Xero Projects on the Xero Dashboard.
+
+Note: Unlike bank accounts and contacts, projects map to tracking category options in Xero — not separate Xero entities. You must have a Project Tracking Category configured in Xero Settings first.
+1Review Project Options
+The Xero tab shows tracking category options from your configured Project Tracking Category.
+
+2Map Projects
+Link each Xero tracking category option to the corresponding PayTrade project.
+
+3Create New Options
+If a PayTrade project has no Xero counterpart, click "Sync to Xero" to create a new tracking category option.
+
+## Contract Mapping
+
+Navigate to Xero Contracts on the Xero Dashboard. The process is identical to Project Mapping but uses the Contract Tracking Category.
+
+1Review Contract Options
+The Xero tab shows tracking category options from your configured Contract Tracking Category.
+
+2Map Contracts
+Link each Xero tracking category option to the corresponding PayTrade contract.
+
+3Create New Options
+Use "Sync to Xero" or "Sync to PayTrade" as needed.
+
+## The Onboarding Wizard
+
+The Xero Dashboard presents these mappings as a 6-step onboarding wizard:
+
+- Settings/Mapping — Chart of accounts, tax rates, tracking categories
+
+- Bank Account Mapping
+
+- Contact Mapping
+
+- Project Tracking Category Mapping
+
+- Contract Tracking Category Mapping
+
+- Activate — Set the integration to Active status
+
+Complete all six steps to activate your integration. You can return to any step later to update mappings.
+
+## Handling Unmapped Entities
+
+When the daily scheduler runs and finds new entities in Xero that aren't mapped:
+
+ | New Entity In Xero  | What Happens
+
+ | New Project  | Error log created. Click Resolve to navigate to the Project screen to create or map.
+
+ | New Bank Account  | Error log created. Click Resolve to navigate to the Bank Account screen.
+
+ | New Contact  | Error log created. Click Resolve to navigate to the Client/Supplier screen.
+
+ | New Contract  | Error log created. Click Resolve to navigate to the Contract screen.
+
+Tip: Check your Sync Log regularly after adding new projects, contracts, or contacts in Xero to ensure they are mapped promptly.
+Note: Once all entities are mapped and the integration is activated, proceed to "Syncing Invoices and Bills with Xero" to start syncing data.

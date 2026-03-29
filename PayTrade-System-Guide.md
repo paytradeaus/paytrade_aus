@@ -1255,9 +1255,54 @@ After payments are made through the bank, the transactions must be reconciled:
 3. Upload the CSV — the system parses and imports each transaction row
 4. Navigate to **Match Transactions** (`/user/bank-accounts/match-transactions/[id]`)
 5. The system presents unmatched bank transactions alongside unmatched claims/payments
-6. Match each bank transaction to its corresponding claim payment to confirm reconciliation
-7. Matched transactions update the trust account ledger and compliance status
-8. If a match was made in error, use **Unmatch Transactions** (`/user/bank-accounts/unmatch-transactions/[id]`) to reverse it
+
+##### Manual Matching
+6. Click a bank transaction and the corresponding claim/payment to match them together
+7. Click **"Match"** to confirm — the matched pair is removed from the unmatched list
+8. Matched transactions update the trust account ledger and compliance status
+9. If a match was made in error, use **Unmatch Transactions** (`/user/bank-accounts/unmatch-transactions/[id]`) to reverse it
+
+##### Smart Match (Automated Suggestions)
+Smart Match analyses all unmatched transactions and automatically suggests the best payment matches, saving significant time compared to manual matching.
+
+**Enabling Smart Match:**
+- Toggle **"Smart Match"** on the Match Transactions page (setting is saved per-browser via localStorage key `pt_smart_match`)
+- When enabled, the system calls `fetchBatchSuggestedMatches` to analyse all unmatched transactions at once
+
+**Match Quality Indicators:**
+Each transaction row displays a colour-coded quality badge:
+- **Green (Exact Match):** The bank transaction amount exactly matches the payment amount — safe to match with one click
+- **Amber (Near Match):** The amounts are close but not identical (e.g., bank shows $10,450 but the payment was $10,500) — requires review before matching
+- **No badge:** No suitable match was found — use manual matching
+
+**Expandable Transaction Rows:**
+- Click on any transaction row with a match suggestion to expand it
+- The expanded section shows the matched payment details: claim reference, amount, date, and the variance (if any)
+
+**One-Click Exact Match:**
+- For transactions with a green "Exact" badge, click **"Match"** to instantly match the transaction to the suggested payment
+- No further confirmation needed — the match is applied immediately
+
+**Match All Exact (Batch):**
+- Click the **"Match All Exact"** button to match every transaction with an exact match suggestion in a single action
+- The system calls `batchMatchExactTransactions` to process all exact matches atomically
+- A summary shows how many transactions were matched
+
+**Quick Adjust & Match (Near Matches):**
+When a near match is found (amber badge), the bank amount and payment amount differ slightly:
+1. Expand the transaction row to see the suggested match and the variance
+2. Click **"Adjust & Match"**
+3. The system calls `quickAdjustAndMatch`, which:
+   - Automatically creates an adjustment payment (over-payment or under-payment) to bridge the difference
+   - Matches the bank transaction to both the original payment and the adjustment
+   - Runs as a single atomic transaction — if any part fails, everything rolls back
+4. The adjustment payment appears in the Payments List with a note explaining the variance
+
+**Technical Details:**
+- `fetchBatchSuggestedMatches`: GraphQL query that returns suggested matches for all unmatched transactions in one call
+- `batchMatchExactTransactions`: GraphQL mutation that processes multiple exact matches atomically
+- `quickAdjustAndMatch`: GraphQL mutation that creates adjustment payments and matches in a single database transaction
+- All mutations use `externalManager` parameter for transactional atomicity — side effects (emails, notices, compliance updates) are deferred until the transaction commits
 
 ### Phase 6: Trust Account Administration
 1. Records trust account deposits at `/user/trust-accounting/deposits`

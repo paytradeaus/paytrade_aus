@@ -1,0 +1,94 @@
+## Understanding Xero Sync Logs and Error Resolution
+
+How to read sync logs, identify issues, and resolve errors to keep your Xero integration running smoothly.
+
+## Where to Find Sync Logs
+
+1Open the Xero Dashboard
+Navigate to Integrations and click on your Xero connection.
+
+2Scroll to Sync Logs
+At the bottom of the dashboard, you will see the Sync Log table showing all recent sync events.
+
+The dashboard also shows summary counts: Synced (successful), Warning (needs attention), and Issues (failed).
+
+## Understanding the Sync Log Table
+
+ | Column  | What It Shows
+ | Date/Time  | When the sync event occurred
+ | Type  | What was synced: Contacts, Invoices, Bills, Payments, Bank Accounts, Projects, Contracts
+ | Reference  | A unique ID for this sync event (UUID from database)
+ | Status  | Succeeded (green), Warning (amber), or Failed (red)
+ | Actions  | View details, Resolve (for failed entries)
+
+The table supports pagination (10 records per page by default, changeable via dropdown) and sorting.
+
+Use the "Refresh" button to reload the latest logs.
+
+## Viewing Sync Log Details
+
+Click the view icon on any log entry to see the full details:
+
+## Succeeded Logs
+
+- Visual Comparison: Side-by-side table comparing PayTrade fields vs. Xero fields
+- Status Indicators: Each field is marked "Ok" (green) confirming the data matches
+- Request/Response: The actual API payload sent to/from Xero
+
+## Failed Logs
+
+- Error Code: A specific code identifying the type of failure
+- Error Message: A description of what went wrong
+- Visual Comparison: Side-by-side table with fields marked "Ok" (green) or "Failed" (red)
+- Resolve Button: Guides you to fix the specific issue
+
+## Resolving Errors
+
+When you click Resolve on a failed log entry, the system determines the best fix:
+
+## Automatic Resolution
+
+For some errors, the system can fix the issue automatically:
+
+- Missing entity in Xero: The system creates it automatically, then retries the sync.
+- Missing entity in PayTrade: The system creates it automatically, then retries the sync.
+
+## Redirect Resolution
+
+For errors requiring your input, the system redirects you to the appropriate screen:
+
+ | Error Type  | Where Resolve Takes You  | What To Do
+ | Missing required fields  | Edit page for the entity  | Fill in the missing data and save
+ | Invalid account codes  | Xero Settings page  | Update the account code mapping
+ | Contact mismatch  | Contact Mapping page  | Update or create the correct mapping
+ | Withholding reason missing  | Payment screen  | Enter the reason for withholding
+ | Payment edited/deleted in Xero  | Payment screen or Unmatch screen  | Unconfirm and update/delete the payment
+ | Overpayment detected  | Map Claim/Payment screen  | Map the overpayment to the correct claim
+ | New entity from Xero scheduler  | Entity creation screen (Project, Bank Account, Contact, or Contract)  | Create or map the new entity
+
+Once the issue is fixed, the failed status changes to succeeded.
+
+## Scheduler Errors
+
+The daily scheduler (runs at 1:00 PM UTC) can also generate error logs when it discovers new entities in Xero that need mapping:
+
+- New Project in Xero: Resolve navigates to the Project screen to create or map.
+- New Bank Account in Xero: Resolve navigates to the Bank Account screen.
+- New Contact in Xero: Resolve navigates to the Client/Supplier screen.
+- New Contract in Xero: Resolve navigates to the Contract screen.
+
+## Webhook Errors
+
+Real-time webhook events (Contact and Invoice create/update) can also generate error logs:
+
+- Contact/Project/Contract mismatch: The invoice references entities that do not match the expected mappings. Fix the mappings or correct the invoice in Xero.
+- Account code or tax code mismatch: The invoice uses different codes than configured. Update Settings or fix the invoice in Xero.
+
+## Best Practices
+
+- Check the Sync Log at least once daily, especially after the 1:00 PM UTC scheduler runs.
+- Resolve failed entries promptly — they may block other syncs from completing.
+- When adding new projects, contracts, or contacts in Xero, map them in PayTrade promptly to avoid scheduler errors.
+- Use the "Refresh" button to see the latest state after resolving an issue.
+- If you see many of the same error type, check your Xero Settings for a misconfigured account code or tax rate.
+Tip: The Issues count on the dashboard is a quick health check. If it reads 0, all recent syncs have succeeded.

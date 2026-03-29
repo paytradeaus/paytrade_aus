@@ -1,0 +1,1572 @@
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Pay Trade – Australia
+Web Application
+
+XERO Specification Document
+Version: 1.0
+
+Copyright © 2024 CubeMatch Technologies Pvt. Ltd.
+This document is confidential and should not be shared with any third party without the written authorization of CubeMatch
+Technologies Pvt. Ltd. Any product / service names used in this document may be trademarks or service marks of their
+respective organizations.
+
+1|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Table of Contents
+1
+
+Overview ............................................................................................................................................................. 3
+
+2
+
+Integration .......................................................................................................................................................... 3
+
+3
+
+Xero ..................................................................................................................................................................... 4
+
+3.1
+
+Dashboard....................................................................................................................................................................... 13
+
+3.2
+
+Bank Accounts ................................................................................................................................................................ 14
+
+3.3
+
+Contacts .......................................................................................................................................................................... 17
+
+3.4
+
+Contract........................................................................................................................................................................... 19
+
+3.5
+
+Projects ........................................................................................................................................................................... 21
+
+3.6
+
+Invoices ........................................................................................................................................................................... 23
+
+3.7
+
+Bills.................................................................................................................................................................................. 26
+
+3.8
+
+Payments ........................................................................................................................................................................ 28
+4
+
+4.1
+
+Sync Log ........................................................................................................................................................... 33
+
+GUI .................................................................................................................................................................................. 33
+5
+
+Schedulers........................................................................................................................................................ 35
+
+6
+
+Webhook ........................................................................................................................................................... 35
+
+2|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+1
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Overview
+Pay Trade allows integration with Xero application to sync the invoices and bills from Xero to Pay Trade and vice
+versa.This integration makes the process easier upon the user who wants to use Xero for payments and Pay Trade for
+the trust accounting purposes. We generate journals and audit related documents from the data receiving during this
+sync.
+Xero flow cycle
+
+2
+
+Integration
+1.
+2.
+
+Only the Premium user can map the Xero account with the Paytrade account.
+If the Unsubscribed user tried to map the Xero account with the Paytrade account, upgrade subscription message
+displays as shown in the below GUI.
+
+3.
+4.
+
+Integration screen can be launched from the side menu ‘Integration’
+The Integration screen UI is as mentioned in the below GUI.
+
+3|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+5.
+
+3
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+On clicking the ‘Add Integration’ button it opens the ‘Select Integration’ popup screen with two options Xero and Adatree.
+
+Xero
+1.
+
+On selecting the ‘Xero’ option, the popup screen opens with a dropdown to select the ‘Xero Business account’ to access.
+
+4|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+2.
+3.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+After selecting the Business and clicking ‘Continue’ button navigates to the ‘mapping’ screen. As shown in below GUI.
+If no new organization is available, ‘Continue with 7 organisations’ can be clicked. The ‘Xero Authentication Failed’
+message gets displayed.
+
+5|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+4.
+
+Also under the list grid a record gets added. Under Integration column data ‘Xero’.The status gets changed as per the
+function perform by the user.
+
+5.
+6.
+
+Connected - Active
+Connected – Pending settings/mapping: This is where there is a live connection, but the mapping and
+setting process hasn’t been carried out.
+Connected – Paused: This is where the user has manually changed the status to pause, which has paused
+bringing in new data and submitted data. The event continue, but are show with pause status and will require
+being manually triggered by the user.
+
+7.
+
+6|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+8.
+9.
+10.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Inactive: Where a connection hasn’t been possible
+Disconnected: Where the user or provider has disconnected the connection.
+Deleted – Archived: Where the user choose to archive
+
+11. On clicking the ‘Map’ button under Connected – pending setting/mapping section it opens the popup screen with a
+message ‘We couldn't find any tracking category for a project or a contract in your Xero account. Do you want us to create
+one now?’ as shown in the below GUI.
+12. On Clicking ‘Yes. Create’ button it will navigate to the Setting screen.
+
+13. Where in the Setting screen, Under ‘Map Xero Tracking Category’ by default the Project and Contract value gets created.
+14. Under tracking categories in xero if the project and contracts are available those data will also get listed.
+
+15. The settings screen has separate sections such as Xero Access, Paytrade > xero syncing, xero syncing > Paytrade, Xero
+account code, Map xero tracking category and Webhook Schedule Settings.
+
+7|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+1.
+2.
+3.
+4.
+5.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+A. Xero Access
+This section contains the status of the account as Active/Inactive.
+The Xero Account contains the name of the Xero Business which is mapped.
+‘Disconnect’ button stops to sync the ‘Xero’ account data to paytrade.
+‘Pause’ button, pause the ‘Webhook’ functions.
+The account gets deleted when the ‘Delete’ button is clicked.
+
+8|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+B. Paytrade > xero syncing
+1. The field ‘Sync invoice as draft?’ has a data ‘Yes/No’ if selected as ‘Yes’ the invoice from xero will save as draft in
+the paytrade.
+2. Sync bill as draft? Field will also has a data ‘Yes/No’ If ‘Yes’ the Approved bill will also save as ‘Draft’ in the Claim
+screen.
+3. Sync payments as draft?* field has a default data as ‘No’.
+C. Xero syncing > Paytrade
+1. The field ‘Sync invoice as draft?’ has a data ‘Yes/No’ if selected as ‘Yes’ the invoice from paytrade will save as
+draft in the Xero.
+2. Sync bill as draft? Field will also has a data ‘Yes/No’ If ‘Yes’ the Approved bill will also save as ‘Draft’ in the Claim
+screen.
+3. Sync payments as draft?* field has a ‘Yes/No’. If yes the payment under Xero will save as ‘draft’ else ‘No’ will save
+as Completed state.
+4. Xero > Pay Trade system works on the basis of Receive Web Hook or scheduled check or unscheduled check
+prompted by transaction activity.
+D. Xero account code
+1. The section contains the list of field with the dropdown data ‘In PayTrade, each field in the dropdown is mapped to
+the corresponding field in Xero, and the sync process takes place based on the selected data.”
+2. When creating invoice and bills there are specific accounts that line items are mapped to. These accounts need to
+be input into the setting areas by the user which when Pushing data we push with these account fields, and when
+we get data, we validate against them to create a successful import.
+3. Perhaps add a button to get account codes and another to view account codes and another to add retention
+account codes if not found and error case where the account number exists. We need to map to 4 retention
+account codes which users may already have, others will need to create.
+Code Field
+
+Example Code with Description
+
+Functionality
+
+Invoice Code
+
+200 - Sales
+
+In Xero, in the Invoice Account dropdown,
+you must select the mapped data under
+Invoice Code.
+
+Bill Code
+
+310 - Cost of Goods Sold
+
+In Xero, in the Bill Account dropdown, you
+must select the mapped data under Bill
+Code.
+
+500 - Retention payable - Retained
+
+In Xero, for Bills, you must select the
+mapped account Retention payable
+retained code from the Account
+dropdown. For retention amount withhold.
+
+502 - Retention payable - Released
+
+In Xero, for Bills, you must select the
+mapped account Retention payable
+release code from the Account dropdown.
+For retention amount release.
+
+Retention receivable retained
+503 - Retention receivable - retained
+code
+
+In Xero, for Invoices, you must select the
+mapped account Retention receivable
+retained code from the Account
+dropdown. For retention amount withhold.
+
+Retention payable retained
+code
+
+Retention payable release
+code
+
+9|Pa g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+In Xero, for Invoices, you must select the
+mapped account Retention receivable
+release code from the Account dropdown.
+For retention amount release.
+
+Retention receivable release
+code
+
+504 - Retention receivable - released
+
+Liability payable code
+
+In Xero, for Bills, you must select the
+501 - Liability for defects - retention mapped account Liability for defects –
+payable
+retention payable from the Account
+dropdown.
+
+Liability receivable code
+
+In Xero, for Invoice, you must select the
+506 - Liability for defects - retention mapped account Liability for defects –
+receivable
+retention payable from the Account
+dropdown.
+
+4.
+
+‘Add new account button’ opens the screen where the data can be entered and saved which gets listed under all
+the account fields in the xero account code section.
+
+5.
+
+Similarly ‘Tax rate’ can also be added using the ‘Add tax rate’ button. The added data gets listed under all the tax
+dropdown fields.
+When syncing an invoice or bill from Paytrade to Xero, the tax code selected in Paytrade must match the tax code
+assigned to the corresponding Xero account. If the tax codes do not match, Paytrade should generate an error log
+indicating a tax code mismatch.
+Each Bill or invoice in Xero has a reference. To create this reference we create a string of variables.
+
+6.
+
+7.
+
+10 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+E.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Map xero tracking category
+1. The details of this section is mentioned in the point 12 & 13.
+2. There is no separate API to link Paytrade modules with the Xero application, so these categories are used
+as the linkage to map the two systems.
+3. New category can be created by using the ‘Create’ button. Once the new category name is filled in the
+‘Create Category’ field the ‘Create’ button gets enabled.
+4. Mapping categories in Xero are required to import data between Xero and Paytrade in both directions.
+
+F. Webhook Schedule Setting
+1. The section contains the text field named ‘Execution wait time’ where by default 30mins is set. The data is
+editable.
+2. The Webhook auto sync happens as per the time mentioned in this field.
+3. The field contains the label as ‘Enter duration in mins (0-60).
+
+11 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+16. The save button is to save the data in the setting screen.
+17. On clicking the close button which is available under the bottom of the screen closes the screen and navigate back to the
+list grid.
+18. Once after saving the setting screen it opens the Bank mapping screen
+19. After import the ‘Import’ button gets changed to ‘View’. On clicking view it will navigate to the bank sync screen.
+
+20. Next to bank the ‘Contact’ need to be mapped. After import the button changes to the ‘View’. View navigated to the
+‘Contact’ sync screen.
+
+12 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+21. Next to contact the ‘’ Pending project tracking category mapping’ need to be mapped. After import the button changes to
+the ‘View’. View navigated to the ‘Project’ sync screen.
+
+22. Similar to the above sections the Contract section behaves. The skip option is also provided to move directly to the step 6.
+
+3.1
+
+Dashboard
+1.
+2.
+
+The Xero ‘Dashboard’ gets opened. Where the sections of modules and Sync log lists. As shown in below GUI.
+The dashboard reference is taken from Smoothlink — they successfully connect Paytrade to Xero and Xero to
+Paytrade, as well as other accounting systems.
+13 | P a g e
+
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+3.
+
+3.2
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+It operates on the basis of settings, mappings, and sync logs, which is a similar process to what we will follow. It
+would be beneficial to become familiar with how others have successfully carried out this process
+
+Bank Accounts
+1.
+2.
+3.
+4.
+5.
+6.
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Bank accounts -Manage your paytrade and xero bank accounts screen. Directly
+to the ‘Mapped Bank Account’ Tab.
+This screen contains three tabs such as ‘Mapped Bank Accounts’,’Paytrade Bank Accounts’ and ‘Xero Bank
+Accounts’.
+Under ‘Mapped Bank Accounts’ tab, ‘Auto map’ button available which helps to auto map all the listed bank
+accounts.
+For every separate bank accounts ‘Unmap’ button is available to unmap the paytrade bank account from Xero
+linked account.
+Search field is available to find with a ‘Bank account name’.
+
+14 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+7.
+
+Next is the ‘Paytrade Bank Accounts’ tab, which list all the bank accounts created under the ‘Paytrade’
+application.
+
+8.
+
+The two buttons let you either ‘manually map’ the selected bank account to a Xero account, or ‘sync it to Xero’ to
+automatically create or link the account in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the bank account which need to be
+mapped can be selected.
+
+9.
+
+15 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+10. The ‘sync to Xero’ syncs the bank account to the Xero account.
+11. The Xero bank accounts tab lists all the bank accounts created in Xero application and mapped bank accounts.
+12. Similar to the ‘Paytrade Bank Accounts’ tab two buttons are available one is ‘Manual mapping’ and the other is
+‘Sync to Paytrade’.
+13. ‘Manual map’ button helps to select the bank account which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero account to paytrade application.
+
+15. The sync error log gets trigger since some field data are missing out. On clicking the ‘resolve’ button it navigates
+to the bank edit screen where all the mandatory fields can be filled and saved.
+
+16 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+3.3
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Contacts
+1.
+2.
+
+6.
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Contact -Manage your paytrade and xero contact screen. Directly to the
+‘Mapped Contact’ Tab.
+This screen contains three tabs such as ‘Mapped Contact’,’Paytrade Contact’ and ‘Xero Contact’.
+Under ‘Mapped Contacts’ tab, ‘Auto map’ button available which helps to auto map all the listed Contacts.
+For every separate contacts ‘Unmap’ button is available to unmap the paytrade contact from Xero linked
+contact.
+Search field is available to find with a ‘contact name’.
+
+7.
+
+Next is the ‘Paytrade contact’ tab, which list all the contacts created under the ‘Paytrade’ application.
+
+3.
+4.
+5.
+
+17 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+8.
+9.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+The two buttons let you either ‘manually map’ the selected Contact to a Xero account, or ‘sync it to Xero’ to
+automatically create or link the contact account in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the contact which need to be
+mapped can be selected.
+
+10. The ‘sync to Xero’ syncs the contact to the Xero account.
+11. The Xero contact tab lists all the contacts created in Xero application and mapped contacts.
+12. Similar to the ‘Paytrade contacts’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync
+to Paytrade’.
+13. ‘Manual map’ button helps to select the Contact which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero contact to paytrade application.
+
+18 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+15. The sync error log gets trigger since some field data are missing out. On clicking the ‘resolve’ button it navigates to the
+client/supplier edit screen where all the mandatory fields can be filled and saved.
+
+3.4
+1.
+2.
+3.
+4.
+5.
+6.
+
+Contract
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Contract -Manage your paytrade and xero contract screen. Directly to the ‘Mapped
+Contract’ Tab.
+This screen contains three tabs such as ‘Mapped Contract’,’Paytrade Contract’ and ‘Xero Contract’.
+Under ‘Mapped Contracts’ tab, ‘Auto map’ button available which helps to auto map all the listed Contracts.
+For every separate contracts ‘Unmap’ button is available to unmap the paytrade contract from Xero linked contract.
+Search field is available to find with a ‘contract name’.
+
+19 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+7.
+
+Next is the ‘Paytrade contract’ tab, which list all the contracts created under the ‘Paytrade’ application.
+
+8.
+
+The two buttons let you either ‘manually map’ the selected Contract to a Xero account, or ‘sync it to Xero’ to automatically
+create or link the contract account in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the contract which need to be mapped can be
+selected.
+
+9.
+
+10. The ‘sync to Xero’ syncs the contract to the Xero contract.
+11. The Xero contract tab lists all the contracts created in Xero application and mapped contracts.
+
+20 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+12. Similar to the ‘Paytrade contracts’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync to
+Paytrade’.
+13. ‘Manual map’ button helps to select the Contract which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero contract to paytrade application.
+
+15. The sync error log gets trigger since some field data are missing out. On clicking the ‘resolve’ button it navigates to the
+Contract edit screen where all the mandatory fields can be filled and saved.
+
+3.5
+1.
+2.
+3.
+4.
+5.
+6.
+
+Projects
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Project -Manage your paytrade and xero project screen. Directly to the ‘Mapped
+Project’ Tab.
+This screen contains three tabs such as ‘Mapped Project’,’Paytrade Project’ and ‘Xero Project’.
+Under ‘Mapped Project’ tab, ‘Auto map’ button available which helps to auto map all the listed Projects.
+For every separate project ‘Unmap’ button is available to unmap the paytrade project from Xero linked project.
+Search field is available to find with a ‘project name’.
+21 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+7.
+
+Next is the ‘Paytrade project’ tab, which list all the projects created under the ‘Paytrade’ application.
+
+8.
+
+The two buttons let you either ‘manually map’ the selected Project to a Xero account, or ‘sync it to Xero’ to automatically
+create or link the project account in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the project which need to be mapped can be
+selected.
+
+9.
+
+10. The ‘sync to Xero’ syncs the contract to the Xero contract.
+11. The Xero project tab lists all the projects created in Xero application and mapped project.
+22 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+12. Similar to the ‘Paytrade Projects’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync to
+Paytrade’.
+13. ‘Manual map’ button helps to select the project which need to be mapped.
+
+14. ‘Sync to paytrade’ moves the xero project to paytrade application.
+15. The sync error log gets trigger since some field data are missing out. On clicking the ‘resolve’ button it navigates to the
+project edit screen where all the mandatory fields can be filled and saved.
+
+3.6
+1.
+2.
+3.
+
+Invoices
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Invoices -Manage your paytrade and xero invoices screen. Directly to the ‘Mapped
+Invoices’ Tab.
+This screen contains three tabs such as ‘Mapped Invoice’,’Paytrade Invoices’ and ‘Xero Invoices’.
+23 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+4.
+5.
+6.
+
+Under ‘Mapped Invoices’ tab, ‘Auto map’ button available which helps to auto map all the listed Invoices.
+For every separate invoices ‘Unmap’ button is available to unmap the paytrade invoices from Xero linked Invoices.
+Search field is available to find with an ‘Invoice’.
+
+7.
+
+Next is the ‘Paytrade Invoice’ tab, which list all the invoices created under the ‘Paytrade’ application.
+
+8.
+
+The two buttons let you either ‘manually map’ the selected Invoices to a Xero account, or ‘sync it to Xero’ to
+automatically create or link the Invoice in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the invoices which need to be mapped can
+be selected.
+
+9.
+
+24 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+10. The ‘sync to Xero’ syncs the invoices to the Xero invoices.
+11. The Xero invoice tab lists all the invoice created in Xero application and mapped invoices.
+12. Similar to the ‘Paytrade Invoices’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync to
+Paytrade’.
+13. ‘Manual map’ button helps to select the Invoices which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero invoices to paytrade application.
+
+15. The Receivable claim created in Paytrade should be under ‘Confirm paid – matched’ status to sync in Xero account.
+
+25 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+16. The sync error log gets trigger since to reason field data are missing out. On clicking the ‘resolve’ button it navigates to
+the invoices edit screen where all the mandatory fields can be filled and saved.
+
+17. Once the reason is saved, the receivable claim gets saved and list under the claim screen.
+18. The journal gets recorded and notice also gets triggered.
+19. Where invoices/bills have been added as part of a historical record onboarding, these will not be mapped to an existing
+Xero invoice. We could provide a field where Xero is integrated for users to enter historical invoice reference id’s. This
+is similar to mapping and is likely to be done case by case when failed to import data.
+
+3.7
+
+Bills
+1.
+2.
+3.
+4.
+5.
+6.
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Bills -Manage your paytrade and xero bills screen. Directly to the ‘Mapped Bills’
+Tab.
+This screen contains three tabs such as ‘Mapped Bills’,’Paytrade Bills’ and ‘Xero Bills’.
+Under ‘Mapped Bills’ tab, ‘Auto map’ button available which helps to auto map all the listed Invoices.
+For every separate bills ‘Unmap’ button is available to unmap the paytrade bills from Xero linked bills.
+Search field is available to find with ‘Bill’.
+
+26 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+7.
+
+Next is the ‘Paytrade Bills’ tab, which list all the bills created under the ‘Paytrade’ application.
+
+8.
+
+The two buttons let you either ‘manually map’ the selected Bill to a Xero account, or ‘sync it to Xero’ to
+automatically create or link the Invoice in Xero.
+The manual map button opens the ‘Account Mapping’ popup screen where the invoices which need to be mapped
+can be selected.
+
+9.
+
+27 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+10. The ‘sync to Xero’ syncs the bills to the Xero bills.
+11. The Xero bills tab lists all the bills created in Xero application and mapped bills.
+12. Similar to the ‘Paytrade Bills’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync to
+Paytrade’.
+13. ‘Manual map’ button helps to select the Bills which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero bills to paytrade application.
+
+15. The Billable claim created in Paytrade should be under ‘Add Payment’ status to sync in Xero account.
+16. Once the Bill is saved, it gets listed under claims screen.
+
+3.8
+
+Payments
+1.
+2.
+3.
+4.
+
+In front the section lists the Count of Sync and Pending.
+‘View all’ button navigates to the Payments -Manage your paytrade and xero payments screen. Directly to the
+‘Mapped Payments’ Tab.
+This screen contains three tabs such as ‘Mapped Payments’,’Paytrade Payments’ and ‘Xero Payments’.
+Under ‘Mapped Payments’ tab, ‘Auto map’ button available which helps to auto map all the listed Invoices.
+
+28 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+5.
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+6.
+
+For every separate payments ‘Unmap’ button is available to unmap the paytrade payments from Xero linked
+payments.
+Search field is available to find with ‘Payments’.
+
+7.
+
+Next is the ‘Paytrade Payments’ tab, which list all the payments created under the ‘Paytrade’ application.
+
+8.
+9.
+
+Along two buttons ‘Manual map’ and ‘Sync to paytrade’.
+The manual map button opens the ‘Account Mapping’ popup screen where the invoices which need to be mapped
+can be selected.
+
+29 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+10. The ‘sync to Xero’ syncs the payments to the Xero payments.
+11. The Xero payments tab lists all the payments created in Xero application and mapped payments.
+12. Similar to the ‘Paytrade Payments’ tab two buttons are available one is ‘Manual mapping’ and the other is ‘Sync to
+Paytrade’.
+13. ‘Manual map’ button helps to select the Payments which need to be mapped.
+14. ‘Sync to paytrade’ moves the xero payments to paytrade application.
+
+15. The Billable claim created in Paytrade should be under ‘Confirm paid – matched’ status to sync in Xero account.
+16. Except for the full payment the error log gets triggered for the ‘Missing reason for withholding payment’.
+17. Once the reason is filled, the Bill payment gets saved as ‘Part payment’
+18. The payment withhold reason log trigger will happen as per the ‘schedule setting’ timing.
+19. For example, consider a claim with an amount of 1,500. A payment of 1,000 was made, leaving 500 as the
+pending amount. In reality, the payment type is Payless Full, but in PayTrade, it is recorded as Part Payment. As a
+result, the journals and notices are triggered for a part payment. Once the credit note for the pending amount is
+created in Xero, the corresponding payment in PayTrade is deleted, and the journal is reversed. A new journal is
+then created for the Payless payment, along with a new payment entry in Claims. Similarly, the original part
+payment notice is moved to the Archived tab, and a new notice is generated with a new notice ID for the Payless
+Full payment type.
+
+30 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+20. When the claim created with retention payment then after the bill payment a record gets created under the
+retention list.
+21. When a payment is deleted in Xero, an error is triggered in Paytrade indicating that the payment type cannot be
+deleted. Selecting the Resolve option directs the user to the Payment Edit screen, where the ‘Confirm paid’
+checkbox must be cleared. After it is unchecked, the payment is successfully deleted.
+22. When a payment is deleted in Xero, Paytrade triggers an error stating that the payment type cannot be deleted.
+Clicking Resolve navigates to the Transaction Unmatch screen when the payment is matched in Paytrade. The
+transaction must be manually unmatched, after which the payment can be deleted in Paytrade.
+
+31 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+23. When a payment exceeding the Bill/Invoice amount is made in Xero, the overpayment triggers an ‘overpayment
+missing’ error log in Paytrade. In the error log, clicking Resolve opens the Map Claim/Payment screen. Once the
+overpayment is mapped, an overpayment record is saved in the Payment List
+
+32 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+4
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Sync Log
+History of this sync is shown in a data table in roll up history section at the base.
+
+4.1
+
+GUI
+Sync Log
+
+33 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Sync Succeeded log
+
+Sync failed log
+
+34 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+1.
+2.
+3.
+
+This section lists all the logs happening in the application.
+It shows the data has been or has been attempted to sync. Also shows success, warning and failed cases
+It show all other no mapped data over the previous month which a user may wish to edit and re-sync e.g. where
+they have forgotten to input a tracking id so our system hasn’t identified it as relevant. The user can go back, edit
+and click refresh. Our system would then pick up the tracing id and reattempt to sync.
+4. On clicking the view icon the Status Succeeded/ Failed status screen opens.
+5. For the failed log the screen has a resolve button, on clicking it navigates to the respective screen to resolve the
+issue.
+6. The reference is a uuid generated ID from database.
+7. Once the issue is rectified the failed status changed to succeeded state.
+8. In the front, the ‘Refresh’ button is available to refresh the logs.
+9. Total Number of Synced log count displays under ‘Synced’ section. Similarly warning count under ‘Warning’ and
+Failed log count under ‘Issues’.
+10. Once the failed log is resolved the issues count gets reduced.
+11. The pagination and sorting option is available. The pagination is move to the next page since by default the totally
+10 records per page, can be changed by using the pagination dropdown.
+
+5
+
+Schedulers
+1.
+2.
+3.
+4.
+
+6
+
+The system uses schedulers to automate data synchronization between Paytrade and Xero. It happens the
+modules such as Project, Bank account, Contact, contract and Invoice.
+The scheduler will run once in a day, currently the timer is set at 12am UTC
+In the below table the when the schedule error happens is mentioned.
+The respective schedule error GUI is available under all the modules.
+
+Module
+Project
+
+Scenario
+Create a new project in Xero
+
+Bank
+account
+
+When a new Bank account is created
+
+Contact
+
+New Contact created in the Xero
+
+Contract
+
+New Contract created in the Xero
+
+Error log to resolve
+On Clicking resolve it navigates to the Project
+screen,
+On Clicking resolve it navigates to the Bank account
+screen, we can create a any type of bank account as
+per our requirement.
+On Clicking resolve it navigates to the client/supplier
+screen, where the client /Supplier can be created.
+On clicking resolve it navigate to the Contract screen
+where the client/supplier can be created.
+
+Webhook
+1.
+2.
+3.
+4.
+
+5.
+6.
+
+We need to subscribe to the Contact and invoice to create and update webhooks.
+We may also need to subscribe to the Webhooks for App Store subscriptions (TBC).
+When a record is created, retrieve the full details and verify whether the mapped client/supplier, project, and
+contract are relevant.
+Check whether the API trigger type matches the expected transaction step. If the format and step are valid, create
+a successful sync log, assign the resource ID to the claim, and generate the corresponding Paytrade event—
+either as a draft or completed—based on the system settings.
+For the mismatch in the code, Edit, Delete error log gets trigger.
+Listed the scenarios where the error log gets trigger below.
+35 | P a g e
+
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+
+Module
+Invoice /Bill
+
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+
+Scenario
+Contact Mapping Mismatch
+
+Scenario Example
+Mapped Data:
+Contact A is mapped to Contract A in Paytrade.
+Actual Scenario:
+In the Invoice, the user selects Contact B instead of
+Contact A.
+Result:
+Error: “Contact mismatch: The selected contact does
+not match the mapped contact for this contract.”
+
+Invoice /Bill
+
+Project Mapping Mismatch
+
+Mapped Data:
+Project X is mapped to Contract A and belongs to
+Contact A.
+Actual Scenario:
+While creating the Invoice, the user selects Project Y
+(which is mapped to a different contract or different
+contact).
+Result:
+
+Invoice /Bill
+
+Contract Mapping Mismatch
+
+Error: “Project mismatch: The selected project does
+not match the project mapped to this contract.”
+Mapped Data:
+Contact A is mapped with Contract A.
+Actual Scenario:
+In the Invoice, the user selects Contract B (which is
+mapped to Contact B or another project).
+Result:
+
+Invoice /Bill
+
+Account Code Mapping Mismatch
+
+Error: “Contract mismatch: The selected contract does
+not match the contract linked to this contact.”
+Mapped Data:
+For Contract A, the mapped account code is 400 –
+Income (or for Bills: 200 – Cost of Sales).
+
+36 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+Actual Scenario:
+In the Invoice or Bill, the user selects 460 –
+Miscellaneous Income instead of the mapped account
+code.
+Result:
+
+Invoice /Bill
+
+Tax Code Mapping Mismatch
+
+Error: “Account code mismatch: The selected account
+code does not match the mapped account code for
+this contract.”
+Mapped Data:
+For Contract A, the mapped tax code is GST on
+Income (15%).
+Actual Scenario:
+In the Invoice, the user selects Zero-Rated Tax (0%)
+instead of the mapped GST code.
+Result:
+
+Invoice
+
+S75 pending payment
+
+Payment
+
+Payment Edited in Xero
+
+Payment
+
+Payment Deleted in Xero
+
+Error: “Tax code mismatch: The selected tax code
+does not match the mapped tax code for this contract.”
+1. You have a Bill with a pending payment for $1,000
+2. Create a Invoice on Xero
+3.Under paytrade error trigger for the missing reason
+for the pending payment
+4. Once the reason is filled and saved , the claim gets
+saved list under the Claim list grid.
+1. You have a Bill in Xero for $1,000.
+2. You record a payment of $1,000 in Xero.
+3. Paytrade imports this payment and marks it as
+Confirmed
+4. In Xero - The payment is edited from $1,000 →
+$800
+5. Open the error log in Paytrade.
+6. Click Resolve.
+7. It navigate to Payment screen where,
+Unconfirm the payment.
+8. Once unconfirmed, Paytrade updates the
+payment to match the edited details in Xero (in
+this example, $800 instead of $1,000).
+1. You have a Bill in Xero for $1,000.
+2. You record a payment of $1,000 in Xero.
+3. Paytrade imports this payment and marks it as
+Confirmed
+4. In Xero - The payment is Deleted
+5. Open the error log in Paytrade.
+6. Click Resolve.
+
+37 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+7.
+
+Payment
+
+Payment for Payless type
+
+Payment
+
+Reason for withholding payment
+
+Payment
+
+Overpayment Mapping
+
+It navigate to Payment screen where,
+Unconfirm the payment.
+8. Once unconfirmed, Paytrade updates the
+payment to get deleted.
+1. First $500 part payment → Paytrade records as
+“part payment”.
+2. Remaining $500 is cleared using credit note →
+Xero changes the payment type to “pay less full”.
+3. Paytrade detects mismatch → triggers “unconfirm
+payment” error.
+4. After unconfirming → old record is deleted and new
+“pay less full” record is created.
+1. Create a Bill with a payment type Part/Payless/Pay
+zero/Third party in Xero
+2. In paytrade error log creates for ‘Withholding
+reason’’
+3. On submitting the reason the payment gets saved
+under paytrade.
+1.
+2.
+3.
+4.
+5.
+6.
+
+Payment
+
+Underpayment mapping
+
+Invoice Amount in Xero: $1,000
+Payment Made: $1,200
+Xero applies $1,000 to the Invoice.
+The remaining $200 becomes an overpayment.
+When syncing to Paytrade, the system checks if
+the payment amount exactly matches the invoice
+amount.
+Because $1,200 ≠ $1,000, Paytrade identifies an
+inconsistency.
+
+Error: “Overpayment detected: The payment amount
+exceeds the Invoice amount.”
+Example
+1. Bill 1 Amount: $1,000
+2. Payment Made in Xero: $1,200
+3. Bill 2 Amount: $500
+4. You apply the $200 overpayment credit from Bill
+1 toward Bill 2.
+5. New Payment Made for Bill 2: $200 (credit) +
+$300 additional payment = $500 total applied
+Paytrade Result
+When syncing to Paytrade, the system checks if the
+complete Bill amount was paid.
+Since $500 = $500, Paytrade identifies that payment
+was made.
+Error: “Underpayment detected to map inorder to tally
+the overpayment from Bill 1 and underpayment from
+Bill 2.
+
+38 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+XERO SPECIFICATION DOCUMENT
+VERSION
+
+V 1.0
+
+DATE
+
+03 December 2026
+
+DOCUMENT CODE
+
+FSD_PTAUS_003
+----End of Document ----
+
+39 | P a g e
+Pay Trade AUS _XERO Specifications_V1.0
+
+

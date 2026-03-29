@@ -1,0 +1,158 @@
+## Complete Guide to Xero Sync
+
+A step-by-step walkthrough covering the entire Xero integration from connection to ongoing sync management. Follow this guide in order for initial setup, or jump to specific sections for reference.
+
+Important: Xero integration is only available on Advanced and Pro Audit subscription plans. Upgrade your plan before proceeding.
+
+## Overview: How Xero Sync Works
+
+PayTrade's Xero integration provides two-way sync between your PayTrade and Xero accounts. Data flows in both directions:
+
+- PayTrade to Xero: Payment claims, invoices, bills, and payments you create in PayTrade are exported to Xero as invoices, bills, and payments.
+
+- Xero to PayTrade: Invoices, bills, and payments created in Xero are imported into PayTrade as payment claims and payments.
+
+Sync happens in three ways: manually (you click Sync), automatically (daily scheduled sync at 1:00 PM UTC), and in real-time (Xero webhooks push changes as they happen).
+
+## Step 1: Connect Xero
+
+Follow the "Connecting Xero to PayTrade" guide for the initial OAuth connection. In summary:
+
+1Navigate to Integrations
+Go to Integrations in the sidebar menu.
+
+2Click Connect Xero
+Click the Xero connection button on the Integration List page.
+
+3Authorise in Xero
+Sign in to Xero and grant PayTrade access to your Xero organisation.
+
+4Return to PayTrade
+You will be redirected back to PayTrade automatically. Your Xero connection status will show as "Connected".
+
+Note: PayTrade automatically refreshes your Xero access token every 23 hours. If your token expires (e.g., you revoked access in Xero), PayTrade will prompt you to re-authorise.
+
+## Step 2: Configure Settings & Account Mappings
+
+Follow the "Xero Account Mapping and Settings" guide for detailed instructions. Key tasks:
+
+- Chart of Accounts: Map your PayTrade financial activities to Xero account codes (invoice code, bill code, retention codes, liability codes).
+
+- Tax Rates: Set default invoice and bill tax codes for sync.
+
+- Tracking Categories: Select which Xero tracking categories represent PayTrade projects and contracts.
+
+- Sync Preferences: Choose whether synced items arrive as Draft or Approved in each direction.
+
+- Reference Format: Customise the reference prefix for synced documents.
+
+- Webhook Wait Time: Set how long the system waits before processing webhook events (0-60 minutes).
+
+## Step 3: Map Bank Accounts, Contacts, Projects & Contracts
+
+Follow the "Mapping Bank Accounts, Contacts, Projects and Contracts in Xero" guide for detailed instructions. This is the onboarding wizard:
+
+1Map Bank Accounts
+Link your Xero bank accounts to PayTrade Cash Accounts, Project Trust Accounts (PTA), or Retention Trust Accounts (RTA).
+
+2Map Contacts
+Link Xero contacts to PayTrade clients and suppliers. Contacts must be mapped before invoices referencing them can sync.
+
+3Map Projects
+Map a Xero tracking category to represent PayTrade projects. Each project maps to a tracking category option.
+
+4Map Contracts
+Map a Xero tracking category to represent PayTrade contracts. Each contract maps to a tracking category option.
+
+5Activate
+Once all mappings are complete, set the integration to Active status.
+
+## Step 4: Sync Invoices and Bills
+
+Follow the "Syncing Invoices and Bills with Xero" guide for the complete process.
+
+## PayTrade to Xero (Export)
+
+- Create a payment claim in PayTrade (receivable = invoice, billable = bill).
+
+- Navigate to Xero Invoices or Xero Bills on the Xero Dashboard.
+
+- Find the claim on the PayTrade tab and click "Sync to Xero".
+
+- The system validates mappings (contact, project, contract, account codes) and creates the invoice/bill in Xero.
+
+- The item appears on the Mapped tab with a link to the Xero record.
+
+## Xero to PayTrade (Import)
+
+- Create an invoice or bill in Xero with the correct tracking categories (project + contract).
+
+- Navigate to Xero Invoices or Xero Bills on the Xero Dashboard.
+
+- Find the item on the Xero tab and click "Sync to PayTrade".
+
+- The system validates tracking categories and creates a payment claim in PayTrade.
+
+- The item appears on the Mapped tab.
+
+## Step 5: Sync Payments
+
+Follow the "Xero Payment Synchronisation" guide for the complete process.
+
+- PayTrade to Xero: Payments recorded against claims in PayTrade are exported to Xero as payments against the mapped invoice/bill.
+
+- Xero to PayTrade: Payments recorded in Xero are imported into PayTrade as payment records against the mapped claim.
+
+- Retention: Retention payments sync automatically with their own account codes.
+
+- Special cases: Part payments, overpayments, credit notes, and pay-less-full scenarios are all handled automatically with appropriate error logs when manual action is needed.
+
+## Step 6: Monitor Sync Activity
+
+Follow the "Understanding Xero Sync Logs and Error Resolution" guide for detailed troubleshooting.
+
+- The Xero Dashboard shows sync statistics: Synced vs. Pending counts for each entity type.
+
+- The Sync Log table at the bottom shows all recent sync events with status (Succeeded, Warning, Failed).
+
+- Click any log entry to see the full details including a side-by-side comparison of PayTrade and Xero records.
+
+- Failed entries have a "Resolve" button that guides you to fix the issue.
+
+## Ongoing Sync: What Happens Automatically
+
+ | Mechanism  | When  | What It Does
+
+ | Daily Scheduler  | 1:00 PM UTC daily  | Full refresh of accounts, contacts, projects, contracts, and invoices for all active integrations
+
+ | Webhooks  | Real-time  | Xero sends events when contacts or invoices are created/updated. Events are queued and processed after the configured wait time.
+
+ | Token Refresh  | Every 23 hours  | Keeps your Xero connection alive without manual re-authentication.
+
+## Managing Your Connection
+
+From the Integration List page, you can:
+
+- Pause: Temporarily stop all sync without losing mappings. Useful during data cleanup.
+
+- Unpause: Resume sync after a pause.
+
+- Disconnect: Remove the Xero connection. Mappings are preserved and the integration moves to Archived.
+
+- Delete: Permanently remove the integration and all mapping data.
+
+- Re-connect: If Xero prompts for re-authentication, follow the OAuth flow again.
+
+## Related Guides
+
+- "Connecting Xero to PayTrade" — Initial connection and OAuth flow
+
+- "Xero Account Mapping and Settings" — Chart of accounts, tax rates, tracking categories, sync preferences
+
+- "Mapping Bank Accounts, Contacts, Projects and Contracts in Xero" — The 3-tab mapping process for each entity type
+
+- "Syncing Invoices and Bills with Xero" — Exporting and importing invoices and bills
+
+- "Xero Payment Synchronisation" — Payment sync including retention, overpayments, and credit notes
+
+- "Understanding Xero Sync Logs and Error Resolution" — Reading sync logs and fixing errors

@@ -1,0 +1,110 @@
+## Uploading and Reconciling Bank Transactions
+
+Reconciliation ensures your trust account records match your actual bank statements. This guide covers manual matching, Smart Match for automated suggestions, and error handling.
+
+## Why Reconciliation Matters
+
+Under the BIF Act, trust account holders must perform monthly reconciliations to ensure the trust account ledger matches the bank statement. PayTrade simplifies this process by allowing you to upload bank transactions and match them against recorded claims and payments.
+
+## Step 1: Upload Bank Transactions
+
+1Open the Account
+Navigate to Bank Accounts, then click the account you want to reconcile to open its Overview page.
+
+2Click "Upload Transactions"
+Click the upload button to go to the transaction upload page.
+
+3Select CSV File
+Download your bank statement as a CSV file from your bank, then upload it here. The system parses each transaction row automatically.
+
+4Review Imported Transactions
+Check that all transactions have been imported correctly. The system shows the date, description, amount, and running balance for each.
+
+## Step 2: Match Transactions (Manual)
+
+1Navigate to Match Transactions
+From the account overview, click "Match Transactions".
+
+2View Unmatched Items
+The page shows two columns: unmatched bank transactions (from your CSV) and unmatched claims/payments (from your PayTrade records).
+
+3Select Matches
+Click a bank transaction and the corresponding claim payment to match them together. The amounts should align.
+
+4Confirm Match
+Click "Match" to confirm. The matched pair is removed from the unmatched list, and the trust account ledger is updated.
+
+## Step 3: Smart Match (Automated Suggestions)
+
+Smart Match analyses all your unmatched transactions and automatically suggests the best payment matches, saving significant time compared to manual matching.
+
+## Enabling Smart Match
+
+1Toggle Smart Match On
+On the Match Transactions page, toggle the "Smart Match" switch to On. Your preference is saved in your browser.
+
+2Wait for Analysis
+The system analyses all unmatched transactions and displays match suggestions with colour-coded quality indicators.
+
+## Understanding Match Quality
+
+ | Badge  | Meaning  | Action
+ | Exact  | Bank transaction amount exactly matches the payment amount  | Safe to match with one click
+ | Near  | Amounts are close but not identical (small variance)  | Review the variance, then use Adjust & Match
+ | No badge  | No suitable match found  | Use manual matching
+
+## Viewing Match Details
+
+Click on any transaction row with a match suggestion to expand it. The expanded section shows the matched payment details: claim reference, payment amount, date, and the variance (if any).
+
+## One-Click Exact Match
+
+1Find an Exact Match
+Look for transactions with a green "Exact" badge.
+
+2Click Match
+Click the "Match" button on the expanded row. The match is applied instantly.
+
+## Match All Exact (Batch)
+
+1Click "Match All Exact"
+Click the "Match All Exact" button at the top of the transactions list.
+
+2Review Results
+The system matches every transaction with an exact match suggestion in a single action. A summary shows how many transactions were matched.
+
+Tip: Use Match All Exact at the start of reconciliation to clear all the easy matches first, then handle near matches and manual matches individually.
+
+## Quick Adjust and Match (Near Matches)
+
+When a near match is found, the bank amount and payment amount differ slightly (e.g., bank fees, rounding differences):
+
+1Expand the Transaction
+Click the transaction row with an amber "Near" badge to see the suggested match and variance.
+
+2Click "Adjust & Match"
+Click the "Adjust & Match" button.
+
+3Automatic Adjustment
+The system automatically creates an adjustment payment (over-payment or under-payment) to bridge the difference, then matches the bank transaction.
+
+4Check the Adjustment
+The adjustment payment appears in your Payments List with a note explaining the variance.
+
+Important: Quick Adjust creates real payment records. If the adjustment was made in error, you will need to unmatch the transaction and delete the adjustment payment.
+
+## Step 4: Handle Mismatches
+
+If a match was made incorrectly:
+
+1Go to Unmatch Transactions
+From the account overview, click "Unmatch Transactions".
+
+2Select the Incorrect Match
+Find the incorrectly matched transaction pair.
+
+3Unmatch
+Click "Unmatch" to reverse the match. Both items return to the unmatched list.
+
+Important: All bank transactions should be matched before the monthly reconciliation deadline. Unmatched transactions appear on your dashboard as alerts and may trigger compliance warnings.
+Tip: If you have Bank Feeds enabled (Standard plan and above), your transactions can be imported automatically via Open Banking, eliminating the need for manual CSV uploads.
