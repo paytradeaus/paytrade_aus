@@ -21,24 +21,16 @@ Your local working branch in Replit is `develop/release-1`. To deploy, you push 
 
 ## Deployment Steps
 
-### 1. Verify your changes are committed
+### 1. Verify your changes are committed and check what will be pushed
 
 ```bash
 git status
-git log --oneline -5
-```
-
-All changes should be committed. Replit auto-commits when tasks complete.
-
-### 2. Check what will be pushed
-
-```bash
 git log --oneline github-new/main..HEAD
 ```
 
-This shows you all the commits that will be deployed.
+The first command confirms all changes are committed. The second shows exactly which commits will be deployed to Railway (everything on your local branch that isn't yet on `github-new/main`).
 
-### 3. Push to Railway
+### 2. Push to Railway
 
 ```bash
 git push github-new develop/release-1:main
@@ -46,11 +38,11 @@ git push github-new develop/release-1:main
 
 This pushes your local `develop/release-1` branch to the `main` branch on `pejt2000-cyber/paytrade`. Railway will detect the new commits and start a build automatically.
 
-### 4. Monitor the build
+### 3. Monitor the build
 
 Go to the Railway dashboard → your project → Deployments. Watch for the build to complete.
 
-### 5. Verify the deployment
+### 4. Verify the deployment
 
 Once Railway reports the build is complete:
 - Check `https://paytrade.app/health` (or your configured domain) to confirm the backend is responding
