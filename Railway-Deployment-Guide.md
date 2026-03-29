@@ -4,11 +4,18 @@ Step-by-step process for deploying PayTrade updates from Replit to production on
 
 ---
 
-## Prerequisites
+## Git Remotes
 
-- Railway project connected to GitHub repo: `paytradeaus/paytrade_aus`
-- Railway auto-deploys from `develop/release-1` branch (or your configured branch)
-- GitHub remote `origin` points to `https://github.com/paytradeaus/paytrade_aus`
+The project has two GitHub repositories:
+
+| Remote Name | Repository | Purpose |
+|---|---|---|
+| `origin` | `paytradeaus/paytrade_aus` | Legacy / backup repo |
+| `github-new` | `pejt2000-cyber/paytrade` | **Production repo — Railway deploys from here** |
+
+Railway is connected to `pejt2000-cyber/paytrade` and deploys from the `main` branch.
+
+Your local working branch in Replit is `develop/release-1`. To deploy, you push this branch to `github-new/main`.
 
 ---
 
@@ -23,19 +30,27 @@ git log --oneline -5
 
 All changes should be committed. Replit auto-commits when tasks complete.
 
-### 2. Push to GitHub
+### 2. Check what will be pushed
 
 ```bash
-git push origin develop/release-1
+git log --oneline github-new/main..HEAD
 ```
 
-This pushes your current branch to the GitHub repo that Railway watches.
+This shows you all the commits that will be deployed.
 
-### 3. Railway auto-deploys
+### 3. Push to Railway
 
-Railway will detect the new commits and start a build automatically. You can monitor progress in the Railway dashboard.
+```bash
+git push github-new develop/release-1:main
+```
 
-### 4. Verify the deployment
+This pushes your local `develop/release-1` branch to the `main` branch on `pejt2000-cyber/paytrade`. Railway will detect the new commits and start a build automatically.
+
+### 4. Monitor the build
+
+Go to the Railway dashboard → your project → Deployments. Watch for the build to complete.
+
+### 5. Verify the deployment
 
 Once Railway reports the build is complete:
 - Check `https://paytrade.app/health` (or your configured domain) to confirm the backend is responding
@@ -106,11 +121,23 @@ If a deployment causes issues:
 
 ```bash
 # Check what will be pushed
-git log --oneline origin/develop/release-1..HEAD
+git log --oneline github-new/main..HEAD
 
-# Push to production
-git push origin develop/release-1
+# Push to production (Railway)
+git push github-new develop/release-1:main
 
 # Force push (use with caution — only if needed)
-git push origin develop/release-1 --force
+git push github-new develop/release-1:main --force
+```
+
+---
+
+## Keeping Both Repos in Sync (Optional)
+
+If you also want to keep the legacy `origin` repo updated:
+
+```bash
+# Push to both repos
+git push github-new develop/release-1:main
+git push origin develop/release-1
 ```
