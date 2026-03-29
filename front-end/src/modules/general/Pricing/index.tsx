@@ -35,37 +35,69 @@ export default function PricingPage() {
   const handleSignUpClick = () => {
     router.push(AppRoutes.USER_LOGIN);
   };
-  // Transform and set plans based on toggle
+  function normalizePlanKey(name: string): string {
+    return (name || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
+  }
+
+  function deduplicatePlans(planList: any[]): any[] {
+    const seen = new Map<string, any>();
+    for (const plan of planList) {
+      const key = normalizePlanKey(plan.plan_name);
+      if (!seen.has(key)) {
+        seen.set(key, plan);
+      } else {
+        const existing = seen.get(key);
+        if (!existing.description && plan.description) {
+          seen.set(key, plan);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  const PLAN_ORDER = ["basic", "standard", "advanced", "pro-audit"];
+
+  function sortPlans(planList: any[]): any[] {
+    return [...planList].sort((a, b) => {
+      const aIdx = PLAN_ORDER.indexOf(normalizePlanKey(a.plan_name));
+      const bIdx = PLAN_ORDER.indexOf(normalizePlanKey(b.plan_name));
+      return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+    });
+  }
+
   function transformPlans(data: any, isYearly: boolean) {
     if (!data) {
       return [];
     }
 
-    const planList = isYearly
-      ? data.yearly_plan_list || [] // Ensure it's an array
-      : data.monthly_plan_list || []; // Ensure it's an array
+    const rawPlanList = isYearly
+      ? data.yearly_plan_list || []
+      : data.monthly_plan_list || [];
 
-    const freePlan = data.free_plan ? [data.free_plan] : []; // Ensure it's an array
+    const planList = sortPlans(deduplicatePlans(rawPlanList));
+
+    const freePlan = data.free_plan ? [data.free_plan] : [];
+    const suffix = isYearly ? "/yr +VAT" : "/mo +VAT";
 
     return [
-      ...freePlan.map((plan) => ({
-        planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
+      ...freePlan.map((plan: any) => ({
+        planType: normalizePlanKey(plan.plan_name) || "basic",
         isCurrentPlan: true,
         title: plan.plan_name || "Free Plan",
         description: plan.description || "",
         price: "$0.00 +VAT",
-        buttonText: " Current plan",
+        buttonText: "Current plan",
         href: "#",
         offerText: null,
         OfferMonths: null,
       })),
-      ...planList.map((plan: any) => ({
-        planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
+      ...planList.map((plan: any, index: number) => ({
+        planType: normalizePlanKey(plan.plan_name) || `plan-${index}`,
         title: plan.plan_name || "Plan Title",
         description: plan.description || "",
         price: plan.price
-          ? `${plan.price} ${isYearly ? "/yr +VAT" : "/mo +VAT"}`
-          : "$0.00/yr +VAT",
+          ? `${plan.price} ${suffix}`
+          : `$0.00 ${suffix}`,
         buttonText: "Choose plan",
         href: AppRoutes.USER_LOGIN || "#",
         offerText: null,

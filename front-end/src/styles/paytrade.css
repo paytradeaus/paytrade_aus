@@ -3570,20 +3570,30 @@ a.pt_linksbox {
   margin: 0 0 var(--space-l) 0;
 }
 
-.pt_premium {
+.pt_premium,
+.pt_standard {
   border: 2px solid var(--ocean);
 }
-.pt_platinum {
+.pt_platinum,
+.pt_advanced {
+  border: 2px solid var(--crab);
+}
+.pt_pro-audit {
   border: 2px solid var(--crab);
 }
 
 .pt_basic span {
   color: var(--pico-contrast);
 }
-.pt_premium span {
+.pt_premium span,
+.pt_standard span {
   background: var(--oceangradient);
 }
-.pt_platinum span {
+.pt_platinum span,
+.pt_advanced span {
+  background: var(--crabgradient);
+}
+.pt_pro-audit span {
   background: var(--crabgradient);
 }
 

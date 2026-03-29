@@ -1,8 +1,7 @@
-import { months } from "moment";
-import React, { ReactNode } from "react";
+import React from "react";
 
 interface PlanProps {
-  planType: "basic" | "premium" | "platinum";
+  planType: string;
   isCurrentPlan?: boolean;
   title: string;
   description: string;
@@ -11,6 +10,17 @@ interface PlanProps {
   href?: string;
   offerText?: string;
   OfferMonths?: string;
+}
+
+const TIER_STYLES: Record<string, { headingClass: string; buttonClass: string }> = {
+  "basic":      { headingClass: "",          buttonClass: "contrast" },
+  "standard":   { headingClass: "oceantext", buttonClass: "secondary" },
+  "advanced":   { headingClass: "crabtext",  buttonClass: "secondary" },
+  "pro-audit":  { headingClass: "crabtext",  buttonClass: "" },
+};
+
+function getTierStyle(planType: string) {
+  return TIER_STYLES[planType] || { headingClass: "", buttonClass: "secondary" };
 }
 
 const PlanCard: React.FC<PlanProps> = ({
@@ -24,16 +34,12 @@ const PlanCard: React.FC<PlanProps> = ({
   offerText,
   OfferMonths,
 }) => {
+  const style = getTierStyle(planType);
+
   return (
     <div className={`pt_plan pt_${planType}`}>
       <span>{isCurrentPlan ? "Current plan" : "Upgrade plan"}</span>
-      <h3
-        className={`${planType === "premium" ? "oceantext" : ""} ${
-          planType === "platinum" ? "crabtext" : ""
-        }`}
-      >
-        {title}
-      </h3>
+      <h3 className={style.headingClass}>{title}</h3>
       <p>{description}</p>
       <h5>{price}</h5>
       {isCurrentPlan ? (
@@ -42,7 +48,7 @@ const PlanCard: React.FC<PlanProps> = ({
         </button>
       ) : (
         <a href={href || "#"}>
-          <button className={planType === "platinum" ? "" : "secondary"}>
+          <button className={style.buttonClass}>
             {buttonText}
             <i className="fa-light fa-arrow-right right"></i>
           </button>
