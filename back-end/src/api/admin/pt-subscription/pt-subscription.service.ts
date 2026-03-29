@@ -618,11 +618,20 @@ export class PtSubscriptionService {
             throw new Error(`Subscription data does not exist`);
           }
 
+          // [Replit Update 2026-03-29] Allow archiving free plans if more than one active free plan exists
           if (subscriptionPlanDetails.plan_type === 'Free') {
             if (is_archived) {
-              throw new Error(`Free Plan cannot be archived.`);
+              const activeFreePlanCount = await transactionalEntityManager.count(
+                SubscriptionPlanDetails,
+                { where: { plan_type: 'Free', plan_status: 'Active' } },
+              );
+              if (activeFreePlanCount <= 1) {
+                throw new Error(
+                  `Cannot archive the last active Free Plan. There must be at least one active Free Plan.`,
+                );
+              }
             } else {
-              throw new Error(`Free Plan cannot be unarchived.`);
+              // Allow unarchiving free plans
             }
           }
 
@@ -655,7 +664,8 @@ export class PtSubscriptionService {
             updated_on: moment.tz('UTC'),
             updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
           } as any;
-          if (subscriptionPlanDetails.plan_type === 'Paid') {
+          // [Replit Update 2026-03-29] Only call Stripe when plan has a valid stripe_product_id
+          if (subscriptionPlanDetails.plan_type === 'Paid' && subscriptionPlanDetails.stripe_product_id) {
             const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
               apiVersion: '2024-06-20',
             });

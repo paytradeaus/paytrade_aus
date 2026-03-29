@@ -21,11 +21,29 @@ export default function PlanFeaturesGrid() {
 
   const isLightTheme = () => getTheme === "light";
 
+  // [Replit Update 2026-03-29] Deduplicate plans by name, preferring plans with descriptions
+  function deduplicatePlans(planList: any[]): any[] {
+    const seen = new Map<string, any>();
+    for (const plan of planList) {
+      const key = (plan.plan_name || "").toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.set(key, plan);
+      } else {
+        const existing = seen.get(key);
+        if (!existing.description && plan.description) {
+          seen.set(key, plan);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }
+
   // which paid plans to show depending on toggle
   function paymentPlans() {
-    return !isYearly
+    const raw = !isYearly
       ? subscriptionPlanTypes?.monthly_plan_list || []
       : subscriptionPlanTypes?.yearly_plan_list || [];
+    return deduplicatePlans(raw);
   }
 
   // Format plan price string into display like "$100/yr" or "Free"

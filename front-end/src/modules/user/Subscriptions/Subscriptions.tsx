@@ -12,6 +12,7 @@ import { durationType, subscriptionStatus } from "./subscriptions.constants";
 import { formatDate } from "@/utils";
 import PlanCardWrapper from "./planCard";
 import BillingSummary from "./billingSummary";
+import PlanTable from "@/components/PricingGrid";
 
 export default function Subscriptions() {
   const {
@@ -19,6 +20,7 @@ export default function Subscriptions() {
     cardPlans,
     isYearly,
     setIsYearly,
+    subscriptionPlanTypes,
     displayBillingDetails,
     setDisplayBillingDetails,
     setAnnualBilling,
@@ -117,12 +119,15 @@ export default function Subscriptions() {
               </div>
             )}
 
+            {/* [Replit Update 2026-03-29] Show feature comparison table directly like the public pricing page */}
+            <PlanTable features={[]} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
+
             <div
               className="pt_box pt_faqs pt_paymentmethods"
               style={{ marginTop: cardPlans.length > 0 ? "" : "2rem" }}
             >
               <details>
-                <summary>View plan features</summary>
+                <summary>View detailed plan features</summary>
                 <PlanFeaturesGrid />
               </details>
               <hr />

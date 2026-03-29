@@ -157,15 +157,37 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     }
   }
 
+  // [Replit Update 2026-03-29] Deduplicate plans by name, preferring plans with descriptions
+  function normalizePlanKey(name: string): string {
+    return (name || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
+  }
+
+  function deduplicatePlans(planList: any[]): any[] {
+    const seen = new Map<string, any>();
+    for (const plan of planList) {
+      const key = normalizePlanKey(plan.plan_name);
+      if (!seen.has(key)) {
+        seen.set(key, plan);
+      } else {
+        const existing = seen.get(key);
+        if (!existing.description && plan.description) {
+          seen.set(key, plan);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }
+
   // Transform and set plans based on toggle
   function transformPlans(data: any, isYearly: boolean) {
     if (!data) {
       return [];
     }
 
-    const planList = isYearly
-      ? data.yearly_plan_list || [] // Ensure it's an array
-      : data.monthly_plan_list || []; // Ensure it's an array
+    const rawPlanList = isYearly
+      ? data.yearly_plan_list || []
+      : data.monthly_plan_list || [];
+    const planList = deduplicatePlans(rawPlanList);
 
     const freePlan = !subscriptionData?.payment_method_id
       ? [data.free_plan]
