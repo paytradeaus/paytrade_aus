@@ -80,6 +80,7 @@ function ManageSubscriptionPlans(props: any) {
       },
     },
 
+    // [Replit Update 2026-03-29] Delete/archive available for all plan types
     {
       label: "Delete",
       style: "contrast",
@@ -88,8 +89,6 @@ function ManageSubscriptionPlans(props: any) {
         setActionData(row);
         setDisplayConfirmationModal(true);
       },
-      comparisonRowKey: "plan_type",
-      conditionalComparisonData: "Paid",
     },
   ];
 
