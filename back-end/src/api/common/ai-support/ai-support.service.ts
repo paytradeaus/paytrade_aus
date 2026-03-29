@@ -29,7 +29,6 @@ export class AiSupportService {
   private logger = new PaytradeLogger('AI_SUPPORT');
   private openai: OpenAI | null = null;
   private systemGuideContent: string = '';
-  private adminGuideContent: string = '';
 
   constructor(
     @InjectRepository(AiSupportUsage)
@@ -73,17 +72,6 @@ export class AiSupportService {
           this.logger.log(`Loaded system guide (alt path): ${this.systemGuideContent.length} chars`);
         } else {
           this.logger.warn('PayTrade-System-Guide.md not found');
-        }
-      }
-      const adminGuidePath = path.join(process.cwd(), '..', 'PayTrade-Admin-Guide.md');
-      if (fs.existsSync(adminGuidePath)) {
-        this.adminGuideContent = fs.readFileSync(adminGuidePath, 'utf-8');
-        this.logger.log(`Loaded admin guide: ${this.adminGuideContent.length} chars`);
-      } else {
-        const altAdminPath = path.join(process.cwd(), 'PayTrade-Admin-Guide.md');
-        if (fs.existsSync(altAdminPath)) {
-          this.adminGuideContent = fs.readFileSync(altAdminPath, 'utf-8');
-          this.logger.log(`Loaded admin guide (alt path): ${this.adminGuideContent.length} chars`);
         }
       }
     } catch (error) {
@@ -447,8 +435,7 @@ RESPONSE FORMAT:
 - If there are prerequisites (e.g., subscription plan requirements, mapping steps), mention them upfront.
 - Where relevant, mention related features or next steps the user might want to know about.
 
-${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 50000)}` : ''}
-${this.adminGuideContent ? `\nPAYTRADE ADMIN PANEL KNOWLEDGE:\n${this.adminGuideContent.substring(0, 15000)}` : ''}`;
+${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 50000)}` : ''}`;
 
     const requestOptions: any = {
       model: 'gpt-4o',
