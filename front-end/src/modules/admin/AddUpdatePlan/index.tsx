@@ -755,7 +755,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
                           tabOptions={tabOptions}
                           tabValue={tabStatus}
                           onChange={(value: any) => handleTabChange(value)}
-                          disabled={!_.isEmpty(formik?.errors)}
+                          disabled={!editMode && !viewMode && !_.isEmpty(formik?.errors)}
                         />
                       </div>
                       {tabStatus == tabOptions[0]?.value && (
