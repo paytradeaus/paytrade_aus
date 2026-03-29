@@ -828,6 +828,12 @@ export default function Transactions() {
                     disabled={isLoading}
                   />
                 )}
+                <Link
+                  href={`${AppRoutes.USER_MATCH_TRANSACTIONS}?bankAccountId=${getBankAccountId}`}
+                  className="smallbutton secondary"
+                >
+                  Full Match Screen &rarr;
+                </Link>
               </div>
             </div>
           </div>

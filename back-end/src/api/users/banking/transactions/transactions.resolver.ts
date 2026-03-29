@@ -25,6 +25,7 @@ import {
   BatchSuggestedMatchesResponse,
   BatchMatchResponse,
   QuickAdjustMatchResponse,
+  SmartMatchPreferenceResponse,
 } from './transactions.response';
 import { TransactionsService } from './transactions.service';
 import {
@@ -1285,7 +1286,7 @@ export class TransactionsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
-  @Mutation(() => QuickAdjustMatchResponse, {
+  @Mutation(() => SmartMatchPreferenceResponse, {
     name: 'setSmartMatchPreference',
     description: 'Set the user smart match toggle preference.',
   })

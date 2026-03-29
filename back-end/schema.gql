@@ -14668,7 +14668,7 @@ type Mutation {
   setSmartMatchPreference(
     """Whether smart match is enabled."""
     enabled: Boolean!
-  ): QuickAdjustMatchResponse!
+  ): SmartMatchPreferenceResponse!
 
   """
   Silence compliance notifications and rules for a project to stop email alerts temporarily.
@@ -18708,6 +18708,15 @@ input SilenceComplianceOfAProjectInput {
 
   """Rule number associated with the compliance check."""
   rule_number: Float
+}
+
+"""Response for smart match preference operations."""
+type SmartMatchPreferenceResponse {
+  """Message describing the response."""
+  message: String!
+
+  """Status of the API response."""
+  status: String!
 }
 
 """Key-value pair representing a statement field."""

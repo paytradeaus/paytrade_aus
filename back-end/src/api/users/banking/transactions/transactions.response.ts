@@ -552,3 +552,12 @@ export class QuickAdjustMatchResponse {
   @Field(() => QuickAdjustMatchData, { nullable: true, description: 'Adjust-match result.' })
   data: QuickAdjustMatchData;
 }
+
+@ObjectType({ description: 'Response for smart match preference operations.' })
+export class SmartMatchPreferenceResponse {
+  @Field({ description: 'Status of the API response.' })
+  status: string;
+
+  @Field({ description: 'Message describing the response.' })
+  message: string;
+}
