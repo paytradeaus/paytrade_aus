@@ -216,7 +216,70 @@ The credit note is created first, then immediately allocated against the origina
 
 ---
 
-## 5. Account Code Reference
+## 5. Processing Wait Time & Multi-Step Payment Resolution
+
+### 5.1 Why Some Syncs Are Delayed
+
+In construction, many payment types involve **multiple steps** before PayTrade can determine the final payment classification. When Xero notifies PayTrade that something has changed on an invoice, the first change may only be the beginning of a larger transaction. The system cannot yet know the final outcome because further actions may follow shortly after.
+
+**Example:** A partial payment is applied to an invoice in Xero. At this point it could become:
+- A **Part Payment** — if the remainder stays outstanding and no further action follows
+- A **Pay Less** — if the payer has deducted an amount with a reason (e.g., defect back-charge) and a credit note is also created
+- A **Standard Payment** — if a second payment follows shortly after, completing the full amount
+
+Because PayTrade cannot distinguish between these outcomes from the first notification alone, the system **waits** for a configurable period before processing — giving time for all related records to be created in Xero.
+
+### 5.2 How the Processing Wait Time Works
+
+The processing wait time is a configurable delay (0–60 minutes) set per company in **Xero Settings → Other Settings → Processing Wait Time**. It works as follows:
+
+1. **Xero notifies PayTrade** that an invoice or bill has been updated (e.g., a payment was applied).
+2. **PayTrade holds the notification** for the configured wait period instead of processing immediately.
+3. **After the delay elapses**, PayTrade reads the complete, current state of the invoice from Xero — including all payments, credit notes, and overpayments that now exist — and determines the correct payment type.
+4. **If processing fails**, the system retries automatically (up to 5 attempts) before logging a failure in the Sync Log.
+
+New invoices and bills created in Xero are processed immediately without waiting, since they don't yet have follow-up transactions.
+
+The **daily sync** (1:00 PM UTC) also processes everything in a single pass and does not use the wait time — it reads the complete picture directly.
+
+### 5.3 Payment Types That Require Multi-Step Resolution
+
+The following scenarios involve payments where the first notification from Xero may not tell the full story:
+
+| What Happens in Xero | Possible PayTrade Payment Types | How PayTrade Decides |
+|---|---|---|
+| A partial payment is applied to an invoice | **Part Payment**, **Pay Less**, or first of multiple payments leading to **Full Payment** | Whether additional payments, credit notes, or adjustments are recorded within the wait period |
+| A payment exceeds the invoice total | **Overpayment** | The payment amount is greater than the amount owed on the invoice |
+| A credit note is created against an invoice | **Credit Note** (standalone) or part of a **Pay Less** flow | Whether the credit note is paired with a reduced payment |
+| A payment and a bank transfer arrive together | **Standard Payment with Cash Retention Transfer** | Both a payment and a separate retention bank transfer are recorded |
+| A refund is applied against a previous overpayment | **Overpayment Refund** | The refund is allocated to an existing overpayment record |
+
+### 5.4 What Happens After the Wait Period
+
+Once the wait time elapses, PayTrade evaluates the complete state of the invoice in Xero and classifies the payment:
+
+- Payment matches invoice total → **Standard Payment**
+- Payment is less than invoice total, no credit note → **Part Payment**
+- Payment + credit note reducing the effective amount → **Pay Less**
+- Payment exceeds invoice total → **Overpayment**
+- Credit note allocated against an invoice → **Credit Note**
+- Refund against an existing overpayment → **Overpayment Refund**
+
+The result is then synced as the corresponding payment in PayTrade, and the outcome is logged in the **Sync Log** (visible on the Xero Dashboard).
+
+### 5.5 Recommended Wait Time
+
+| Wait Time | Best For |
+|---|---|
+| **0 minutes** | Only suitable if all payments are simple one-step transactions (rare in construction) |
+| **5–15 minutes** | Good default for most construction companies — allows time for multi-part transactions to complete |
+| **30–60 minutes** | Companies that frequently process complex payment chains (e.g., part payments with retention transfers and credit notes recorded in quick succession) |
+
+The setting is found under **Xero Settings → Other Settings → Processing Wait Time**.
+
+---
+
+## 6. Account Code Reference
 
 All account codes are configured per company in the Xero Integration Settings (`XeroIntegrationDetails` entity):
 
@@ -235,13 +298,13 @@ All account codes are configured per company in the Xero Integration Settings (`
 
 ---
 
-## 6. Contract Mapping: Optional with Smart Resolution
+## 7. Contract Mapping: Optional with Smart Resolution
 
 *Updated 2026-03-29*
 
 Contract mapping (linking PayTrade contracts to Xero Tracking Category options) is **optional**. The system no longer fails the sync simply because a contract tracking category or specific contract mapping is missing. This eliminates unnecessary sync failures for the common case where a supplier has only one contract per project.
 
-### 6.1 Export (PayTrade → Xero)
+### 7.1 Export (PayTrade → Xero)
 
 When exporting a claim to Xero:
 
@@ -249,7 +312,7 @@ When exporting a claim to Xero:
 - If the contract is **not** mapped → the sync proceeds without the contract tracking category. The invoice/bill is created in Xero with only the project tracking category on line items.
 - The claim is still correctly linked to its PayTrade contract — the only impact is reduced granularity in Xero's tracking reports.
 
-### 6.2 Import (Xero → PayTrade) — Smart Contract Resolution
+### 7.2 Import (Xero → PayTrade) — Smart Contract Resolution
 
 When importing an invoice/bill from Xero, the system attempts to resolve the PayTrade contract in this order:
 
@@ -261,7 +324,7 @@ When importing an invoice/bill from Xero, the system attempts to resolve the Pay
 
 4. **Fail on ambiguity**: The sync only fails if multiple contracts exist, none are uniquely identified by amount, and no tracking category is mapped. The sync log will show: *"Multiple contracts found for this supplier and project. Please map the contract in Xero tracking categories to resolve."*
 
-### 6.3 When Is Contract Mapping Still Required?
+### 7.3 When Is Contract Mapping Still Required?
 
 Contract mapping is only strictly needed when **all** of the following are true:
 - The same supplier has **2 or more** contracts under the same project
@@ -270,7 +333,7 @@ Contract mapping is only strictly needed when **all** of the following are true:
 
 This is an edge case. For most users, project mapping alone is sufficient.
 
-### 6.4 Sync Failure Resolution
+### 7.4 Sync Failure Resolution
 
 When a sync does fail due to contract ambiguity:
 - The failure is recorded in the **Sync Log** and visible on the Xero Dashboard
@@ -280,7 +343,7 @@ When a sync does fail due to contract ambiguity:
 
 ---
 
-## 7. Entity Mapping Reference
+## 8. Entity Mapping Reference
 
 | PayTrade Entity | Xero Entity | Mapping Table | Key Fields |
 |---|---|---|---|
@@ -291,7 +354,7 @@ When a sync does fail due to contract ambiguity:
 
 ---
 
-## 8. Validation Checks (Import from Xero)
+## 9. Validation Checks (Import from Xero)
 
 When importing invoices or payments from Xero, the system runs these validation checks and logs the result:
 
@@ -309,7 +372,7 @@ If any check fails, the import is rejected and a detailed sync log is created wi
 
 ---
 
-## 9. GST Handling
+## 10. GST Handling
 
 | Setting | Behaviour |
 |---|---|
@@ -318,7 +381,7 @@ If any check fails, the import is rejected and a detailed sync log is created wi
 
 ---
 
-## 10. Internal Journal Entries (Trust Accounts)
+## 11. Internal Journal Entries (Trust Accounts)
 
 When a claim is confirmed and the contract is linked to a trust account, PayTrade also creates internal journal entries:
 
@@ -340,4 +403,4 @@ These journal entries are internal to PayTrade and are separate from the Xero sy
 | `back-end/src/api/common/integrations/xero/payments/xero-payments.service.ts` | Payment, overpayment, refund, credit note, and bank transfer sync |
 | `back-end/src/api/common/integrations/xero/xero.service.ts` | Settings management, token refresh, tracking categories |
 | `back-end/src/api/users/banking/payment-claims/payment-claims.service.ts` | Claim creation, internal journal entry generation |
-| `back-end/src/entities/xero-integration-details.entity.ts` | Account code configuration storage |
+| `back-end/src/entities/xero-integration-details.entity.ts` | Account code configuration storage (including `wait_time`) |

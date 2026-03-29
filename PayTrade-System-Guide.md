@@ -878,9 +878,40 @@ Only when a supplier has 2+ contracts under the same project AND the claim amoun
 
 ### 19.7 Payment Synchronisation
 
-- Payments applied to invoices/bills sync between systems
-- Supports overpayments and credit notes
-- Payment sync follows the same Draft/Approved preference as invoices/bills
+#### Payment Types
+
+PayTrade supports several payment types when syncing with Xero:
+
+| PayTrade Payment Type | What It Means | When It Applies |
+|---|---|---|
+| **Standard Payment** | Full payment of an invoice or bill | Payment amount matches the invoice/bill total |
+| **Part Payment** | Partial payment, remainder still outstanding | Payment is less than the invoice total with no credit note |
+| **Pay Less** | Payment with a deduction (e.g., defect back-charge) | Payment + credit note reduces the effective total owed |
+| **Overpayment** | Payment exceeds what is owed | Payment amount is greater than the invoice total |
+| **Overpayment Refund** | Refund of a previous overpayment | Refund applied against an existing overpayment |
+| **Credit Note** | Reduction of an invoice/bill amount | Standalone credit note allocated against an invoice |
+| **Retention Transfer** | Retention portion moved to trust account | Cash retention transferred to the retention bank account alongside a standard payment |
+
+Payment sync follows the same Draft/Approved preference as invoices/bills.
+
+#### Why Some Syncs Take Time
+
+In construction, many payment types involve **multiple steps** before PayTrade can determine the correct classification. When Xero notifies PayTrade of a change (e.g., a payment applied to an invoice), that first notification may only be the beginning of a larger transaction.
+
+**Example:** A partial payment is applied in Xero. At this point it could become:
+- A **Part Payment** — if the remainder stays outstanding
+- A **Pay Less** — if a credit note follows, formally reducing the amount owed
+- The first of **multiple payments** leading to full settlement
+
+Because PayTrade cannot distinguish between these outcomes from the first notification alone, the system uses a configurable **Processing Wait Time** (0–60 minutes, set in Xero Settings) to delay processing. After the wait period, PayTrade reads the complete state of the invoice from Xero — including all payments, credit notes, and overpayments that have been recorded in the meantime — and then determines the correct payment type.
+
+**What this means for users:**
+- If a payment sync hasn't appeared yet, it is likely waiting for the configured delay to elapse before processing.
+- The wait time allows PayTrade to make an accurate decision rather than guessing. After the wait expires, the system determines the payment type based on all available records.
+- The daily sync (1:00 PM UTC) processes everything in a single pass and does not use the wait time — it reads the complete current state directly.
+- Failed syncs retry automatically and are logged in the Sync Log for review if needed.
+
+The **Processing Wait Time** setting is found under **Xero Settings → Other Settings**.
 
 ### 19.8 Automated Sync
 
@@ -889,11 +920,10 @@ Only when a supplier has 2+ contracts under the same project AND the claim amoun
 - Iterates through all active integrations
 - Performs a full refresh: accounts → contacts → projects → contracts → invoices
 
-#### Xero Webhooks
-- Receives real-time events from Xero at `/xero-webhook`
-- Supported events: `CONTACT.CREATE`, `CONTACT.UPDATE`, `INVOICE.CREATE`, `INVOICE.UPDATE`
-- Events are queued via Redis/BullMQ (`XeroWebhookQueueConsumer`) for reliable processing
-- Configurable wait time (0–60 minutes) delays processing to batch rapid changes
+#### Real-Time Sync from Xero
+- When changes are made in Xero (new contacts, updated invoices, payments applied), PayTrade is notified automatically
+- Changes to contacts, invoices, and bills are synced in near-real-time
+- Payment changes are subject to the **Processing Wait Time** (see 19.7) to allow multi-step transactions to complete before classification
 
 ### 19.9 Sync Logs and Error Resolution
 
