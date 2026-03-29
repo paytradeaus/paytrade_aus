@@ -18,3 +18,9 @@ id = "txc2VIPHEws2p7LnI9Y9K"
 uri = "file://MIGRATION-TO-R2.md"
 type = "text"
 title = "PayTrade Migration Plan: Replit → R2 + Railway"
+
+[[outputs]]
+id = "p1_tsOeVLINtrupxrJ-Qs"
+uri = "file://Xero-Claim-Payment-Mapping.md"
+type = "text"
+title = "Xero ↔ PayTrade: Claim & Payment Type Mapping"
