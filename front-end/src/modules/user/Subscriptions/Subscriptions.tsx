@@ -17,6 +17,7 @@ import PlanTable from "@/components/PricingGrid";
 export default function Subscriptions() {
   const {
     subscriptionData,
+    isDemo,
     cardPlans,
     isYearly,
     setIsYearly,
@@ -142,7 +143,7 @@ export default function Subscriptions() {
 
                     <br />
                     <p>Add a new payment method to your account</p>
-                    <AddNewPayment />
+                    <AddNewPayment isDemo={isDemo} />
                   </details>
                   <hr />
                 </Fragment>

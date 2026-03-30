@@ -51,19 +51,23 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
 
   async function initialInvoke() {
     try {
-      // Show loader before starting
       setLoader(true);
 
-      // Execute all API calls in parallel
-      await Promise.allSettled([
+      // [Replit Update 2026-03-30] Fetch subscription details first to determine is_demo,
+      // then fetch plans with the correct sandbox filter
+      const [, subResult] = await Promise.allSettled([
         getSubscriptionPlanItems(),
         getExistingSubscriptionPlan(),
-        getSubscriptionPlanTypes(),
         getAllExistingCardDetails(),
         getExistingCardDetails(),
       ]);
 
-      // Hide loader after all API calls are completed
+      const isDemoCompany =
+        subResult.status === "fulfilled" && subResult.value?.is_demo
+          ? true
+          : false;
+      await getSubscriptionPlanTypes(isDemoCompany);
+
       setLoader(false);
     } catch (error) {
       setLoader(false);
@@ -93,25 +97,25 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       if (response) {
         setSubscriptionData(response);
         setIsYearly(response?.bill_cycle === durationType?.YEARLY);
-        return true;
+        return response;
       }
 
-      return false;
+      return null;
     } catch (err: any) {
       return false;
     }
   }
-
-  async function getSubscriptionPlanTypes() {
+  // [Replit Update 2026-03-30] Accept isDemoCompany to filter sandbox plans
+  async function getSubscriptionPlanTypes(isDemoCompany: boolean = false) {
     try {
-      const response: any = await fetchGetAllSubscriptionPlanListForUser();
+      const response: any = await fetchGetAllSubscriptionPlanListForUser(isDemoCompany);
 
       if (response) {
         const transformedPlans = transformPlans(response, isYearly);
 
-        setCardPlans(transformedPlans); // Update state with transformed plans
+        setCardPlans(transformedPlans);
 
-        setSubscriptionPlanTypes(response); // Save raw data for future use
+        setSubscriptionPlanTypes(response);
       }
     } catch (err) {
       console.error("Error fetching subscription plans:", err);
@@ -266,6 +270,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       value={{
         router,
         subscriptionData,
+        isDemo: subscriptionData?.is_demo || false,
         subscriptionPlansItems,
         cardPlans,
         isYearly,

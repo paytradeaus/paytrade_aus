@@ -253,6 +253,7 @@ const AddBusinessProfiles = (props: any) => {
         ABN: editData?.abn_number || "",
         TFN: editData?.tfn_number || "",
         AdminBlocked: editData?.is_admin_blocked ? "Blocked" : "UnBlocked",
+        IsDemo: editData?.is_demo || false,
         UserId: isEdit ? editData?.user_id || "" : "",
         isEmailExistance: false,
         isBusinessExistance: false,
@@ -456,6 +457,7 @@ const AddBusinessProfiles = (props: any) => {
       place_id: "",
       region: "",
       AdminBlocked: "UnBlocked",
+      IsDemo: false,
       UserId: "",
       isEmailExistance: false,
       isBusinessExistance: false,
@@ -501,6 +503,7 @@ const AddBusinessProfiles = (props: any) => {
         region: values.region,
         is_admin_blocked:
           values.AdminBlocked === "Blocked" ? true : false || false,
+        is_demo: values.IsDemo || false,
       };
       try {
         setLoader(true);
@@ -895,6 +898,39 @@ const AddBusinessProfiles = (props: any) => {
                         valueKey="value"
                         onChange={handleRelatedEntityChange}
                       />
+                      {isEdit && (
+                        <div className="pt_formfield" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "15px", marginBottom: "15px" }}>
+                          <label className="labelStyle" style={{ marginBottom: 0 }}>
+                            <small>Demo Account</small>
+                          </label>
+                          <label style={{ position: "relative", display: "inline-block", width: "50px", height: "26px" }}>
+                            <input
+                              type="checkbox"
+                              checked={formik.values.IsDemo || false}
+                              onChange={(e) => formik.setFieldValue("IsDemo", e.target.checked)}
+                              style={{ opacity: 0, width: 0, height: 0 }}
+                            />
+                            <span
+                              style={{
+                                position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0,
+                                backgroundColor: formik.values.IsDemo ? "#f59e0b" : "#ccc",
+                                borderRadius: "26px", transition: "0.3s",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  position: "absolute", content: '""', height: "20px", width: "20px",
+                                  left: formik.values.IsDemo ? "26px" : "3px", bottom: "3px",
+                                  backgroundColor: "white", borderRadius: "50%", transition: "0.3s",
+                                }}
+                              />
+                            </span>
+                          </label>
+                          {formik.values.IsDemo && (
+                            <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: "12px" }}>DEMO</span>
+                          )}
+                        </div>
+                      )}
                       {/* {isEdit ? (
                         <FormikControl
                           control={InputType.TEXT_FIELD}

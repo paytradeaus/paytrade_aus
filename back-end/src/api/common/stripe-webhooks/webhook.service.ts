@@ -8,6 +8,7 @@ import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 import { SubscriptionPlanDetails } from 'src/entities/subscription-plan-details.entity';
 import { SubscriptionPricingPlan } from 'src/entities/subscription-pricing-plan.entity';
 import { PaymentGatewayService } from '../payment-gateway/payment-gateway.service';
+import { getStripeInstance } from 'src/libs/@stripe-helper/stripe-helper';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -25,9 +26,13 @@ export class StripeWebhookService {
     private readonly paymentGatewayService: PaymentGatewayService,
   ) {
     this.logger = new PaytradeLogger('WEBHOOK_SERVICE');
-    this.stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-06-20',
-    });
+    // [Replit Update 2026-03-30] Default to live Stripe; per-event override via getStripeForEvent
+    this.stripe = getStripeInstance(false);
+  }
+
+  // [Replit Update 2026-03-30] Get correct Stripe instance based on event livemode
+  private getStripeForEvent(livemode: boolean): Stripe {
+    return getStripeInstance(!livemode);
   }
 
   private log(message: string) {
@@ -38,13 +43,16 @@ export class StripeWebhookService {
     this.logger.error(`${message}`);
   }
 
-  async handlePaymentResponse(response) {
+  async handlePaymentResponse(response, livemode = true) {
     try {
       this.logger.log(
         `Request recieved while entering the handlePaymentResponse:: ${JSON.stringify(response)}`,
       );
 
       if (!response) throw `No webhook response received`;
+
+      // [Replit Update 2026-03-30] Use correct Stripe instance for live/test mode
+      const stripeApi = this.getStripeForEvent(livemode);
 
       const subscriptionId =
         response?.parent?.subscription_details?.subscription ?? null;
@@ -54,7 +62,7 @@ export class StripeWebhookService {
       if (!subscriptionId) throw `Subscription Id not found`;
 
       const subscription =
-        await this.stripe.subscriptions.retrieve(subscriptionId);
+        await stripeApi.subscriptions.retrieve(subscriptionId);
 
       this.logger.log(`subscription: ${JSON.stringify(subscription)}`);
 
@@ -80,7 +88,7 @@ export class StripeWebhookService {
         let paymentMethod = null;
 
         if (subscriptionDetails.payment_method_id) {
-          const paymentMethods = await this.stripe.paymentMethods.retrieve(
+          const paymentMethods = await stripeApi.paymentMethods.retrieve(
             subscriptionDetails.payment_method_id,
           );
           paymentMethod = `${paymentMethods.card.brand} *${paymentMethods.card.last4}`;
@@ -163,7 +171,7 @@ export class StripeWebhookService {
     }
   }
 
-  async handleCancelResponse(response) {
+  async handleCancelResponse(response, livemode = true) {
     try {
       this.logger.log(
         `Request recieved while entering the handleCancelResponse:: ${JSON.stringify(response)}`,
@@ -202,7 +210,7 @@ export class StripeWebhookService {
             'pp',
             `pd.plan_id = pp.plan_id AND pp.id::varchar = ANY(pd.associated_price_ids) AND pp.is_active = true`,
           )
-          .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active'`)
+          .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active' and pd.is_sandbox = :isSandbox`, { isSandbox: !livemode })
           .getRawOne();
 
         if (!subscriptionPlanDetails)

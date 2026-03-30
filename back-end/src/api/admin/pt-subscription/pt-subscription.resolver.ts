@@ -640,11 +640,14 @@ export class PtSubscriptionResolver {
     name: 'getAllSubscriptionPlanListForUser',
     description: 'Fetches all subscription plans available for users.',
   })
-  async getAllSubscriptionPlanListForUser() {
+  // [Replit Update 2026-03-29] Accept is_sandbox filter for demo companies
+  async getAllSubscriptionPlanListForUser(
+    @Args('is_sandbox', { nullable: true, defaultValue: false }) is_sandbox?: boolean,
+  ) {
     try {
       this.logger.log(`Request recieved while entering the client`);
       const subscriptionLists =
-        await this.ptSubscriptionService.getAllSubscriptionPlanListForUser();
+        await this.ptSubscriptionService.getAllSubscriptionPlanListForUser(is_sandbox);
       this.logger.log(
         `Response recieved while leaving the client: ${JSON.stringify(subscriptionLists)}`,
       );

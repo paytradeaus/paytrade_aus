@@ -50,6 +50,7 @@ export default function BillingSummary() {
     setLoaderInfo,
     setStripeCardPaymentDetails,
     isYearly,
+    isDemo,
   }: any = useSubscriptionsContext();
   const { decodeTokenData } = useTokenDetails();
   const router = useRouter();
@@ -541,7 +542,7 @@ export default function BillingSummary() {
                 new payment method to your account
               </p>
               <div>
-                <AddNewPayment hideCardValidationButton />
+                <AddNewPayment hideCardValidationButton isDemo={isDemo} />
                 <FormikControl type={InputType.CHECKBOX} />
                 <div className="mb_1">
                   <FormikControl

@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { StripeWebhookService } from './webhook.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { Public } from 'src/api/auth/jwt-guard/public.decorator';
+import { getStripeInstance, getWebhookSecret } from 'src/libs/@stripe-helper/stripe-helper';
 
 @Controller('stripe-webhook')
 export class StripeWebhookResolver {
@@ -23,21 +24,37 @@ export class StripeWebhookResolver {
   @Public()
   async handleWebhook(@Req() request: Request, @Res() response: Response) {
     const sig = Array.isArray(request.headers['stripe-signature'])
-      ? request.headers['stripe-signature'][0] // take the first element if it's an array
-      : request.headers['stripe-signature']; // or use it as a string if it's not an array
+      ? request.headers['stripe-signature'][0]
+      : request.headers['stripe-signature'];
 
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-06-20',
-    });
+    // [Replit Update 2026-03-30] Try live secret first, fall back to test secret
+    let event;
+    const stripe = getStripeInstance(false);
 
     try {
       this.logger.log('Inside handleWebhook');
-      const event = stripe.webhooks.constructEvent(
-        request.body,
-        sig as string,
-        endpointSecret,
-      );
+
+      try {
+        const liveSecret = getWebhookSecret(true);
+        event = stripe.webhooks.constructEvent(
+          request.body,
+          sig as string,
+          liveSecret,
+        );
+      } catch (liveErr) {
+        this.logger.log('Live webhook verification failed, trying test secret');
+        const testSecret = process.env.STRIPE_TEST_WEBHOOK_SECRET;
+        if (testSecret) {
+          const testStripe = getStripeInstance(true);
+          event = testStripe.webhooks.constructEvent(
+            request.body,
+            sig as string,
+            testSecret,
+          );
+        } else {
+          throw liveErr;
+        }
+      }
 
       this.logger.log(
         `Request recieved while entering the handleWebhook:: ${JSON.stringify(event)}`,
@@ -52,8 +69,10 @@ export class StripeWebhookResolver {
             `Request recieved while entering the handleWebhook::invoicePaymentSucceeded:: ${JSON.stringify(invoicePaymentSucceeded)}`,
           );
           this.logger.log(`invoicePaymentSucceeded: ${JSON.stringify(invoicePaymentSucceeded)}`);
+          // [Replit Update 2026-03-30] Pass event.livemode to service
           dbResponse = await this.stripeService.handlePaymentResponse(
             invoicePaymentSucceeded,
+            event.livemode,
           );
           this.logger.log(
             `Request recieved while entering the handleWebhook::dbResponse:: ${JSON.stringify(dbResponse)}`,
@@ -61,7 +80,6 @@ export class StripeWebhookResolver {
           break;
         case 'invoice.payment_failed':
           const invoicePaymentFailed = event.data.object;
-          // Then define and call a function to handle the event invoice.payment_failed
           this.logger.log(
             `Request recieved while entering the handleWebhook::invoicePaymentFailed:: ${JSON.stringify(invoicePaymentFailed)}`,
           );
@@ -69,6 +87,7 @@ export class StripeWebhookResolver {
           dbResponse =
             await this.stripeService.handlePaymentResponse(
               invoicePaymentFailed,
+              event.livemode,
             );
           this.logger.log(
             `Request recieved while entering the handleWebhook::dbResponse:: ${JSON.stringify(dbResponse)}`,
@@ -76,7 +95,6 @@ export class StripeWebhookResolver {
           break;
         case 'customer.subscription.updated':
           const cancelSubscriptionAtTrialEnd = event.data.object;
-          // Then define and call a function to handle the event invoice.payment_failed
           this.logger.log(
             `Request recieved while entering the handleWebhook::cancelSubscriptionAtTrialEnd:: ${JSON.stringify(cancelSubscriptionAtTrialEnd)}`,
           );
@@ -85,6 +103,7 @@ export class StripeWebhookResolver {
           );
           dbResponse = await this.stripeService.handleCancelResponse(
             cancelSubscriptionAtTrialEnd,
+            event.livemode,
           );
           this.logger.log(
             `Request recieved while entering the handleWebhook::dbResponse:: ${JSON.stringify(dbResponse)}`,
@@ -92,7 +111,6 @@ export class StripeWebhookResolver {
           break;
         case 'customer.subscription.deleted':
           const cancelSubscriptionImmediately = event.data.object;
-          // Then define and call a function to handle the event invoice.payment_failed
           this.logger.log(
             `Request recieved while entering the handleWebhook::cancelSubscriptionImmediately:: ${JSON.stringify(cancelSubscriptionImmediately)}`,
           );
@@ -101,6 +119,7 @@ export class StripeWebhookResolver {
           );
           dbResponse = await this.stripeService.handleCancelResponse(
             cancelSubscriptionImmediately,
+            event.livemode,
           );
           this.logger.log(
             `Request recieved while entering the handleWebhook::dbResponse:: ${JSON.stringify(dbResponse)}`,

@@ -29,6 +29,7 @@ export const AdminGetCompanyById = async (
               icon_file_type
               id
               is_admin_blocked
+              is_demo
               is_verified
               latitude
               legal_company_name
@@ -97,6 +98,7 @@ export const AdminUpdateCompany = async (
               icon_file_type
               id
               is_admin_blocked
+              is_demo
               is_verified
               latitude
               legal_company_name

@@ -94,6 +94,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
       isPlanNameExist: false,
       item_specification: [],
       tab_type: "details",
+      is_sandbox: false,
     },
     validationSchema,
     onSubmit: async () => {
@@ -134,6 +135,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
           trial_period: patchData?.trial_period || 0,
           plan_status: patchData?.plan_status || "",
           tab_type: "details",
+          is_sandbox: patchData?.is_sandbox || false,
         };
         formik.setValues(formValues);
 
@@ -406,8 +408,8 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
         plan_status: formik?.values?.plan_status,
         description: formik?.values?.description || null,
         trial_period: formik?.values?.trial_period || 0,
-        // itemIds: selectedSubscriptionItems.map((x) => x.id),
         item_specification: itemSpecification,
+        ...(!editMode && { is_sandbox: formik?.values?.is_sandbox || false }),
       };
       setLoaderInfo(
         editMode
@@ -885,6 +887,19 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
                               }
                             />
                           )}
+
+                          {/* [Replit Update 2026-03-30] Sandbox mode toggle */}
+                          <FormikControl
+                            id="is_sandbox"
+                            name="is_sandbox"
+                            control={InputType.CHECKBOX}
+                            label={"Sandbox Plan (uses Stripe test keys)"}
+                            value={formik.values?.is_sandbox}
+                            onChange={(e: any) =>
+                              formik.setFieldValue("is_sandbox", e.target.checked)
+                            }
+                            disabled={viewMode || editMode}
+                          />
 
                           <FormikControl
                             control={InputType.TEXT_AREA}

@@ -48,6 +48,7 @@ import { AddGiftCouponInput } from './dto/add-stripe-coupon.dto';
 import { UpdateStripeCouponInput } from './dto/update-stripe-coupon';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
+import { getStripeInstance } from 'src/libs/@stripe-helper/stripe-helper';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -257,10 +258,13 @@ export class PtSubscriptionService {
             `Request received for adding subscription plan with details: ${JSON.stringify(data)}`,
           );
 
+          // [Replit Update 2026-03-29] Determine sandbox mode from input
+          const isSandbox = data.is_sandbox ?? false;
+
           if (data.plan_type === 'Free') {
             const existingFreePlan = await transactionalEntityManager.findOne(
               SubscriptionPlanDetails,
-              { where: { plan_type: 'Free', plan_status: 'Active' } },
+              { where: { plan_type: 'Free', plan_status: 'Active', is_sandbox: isSandbox } },
             );
             if (
               existingFreePlan &&
@@ -275,11 +279,11 @@ export class PtSubscriptionService {
             created_by: decoded?.userId,
             created_on: moment.tz('UTC'),
             created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+            is_sandbox: isSandbox,
           } as any;
           if (data.plan_type === 'Paid') {
-            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-              apiVersion: '2024-06-20',
-            });
+            // [Replit Update 2026-03-29] Use sandbox or live Stripe based on is_sandbox
+            const stripe = getStripeInstance(isSandbox);
             let productObj: any = {
               name: data.plan_name,
             };
@@ -328,9 +332,8 @@ export class PtSubscriptionService {
               productData &&
               productData.stripe_product_id
             ) {
-              const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-                apiVersion: '2024-06-20',
-              });
+              // [Replit Update 2026-03-29] Use sandbox or live Stripe based on is_sandbox
+              const stripe = getStripeInstance(isSandbox);
               if (data.monthly_price > 0) {
                 const plan = await stripe.prices.create({
                   product: productData.stripe_product_id,
@@ -486,9 +489,8 @@ export class PtSubscriptionService {
             subscriptionPlanDetails.plan_type === 'Paid' &&
             data.description
           ) {
-            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-              apiVersion: '2024-06-20',
-            });
+            // [Replit Update 2026-03-30] Use sandbox or live Stripe based on plan's is_sandbox flag
+            const stripe = getStripeInstance(subscriptionPlanDetails.is_sandbox ?? false);
 
             const productDetails = await stripe.products.update(
               subscriptionPlanDetails.stripe_product_id,
@@ -666,9 +668,8 @@ export class PtSubscriptionService {
           } as any;
           // [Replit Update 2026-03-29] Only call Stripe when plan has a valid stripe_product_id
           if (subscriptionPlanDetails.plan_type === 'Paid' && subscriptionPlanDetails.stripe_product_id) {
-            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-              apiVersion: '2024-06-20',
-            });
+            // [Replit Update 2026-03-29] Use sandbox or live Stripe based on plan's is_sandbox flag
+            const stripe = getStripeInstance(subscriptionPlanDetails.is_sandbox ?? false);
             const productDetails = await stripe.products.update(
               subscriptionPlanDetails.stripe_product_id,
               {
@@ -710,9 +711,8 @@ export class PtSubscriptionService {
             subscriptionPlanDetails.plan_type === 'Paid' &&
             subscriptionPlanDetails.stripe_product_id
           ) {
-            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-              apiVersion: '2024-06-20',
-            });
+            // [Replit Update 2026-03-29] Use sandbox or live Stripe based on plan's is_sandbox flag
+            const stripe = getStripeInstance(subscriptionPlanDetails.is_sandbox ?? false);
 
             for (const element of subscriptionPlanDetails.pricingPlan) {
               if (
@@ -800,6 +800,7 @@ export class PtSubscriptionService {
               trialEndDate,
               productData,
               decoded,
+              subscriptionPlanDetails.is_sandbox ?? false,
             );
           updatedSubscriptionIds.push(updateExistingSubscriptions.id);
         }
@@ -814,12 +815,12 @@ export class PtSubscriptionService {
     expiryDate,
     productData,
     decoded,
+    isSandbox = false,
   ) {
     this.logger.log(`Update subscription intiated: ${JSON.stringify(element)}`);
 
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-06-20',
-    });
+    // [Replit Update 2026-03-30] Use sandbox or live Stripe based on plan's is_sandbox flag
+    const stripe = getStripeInstance(isSandbox);
 
     const subscription = await stripe.subscriptions.update(
       element.stripe_subscription_id,
@@ -915,9 +916,8 @@ export class PtSubscriptionService {
     let associated_price_ids = [],
       inactive_prices = [];
     let priceData = [];
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-06-20',
-    });
+    // [Replit Update 2026-03-30] Use sandbox or live Stripe based on plan's is_sandbox flag
+    const stripe = getStripeInstance(subscriptionPlanDetails.is_sandbox ?? false);
     const pricingPlan: any = await transactionalEntityManager.find(
       SubscriptionPricingPlan,
       {
@@ -1518,6 +1518,7 @@ export class PtSubscriptionService {
         'ppm.is_deleted as monthly_is_deleted',
         'ppy.is_deleted as yearly_is_deleted',
         'pi.plan_items as plan_items',
+        'pd.is_sandbox as is_sandbox',
       ])
       .leftJoin(
         SubscriptionPricingPlan,
@@ -1579,6 +1580,13 @@ export class PtSubscriptionService {
           `,
         { keyword: `%${data.search.toLowerCase()}%` },
       );
+    }
+
+    // [Replit Update 2026-03-29] Filter by sandbox/live mode
+    if (data.is_sandbox !== undefined && data.is_sandbox !== null) {
+      queryBuilder.andWhere('pd.is_sandbox = :is_sandbox', {
+        is_sandbox: data.is_sandbox,
+      });
     }
 
     const sorting_order = data.sorting_order ? data.sorting_order : 'DESC';
@@ -1672,6 +1680,7 @@ export class PtSubscriptionService {
           yearly_is_active: result.yearly_is_active,
           monthly_is_deleted: result.monthly_is_deleted,
           yearly_is_deleted: result.yearly_is_deleted,
+          is_sandbox: result.is_sandbox,
           plan_items: result?.plan_items?.map((plan) => {
             return {
               id: plan.id,
@@ -1692,7 +1701,8 @@ export class PtSubscriptionService {
     };
   }
 
-  async getAllSubscriptionPlanListForUser() {
+  // [Replit Update 2026-03-29] Accept is_sandbox to filter plans for demo companies
+  async getAllSubscriptionPlanListForUser(is_sandbox: boolean = false) {
     const result = await this.subscriptionPlanDetails
       .createQueryBuilder('pd')
       .select([
@@ -1750,6 +1760,8 @@ export class PtSubscriptionService {
         'pd.plan_id = pi.plan_id',
       )
       .andWhere(`pd.plan_type = 'Free' AND pd.plan_status = 'Active'`)
+      // [Replit Update 2026-03-29] Filter by sandbox mode
+      .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .getRawOne();
 
     const free_plan = result
@@ -1845,6 +1857,8 @@ export class PtSubscriptionService {
         'pd.plan_id = pi.plan_id',
       )
       .andWhere(`pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`)
+      // [Replit Update 2026-03-29] Filter by sandbox mode
+      .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .orderBy({ 'ppm.plan_price': 'ASC' })
       .getRawMany();
 
@@ -1941,6 +1955,8 @@ export class PtSubscriptionService {
         'pd.plan_id = pi.plan_id',
       )
       .andWhere(`pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`)
+      // [Replit Update 2026-03-29] Filter by sandbox mode
+      .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .orderBy({ 'ppy.plan_price': 'ASC' })
       .getRawMany();
 
@@ -2013,6 +2029,7 @@ export class PtSubscriptionService {
         'ppm.is_deleted as monthly_is_deleted',
         'ppy.is_deleted as yearly_is_deleted',
         'pi.plan_items as plan_items',
+        'pd.is_sandbox as is_sandbox',
       ])
       .leftJoin(
         SubscriptionPricingPlan,

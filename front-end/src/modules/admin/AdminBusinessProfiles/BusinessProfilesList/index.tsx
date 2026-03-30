@@ -319,6 +319,9 @@ export default function BusinessProfilesList() {
         const modifiedGridData = response?.companies.map((listObj: any) => {
           return {
             ...listObj,
+            company_name: listObj.is_demo
+              ? `${listObj.company_name} [DEMO]`
+              : listObj.company_name,
             is_admin_blocked: listObj.is_admin_blocked
               ? "Blocked"
               : "Unblocked",

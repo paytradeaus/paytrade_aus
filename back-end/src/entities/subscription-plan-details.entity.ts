@@ -92,6 +92,10 @@ export class SubscriptionPlanDetails {
   })
   updated_group: Group;
 
+  // [Replit Update 2026-03-29] Sandbox plans only visible to demo companies
+  @Column({ default: false })
+  is_sandbox: boolean;
+
   @OneToMany(() => SubscriptionPricingPlan, (plan) => plan.planDetails)
   pricingPlan: SubscriptionPricingPlan[];
 

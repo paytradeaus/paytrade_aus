@@ -237,6 +237,7 @@ export const ViewSubscriptionPlanById = async (data: {
               yearly_price_id
               yearly_price_name
               yearly_stripe_price_id
+              is_sandbox
             }
             message
             status

@@ -517,12 +517,12 @@ export const fetchFiltersOfPaymentClaimsPaymentsAndRetentionsList = async (
   }
 };
 
-export async function fetchGetAllSubscriptionPlanListForUser(): Promise<any> {
+export async function fetchGetAllSubscriptionPlanListForUser(is_sandbox: boolean = false): Promise<any> {
   try {
     const response = await client.query({
       query: gql`
-        query GetAllSubscriptionPlanListForUser {
-          getAllSubscriptionPlanListForUser {
+        query GetAllSubscriptionPlanListForUser($is_sandbox: Boolean) {
+          getAllSubscriptionPlanListForUser(is_sandbox: $is_sandbox) {
             data {
               free_plan {
                 bill_cycle
@@ -623,7 +623,7 @@ export async function fetchGetAllSubscriptionPlanListForUser(): Promise<any> {
           }
         }
       `,
-
+      variables: { is_sandbox },
       fetchPolicy: "no-cache",
     });
 

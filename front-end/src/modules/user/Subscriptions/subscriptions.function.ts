@@ -66,6 +66,7 @@ export async function getSubscriptionDetailsByCompanyId(): Promise<any> {
               trial_period
               trial_start
               unformatted_annual_price_amount
+              is_demo
             }
             message
             status

@@ -135,6 +135,10 @@ export class PTCompany {
 
   @Field({ nullable: true, description: 'Reason for free plan eligibility' })
   free_plan_reason?: string;
+
+  // [Replit Update 2026-03-30] Demo/sandbox mode flag
+  @Field({ nullable: true, description: 'Whether this company is a demo/sandbox account' })
+  is_demo?: boolean;
 }
 
 @ObjectType({ description: 'Response object for fetching a PT company' })

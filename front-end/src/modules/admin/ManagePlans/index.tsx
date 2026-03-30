@@ -57,10 +57,11 @@ function ManageSubscriptionPlans(props: any) {
 
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
+  const [showSandbox, setShowSandbox] = useState(false);
 
   useEffect(() => {
     getAllSubscriptionPlans(currentPage, entriesPerPage);
-  }, [searchValue, tabStatus, sortValues]);
+  }, [searchValue, tabStatus, sortValues, showSandbox]);
 
   // Define actions dynamically
   const currentActions = [
@@ -205,6 +206,7 @@ function ManageSubscriptionPlans(props: any) {
           page_size: rowsPerPage,
           sorting_order: sortValues?.direction || "",
           sorting_field: sortValues?.sortKey || "",
+          is_sandbox: showSandbox,
         },
       };
       const subscriptionListResponse = await AdminListSubscriptionPlans(
@@ -215,6 +217,7 @@ function ManageSubscriptionPlans(props: any) {
         (rowObj: any) => {
           return {
             ...rowObj,
+            mode_label: rowObj?.is_sandbox ? "Sandbox" : "Live",
             plan_items: rowObj?.plan_items
               ?.map((rowObj: any) => rowObj?.item_name)
               .toLocaleString(),
@@ -290,12 +293,34 @@ function ManageSubscriptionPlans(props: any) {
 
         <div className="pt_filtergroup">
           <div className="grid pt_topfilters">
-            <div className="pt_filters ">
+            <div className="pt_filters " style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               <TabSwitch
                 tabOptions={tabOptions}
                 tabValue={tabStatus}
                 onChange={(value: any) => handleTabChange(value)}
               />
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "10px" }}>
+                <span style={{ fontSize: "13px", fontWeight: showSandbox ? 400 : 600, color: showSandbox ? "#999" : "#333" }}>Live</span>
+                <label style={{ position: "relative", display: "inline-block", width: "44px", height: "22px", margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={showSandbox}
+                    onChange={() => { setShowSandbox(!showSandbox); setCurrentPage(1); }}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span style={{
+                    position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: showSandbox ? "#f59e0b" : "#4CAF50", borderRadius: "22px", transition: "0.3s",
+                  }}>
+                    <span style={{
+                      position: "absolute", height: "16px", width: "16px",
+                      left: showSandbox ? "24px" : "3px", bottom: "3px",
+                      backgroundColor: "white", borderRadius: "50%", transition: "0.3s",
+                    }} />
+                  </span>
+                </label>
+                <span style={{ fontSize: "13px", fontWeight: showSandbox ? 600 : 400, color: showSandbox ? "#f59e0b" : "#999" }}>Sandbox</span>
+              </div>
             </div>
 
             <GridExportActions

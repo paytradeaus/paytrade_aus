@@ -30,6 +30,7 @@ import { SubscriptionItems } from 'src/entities/subscription-items.entity';
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
+import { getStripeInstance } from 'src/libs/@stripe-helper/stripe-helper';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -67,6 +68,27 @@ export class PaymentGatewayService {
 
   private logError(message: string) {
     this.logger.error(`${message}`);
+  }
+
+  // [Replit Update 2026-03-29] Check if a company is in demo/sandbox mode
+  private async isCompanyDemo(companyId: number): Promise<boolean> {
+    if (!companyId) return false;
+    const company = await this.companyDetails.findOne({
+      where: { company_id: companyId },
+      select: ['is_demo'],
+    });
+    return company?.is_demo ?? false;
+  }
+
+  // [Replit Update 2026-03-30] Look up demo status via stripe_customer_id
+  private async isCompanyDemoByStripeCustomer(stripeCustomerId: string): Promise<boolean> {
+    if (!stripeCustomerId) return false;
+    const sub = await this.subscriptionDetails.findOne({
+      where: { stripe_customer_id: stripeCustomerId },
+      select: ['company_id'],
+    });
+    if (!sub) return false;
+    return this.isCompanyDemo(sub.company_id);
   }
 
   async upgradeSubscription(
@@ -123,7 +145,7 @@ export class PaymentGatewayService {
                 'pp',
                 `pd.plan_id = pp.plan_id AND pp.id::varchar = ANY(pd.associated_price_ids) AND pp.is_active = true`,
               )
-              .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active'`)
+              .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active' and pd.is_sandbox = :isSandbox`, { isSandbox: !!companyDetails.is_demo })
               .getRawOne();
 
             let createSubscriptionInput: CreateSubscriptionInput = {
@@ -152,9 +174,9 @@ export class PaymentGatewayService {
               where: { company_id },
             });
 
-          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-            apiVersion: '2024-06-20',
-          });
+          // [Replit Update 2026-03-29] Use sandbox or live Stripe based on company's is_demo flag
+          const isDemo = await this.isCompanyDemo(company_id);
+          const stripe = getStripeInstance(isDemo);
 
           let stripe_customer_id;
           if (!oldSubscriptionDetails.stripe_customer_id) {
@@ -729,9 +751,9 @@ export class PaymentGatewayService {
 
           if (!subscriptionDetails) throw `Subscription details not found.`;
 
-          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-            apiVersion: '2024-06-20',
-          });
+          // [Replit Update 2026-03-29] Use sandbox or live Stripe
+          const isDemo = await this.isCompanyDemo(company_id);
+          const stripe = getStripeInstance(isDemo);
 
           const planDetails = await this.subscriptionPlanDetails.findOne({
             where: { plan_id: subscriptionDetails.plan_id },
@@ -780,7 +802,7 @@ export class PaymentGatewayService {
                 'pp',
                 `pd.plan_id = pp.plan_id AND pp.id::varchar = ANY(pd.associated_price_ids) AND pp.is_active = true`,
               )
-              .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active'`)
+              .where(`pd.plan_type = 'Free' and pd.plan_status = 'Active' and pd.is_sandbox = :isSandbox`, { isSandbox: isDemo })
               .getRawOne();
 
             if (!subscriptionPlanDetails)
@@ -1030,15 +1052,15 @@ export class PaymentGatewayService {
       if (!subscriptionDetails.stripe_customer_id)
         throw `Please add a card to proceed with the subscription.`;
 
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-29] Use sandbox or live Stripe
+      const isDemo = await this.isCompanyDemo(company_id);
+      const stripe = getStripeInstance(isDemo);
 
       const customer = await stripe.customers.retrieve(
         subscriptionDetails.stripe_customer_id,
       );
       const defaultPaymentMethod =
-        customer.invoice_settings?.default_payment_method;
+        (customer as any).invoice_settings?.default_payment_method;
 
       const paymentMethods = await stripe.paymentMethods.list({
         customer: subscriptionDetails.stripe_customer_id,
@@ -1087,15 +1109,15 @@ export class PaymentGatewayService {
       if (!subscriptionDetails.payment_method_id)
         throw `Please add a card to proceed with the subscription.`;
 
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-29] Use sandbox or live Stripe
+      const isDemo = await this.isCompanyDemo(company_id);
+      const stripe = getStripeInstance(isDemo);
 
       const customer = await stripe.customers.retrieve(
         subscriptionDetails.stripe_customer_id,
       );
       const defaultPaymentMethod =
-        customer.invoice_settings?.default_payment_method;
+        (customer as any).invoice_settings?.default_payment_method;
 
       const paymentMethod = await stripe.paymentMethods.retrieve(
         subscriptionDetails.payment_method_id,
@@ -1129,9 +1151,9 @@ export class PaymentGatewayService {
     payment_method_id: string,
   ) {
     try {
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-30] Use sandbox or live Stripe based on customer
+      const isDemo = await this.isCompanyDemoByStripeCustomer(customer_id);
+      const stripe = getStripeInstance(isDemo);
 
       const updatePaymentMethodWithCustomer =
         await stripe.paymentMethods.attach(payment_method_id, {
@@ -1164,9 +1186,9 @@ export class PaymentGatewayService {
       const subscriptionDetails = await this.subscriptionDetails.findOne({
         where: { company_id },
       });
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-29] Use sandbox or live Stripe
+      const isDemo = await this.isCompanyDemo(company_id);
+      const stripe = getStripeInstance(isDemo);
 
       if (!subscriptionDetails) throw `Subscription details not found.`;
 
@@ -1201,9 +1223,9 @@ export class PaymentGatewayService {
 
       if (!subscriptionDetails) throw `Subscription details not found.`;
 
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-30] Use sandbox or live Stripe based on company
+      const isDemo = await this.isCompanyDemo(subscriptionDetails.company_id);
+      const stripe = getStripeInstance(isDemo);
 
       const updatePaymentMethodWithCustomer =
         await stripe.paymentMethods.attach(payment_method_id, {
@@ -1242,16 +1264,22 @@ export class PaymentGatewayService {
 
   async deleteCardByPaymentMethodId(payment_method_id: string) {
     try {
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-30] Look up demo status from the payment method's customer
+      const liveStripe = getStripeInstance(false);
+      let paymentMethod;
+      let isDemo = false;
+      try {
+        paymentMethod = await liveStripe.paymentMethods.retrieve(payment_method_id);
+      } catch (e) {
+        const testStripe = getStripeInstance(true);
+        paymentMethod = await testStripe.paymentMethods.retrieve(payment_method_id);
+        isDemo = true;
+      }
+      const stripe = getStripeInstance(isDemo);
 
-      const paymentMethod =
-        await stripe.paymentMethods.retrieve(payment_method_id);
-
-      const customer = await stripe.customers.retrieve(paymentMethod.customer);
+      const customer = await stripe.customers.retrieve(paymentMethod.customer as string);
       const defaultPaymentMethod =
-        customer.invoice_settings?.default_payment_method;
+        (customer as any).invoice_settings?.default_payment_method;
 
       if (defaultPaymentMethod === payment_method_id) {
         throw 'Payment method is the default one and cannot be deleted.';
@@ -1530,15 +1558,15 @@ export class PaymentGatewayService {
       is_default: null,
     };
     if (result.stripe_customer_id) {
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-06-20',
-      });
+      // [Replit Update 2026-03-29] Use sandbox or live Stripe
+      const isDemo = await this.isCompanyDemo(company_id);
+      const stripe = getStripeInstance(isDemo);
 
       const customer = await stripe.customers.retrieve(
         result.stripe_customer_id,
       );
       const defaultPaymentMethod =
-        customer.invoice_settings?.default_payment_method;
+        (customer as any).invoice_settings?.default_payment_method;
 
       if (result.payment_method_id) {
         const paymentMethod = await stripe.paymentMethods.retrieve(
@@ -1610,11 +1638,15 @@ export class PaymentGatewayService {
 
     result.amount = formatCurrency(result.amount);
 
+    // [Replit Update 2026-03-30] Include is_demo flag for frontend Stripe key selection
+    const isDemo = await this.isCompanyDemo(company_id);
+
     return {
       ...result,
       ...cardDetails,
       ...pricingData,
       has_upgrade_plans: hasUpgradePlans,
+      is_demo: isDemo,
     };
   }
 

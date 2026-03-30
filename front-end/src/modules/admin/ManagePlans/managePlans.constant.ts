@@ -26,16 +26,17 @@ const pdfDataRow = [
 const managePlansRenderData = [
   { key: "plan_name" },
   { key: "plan_type" },
+  { key: "mode_label" },
   { key: "stripe_product_id" },
   { key: "monthly_price" },
   { key: "yearly_price" },
   { key: "plan_status", enableStatusIcons: true },
 ];
 
-//constant for bank accounts list header
 const managePlanHeaders = [
   { title: "Plan Name", dataKey: "plan_name" },
   { title: "Plan Type", dataKey: "plan_type" },
+  { title: "Mode", dataKey: "mode_label", restrictSorting: true },
   { title: "Stripe Id", dataKey: "stripe_product_id" },
   { title: "Monthly Price", dataKey: "monthly_price" },
   { title: "Yearly Price", dataKey: "yearly_price" },

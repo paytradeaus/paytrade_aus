@@ -110,6 +110,7 @@ export const AdminListAllCompanies = async (
                 icon_file_type
                 id
                 is_admin_blocked
+                is_demo
                 is_free_plan_eligible
                 is_verified
                 latitude
@@ -241,6 +242,7 @@ export const AdminListSubscriptionPlans = async (
                 plan_name
                 plan_status
                 plan_type
+                is_sandbox
                 stripe_product_id
                 trial_period
                 unformatted_monthly_price
