@@ -392,6 +392,7 @@ const AddBusinessProfiles = (props: any) => {
       place_id: placeDetailsString.place_id,
       region: placeDetailsString.region,
       AdminBlocked: formik.values.AdminBlocked,
+      IsDemo: formik.values.IsDemo,
       UserId: formik.values.UserId,
       isEmailExistance: formik.values.isEmailExistance,
       isBusinessExistance: formik.values.isBusinessExistance,
