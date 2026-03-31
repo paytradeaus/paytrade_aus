@@ -82,6 +82,26 @@ module.exports = {
 
     return [
       {
+        source: '/xero/callback',
+        destination: `${BACKEND_URL}/xero/callback`,
+      },
+      {
+        source: '/xero-webhook',
+        destination: `${BACKEND_URL}/xero-webhook`,
+      },
+      {
+        source: '/stripe-webhook',
+        destination: `${BACKEND_URL}/stripe-webhook`,
+      },
+      {
+        source: '/support-mail',
+        destination: `${BACKEND_URL}/support-mail`,
+      },
+      {
+        source: '/support-ticket/:path*',
+        destination: `${BACKEND_URL}/support-ticket/:path*`,
+      },
+      {
         source: '/health',
         destination: `${BACKEND_URL}/health`,
       },
