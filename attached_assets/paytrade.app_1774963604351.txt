@@ -1,0 +1,82 @@
+;;
+;; Domain:     paytrade.app.
+;; Exported:   2026-03-31 13:25:12
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+paytrade.app	3600	IN	SOA	konnor.ns.cloudflare.com. dns.cloudflare.com. 2052663011 10000 2400 604800 3600
+
+;; NS Records
+paytrade.app.	86400	IN	NS	konnor.ns.cloudflare.com.
+paytrade.app.	86400	IN	NS	tegan.ns.cloudflare.com.
+
+;; A Records
+autoconfig.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+autodiscover.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+cpanel.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+cpcalendars.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+cpcontacts.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+ftp.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+mail.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+support.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:true
+webdisk.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+webmail.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+whm.paytrade.app.	1	IN	A	77.75.121.122 ; cf_tags=cf-proxied:false
+
+;; AAAA Records
+ftp.paytrade.app.	1	IN	AAAA	2a12:ab46:5344:1d::a ; cf_tags=cf-proxied:false
+ipv6.paytrade.app.	1	IN	AAAA	2a12:ab46:5344:1d::a ; cf_tags=cf-proxied:false
+webmail.paytrade.app.	1	IN	AAAA	2a12:ab46:5344:1d::a ; cf_tags=cf-proxied:false
+
+;; CNAME Records
+brevo1._domainkey.paytrade.app.	1	IN	CNAME	b1.paytrade-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
+brevo2._domainkey.paytrade.app.	1	IN	CNAME	b2.paytrade-app.dkim.brevo.com. ; cf_tags=cf-proxied:false
+email.paytrade.app.	1	IN	CNAME	eu.mailgun.org. ; cf_tags=cf-proxied:false
+paytrade.app.	1	IN	CNAME	pwbl95e6.up.railway.app. ; cf_tags=cf-proxied:true
+pm-bounces.paytrade.app.	1	IN	CNAME	pm.mtasv.net. ; cf_tags=cf-proxied:false
+www.paytrade.app.	1	IN	CNAME	paytrade.app. ; cf_tags=cf-proxied:true
+
+;; MX Records
+paytrade.app.	1	IN	MX	10 webmail.paytrade.app.
+paytrade.app.	1	IN	MX	0 webmail.paytrade.app.
+
+;; SRV Records
+_caldavs._tcp.paytrade.app.	1	IN	SRV	0 0 2080 paytrade.app.
+_caldav._tcp.paytrade.app.	1	IN	SRV	0 0 2079 paytrade.app.
+_carddav._tcp.paytrade.app.	1	IN	SRV	0 0 2079 paytrade.app.
+
+;; TXT Records
+_acme-challenge.paytrade.app.	1	IN	TXT	"BqCQqMo9wmKXywDpiG4htoJ2PQMQE1jrzePqgBqgH3c"
+_amazonses.paytrade.app.	1	IN	TXT	"Dy6yONERzH+Wor5IqQKW9YgdhdXI7wV/uqLXHsjCPMw="
+_caldavs._tcp.paytrade.app.	1	IN	TXT	"path=/"
+_caldav._tcp.paytrade.app.	1	IN	TXT	"path=/"
+_carddavs._tcp.paytrade.app.	1	IN	TXT	"path=/"
+_carddav._tcp.paytrade.app.	1	IN	TXT	"path=/"
+_cpanel-dcv-test-record.paytrade.app.	1	IN	TXT	"_cpanel-dcv-test-record=vX4cUmWCHpdDxyAEOP1MbMcvJDmgAGKRsEAy3n3WmY12z8pVG8wA2vXMXNdc9vdX"
+default._domainkey.paytrade.app.	1	IN	TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtG6TvGeuX51TV0UO4kFk42LCLArg9kp7hEBIiEOWK+mPMa6T5ghGfV1MPvzoxxXCrGtsaiQ1BkqANH3HSgdE3/MzlsZr4dT00L+Ge95/BHCvcgL4lJSvPtXVujcduwUCJtpmritqOMgzUwwVwu0ylxmMvZqdwN/7qw7pnHYWeo8rVH8dOdSQ8BlSvUOrGk/aT" "I9q/XgOK1geVqyRZkDwcSh4RtAVsd0cHooSWKLDOP6X2Tj35JTnYF2MY5/E693GdecKKhRaO8gcCRzTufpFGN1Rj14j+RNNx3ZrFOmetv58H8Pf/fLQPURkNKn/JG8hQ3yyJpm5o5l+WN5G4r6z0QIDAQAB;"
+_dmarc.paytrade.app.	1	IN	TXT	"v=DMARC1;p=none;sp=none;adkim=r;aspf=r;pct=100;fo=0;rf=afrf;ri=86400; rua=mailto:rua@dmarc.brevo.com"
+paytrade.app.	1	IN	TXT	"brevo-code:f7148b75319972fbde36aba8e773f6a2"
+paytrade.app.	1	IN	TXT	"v=spf1 include:spf.brevo.com include:relay.mailchannels.net include:mailgun.org ip4:77.74.199.64 ip4:77.74.194.114 ip4:77.75.121.122 ip4:185.139.7.113 ip4:18.135.48.40 a mx ~all"
+paytrade.app.	1	IN	TXT	"google-site-verification=VTCUDZb4XnDI0ebWCZistKXkI-n8C3VKtRSlO0ieNAE"
+paytrade.app.	1	IN	TXT	"google-site-verification=2A8QQxYv9NoP_NtALX6yQyZz_eg7XXCdca1ndKBKlwk"
+_railway-verify.paytrade.app.	1	IN	TXT	"railway-verify=28233d965f3d57c597efdc0e65d7c852173418b9498cc1b97f3ebf755eff803d"
