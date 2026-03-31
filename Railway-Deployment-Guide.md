@@ -35,7 +35,7 @@ The first command confirms all changes are committed. The second shows exactly w
 ```bash
 git push github-new develop/release-1:main
 ```
-
+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
 This pushes your local `develop/release-1` branch to the `main` branch on `pejt2000-cyber/paytrade`. Railway will detect the new commits and start a build automatically.
 
 ### 3. Monitor the build
