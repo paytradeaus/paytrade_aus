@@ -7189,8 +7189,10 @@ export class NoticesService {
       }
 
       if (shouldUseDelegatedQbccFlow) {
+        // [Replit Update 2026-04-02] QBCC + delegated authority: route to
+        // PayTrade admin team who lodge the notice with QBCC on the user's behalf.
         this.logger.log(
-          `Detected QBCC notice (${notice.notice_type}), triggering admin reminder instead of sending directly.`,
+          `Detected delegated QBCC notice (${notice.notice_type}), triggering admin flow.`,
         );
 
         await this.handleSentAdminMailQbccNotice(decoded, notice?.id, false);
@@ -7206,7 +7208,25 @@ export class NoticesService {
         return framedResponse('SUCCESS', 'QBCC notice regenerated', {
           notice_id: noticeId,
         });
+      } else if (isQbccNoticeType) {
+        // [Replit Update 2026-04-02] QBCC + NO delegated authority: PDF has
+        // been regenerated above but must NOT be emailed to the client. QBCC
+        // notices are sent to the QBCC (not the client) — the user prints or
+        // downloads the PDF and lodges it themselves via post or QBCC portal.
+        this.logger.log(
+          `QBCC notice (${notice.notice_type}) without delegation — PDF regenerated, no email sent. User must lodge manually.`,
+        );
+
+        return framedResponse(
+          'SUCCESS',
+          'QBCC notice PDF regenerated. Download and lodge with the QBCC manually.',
+          {
+            notice_id: noticeId,
+          },
+        );
       } else {
+        // Non-QBCC notice (e.g. Client S18B, Supplier S23) — these ARE sent
+        // directly to the client/supplier via email.
         const newMail = (await this.handleGenerateMailForANotice(decoded, {
           id: notice.id,
         })) as generateNoticeMailResponse;
