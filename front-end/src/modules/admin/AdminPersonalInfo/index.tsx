@@ -308,21 +308,29 @@ export default function AdminPersonalInfo() {
                       value={formik.values.last_name}
                     />
                     {userData?.admin_role === Roles.SUPER_ADMIN_ROLE &&
-                      decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE &&
-                      decodeTokenData?.id === userData?.id &&
-                      (signature || userData?.signature) && (
+                      decodeTokenData?.id === userData?.id && (
                         <Fragment>
                           <label>
                             <small>Delegated authority signature</small>
                           </label>
-                          <Image
-                            width={0} // Fixed width
-                            height={0} // Fixed height
-                            src={signature || userData?.signature}
-                            alt={"signature"}
-                            onClick={() => setDisplaySignature(true)}
-                            className="pt_profileimageupload cu-pointer business_signature_image"
-                          />
+                          {(signature || userData?.signature) ? (
+                            <Image
+                              width={0}
+                              height={0}
+                              src={signature || userData?.signature}
+                              alt={"signature"}
+                              onClick={() => setDisplaySignature(true)}
+                              className="pt_profileimageupload cu-pointer business_signature_image"
+                            />
+                          ) : (
+                            <input
+                              type="button"
+                              value="Add Signature"
+                              className="outline secondary"
+                              onClick={() => setDisplaySignature(true)}
+                              style={{ width: "auto" }}
+                            />
+                          )}
                           <br />
                         </Fragment>
                       )}
@@ -379,7 +387,6 @@ export default function AdminPersonalInfo() {
       )}
       {displaySignature &&
         userData?.admin_role === Roles.SUPER_ADMIN_ROLE &&
-        decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE &&
         decodeTokenData?.id === userData?.id && (
           <UpdateSignature
             isDisplay={displaySignature}
