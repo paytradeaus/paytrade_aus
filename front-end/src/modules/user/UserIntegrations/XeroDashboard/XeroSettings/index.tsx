@@ -788,7 +788,7 @@ export default function XeroSettings() {
               <details open>
                 <summary>Paytrade &gt; xero syncing</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Control how data created in PayTrade is sent to Xero. When set to "Yes", invoices, bills or payments will sync to Xero as drafts, giving you a chance to review them before approving. When set to "No", they will sync as approved/authorised.
+                  Choose how PayTrade data is sent to Xero. Setting an item to "Yes" means it will arrive in Xero as a draft, giving you a chance to review and approve it there. Setting it to "No" means it will be created in Xero as approved and ready to process straight away.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
@@ -887,7 +887,7 @@ export default function XeroSettings() {
               <details open>
                 <summary>xero syncing &gt; Paytrade</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Control how data created or updated in Xero is received by PayTrade. When set to "Yes", incoming invoices, bills or payments will appear as drafts in PayTrade for your review. When set to "No", they will be imported as approved.
+                  Choose how changes made in Xero are received by PayTrade. Setting an item to "Yes" means it will appear in PayTrade as a draft so you can review it first. Setting it to "No" means it will be imported as approved.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
@@ -991,7 +991,25 @@ export default function XeroSettings() {
               <details open>
                 <summary>Xero account code</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Map each PayTrade transaction type to the correct Xero account. These codes determine which accounts in your Xero chart of accounts are used when invoices, bills, retention entries, and other transactions are synced. You can find and manage your account codes in Xero under Accounting &gt; Chart of Accounts.
+                  Select which Xero accounts are used when PayTrade syncs transactions. These map to your Chart of Accounts in Xero (Accounting &gt; Chart of Accounts).
+                  <br /><br />
+                  <strong>Invoice Code</strong> &ndash; The revenue account for sales invoices (e.g. 200 &ndash; Sales).
+                  <br />
+                  <strong>Bill Code</strong> &ndash; The expense account for purchase bills (e.g. 300 &ndash; Purchases).
+                  <br />
+                  <strong>Retention Payable Retained</strong> &ndash; The liability account where retention amounts owed to subcontractors are held (e.g. a Current Liability account).
+                  <br />
+                  <strong>Retention Payable Release</strong> &ndash; The expense account used when retained amounts are released to subcontractors.
+                  <br />
+                  <strong>Retention Receivable Retained</strong> &ndash; The asset account where retention amounts withheld from you by a head contractor are tracked (e.g. a Current Asset account).
+                  <br />
+                  <strong>Retention Receivable Release</strong> &ndash; The revenue account used when retained amounts are released back to you.
+                  <br />
+                  <strong>Liability Payable</strong> &ndash; The account for trust or project liabilities you owe.
+                  <br />
+                  <strong>Liability Receivable</strong> &ndash; The account for trust or project amounts owed to you.
+                  <br /><br />
+                  If you don&apos;t see the account you need, click &ldquo;Add new account&rdquo; below to create one in Xero.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
@@ -1320,7 +1338,9 @@ export default function XeroSettings() {
               <details open>
                 <summary>Map xero tracking category </summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Link your PayTrade projects and contracts to Xero tracking categories. When you sync invoices or bills, they will be tagged with the project or contract name so you can filter and report on them in Xero. Select an existing tracking category from Xero, or create a new one below. Note: Xero allows a maximum of 2 tracking categories per organisation.
+                  Tracking categories let you tag synced invoices and bills in Xero by project or contract name, so you can filter reports by project or contract. Select an existing Xero tracking category for each, or type a name above and click "Create" to add a new one. PayTrade will automatically create the individual tracking options (e.g. each project name) when you sync.
+                  <br /><br />
+                  <strong>Note:</strong> Xero allows a maximum of 2 tracking categories per organisation. If you already have 2 and need to change one, delete or archive an existing category in Xero first (Settings &gt; Tracking Categories).
                 </p>
                 <div className="grid pt_infocol">
                   <div>
@@ -1454,7 +1474,7 @@ export default function XeroSettings() {
               <details open>
                 <summary>Sync timing</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  When changes are made in Xero, PayTrade waits for this period before processing them. This batching window groups multiple rapid changes into a single sync, reducing unnecessary processing. A higher value means fewer syncs but a longer delay before changes appear in PayTrade. The minimum is 10 seconds.
+                  When a change is made in Xero, PayTrade waits for this delay before processing it. This allows multiple rapid changes (e.g. editing several invoices in quick succession) to be grouped into a single sync, reducing unnecessary processing. A higher value means fewer syncs but a longer wait before changes appear. The default is 30 seconds (minimum 10).
                 </p>
                 <div className="grid pt_infocol">
                   <div>
