@@ -5847,7 +5847,7 @@ export class NoticesService {
             portalAdmin_details.first_name +
             ' ' +
             portalAdmin_details.last_name;
-          approver_position = 'Paytade Admin';
+          approver_position = 'PayTrade Admin';
         } else {
           signature = subscription?.signature ? subscription.signature : ' ';
           approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
@@ -5975,7 +5975,7 @@ export class NoticesService {
             portalAdmin_details.first_name +
             ' ' +
             portalAdmin_details.last_name;
-          approver_position = 'Paytade Admin';
+          approver_position = 'PayTrade Admin';
         } else {
           signature = subscription?.signature ? subscription.signature : ' ';
           approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
@@ -6106,7 +6106,7 @@ export class NoticesService {
             portalAdmin_details.first_name +
             ' ' +
             portalAdmin_details.last_name;
-          approver_position = 'Paytade Admin';
+          approver_position = 'PayTrade Admin';
         } else {
           signature = subscription?.signature ? subscription.signature : ' ';
           approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
@@ -6322,7 +6322,7 @@ export class NoticesService {
             portalAdmin_details.first_name +
             ' ' +
             portalAdmin_details.last_name;
-          approver_position = 'Paytade Admin';
+          approver_position = 'PayTrade Admin';
         } else {
           signature = subscription?.signature ? subscription.signature : ' ';
           approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
@@ -6482,7 +6482,7 @@ export class NoticesService {
             portalAdmin_details.first_name +
             ' ' +
             portalAdmin_details.last_name;
-          approver_position = 'Paytade Admin';
+          approver_position = 'PayTrade Admin';
         } else {
           signature = subscription?.signature ? subscription.signature : ' ';
           approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
