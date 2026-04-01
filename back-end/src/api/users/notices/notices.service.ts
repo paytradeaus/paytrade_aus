@@ -7158,7 +7158,37 @@ export class NoticesService {
         `Document regenerated (and uploaded) for notice ${noticeId}`,
       );
 
-      if (notice.delegated_qbcc === true) {
+      // [Replit Update 2026-04-02] Re-evaluate delegation status from current
+      // subscription + bank account settings instead of relying on the stale
+      // delegated_qbcc flag stored on the notice record. The old flag may be
+      // wrong if the notice was originally created before a delegation bug fix.
+      const qbccNoticeTypes = [
+        'QBCC TA1 Project Trust Account Notice',
+        'QBCC TA1 Retention Trust Account Notice',
+        'QBCC TA2 Account Closing Notice',
+        'QBCC TA2 Retention Account Closing Notice',
+        'QBCC TA3 Notice Of Related Entities',
+        'QBCC TA4 Part Payment Notice',
+        'QBCC TA5 Nil Return Notice',
+      ];
+      const isQbccNoticeType = qbccNoticeTypes.includes(notice.notice_type);
+
+      let shouldUseDelegatedQbccFlow = notice.delegated_qbcc === true;
+
+      if (isQbccNoticeType && !shouldUseDelegatedQbccFlow && notice.bank_account_id) {
+        const currentSubPlan = await this.getSubscriptionType(
+          notice.company_id,
+          notice.bank_account_id,
+        );
+        this.logger.log(
+          `Re-evaluated subscription type for notice ${noticeId}: ${currentSubPlan} (original delegated_qbcc was ${notice.delegated_qbcc})`,
+        );
+        if (currentSubPlan === 'Paid-delegated') {
+          shouldUseDelegatedQbccFlow = true;
+        }
+      }
+
+      if (shouldUseDelegatedQbccFlow) {
         this.logger.log(
           `Detected QBCC notice (${notice.notice_type}), triggering admin reminder instead of sending directly.`,
         );
@@ -7194,8 +7224,6 @@ export class NoticesService {
           subscriptionPlan !== 'Basic' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          //Trigger notice emails only if the user mode is Normal.
-
           const sentMailNoticePayload: SentMailForANoticeInput = {
             id: newMail?.data?.id,
             view_preview: true,
