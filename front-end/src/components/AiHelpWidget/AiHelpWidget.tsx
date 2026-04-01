@@ -232,12 +232,10 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                 Need Help?
               </h3>
               <button
-                className={styles.closeButton}
+                aria-label="Close"
+                rel="prev"
                 onClick={handleClose}
-                aria-label="Close help panel"
-              >
-                <i className="fa-light fa-xmark" />
-              </button>
+              />
             </div>
 
             <div className={styles.panelBody}>

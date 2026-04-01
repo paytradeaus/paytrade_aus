@@ -87,14 +87,33 @@ export class AiSupportService {
       return { status: 'SUCCESS', results: [], totalCount: 0 };
     }
 
-    const searchPattern = `%${trimmed}%`;
+    const stopWords = new Set(['how', 'to', 'the', 'a', 'an', 'in', 'on', 'is', 'it', 'for', 'and', 'or', 'of', 'my', 'i', 'do', 'does', 'can', 'what', 'where', 'when', 'why', 'with']);
+    const words = trimmed.split(/\s+/).filter(w => w.length >= 2 && !stopWords.has(w.toLowerCase()));
+
+    const searchPatterns = words.length > 0
+      ? words.map(w => `%${w}%`)
+      : [`%${trimmed}%`];
+
+    function buildWordMatchClause(fields: string[], paramPrefix: string, params: Record<string, any>): string {
+      const conditions: string[] = [];
+      searchPatterns.forEach((pat, i) => {
+        const key = `${paramPrefix}_w${i}`;
+        params[key] = pat;
+        const fieldConds = fields.map(f => `${f} ILIKE :${key}`);
+        conditions.push(`(${fieldConds.join(' OR ')})`);
+      });
+      return `(${conditions.join(' AND ')})`;
+    }
+
     const results: any[] = [];
 
+    const faqParams: Record<string, any> = { status: 'Active' };
+    const faqWhere = buildWordMatchClause(['faq.question', 'faq.answer'], 'faq', faqParams);
     const faqs = await this.faqRepo
       .createQueryBuilder('faq')
       .leftJoinAndSelect('faq.category', 'category')
       .where('faq.faq_status = :status', { status: 'Active' })
-      .andWhere('(faq.question ILIKE :pattern OR faq.answer ILIKE :pattern)', { pattern: searchPattern })
+      .andWhere(faqWhere, faqParams)
       .take(5)
       .getMany();
 
@@ -109,12 +128,14 @@ export class AiSupportService {
       });
     }
 
+    const guideParams: Record<string, any> = { ct: 'howToGuide', status: 'Published' };
+    const guideWhere = buildWordMatchClause(['blog.title', 'blog.content'], 'blog', guideParams);
     const guides = await this.blogRepo
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.category', 'category')
       .where('blog.content_type = :ct', { ct: 'howToGuide' })
       .andWhere('blog.blog_status = :status', { status: 'Published' })
-      .andWhere('(blog.title ILIKE :pattern OR blog.content ILIKE :pattern)', { pattern: searchPattern })
+      .andWhere(guideWhere, guideParams)
       .take(5)
       .getMany();
 
@@ -132,12 +153,14 @@ export class AiSupportService {
       });
     }
 
+    const discParams: Record<string, any> = { status: 'Active', type: 'Discussion' };
+    const discWhere = buildWordMatchClause(['disc.title', 'disc.content'], 'disc', discParams);
     const discussions = await this.discussionsRepo
       .createQueryBuilder('disc')
       .leftJoinAndSelect('disc.category', 'category')
       .where('disc.discussion_idea_status = :status', { status: 'Active' })
       .andWhere('disc.cmty_content_type = :type', { type: 'Discussion' })
-      .andWhere('(disc.title ILIKE :pattern OR disc.content ILIKE :pattern)', { pattern: searchPattern })
+      .andWhere(discWhere, discParams)
       .take(5)
       .getMany();
 
@@ -154,12 +177,14 @@ export class AiSupportService {
       });
     }
 
+    const ansParams: Record<string, any> = { status: 'Approved', dStatus: 'Active' };
+    const ansWhere = buildWordMatchClause(['ans.answer_comment'], 'ans', ansParams);
     const answers = await this.answersRepo
       .createQueryBuilder('ans')
       .leftJoinAndSelect('ans.discussionIdea', 'disc')
       .leftJoinAndSelect('disc.category', 'discCat')
       .where('ans.answer_comment_status = :status', { status: 'Approved' })
-      .andWhere('ans.answer_comment ILIKE :pattern', { pattern: searchPattern })
+      .andWhere(ansWhere, ansParams)
       .andWhere('disc.discussion_idea_status = :dStatus', { dStatus: 'Active' })
       .take(5)
       .getMany();
@@ -183,6 +208,10 @@ export class AiSupportService {
       const queryLower = trimmed.toLowerCase();
       const aTitle = (a.title || '').toLowerCase();
       const bTitle = (b.title || '').toLowerCase();
+      const wordCount = words.length || 1;
+      const aMatchCount = words.filter(w => aTitle.includes(w.toLowerCase())).length;
+      const bMatchCount = words.filter(w => bTitle.includes(w.toLowerCase())).length;
+      if (aMatchCount !== bMatchCount) return bMatchCount - aMatchCount;
       const aExact = aTitle.includes(queryLower) ? 1 : 0;
       const bExact = bTitle.includes(queryLower) ? 1 : 0;
       if (aExact !== bExact) return bExact - aExact;

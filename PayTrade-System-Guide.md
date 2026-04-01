@@ -89,7 +89,7 @@ PayTrade offers four subscription tiers with monthly and yearly billing. Plans a
 | **ABA Generation** | No | Yes | Yes | Yes |
 | **Bank Feeds** | No | Yes | Yes | Yes |
 | **Delegate Authority** | No | No | Yes | Yes |
-| **Xero Integration** | No | No | Yes | Yes |
+| **Xero Integration** | No | No | No | Yes |
 | **Onboarding Support** | No | No | 1 hour | 3 hours |
 | **Audit Export** | No | No | No | Yes |
 | **Trust Account Records** | Yes | Yes | Yes | Yes |
@@ -404,7 +404,7 @@ The dashboard is the central hub for all business operations after login.
 - Manage contact details for all business relationships
 - Link clients/suppliers to contracts and projects
 - Track ABN and business registration details
-- Import from Xero (Advanced/Pro Audit plans)
+- Import from Xero (Pro Audit plan only)
 
 ---
 
@@ -712,7 +712,7 @@ The project overview page provides a centralized view of:
 ## 19. Integrations (Xero)
 
 **URL:** `/user/integrations`
-**Access:** Advanced and Pro Audit plans only
+**Access:** Pro Audit plan only
 
 ### Xero Integration Pages
 
@@ -737,7 +737,7 @@ The project overview page provides a centralized view of:
 - **Automatic Token Refresh:** A BullMQ job (`xero-refresh-token`) runs every 23 hours to refresh tokens before they expire.
 - **Re-authentication:** If a refresh token fails (e.g., user revoked access in Xero), the system returns an `XERO_REFRESH` status, automatically redirecting the user to re-authorise.
 - **Integration Actions:** From the Integration List, users can Connect, Disconnect, Pause, Unpause, or Delete the Xero integration.
-- **Subscription Check:** The system verifies the company is on an Advanced or Pro Audit plan before allowing connection.
+- **Subscription Check:** The system verifies the company is on a Pro Audit plan before allowing connection.
 
 ### 19.2 Onboarding Wizard (Xero Dashboard)
 
