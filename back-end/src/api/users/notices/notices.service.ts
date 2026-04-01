@@ -7259,6 +7259,10 @@ export class NoticesService {
       hasDelegationAuthority = Boolean(delegationItem.limit_value);
     }
 
+    if (subscriptionDetails?.is_free_plan_eligible) {
+      hasDelegationAuthority = true;
+    }
+
     const account_details = await bankRepo.findOne({
       where: { bank_account_id: account_id },
     });
