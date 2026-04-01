@@ -991,25 +991,25 @@ export default function XeroSettings() {
               <details open>
                 <summary>Xero account code</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Select which Xero accounts are used when PayTrade syncs transactions. These map to your Chart of Accounts in Xero (Accounting &gt; Chart of Accounts).
+                  Map each PayTrade transaction type to a Xero account code. These must be configured before syncing. Suggested defaults are shown below &ndash; adjust to match your chart of accounts.
                   <br /><br />
-                  <strong>Invoice Code</strong> &ndash; The revenue account for sales invoices (e.g. 200 &ndash; Sales).
+                  <strong>Invoice Code</strong> &ndash; Revenue account for invoices you send (e.g. <em>200 &ndash; Sales Revenue</em>).
                   <br />
-                  <strong>Bill Code</strong> &ndash; The expense account for purchase bills (e.g. 300 &ndash; Purchases).
+                  <strong>Bill Code</strong> &ndash; Expense account for bills you receive (e.g. <em>400 &ndash; Cost of Sales</em>).
                   <br />
-                  <strong>Retention Payable Retained</strong> &ndash; The liability account where retention amounts owed to subcontractors are held (e.g. a Current Liability account).
+                  <strong>Retention Payable Retained</strong> &ndash; Where retention amounts you are holding are recorded (e.g. <em>500 &ndash; Retention Held</em>).
                   <br />
-                  <strong>Retention Payable Release</strong> &ndash; The expense account used when retained amounts are released to subcontractors.
+                  <strong>Retention Payable Release</strong> &ndash; Used when you release retained amounts to subcontractors (e.g. <em>502 &ndash; Retention Released</em>).
                   <br />
-                  <strong>Retention Receivable Retained</strong> &ndash; The asset account where retention amounts withheld from you by a head contractor are tracked (e.g. a Current Asset account).
+                  <strong>Retention Receivable Retained</strong> &ndash; Where retention amounts held from you are tracked (e.g. <em>503 &ndash; Retention Receivable Held</em>).
                   <br />
-                  <strong>Retention Receivable Release</strong> &ndash; The revenue account used when retained amounts are released back to you.
+                  <strong>Retention Receivable Release</strong> &ndash; Used when retained amounts are released back to you (e.g. <em>504 &ndash; Retention Receivable Released</em>).
                   <br />
-                  <strong>Liability Payable</strong> &ndash; The account for trust or project liabilities you owe.
+                  <strong>Liability Payable</strong> &ndash; Payable liabilities during defects period (e.g. <em>501 &ndash; Current Liability</em>).
                   <br />
-                  <strong>Liability Receivable</strong> &ndash; The account for trust or project amounts owed to you.
+                  <strong>Liability Receivable</strong> &ndash; Receivable liabilities during defects period (e.g. <em>506 &ndash; Receivable Liability</em>).
                   <br /><br />
-                  If you don&apos;t see the account you need, click &ldquo;Add new account&rdquo; below to create one in Xero.
+                  If the account you need doesn&apos;t exist in Xero, click &ldquo;Add new account&rdquo; below to create one directly.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
