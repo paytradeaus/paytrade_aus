@@ -314,11 +314,7 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               </span>
             ),
             notice_list_icons: {
-              regenerate_notice:
-                notices?.status === "Not Sent" ||
-                notices?.notice_document_gen_failed === true
-                  ? true
-                  : false,
+              regenerate_notice: true,
             },
           };
         }
