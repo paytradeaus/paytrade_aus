@@ -10,7 +10,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--pico-primary, var(--crab, #e23b30));
   color: #fff;
   border: none;
   cursor: pointer;
@@ -45,7 +45,7 @@
   bottom: 0;
   width: 420px;
   max-width: 100vw;
-  background: var(--background-color);
+  background: var(--pico-background-color, #fff);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
   z-index: 9999;
   display: flex;
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--muted-border-color);
+  border-bottom: 1px solid var(--pico-muted-border-color, #e7eaf0);
   flex-shrink: 0;
 
   h3 {
@@ -75,7 +75,7 @@
   border: none;
   cursor: pointer;
   font-size: 1.1rem;
-  color: var(--color);
+  color: var(--pico-color, #333);
   opacity: 0.6;
   padding: 4px;
   display: flex;
@@ -99,8 +99,8 @@
   gap: 4px;
   font-size: 0.75rem;
   padding: 3px 10px;
-  background: var(--primary-focus);
-  color: var(--primary);
+  background: var(--pico-primary-focus, rgba(226, 59, 48, 0.1));
+  color: var(--pico-primary, var(--crab, #e23b30));
   border-radius: 12px;
   margin-bottom: 12px;
   font-weight: 600;
@@ -114,16 +114,16 @@
 .searchInput {
   width: 100%;
   padding: 10px 40px 10px 12px;
-  border: 1px solid var(--muted-border-color);
+  border: 1px solid var(--pico-muted-border-color, #e7eaf0);
   border-radius: 8px;
-  background: var(--card-background-color);
-  color: var(--color);
+  background: var(--pico-card-background-color, #fff);
+  color: var(--pico-color, #333);
   font-size: 0.9rem;
   outline: none;
   transition: border-color 0.2s;
 
   &:focus {
-    border-color: var(--primary);
+    border-color: var(--pico-primary, var(--crab, #e23b30));
   }
 
   &::placeholder {
@@ -150,7 +150,7 @@
 .noResults {
   text-align: center;
   padding: 20px 16px;
-  background: var(--card-background-color);
+  background: var(--pico-card-background-color, #fff);
   border-radius: 8px;
   margin-bottom: 12px;
 
@@ -191,7 +191,7 @@
   gap: 6px;
   margin-bottom: 6px;
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--muted-border-color);
+  border-bottom: 1px solid var(--pico-muted-border-color, #e7eaf0);
   font-weight: 600;
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -202,7 +202,7 @@
 .resultCard {
   display: block;
   padding: 10px 12px;
-  background: var(--card-background-color);
+  background: var(--pico-card-background-color, #fff);
   border-radius: 6px;
   margin-bottom: 6px;
   cursor: pointer;
@@ -211,7 +211,7 @@
   transition: background 0.15s;
 
   &:hover {
-    background: var(--primary-focus);
+    background: var(--pico-primary-focus, rgba(226, 59, 48, 0.1));
   }
 }
 
@@ -233,7 +233,7 @@
 }
 
 .divider {
-  border-top: 1px solid var(--muted-border-color);
+  border-top: 1px solid var(--pico-muted-border-color, #e7eaf0);
   padding-top: 16px;
   margin-top: 12px;
 }
@@ -270,7 +270,7 @@
 
 .loginWarning {
   padding: 10px 12px;
-  background: var(--del-color);
+  background: var(--pico-del-color, #fff0f0);
   border-radius: 8px;
   margin-bottom: 12px;
   font-size: 0.85rem;
@@ -279,10 +279,10 @@
 .aiTextarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--muted-border-color);
+  border: 1px solid var(--pico-muted-border-color, #e7eaf0);
   border-radius: 8px;
-  background: var(--card-background-color);
-  color: var(--color);
+  background: var(--pico-card-background-color, #fff);
+  color: var(--pico-color, #333);
   font-size: 0.88rem;
   resize: vertical;
   min-height: 70px;
@@ -291,7 +291,7 @@
   margin-bottom: 6px;
 
   &:focus {
-    border-color: var(--primary);
+    border-color: var(--pico-primary, var(--crab, #e23b30));
   }
 }
 
@@ -306,7 +306,7 @@
 
 .aiError {
   padding: 12px;
-  background: var(--del-color);
+  background: var(--pico-del-color, #fff0f0);
   border-radius: 8px;
   margin-top: 12px;
   font-size: 0.88rem;
@@ -314,10 +314,10 @@
 
 .aiAnswer {
   padding: 16px;
-  background: var(--card-background-color);
+  background: var(--pico-card-background-color, #fff);
   border-radius: 8px;
   margin-top: 12px;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--pico-primary, var(--crab, #e23b30));
 }
 
 .aiAnswerHeader {
@@ -348,7 +348,7 @@
 }
 
 .contactSection {
-  border-top: 1px solid var(--muted-border-color);
+  border-top: 1px solid var(--pico-muted-border-color, #e7eaf0);
   padding-top: 16px;
   margin-top: 16px;
   text-align: center;
