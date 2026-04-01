@@ -128,7 +128,11 @@ export default function XeroSettings() {
         company_id: +(localStorage.getItem("companyId") || 0),
       },
     }).then((data) => {
-      setAccountCodesList(data);
+      const enriched = (data || []).map((acc: any) => ({
+        ...acc,
+        displayName: acc.code ? `${acc.code} - ${acc.name}` : acc.name,
+      }));
+      setAccountCodesList(enriched);
     });
   }
 
@@ -988,7 +992,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(value: any) => {
@@ -1011,7 +1015,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1035,7 +1039,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1066,7 +1070,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1098,7 +1102,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1130,7 +1134,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1162,7 +1166,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
@@ -1189,7 +1193,7 @@ export default function XeroSettings() {
                     <FormikControl
                       control={InputType.SELECT}
                       name={"paymentToAccount"}
-                      renderKey={"name"}
+                      renderKey={"displayName"}
                       valueKey={"code"}
                       placeholder=""
                       onChange={(e: any) => {
