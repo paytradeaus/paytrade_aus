@@ -1857,6 +1857,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
             <Fragment>
               <div>
                 <small>Retention Trust Training</small>
+                <small style={{ display: "block", color: "#888", fontStyle: "italic", marginTop: "2px" }}>
+                  Note: Retention trust training is no longer legally compulsory.
+                </small>
               </div>
               <input
                 type="file"
