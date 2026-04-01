@@ -2330,7 +2330,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                       options={cashAccounts || []}
                       renderKey="account_name"
                       valueKey="bank_account_id"
-                      placeholder="Select cash type"
+                      placeholder="Select account"
                       error={formik.errors?.associated_cash_account_id}
                       showError={
                         formik.touched.associated_cash_account_id &&
