@@ -991,25 +991,82 @@ export default function XeroSettings() {
               <details open>
                 <summary>Xero account code</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Map each PayTrade transaction type to a Xero account code. These must be configured before syncing. Suggested defaults are shown below &ndash; adjust to match your chart of accounts.
+                  Map each PayTrade transaction type to a Xero account code. These must be configured before syncing.
+                  If your Xero chart of accounts already has suitable accounts, simply select them from the dropdowns. If not, click &ldquo;Add new account&rdquo; below and use the suggested values in the table as a starting point.
+                </p>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", margin: "0 0 12px" }}>
+                  <thead>
+                    <tr style={{ background: "#f0f4f8" }}>
+                      <th style={{ padding: "8px", border: "1px solid #ddd", textAlign: "left" }}>PayTrade Field</th>
+                      <th style={{ padding: "8px", border: "1px solid #ddd", textAlign: "left" }}>Account Type</th>
+                      <th style={{ padding: "8px", border: "1px solid #ddd", textAlign: "left" }}>Code</th>
+                      <th style={{ padding: "8px", border: "1px solid #ddd", textAlign: "left" }}>Name</th>
+                      <th style={{ padding: "8px", border: "1px solid #ddd", textAlign: "left" }}>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Invoice Code</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Revenue</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>200</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Sales Revenue</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Revenue from invoices sent via PayTrade</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Bill Code</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Direct Costs</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>400</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Cost of Sales</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Expenses from bills received via PayTrade</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Retention Payable Retained</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>500</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Held</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts you are holding (payable)</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Retention Payable Release</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>502</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Released</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts released to subcontractors</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Retention Receivable Retained</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Asset</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>503</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Receivable Held</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts held from you by others</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Retention Receivable Release</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Asset</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>504</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Receivable Released</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts released back to you</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Payable</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>501</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Payable liabilities during defects period</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Receivable</strong></td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Asset</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>506</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable Liability</td>
+                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable liabilities during defects period</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p style={{ color: "#666", fontSize: "13px", margin: "0 0 16px", lineHeight: "1.5" }}>
+                  <strong>If a code is already taken:</strong> Xero requires unique codes. If you enter a code that already exists (e.g. 200), you&apos;ll see a &ldquo;Please enter a unique Code&rdquo; error. Simply choose a nearby number instead (e.g. 201, 205) and keep the same Account Type and Name.
                   <br /><br />
-                  <strong>Invoice Code</strong> &ndash; Revenue account for invoices you send (e.g. <em>200 &ndash; Sales Revenue</em>).
-                  <br />
-                  <strong>Bill Code</strong> &ndash; Expense account for bills you receive (e.g. <em>400 &ndash; Cost of Sales</em>).
-                  <br />
-                  <strong>Retention Payable Retained</strong> &ndash; Where retention amounts you are holding are recorded (e.g. <em>500 &ndash; Retention Held</em>).
-                  <br />
-                  <strong>Retention Payable Release</strong> &ndash; Used when you release retained amounts to subcontractors (e.g. <em>502 &ndash; Retention Released</em>).
-                  <br />
-                  <strong>Retention Receivable Retained</strong> &ndash; Where retention amounts held from you are tracked (e.g. <em>503 &ndash; Retention Receivable Held</em>).
-                  <br />
-                  <strong>Retention Receivable Release</strong> &ndash; Used when retained amounts are released back to you (e.g. <em>504 &ndash; Retention Receivable Released</em>).
-                  <br />
-                  <strong>Liability Payable</strong> &ndash; Payable liabilities during defects period (e.g. <em>501 &ndash; Current Liability</em>).
-                  <br />
-                  <strong>Liability Receivable</strong> &ndash; Receivable liabilities during defects period (e.g. <em>506 &ndash; Receivable Liability</em>).
-                  <br /><br />
-                  If the account you need doesn&apos;t exist in Xero, click &ldquo;Add new account&rdquo; below to create one directly.
+                  <strong>Tip:</strong> You can check your existing codes in Xero under Accounting &gt; Chart of Accounts to find available numbers.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
