@@ -1058,9 +1058,9 @@ export class FileUploadResolver {
           if (fileBuffer) {
             const image = fileBuffer.toString('base64');
             const file = { file: `data:${fileDetails.file_type};base64,${image}` };
-            fileDetails.file_path =
-              process.env.UPLOAD_BASE_URL +
-              fileDetails.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = fileDetails.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            fileDetails.file_path = baseUrl + '/' + normalizedPath;
             const response = { ...fileDetails, ...file };
             return framedResponse(
               'SUCCESS',
@@ -1126,9 +1126,9 @@ export class FileUploadResolver {
             } catch (fileError) {
               this.logger.error(`Failed to read file from storage: ${fileError.message}`);
             }
-            element.file_path =
-              process.env.UPLOAD_BASE_URL +
-              element.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = element.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            element.file_path = baseUrl + '/' + normalizedPath;
           }
         }
         return framedResponse(
@@ -1184,9 +1184,9 @@ export class FileUploadResolver {
           const fileBuffer = await this.objectStorageService.downloadFile(fileDetails.file_path);
           if (fileBuffer) {
             const image = fileBuffer.toString('base64');
-            fileDetails.file_path =
-              process.env.UPLOAD_BASE_URL +
-              fileDetails.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = fileDetails.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            fileDetails.file_path = baseUrl + '/' + normalizedPath;
             fileDetails['file'] = `data:${fileDetails.file_type};base64,${image}`;
             return framedResponse('SUCCESS', `File not imported`, fileDetails);
           }

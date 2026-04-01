@@ -239,12 +239,6 @@ export class BankAccountsService {
               this.logger.error('NOTICE ERROR DETAILS: ' + JSON.stringify(notices, null, 2));
               throw new Error(`Notice generation failed: ${notices.message}`);
             }
-            // } catch (err) {
-            this.logger.error(
-              `Error triggering account notices: ${notices.message}`,
-            );
-            //   throw new Error('Notice generation failed');
-            // }
           }
 
           return {

@@ -4262,10 +4262,12 @@ export class NoticesService {
         .where('notice.id = :id', { id })
         .getRawOne();
 
-      const UPLOAD_BASE_URL = process.env.UPLOAD_BASE_URL;
+      const UPLOAD_BASE_URL = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
 
       const addFilePath = (filePath: string | null) => {
-        return filePath ? UPLOAD_BASE_URL + filePath.replace(/\\/g, '/') : null;
+        if (!filePath) return null;
+        const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+        return UPLOAD_BASE_URL + '/' + normalized;
       };
 
       let supportFileIds: string[] = [];
@@ -4597,10 +4599,12 @@ export class NoticesService {
         .where('noticeMail.id = :id', { id })
         .getRawOne();
 
-      const UPLOAD_BASE_URL = process.env.UPLOAD_BASE_URL;
+      const UPLOAD_BASE_URL = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
 
       const addFilePath = (filePath: string | null) => {
-        return filePath ? UPLOAD_BASE_URL + filePath.replace(/\\/g, '/') : null;
+        if (!filePath) return null;
+        const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+        return UPLOAD_BASE_URL + '/' + normalized;
       };
 
       let supportFileIds: string[] = [];
@@ -6684,12 +6688,12 @@ export class NoticesService {
       let notice_file = null;
 
       if (data.view_preview === true) {
-        const UPLOAD_BASE_URL = process.env.UPLOAD_BASE_URL;
+        const UPLOAD_BASE_URL = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
 
         const addFilePath = (filePath: string | null) => {
-          return filePath
-            ? UPLOAD_BASE_URL + filePath.replace(/\\/g, '/')
-            : null;
+          if (!filePath) return null;
+          const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+          return UPLOAD_BASE_URL + '/' + normalized;
         };
 
         const notice_file_id = notice_mail.noticeDetails.uploaded_notice?.id;

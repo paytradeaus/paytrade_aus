@@ -833,9 +833,9 @@ export class PtAdminResolver {
         } catch (fileError) {
           this.logger.error(`Failed to read file from storage: ${fileError.message}`);
         }
-        admin.fileAttachments.file_path =
-          process.env.UPLOAD_BASE_URL +
-          admin.fileAttachments.file_path.replace(/\\/g, '/');
+        const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+        const normalizedPath = admin.fileAttachments.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+        admin.fileAttachments.file_path = baseUrl + '/' + normalizedPath;
       }
 
       const response: PTAdminGroup = {

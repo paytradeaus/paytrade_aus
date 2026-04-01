@@ -509,9 +509,9 @@ export class PtContentsService {
       // Assuming `banner` property contains the file path
       if (suggestion.banner) {
         // Modify the file path by adding a new string
-        suggestion.banner.file_path =
-          process.env.UPLOAD_BASE_URL +
-          suggestion.banner.file_path.replace(/\\/g, '/');
+        const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+        const normalizedPath = suggestion.banner.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+        suggestion.banner.file_path = baseUrl + '/' + normalizedPath;
       }
     });
 

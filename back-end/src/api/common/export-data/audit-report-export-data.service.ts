@@ -2425,7 +2425,8 @@ Each file contains records relevant to that category as part of the audit trail.
           !seenAttachmentPaths.has(zipPath)
         ) {
           seenAttachmentPaths.add(zipPath);
-          const fileUrl = `${process.env.UPLOAD_BASE_URL}${attachmentPath}`;
+          const auditBaseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+          const fileUrl = auditBaseUrl + '/' + attachmentPath.replace(/^\/+/, '');
 
           try {
             const response = await axios.get(fileUrl, {
@@ -2452,7 +2453,8 @@ Each file contains records relevant to that category as part of the audit trail.
 
         if (!seenAttachmentPaths.has(zipPath)) {
           seenAttachmentPaths.add(zipPath);
-          const fileUrl = `${process.env.UPLOAD_BASE_URL}${attachmentPath}`;
+          const auditBaseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+          const fileUrl = auditBaseUrl + '/' + attachmentPath.replace(/^\/+/, '');
 
           try {
             const response = await axios.get(fileUrl, {
@@ -2509,7 +2511,8 @@ Each file contains records relevant to that category as part of the audit trail.
 
               if (!seenAttachmentPaths.has(zipPath)) {
                 seenAttachmentPaths.add(zipPath);
-                const fileUrl = `${process.env.UPLOAD_BASE_URL}${variationFilePath}`;
+                const varBaseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+                const fileUrl = varBaseUrl + '/' + variationFilePath.replace(/^\/+/, '');
 
                 try {
                   const response = await axios.get(fileUrl, {

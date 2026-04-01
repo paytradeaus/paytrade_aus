@@ -166,9 +166,9 @@ export class SignupResolver {
             } catch (fileError) {
               this.logger.error(`Failed to read file from storage: ${fileError.message}`);
             }
-            element.file_path =
-              process.env.UPLOAD_BASE_URL +
-              element.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = element.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            element.file_path = baseUrl + '/' + normalizedPath;
           }
         }
       }
@@ -799,9 +799,9 @@ export class SignupResolver {
             } catch (fileError) {
               this.logger.error(`Failed to read file from storage: ${fileError.message}`);
             }
-            element.file_path =
-              process.env.UPLOAD_BASE_URL +
-              element.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = element.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            element.file_path = baseUrl + '/' + normalizedPath;
           }
           if (element.company_id) {
             element.has_bank_account = await this.signupService.checkAccount(
@@ -1670,9 +1670,9 @@ export class SignupResolver {
               } catch (fileError) {
                 this.logger.error(`Failed to read file from storage: ${fileError.message}`);
               }
-              companyDetails.file_path =
-                process.env.UPLOAD_BASE_URL +
-                companyDetails.file_path.replace(/\\/g, '/');
+              const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+              const normalizedPath = companyDetails.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+              companyDetails.file_path = baseUrl + '/' + normalizedPath;
             }
             if (companyDetails.company_id) {
               companyDetails.has_bank_account =

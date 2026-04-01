@@ -196,9 +196,9 @@ export class UserAccessResolver {
             } catch (fileError) {
               this.logger.error(`Failed to read file from storage: ${fileError.message}`);
             }
-            element.file_path =
-              process.env.UPLOAD_BASE_URL +
-              element.file_path.replace(/\\/g, '/');
+            const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+            const normalizedPath = element.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+            element.file_path = baseUrl + '/' + normalizedPath;
           }
         }
       }

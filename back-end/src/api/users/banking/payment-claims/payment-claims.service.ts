@@ -491,9 +491,9 @@ export class PaymentClaimsService {
         relations: ['notice_template'],
       });
 
-      const filePath =
-        process.env.UPLOAD_BASE_URL +
-        st5Template.notice_template.file_path.replace(/\\/g, '/');
+      const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+      const normalizedPath = st5Template.notice_template.file_path.replace(/\\/g, '/').replace(/^\/+/, '');
+      const filePath = baseUrl + '/' + normalizedPath;
 
       const fileType = 'application/pdf';
       let base64Data: string = null;

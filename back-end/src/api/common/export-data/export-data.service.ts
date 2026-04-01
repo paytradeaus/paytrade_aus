@@ -841,10 +841,11 @@ export class ExportDataService {
         if (numBatches > 1) {
           const zipPath = join(folderPath, `${fileName}.zip`);
           await this.createZipFromFiles(pdfPaths, zipPath);
-          fileUrl = process.env.UPLOAD_BASE_URL + zipPath.replace(/\\/g, '/');
+          const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+          fileUrl = baseUrl + '/' + zipPath.replace(/\\/g, '/').replace(/^\/+/, '');
         } else {
-          fileUrl =
-            process.env.UPLOAD_BASE_URL + pdfPaths[0].replace(/\\/g, '/');
+          const baseUrl = (process.env.UPLOAD_BASE_URL || '').replace(/\/+$/, '');
+          fileUrl = baseUrl + '/' + pdfPaths[0].replace(/\\/g, '/').replace(/^\/+/, '');
         }
 
         this.logger.log(
