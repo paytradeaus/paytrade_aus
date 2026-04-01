@@ -787,6 +787,9 @@ export default function XeroSettings() {
             <div className="pt_expandtable">
               <details open>
                 <summary>Paytrade &gt; xero syncing</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control how data created in PayTrade is sent to Xero. When set to "Yes", invoices, bills or payments will sync to Xero as drafts, giving you a chance to review them before approving. When set to "No", they will sync as approved/authorised.
+                </p>
                 <div className="grid pt_infocol">
                   <div>
                     <h5>
@@ -883,6 +886,9 @@ export default function XeroSettings() {
             <div className="pt_expandtable">
               <details open>
                 <summary>xero syncing &gt; Paytrade</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control how data created or updated in Xero is received by PayTrade. When set to "Yes", incoming invoices, bills or payments will appear as drafts in PayTrade for your review. When set to "No", they will be imported as approved.
+                </p>
                 <div className="grid pt_infocol">
                   <div>
                     <h5>
@@ -984,6 +990,9 @@ export default function XeroSettings() {
             <div className="pt_expandtable">
               <details open>
                 <summary>Xero account code</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Map each PayTrade transaction type to the correct Xero account. These codes determine which accounts in your Xero chart of accounts are used when invoices, bills, retention entries, and other transactions are synced. You can find and manage your account codes in Xero under Accounting &gt; Chart of Accounts.
+                </p>
                 <div className="grid pt_infocol">
                   <div>
                     <h5>
@@ -1310,6 +1319,9 @@ export default function XeroSettings() {
             <div className="pt_expandtable">
               <details open>
                 <summary>Map xero tracking category </summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Link your PayTrade projects and contracts to Xero tracking categories. When you sync invoices or bills, they will be tagged with the project or contract name so you can filter and report on them in Xero. Select an existing tracking category from Xero, or create a new one below. Note: Xero allows a maximum of 2 tracking categories per organisation.
+                </p>
                 <div className="grid pt_infocol">
                   <div>
                     <h5>Create category</h5>
@@ -1440,23 +1452,24 @@ export default function XeroSettings() {
             </div>
             <div className="pt_expandtable">
               <details open>
-                <summary>Webhook Schedule Settings</summary>
+                <summary>Sync timing</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  When changes are made in Xero, PayTrade waits for this period before processing them. This batching window groups multiple rapid changes into a single sync, reducing unnecessary processing. A higher value means fewer syncs but a longer delay before changes appear in PayTrade. The minimum is 10 seconds.
+                </p>
                 <div className="grid pt_infocol">
                   <div>
-                    <h5>Execution wait time</h5>
+                    <h5>Sync delay (seconds)</h5>
                     <FormikControl
                       control={InputType.TEXT_FIELD}
                       name={"Executionwaittime"}
                       onChange={(e: any) => {
                         const val = e.target.value.trim();
 
-                        // Allow empty (set null)
                         if (val === "") {
                           settingsFormik.setFieldValue("wait_time", null);
                           return;
                         }
 
-                        // Allow only numbers between 0–60
                         const numericVal = Number(val);
                         if (
                           !isNaN(numericVal) &&
@@ -1464,10 +1477,10 @@ export default function XeroSettings() {
                           numericVal <= 60 &&
                           /^[0-9]*$/.test(val)
                         ) {
-                          settingsFormik.setFieldValue("wait_time", numericVal);
+                          settingsFormik.setFieldValue("wait_time", Math.max(10, numericVal));
                         }
                       }}
-                      placeholder="Enter duration in mins (0–60)"
+                      placeholder="Enter delay in seconds (10–60)"
                       value={settingsFormik.values.wait_time}
                       showError={
                         settingsFormik.touched.wait_time &&
