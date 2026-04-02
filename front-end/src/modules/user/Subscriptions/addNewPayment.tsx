@@ -16,7 +16,16 @@ const testStripePromise = process.env.NEXT_PUBLIC_STRIPE_TEST_PUBLISHABLE_KEY
 
 export default function AddNewPayment({ hideCardValidationButton, isDemo }: any) {
   const stripePromise = useMemo(() => {
-    return isDemo && testStripePromise ? testStripePromise : liveStripePromise;
+    if (isDemo) {
+      if (!testStripePromise) {
+        console.error(
+          "Demo/sandbox mode active but NEXT_PUBLIC_STRIPE_TEST_PUBLISHABLE_KEY is not configured. " +
+          "Payment will not work with test cards."
+        );
+      }
+      return testStripePromise ?? liveStripePromise;
+    }
+    return liveStripePromise;
   }, [isDemo]);
 
   return (
