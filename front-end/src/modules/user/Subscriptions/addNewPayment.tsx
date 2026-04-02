@@ -6,7 +6,6 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "./checkoutForm";
 
-// [Replit Update 2026-03-30] Conditional Stripe key for demo companies
 const liveStripePromise = loadStripe(
   `${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}`
 );

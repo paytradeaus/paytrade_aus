@@ -96,7 +96,6 @@ export class UpdateCompanyDetailsInput {
   })
   free_plan_reason?: string;
 
-  // [Replit Update 2026-03-30] Demo/sandbox mode flag
   @Field({ nullable: true, description: 'Whether this company is a demo/sandbox account' })
   is_demo?: boolean;
 }

@@ -1,4 +1,3 @@
-// [Replit Update 2026-03-29] Centralised Stripe instance helper for live/sandbox mode
 import Stripe from 'stripe';
 
 const STRIPE_API_VERSION = '2024-06-20';

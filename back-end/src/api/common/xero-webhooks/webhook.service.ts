@@ -2232,7 +2232,6 @@ export class XeroWebhookService {
                 : xeroDetails.liability_receivable_code),
           );
 
-          // [Replit Update 2026-04-02] Simplified retention: accept claims with only retention line (no liability line required) in webhook sync
           const webhookSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
           if (!webhookSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
             await this.xeroService.insertXeroSyncLogs(decoded, {

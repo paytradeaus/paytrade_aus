@@ -1806,7 +1806,6 @@ export class PtAdminAccessService {
     }
   }
 
-  // [Replit Update 2026-04-02] Export user profile as JSON
   async exportUserData(userId: number): Promise<any> {
     const user = await this.userDetails.findOne({ where: { user_id: userId } });
     if (!user) {
@@ -1846,7 +1845,6 @@ export class PtAdminAccessService {
     return exportData;
   }
 
-  // [Replit Update 2026-04-02] Import user profile from JSON
   async importUserData(jsonData: string): Promise<any> {
     let data: any;
     try {
@@ -1901,7 +1899,6 @@ export class PtAdminAccessService {
 
       const oldUserId = data.user.user_id;
 
-      // [Replit Update 2026-04-02] Use raw SQL via runner.query() to guarantee all inserts
       // share the same DB connection and transaction. TypeORM's EntityManager methods
       // (insert/save/findOne) were silently using separate connections, causing FK violations.
       // JSON columns (email_preferences) must be stringified for raw parameterized queries.

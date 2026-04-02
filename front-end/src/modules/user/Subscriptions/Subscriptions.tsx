@@ -120,7 +120,6 @@ export default function Subscriptions() {
               </div>
             )}
 
-            {/* [Replit Update 2026-03-29] Show feature comparison table directly like the public pricing page */}
             <PlanTable features={[]} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
 
             <div

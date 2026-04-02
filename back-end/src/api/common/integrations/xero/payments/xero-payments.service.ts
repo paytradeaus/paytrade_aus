@@ -485,11 +485,9 @@ export class XeroPaymentsService {
         return false;
       }
 
-      // [Replit Update 2026-03-29] Contract tracking category is now optional for payment sync.
       // Sync proceeds without contract tracking if contract_category_id is not configured.
       // Previously this was a hard block that caused unnecessary sync failures.
 
-      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (payment sync)
       const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (
         (xeroInvoicesBills.type === String(Invoice.TypeEnum.ACCPAY) &&
@@ -660,7 +658,6 @@ export class XeroPaymentsService {
         return false;
       }
 
-      // [Replit Update 2026-03-29] Contract mapping is now optional for payment export.
       // If the contract is not mapped to Xero, the sync proceeds without contract tracking.
       // Previously both xeroContractDetails and pt_contract_id were hard blocks.
       const xeroContractDetails = xeroInvoicesBills?.contract_id
@@ -674,7 +671,7 @@ export class XeroPaymentsService {
 
       if (!xeroContractDetails || !xeroContractDetails.pt_contract_id) {
         this.logger.log(
-          `[Replit Update 2026-03-29] Contract not mapped to Xero for payment ${payment_id}. ` +
+          `Contract not mapped to Xero for payment ${payment_id}. ` +
           `Proceeding without contract tracking category.`
         );
       }

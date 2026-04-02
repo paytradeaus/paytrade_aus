@@ -201,7 +201,6 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
           gridData: updateSelectedItems,
         });
 
-        // [Replit Update 2026-03-29] Re-validate after patching to clear stale errors from validateOnMount
         setTimeout(() => formik.validateForm(), 0);
       } else {
         setWrongIdCheck(true);
@@ -888,7 +887,6 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
                             />
                           )}
 
-                          {/* [Replit Update 2026-03-30] Sandbox mode toggle */}
                           <FormikControl
                             id="is_sandbox"
                             name="is_sandbox"

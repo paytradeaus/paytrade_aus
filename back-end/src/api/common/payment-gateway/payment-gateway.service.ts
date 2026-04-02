@@ -70,7 +70,6 @@ export class PaymentGatewayService {
     this.logger.error(`${message}`);
   }
 
-  // [Replit Update 2026-03-29] Check if a company is in demo/sandbox mode
   private async isCompanyDemo(companyId: number): Promise<boolean> {
     if (!companyId) return false;
     const company = await this.companyDetails.findOne({
@@ -80,12 +79,10 @@ export class PaymentGatewayService {
     return company?.is_demo ?? false;
   }
 
-  // [Replit Update 2026-04-02] Public method for resolver to check demo status independently of subscription
   async checkCompanyDemoStatus(companyId: number): Promise<boolean> {
     return this.isCompanyDemo(companyId);
   }
 
-  // [Replit Update 2026-03-30] Look up demo status via stripe_customer_id
   private async isCompanyDemoByStripeCustomer(stripeCustomerId: string): Promise<boolean> {
     if (!stripeCustomerId) return false;
     const sub = await this.subscriptionDetails.findOne({
@@ -179,7 +176,6 @@ export class PaymentGatewayService {
               where: { company_id },
             });
 
-          // [Replit Update 2026-03-29] Use sandbox or live Stripe based on company's is_demo flag
           const isDemo = await this.isCompanyDemo(company_id);
           const stripe = getStripeInstance(isDemo);
 
@@ -756,7 +752,6 @@ export class PaymentGatewayService {
 
           if (!subscriptionDetails) throw `Subscription details not found.`;
 
-          // [Replit Update 2026-03-29] Use sandbox or live Stripe
           const isDemo = await this.isCompanyDemo(company_id);
           const stripe = getStripeInstance(isDemo);
 
@@ -1057,7 +1052,6 @@ export class PaymentGatewayService {
       if (!subscriptionDetails.stripe_customer_id)
         throw `Please add a card to proceed with the subscription.`;
 
-      // [Replit Update 2026-03-29] Use sandbox or live Stripe
       const isDemo = await this.isCompanyDemo(company_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1114,7 +1108,6 @@ export class PaymentGatewayService {
       if (!subscriptionDetails.payment_method_id)
         throw `Please add a card to proceed with the subscription.`;
 
-      // [Replit Update 2026-03-29] Use sandbox or live Stripe
       const isDemo = await this.isCompanyDemo(company_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1156,7 +1149,6 @@ export class PaymentGatewayService {
     payment_method_id: string,
   ) {
     try {
-      // [Replit Update 2026-03-30] Use sandbox or live Stripe based on customer
       const isDemo = await this.isCompanyDemoByStripeCustomer(customer_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1191,7 +1183,6 @@ export class PaymentGatewayService {
       const subscriptionDetails = await this.subscriptionDetails.findOne({
         where: { company_id },
       });
-      // [Replit Update 2026-03-29] Use sandbox or live Stripe
       const isDemo = await this.isCompanyDemo(company_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1228,7 +1219,6 @@ export class PaymentGatewayService {
 
       if (!subscriptionDetails) throw `Subscription details not found.`;
 
-      // [Replit Update 2026-03-30] Use sandbox or live Stripe based on company
       const isDemo = await this.isCompanyDemo(subscriptionDetails.company_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1269,7 +1259,6 @@ export class PaymentGatewayService {
 
   async deleteCardByPaymentMethodId(payment_method_id: string) {
     try {
-      // [Replit Update 2026-03-30] Look up demo status from the payment method's customer
       const liveStripe = getStripeInstance(false);
       let paymentMethod;
       let isDemo = false;
@@ -1563,7 +1552,6 @@ export class PaymentGatewayService {
       is_default: null,
     };
     if (result.stripe_customer_id) {
-      // [Replit Update 2026-03-29] Use sandbox or live Stripe
       const isDemo = await this.isCompanyDemo(company_id);
       const stripe = getStripeInstance(isDemo);
 
@@ -1643,7 +1631,6 @@ export class PaymentGatewayService {
 
     result.amount = formatCurrency(result.amount);
 
-    // [Replit Update 2026-03-30] Include is_demo flag for frontend Stripe key selection
     const isDemo = await this.isCompanyDemo(company_id);
 
     return {

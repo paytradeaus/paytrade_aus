@@ -202,7 +202,6 @@ export class SubscriptionPlan {
   })
   plan_items: PtSubscriptionItemBasicResponse[];
 
-  // [Replit Update 2026-03-30] Sandbox mode flag
   @Field({ nullable: true, description: 'Whether this is a sandbox/test plan.' })
   is_sandbox?: boolean;
 }

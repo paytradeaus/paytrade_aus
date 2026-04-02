@@ -21,7 +21,6 @@ export default function PlanFeaturesGrid() {
 
   const isLightTheme = () => getTheme === "light";
 
-  // [Replit Update 2026-03-29] Deduplicate plans by name, preferring plans with descriptions
   function deduplicatePlans(planList: any[]): any[] {
     const seen = new Map<string, any>();
     for (const plan of planList) {

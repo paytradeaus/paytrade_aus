@@ -128,7 +128,6 @@ export class CompanyDetails {
   @Column({ default: false })
   is_system_added: Boolean;
 
-  // [Replit Update 2026-03-29] Demo/sandbox mode — routes Stripe through test keys
   @Column({ default: false })
   is_demo: boolean;
 

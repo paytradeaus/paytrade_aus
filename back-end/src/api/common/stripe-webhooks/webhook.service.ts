@@ -26,11 +26,9 @@ export class StripeWebhookService {
     private readonly paymentGatewayService: PaymentGatewayService,
   ) {
     this.logger = new PaytradeLogger('WEBHOOK_SERVICE');
-    // [Replit Update 2026-03-30] Default to live Stripe; per-event override via getStripeForEvent
     this.stripe = getStripeInstance(false);
   }
 
-  // [Replit Update 2026-03-30] Get correct Stripe instance based on event livemode
   private getStripeForEvent(livemode: boolean): Stripe {
     return getStripeInstance(!livemode);
   }
@@ -51,7 +49,6 @@ export class StripeWebhookService {
 
       if (!response) throw `No webhook response received`;
 
-      // [Replit Update 2026-03-30] Use correct Stripe instance for live/test mode
       const stripeApi = this.getStripeForEvent(livemode);
 
       const subscriptionId =

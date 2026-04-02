@@ -136,7 +136,6 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Liability receivable code' })
   liability_receivable_code: string;
 
-  // [Replit Update 2026-04-02] Simplified retention accounting toggle
   @Field({ nullable: true, description: 'Whether simplified retention accounting is enabled (no liability accounts)' })
   simplified_retention_accounting: boolean;
 

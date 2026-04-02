@@ -110,7 +110,6 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       return false;
     }
   }
-  // [Replit Update 2026-03-30] Accept isDemoCompany to filter sandbox plans
   async function getSubscriptionPlanTypes(isDemoCompany: boolean = false) {
     try {
       const response: any = await fetchGetAllSubscriptionPlanListForUser(isDemoCompany);
@@ -166,7 +165,6 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     }
   }
 
-  // [Replit Update 2026-03-29] Deduplicate plans by name, preferring plans with descriptions
   function normalizePlanKey(name: string): string {
     return (name || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
   }

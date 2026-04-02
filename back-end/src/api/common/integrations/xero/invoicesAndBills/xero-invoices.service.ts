@@ -398,13 +398,11 @@ export class XeroInvoicesService {
         return false;
       }
 
-      // [Replit Update 2026-03-29] Contract tracking category is now optional.
       // Sync proceeds without contract tracking if contract_category_id is not configured.
       // Previously this was a hard block that caused unnecessary sync failures.
 
       let expectedCodeCheck = null;
 
-      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on
       const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (claimDetails.cash_retention_type === 'Claim') {
         if (claimDetails.claim_type === 'Billable') {
@@ -570,7 +568,6 @@ export class XeroInvoicesService {
           })
         : null;
 
-      // [Replit Update 2026-03-29] Contract mapping is now optional for export.
       // If the specific contract is not mapped, the sync proceeds without contract tracking
       // on the Xero line items. This prevents unnecessary sync failures when contract mapping
       // is not configured. The contract is already known in PayTrade via claimDetails.contract_id;
@@ -578,7 +575,7 @@ export class XeroInvoicesService {
       // The user can still map contracts later for richer Xero reporting.
       if (claimDetails.status !== 'Draft' && !xeroContractDetails) {
         this.logger.log(
-          `[Replit Update 2026-03-29] Contract ${claimDetails.contract_id} not mapped to Xero for claim ${claimDetails.payment_claim_id}. ` +
+          `Contract ${claimDetails.contract_id} not mapped to Xero for claim ${claimDetails.payment_claim_id}. ` +
           `Proceeding without contract tracking category on Xero line items.`
         );
       }
@@ -706,7 +703,6 @@ export class XeroInvoicesService {
           : {};
 
       const lineItemTrackings = [];
-      // [Replit Update 2026-03-29] Only push tracking entries with valid IDs to avoid
       // sending empty objects to the Xero API which causes validation failures.
       if (contractTracking?.trackingCategoryID && contractTracking?.trackingOptionID) {
         lineItemTrackings.push(contractTracking);
@@ -760,7 +756,6 @@ export class XeroInvoicesService {
                 : Math.abs(Number(item?.unit_price)))
           );
         }, 0.0);
-        // [Replit Update 2026-04-02] Simplified retention: work items keep full amounts, no retention share deduction
         const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
         for (const element of invoices) {
           // Protect against division by zero to prevent Infinity/NaN values
@@ -808,7 +803,6 @@ export class XeroInvoicesService {
           claimDetails.cash_retention_type === 'Claim'
         ) {
           if (useSimplifiedRetention) {
-            // [Replit Update 2026-04-02] Simplified: single negative retention line with same GST treatment as work items
             let retentionLine: LineItem = {
               description: 'Retention Held',
               quantity: 1,
@@ -876,7 +870,6 @@ export class XeroInvoicesService {
             );
           }, 0.0);
           if (useSimplifiedRetention) {
-            // [Replit Update 2026-04-02] Simplified: single negative retention release line with same GST treatment
             let retentionReleaseLine: LineItem = {
               description: 'Retention Release',
               quantity: 1,
@@ -1317,7 +1310,6 @@ export class XeroInvoicesService {
       return false;
     }
 
-    // [Replit Update 2026-03-29] Contract tracking category is now optional for import.
     // If contract_category_id is not configured, the import proceeds and attempts to
     // resolve the contract using smart matching (single contract for supplier+project,
     // or by matching claim amount against contract value + approved variations).
@@ -1418,7 +1410,6 @@ export class XeroInvoicesService {
 
     let expectedCodeCheck = null;
 
-    // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (import flow)
     const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
     if (invoiceDetails.type === Invoice.TypeEnum.ACCPAY) {
       expectedCodeCheck =
@@ -1725,7 +1716,6 @@ export class XeroInvoicesService {
     //   return false;
     // }
 
-    // [Replit Update 2026-03-29] Contract tracking ID lookup (non-blocking).
     // Contract mapping is now optional — smart resolution happens after project is resolved.
     const xeroContractDetails = contractTrackingId
       ? await this.xeroContractDetails.findOne({
@@ -1843,7 +1833,6 @@ export class XeroInvoicesService {
       return false;
     }
 
-    // [Replit Update 2026-03-29] Smart contract resolution for import.
     // If contract was not resolved via tracking ID, attempt automatic resolution:
     // 1. Single contract for this supplier+project → use it.
     // 2. Multiple contracts → match by claim amount vs contract value (initial sum + agreed variations).
@@ -1854,7 +1843,7 @@ export class XeroInvoicesService {
       xeroContactDetails?.pt_contact_id
     ) {
       this.logger.log(
-        `[Replit Update 2026-03-29] Contract not resolved via tracking for invoice ${invoice_id}. ` +
+        `Contract not resolved via tracking for invoice ${invoice_id}. ` +
         `Attempting smart contract resolution for supplier ${xeroContactDetails.pt_contact_id}.`
       );
 
@@ -1873,7 +1862,7 @@ export class XeroInvoicesService {
       if (candidateContracts.length === 1) {
         contractDetails = candidateContracts[0];
         this.logger.log(
-          `[Replit Update 2026-03-29] Smart match: single contract found (contract_id: ${contractDetails.contract_id}). Auto-resolved.`
+          `Smart match: single contract found (contract_id: ${contractDetails.contract_id}). Auto-resolved.`
         );
       } else if (candidateContracts.length > 1) {
         const claimTotal = Math.abs(Number(invoiceDetails.total || 0));
@@ -1888,12 +1877,12 @@ export class XeroInvoicesService {
         if (amountMatches.length === 1) {
           contractDetails = amountMatches[0];
           this.logger.log(
-            `[Replit Update 2026-03-29] Smart match: amount-matched contract found ` +
+            `Smart match: amount-matched contract found ` +
             `(contract_id: ${contractDetails.contract_id}, amount: ${claimTotal}). Auto-resolved.`
           );
         } else {
           this.logger.log(
-            `[Replit Update 2026-03-29] Smart match failed: ${candidateContracts.length} contracts found, ` +
+            `Smart match failed: ${candidateContracts.length} contracts found, ` +
             `${amountMatches.length} amount matches. Cannot auto-resolve.`
           );
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -1933,7 +1922,7 @@ export class XeroInvoicesService {
         }
       } else {
         this.logger.log(
-          `[Replit Update 2026-03-29] No candidate contracts found for supplier ${xeroContactDetails.pt_contact_id}. Proceeding without contract.`
+          `No candidate contracts found for supplier ${xeroContactDetails.pt_contact_id}. Proceeding without contract.`
         );
       }
     }
@@ -2116,7 +2105,6 @@ export class XeroInvoicesService {
           : xeroDetails.liability_receivable_code),
     );
 
-    // [Replit Update 2026-04-02] Simplified retention: accept claims with only retention line (no liability line required)
     const importSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
     if (!importSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -3366,7 +3354,6 @@ export class XeroInvoicesService {
 
       let expectedCodeCheck = null;
 
-      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (edit flow)
       const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (claimDetails.cash_retention_type === 'Claim') {
         if (claimDetails.claim_type === 'Billable') {
@@ -3650,7 +3637,6 @@ export class XeroInvoicesService {
             : {};
 
         const lineItemTrackings = [];
-        // [Replit Update 2026-03-29] Only push tracking entries with valid IDs.
         if (contractTracking?.trackingCategoryID && contractTracking?.trackingOptionID) {
           lineItemTrackings.push(contractTracking);
         }
@@ -3701,7 +3687,6 @@ export class XeroInvoicesService {
                   : Math.abs(Number(item?.unit_price)))
             );
           }, 0.0);
-          // [Replit Update 2026-04-02] Simplified retention: work items keep full amounts (edit flow)
           const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
           for (const element of invoices) {
             const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount)
@@ -3747,7 +3732,6 @@ export class XeroInvoicesService {
             claimDetails.cash_retention_type === 'Claim'
           ) {
             if (useSimplifiedRetention) {
-              // [Replit Update 2026-04-02] Simplified: single negative retention line with same GST treatment (edit flow)
               let retentionLine: LineItem = {
                 description: 'Retention Held',
                 quantity: 1,
@@ -3814,7 +3798,6 @@ export class XeroInvoicesService {
               );
             }, 0.0);
             if (useSimplifiedRetention) {
-              // [Replit Update 2026-04-02] Simplified: single negative retention release line (edit flow)
               let retentionReleaseLine: LineItem = {
                 description: 'Retention Release',
                 quantity: 1,

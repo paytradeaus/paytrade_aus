@@ -49,7 +49,6 @@ export class AddSubscriptionPlanInput {
   })
   item_specification: AddItemInput[];
 
-  // [Replit Update 2026-03-29] Sandbox mode for demo companies
   @Field({
     nullable: true,
     defaultValue: false,
@@ -115,7 +114,6 @@ export class GetAllSubscriptionPlanInput {
   @Field({ nullable: true, description: 'Search keyword to filter plans.' })
   search?: string;
 
-  // [Replit Update 2026-03-29] Filter by sandbox/live
   @Field({
     nullable: true,
     description: 'Filter sandbox or live plans. Omit to see all.',

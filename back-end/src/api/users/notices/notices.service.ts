@@ -7158,7 +7158,6 @@ export class NoticesService {
         `Document regenerated (and uploaded) for notice ${noticeId}`,
       );
 
-      // [Replit Update 2026-04-02] Re-evaluate delegation status from current
       // subscription + bank account settings instead of relying on the stale
       // delegated_qbcc flag stored on the notice record. The old flag may be
       // wrong if the notice was originally created before a delegation bug fix.
@@ -7189,7 +7188,6 @@ export class NoticesService {
       }
 
       if (shouldUseDelegatedQbccFlow) {
-        // [Replit Update 2026-04-02] QBCC + delegated authority: route to
         // PayTrade admin team who lodge the notice with QBCC on the user's behalf.
         this.logger.log(
           `Detected delegated QBCC notice (${notice.notice_type}), triggering admin flow.`,
@@ -7209,7 +7207,6 @@ export class NoticesService {
           notice_id: noticeId,
         });
       } else if (isQbccNoticeType) {
-        // [Replit Update 2026-04-02] QBCC + NO delegated authority: PDF has
         // been regenerated above but must NOT be emailed to the client. QBCC
         // notices are sent to the QBCC (not the client) — the user prints or
         // downloads the PDF and lodges it themselves via post or QBCC portal.

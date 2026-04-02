@@ -1627,7 +1627,6 @@ export class PtAdminAccessResolver {
     });
   }
 
-  // [Replit Update 2026-04-02] Export user profile as JSON
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
   @Query(() => StringResponse, {
@@ -1655,7 +1654,6 @@ export class PtAdminAccessResolver {
     }
   }
 
-  // [Replit Update 2026-04-02] Import user profile from JSON
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.PORTAL_ADMIN)
   @Mutation(() => StringResponse, {

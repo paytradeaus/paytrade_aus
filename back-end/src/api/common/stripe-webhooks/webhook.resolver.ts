@@ -27,7 +27,6 @@ export class StripeWebhookResolver {
       ? request.headers['stripe-signature'][0]
       : request.headers['stripe-signature'];
 
-    // [Replit Update 2026-03-30] Try live secret first, fall back to test secret
     let event;
     const stripe = getStripeInstance(false);
 
@@ -69,7 +68,6 @@ export class StripeWebhookResolver {
             `Request recieved while entering the handleWebhook::invoicePaymentSucceeded:: ${JSON.stringify(invoicePaymentSucceeded)}`,
           );
           this.logger.log(`invoicePaymentSucceeded: ${JSON.stringify(invoicePaymentSucceeded)}`);
-          // [Replit Update 2026-03-30] Pass event.livemode to service
           dbResponse = await this.stripeService.handlePaymentResponse(
             invoicePaymentSucceeded,
             event.livemode,

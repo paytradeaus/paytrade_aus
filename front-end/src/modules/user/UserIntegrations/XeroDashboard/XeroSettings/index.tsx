@@ -90,7 +90,6 @@ export default function XeroSettings() {
     getXeroDetailsForCompany().then((data) => {
       setXeroDetails(data);
       console.log(data);
-      // [Replit Update 2026-04-02] Populate simplified retention toggle from saved settings
       setSimplifiedRetention(!!data?.simplified_retention_accounting);
       setInitialSimplifiedRetention(!!data?.simplified_retention_accounting);
       const formValue = {
@@ -158,11 +157,9 @@ export default function XeroSettings() {
     router.push(AppRoutes.USER_INTEGRATION);
   }
 
-  // [Replit Update 2026-04-02] Simplified retention toggle state
   const [simplifiedRetention, setSimplifiedRetention] = useState(false);
   const [initialSimplifiedRetention, setInitialSimplifiedRetention] = useState(false);
 
-  // [Replit Update 2026-04-02] Liability codes are optional when simplified retention is on
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
     company_id: Yup.number(),
@@ -254,7 +251,6 @@ export default function XeroSettings() {
         bill_tax_code,
         wait_time,
       } = values;
-      // [Replit Update 2026-04-02] Include simplified_retention_accounting toggle in save payload
       const payload = {
         retention_receivable_retained_code,
         retention_receivable_release_code,
@@ -465,7 +461,6 @@ export default function XeroSettings() {
       return false;
     },
   });
-  // [Replit Update 2026-04-02] Liability quick-add presets hidden when simplified retention is on
   const allSuggestedAccounts = [
     { label: "Invoice Code", account_type: "REVENUE", accountTypeLabel: "Revenue", code: "200", account_name: "Sales Revenue", description: "Revenue from invoices sent via PayTrade" },
     { label: "Bill Code", account_type: "DIRECTCOSTS", accountTypeLabel: "Direct Costs", code: "400", account_name: "Cost of Sales", description: "Expenses from bills received via PayTrade" },
@@ -1080,7 +1075,6 @@ export default function XeroSettings() {
                       <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Receivable Released</td>
                       <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts released back to you</td>
                     </tr>
-                    {/* [Replit Update 2026-04-02] Hide liability rows when simplified retention is on */}
                     {!simplifiedRetention && (
                       <>
                         <tr>
@@ -1280,7 +1274,6 @@ export default function XeroSettings() {
                       }
                     />
                   </div>
-                  {/* [Replit Update 2026-04-02] Simplified retention toggle — hides liability code fields when on */}
                   <div style={{ gridColumn: "1 / -1", marginBottom: "8px" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                       <input

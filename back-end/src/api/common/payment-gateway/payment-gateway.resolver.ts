@@ -759,7 +759,6 @@ export class PaymentGatewayResolver {
     }
   }
 
-  // [Replit Update 2026-04-02] Check if a company is in demo mode, independent of subscription status
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     Role.STANDARD_USER,

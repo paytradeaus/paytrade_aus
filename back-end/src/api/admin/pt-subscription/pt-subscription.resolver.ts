@@ -640,7 +640,6 @@ export class PtSubscriptionResolver {
     name: 'getAllSubscriptionPlanListForUser',
     description: 'Fetches all subscription plans available for users.',
   })
-  // [Replit Update 2026-03-29] Accept is_sandbox filter for demo companies
   async getAllSubscriptionPlanListForUser(
     @Args('is_sandbox', { nullable: true, defaultValue: false }) is_sandbox?: boolean,
   ) {

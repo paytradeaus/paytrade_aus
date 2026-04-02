@@ -260,7 +260,6 @@ export class GetSubscriptionDetails {
   })
   plan_items: SubscriptionItem[];
 
-  // [Replit Update 2026-03-30] Demo company flag for frontend Stripe key selection
   @Field({
     nullable: true,
     description: 'Whether this company is a demo/sandbox account',

@@ -211,7 +211,6 @@ export const AdminDeleteUser = async (
   }
 };
 
-// [Replit Update 2026-04-02] Export user data as JSON
 export const AdminExportUserData = async (
   userId: number
 ): Promise<string | null> => {
@@ -245,7 +244,6 @@ export const AdminExportUserData = async (
   }
 };
 
-// [Replit Update 2026-04-02] Import user data from JSON
 export const AdminImportUserData = async (
   jsonData: string
 ): Promise<boolean> => {

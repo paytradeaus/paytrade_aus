@@ -92,7 +92,6 @@ export async function getSubscriptionDetailsByCompanyId(): Promise<any> {
   }
 }
 
-// [Replit Update 2026-04-02] Fetch company demo status independently of subscription
 export async function fetchCompanyDemoStatus(): Promise<boolean> {
   try {
     const companyId = getCompanyIdFromStorage();

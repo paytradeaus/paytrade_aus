@@ -95,7 +95,6 @@ export class XeroIntegrationDetails {
   @Column({ type: 'text', nullable: true })
   liability_receivable_code: string;
 
-  // [Replit Update 2026-04-02] Simplified retention accounting toggle — when true,
   // liability account codes are optional and retention sync uses 2-line pattern instead of 3-line.
   @Column({ type: 'boolean', nullable: true, default: false })
   simplified_retention_accounting: boolean;
