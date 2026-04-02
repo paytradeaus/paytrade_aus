@@ -139,6 +139,12 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Whether simplified retention accounting is enabled (no liability accounts)' })
   simplified_retention_accounting: boolean;
 
+  @Field({ nullable: true, description: 'Auto-create new PayTrade bank accounts in Xero' })
+  pt_to_xero_bank_auto_create: boolean;
+
+  @Field({ nullable: true, description: 'Auto-create new Xero bank accounts in PayTrade (as draft)' })
+  xero_to_pt_bank_auto_create: boolean;
+
   @Field({ nullable: true, description: 'Invoice tax code' })
   invoice_tax_code: string;
 

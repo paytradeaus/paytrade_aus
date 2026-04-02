@@ -21994,6 +21994,9 @@ type XeroResponse {
   """Project category name"""
   project_category_name: String
 
+  """Auto-create new PayTrade bank accounts in Xero"""
+  pt_to_xero_bank_auto_create: Boolean
+
   """Sync setting for PT to Xero bills as draft"""
   pt_to_xero_bill_as_draft: String
 
@@ -22037,6 +22040,9 @@ type XeroResponse {
 
   """Wait time for sync operations"""
   wait_time: Float
+
+  """Auto-create new Xero bank accounts in PayTrade (as draft)"""
+  xero_to_pt_bank_auto_create: Boolean
 
   """Sync setting for Xero to PT bills as draft"""
   xero_to_pt_bill_as_draft: String
