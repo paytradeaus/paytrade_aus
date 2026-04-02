@@ -74,9 +74,5 @@ build = ["bash", "build-production.sh"]
 defaultBucketID = "replit-objstore-955fa95e-cfbd-48f9-9426-0d3a9ee63b30"
 
 [[ports]]
-localPort = 5000
-externalPort = 5000
-
-[[ports]]
 localPort = 6379
 externalPort = 80

@@ -1351,7 +1351,7 @@ export default function XeroSettings() {
                       />
                     </div>
                   </div>
-                )
+                )}
                 <div className="grid pt_infocol">
                   <div>
                     <h5>
