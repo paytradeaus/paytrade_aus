@@ -56,14 +56,19 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     try {
       setLoader(true);
 
-      // [Replit Update 2026-04-02] Fetch demo status directly from company, independent of subscription
-      const [isDemoCompany] = await Promise.all([
+      const [demoResult, , subResult] = await Promise.allSettled([
         fetchCompanyDemoStatus(),
         getSubscriptionPlanItems(),
         getExistingSubscriptionPlan(),
         getAllExistingCardDetails(),
         getExistingCardDetails(),
       ]);
+
+      const isDemoFromCompany =
+        demoResult.status === "fulfilled" && demoResult.value === true;
+      const isDemoFromSub =
+        subResult.status === "fulfilled" && subResult.value?.is_demo === true;
+      const isDemoCompany = isDemoFromCompany || isDemoFromSub;
 
       setCompanyIsDemo(isDemoCompany);
       await getSubscriptionPlanTypes(isDemoCompany);
