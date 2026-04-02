@@ -29,6 +29,8 @@ import {
   GenerateBotUsers,
   AdminGetUserDependencies,
   AdminDeleteUser,
+  AdminExportUserData,
+  AdminImportUserData,
 } from "../users.functions";
 import {
   downloadExcelFileFromAPI,
@@ -87,6 +89,9 @@ export default function UsersList() {
   const [dependencyLoading, setDependencyLoading] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const importFileRef = React.useRef<HTMLInputElement>(null);
 
   const isAnyFilterActive = statusType !== "" || searchValue;
 
@@ -258,6 +263,36 @@ export default function UsersList() {
           },
         ]
       : []),
+    {
+      label: "Export JSON",
+      icon: "fa-light fa-file-export",
+      onClick: async (row: IUserListDetail) => {
+        setIsExporting(true);
+        try {
+          const jsonStr = await AdminExportUserData(Number(row?.user_id));
+          if (jsonStr) {
+            const parsed = JSON.parse(jsonStr);
+            const blob = new Blob([JSON.stringify(parsed, null, 2)], {
+              type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `paytrade-user-${row?.user_id}-${row?.first_name || "export"}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showSuccessToast("User data exported successfully");
+          }
+        } catch (error: any) {
+          showErrorToast("Failed to export user data");
+        } finally {
+          setIsExporting(false);
+        }
+      },
+      displayByDefault: true,
+    },
     {
       label: "Delete",
       icon: "fa-light fa-trash-can",
@@ -539,6 +574,28 @@ export default function UsersList() {
     setSearchValue(value);
   }
 
+  const handleImportUserFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      JSON.parse(text);
+      const success = await AdminImportUserData(text);
+      if (success) {
+        fetchUsersLists();
+      }
+    } catch (error: any) {
+      showErrorToast("Invalid JSON file. Please select a valid PayTrade export file.");
+    } finally {
+      setIsImporting(false);
+      if (importFileRef.current) {
+        importFileRef.current.value = "";
+      }
+    }
+  };
+
   const handleGenerateBotUsers = async () => {
     setBotGenerating(true);
     try {
@@ -595,13 +652,29 @@ export default function UsersList() {
           </div>
           <div className="pt_pageactions" style={{ display: "flex", gap: "8px" }}>
             {decodeTokenData?.role === Roles.SUPER_ADMIN_ROLE && (
-              <button
-                className="secondary"
-                onClick={handleGenerateBotUsers}
-                disabled={botGenerating}
-              >
-                <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>Generate Bot Users
-              </button>
+              <>
+                <input
+                  type="file"
+                  accept=".json"
+                  ref={importFileRef}
+                  style={{ display: "none" }}
+                  onChange={handleImportUserFile}
+                />
+                <button
+                  className="secondary"
+                  onClick={() => importFileRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  <i className={isImporting ? "fa-light fa-spinner fa-spin" : "fa-light fa-file-import"}></i>Import User
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleGenerateBotUsers}
+                  disabled={botGenerating}
+                >
+                  <i className={botGenerating ? "fa-light fa-spinner fa-spin" : "fa-light fa-robot"}></i>Generate Bot Users
+                </button>
+              </>
             )}
             <Link
               href={AppRoutes.ADMIN_NORMAL_USERS_ADD}

@@ -1626,4 +1626,82 @@ export class PtAdminAccessResolver {
       resolve(result);
     });
   }
+
+  // [Replit Update 2026-04-02] Export user profile as JSON
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'adminExportUserData',
+    description: 'Export a user profile and related data as JSON.',
+  })
+  async adminExportUserData(
+    @Context() context,
+    @Args('user_id', { type: () => Float }) user_id: number,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const exportData =
+        await this.ptAdminAccessService.exportUserData(user_id);
+
+      const activityPayload: CreateActivityLogInput = {
+        admin_id: decoded?.userId,
+        dynamic_values: {
+          action: `Exported user data for user_id=${user_id}`,
+        },
+        is_admin: true,
+        created_by: decoded?.userId,
+      };
+      await this.activityLogService.insertActivityLog(activityPayload);
+
+      return framedResponse(
+        'SUCCESS',
+        JSON.stringify(exportData),
+      );
+    } catch (error) {
+      this.logError(`Export user data error: ${error.message}`);
+      const errMsg = await handleError(error).catch((e) => e);
+      return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  // [Replit Update 2026-04-02] Import user profile from JSON
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'adminImportUserData',
+    description: 'Import a user profile from a PayTrade JSON export file.',
+  })
+  async adminImportUserData(
+    @Context() context,
+    @Args('jsonData') jsonData: string,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result =
+        await this.ptAdminAccessService.importUserData(jsonData);
+
+      const activityPayload: CreateActivityLogInput = {
+        admin_id: decoded?.userId,
+        dynamic_values: {
+          action: `Imported user data: email=${result.email}, newUserId=${result.newUserId}`,
+        },
+        is_admin: true,
+        created_by: decoded?.userId,
+      };
+      await this.activityLogService.insertActivityLog(activityPayload);
+
+      const warningText =
+        result.warnings?.length > 0
+          ? ` Warnings: ${result.warnings.join('; ')}`
+          : '';
+      return framedResponse(
+        'SUCCESS',
+        `User imported successfully. New user_id: ${result.newUserId}, email: ${result.email}. Companies: ${result.companiesMapped}, Roles: ${result.rolesCreated}, Subscriptions: ${result.subscriptionsCreated}.${warningText}`,
+      );
+    } catch (error) {
+      this.logError(`Import user data error: ${error.message}`);
+      const errMsg = await handleError(error).catch((e) => e);
+      return framedResponse('ERROR', errMsg);
+    }
+  }
 }

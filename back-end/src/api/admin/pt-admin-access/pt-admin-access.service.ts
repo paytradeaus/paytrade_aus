@@ -1805,4 +1805,272 @@ export class PtAdminAccessService {
       await runner.release();
     }
   }
+
+  // [Replit Update 2026-04-02] Export user profile as JSON
+  async exportUserData(userId: number): Promise<any> {
+    const user = await this.userDetails.findOne({ where: { user_id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with user_id ${userId} not found`);
+    }
+
+    const roles = await this.userRoles.find({ where: { user_id: userId } });
+
+    const companyIds = roles.map((r) => r.company_id);
+    let companies = [];
+    if (companyIds.length > 0) {
+      companies = await this.companyDetails.find({
+        where: { company_id: In(companyIds) },
+      });
+    }
+
+    let subscriptions = [];
+    if (companyIds.length > 0) {
+      subscriptions = await this.subscriptionDetails.find({
+        where: { company_id: In(companyIds) },
+      });
+    }
+
+    const { password, ...userSafe } = user as any;
+
+    const exportData = {
+      _exportVersion: 1,
+      _exportedAt: new Date().toISOString(),
+      _sourceEnvironment: process.env.NODE_ENV || 'development',
+      user: userSafe,
+      companies,
+      companyUserRoles: roles,
+      subscriptions,
+    };
+
+    this.logger.log(
+      `Exported user data for user_id=${userId}, email=${user.email_id}`,
+    );
+    return exportData;
+  }
+
+  // [Replit Update 2026-04-02] Import user profile from JSON
+  async importUserData(jsonData: string): Promise<any> {
+    let data: any;
+    try {
+      data = JSON.parse(jsonData);
+    } catch {
+      throw new Error('Invalid JSON format');
+    }
+
+    if (!data._exportVersion || !data.user) {
+      throw new Error(
+        'Invalid export format. Must be a PayTrade user export file.',
+      );
+    }
+
+    const existingUser = await this.userDetails.findOne({
+      where: { email_id: data.user.email_id },
+    });
+    if (existingUser) {
+      throw new Error(
+        `User with email ${data.user.email_id} already exists (user_id: ${existingUser.user_id}). Delete or update the existing user first.`,
+      );
+    }
+
+    const runner = this.userDetails.manager.connection.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+
+    try {
+      const allowedUserFields = [
+        'first_name', 'last_name', 'date_of_birth', 'email_id',
+        'occupation', 'position_title', 'company_name', 'place_id',
+        'user_address', 'country', 'region', 'latitude', 'longitude',
+        'user_phone_no', 'user_timezone', 'email_preferences',
+        'logged_in_email_id',
+      ];
+      const userData: any = {};
+      for (const field of allowedUserFields) {
+        if (data.user[field] !== undefined) {
+          userData[field] = data.user[field];
+        }
+      }
+      userData.user_status = 'Pending';
+      userData.user_role = data.user.user_role || 'BASIC USER';
+      userData.is_verified = false;
+      userData.is_admin_added = true;
+      userData.password = null;
+      userData.failed_attempts = 0;
+      userData.lock_time = null;
+      userData.show_popup = true;
+      userData.first_time_logged_in = 0;
+      userData.created_on = new Date();
+      userData.updated_on = new Date();
+
+      const oldUserId = data.user.user_id;
+
+      const userEntity = this.userDetails.create(userData);
+      const insertedUser = await runner.manager.save(UserDetails, userEntity);
+      const newUserId = (insertedUser as any).user_id;
+
+      const companyIdMap: Record<number, number> = {};
+      const warnings: string[] = [];
+
+      for (const company of data.companies || []) {
+        const existingCompany = await runner.manager.findOne(CompanyDetails, {
+          where: { company_email_id: company.company_email_id },
+        });
+
+        if (existingCompany) {
+          if (
+            existingCompany.company_name?.toLowerCase() !==
+            company.company_name?.toLowerCase()
+          ) {
+            warnings.push(
+              `Company email ${company.company_email_id} matched existing "${existingCompany.company_name}" (expected "${company.company_name}"). Skipped mapping for safety.`,
+            );
+            continue;
+          }
+          companyIdMap[company.company_id] = existingCompany.company_id;
+          this.logger.log(
+            `Company ${company.company_name} (${company.company_email_id}) already exists, mapped to company_id=${existingCompany.company_id}`,
+          );
+          continue;
+        }
+
+        const allowedCompanyFields = [
+          'company_number', 'company_name', 'legal_company_name',
+          'company_email_id', 'company_phone_no', 'entity_type',
+          'place_id', 'company_address', 'country', 'region',
+          'latitude', 'longitude', 'qbcc_number', 'acn_number',
+          'abn_number', 'tfn_number', 'vat_number', 'utr_number',
+          'cis_rate', 'email_preferences',
+        ];
+        const companyData: any = {};
+        for (const field of allowedCompanyFields) {
+          if (company[field] !== undefined) {
+            companyData[field] = company[field];
+          }
+        }
+        companyData.is_verified = false;
+        companyData.is_admin_blocked = false;
+        companyData.is_system_added = false;
+        companyData.created_on = new Date();
+        companyData.updated_on = new Date();
+
+        const insertedCompany = await runner.manager.save(
+          runner.manager.create(CompanyDetails, companyData),
+        );
+        companyIdMap[company.company_id] = insertedCompany.company_id;
+      }
+
+      let rolesCreated = 0;
+      for (const role of data.companyUserRoles || []) {
+        const newCompanyId = companyIdMap[role.company_id];
+        if (!newCompanyId) {
+          warnings.push(
+            `Skipped role for unmapped company_id=${role.company_id}`,
+          );
+          continue;
+        }
+
+        const existingRole = await runner.manager.findOne(CompanyUserRoles, {
+          where: { user_id: newUserId, company_id: newCompanyId },
+        });
+        if (existingRole) {
+          this.logger.log(
+            `Role already exists for user_id=${newUserId}, company_id=${newCompanyId}, skipping`,
+          );
+          continue;
+        }
+
+        const allowedRoleFields = [
+          'company_role', 'status', 'manage_project_trust_payment',
+          'manage_user', 'manage_company', 'manage_subscription',
+          'email_preferences', 'is_system_added',
+        ];
+        const roleData: any = {};
+        for (const field of allowedRoleFields) {
+          if (role[field] !== undefined) {
+            roleData[field] = role[field];
+          }
+        }
+        roleData.user_id = newUserId;
+        roleData.company_id = newCompanyId;
+        roleData.joined_on = new Date();
+        roleData.created_on = new Date();
+        roleData.updated_on = new Date();
+
+        await runner.manager.save(
+          runner.manager.create(CompanyUserRoles, roleData),
+        );
+        rolesCreated++;
+      }
+
+      let subscriptionsCreated = 0;
+      for (const sub of data.subscriptions || []) {
+        const newCompanyId = companyIdMap[sub.company_id];
+        if (!newCompanyId) {
+          warnings.push(
+            `Skipped subscription for unmapped company_id=${sub.company_id}`,
+          );
+          continue;
+        }
+
+        const existingSub = await runner.manager.findOne(SubscriptionDetails, {
+          where: { company_id: newCompanyId },
+        });
+        if (existingSub) {
+          warnings.push(
+            `Company ${newCompanyId} already has a subscription (id=${existingSub.subscription_id}), skipped duplicate`,
+          );
+          continue;
+        }
+
+        const allowedSubFields = [
+          'plan_id', 'price_id', 'coupon_id', 'amount',
+          'start_date', 'expiry_date', 'status',
+          'trial_start', 'trial_end', 'is_free_plan_eligible',
+          'free_plan_reason',
+        ];
+        const subData: any = {};
+        for (const field of allowedSubFields) {
+          if (sub[field] !== undefined) {
+            subData[field] = sub[field];
+          }
+        }
+        subData.company_id = newCompanyId;
+        subData.stripe_customer_id = null;
+        subData.payment_method_id = null;
+        subData.stripe_subscription_id = null;
+        subData.created_on = new Date();
+        subData.updated_on = new Date();
+
+        await runner.manager.save(
+          runner.manager.create(SubscriptionDetails, subData),
+        );
+        subscriptionsCreated++;
+      }
+
+      await runner.commitTransaction();
+
+      const summary = {
+        newUserId,
+        email: data.user.email_id,
+        companiesMapped: Object.keys(companyIdMap).length,
+        companyIdMap,
+        rolesCreated,
+        subscriptionsCreated,
+        warnings,
+      };
+
+      this.logger.log(
+        `Successfully imported user: ${JSON.stringify(summary)}`,
+      );
+      return summary;
+    } catch (error) {
+      await runner.rollbackTransaction();
+      this.logger.error(
+        `User import failed, transaction rolled back: ${error.message}`,
+      );
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  }
 }

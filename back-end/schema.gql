@@ -13365,6 +13365,9 @@ type Mutation {
   """Permanently deletes a user and all associated data. Super admin only."""
   adminDeleteUser(user_id: Float!): StringResponse!
 
+  """Import a user profile from a PayTrade JSON export file."""
+  adminImportUserData(jsonData: String!): StringResponse!
+
   """Approves or deletes a blog comment."""
   adminManageBlogComment(
     """Input payload to approve or delete a blog or resource comment."""
@@ -16049,6 +16052,9 @@ type Query {
     """
     listCommunityFlagsInput: ListCommunityFlagsInput!
   ): likeVoteFlagListResponse!
+
+  """Export a user profile and related data as JSON."""
+  adminExportUserData(user_id: Float!): StringResponse!
 
   """Fetches all admin menus with full details."""
   adminFetchAllMenuDetails: AdminMenuDetailListResponse!

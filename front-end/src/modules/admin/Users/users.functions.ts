@@ -211,6 +211,75 @@ export const AdminDeleteUser = async (
   }
 };
 
+// [Replit Update 2026-04-02] Export user data as JSON
+export const AdminExportUserData = async (
+  userId: number
+): Promise<string | null> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query AdminExportUserData($user_id: Float!) {
+          adminExportUserData(user_id: $user_id) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { user_id: userId },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.adminExportUserData?.status === ApiResponse.SUCCESS
+    ) {
+      return response.data.adminExportUserData.message;
+    }
+    if (response?.data?.adminExportUserData?.status === ApiResponse.ERROR) {
+      showErrorToast(response.data.adminExportUserData.message);
+      return null;
+    }
+    return null;
+  } catch (error: any) {
+    showErrorToast(error?.message || "Failed to export user data");
+    console.error("GraphQL Error:", error);
+    return null;
+  }
+};
+
+// [Replit Update 2026-04-02] Import user data from JSON
+export const AdminImportUserData = async (
+  jsonData: string
+): Promise<boolean> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminImportUserData($jsonData: String!) {
+          adminImportUserData(jsonData: $jsonData) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { jsonData },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.adminImportUserData?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response.data.adminImportUserData.message);
+      return true;
+    }
+    if (response?.data?.adminImportUserData?.status === ApiResponse.ERROR) {
+      showErrorToast(response.data.adminImportUserData.message);
+      return false;
+    }
+    return false;
+  } catch (error: any) {
+    showErrorToast(error?.message || "Failed to import user data");
+    console.error("GraphQL Error:", error);
+    return false;
+  }
+};
+
 export const AllowAdminToLoginAsUser = async (
   data: any,
   successMsg?: string,
