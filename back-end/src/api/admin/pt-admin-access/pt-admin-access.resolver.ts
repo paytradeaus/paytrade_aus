@@ -1639,19 +1639,10 @@ export class PtAdminAccessResolver {
     @Args('user_id', { type: () => Float }) user_id: number,
   ): Promise<any> {
     try {
-      const decoded = await this.jwtInternalService.decodeJwtToken(context);
       const exportData =
         await this.ptAdminAccessService.exportUserData(user_id);
 
-      const activityPayload: CreateActivityLogInput = {
-        admin_id: decoded?.userId,
-        dynamic_values: {
-          action: `Exported user data for user_id=${user_id}`,
-        },
-        is_admin: true,
-        created_by: decoded?.userId,
-      };
-      await this.activityLogService.insertActivityLog(activityPayload);
+      this.log(`Admin exported user data for user_id=${user_id}`);
 
       return framedResponse(
         'SUCCESS',
@@ -1676,19 +1667,12 @@ export class PtAdminAccessResolver {
     @Args('jsonData') jsonData: string,
   ): Promise<any> {
     try {
-      const decoded = await this.jwtInternalService.decodeJwtToken(context);
       const result =
         await this.ptAdminAccessService.importUserData(jsonData);
 
-      const activityPayload: CreateActivityLogInput = {
-        admin_id: decoded?.userId,
-        dynamic_values: {
-          action: `Imported user data: email=${result.email}, newUserId=${result.newUserId}`,
-        },
-        is_admin: true,
-        created_by: decoded?.userId,
-      };
-      await this.activityLogService.insertActivityLog(activityPayload);
+      this.log(
+        `Admin imported user data: email=${result.email}, newUserId=${result.newUserId}`,
+      );
 
       const warningText =
         result.warnings?.length > 0
