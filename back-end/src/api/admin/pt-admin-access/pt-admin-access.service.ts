@@ -1904,9 +1904,9 @@ export class PtAdminAccessService {
 
       const oldUserId = data.user.user_id;
 
-      const userEntity = this.userDetails.create(userData);
-      const insertedUser = await runner.manager.save(UserDetails, userEntity);
-      const newUserId = (insertedUser as any).user_id;
+      // [Replit Update 2026-04-02] Use insert() instead of save() to avoid nested transaction issues with ManyToOne relations
+      const userInsertResult = await runner.manager.insert(UserDetails, userData);
+      const newUserId = userInsertResult.identifiers[0].user_id;
 
       const companyIdMap: Record<number, number> = {};
       const warnings: string[] = [];
@@ -1953,10 +1953,8 @@ export class PtAdminAccessService {
         companyData.created_on = new Date();
         companyData.updated_on = new Date();
 
-        const insertedCompany = await runner.manager.save(
-          runner.manager.create(CompanyDetails, companyData),
-        );
-        companyIdMap[company.company_id] = insertedCompany.company_id;
+        const companyInsertResult = await runner.manager.insert(CompanyDetails, companyData);
+        companyIdMap[company.company_id] = companyInsertResult.identifiers[0].company_id;
       }
 
       let rolesCreated = 0;
@@ -1996,9 +1994,7 @@ export class PtAdminAccessService {
         roleData.created_on = new Date();
         roleData.updated_on = new Date();
 
-        await runner.manager.save(
-          runner.manager.create(CompanyUserRoles, roleData),
-        );
+        await runner.manager.insert(CompanyUserRoles, roleData);
         rolesCreated++;
       }
 
@@ -2041,9 +2037,7 @@ export class PtAdminAccessService {
         subData.created_on = new Date();
         subData.updated_on = new Date();
 
-        await runner.manager.save(
-          runner.manager.create(SubscriptionDetails, subData),
-        );
+        await runner.manager.insert(SubscriptionDetails, subData);
         subscriptionsCreated++;
       }
 
