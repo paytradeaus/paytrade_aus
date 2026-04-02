@@ -1696,31 +1696,23 @@ export default function XeroSettings() {
           disableSecondButton={disableSave}
           disableFirstButton={disableSave}
         >
-          <div>
-            <div style={{ marginBottom: "12px" }}>
-              <h5 style={{ marginBottom: "6px" }}>Quick add</h5>
+          <div className="pt_infocol">
+            <div>
+              <h5>Quick add</h5>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {suggestedAccounts.map((preset) => (
                   <button
                     key={preset.code}
                     type="button"
+                    className="outline smallbutton"
                     onClick={() => prefillAccount(preset)}
-                    style={{
-                      padding: "4px 10px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      background: "#f5f7fa",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
                   >
                     {preset.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div style={{ marginBottom: "10px" }}>
+            <div>
               <h5>
                 Account Type <span className="required">*</span>
               </h5>
@@ -1746,63 +1738,69 @@ export default function XeroSettings() {
                 valueKey="value"
               />
             </div>
-            <h5>
-              Code <span className="required">*</span>
-            </h5>
-            <FormikControl
-              control={InputType.TEXT_FIELD}
-              name={"paymentToAccount"}
-              onChange={(e: any) => {
-                addNewAccountFormik?.setFieldValue(
-                  "code",
-                  e.target.value.trim() ? e.target.value : ""
-                );
-              }}
-              placeholder=""
-              value={addNewAccountFormik.values.code}
-              maxLength={10}
-              showError={
-                addNewAccountFormik.touched.code &&
-                addNewAccountFormik.errors.code
-              }
-              onBlur={addNewAccountFormik.handleBlur("code")}
-              error={addNewAccountFormik?.errors?.code}
-            />
-            <h5>
-              Name <span className="required">*</span>
-            </h5>
-            <FormikControl
-              control={InputType.TEXT_FIELD}
-              name={"paymentToAccount"}
-              onChange={(e: any) => {
-                addNewAccountFormik?.setFieldValue(
-                  "account_name",
-                  e.target.value.trim() ? e.target.value : ""
-                );
-              }}
-              placeholder=""
-              value={addNewAccountFormik.values.account_name}
-              maxLength={150}
-              showError={
-                addNewAccountFormik.touched.account_name &&
-                addNewAccountFormik.errors.account_name
-              }
-              onBlur={addNewAccountFormik.handleBlur("account_name")}
-              error={addNewAccountFormik?.errors?.account_name}
-            />
-            <h5>Description</h5>
-            <FormikControl
-              control={InputType.TEXT_FIELD}
-              name={"paymentToAccount"}
-              onChange={(e: any) => {
-                addNewAccountFormik?.setFieldValue(
-                  "description",
-                  e.target.value.trim() ? e.target.value : ""
-                );
-              }}
-              placeholder=""
-              value={addNewAccountFormik.values.description}
-            />
+            <div>
+              <h5>
+                Code <span className="required">*</span>
+              </h5>
+              <FormikControl
+                control={InputType.TEXT_FIELD}
+                name={"code"}
+                onChange={(e: any) => {
+                  addNewAccountFormik?.setFieldValue(
+                    "code",
+                    e.target.value.trim() ? e.target.value : ""
+                  );
+                }}
+                placeholder=""
+                value={addNewAccountFormik.values.code}
+                maxLength={10}
+                showError={
+                  addNewAccountFormik.touched.code &&
+                  addNewAccountFormik.errors.code
+                }
+                onBlur={addNewAccountFormik.handleBlur("code")}
+                error={addNewAccountFormik?.errors?.code}
+              />
+            </div>
+            <div>
+              <h5>
+                Name <span className="required">*</span>
+              </h5>
+              <FormikControl
+                control={InputType.TEXT_FIELD}
+                name={"account_name"}
+                onChange={(e: any) => {
+                  addNewAccountFormik?.setFieldValue(
+                    "account_name",
+                    e.target.value.trim() ? e.target.value : ""
+                  );
+                }}
+                placeholder=""
+                value={addNewAccountFormik.values.account_name}
+                maxLength={150}
+                showError={
+                  addNewAccountFormik.touched.account_name &&
+                  addNewAccountFormik.errors.account_name
+                }
+                onBlur={addNewAccountFormik.handleBlur("account_name")}
+                error={addNewAccountFormik?.errors?.account_name}
+              />
+            </div>
+            <div>
+              <h5>Description</h5>
+              <FormikControl
+                control={InputType.TEXT_FIELD}
+                name={"description"}
+                onChange={(e: any) => {
+                  addNewAccountFormik?.setFieldValue(
+                    "description",
+                    e.target.value.trim() ? e.target.value : ""
+                  );
+                }}
+                placeholder=""
+                value={addNewAccountFormik.values.description}
+              />
+            </div>
             <FormikControl
               control={InputType.CHECKBOX}
               label={"Enable payments to this account"}
@@ -1828,7 +1826,7 @@ export default function XeroSettings() {
           modalId={"Add new tax rate"}
           displayModal={showAddNewTaxRate}
           onClose={() => {
-            addNewAccountFormik.resetForm();
+            createTaxTypeFormik.resetForm();
             setShowAddNewTaxRate(false);
           }}
           onConfirm={async () => {
@@ -1841,51 +1839,55 @@ export default function XeroSettings() {
           disableSecondButton={disableSave}
           disableFirstButton={disableSave}
         >
-          <div>
-            <h5>
-              Tax rate display name <span className="required">*</span>
-            </h5>
-            <FormikControl
-              control={InputType.TEXT_FIELD}
-              name={"paymentToAccount"}
-              onChange={(e: any) => {
-                createTaxTypeFormik?.setFieldValue(
-                  "display_name",
-                  e.target.value.trim() ? e.target.value : ""
-                );
-              }}
-              placeholder=""
-              value={createTaxTypeFormik.values.display_name}
-              maxLength={50}
-              showError={
-                createTaxTypeFormik.touched.display_name &&
-                createTaxTypeFormik.errors.display_name
-              }
-              onBlur={createTaxTypeFormik.handleBlur("display_name")}
-              error={createTaxTypeFormik?.errors?.display_name}
-            />
-            <h5>
-              Tax Type <span className="required">*</span>
-            </h5>
-            <FormikControl
-              placeholder=""
-              name="projectTracking"
-              options={taxRateOptions}
-              control={InputType.SELECT}
-              renderKey="label"
-              valueKey="value"
-              onChange={(e: any) => {
-                createTaxTypeFormik?.setFieldValue("report_tax_type", e);
-                disableAndResetRateValue(e);
-              }}
-              value={createTaxTypeFormik.values.report_tax_type}
-              showError={
-                createTaxTypeFormik.touched.report_tax_type &&
-                createTaxTypeFormik.errors.report_tax_type
-              }
-              onBlur={createTaxTypeFormik.handleBlur("report_tax_type")}
-              error={createTaxTypeFormik?.errors?.report_tax_type}
-            />
+          <div className="pt_infocol">
+            <div>
+              <h5>
+                Tax rate display name <span className="required">*</span>
+              </h5>
+              <FormikControl
+                control={InputType.TEXT_FIELD}
+                name={"display_name"}
+                onChange={(e: any) => {
+                  createTaxTypeFormik?.setFieldValue(
+                    "display_name",
+                    e.target.value.trim() ? e.target.value : ""
+                  );
+                }}
+                placeholder=""
+                value={createTaxTypeFormik.values.display_name}
+                maxLength={50}
+                showError={
+                  createTaxTypeFormik.touched.display_name &&
+                  createTaxTypeFormik.errors.display_name
+                }
+                onBlur={createTaxTypeFormik.handleBlur("display_name")}
+                error={createTaxTypeFormik?.errors?.display_name}
+              />
+            </div>
+            <div>
+              <h5>
+                Tax Type <span className="required">*</span>
+              </h5>
+              <FormikControl
+                placeholder=""
+                name="report_tax_type"
+                options={taxRateOptions}
+                control={InputType.SELECT}
+                renderKey="label"
+                valueKey="value"
+                onChange={(e: any) => {
+                  createTaxTypeFormik?.setFieldValue("report_tax_type", e);
+                  disableAndResetRateValue(e);
+                }}
+                value={createTaxTypeFormik.values.report_tax_type}
+                showError={
+                  createTaxTypeFormik.touched.report_tax_type &&
+                  createTaxTypeFormik.errors.report_tax_type
+                }
+                onBlur={createTaxTypeFormik.handleBlur("report_tax_type")}
+                error={createTaxTypeFormik?.errors?.report_tax_type}
+              />
+            </div>
             <h5>Tax components</h5>
             {createTaxTypeFormik.values.tax_component.map(
               (data: any, index: number) => (
