@@ -1801,23 +1801,6 @@ export default function XeroSettings() {
                 value={addNewAccountFormik.values.description}
               />
             </div>
-            <FormikControl
-              control={InputType.CHECKBOX}
-              label={"Enable payments to this account"}
-              name={"enable_payments_to_this_account"}
-              error={addNewAccountFormik.errors?.enable_payments_to_account}
-              showError={
-                addNewAccountFormik.touched.enable_payments_to_account &&
-                addNewAccountFormik.errors.enable_payments_to_account
-              }
-              onChange={(event: any) => {
-                addNewAccountFormik?.setFieldValue(
-                  "enable_payments_to_account",
-                  event.target.checked
-                );
-              }}
-              value={addNewAccountFormik.values?.enable_payments_to_account}
-            />
           </div>
         </BaseModal>
       )}
