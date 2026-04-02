@@ -38,6 +38,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
   const [stripeCardError, setStripeCardError] = useState("");
   const [annualBilling, setAnnualBilling] = useState(false);
   const [companyIsDemo, setCompanyIsDemo] = useState(false);
+  const [cardComplete, setCardComplete] = useState(false);
   const cardButtonRef = useRef(null);
 
   useEffect(() => {
@@ -292,6 +293,8 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
         stripeCardError,
         setStripeCardError,
         cardButtonRef,
+        cardComplete,
+        setCardComplete,
         getAllExistingCardDetails,
         getExistingCardDetails,
         annualBilling,

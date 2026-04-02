@@ -15,6 +15,7 @@ const CheckoutForm = ({ hideCardValidationButton }: any) => {
     cardButtonRef,
     getAllExistingCardDetails,
     displayBillingDetails,
+    setCardComplete,
   }: any = useSubscriptionsContext();
   const stripe = useStripe();
   const elements: any = useElements();
@@ -84,9 +85,11 @@ const CheckoutForm = ({ hideCardValidationButton }: any) => {
           className="stripeCardElement"
           id="stripeCardElement"
           onChange={(event) => {
-            // [Replit Update 2026-04-02] Only auto-submit when card input is complete, not on every keystroke
-            if (displayBillingDetails && event.complete) {
-              cardButtonRef.current.click();
+            setCardComplete(event.complete);
+            if (event.error) {
+              setStripeCardError(event.error.message);
+            } else {
+              setStripeCardError("");
             }
           }}
         />

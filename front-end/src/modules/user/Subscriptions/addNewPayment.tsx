@@ -45,7 +45,7 @@ export default function AddNewPayment({ hideCardValidationButton, isDemo }: any)
         onChange={(e: any) => {}}
         selectedValue={paymentType[0]?.value}
       />
-      <Elements stripe={stripePromise}>
+      <Elements key={isDemo ? "stripe-test" : "stripe-live"} stripe={stripePromise}>
         <CheckoutForm hideCardValidationButton={hideCardValidationButton} />
       </Elements>
     </div>

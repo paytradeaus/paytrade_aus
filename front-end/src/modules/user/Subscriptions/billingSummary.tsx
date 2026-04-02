@@ -45,6 +45,7 @@ export default function BillingSummary() {
     stripeCardPaymentDetails,
     annualBilling,
     cardButtonRef,
+    cardComplete,
     setAsDefaultCard,
     setAnnualBilling,
     setLoaderInfo,
@@ -389,18 +390,20 @@ export default function BillingSummary() {
   }
 
   async function handleSignature() {
-    //if update card
     if (subscriptionData?.signature) {
       if (
         getActiveCard().payment_method_id !== selectedCard?.payment_method_id
       ) {
         setAsDefaultCard(selectedCard, true);
       }
+      if (!stripeCardPaymentDetails && cardComplete) {
+        cardButtonRef.current.click();
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
       handleSubscription();
-    } //if add card
-    else if (!stripeCardError && stripeCardPaymentDetails) {
+    } else if (!stripeCardError && stripeCardPaymentDetails) {
       setDisplaySignatureUploader(true);
-    } else {
+    } else if (cardComplete) {
       cardButtonRef.current.click();
     }
   }
