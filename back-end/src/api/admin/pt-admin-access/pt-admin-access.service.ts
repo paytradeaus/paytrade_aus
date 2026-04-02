@@ -1904,9 +1904,19 @@ export class PtAdminAccessService {
 
       const oldUserId = data.user.user_id;
 
-      // [Replit Update 2026-04-02] Use insert() instead of save() to avoid nested transaction issues with ManyToOne relations
+      // [Replit Update 2026-04-02] Use insert() to avoid nested transaction issues, then fetch the generated user_id
       const userInsertResult = await runner.manager.insert(UserDetails, userData);
-      const newUserId = userInsertResult.identifiers[0].user_id;
+      let newUserId = userInsertResult.generatedMaps[0]?.user_id;
+      if (!newUserId) {
+        const insertedUuid = userInsertResult.identifiers[0]?.id;
+        if (insertedUuid) {
+          const found = await runner.manager.findOne(UserDetails, { where: { id: insertedUuid }, select: ['user_id'] });
+          newUserId = found?.user_id;
+        }
+      }
+      if (!newUserId) {
+        throw new Error('Failed to retrieve generated user_id after insert');
+      }
 
       const companyIdMap: Record<number, number> = {};
       const warnings: string[] = [];
@@ -1954,7 +1964,19 @@ export class PtAdminAccessService {
         companyData.updated_on = new Date();
 
         const companyInsertResult = await runner.manager.insert(CompanyDetails, companyData);
-        companyIdMap[company.company_id] = companyInsertResult.identifiers[0].company_id;
+        let newCompanyId = companyInsertResult.generatedMaps[0]?.company_id;
+        if (!newCompanyId) {
+          const insertedUuid = companyInsertResult.identifiers[0]?.id;
+          if (insertedUuid) {
+            const found = await runner.manager.findOne(CompanyDetails, { where: { id: insertedUuid }, select: ['company_id'] });
+            newCompanyId = found?.company_id;
+          }
+        }
+        if (!newCompanyId) {
+          warnings.push(`Failed to retrieve company_id for "${company.company_name}", skipping mapping`);
+          continue;
+        }
+        companyIdMap[company.company_id] = newCompanyId;
       }
 
       let rolesCreated = 0;
