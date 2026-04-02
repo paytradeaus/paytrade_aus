@@ -489,16 +489,18 @@ export class XeroPaymentsService {
       // Sync proceeds without contract tracking if contract_category_id is not configured.
       // Previously this was a hard block that caused unnecessary sync failures.
 
+      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (payment sync)
+      const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (
         (xeroInvoicesBills.type === String(Invoice.TypeEnum.ACCPAY) &&
           (!xeroDetails.bill_code ||
             !xeroDetails.retention_payable_retained_code ||
-            !xeroDetails.liability_payable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_payable_code) ||
             !xeroDetails.retention_payable_release_code)) ||
         (xeroInvoicesBills.type === String(Invoice.TypeEnum.ACCREC) &&
           (!xeroDetails.invoice_code ||
             !xeroDetails.retention_receivable_retained_code ||
-            !xeroDetails.liability_receivable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_receivable_code) ||
             !xeroDetails.retention_receivable_release_code))
       ) {
         await this.xeroService.insertXeroSyncLogs(decoded, {

@@ -280,6 +280,7 @@ export const getXeroDetailsForCompany = async (
               invoice_code
               liability_payable_code
               liability_receivable_code
+              simplified_retention_accounting
               project_category_id
               project_category_name
               pt_to_xero_bill_as_draft

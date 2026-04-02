@@ -413,6 +413,7 @@ export class XeroService {
           'x.retention_receivable_release_code AS retention_receivable_release_code',
           'x.liability_payable_code AS liability_payable_code',
           'x.liability_receivable_code AS liability_receivable_code',
+          'x.simplified_retention_accounting AS simplified_retention_accounting',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -1789,6 +1790,10 @@ export class XeroService {
         data.retention_receivable_release_code;
       xeroDetails.liability_payable_code = data.liability_payable_code;
       xeroDetails.liability_receivable_code = data.liability_receivable_code;
+      // [Replit Update 2026-04-02] Persist simplified retention accounting toggle
+      if (data.simplified_retention_accounting !== undefined) {
+        xeroDetails.simplified_retention_accounting = data.simplified_retention_accounting;
+      }
       xeroDetails.bill_tax_code = data.bill_tax_code;
       xeroDetails.invoice_tax_code = data.invoice_tax_code;
       xeroDetails.reference_format = data.reference_format;

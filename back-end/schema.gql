@@ -20472,6 +20472,11 @@ input UpdateSettingsInput {
   """Retention receivable retained account code"""
   retention_receivable_retained_code: String
 
+  """
+  Whether simplified retention accounting is enabled (no liability accounts)
+  """
+  simplified_retention_accounting: Boolean
+
   """Wait time for sync operations"""
   wait_time: Float
 
@@ -21932,6 +21937,11 @@ type XeroResponse {
 
   """Retention receivable retained code"""
   retention_receivable_retained_code: String
+
+  """
+  Whether simplified retention accounting is enabled (no liability accounts)
+  """
+  simplified_retention_accounting: Boolean
 
   """Integration status"""
   status: String

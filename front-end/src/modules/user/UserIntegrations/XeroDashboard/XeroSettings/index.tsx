@@ -90,6 +90,9 @@ export default function XeroSettings() {
     getXeroDetailsForCompany().then((data) => {
       setXeroDetails(data);
       console.log(data);
+      // [Replit Update 2026-04-02] Populate simplified retention toggle from saved settings
+      setSimplifiedRetention(!!data?.simplified_retention_accounting);
+      setInitialSimplifiedRetention(!!data?.simplified_retention_accounting);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -155,6 +158,11 @@ export default function XeroSettings() {
     router.push(AppRoutes.USER_INTEGRATION);
   }
 
+  // [Replit Update 2026-04-02] Simplified retention toggle state
+  const [simplifiedRetention, setSimplifiedRetention] = useState(false);
+  const [initialSimplifiedRetention, setInitialSimplifiedRetention] = useState(false);
+
+  // [Replit Update 2026-04-02] Liability codes are optional when simplified retention is on
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
     company_id: Yup.number(),
@@ -184,12 +192,12 @@ export default function XeroSettings() {
     retention_receivable_release_code: Yup.string().required(
       "Retention Receivable release code is required"
     ),
-    liability_payable_code: Yup.string().required(
-      "Liability payable code is required"
-    ),
-    liability_receivable_code: Yup.string().required(
-      "Liability Receivable code is required"
-    ),
+    liability_payable_code: simplifiedRetention
+      ? Yup.string().notRequired()
+      : Yup.string().required("Liability payable code is required"),
+    liability_receivable_code: simplifiedRetention
+      ? Yup.string().notRequired()
+      : Yup.string().required("Liability Receivable code is required"),
   });
   const settingsFormik = useFormik({
     initialValues: {
@@ -246,13 +254,14 @@ export default function XeroSettings() {
         bill_tax_code,
         wait_time,
       } = values;
+      // [Replit Update 2026-04-02] Include simplified_retention_accounting toggle in save payload
       const payload = {
         retention_receivable_retained_code,
         retention_receivable_release_code,
         retention_payable_retained_code,
         retention_payable_release_code,
-        liability_receivable_code,
-        liability_payable_code,
+        liability_receivable_code: simplifiedRetention ? "" : liability_receivable_code,
+        liability_payable_code: simplifiedRetention ? "" : liability_payable_code,
         invoice_code,
         bill_code,
         contract_category_id: contract_category_id || null,
@@ -268,6 +277,7 @@ export default function XeroSettings() {
         invoice_tax_code,
         bill_tax_code,
         wait_time,
+        simplified_retention_accounting: simplifiedRetention,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -455,7 +465,8 @@ export default function XeroSettings() {
       return false;
     },
   });
-  const suggestedAccounts = [
+  // [Replit Update 2026-04-02] Liability quick-add presets hidden when simplified retention is on
+  const allSuggestedAccounts = [
     { label: "Invoice Code", account_type: "REVENUE", accountTypeLabel: "Revenue", code: "200", account_name: "Sales Revenue", description: "Revenue from invoices sent via PayTrade" },
     { label: "Bill Code", account_type: "DIRECTCOSTS", accountTypeLabel: "Direct Costs", code: "400", account_name: "Cost of Sales", description: "Expenses from bills received via PayTrade" },
     { label: "Retention Payable Retained", account_type: "CURRLIAB", accountTypeLabel: "Current Liability", code: "500", account_name: "Retention Held", description: "Retention amounts you are holding (payable)" },
@@ -465,6 +476,9 @@ export default function XeroSettings() {
     { label: "Liability Payable", account_type: "CURRLIAB", accountTypeLabel: "Current Liability", code: "501", account_name: "Current Liability", description: "Payable liabilities during defects period" },
     { label: "Liability Receivable", account_type: "CURRENT", accountTypeLabel: "Current Asset", code: "506", account_name: "Receivable Liability", description: "Receivable liabilities during defects period" },
   ];
+  const suggestedAccounts = simplifiedRetention
+    ? allSuggestedAccounts.filter((a) => !a.label.startsWith("Liability"))
+    : allSuggestedAccounts;
 
   function prefillAccount(preset: typeof suggestedAccounts[0]) {
     addNewAccountFormik.setFieldValue("account_type", preset.account_type);
@@ -1066,20 +1080,25 @@ export default function XeroSettings() {
                       <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention Receivable Released</td>
                       <td style={{ padding: "8px", border: "1px solid #ddd" }}>Retention amounts released back to you</td>
                     </tr>
-                    <tr>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Payable</strong></td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>501</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Payable liabilities during defects period</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Receivable</strong></td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Asset</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>506</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable Liability</td>
-                      <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable liabilities during defects period</td>
-                    </tr>
+                    {/* [Replit Update 2026-04-02] Hide liability rows when simplified retention is on */}
+                    {!simplifiedRetention && (
+                      <>
+                        <tr>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Payable</strong></td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>501</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Liability</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Payable liabilities during defects period</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}><strong>Liability Receivable</strong></td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Current Asset</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>506</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable Liability</td>
+                          <td style={{ padding: "8px", border: "1px solid #ddd" }}>Receivable liabilities during defects period</td>
+                        </tr>
+                      </>
+                    )}
                   </tbody>
                 </table>
                 <p style={{ color: "#666", fontSize: "13px", margin: "0 0 16px", lineHeight: "1.5" }}>
@@ -1261,59 +1280,86 @@ export default function XeroSettings() {
                       }
                     />
                   </div>
-                  <div>
-                    <h5>
-                      Liability payable code<span className="required">*</span>
-                      {"\u00A0".repeat(30)}
-                    </h5>
-                    <FormikControl
-                      control={InputType.SELECT}
-                      name={"paymentToAccount"}
-                      renderKey={"displayName"}
-                      valueKey={"code"}
-                      placeholder=""
-                      onChange={(e: any) => {
-                        settingsFormik?.setFieldValue(
-                          "liability_payable_code",
-                          e
-                        );
-                      }}
-                      value={settingsFormik.values.liability_payable_code}
-                      options={accountCodesList}
-                      showError={
-                        settingsFormik.touched.liability_payable_code &&
-                        settingsFormik.errors.liability_payable_code
-                      }
-                      error={settingsFormik?.errors?.liability_payable_code}
-                    />
+                  {/* [Replit Update 2026-04-02] Simplified retention toggle — hides liability code fields when on */}
+                  <div style={{ gridColumn: "1 / -1", marginBottom: "8px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={simplifiedRetention}
+                        onChange={(e) => {
+                          setSimplifiedRetention(e.target.checked);
+                          if (e.target.checked) {
+                            settingsFormik?.setFieldValue("liability_payable_code", "");
+                            settingsFormik?.setFieldValue("liability_receivable_code", "");
+                          }
+                        }}
+                      />
+                      <span style={{ fontSize: "13px", fontWeight: 500 }}>
+                        Use simplified retention accounting (no liability accounts)
+                      </span>
+                    </label>
+                    <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0 26px", lineHeight: "1.4" }}>
+                      When enabled, retention claims sync to Xero with 2 line items instead of 3. 
+                      The liability for defects accounts are not required and will not be used during sync.
+                    </p>
                   </div>
-                  <div>
-                    <h5>
-                      Liability Receivable code
-                      <span className="required">*</span>
-                      {"\u00A0".repeat(28)}
-                    </h5>
-                    <FormikControl
-                      control={InputType.SELECT}
-                      name={"paymentToAccount"}
-                      renderKey={"displayName"}
-                      valueKey={"code"}
-                      placeholder=""
-                      onChange={(e: any) => {
-                        settingsFormik?.setFieldValue(
-                          "liability_receivable_code",
-                          e
-                        );
-                      }}
-                      value={settingsFormik.values.liability_receivable_code}
-                      options={accountCodesList}
-                      showError={
-                        settingsFormik.touched.liability_receivable_code &&
-                        settingsFormik.errors.liability_receivable_code
-                      }
-                      error={settingsFormik?.errors?.liability_receivable_code}
-                    />
-                  </div>
+                  {!simplifiedRetention && (
+                    <>
+                      <div>
+                        <h5>
+                          Liability payable code<span className="required">*</span>
+                          {"\u00A0".repeat(30)}
+                        </h5>
+                        <FormikControl
+                          control={InputType.SELECT}
+                          name={"paymentToAccount"}
+                          renderKey={"displayName"}
+                          valueKey={"code"}
+                          placeholder=""
+                          onChange={(e: any) => {
+                            settingsFormik?.setFieldValue(
+                              "liability_payable_code",
+                              e
+                            );
+                          }}
+                          value={settingsFormik.values.liability_payable_code}
+                          options={accountCodesList}
+                          showError={
+                            settingsFormik.touched.liability_payable_code &&
+                            settingsFormik.errors.liability_payable_code
+                          }
+                          error={settingsFormik?.errors?.liability_payable_code}
+                        />
+                      </div>
+                      <div>
+                        <h5>
+                          Liability Receivable code
+                          <span className="required">*</span>
+                          {"\u00A0".repeat(28)}
+                        </h5>
+                        <FormikControl
+                          control={InputType.SELECT}
+                          name={"paymentToAccount"}
+                          renderKey={"displayName"}
+                          valueKey={"code"}
+                          placeholder=""
+                          onChange={(e: any) => {
+                            settingsFormik?.setFieldValue(
+                              "liability_receivable_code",
+                              e
+                            );
+                          }}
+                          value={settingsFormik.values.liability_receivable_code}
+                          options={accountCodesList}
+                          showError={
+                            settingsFormik.touched.liability_receivable_code &&
+                            settingsFormik.errors.liability_receivable_code
+                          }
+                          error={settingsFormik?.errors?.liability_receivable_code}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="grid pt_infocol">
                   <div>
@@ -1601,7 +1647,8 @@ export default function XeroSettings() {
                 onClick={() => {
                   if (
                     JSON.stringify(initialFormikValue) ==
-                    JSON.stringify(settingsFormik.values)
+                    JSON.stringify(settingsFormik.values) &&
+                    simplifiedRetention === initialSimplifiedRetention
                   ) {
                     router.push("/user/integrations/xero");
                   } else {

@@ -404,30 +404,32 @@ export class XeroInvoicesService {
 
       let expectedCodeCheck = null;
 
+      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on
+      const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (claimDetails.cash_retention_type === 'Claim') {
         if (claimDetails.claim_type === 'Billable') {
           expectedCodeCheck =
             !xeroDetails.bill_code ||
             !xeroDetails.retention_payable_retained_code ||
-            !xeroDetails.liability_payable_code;
+            (!isSimplifiedRetention && !xeroDetails.liability_payable_code);
         } else if (claimDetails.claim_type === 'Receivable') {
           expectedCodeCheck =
             !xeroDetails.invoice_code ||
             !xeroDetails.retention_receivable_retained_code ||
-            !xeroDetails.liability_receivable_code;
+            (!isSimplifiedRetention && !xeroDetails.liability_receivable_code);
         }
       } else if (claimDetails.cash_retention_type === 'Retention claim') {
         if (claimDetails.claim_type === 'Billable') {
           expectedCodeCheck =
             !xeroDetails.bill_code ||
             !xeroDetails.retention_payable_retained_code ||
-            !xeroDetails.liability_payable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_payable_code) ||
             !xeroDetails.retention_payable_release_code;
         } else if (claimDetails.claim_type === 'Receivable') {
           expectedCodeCheck =
             !xeroDetails.invoice_code ||
             !xeroDetails.retention_receivable_retained_code ||
-            !xeroDetails.liability_receivable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_receivable_code) ||
             !xeroDetails.retention_receivable_release_code;
         }
       }
@@ -758,9 +760,11 @@ export class XeroInvoicesService {
                 : Math.abs(Number(item?.unit_price)))
           );
         }, 0.0);
+        // [Replit Update 2026-04-02] Simplified retention: work items keep full amounts, no retention share deduction
+        const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
         for (const element of invoices) {
           // Protect against division by zero to prevent Infinity/NaN values
-          const retentionShare = claimDetails.retention_amount && totalLineAmount !== 0
+          const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount && totalLineAmount !== 0)
             ? ((claimDetails.is_gst_optional
                 ? Number(claimDetails.retention_amount) * 1.1
                 : Number(claimDetails.retention_amount)) *
@@ -803,35 +807,65 @@ export class XeroInvoicesService {
           claimDetails.cash_retention &&
           claimDetails.cash_retention_type === 'Claim'
         ) {
-          const lineItem1: LineItem = {
-            description: 'Retention Held',
-            quantity: 1,
-            unitAmount: claimDetails.is_gst_optional
-              ? claimDetails.retention_amount * 1.1
-              : claimDetails.retention_amount,
-            accountCode:
-              claimDetails.claim_type === 'Billable'
-                ? xeroDetails.retention_payable_retained_code
-                : xeroDetails.retention_receivable_retained_code,
-            tracking: lineItemTrackings,
-          };
-          const lineItem2: LineItem = {
-            description: 'Liability for defects',
-            quantity: 1,
-            unitAmount: Number(
-              '-' +
-                (claimDetails.is_gst_optional
-                  ? claimDetails.retention_amount * 1.1
-                  : claimDetails.retention_amount),
-            ),
-            accountCode:
-              claimDetails.claim_type === 'Billable'
-                ? xeroDetails.liability_payable_code
-                : xeroDetails.liability_receivable_code,
-            tracking: lineItemTrackings,
-          };
-          lineItems.push(lineItem1);
-          lineItems.push(lineItem2);
+          if (useSimplifiedRetention) {
+            // [Replit Update 2026-04-02] Simplified: single negative retention line with same GST treatment as work items
+            let retentionLine: LineItem = {
+              description: 'Retention Held',
+              quantity: 1,
+              unitAmount: Number(
+                '-' +
+                  (claimDetails.is_gst_optional
+                    ? claimDetails.retention_amount * 1.1
+                    : claimDetails.retention_amount),
+              ),
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code,
+              tracking: lineItemTrackings,
+            };
+            if (claimDetails.is_gst_optional) {
+              retentionLine = {
+                ...retentionLine,
+                taxType:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.bill_tax_code
+                    : xeroDetails.invoice_tax_code,
+              };
+            }
+            lineItems.push(retentionLine);
+          } else {
+            // Standard 3-line pattern: +retention held, -liability for defects
+            const lineItem1: LineItem = {
+              description: 'Retention Held',
+              quantity: 1,
+              unitAmount: claimDetails.is_gst_optional
+                ? claimDetails.retention_amount * 1.1
+                : claimDetails.retention_amount,
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code,
+              tracking: lineItemTrackings,
+            };
+            const lineItem2: LineItem = {
+              description: 'Liability for defects',
+              quantity: 1,
+              unitAmount: Number(
+                '-' +
+                  (claimDetails.is_gst_optional
+                    ? claimDetails.retention_amount * 1.1
+                    : claimDetails.retention_amount),
+              ),
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.liability_payable_code
+                  : xeroDetails.liability_receivable_code,
+              tracking: lineItemTrackings,
+            };
+            lineItems.push(lineItem1);
+            lineItems.push(lineItem2);
+          }
         } else if (claimDetails.cash_retention_type === 'Retention claim') {
           claimDetails.retention_amount = invoices?.reduce((sum, item) => {
             return (
@@ -841,36 +875,66 @@ export class XeroInvoicesService {
                 : Math.abs(Number(item?.total_amount_including_gst)))
             );
           }, 0.0);
-          const lineItem1: LineItem = {
-            description: 'Liability for defects',
-            quantity: 1,
-            unitAmount: claimDetails.is_gst_optional
-              ? claimDetails.retention_amount * 1.1
-              : claimDetails.retention_amount,
-            accountCode:
-              claimDetails.claim_type === 'Billable'
-                ? xeroDetails.liability_payable_code
-                : xeroDetails.liability_receivable_code,
-            tracking: lineItemTrackings,
-          };
-          const lineItem2: LineItem = {
-            description: 'Retention Release',
-            quantity: 1,
-            unitAmount: Number(
-              '-' +
-                (claimDetails.is_gst_optional
-                  ? claimDetails.retention_amount * 1.1
-                  : claimDetails.retention_amount),
-            ),
-            accountCode:
-              claimDetails.claim_type === 'Billable'
-                ? xeroDetails.retention_payable_retained_code
-                : xeroDetails.retention_receivable_retained_code,
-            tracking: lineItemTrackings,
-          };
+          if (useSimplifiedRetention) {
+            // [Replit Update 2026-04-02] Simplified: single negative retention release line with same GST treatment
+            let retentionReleaseLine: LineItem = {
+              description: 'Retention Release',
+              quantity: 1,
+              unitAmount: Number(
+                '-' +
+                  (claimDetails.is_gst_optional
+                    ? claimDetails.retention_amount * 1.1
+                    : claimDetails.retention_amount),
+              ),
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code,
+              tracking: lineItemTrackings,
+            };
+            if (claimDetails.is_gst_optional) {
+              retentionReleaseLine = {
+                ...retentionReleaseLine,
+                taxType:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.bill_tax_code
+                    : xeroDetails.invoice_tax_code,
+              };
+            }
+            lineItems.push(retentionReleaseLine);
+          } else {
+            // Standard 3-line pattern: +liability for defects, -retention release
+            const lineItem1: LineItem = {
+              description: 'Liability for defects',
+              quantity: 1,
+              unitAmount: claimDetails.is_gst_optional
+                ? claimDetails.retention_amount * 1.1
+                : claimDetails.retention_amount,
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.liability_payable_code
+                  : xeroDetails.liability_receivable_code,
+              tracking: lineItemTrackings,
+            };
+            const lineItem2: LineItem = {
+              description: 'Retention Release',
+              quantity: 1,
+              unitAmount: Number(
+                '-' +
+                  (claimDetails.is_gst_optional
+                    ? claimDetails.retention_amount * 1.1
+                    : claimDetails.retention_amount),
+              ),
+              accountCode:
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code,
+              tracking: lineItemTrackings,
+            };
 
-          lineItems.push(lineItem1);
-          lineItems.push(lineItem2);
+            lineItems.push(lineItem1);
+            lineItems.push(lineItem2);
+          }
         }
 
         invoice = { ...invoice, lineItems };
@@ -1354,17 +1418,19 @@ export class XeroInvoicesService {
 
     let expectedCodeCheck = null;
 
+    // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (import flow)
+    const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
     if (invoiceDetails.type === Invoice.TypeEnum.ACCPAY) {
       expectedCodeCheck =
         !xeroDetails.bill_code ||
         !xeroDetails.retention_payable_retained_code ||
-        !xeroDetails.liability_payable_code ||
+        (!isSimplifiedRetention && !xeroDetails.liability_payable_code) ||
         !xeroDetails.retention_payable_release_code;
     } else if (invoiceDetails.type === Invoice.TypeEnum.ACCREC) {
       expectedCodeCheck =
         !xeroDetails.invoice_code ||
         !xeroDetails.retention_receivable_retained_code ||
-        !xeroDetails.liability_receivable_code ||
+        (!isSimplifiedRetention && !xeroDetails.liability_receivable_code) ||
         !xeroDetails.retention_receivable_release_code;
     }
 
@@ -2050,7 +2116,9 @@ export class XeroInvoicesService {
           : xeroDetails.liability_receivable_code),
     );
 
-    if ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2)) {
+    // [Replit Update 2026-04-02] Simplified retention: accept claims with only retention line (no liability line required)
+    const importSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+    if (!importSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: data?.sync_id,
         api_name: 'createInvoiceOrBillInPaytrade',
@@ -3298,30 +3366,32 @@ export class XeroInvoicesService {
 
       let expectedCodeCheck = null;
 
+      // [Replit Update 2026-04-02] Simplified retention: liability codes not required when toggle is on (edit flow)
+      const isSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
       if (claimDetails.cash_retention_type === 'Claim') {
         if (claimDetails.claim_type === 'Billable') {
           expectedCodeCheck =
             !xeroDetails.bill_code ||
             !xeroDetails.retention_payable_retained_code ||
-            !xeroDetails.liability_payable_code;
+            (!isSimplifiedRetention && !xeroDetails.liability_payable_code);
         } else if (claimDetails.claim_type === 'Receivable') {
           expectedCodeCheck =
             !xeroDetails.invoice_code ||
             !xeroDetails.retention_receivable_retained_code ||
-            !xeroDetails.liability_receivable_code;
+            (!isSimplifiedRetention && !xeroDetails.liability_receivable_code);
         }
       } else if (claimDetails.cash_retention_type === 'Retention claim') {
         if (claimDetails.claim_type === 'Billable') {
           expectedCodeCheck =
             !xeroDetails.bill_code ||
             !xeroDetails.retention_payable_retained_code ||
-            !xeroDetails.liability_payable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_payable_code) ||
             !xeroDetails.retention_payable_release_code;
         } else if (claimDetails.claim_type === 'Receivable') {
           expectedCodeCheck =
             !xeroDetails.invoice_code ||
             !xeroDetails.retention_receivable_retained_code ||
-            !xeroDetails.liability_receivable_code ||
+            (!isSimplifiedRetention && !xeroDetails.liability_receivable_code) ||
             !xeroDetails.retention_receivable_release_code;
         }
       }
@@ -3631,8 +3701,10 @@ export class XeroInvoicesService {
                   : Math.abs(Number(item?.unit_price)))
             );
           }, 0.0);
+          // [Replit Update 2026-04-02] Simplified retention: work items keep full amounts (edit flow)
+          const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
           for (const element of invoices) {
-            const retentionShare = claimDetails.retention_amount
+            const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount)
               ? ((claimDetails.is_gst_optional
                   ? Number(claimDetails.retention_amount) * 1.1
                   : Number(claimDetails.retention_amount)) *
@@ -3674,35 +3746,64 @@ export class XeroInvoicesService {
             claimDetails.cash_retention &&
             claimDetails.cash_retention_type === 'Claim'
           ) {
-            const lineItem1: LineItem = {
-              description: 'Retention Held',
-              quantity: 1,
-              unitAmount: claimDetails.is_gst_optional
-                ? claimDetails.retention_amount * 1.1
-                : claimDetails.retention_amount,
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
-              tracking: lineItemTrackings,
-            };
-            const lineItem2: LineItem = {
-              description: 'Liability for defects',
-              quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.liability_payable_code
-                  : xeroDetails.liability_receivable_code,
-              tracking: lineItemTrackings,
-            };
-            lineItems.push(lineItem1);
-            lineItems.push(lineItem2);
+            if (useSimplifiedRetention) {
+              // [Replit Update 2026-04-02] Simplified: single negative retention line with same GST treatment (edit flow)
+              let retentionLine: LineItem = {
+                description: 'Retention Held',
+                quantity: 1,
+                unitAmount: Number(
+                  '-' +
+                    (claimDetails.is_gst_optional
+                      ? claimDetails.retention_amount * 1.1
+                      : claimDetails.retention_amount),
+                ),
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.retention_payable_retained_code
+                    : xeroDetails.retention_receivable_retained_code,
+                tracking: lineItemTrackings,
+              };
+              if (claimDetails.is_gst_optional) {
+                retentionLine = {
+                  ...retentionLine,
+                  taxType:
+                    claimDetails.claim_type === 'Billable'
+                      ? xeroDetails.bill_tax_code
+                      : xeroDetails.invoice_tax_code,
+                };
+              }
+              lineItems.push(retentionLine);
+            } else {
+              const lineItem1: LineItem = {
+                description: 'Retention Held',
+                quantity: 1,
+                unitAmount: claimDetails.is_gst_optional
+                  ? claimDetails.retention_amount * 1.1
+                  : claimDetails.retention_amount,
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.retention_payable_retained_code
+                    : xeroDetails.retention_receivable_retained_code,
+                tracking: lineItemTrackings,
+              };
+              const lineItem2: LineItem = {
+                description: 'Liability for defects',
+                quantity: 1,
+                unitAmount: Number(
+                  '-' +
+                    (claimDetails.is_gst_optional
+                      ? claimDetails.retention_amount * 1.1
+                      : claimDetails.retention_amount),
+                ),
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.liability_payable_code
+                    : xeroDetails.liability_receivable_code,
+                tracking: lineItemTrackings,
+              };
+              lineItems.push(lineItem1);
+              lineItems.push(lineItem2);
+            }
           } else if (claimDetails.cash_retention_type === 'Retention claim') {
             claimDetails.retention_amount = invoices?.reduce((sum, item) => {
               return (
@@ -3712,36 +3813,65 @@ export class XeroInvoicesService {
                   : Math.abs(Number(item?.total_amount_including_gst)))
               );
             }, 0.0);
-            const lineItem1: LineItem = {
-              description: 'Liability for defects',
-              quantity: 1,
-              unitAmount: claimDetails.is_gst_optional
-                ? claimDetails.retention_amount * 1.1
-                : claimDetails.retention_amount,
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.liability_payable_code
-                  : xeroDetails.liability_receivable_code,
-              tracking: lineItemTrackings,
-            };
-            const lineItem2: LineItem = {
-              description: 'Retention Release',
-              quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
-              tracking: lineItemTrackings,
-            };
+            if (useSimplifiedRetention) {
+              // [Replit Update 2026-04-02] Simplified: single negative retention release line (edit flow)
+              let retentionReleaseLine: LineItem = {
+                description: 'Retention Release',
+                quantity: 1,
+                unitAmount: Number(
+                  '-' +
+                    (claimDetails.is_gst_optional
+                      ? claimDetails.retention_amount * 1.1
+                      : claimDetails.retention_amount),
+                ),
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.retention_payable_retained_code
+                    : xeroDetails.retention_receivable_retained_code,
+                tracking: lineItemTrackings,
+              };
+              if (claimDetails.is_gst_optional) {
+                retentionReleaseLine = {
+                  ...retentionReleaseLine,
+                  taxType:
+                    claimDetails.claim_type === 'Billable'
+                      ? xeroDetails.bill_tax_code
+                      : xeroDetails.invoice_tax_code,
+                };
+              }
+              lineItems.push(retentionReleaseLine);
+            } else {
+              const lineItem1: LineItem = {
+                description: 'Liability for defects',
+                quantity: 1,
+                unitAmount: claimDetails.is_gst_optional
+                  ? claimDetails.retention_amount * 1.1
+                  : claimDetails.retention_amount,
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.liability_payable_code
+                    : xeroDetails.liability_receivable_code,
+                tracking: lineItemTrackings,
+              };
+              const lineItem2: LineItem = {
+                description: 'Retention Release',
+                quantity: 1,
+                unitAmount: Number(
+                  '-' +
+                    (claimDetails.is_gst_optional
+                      ? claimDetails.retention_amount * 1.1
+                      : claimDetails.retention_amount),
+                ),
+                accountCode:
+                  claimDetails.claim_type === 'Billable'
+                    ? xeroDetails.retention_payable_retained_code
+                    : xeroDetails.retention_receivable_retained_code,
+                tracking: lineItemTrackings,
+              };
 
-            lineItems.push(lineItem1);
-            lineItems.push(lineItem2);
+              lineItems.push(lineItem1);
+              lineItems.push(lineItem2);
+            }
           }
 
           invoice = { ...invoice, lineItems };
