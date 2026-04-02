@@ -17372,6 +17372,12 @@ type Query {
   ): ViewClientSuppliersListResponse!
   getCommunityBotStats: JSON!
 
+  """Check if a company is in demo/sandbox mode."""
+  getCompanyDemoStatus(
+    """ID of the company to check."""
+    company_id: Float!
+  ): StringResponse!
+
   """
   Retrieves company profile details by company ID. 
       Access restricted to admins and authorized company managers.

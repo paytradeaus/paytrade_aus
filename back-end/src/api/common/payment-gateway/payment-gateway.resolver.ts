@@ -759,6 +759,34 @@ export class PaymentGatewayResolver {
     }
   }
 
+  // [Replit Update 2026-04-02] Check if a company is in demo mode, independent of subscription status
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.STANDARD_USER,
+    Role.PRIMARY_ADMIN,
+    Role.ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Query(() => StringResponse, {
+    name: 'getCompanyDemoStatus',
+    description: 'Check if a company is in demo/sandbox mode.',
+  })
+  async getCompanyDemoStatus(
+    @Context() context,
+    @Args('company_id', { description: 'ID of the company to check.' })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      await this.jwtInternalService.decodeJwtToken(context);
+      const isDemo = await this.paymentGatewayService.checkCompanyDemoStatus(company_id);
+      return framedResponse('SUCCESS', 'Fetched demo status', isDemo);
+    } catch (error) {
+      this.logError(`Error fetching demo status: ${error.message}`);
+      return framedResponse('ERROR', 'Failed to fetch demo status');
+    }
+  }
+
   private getCompanySpecificRole(decoded, company_id): Promise<any> {
     return new Promise(async (resolve, reject) => {
       try {

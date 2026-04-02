@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   fetchAdminListSubscriptionItems,
+  fetchCompanyDemoStatus,
   getAllCardDetailsByCompanyId,
   getCardDetailsByCompanyId,
   getSubscriptionDetailsByCompanyId,
@@ -36,6 +37,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     useState(null);
   const [stripeCardError, setStripeCardError] = useState("");
   const [annualBilling, setAnnualBilling] = useState(false);
+  const [companyIsDemo, setCompanyIsDemo] = useState(false);
   const cardButtonRef = useRef(null);
 
   useEffect(() => {
@@ -53,19 +55,16 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     try {
       setLoader(true);
 
-      // [Replit Update 2026-03-30] Fetch subscription details first to determine is_demo,
-      // then fetch plans with the correct sandbox filter
-      const [, subResult] = await Promise.allSettled([
+      // [Replit Update 2026-04-02] Fetch demo status directly from company, independent of subscription
+      const [isDemoCompany] = await Promise.all([
+        fetchCompanyDemoStatus(),
         getSubscriptionPlanItems(),
         getExistingSubscriptionPlan(),
         getAllExistingCardDetails(),
         getExistingCardDetails(),
       ]);
 
-      const isDemoCompany =
-        subResult.status === "fulfilled" && subResult.value?.is_demo
-          ? true
-          : false;
+      setCompanyIsDemo(isDemoCompany);
       await getSubscriptionPlanTypes(isDemoCompany);
 
       setLoader(false);
@@ -270,7 +269,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       value={{
         router,
         subscriptionData,
-        isDemo: subscriptionData?.is_demo || false,
+        isDemo: companyIsDemo || subscriptionData?.is_demo || false,
         subscriptionPlansItems,
         cardPlans,
         isYearly,

@@ -80,6 +80,11 @@ export class PaymentGatewayService {
     return company?.is_demo ?? false;
   }
 
+  // [Replit Update 2026-04-02] Public method for resolver to check demo status independently of subscription
+  async checkCompanyDemoStatus(companyId: number): Promise<boolean> {
+    return this.isCompanyDemo(companyId);
+  }
+
   // [Replit Update 2026-03-30] Look up demo status via stripe_customer_id
   private async isCompanyDemoByStripeCustomer(stripeCustomerId: string): Promise<boolean> {
     if (!stripeCustomerId) return false;

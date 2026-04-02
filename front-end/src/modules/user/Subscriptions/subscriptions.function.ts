@@ -92,6 +92,35 @@ export async function getSubscriptionDetailsByCompanyId(): Promise<any> {
   }
 }
 
+// [Replit Update 2026-04-02] Fetch company demo status independently of subscription
+export async function fetchCompanyDemoStatus(): Promise<boolean> {
+  try {
+    const companyId = getCompanyIdFromStorage();
+    if (!companyId) return false;
+    const response = await apolloClient.query({
+      query: gql`
+        query GetCompanyDemoStatus($companyId: Float!) {
+          getCompanyDemoStatus(company_id: $companyId) {
+            data
+            message
+            status
+          }
+        }
+      `,
+      variables: { companyId: +companyId },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.getCompanyDemoStatus?.status === ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getCompanyDemoStatus?.data === true;
+    }
+    return false;
+  } catch (error: any) {
+    return false;
+  }
+}
+
 export async function fetchAdminListSubscriptionItems(): Promise<any> {
   try {
     const response = await apolloClient.query({
