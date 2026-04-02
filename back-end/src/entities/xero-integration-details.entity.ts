@@ -99,6 +99,12 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   simplified_retention_accounting: boolean;
 
+  @Column({ type: 'boolean', nullable: true, default: false })
+  pt_to_xero_bank_auto_create: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  xero_to_pt_bank_auto_create: boolean;
+
   @Column({ type: 'text', nullable: true })
   invoice_tax_code: string;
 

@@ -2432,6 +2432,64 @@ type CompanyWithLogoResponse {
   status: String!
 }
 
+"""
+Input for completing a draft bank account created from Xero with missing fields
+"""
+input CompleteBankAccountDraftInput {
+  """Account number"""
+  account_number: String
+
+  """
+  Type of the account (Cash Account, Project Trust Account, Retention Trust Account)
+  """
+  account_type: String!
+
+  """Associated cash account ID (required for trust accounts)"""
+  associated_cash_account_id: Float
+
+  """The PayTrade bank account ID of the draft account"""
+  bank_account_id: Float!
+
+  """BSB number"""
+  bsb_number: Float
+
+  """Client/Supplier ID (required for PTA)"""
+  client_supplier_id: Float
+
+  """Company ID"""
+  company_id: Float!
+
+  """Contract date (required for PTA)"""
+  contract_date: String
+
+  """Contract practical completion date (required for PTA)"""
+  contract_practical_completion_date: String
+
+  """Contract value (required for PTA)"""
+  contract_value: Float
+
+  """Delegate powers (Yes, No, Not Applicable)"""
+  delegate_powers: String!
+
+  """Financial institution name"""
+  financial_institution: String!
+
+  """First sub-contract date (required for PTA)"""
+  first_sub_contract_date: String
+
+  """Account opening date"""
+  opening_date: String!
+
+  """Project IDs (required for trust accounts)"""
+  project_ids: String
+
+  """Sync log ID to mark as resolved"""
+  sync_id: String
+
+  """Trustee ID (required for trust accounts)"""
+  trustee_id: Float
+}
+
 """Represents a compliance rule"""
 type ComplianceRules {
   """Content/description of the rule"""
@@ -13631,6 +13689,16 @@ type Mutation {
     company_id: Float!
   ): StringResponse!
 
+  """
+  Completes a draft bank account with the required missing fields and activates it.
+  """
+  completeBankAccountDraft(
+    """
+    Payload containing the required fields to complete the draft bank account.
+    """
+    input: CompleteBankAccountDraftInput!
+  ): StringResponse!
+
   """Creates a new Xero account for a company."""
   createAccount(
     """
@@ -20448,6 +20516,9 @@ input UpdateSettingsInput {
   """Project category ID"""
   project_category_id: String!
 
+  """Auto-create new PayTrade bank accounts in Xero"""
+  pt_to_xero_bank_auto_create: Boolean
+
   """Sync draft setting for PT to Xero bills"""
   pt_to_xero_bill_as_draft: String
 
@@ -20479,6 +20550,9 @@ input UpdateSettingsInput {
 
   """Wait time for sync operations"""
   wait_time: Float
+
+  """Auto-create new Xero bank accounts in PayTrade (as draft)"""
+  xero_to_pt_bank_auto_create: Boolean
 
   """Sync draft setting for Xero to PT bills"""
   xero_to_pt_bill_as_draft: String

@@ -92,6 +92,10 @@ export default function XeroSettings() {
       console.log(data);
       setSimplifiedRetention(!!data?.simplified_retention_accounting);
       setInitialSimplifiedRetention(!!data?.simplified_retention_accounting);
+      setPtToXeroBankAutoCreate(!!data?.pt_to_xero_bank_auto_create);
+      setInitialPtToXeroBankAutoCreate(!!data?.pt_to_xero_bank_auto_create);
+      setXeroToPtBankAutoCreate(!!data?.xero_to_pt_bank_auto_create);
+      setInitialXeroToPtBankAutoCreate(!!data?.xero_to_pt_bank_auto_create);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -158,6 +162,10 @@ export default function XeroSettings() {
 
   const [simplifiedRetention, setSimplifiedRetention] = useState(false);
   const [initialSimplifiedRetention, setInitialSimplifiedRetention] = useState(false);
+  const [ptToXeroBankAutoCreate, setPtToXeroBankAutoCreate] = useState(false);
+  const [initialPtToXeroBankAutoCreate, setInitialPtToXeroBankAutoCreate] = useState(false);
+  const [xeroToPtBankAutoCreate, setXeroToPtBankAutoCreate] = useState(false);
+  const [initialXeroToPtBankAutoCreate, setInitialXeroToPtBankAutoCreate] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -267,6 +275,8 @@ export default function XeroSettings() {
         bill_tax_code,
         wait_time,
         simplified_retention_accounting: simplifiedRetention,
+        pt_to_xero_bank_auto_create: ptToXeroBankAutoCreate,
+        xero_to_pt_bank_auto_create: xeroToPtBankAutoCreate,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1004,6 +1014,57 @@ export default function XeroSettings() {
                         settingsFormik?.errors?.xero_to_pt_payment_as_draft
                       }
                     />
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Bank account auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control whether new bank accounts are automatically created in the other system when they are added.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create PayTrade accounts in Xero?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new bank account is added in PayTrade, it will be automatically created in Xero during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"pt_to_xero_bank_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setPtToXeroBankAutoCreate(e === "Yes");
+                      }}
+                      value={ptToXeroBankAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                  <div>
+                    <h5>Auto-create Xero accounts in PayTrade?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new bank account is found in Xero, it will be created in PayTrade as a <strong>draft</strong> during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"xero_to_pt_bank_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setXeroToPtBankAutoCreate(e === "Yes");
+                      }}
+                      value={xeroToPtBankAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                    {xeroToPtBankAutoCreate && (
+                      <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
+                        Warning: Accounts created from Xero will be in draft status. Any syncs involving these accounts will produce errors until the required fields (account type, financial institution, opening date, etc.) are completed.
+                      </p>
+                    )}
                   </div>
                 </div>
               </details>

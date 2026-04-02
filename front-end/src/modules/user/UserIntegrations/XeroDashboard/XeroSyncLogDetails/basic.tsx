@@ -13,6 +13,7 @@ import { resolveList } from "./resolve";
 import BaseModal from "@/components/BaseModal";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
+  bankDraftGapFill,
   commentsTableResolve,
   handleManualMappingLogic,
   handleResolveByErrorCodeMap,
@@ -20,6 +21,7 @@ import {
   textareaErrorCode,
   uploadAttachment,
 } from "./resolveByMap";
+import { completeBankAccountDraft } from "../../integration.functions";
 import DynamicTable from "@/components/Table";
 import { GridListHeaders } from "@/modules/user/AddUpdateClaims/AddUpdateClaims.constant";
 import {
@@ -92,6 +94,18 @@ export default function SyncLogDetailsBasic() {
 
   const [openOverpayment, setOpenOverpayment] = useState<any>(false);
   const [textareaReason, setTextareaReason] = useState<string>("");
+
+  const [openBankDraftGapFill, setOpenBankDraftGapFill] = useState(false);
+  const [bankDraftForm, setBankDraftForm] = useState<any>({
+    account_type: "",
+    financial_institution: "",
+    opening_date: "",
+    delegate_powers: "",
+    account_number: "",
+    bsb_number: "",
+    associated_cash_account_id: "",
+    trustee_id: "",
+  });
 
   const [compulsoryAttachments, setCompulsoryAttachments] = useState<any>();
   const [attachmentError, setAttachmentError] = useState<string>("");
@@ -591,6 +605,9 @@ export default function SyncLogDetailsBasic() {
     if (!response) {
       textareaErrorCode(viewLogData, setOpenTextareaModel);
     }
+    if (!response) {
+      bankDraftGapFill(viewLogData, setOpenBankDraftGapFill);
+    }
     if (response?.redirectTo) {
       router.push(response.redirectTo);
     }
@@ -701,6 +718,67 @@ export default function SyncLogDetailsBasic() {
     } catch (error) {
       return false;
     }
+  };
+
+  const isTrustAccount =
+    bankDraftForm.account_type === "Project Trust Account" ||
+    bankDraftForm.account_type === "Retention Trust Account";
+
+  const isBankDraftFormValid = () => {
+    if (
+      !bankDraftForm.account_type ||
+      !bankDraftForm.financial_institution ||
+      !bankDraftForm.opening_date ||
+      !bankDraftForm.delegate_powers
+    )
+      return false;
+    if (isTrustAccount) {
+      if (!bankDraftForm.associated_cash_account_id || !bankDraftForm.trustee_id)
+        return false;
+    }
+    return true;
+  };
+
+  const handleBankDraftGapFill = async () => {
+    if (!isBankDraftFormValid()) return false;
+
+    setLoading(true);
+    const localCompanyId = +(localStorage.getItem("companyId") || 0);
+    const payload: any = {
+      bank_account_id: viewLogData?.reference?.paytradeId || viewLogData?.api_payload?.bank_account_id,
+      company_id: localCompanyId,
+      account_type: bankDraftForm.account_type,
+      financial_institution: bankDraftForm.financial_institution,
+      opening_date: bankDraftForm.opening_date,
+      delegate_powers: bankDraftForm.delegate_powers,
+      sync_id: viewLogData?.id || null,
+    };
+    if (bankDraftForm.account_number)
+      payload.account_number = bankDraftForm.account_number;
+    if (bankDraftForm.bsb_number)
+      payload.bsb_number = +bankDraftForm.bsb_number;
+    if (isTrustAccount) {
+      payload.associated_cash_account_id = +bankDraftForm.associated_cash_account_id;
+      payload.trustee_id = +bankDraftForm.trustee_id;
+    }
+
+    const result = await completeBankAccountDraft(payload, setLoading);
+    if (result) {
+      setOpenBankDraftGapFill(false);
+      setBankDraftForm({
+        account_type: "",
+        financial_institution: "",
+        opening_date: "",
+        delegate_powers: "",
+        account_number: "",
+        bsb_number: "",
+        associated_cash_account_id: "",
+        trustee_id: "",
+      });
+      getViewSyncLogDetails();
+    }
+    setLoading(false);
+    return !!result;
   };
 
   const handleSaveAttachment = async () => {
@@ -1701,6 +1779,154 @@ export default function SyncLogDetailsBasic() {
             />
             {/* </div> */}
             {/* </div> */}
+          </div>
+        </BaseModal>
+      )}
+      {openBankDraftGapFill && (
+        <BaseModal
+          modalId="bank-draft-gap-fill"
+          displayModal={openBankDraftGapFill}
+          onClose={() => setOpenBankDraftGapFill(false)}
+          secondButtonName="Activate Account"
+          firstButtonName="Cancel"
+          onConfirm={handleBankDraftGapFill}
+          title="Complete Bank Account Details"
+          disableSecondButton={!isBankDraftFormValid()}
+        >
+          <div className="container-fluid">
+            <p style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+              This bank account was auto-created from Xero as a draft.
+              Please provide the required fields to activate it.
+            </p>
+            {viewLogData?.dynamic_values?.account_name && (
+              <p style={{ marginBottom: "1rem", fontWeight: "bold" }}>
+                Account: {viewLogData.dynamic_values.account_name}
+              </p>
+            )}
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                Account Type <span style={{ color: "red" }}>*</span>
+              </label>
+              <select
+                className="pt_input"
+                value={bankDraftForm.account_type}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, account_type: e.target.value })
+                }
+              >
+                <option value="">Select Account Type</option>
+                <option value="Cash Account">Cash Account</option>
+                <option value="Project Trust Account">Project Trust Account</option>
+                <option value="Retention Trust Account">Retention Trust Account</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                Financial Institution <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                className="pt_input"
+                type="text"
+                placeholder="e.g. Commonwealth Bank"
+                value={bankDraftForm.financial_institution}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, financial_institution: e.target.value })
+                }
+              />
+            </div>
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                Opening Date <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                className="pt_input"
+                type="date"
+                value={bankDraftForm.opening_date}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, opening_date: e.target.value })
+                }
+              />
+            </div>
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                Delegate Powers <span style={{ color: "red" }}>*</span>
+              </label>
+              <select
+                className="pt_input"
+                value={bankDraftForm.delegate_powers}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, delegate_powers: e.target.value })
+                }
+              >
+                <option value="">Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                Account Number
+              </label>
+              <input
+                className="pt_input"
+                type="text"
+                placeholder="Account number"
+                value={bankDraftForm.account_number}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, account_number: e.target.value })
+                }
+              />
+            </div>
+            <div style={{ marginBottom: "0.8rem" }}>
+              <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                BSB Number
+              </label>
+              <input
+                className="pt_input"
+                type="text"
+                placeholder="BSB number"
+                value={bankDraftForm.bsb_number}
+                onChange={(e) =>
+                  setBankDraftForm({ ...bankDraftForm, bsb_number: e.target.value })
+                }
+              />
+            </div>
+            {isTrustAccount && (
+              <>
+                <hr style={{ margin: "1rem 0", borderColor: "#eee" }} />
+                <p style={{ marginBottom: "0.8rem", fontSize: "0.85rem", color: "#666" }}>
+                  Trust account fields (required for {bankDraftForm.account_type})
+                </p>
+                <div style={{ marginBottom: "0.8rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                    Associated Cash Account ID <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    className="pt_input"
+                    type="number"
+                    placeholder="Cash account ID"
+                    value={bankDraftForm.associated_cash_account_id}
+                    onChange={(e) =>
+                      setBankDraftForm({ ...bankDraftForm, associated_cash_account_id: e.target.value })
+                    }
+                  />
+                </div>
+                <div style={{ marginBottom: "0.8rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
+                    Trustee ID <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    className="pt_input"
+                    type="number"
+                    placeholder="Trustee ID"
+                    value={bankDraftForm.trustee_id}
+                    onChange={(e) =>
+                      setBankDraftForm({ ...bankDraftForm, trustee_id: e.target.value })
+                    }
+                  />
+                </div>
+              </>
+            )}
           </div>
         </BaseModal>
       )}

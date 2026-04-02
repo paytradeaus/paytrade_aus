@@ -281,6 +281,8 @@ export const getXeroDetailsForCompany = async (
               liability_payable_code
               liability_receivable_code
               simplified_retention_accounting
+              pt_to_xero_bank_auto_create
+              xero_to_pt_bank_auto_create
               project_category_id
               project_category_name
               pt_to_xero_bill_as_draft
@@ -2888,6 +2890,43 @@ export async function CreateBankAccountsInPaytrade(
     } else {
       showErrorToast(response?.data?.createAccountInPaytrade?.message);
       setLoading && setLoading(false);
+    }
+  } catch (error: any) {
+    showErrorToast(error);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+}
+export async function completeBankAccountDraft(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation CompleteBankAccountDraft(
+          $input: CompleteBankAccountDraftInput!
+        ) {
+          completeBankAccountDraft(input: $input) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { input: postData },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.completeBankAccountDraft?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.completeBankAccountDraft?.message);
+      return true;
+    } else {
+      showErrorToast(response?.data?.completeBankAccountDraft?.message);
+      return null;
     }
   } catch (error: any) {
     showErrorToast(error);

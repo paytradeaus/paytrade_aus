@@ -4,6 +4,7 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { StringResponse } from 'src/api/users/signup/response/auth.response';
 import {
+  CompleteBankAccountDraftInput,
   GetMappedXeroAccountListsInput,
   GetPaytradeAccountListsInput,
   GetXeroAccountListsInput,
@@ -618,6 +619,56 @@ export class XeroAccountsResolver {
       return framedResponse('SUCCESS', response);
     } catch (error) {
       return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'completeBankAccountDraft',
+    description: 'Completes a draft bank account with the required missing fields and activates it.',
+  })
+  async completeBankAccountDraft(
+    @Context() context,
+    @Args('input', {
+      description: 'Payload containing the required fields to complete the draft bank account.',
+    })
+    input: CompleteBankAccountDraftInput,
+  ) {
+    let decoded;
+    try {
+      decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const response = await this.xeroAccountsService.completeBankAccountDraft(
+        decoded,
+        input,
+      );
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Error completing bank account draft: ${error.message || error}`,
+      );
+
+      const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
+        error,
+      });
+      if (isRefreshToken) {
+        try {
+          return await this.xeroAccountsService.completeBankAccountDraft(
+            decoded,
+            input,
+          );
+        } catch (retryError) {
+          return framedResponse(
+            'ERROR',
+            retryError.message ? retryError.message : retryError,
+          );
+        }
+      }
+
+      return framedResponse(
+        'ERROR',
+        error.message ? error.message : error,
+      );
     }
   }
 }

@@ -414,6 +414,8 @@ export class XeroService {
           'x.liability_payable_code AS liability_payable_code',
           'x.liability_receivable_code AS liability_receivable_code',
           'x.simplified_retention_accounting AS simplified_retention_accounting',
+          'x.pt_to_xero_bank_auto_create AS pt_to_xero_bank_auto_create',
+          'x.xero_to_pt_bank_auto_create AS xero_to_pt_bank_auto_create',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -1792,6 +1794,12 @@ export class XeroService {
       xeroDetails.liability_receivable_code = data.liability_receivable_code;
       if (data.simplified_retention_accounting !== undefined) {
         xeroDetails.simplified_retention_accounting = data.simplified_retention_accounting;
+      }
+      if (data.pt_to_xero_bank_auto_create !== undefined) {
+        xeroDetails.pt_to_xero_bank_auto_create = data.pt_to_xero_bank_auto_create;
+      }
+      if (data.xero_to_pt_bank_auto_create !== undefined) {
+        xeroDetails.xero_to_pt_bank_auto_create = data.xero_to_pt_bank_auto_create;
       }
       xeroDetails.bill_tax_code = data.bill_tax_code;
       xeroDetails.invoice_tax_code = data.invoice_tax_code;

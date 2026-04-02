@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
   Account,
+  AccountType,
   Address,
   Contact,
+  CurrencyCode,
   Invoice,
   LineAmountTypes,
   Phone,
@@ -622,6 +624,124 @@ export class XeroSchedulerService {
           }
         }
 
+        if (xeroDetails.pt_to_xero_bank_auto_create) {
+          const mappedPtIds = new Set(
+            (await this.xeroBankAccountDetails.find({
+              where: { integration_id: xeroDetails.integration_id },
+              select: ['pt_bank_account_id'],
+            }))
+              .map((a) => a.pt_bank_account_id)
+              .filter(Boolean),
+          );
+
+          const bankAccountsRepo = this.xeroBankAccountDetails.manager.getRepository(BankAccounts);
+          const allPtAccounts = await bankAccountsRepo.find({
+            where: { company_id, status: In(['Active', 'Open'] as any) },
+          });
+
+          const unmappedPtAccounts = allPtAccounts.filter(
+            (a) => !mappedPtIds.has(a.bank_account_id),
+          );
+
+          for (const ptAccount of unmappedPtAccounts) {
+            try {
+              const existingCodes = accounts.map((a) => a.code).filter(Boolean);
+              let newCode: string;
+              do {
+                newCode = String(Math.floor(10000 + Math.random() * 90000));
+              } while (existingCodes.includes(newCode));
+
+              const bankAccountNumber =
+                (ptAccount.bsb_number ? String(ptAccount.bsb_number) : '') +
+                (ptAccount.account_number || '');
+
+              const createResponse =
+                await this.xero.accountingApi.createAccount(
+                  xeroDetails.tenant_id,
+                  {
+                    code: newCode,
+                    name: ptAccount.account_name,
+                    bankAccountNumber: bankAccountNumber || undefined,
+                    currencyCode: CurrencyCode.AUD,
+                    description: ptAccount.account_type || '',
+                    type: AccountType.BANK,
+                  },
+                );
+
+              const createdAccount =
+                createResponse?.body?.accounts?.[0];
+              if (createdAccount) {
+                const newXeroRecord = this.xeroBankAccountDetails.create({
+                  account_id: createdAccount.accountID,
+                  integration_id: xeroDetails.integration_id,
+                  tenant_id: xeroDetails.tenant_id,
+                  account_name: createdAccount.name,
+                  account_number: ptAccount.account_number || '',
+                  bsb_number: ptAccount.bsb_number
+                    ? Number(ptAccount.bsb_number)
+                    : null,
+                  account_type: createdAccount.type,
+                  account_status: createdAccount.status,
+                  description: createdAccount.description,
+                  pt_bank_account_id: ptAccount.bank_account_id,
+                  mapped_status: 'System' as any,
+                  created_on: new Date(),
+                } as any);
+                await this.xeroBankAccountDetails.save(newXeroRecord);
+                accounts.push(createdAccount);
+
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 466,
+                  dynamic_values: { account_name: ptAccount.account_name },
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    xeroId: createdAccount.accountID,
+                    paytradeId: ptAccount.bank_account_id,
+                  },
+                  reference_id: createdAccount.accountID,
+                  history: [
+                    `Auto-created ${ptAccount.account_name} in Xero from PayTrade`,
+                    'Export successful',
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [createdAccount],
+                  paytrade_records: [ptAccount],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              }
+            } catch (autoCreateErr) {
+              this.logger.error(
+                `Failed to auto-create PT account ${ptAccount.account_name} in Xero: ${autoCreateErr}`,
+              );
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 27,
+                dynamic_values: { account_name: ptAccount.account_name },
+                project_id: null,
+                contract_id: null,
+                reference: { paytradeId: ptAccount.bank_account_id },
+                reference_id: null,
+                history: [
+                  `Auto-create ${ptAccount.account_name} in Xero failed`,
+                  String(autoCreateErr),
+                ],
+                important_checks: {},
+                error_message: String(autoCreateErr),
+                xero_records: [],
+                paytrade_records: [ptAccount],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            }
+          }
+        }
+
         allBankAccounts = await this.xeroBankAccountDetails.find({
           where: { integration_id: xeroDetails.integration_id },
           select: ['account_id', 'pt_bank_account_id', 'account_status'],
@@ -990,7 +1110,7 @@ export class XeroSchedulerService {
           delegate_powers,
         } = data.payload || {};
 
-        if (
+        const hasMissingFields =
           !account_type ||
           !account_name ||
           !financial_institution ||
@@ -1008,8 +1128,90 @@ export class XeroSchedulerService {
               !first_sub_contract_date ||
               !contract_value)) ||
           (account_type === 'Retention Trust Account' &&
-            (!associated_cash_account_id || !trustee_id || !project_ids))
-        ) {
+            (!associated_cash_account_id || !trustee_id || !project_ids));
+
+        if (hasMissingFields && xeroDetails.xero_to_pt_bank_auto_create) {
+          try {
+            const draftPayload: any = {
+              company_id,
+              account_name: account.name || account_name || 'Unnamed Xero Account',
+              account_type: account_type || 'Cash Account',
+              account_number: account.bankAccountNumber?.slice(6) || account_number || '',
+              bsb_number: Number(account.bankAccountNumber?.slice(0, 6)) || bsb_number || 0,
+              financial_institution: financial_institution || 'From Xero - pending update',
+              opening_date: opening_date || new Date().toISOString().split('T')[0],
+              delegate_powers: delegate_powers || 'Not Applicable',
+              status: 'Draft',
+            };
+            const bankResponse = await this.bankAccountsService.addBankAccount(
+              decoded,
+              draftPayload,
+              decoded?.userId,
+            );
+
+            let newBankAccountId;
+            if (bankResponse && 'bank_account_id' in bankResponse) {
+              newBankAccountId = bankResponse.bank_account_id;
+              await this.xeroBankAccountDetails
+                .createQueryBuilder()
+                .update(XeroBankAccountDetails)
+                .set({
+                  pt_bank_account_id: newBankAccountId,
+                  mapped_status: 'System',
+                  updated_by: decoded?.userId || null,
+                  updated_on: moment.tz('UTC'),
+                  updated_group: decoded ? 'USER' : 'SYSTEM',
+                })
+                .where(
+                  'account_id = :account_id AND integration_id = :integration_id',
+                  {
+                    account_id,
+                    integration_id: xeroDetails.integration_id,
+                  },
+                )
+                .execute();
+            }
+
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: sync_id || null,
+              api_name: 'createOrUpdateAccountInPaytrade',
+              api_payload: {
+                account_id,
+                account_name: account.name,
+                account_number: account.bankAccountNumber?.slice(6),
+                bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                account_status: account.status,
+                created_as_draft: true,
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 467,
+              dynamic_values: { account_name: account.name },
+              project_id: null,
+              contract_id: null,
+              reference: {
+                xeroId: xeroAccountDetails?.id,
+                paytradeId: newBankAccountId || null,
+              },
+              reference_id: xeroAccountDetails?.id,
+              history: [
+                `API triggered from bank account scheduler ${account.name}`,
+                'Auto-created as draft in PayTrade',
+              ],
+              important_checks: {},
+              error_message: `Bank account ${account.name} was created as a draft. Required fields (account type, financial institution, opening date, delegate powers) need to be completed to activate it.`,
+              xero_records: [account],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return account;
+          } catch (draftError) {
+            this.logger.error(`Failed to auto-create draft bank account: ${draftError}`);
+          }
+        }
+
+        if (hasMissingFields) {
           const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
             decoded,
             {

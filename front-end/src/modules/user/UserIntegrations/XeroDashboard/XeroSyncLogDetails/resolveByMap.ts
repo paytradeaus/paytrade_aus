@@ -2609,3 +2609,22 @@ export const textareaErrorCode = async (
       return false;
   }
 };
+
+export const bankDraftGapFill = async (
+  viewLogData: any,
+  setOpenBankDraftGapFill: any
+) => {
+  const hasBankAccountId =
+    viewLogData?.reference?.paytradeId ||
+    viewLogData?.api_payload?.bank_account_id;
+  if (!hasBankAccountId) return false;
+
+  switch (viewLogData?.error_code) {
+    case "SCHEDULER_BANK_DRAFT_INCOMPLETE": {
+      setOpenBankDraftGapFill(true);
+      break;
+    }
+    default:
+      return false;
+  }
+};

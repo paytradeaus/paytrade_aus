@@ -2560,4 +2560,103 @@ export class XeroAccountsService {
       relations: ['integrationDetails'],
     });
   }
+
+  async completeBankAccountDraft(decoded: any, data: any) {
+    const { bank_account_id, sync_id } = data;
+
+    const userCompanyId = decoded?.companyId;
+    if (!userCompanyId) throw `Unauthorized: company context missing`;
+
+    const accountDetails = await this.accountDetails.findOne({
+      where: { bank_account_id, company_id: userCompanyId },
+    });
+    if (!accountDetails) throw `Bank account not found`;
+    if (accountDetails.status !== 'Draft')
+      throw `Only draft bank accounts can be completed`;
+
+    if (!data.account_type || !data.financial_institution || !data.opening_date || !data.delegate_powers) {
+      throw `Missing required fields: account_type, financial_institution, opening_date, delegate_powers`;
+    }
+
+    const validAccountTypes = ['Cash Account', 'Project Trust Account', 'Retention Trust Account'];
+    if (!validAccountTypes.includes(data.account_type)) {
+      throw `Invalid account type: ${data.account_type}`;
+    }
+
+    if (data.account_type === 'Project Trust Account') {
+      if (!data.associated_cash_account_id) throw `Associated cash account is required for Project Trust Accounts`;
+      if (!data.trustee_id) throw `Trustee is required for Project Trust Accounts`;
+    }
+    if (data.account_type === 'Retention Trust Account') {
+      if (!data.associated_cash_account_id) throw `Associated cash account is required for Retention Trust Accounts`;
+      if (!data.trustee_id) throw `Trustee is required for Retention Trust Accounts`;
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: userCompanyId, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) throw `No xero integration found`;
+
+    const updatePayload: Partial<BankAccounts> = {
+      account_type: data.account_type,
+      financial_institution: data.financial_institution,
+      opening_date: data.opening_date,
+      delegate_powers: data.delegate_powers,
+      status: 'Active' as any,
+      updated_by: decoded?.userId,
+      updated_on: moment.tz('UTC'),
+    };
+
+    if (data.account_number) updatePayload.account_number = data.account_number;
+    if (data.bsb_number) updatePayload.bsb_number = data.bsb_number;
+    if (data.associated_cash_account_id)
+      updatePayload.associated_cash_account_id = data.associated_cash_account_id;
+    if (data.trustee_id) updatePayload.trustee_id = data.trustee_id;
+    if (data.project_ids) updatePayload.project_ids = data.project_ids;
+    if (data.client_supplier_id)
+      updatePayload.client_supplier_id = data.client_supplier_id;
+    if (data.contract_date) updatePayload.contract_date = data.contract_date;
+    if (data.contract_practical_completion_date)
+      updatePayload.contract_practical_completion_date =
+        data.contract_practical_completion_date;
+    if (data.first_sub_contract_date)
+      updatePayload.first_sub_contract_date = data.first_sub_contract_date;
+    if (data.contract_value) updatePayload.contract_value = data.contract_value;
+
+    await this.accountDetails.update(
+      { bank_account_id, company_id: userCompanyId },
+      updatePayload,
+    );
+
+    if (sync_id) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        id: sync_id,
+        api_name: 'completeBankAccountDraft',
+        api_payload: data,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 468,
+        dynamic_values: { account_name: accountDetails.account_name },
+        project_id: null,
+        contract_id: null,
+        reference: { paytradeId: bank_account_id },
+        reference_id: null,
+        history: [
+          `Draft bank account ${accountDetails.account_name} completed with required fields`,
+          'Draft activated',
+        ],
+        important_checks: {},
+        error_message: null,
+        xero_records: [],
+        paytrade_records: [accountDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+    }
+
+    return framedResponse(
+      'SUCCESS',
+      `Bank account ${accountDetails.account_name} has been activated`,
+    );
+  }
 }
