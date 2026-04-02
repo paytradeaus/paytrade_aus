@@ -539,16 +539,16 @@ export default function XeroBankAccount() {
     setManualMapData("");
   };
   const checkActionCondition = () => {
+    const inactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
+    const isConnected = xeroData?.integration_status && !inactiveStatuses.includes(xeroData.integration_status);
     const actionMapping: any = {
       "Mapped bank accounts": mappedBankAccountsActions,
-      "Xero bank accounts":
-        xeroData?.integration_status === "Connected - active"
-          ? xeroBankAccountsActions
-          : xeroBankAccountsActions.slice(0, 1),
-      "Paytrade bank accounts":
-        xeroData?.integration_status === "Connected - active"
-          ? paytradeBankAccountsActions
-          : paytradeBankAccountsActions.slice(0, 1),
+      "Xero bank accounts": isConnected
+        ? xeroBankAccountsActions
+        : xeroBankAccountsActions.slice(0, 1),
+      "Paytrade bank accounts": isConnected
+        ? paytradeBankAccountsActions
+        : paytradeBankAccountsActions.slice(0, 1),
     };
     return actionMapping[tabStatus] || [];
   };
