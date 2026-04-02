@@ -3,98 +3,37 @@ import { buttonType as btnType } from "@/shared/constant/general";
 import React from "react";
 import { useSubscriptionsContext } from "./SubscriptionContext";
 
-const TIER_STYLES: Record<string, { headingClass: string; buttonClass: string }> = {
-  "basic":      { headingClass: "",          buttonClass: "contrast" },
-  "standard":   { headingClass: "oceantext", buttonClass: "secondary" },
-  "premium":    { headingClass: "oceantext", buttonClass: "secondary" },
-  "advanced":   { headingClass: "crabtext",  buttonClass: "secondary" },
-  "platinum":   { headingClass: "crabtext",  buttonClass: "" },
-  "pro-audit":  { headingClass: "crabtext",  buttonClass: "" },
-};
+const TIER_SEQUENCE = [
+  { headingClass: "",          buttonClass: "contrast",  borderColor: "var(--pico-contrast)", spanBg: "transparent",          spanColor: "var(--pico-contrast)" },
+  { headingClass: "oceantext", buttonClass: "secondary", borderColor: "var(--ocean)",         spanBg: "var(--oceangradient)", spanColor: "var(--wind-lighter)"  },
+  { headingClass: "crabtext",  buttonClass: "secondary", borderColor: "var(--crab)",          spanBg: "var(--crabgradient)",  spanColor: "var(--wind-lighter)"  },
+  { headingClass: "crabtext",  buttonClass: "",          borderColor: "var(--crab)",          spanBg: "var(--crabgradient)",  spanColor: "var(--wind-lighter)"  },
+];
 
-function getTierStyle(planType: string) {
-  return TIER_STYLES[planType] || { headingClass: "", buttonClass: "secondary" };
+function getTierStyle(index: number, total: number) {
+  if (total <= 1) return TIER_SEQUENCE[0];
+  if (index === 0) return TIER_SEQUENCE[0];
+  if (index === total - 1) return TIER_SEQUENCE[3];
+  if (index <= Math.floor((total - 1) / 2)) return TIER_SEQUENCE[1];
+  return TIER_SEQUENCE[2];
 }
 
 export default function PlanCardWrapper({ typeOfCards }: any) {
-  // typeOfCards?.length > 0 &&
-  // typeOfCards.map((plan: any, index: number) => (
-  //   <PlanCard key={index} {...plan} />
-  // ))
-  // <div className="grid center">
-  //   <div className="pt_plan pt_basic">
-  //     <span>Downgrade plan</span>
-  //     <h3>Basic</h3>
-  //     <p>
-  //       gilla lacus eu tempor eleifend. Suspendisse potenti. Nunc eu tortor
-  //       hendrerit, porta arcu non, scelerisque quam. Donec porttitor orci
-  //       ligula
-  //     </p>
-  //     <h5>$0.00 +VAT</h5>
-  //     <a href="#cancel">
-  //       <button className="contrast">Downgrade plan</button>
-  //     </a>
-  //   </div>
-
-  //   <div className="pt_plan pt_premium">
-  //     <span>Current plan</span>
-  //     <h3 className="oceantext">Premium</h3>
-  //     <p>
-  //       gilla lacus eu tempor eleifend. Suspendisse potenti. Nunc eu tortor
-  //       hendrerit, porta arcu non, scelerisque quam. Donec porttitor orci
-  //       ligula
-  //     </p>
-  //     <h5>$275.00/yr +VAT</h5>
-  //     <a href="#">
-  //       <button className="secondary" disabled>
-  //         Current plan
-  //         <i className="fa-light fa-arrow-right right"></i>
-  //       </button>
-  //     </a>
-  //   </div>
-
-  //   <div className="pt_plan pt_platinum">
-  //     <span>Upgrade plan</span>
-  //     <h3 className="crabtext">Platinum</h3>
-  //     <p>
-  //       gilla lacus eu tempor eleifend. Suspendisse potenti. Nunc eu tortor
-  //       hendrerit, porta arcu non, scelerisque quam. Donec porttitor orci
-  //       ligula
-  //     </p>
-  //     <h5>$500.00/yr +VAT</h5>
-  //     <a href="upgrade.html">
-  //       <button>
-  //         Choose plan<i className="fa-light fa-arrow-right right"></i>
-  //       </button>
-  //     </a>
-  //     <div className="offer">
-  //       <b>3</b> months free trial
-  //     </div>
-  //   </div>
-  // </div>
-  // );
   if (!typeOfCards || typeOfCards.length === 0) return null;
 
-  // 1. Get current plan
   const currentPlan = typeOfCards.find((plan: any) => plan?.isCurrentPlan);
-
   const currentPrice = currentPlan?.overallData?.unformatted_price ?? 0;
 
-  // 2. Filter out downgrade plans
   const filteredPlans = typeOfCards.filter((plan: any) => {
     const planPrice = plan?.overallData?.unformatted_price ?? 0;
-
-    // Always show current plan
     if (plan.isCurrentPlan) return true;
-
-    // Show only upgrade or same-price plans
     return planPrice >= currentPrice;
   });
 
   return (
     <>
       {filteredPlans.map((plan: any, index: number) => (
-        <PlanCard key={index} {...plan} />
+        <PlanCard key={index} {...plan} tierIndex={index} tierTotal={filteredPlans.length} />
       ))}
     </>
   );
@@ -111,6 +50,8 @@ const PlanCard: React.FC<any> = ({
   offerText,
   OfferMonths,
   overallData,
+  tierIndex,
+  tierTotal,
 }) => {
   const { setDisplayBillingDetails, setSelectedPlanForSub }: any =
     useSubscriptionsContext();
@@ -126,11 +67,16 @@ const PlanCard: React.FC<any> = ({
     });
   }
 
-  const style = getTierStyle(planType);
+  const style = getTierStyle(tierIndex, tierTotal);
 
   return (
-    <div className={`pt_plan pt_${planType}`}>
-      <span>{isCurrentPlan ? "Current plan" : "Upgrade plan"}</span>
+    <div
+      className={`pt_plan pt_${planType}`}
+      style={{ borderColor: style.borderColor }}
+    >
+      <span style={{ background: style.spanBg, color: style.spanColor }}>
+        {isCurrentPlan ? "Current plan" : "Upgrade plan"}
+      </span>
       <h3 className={style.headingClass}>
         {title}
       </h3>

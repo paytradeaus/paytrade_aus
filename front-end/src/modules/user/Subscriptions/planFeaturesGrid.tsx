@@ -42,7 +42,9 @@ export default function PlanFeaturesGrid() {
     const raw = !isYearly
       ? subscriptionPlanTypes?.monthly_plan_list || []
       : subscriptionPlanTypes?.yearly_plan_list || [];
-    return deduplicatePlans(raw);
+    return deduplicatePlans(raw).sort(
+      (a: any, b: any) => (a.unformatted_price ?? 0) - (b.unformatted_price ?? 0)
+    );
   }
 
   // Format plan price string into display like "$100/yr" or "Free"

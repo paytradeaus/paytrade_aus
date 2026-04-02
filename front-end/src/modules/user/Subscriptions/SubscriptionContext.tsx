@@ -198,7 +198,9 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     const rawPlanList = isYearly
       ? data.yearly_plan_list || []
       : data.monthly_plan_list || [];
-    const planList = deduplicatePlans(rawPlanList);
+    const planList = deduplicatePlans(rawPlanList).sort(
+      (a: any, b: any) => (a.unformatted_price ?? 0) - (b.unformatted_price ?? 0)
+    );
 
     const freePlan = !subscriptionData?.payment_method_id
       ? [data.free_plan]

@@ -55,13 +55,9 @@ export default function PricingPage() {
     return Array.from(seen.values());
   }
 
-  const PLAN_ORDER = ["basic", "standard", "advanced", "pro-audit"];
-
   function sortPlans(planList: any[]): any[] {
     return [...planList].sort((a, b) => {
-      const aIdx = PLAN_ORDER.indexOf(normalizePlanKey(a.plan_name));
-      const bIdx = PLAN_ORDER.indexOf(normalizePlanKey(b.plan_name));
-      return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+      return (a.unformatted_price ?? 0) - (b.unformatted_price ?? 0);
     });
   }
 

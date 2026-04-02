@@ -12,18 +12,22 @@ interface PlanProps {
   OfferMonths?: string;
 }
 
-const TIER_STYLES: Record<string, { headingClass: string; buttonClass: string }> = {
-  "basic":      { headingClass: "",          buttonClass: "contrast" },
-  "standard":   { headingClass: "oceantext", buttonClass: "secondary" },
-  "advanced":   { headingClass: "crabtext",  buttonClass: "secondary" },
-  "pro-audit":  { headingClass: "crabtext",  buttonClass: "" },
-};
+const TIER_SEQUENCE = [
+  { headingClass: "",          buttonClass: "contrast",  borderColor: "var(--pico-contrast)", spanBg: "transparent",          spanColor: "var(--pico-contrast)" },
+  { headingClass: "oceantext", buttonClass: "secondary", borderColor: "var(--ocean)",         spanBg: "var(--oceangradient)", spanColor: "var(--wind-lighter)"  },
+  { headingClass: "crabtext",  buttonClass: "secondary", borderColor: "var(--crab)",          spanBg: "var(--crabgradient)",  spanColor: "var(--wind-lighter)"  },
+  { headingClass: "crabtext",  buttonClass: "",          borderColor: "var(--crab)",          spanBg: "var(--crabgradient)",  spanColor: "var(--wind-lighter)"  },
+];
 
-function getTierStyle(planType: string) {
-  return TIER_STYLES[planType] || { headingClass: "", buttonClass: "secondary" };
+function getTierStyle(index: number, total: number) {
+  if (total <= 1) return TIER_SEQUENCE[0];
+  if (index === 0) return TIER_SEQUENCE[0];
+  if (index === total - 1) return TIER_SEQUENCE[3];
+  if (index <= Math.floor((total - 1) / 2)) return TIER_SEQUENCE[1];
+  return TIER_SEQUENCE[2];
 }
 
-const PlanCard: React.FC<PlanProps> = ({
+const PlanCard: React.FC<PlanProps & { tierIndex: number; tierTotal: number }> = ({
   planType,
   isCurrentPlan = false,
   title,
@@ -33,12 +37,19 @@ const PlanCard: React.FC<PlanProps> = ({
   href,
   offerText,
   OfferMonths,
+  tierIndex,
+  tierTotal,
 }) => {
-  const style = getTierStyle(planType);
+  const style = getTierStyle(tierIndex, tierTotal);
 
   return (
-    <div className={`pt_plan pt_${planType}`}>
-      <span>{isCurrentPlan ? "Current plan" : "Upgrade plan"}</span>
+    <div
+      className={`pt_plan pt_${planType}`}
+      style={{ borderColor: style.borderColor }}
+    >
+      <span style={{ background: style.spanBg, color: style.spanColor }}>
+        {isCurrentPlan ? "Current plan" : "Upgrade plan"}
+      </span>
       <h3 className={style.headingClass}>{title}</h3>
       <p>{description}</p>
       <h5>{price}</h5>
@@ -72,7 +83,7 @@ const PricingPlansHOC: React.FC<PricingPlansHOCProps> = ({ plans }) => {
   return (
     <>
       {plans.map((plan, index) => (
-        <PlanCard key={index} {...plan} />
+        <PlanCard key={index} {...plan} tierIndex={index} tierTotal={plans.length} />
       ))}
     </>
   );

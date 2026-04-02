@@ -3,18 +3,9 @@ import {
   subscriptionColorCodes,
   subscriptionPlanFeatures,
 } from "@/shared/constant/data";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { gql } from "@apollo/client";
 import { client } from "@/app/api/adminApi/adminApi";
-
-type Plan = "Basic" | "Premium" | "Platinum";
-
-type Feature = {
-  name: string;
-  basic: boolean;
-  premium: boolean;
-  platinum: boolean;
-};
 
 interface PlanTableProps {
   features: any[];
@@ -22,30 +13,11 @@ interface PlanTableProps {
   isYearly?: boolean;
 }
 
-
 function parseFeatureValue(val: string | null | undefined): { text?: string; enabled?: boolean } {
   if (val === null || val === undefined || val === "") return { enabled: false };
   if (val === "true") return { enabled: true };
   if (val === "false") return { enabled: false };
   return { text: val };
-}
-
-function apiFeaturesToRows(apiFeatures: any[]): any[] {
-  return apiFeatures.map((f: any) => {
-    const basicParsed = parseFeatureValue(f.basic_value);
-    const standardParsed = parseFeatureValue(f.standard_value);
-    const advancedParsed = parseFeatureValue(f.advanced_value);
-    const proAuditParsed = parseFeatureValue(f.pro_audit_value);
-
-    const row: any = { name: f.feature_name };
-
-    if (basicParsed.text !== undefined) { row.basicText = basicParsed.text; } else { row.basic = basicParsed.enabled; }
-    if (standardParsed.text !== undefined) { row.standardText = standardParsed.text; } else { row.standard = standardParsed.enabled; }
-    if (advancedParsed.text !== undefined) { row.advancedText = advancedParsed.text; } else { row.advanced = advancedParsed.enabled; }
-    if (proAuditParsed.text !== undefined) { row.proAuditText = proAuditParsed.text; } else { row.proAudit = proAuditParsed.enabled; }
-
-    return row;
-  });
 }
 
 const FETCH_PRICING_FEATURES = gql`
@@ -64,8 +36,50 @@ const FETCH_PRICING_FEATURES = gql`
   }
 `;
 
+const LEGACY_COLUMN_MAP: Record<string, string> = {
+  basic_value: "basic",
+  standard_value: "standard",
+  advanced_value: "advanced",
+  pro_audit_value: "pro-audit",
+};
+
+function normalizePlanKey(name: string): string {
+  return (name || "").toLowerCase().trim().replace(/\s*-\s*sandbox$/i, "").replace(/[\s_]+/g, "-");
+}
+
+function deduplicatePlans(planList: any[]): any[] {
+  const seen = new Map<string, any>();
+  for (const plan of planList) {
+    const key = normalizePlanKey(plan.plan_name);
+    if (!seen.has(key)) {
+      seen.set(key, plan);
+    } else {
+      const existing = seen.get(key);
+      if (!existing.description && plan.description) {
+        seen.set(key, plan);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
+function getItemDisplayValue(plan: any, featureName: string): { text?: string; enabled?: boolean } | null {
+  if (!plan?.plan_items) return null;
+  const item = plan.plan_items.find(
+    (pi: any) => pi.item_name?.toLowerCase().trim() === featureName.toLowerCase().trim()
+  );
+  if (!item) return null;
+  if (item.is_unlimited) return { text: "Unlimited" };
+  if (item.limit_value !== null && item.limit_value !== undefined) return { text: String(item.limit_value) };
+  return { enabled: true };
+}
+
+const COLORS = {
+  green: "#2a7b6f",
+  red: "#e74c3c",
+};
+
 const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, isYearly }) => {
-  const [tableFeatures, setTableFeatures] = useState<any[]>([]);
   const [apiPricingFeatures, setApiPricingFeatures] = useState<any[] | null>(null);
   const getTheme: any = useAppSelector(
     (state: RootState) => state?.appTheme?.currentTheme
@@ -88,109 +102,132 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
     fetchPricingFeatures();
   }, []);
 
-  function isLightTheme() {
-    return getTheme === "light";
-  }
+  const isLightTheme = () => getTheme === "light";
 
-  function findPlan(planList: any[], ...names: string[]) {
-    for (const name of names) {
-      const found = planList.find(
-        (p: any) => p.plan_name?.toLowerCase().trim() === name.toLowerCase()
-      );
-      if (found) return found;
-    }
-    return null;
-  }
+  const FALLBACK_COLUMNS = [
+    { key: "basic", label: "Basic", plan: null },
+    { key: "standard", label: "Standard", plan: null },
+    { key: "advanced", label: "Advanced", plan: null },
+    { key: "pro-audit", label: "Pro Audit", plan: null },
+  ];
 
-  function getPlansFromApi() {
+  const columns = useMemo(() => {
+    if (!subscriptionPlanTypes) return FALLBACK_COLUMNS;
+
     const planList = isYearly
       ? subscriptionPlanTypes?.yearly_plan_list || []
       : subscriptionPlanTypes?.monthly_plan_list || [];
 
     const freePlan = subscriptionPlanTypes?.free_plan || null;
-    const standardPlan = findPlan(planList, "Standard", "Premium");
-    const advancedPlan = findPlan(planList, "Advanced", "Platinum");
-    const proAuditPlan = findPlan(planList, "Pro Audit", "ProAudit", "Pro-Audit");
-
-    return { freePlan, standardPlan, advancedPlan, proAuditPlan };
-  }
-
-  function getPriceRow() {
-    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
-    const suffix = isYearly ? "/yr" : "/mo";
-    const fallback = subscriptionPlanFeatures[0];
-
-    return {
-      name: "",
-      basicText: "Free",
-      standardText: standardPlan ? `${standardPlan.price}${suffix}` : (fallback?.standardText || ""),
-      advancedText: advancedPlan ? `${advancedPlan.price}${suffix}` : (fallback?.advancedText || ""),
-      proAuditText: proAuditPlan ? `${proAuditPlan.price}${suffix}` : (fallback?.proAuditText || ""),
-    };
-  }
-
-  function getItemDisplayValue(plan: any, featureName: string): { text?: string; enabled?: boolean } | null {
-    if (!plan?.plan_items) return null;
-    const item = plan.plan_items.find(
-      (pi: any) => pi.item_name?.toLowerCase().trim() === featureName.toLowerCase().trim()
+    const paidPlans = deduplicatePlans(planList).sort(
+      (a: any, b: any) => (a.unformatted_price ?? 0) - (b.unformatted_price ?? 0)
     );
-    if (!item) return null;
-    if (item.is_unlimited) return { text: "Unlimited" };
-    if (item.limit_value !== null && item.limit_value !== undefined) return { text: String(item.limit_value) };
-    return { enabled: true };
-  }
 
-  function buildFeatureRows() {
-    const baseRows = apiPricingFeatures
-      ? apiFeaturesToRows(apiPricingFeatures)
-      : subscriptionPlanFeatures.slice(1);
+    const cols: { key: string; label: string; plan: any }[] = [];
 
-    if (!subscriptionPlanTypes) return baseRows;
+    if (freePlan) {
+      cols.push({ key: normalizePlanKey(freePlan.plan_name), label: freePlan.plan_name || "Basic", plan: freePlan });
+    }
 
-    const { freePlan, standardPlan, advancedPlan, proAuditPlan } = getPlansFromApi();
+    paidPlans.forEach((plan: any) => {
+      cols.push({ key: normalizePlanKey(plan.plan_name), label: plan.plan_name, plan });
+    });
 
-    return baseRows.map((row: any) => {
-      const basicVal = getItemDisplayValue(freePlan, row.name);
-      const standardVal = getItemDisplayValue(standardPlan, row.name);
-      const advancedVal = getItemDisplayValue(advancedPlan, row.name);
-      const proAuditVal = getItemDisplayValue(proAuditPlan, row.name);
+    return cols.length > 0 ? cols : FALLBACK_COLUMNS;
+  }, [subscriptionPlanTypes, isYearly]);
 
-      const updated: any = { ...row };
+  function mapApiFeaturesToDynamic(apiFeatures: any[]): { name: string; values: Record<string, { text?: string; enabled?: boolean }> }[] {
+    return apiFeatures.map((f: any) => {
+      const row: { name: string; values: Record<string, { text?: string; enabled?: boolean }> } = {
+        name: f.feature_name,
+        values: {},
+      };
 
-      if (basicVal) {
-        if (basicVal.text !== undefined) { updated.basicText = basicVal.text; updated.basic = undefined; }
-        else if (basicVal.enabled !== undefined) { updated.basic = basicVal.enabled; updated.basicText = undefined; }
-      }
-      if (standardVal) {
-        if (standardVal.text !== undefined) { updated.standardText = standardVal.text; updated.standard = undefined; }
-        else if (standardVal.enabled !== undefined) { updated.standard = standardVal.enabled; updated.standardText = undefined; }
-      }
-      if (advancedVal) {
-        if (advancedVal.text !== undefined) { updated.advancedText = advancedVal.text; updated.advanced = undefined; }
-        else if (advancedVal.enabled !== undefined) { updated.advanced = advancedVal.enabled; updated.advancedText = undefined; }
-      }
-      if (proAuditVal) {
-        if (proAuditVal.text !== undefined) { updated.proAuditText = proAuditVal.text; updated.proAudit = undefined; }
-        else if (proAuditVal.enabled !== undefined) { updated.proAudit = proAuditVal.enabled; updated.proAuditText = undefined; }
+      for (const [field, legacyKey] of Object.entries(LEGACY_COLUMN_MAP)) {
+        const parsed = parseFeatureValue(f[field]);
+        const matchedCol = columns.find((c) => c.key === legacyKey);
+        if (matchedCol) {
+          row.values[matchedCol.key] = parsed;
+        }
       }
 
-      return updated;
+      return row;
     });
   }
 
-  useEffect(() => {
-    const currentCode = isLightTheme()
-      ? subscriptionColorCodes.BLACK
-      : subscriptionColorCodes.WHITE;
+  function mapFallbackToDynamic(): { name: string; values: Record<string, { text?: string; enabled?: boolean }> }[] {
+    const legacyKeys = ["basic", "standard", "advanced", "proAudit"];
+    const legacyTextKeys = ["basicText", "standardText", "advancedText", "proAuditText"];
+    const normalizedLegacy = ["basic", "standard", "advanced", "pro-audit"];
 
-    const priceRow = subscriptionPlanTypes
-      ? { ...getPriceRow(), basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode }
-      : { ...subscriptionPlanFeatures[0], basicColorCode: currentCode, standardColorCode: currentCode, advancedColorCode: currentCode, proAuditColorCode: currentCode };
+    return subscriptionPlanFeatures.slice(1).map((row: any) => {
+      const mapped: { name: string; values: Record<string, { text?: string; enabled?: boolean }> } = {
+        name: row.name,
+        values: {},
+      };
 
-    const featureRows = buildFeatureRows();
+      legacyKeys.forEach((key, idx) => {
+        const colKey = normalizedLegacy[idx];
+        const matchedCol = columns.find((c) => c.key === colKey);
+        if (matchedCol) {
+          if (row[legacyTextKeys[idx]]) {
+            mapped.values[matchedCol.key] = { text: row[legacyTextKeys[idx]] };
+          } else {
+            mapped.values[matchedCol.key] = { enabled: !!row[key] };
+          }
+        }
+      });
 
-    setTableFeatures([priceRow, ...featureRows]);
-  }, [getTheme, subscriptionPlanTypes, isYearly, apiPricingFeatures]);
+      return mapped;
+    });
+  }
+
+  const tableData = useMemo(() => {
+    if (columns.length === 0) return [];
+
+    let baseRows = apiPricingFeatures
+      ? mapApiFeaturesToDynamic(apiPricingFeatures)
+      : mapFallbackToDynamic();
+
+    if (subscriptionPlanTypes) {
+      baseRows = baseRows.map((row) => {
+        const updated = { ...row, values: { ...row.values } };
+
+        for (const col of columns) {
+          const planVal = getItemDisplayValue(col.plan, row.name);
+          if (planVal) {
+            updated.values[col.key] = planVal;
+          }
+        }
+
+        return updated;
+      });
+    }
+
+    return baseRows;
+  }, [columns, apiPricingFeatures, subscriptionPlanTypes, isYearly]);
+
+  function getFallbackPrice(colKey: string): string {
+    const legacyPriceRow = subscriptionPlanFeatures[0];
+    const keyMap: Record<string, string> = {
+      "basic": "basicText",
+      "standard": "standardText",
+      "advanced": "advancedText",
+      "pro-audit": "proAuditText",
+    };
+    return legacyPriceRow?.[keyMap[colKey]] || "";
+  }
+
+  function formatPlanPrice(col: { key: string; plan: any }): string {
+    if (!col.plan) return getFallbackPrice(col.key);
+    if (col.plan.plan_type === "Free" || col.plan.price === "$0.00" || col.plan.price === "$0") return "Free";
+    const suffix = isYearly ? "/yr" : "/mo";
+    return col.plan.price ? `${col.plan.price}${suffix}` : "Free";
+  }
+
+  const priceColor = isLightTheme()
+    ? subscriptionColorCodes.BLACK
+    : subscriptionColorCodes.WHITE;
 
   return (
     <div className="grid">
@@ -199,109 +236,49 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
           <thead>
             <tr>
               <th>Feature</th>
-              <th className="centered">Basic</th>
-              <th className="centered">Standard</th>
-              <th className="centered">Advanced</th>
-              <th className="centered">Pro Audit</th>
+              {columns.map((col) => (
+                <th key={col.key} className="centered">{col.label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {tableFeatures?.length > 0 &&
-              tableFeatures.map((feature, index) => (
-                <tr className="largeicon" key={index}>
-                  <td>{feature.name}</td>
-                  <td className="centered">
-                    {feature?.basicText ? (
-                      <span
-                        style={{
-                          color: feature?.basicColorCode
-                            ? feature?.basicColorCode
-                            : "#2a7b6f",
-                        }}
-                        className="subscriptionContent"
-                      >
-                        {" "}
-                        {feature?.basicText}{" "}
-                      </span>
-                    ) : (
-                      <i
-                        className={`fa-light ${
-                          feature.basic ? "fa-check valid" : "fa-xmark invalid"
-                        }`}
-                      />
-                    )}
-                  </td>
-                  <td className="centered">
-                    {feature?.standardText ? (
-                      <span
-                        style={{
-                          color: feature?.standardColorCode
-                            ? feature?.standardColorCode
-                            : "#2a7b6f",
-                        }}
-                        className="subscriptionContent"
-                      >
-                        {" "}
-                        {feature?.standardText}{" "}
-                      </span>
-                    ) : (
-                      <i
-                        className={`fa-light ${
-                          feature.standard
-                            ? "fa-check valid"
-                            : "fa-xmark invalid"
-                        }`}
-                      />
-                    )}
-                  </td>
-                  <td className="centered">
-                    {feature?.advancedText ? (
-                      <span
-                        style={{
-                          color: feature?.advancedColorCode
-                            ? feature?.advancedColorCode
-                            : "#2a7b6f",
-                        }}
-                        className="subscriptionContent"
-                      >
-                        {" "}
-                        {feature?.advancedText}{" "}
-                      </span>
-                    ) : (
-                      <i
-                        className={`fa-light ${
-                          feature.advanced
-                            ? "fa-check valid"
-                            : "fa-xmark invalid"
-                        }`}
-                      />
-                    )}
-                  </td>
-                  <td className="centered">
-                    {feature?.proAuditText ? (
-                      <span
-                        style={{
-                          color: feature?.proAuditColorCode
-                            ? feature?.proAuditColorCode
-                            : "#2a7b6f",
-                        }}
-                        className="subscriptionContent"
-                      >
-                        {" "}
-                        {feature?.proAuditText}{" "}
-                      </span>
-                    ) : (
-                      <i
-                        className={`fa-light ${
-                          feature.proAudit
-                            ? "fa-check valid"
-                            : "fa-xmark invalid"
-                        }`}
-                      />
-                    )}
-                  </td>
-                </tr>
+            <tr className="largeicon">
+              <td></td>
+              {columns.map((col) => (
+                <td key={col.key} className="centered">
+                  <span className="subscriptionContent" style={{ color: priceColor }}>
+                    {formatPlanPrice(col)}
+                  </span>
+                </td>
               ))}
+            </tr>
+
+            {tableData.map((feature, index) => (
+              <tr className="largeicon" key={index}>
+                <td>{feature.name}</td>
+                {columns.map((col) => {
+                  const val = feature.values[col.key];
+                  return (
+                    <td key={col.key} className="centered">
+                      {val?.text ? (
+                        <span
+                          style={{ color: COLORS.green }}
+                          className="subscriptionContent"
+                        >
+                          {val.text}
+                        </span>
+                      ) : (
+                        <i
+                          className={`fa-light ${
+                            val?.enabled ? "fa-check valid" : "fa-xmark invalid"
+                          }`}
+                        />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
