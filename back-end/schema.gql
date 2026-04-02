@@ -1540,6 +1540,18 @@ type BlogCommentDto {
   posted_on: DateTime
 }
 
+"""Response type that includes status, message, and a boolean data field."""
+type BooleanDataResponse {
+  """Boolean result data."""
+  data: Boolean
+
+  """Human-readable message describing the operation result."""
+  message: String!
+
+  """Indicates whether the operation was successful."""
+  status: String!
+}
+
 input BulkUpdateAdminMenuInput {
   menus: [UpdateAdminMenuInput!]!
 }
@@ -17376,7 +17388,7 @@ type Query {
   getCompanyDemoStatus(
     """ID of the company to check."""
     company_id: Float!
-  ): StringResponse!
+  ): BooleanDataResponse!
 
   """
   Retrieves company profile details by company ID. 

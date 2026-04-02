@@ -19,7 +19,7 @@ import {
 import { GetPaymentHistoryInput } from './dto/get-payment-history.input';
 import { GetPaymentHistoryResponse } from './response/get-payment-history.response';
 import { GetSubscriptionDetailsResponse } from './response/get-subscription-details.response';
-import { StringResponse } from 'src/api/users/signup/response/auth.response';
+import { StringResponse, BooleanDataResponse } from 'src/api/users/signup/response/auth.response';
 import { CreateActivityLogInput } from '../activity-log/dto/create-activity-log.input';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 var moment = require('moment-timezone');
@@ -768,7 +768,7 @@ export class PaymentGatewayResolver {
     Role.PORTAL_ADMIN,
     Role.RESTRICTED_PORTAL_ADMIN,
   )
-  @Query(() => StringResponse, {
+  @Query(() => BooleanDataResponse, {
     name: 'getCompanyDemoStatus',
     description: 'Check if a company is in demo/sandbox mode.',
   })

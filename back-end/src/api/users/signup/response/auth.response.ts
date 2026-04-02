@@ -101,3 +101,18 @@ export class StringResponse {
   })
   message: string;
 }
+
+@ObjectType({
+  description:
+    'Response type that includes status, message, and a boolean data field.',
+})
+export class BooleanDataResponse {
+  @Field({ description: 'Indicates whether the operation was successful.' })
+  status: string;
+
+  @Field({ description: 'Human-readable message describing the operation result.' })
+  message: string;
+
+  @Field(() => Boolean, { nullable: true, description: 'Boolean result data.' })
+  data?: boolean;
+}
