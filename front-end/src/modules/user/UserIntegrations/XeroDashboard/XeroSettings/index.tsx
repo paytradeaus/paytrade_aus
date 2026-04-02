@@ -113,7 +113,6 @@ export default function XeroSettings() {
         xero_to_pt_bill_as_draft: data?.xero_to_pt_bill_as_draft || "",
         xero_to_pt_invoice_as_draft: data?.xero_to_pt_invoice_as_draft || "",
         xero_to_pt_payment_as_draft: data?.xero_to_pt_payment_as_draft || "",
-        reference_format: data?.reference_format || "",
         invoice_tax_code: data?.invoice_tax_code || "",
         bill_tax_code: data?.bill_tax_code || "",
         wait_time: data?.wait_time || "",
@@ -173,9 +172,6 @@ export default function XeroSettings() {
     project_category_id: Yup.string().required("Project is required"),
     invoice_tax_code: Yup.string().required("Invoice tax code is required"),
     bill_tax_code: Yup.string().required("Bill tax code is required"),
-    reference_format: Yup.string().required(
-      "Invoice/billing reference is required"
-    ),
     // wait_time: Yup.string().required("Execution wait time is required"),
     retention_payable_retained_code: Yup.string().required(
       "Retention payable retained code is required"
@@ -214,7 +210,6 @@ export default function XeroSettings() {
       xero_to_pt_bill_as_draft: "",
       xero_to_pt_invoice_as_draft: "",
       xero_to_pt_payment_as_draft: "",
-      reference_format: "",
       invoice_tax_code: "",
       bill_tax_code: "",
       wait_time: null,
@@ -246,7 +241,6 @@ export default function XeroSettings() {
         xero_to_pt_bill_as_draft,
         xero_to_pt_invoice_as_draft,
         xero_to_pt_payment_as_draft,
-        reference_format,
         invoice_tax_code,
         bill_tax_code,
         wait_time,
@@ -269,7 +263,6 @@ export default function XeroSettings() {
         xero_to_pt_bill_as_draft,
         xero_to_pt_invoice_as_draft,
         xero_to_pt_payment_as_draft,
-        reference_format,
         invoice_tax_code,
         bill_tax_code,
         wait_time,
@@ -1397,29 +1390,6 @@ export default function XeroSettings() {
                       }
                       onBlur={settingsFormik.handleBlur("bill_tax_code")}
                       error={settingsFormik?.errors?.bill_tax_code}
-                    />
-                  </div>
-                  <div>
-                    <h5>
-                      Invoice/billing reference
-                      <span className="required">*</span>
-                    </h5>
-                    <FormikControl
-                      control={InputType.TEXT_FIELD}
-                      name={"paymentToAccount"}
-                      onChange={(e: any) => {
-                        settingsFormik?.setFieldValue(
-                          "reference_format",
-                          e?.target?.value
-                        );
-                      }}
-                      placeholder=""
-                      value={settingsFormik.values.reference_format}
-                      showError={
-                        settingsFormik.touched.reference_format &&
-                        settingsFormik.errors.reference_format
-                      }
-                      error={settingsFormik?.errors?.reference_format}
                     />
                   </div>
                   <div></div>

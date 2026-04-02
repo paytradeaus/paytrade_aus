@@ -882,7 +882,7 @@ export class XeroService {
             (CASE WHEN invoice_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN bill_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN retention_payable_retained_code IS NULL THEN 1 ELSE 0 END) + 
             (CASE WHEN retention_payable_release_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN retention_receivable_retained_code IS NULL THEN 1 ELSE 0 END) +
             (CASE WHEN retention_receivable_release_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN liability_payable_code IS NULL THEN 1 ELSE 0 END) +
-            (CASE WHEN liability_receivable_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN reference_format IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN liability_receivable_code IS NULL THEN 1 ELSE 0 END) +
             (CASE WHEN invoice_tax_code IS NULL THEN 1 ELSE 0 END) + (CASE WHEN bill_tax_code IS NULL THEN 1 ELSE 0 END)) AS status_count
             FROM xero_integration_details
             UNION
