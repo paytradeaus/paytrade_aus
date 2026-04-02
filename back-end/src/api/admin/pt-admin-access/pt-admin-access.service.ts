@@ -1830,13 +1830,11 @@ export class PtAdminAccessService {
       });
     }
 
-    const { password, ...userSafe } = user as any;
-
     const exportData = {
       _exportVersion: 1,
       _exportedAt: new Date().toISOString(),
       _sourceEnvironment: process.env.NODE_ENV || 'development',
-      user: userSafe,
+      user: user,
       companies,
       companyUserRoles: roles,
       subscriptions,
@@ -1882,7 +1880,7 @@ export class PtAdminAccessService {
         'occupation', 'position_title', 'company_name', 'place_id',
         'user_address', 'country', 'region', 'latitude', 'longitude',
         'user_phone_no', 'user_timezone', 'email_preferences',
-        'logged_in_email_id',
+        'logged_in_email_id', 'password',
       ];
       const userData: any = {};
       for (const field of allowedUserFields) {
@@ -1894,7 +1892,6 @@ export class PtAdminAccessService {
       userData.user_role = data.user.user_role || 'BASIC USER';
       userData.is_verified = false;
       userData.is_admin_added = true;
-      userData.password = null;
       userData.failed_attempts = 0;
       userData.lock_time = null;
       userData.show_popup = true;
@@ -1976,7 +1973,7 @@ export class PtAdminAccessService {
         }
         companyData.is_verified = false;
         companyData.is_admin_blocked = false;
-        companyData.is_system_added = false;
+        companyData.is_system_added = company.is_system_added === true || company.is_system_added === 'true' ? true : false;
         companyData.created_on = new Date();
         companyData.updated_on = new Date();
 
