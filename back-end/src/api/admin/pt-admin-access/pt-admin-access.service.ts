@@ -1904,16 +1904,16 @@ export class PtAdminAccessService {
 
       const oldUserId = data.user.user_id;
 
-      // [Replit Update 2026-04-02] Use insert() to avoid nested transaction issues, then fetch the generated user_id
-      const userInsertResult = await runner.manager.insert(UserDetails, userData);
-      let newUserId = userInsertResult.generatedMaps[0]?.user_id;
-      if (!newUserId) {
-        const insertedUuid = userInsertResult.identifiers[0]?.id;
-        if (insertedUuid) {
-          const found = await runner.manager.findOne(UserDetails, { where: { id: insertedUuid }, select: ['user_id'] });
-          newUserId = found?.user_id;
-        }
-      }
+      // [Replit Update 2026-04-02] Use raw SQL via runner.query() to guarantee all inserts share the same transaction
+      const userColumns = Object.keys(userData);
+      const userValues = Object.values(userData);
+      const userPlaceholders = userColumns.map((_, i) => `$${i + 1}`).join(', ');
+      const userColList = userColumns.map(c => `"${c}"`).join(', ');
+      const userResult = await runner.query(
+        `INSERT INTO "user_details" (${userColList}) VALUES (${userPlaceholders}) RETURNING "user_id"`,
+        userValues,
+      );
+      const newUserId = userResult[0]?.user_id;
       if (!newUserId) {
         throw new Error('Failed to retrieve generated user_id after insert');
       }
@@ -1922,11 +1922,13 @@ export class PtAdminAccessService {
       const warnings: string[] = [];
 
       for (const company of data.companies || []) {
-        const existingCompany = await runner.manager.findOne(CompanyDetails, {
-          where: { company_email_id: company.company_email_id },
-        });
+        const existingCompanies = await runner.query(
+          `SELECT "company_id", "company_name" FROM "company_details" WHERE "company_email_id" = $1 LIMIT 1`,
+          [company.company_email_id],
+        );
 
-        if (existingCompany) {
+        if (existingCompanies.length > 0) {
+          const existingCompany = existingCompanies[0];
           if (
             existingCompany.company_name?.toLowerCase() !==
             company.company_name?.toLowerCase()
@@ -1963,15 +1965,15 @@ export class PtAdminAccessService {
         companyData.created_on = new Date();
         companyData.updated_on = new Date();
 
-        const companyInsertResult = await runner.manager.insert(CompanyDetails, companyData);
-        let newCompanyId = companyInsertResult.generatedMaps[0]?.company_id;
-        if (!newCompanyId) {
-          const insertedUuid = companyInsertResult.identifiers[0]?.id;
-          if (insertedUuid) {
-            const found = await runner.manager.findOne(CompanyDetails, { where: { id: insertedUuid }, select: ['company_id'] });
-            newCompanyId = found?.company_id;
-          }
-        }
+        const companyColumns = Object.keys(companyData);
+        const companyValues = Object.values(companyData);
+        const companyPlaceholders = companyColumns.map((_, i) => `$${i + 1}`).join(', ');
+        const companyColList = companyColumns.map(c => `"${c}"`).join(', ');
+        const companyResult = await runner.query(
+          `INSERT INTO "company_details" (${companyColList}) VALUES (${companyPlaceholders}) RETURNING "company_id"`,
+          companyValues,
+        );
+        const newCompanyId = companyResult[0]?.company_id;
         if (!newCompanyId) {
           warnings.push(`Failed to retrieve company_id for "${company.company_name}", skipping mapping`);
           continue;
@@ -1989,10 +1991,11 @@ export class PtAdminAccessService {
           continue;
         }
 
-        const existingRole = await runner.manager.findOne(CompanyUserRoles, {
-          where: { user_id: newUserId, company_id: newCompanyId },
-        });
-        if (existingRole) {
+        const existingRoles = await runner.query(
+          `SELECT "id" FROM "company_user_roles" WHERE "user_id" = $1 AND "company_id" = $2 LIMIT 1`,
+          [newUserId, newCompanyId],
+        );
+        if (existingRoles.length > 0) {
           this.logger.log(
             `Role already exists for user_id=${newUserId}, company_id=${newCompanyId}, skipping`,
           );
@@ -2016,7 +2019,14 @@ export class PtAdminAccessService {
         roleData.created_on = new Date();
         roleData.updated_on = new Date();
 
-        await runner.manager.insert(CompanyUserRoles, roleData);
+        const roleColumns = Object.keys(roleData);
+        const roleValues = Object.values(roleData);
+        const rolePlaceholders = roleColumns.map((_, i) => `$${i + 1}`).join(', ');
+        const roleColList = roleColumns.map(c => `"${c}"`).join(', ');
+        await runner.query(
+          `INSERT INTO "company_user_roles" (${roleColList}) VALUES (${rolePlaceholders})`,
+          roleValues,
+        );
         rolesCreated++;
       }
 
@@ -2030,12 +2040,13 @@ export class PtAdminAccessService {
           continue;
         }
 
-        const existingSub = await runner.manager.findOne(SubscriptionDetails, {
-          where: { company_id: newCompanyId },
-        });
-        if (existingSub) {
+        const existingSubs = await runner.query(
+          `SELECT "subscription_id" FROM "subscription_details" WHERE "company_id" = $1 LIMIT 1`,
+          [newCompanyId],
+        );
+        if (existingSubs.length > 0) {
           warnings.push(
-            `Company ${newCompanyId} already has a subscription (id=${existingSub.subscription_id}), skipped duplicate`,
+            `Company ${newCompanyId} already has a subscription (id=${existingSubs[0].subscription_id}), skipped duplicate`,
           );
           continue;
         }
@@ -2059,7 +2070,14 @@ export class PtAdminAccessService {
         subData.created_on = new Date();
         subData.updated_on = new Date();
 
-        await runner.manager.insert(SubscriptionDetails, subData);
+        const subColumns = Object.keys(subData);
+        const subValues = Object.values(subData);
+        const subPlaceholders = subColumns.map((_, i) => `$${i + 1}`).join(', ');
+        const subColList = subColumns.map(c => `"${c}"`).join(', ');
+        await runner.query(
+          `INSERT INTO "subscription_details" (${subColList}) VALUES (${subPlaceholders})`,
+          subValues,
+        );
         subscriptionsCreated++;
       }
 
