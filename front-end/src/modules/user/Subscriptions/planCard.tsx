@@ -1,7 +1,20 @@
 import CustomButton from "@/components/CustomButton/CustomButton";
-import { buttonType } from "@/shared/constant/general";
+import { buttonType as btnType } from "@/shared/constant/general";
 import React from "react";
 import { useSubscriptionsContext } from "./SubscriptionContext";
+
+const TIER_STYLES: Record<string, { headingClass: string; buttonClass: string }> = {
+  "basic":      { headingClass: "",          buttonClass: "contrast" },
+  "standard":   { headingClass: "oceantext", buttonClass: "secondary" },
+  "premium":    { headingClass: "oceantext", buttonClass: "secondary" },
+  "advanced":   { headingClass: "crabtext",  buttonClass: "secondary" },
+  "platinum":   { headingClass: "crabtext",  buttonClass: "" },
+  "pro-audit":  { headingClass: "crabtext",  buttonClass: "" },
+};
+
+function getTierStyle(planType: string) {
+  return TIER_STYLES[planType] || { headingClass: "", buttonClass: "secondary" };
+}
 
 export default function PlanCardWrapper({ typeOfCards }: any) {
   // typeOfCards?.length > 0 &&
@@ -113,14 +126,12 @@ const PlanCard: React.FC<any> = ({
     });
   }
 
+  const style = getTierStyle(planType);
+
   return (
     <div className={`pt_plan pt_${planType}`}>
       <span>{isCurrentPlan ? "Current plan" : "Upgrade plan"}</span>
-      <h3
-        className={`${planType === "premium" ? "oceantext" : ""} ${
-          planType === "platinum" ? "crabtext" : ""
-        }`}
-      >
+      <h3 className={style.headingClass}>
         {title}
       </h3>
       <p className={description == "hideDescription" ? "visibleHidden" : ""}>
@@ -134,7 +145,7 @@ const PlanCard: React.FC<any> = ({
       ) : (
         <CustomButton
           buttonName={buttonText}
-          buttonType={planType === "platinum" ? "" : buttonType.SECONDARY}
+          buttonType={style.buttonClass || btnType.SECONDARY}
           suffixIconClassName="fa-light fa-arrow-right right"
           actionType="button"
           onClick={() => handleUpdatePlan()}

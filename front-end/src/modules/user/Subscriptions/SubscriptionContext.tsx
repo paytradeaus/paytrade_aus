@@ -166,7 +166,11 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
   }
 
   function normalizePlanKey(name: string): string {
-    return (name || "").toLowerCase().trim().replace(/[\s_]+/g, "-");
+    return (name || "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s*-\s*sandbox$/i, "")
+      .replace(/[\s_]+/g, "-");
   }
 
   function deduplicatePlans(planList: any[]): any[] {
@@ -203,7 +207,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
     return [
       ...freePlan.map((plan) => ({
         overallData: plan,
-        planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
+        planType: normalizePlanKey(plan.plan_name),
         isCurrentPlan: true,
         title: plan.plan_name || "Free Plan",
         description: plan.description || "hideDescription",
@@ -219,7 +223,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
           ) {
             return {
               overallData: plan,
-              planType: plan.plan_name ? plan.plan_name.toLowerCase() : "",
+              planType: normalizePlanKey(plan.plan_name),
               title: plan.plan_name || "Plan Title",
               description: plan.description || "hideDescription",
               price: plan.price
