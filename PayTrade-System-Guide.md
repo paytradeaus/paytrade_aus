@@ -582,6 +582,12 @@ The project overview page provides a centralized view of:
 | **Account Overview** | `/user/bank-accounts/overview/[...data]` | Detailed account dashboard |
 | **Bank Statement** | `/user/bank-accounts/overview/bank-statement` | View/import bank statements |
 
+#### Xero Integration on Save
+When a user saves a new bank account and the Xero integration is connected and active, a dialog appears asking: "Would you like to also create this account in Xero?"
+- **Yes:** The account is immediately created in Xero and auto-mapped. The user is then redirected to the bank accounts list.
+- **No:** The account is saved in PayTrade only, and it is marked to skip automatic Xero creation by the hourly scheduler. The user is redirected to the bank accounts list.
+- **Dismiss (X button):** The account is saved normally. If the "PT → Xero Bank Auto-Create" toggle is enabled in Xero Settings, the hourly scheduler may create it in Xero later.
+
 ### Transaction Management
 
 | Action | URL | Description |
@@ -792,6 +798,15 @@ Users can also create new Xero accounts directly from this screen by specifying 
 | Xero → PayTrade | Bill sync status | Draft or Approved |
 | Xero → PayTrade | Payment sync status | Draft or Approved |
 
+#### Bank Account Auto-Create Settings
+
+| Setting | Direction | Description |
+|---------|-----------|-------------|
+| **PT → Xero Bank Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero bank accounts for any unmapped PayTrade bank accounts |
+| **Xero → PT Bank Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates draft PayTrade bank accounts for any unmapped Xero bank accounts. Draft accounts require additional details (account type, financial institution, opening date, etc.) before they become active |
+
+These toggles are found at the bottom of the Xero Settings page under the sync preferences section.
+
 #### Other Settings
 - **Reference Format:** Customise the reference prefix for synced documents
 - **Webhook Wait Time:** Delay (0–60 minutes) for background sync processing
@@ -815,6 +830,9 @@ Each mapping module follows the same pattern with three tabs:
 #### Bank Account Mapping
 - Links Xero bank accounts to PayTrade Cash Accounts, Project Trust Accounts (PTA), or Retention Trust Accounts (RTA)
 - Critical for invoice/bill sync — the correct trust account must be linked
+- **Create in Xero button:** On the PayTrade Bank Accounts tab, each unmapped row has a "Create in Xero" action button (plus icon). Clicking it shows a confirmation prompt, then creates the corresponding bank account in Xero and auto-maps it.
+- **Create in PayTrade button:** On the Xero Bank Accounts tab, each unmapped row has a "Create in PayTrade" action button (plus icon). Clicking it shows a confirmation prompt, then creates a draft bank account in PayTrade. Draft accounts may require additional details before becoming fully active.
+- **Xero prompt on bank account save:** When a user saves a new bank account while Xero is connected, the system prompts: "Would you like to also create this account in Xero?" Choosing Yes immediately creates the account in Xero. Choosing No marks the account to skip automatic creation by the scheduler. Dismissing the prompt leaves the account eligible for auto-creation if the toggle is enabled.
 
 #### Contact Mapping
 - Links Xero contacts to PayTrade clients and suppliers
@@ -920,6 +938,13 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
 - Iterates through all active integrations
 - Performs a full refresh: accounts → contacts → projects → contracts → invoices
 
+#### Hourly Bank Account Auto-Create
+- Runs **every hour** (on the hour) via `XeroSchedulerService`
+- For each active integration with the relevant toggle enabled:
+  - **PT → Xero:** Finds unmapped PayTrade bank accounts (excluding those the user declined via the save prompt) and creates them in Xero automatically
+  - **Xero → PT:** Finds unmapped Xero bank accounts and creates them in PayTrade as draft accounts. A sync log entry is created with a "missing fields" status so the user can complete the required details (account type, financial institution, opening date, etc.) via the Resolve workflow on the Sync Log Details page
+- Accounts that were explicitly declined ("No" at the Xero prompt on save) are marked with `skip_xero_auto_create` and excluded from the scheduler
+
 #### Real-Time Sync from Xero
 - When changes are made in Xero (new contacts, updated invoices, payments applied), PayTrade is notified automatically
 - Changes to contacts, invoices, and bills are synced in near-real-time
@@ -946,6 +971,7 @@ When a sync fails, the Sync Log Details page shows a **"Resolve"** button. Click
 | **Unmapped project** | Select the matching PayTrade project from a dropdown |
 | **Unmapped contract** | Select the matching PayTrade contract from a dropdown (only when smart resolution cannot determine it — see 19.5) |
 | **Unmapped bank account** | Select the matching PayTrade bank account from a dropdown |
+| **Bank account missing fields** | A form appears to complete the draft bank account details: account type, financial institution, opening date, delegate powers, and trust-specific fields if applicable. This occurs when Xero auto-creates a draft bank account in PayTrade that needs additional information |
 | **Missing or invalid account codes** | Redirected to Xero Settings to correct the chart of accounts configuration |
 | **Missing required fields** | Redirected to the relevant edit page to fill in the missing data |
 | **Overpayment details missing** | Prompted to provide the missing overpayment information |
