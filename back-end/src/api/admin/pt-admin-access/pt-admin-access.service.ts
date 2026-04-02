@@ -1904,19 +1904,34 @@ export class PtAdminAccessService {
 
       const oldUserId = data.user.user_id;
 
-      // [Replit Update 2026-04-02] Use raw SQL via runner.query() to guarantee all inserts share the same transaction
-      const userColumns = Object.keys(userData);
-      const userValues = Object.values(userData);
-      const userPlaceholders = userColumns.map((_, i) => `$${i + 1}`).join(', ');
-      const userColList = userColumns.map(c => `"${c}"`).join(', ');
+      // [Replit Update 2026-04-02] Use raw SQL via runner.query() to guarantee all inserts
+      // share the same DB connection and transaction. TypeORM's EntityManager methods
+      // (insert/save/findOne) were silently using separate connections, causing FK violations.
+      // JSON columns (email_preferences) must be stringified for raw parameterized queries.
+      const jsonColumns = new Set(['email_preferences']);
+      const prepareValues = (data: Record<string, any>) => {
+        const columns = Object.keys(data);
+        const values = columns.map(col =>
+          jsonColumns.has(col) && data[col] !== null && typeof data[col] === 'object'
+            ? JSON.stringify(data[col])
+            : data[col],
+        );
+        const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+        const colList = columns.map(c => `"${c}"`).join(', ');
+        return { columns, values, placeholders, colList };
+      };
+
+      const { values: userVals, placeholders: userPh, colList: userCols } = prepareValues(userData);
+      this.logger.log(`Inserting user with columns: ${userCols}`);
       const userResult = await runner.query(
-        `INSERT INTO "user_details" (${userColList}) VALUES (${userPlaceholders}) RETURNING "user_id"`,
-        userValues,
+        `INSERT INTO "user_details" (${userCols}) VALUES (${userPh}) RETURNING "user_id"`,
+        userVals,
       );
       const newUserId = userResult[0]?.user_id;
       if (!newUserId) {
-        throw new Error('Failed to retrieve generated user_id after insert');
+        throw new Error(`Failed to retrieve generated user_id after insert. Result: ${JSON.stringify(userResult)}`);
       }
+      this.logger.log(`User inserted with user_id=${newUserId}`);
 
       const companyIdMap: Record<number, number> = {};
       const warnings: string[] = [];
@@ -1965,19 +1980,18 @@ export class PtAdminAccessService {
         companyData.created_on = new Date();
         companyData.updated_on = new Date();
 
-        const companyColumns = Object.keys(companyData);
-        const companyValues = Object.values(companyData);
-        const companyPlaceholders = companyColumns.map((_, i) => `$${i + 1}`).join(', ');
-        const companyColList = companyColumns.map(c => `"${c}"`).join(', ');
+        const { values: compVals, placeholders: compPh, colList: compCols } = prepareValues(companyData);
+        this.logger.log(`Inserting company "${company.company_name}" with columns: ${compCols}`);
         const companyResult = await runner.query(
-          `INSERT INTO "company_details" (${companyColList}) VALUES (${companyPlaceholders}) RETURNING "company_id"`,
-          companyValues,
+          `INSERT INTO "company_details" (${compCols}) VALUES (${compPh}) RETURNING "company_id"`,
+          compVals,
         );
         const newCompanyId = companyResult[0]?.company_id;
         if (!newCompanyId) {
-          warnings.push(`Failed to retrieve company_id for "${company.company_name}", skipping mapping`);
+          warnings.push(`Failed to retrieve company_id for "${company.company_name}". Result: ${JSON.stringify(companyResult)}`);
           continue;
         }
+        this.logger.log(`Company "${company.company_name}" inserted with company_id=${newCompanyId}`);
         companyIdMap[company.company_id] = newCompanyId;
       }
 
@@ -1992,7 +2006,7 @@ export class PtAdminAccessService {
         }
 
         const existingRoles = await runner.query(
-          `SELECT "id" FROM "company_user_roles" WHERE "user_id" = $1 AND "company_id" = $2 LIMIT 1`,
+          `SELECT "user_id" FROM "company_user_roles" WHERE "user_id" = $1 AND "company_id" = $2 LIMIT 1`,
           [newUserId, newCompanyId],
         );
         if (existingRoles.length > 0) {
@@ -2019,14 +2033,13 @@ export class PtAdminAccessService {
         roleData.created_on = new Date();
         roleData.updated_on = new Date();
 
-        const roleColumns = Object.keys(roleData);
-        const roleValues = Object.values(roleData);
-        const rolePlaceholders = roleColumns.map((_, i) => `$${i + 1}`).join(', ');
-        const roleColList = roleColumns.map(c => `"${c}"`).join(', ');
+        const { values: roleVals, placeholders: rolePh, colList: roleCols } = prepareValues(roleData);
+        this.logger.log(`Inserting role: user_id=${newUserId}, company_id=${newCompanyId}, columns: ${roleCols}`);
         await runner.query(
-          `INSERT INTO "company_user_roles" (${roleColList}) VALUES (${rolePlaceholders})`,
-          roleValues,
+          `INSERT INTO "company_user_roles" (${roleCols}) VALUES (${rolePh})`,
+          roleVals,
         );
+        this.logger.log(`Role inserted for user_id=${newUserId}, company_id=${newCompanyId}`);
         rolesCreated++;
       }
 
@@ -2070,14 +2083,13 @@ export class PtAdminAccessService {
         subData.created_on = new Date();
         subData.updated_on = new Date();
 
-        const subColumns = Object.keys(subData);
-        const subValues = Object.values(subData);
-        const subPlaceholders = subColumns.map((_, i) => `$${i + 1}`).join(', ');
-        const subColList = subColumns.map(c => `"${c}"`).join(', ');
+        const { values: subVals, placeholders: subPh, colList: subCols } = prepareValues(subData);
+        this.logger.log(`Inserting subscription for company_id=${newCompanyId}, columns: ${subCols}`);
         await runner.query(
-          `INSERT INTO "subscription_details" (${subColList}) VALUES (${subPlaceholders})`,
-          subValues,
+          `INSERT INTO "subscription_details" (${subCols}) VALUES (${subPh})`,
+          subVals,
         );
+        this.logger.log(`Subscription inserted for company_id=${newCompanyId}`);
         subscriptionsCreated++;
       }
 
