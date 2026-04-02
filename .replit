@@ -72,3 +72,11 @@ build = ["bash", "build-production.sh"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-955fa95e-cfbd-48f9-9426-0d3a9ee63b30"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 6379
+externalPort = 80

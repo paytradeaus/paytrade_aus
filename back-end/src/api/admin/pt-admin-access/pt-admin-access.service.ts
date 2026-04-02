@@ -1888,7 +1888,7 @@ export class PtAdminAccessService {
           userData[field] = data.user[field];
         }
       }
-      userData.user_status = 'Pending';
+      userData.user_status = data.user.user_status || 'Active';
       userData.user_role = data.user.user_role || 'BASIC USER';
       userData.is_verified = false;
       userData.is_admin_added = true;
