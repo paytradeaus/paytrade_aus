@@ -1274,86 +1274,84 @@ export default function XeroSettings() {
                       }
                     />
                   </div>
-                  <div style={{ gridColumn: "1 / -1", marginBottom: "8px" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={simplifiedRetention}
-                        onChange={(e) => {
-                          setSimplifiedRetention(e.target.checked);
-                          if (e.target.checked) {
-                            settingsFormik?.setFieldValue("liability_payable_code", "");
-                            settingsFormik?.setFieldValue("liability_receivable_code", "");
-                          }
-                        }}
-                      />
-                      <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                        Use simplified retention accounting (no liability accounts)
-                      </span>
-                    </label>
-                    <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0 26px", lineHeight: "1.4" }}>
-                      When enabled, retention claims sync to Xero with 2 line items instead of 3. 
-                      The liability for defects accounts are not required and will not be used during sync.
-                    </p>
-                  </div>
-                  {!simplifiedRetention && (
-                    <>
-                      <div>
-                        <h5>
-                          Liability payable code<span className="required">*</span>
-                          {"\u00A0".repeat(30)}
-                        </h5>
-                        <FormikControl
-                          control={InputType.SELECT}
-                          name={"paymentToAccount"}
-                          renderKey={"displayName"}
-                          valueKey={"code"}
-                          placeholder=""
-                          onChange={(e: any) => {
-                            settingsFormik?.setFieldValue(
-                              "liability_payable_code",
-                              e
-                            );
-                          }}
-                          value={settingsFormik.values.liability_payable_code}
-                          options={accountCodesList}
-                          showError={
-                            settingsFormik.touched.liability_payable_code &&
-                            settingsFormik.errors.liability_payable_code
-                          }
-                          error={settingsFormik?.errors?.liability_payable_code}
-                        />
-                      </div>
-                      <div>
-                        <h5>
-                          Liability Receivable code
-                          <span className="required">*</span>
-                          {"\u00A0".repeat(28)}
-                        </h5>
-                        <FormikControl
-                          control={InputType.SELECT}
-                          name={"paymentToAccount"}
-                          renderKey={"displayName"}
-                          valueKey={"code"}
-                          placeholder=""
-                          onChange={(e: any) => {
-                            settingsFormik?.setFieldValue(
-                              "liability_receivable_code",
-                              e
-                            );
-                          }}
-                          value={settingsFormik.values.liability_receivable_code}
-                          options={accountCodesList}
-                          showError={
-                            settingsFormik.touched.liability_receivable_code &&
-                            settingsFormik.errors.liability_receivable_code
-                          }
-                          error={settingsFormik?.errors?.liability_receivable_code}
-                        />
-                      </div>
-                    </>
-                  )}
                 </div>
+                <div style={{ marginBottom: "8px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={simplifiedRetention}
+                      onChange={(e) => {
+                        setSimplifiedRetention(e.target.checked);
+                        if (e.target.checked) {
+                          settingsFormik?.setFieldValue("liability_payable_code", "");
+                          settingsFormik?.setFieldValue("liability_receivable_code", "");
+                        }
+                      }}
+                    />
+                    <span style={{ fontSize: "13px", fontWeight: 500 }}>
+                      Use simplified retention accounting (no liability accounts)
+                    </span>
+                  </label>
+                  <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0 26px", lineHeight: "1.4" }}>
+                    When enabled, retention claims sync to Xero with 2 line items instead of 3.
+                    The liability for defects accounts are not required and will not be used during sync.
+                  </p>
+                </div>
+                {!simplifiedRetention && (
+                  <div className="grid pt_infocol">
+                    <div>
+                      <h5>
+                        Liability payable code<span className="required">*</span>
+                      </h5>
+                      <FormikControl
+                        control={InputType.SELECT}
+                        name={"paymentToAccount"}
+                        renderKey={"displayName"}
+                        valueKey={"code"}
+                        placeholder=""
+                        onChange={(e: any) => {
+                          settingsFormik?.setFieldValue(
+                            "liability_payable_code",
+                            e
+                          );
+                        }}
+                        value={settingsFormik.values.liability_payable_code}
+                        options={accountCodesList}
+                        showError={
+                          settingsFormik.touched.liability_payable_code &&
+                          settingsFormik.errors.liability_payable_code
+                        }
+                        error={settingsFormik?.errors?.liability_payable_code}
+                      />
+                    </div>
+                    <div>
+                      <h5>
+                        Liability Receivable code
+                        <span className="required">*</span>
+                      </h5>
+                      <FormikControl
+                        control={InputType.SELECT}
+                        name={"paymentToAccount"}
+                        renderKey={"displayName"}
+                        valueKey={"code"}
+                        placeholder=""
+                        onChange={(e: any) => {
+                          settingsFormik?.setFieldValue(
+                            "liability_receivable_code",
+                            e
+                          );
+                        }}
+                        value={settingsFormik.values.liability_receivable_code}
+                        options={accountCodesList}
+                        showError={
+                          settingsFormik.touched.liability_receivable_code &&
+                          settingsFormik.errors.liability_receivable_code
+                        }
+                        error={settingsFormik?.errors?.liability_receivable_code}
+                      />
+                    </div>
+                  </div>
+                )
                 <div className="grid pt_infocol">
                   <div>
                     <h5>
