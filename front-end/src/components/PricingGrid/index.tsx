@@ -79,6 +79,13 @@ const COLORS = {
   red: "#e74c3c",
 };
 
+const FALLBACK_COLUMNS: { key: string; label: string; plan: any }[] = [
+  { key: "basic", label: "Basic", plan: null },
+  { key: "standard", label: "Standard", plan: null },
+  { key: "advanced", label: "Advanced", plan: null },
+  { key: "pro-audit", label: "Pro Audit", plan: null },
+];
+
 const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, isYearly }) => {
   const [apiPricingFeatures, setApiPricingFeatures] = useState<any[] | null>(null);
   const getTheme: any = useAppSelector(
@@ -103,13 +110,6 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
   }, []);
 
   const isLightTheme = () => getTheme === "light";
-
-  const FALLBACK_COLUMNS = [
-    { key: "basic", label: "Basic", plan: null },
-    { key: "standard", label: "Standard", plan: null },
-    { key: "advanced", label: "Advanced", plan: null },
-    { key: "pro-audit", label: "Pro Audit", plan: null },
-  ];
 
   const columns = useMemo(() => {
     if (!subscriptionPlanTypes) return FALLBACK_COLUMNS;
@@ -208,7 +208,7 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
   }, [columns, apiPricingFeatures, subscriptionPlanTypes, isYearly]);
 
   function getFallbackPrice(colKey: string): string {
-    const legacyPriceRow = subscriptionPlanFeatures[0];
+    const legacyPriceRow = subscriptionPlanFeatures[0] as Record<string, any>;
     const keyMap: Record<string, string> = {
       "basic": "basicText",
       "standard": "standardText",
