@@ -455,6 +455,25 @@ export default function XeroSettings() {
       return false;
     },
   });
+  const suggestedAccounts = [
+    { label: "Invoice Code", account_type: "REVENUE", accountTypeLabel: "Revenue", code: "200", account_name: "Sales Revenue", description: "Revenue from invoices sent via PayTrade" },
+    { label: "Bill Code", account_type: "DIRECTCOSTS", accountTypeLabel: "Direct Costs", code: "400", account_name: "Cost of Sales", description: "Expenses from bills received via PayTrade" },
+    { label: "Retention Payable Retained", account_type: "CURRLIAB", accountTypeLabel: "Current Liability", code: "500", account_name: "Retention Held", description: "Retention amounts you are holding (payable)" },
+    { label: "Retention Payable Release", account_type: "CURRLIAB", accountTypeLabel: "Current Liability", code: "502", account_name: "Retention Released", description: "Retention amounts released to subcontractors" },
+    { label: "Retention Receivable Retained", account_type: "CURRENT", accountTypeLabel: "Current Asset", code: "503", account_name: "Retention Receivable Held", description: "Retention amounts held from you by others" },
+    { label: "Retention Receivable Release", account_type: "CURRENT", accountTypeLabel: "Current Asset", code: "504", account_name: "Retention Receivable Released", description: "Retention amounts released back to you" },
+    { label: "Liability Payable", account_type: "CURRLIAB", accountTypeLabel: "Current Liability", code: "501", account_name: "Current Liability", description: "Payable liabilities during defects period" },
+    { label: "Liability Receivable", account_type: "CURRENT", accountTypeLabel: "Current Asset", code: "506", account_name: "Receivable Liability", description: "Receivable liabilities during defects period" },
+  ];
+
+  function prefillAccount(preset: typeof suggestedAccounts[0]) {
+    addNewAccountFormik.setFieldValue("account_type", preset.account_type);
+    addNewAccountFormik.setFieldValue("code", preset.code);
+    addNewAccountFormik.setFieldValue("account_name", preset.account_name);
+    addNewAccountFormik.setFieldValue("description", preset.description);
+    setAccountType({ value: preset.account_type, label: preset.accountTypeLabel } as any);
+  }
+
   const [reportTaxType, setReportTaxType] = useState("");
 
   const ValidationSchema = (report_tax_type: string) =>
@@ -1640,6 +1659,29 @@ export default function XeroSettings() {
           disableFirstButton={disableSave}
         >
           <div>
+            <div style={{ marginBottom: "12px" }}>
+              <h5 style={{ marginBottom: "6px" }}>Quick add</h5>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {suggestedAccounts.map((preset) => (
+                  <button
+                    key={preset.code}
+                    type="button"
+                    onClick={() => prefillAccount(preset)}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      background: "#f5f7fa",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{ marginBottom: "10px" }}>
               <h5>
                 Account Type <span className="required">*</span>
