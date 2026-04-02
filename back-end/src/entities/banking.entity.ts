@@ -158,6 +158,9 @@ export class BankAccounts {
   @Column({ default: false })
   added_by_client_supplier: Boolean;
 
+  @Column({ type: 'boolean', default: false })
+  skip_xero_auto_create: boolean;
+
   @Column({ type: 'bigint', nullable: true })
   associated_cash_account_id: number;
 

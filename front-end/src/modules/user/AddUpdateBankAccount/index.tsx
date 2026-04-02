@@ -43,8 +43,10 @@ import {
   projectArraysCompare,
   SendMailForNotices,
   SendQbccMailForNotices,
+  skipXeroAutoCreate,
   TriggerAccountNotices,
 } from "./AddUpdateBankAccount.function";
+import { CreateBankAccountsInXero, getXeroDetailsForCompany } from "../UserIntegrations/integration.functions";
 import {
   getClientSupplierLists,
   getProjectsLists,
@@ -155,6 +157,10 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   const [noticeMailUuids, setNoticeMailUuids] = useState<string[]>([]);
   const [qbccNoticeFiles, setQbccNoticeFiles] = useState<any[]>([]);
   const [qbccNoticeUuids, setQbccNoticeUuids] = useState<string[]>([]);
+  const [showXeroConfirm, setShowXeroConfirm] = useState(false);
+  const [pendingXeroBankId, setPendingXeroBankId] = useState<number | null>(null);
+  const [pendingRoute, setPendingRoute] = useState<string>("");
+  const [xeroCreating, setXeroCreating] = useState(false);
   const [timeLeft, setTimeLeft] = useState(AUTO_CLOSE_TIME);
   const progressPercent =
     ((AUTO_CLOSE_TIME - timeLeft) / AUTO_CLOSE_TIME) * 100;
@@ -1425,7 +1431,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                 if (syncId) {
                   handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
                 } else {
-                  handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                  await checkXeroAndRoute(response?.bank_account_id, AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
                 }
                 return;
               } else {
@@ -1436,7 +1442,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                   if (syncId) {
                     handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
                   } else {
-                    handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                    await checkXeroAndRoute(response?.bank_account_id, AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
                   }
                   return;
                 }
@@ -1445,7 +1451,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
               if (syncId) {
                 handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
               } else {
-                handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+                await checkXeroAndRoute(response?.bank_account_id, AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
               }
               return;
             }
@@ -1456,7 +1462,6 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         } else {
           let response;
           if (ErrorCode === "SCHEDULER_BANK_MISSING_FIELDS") {
-            // 🔁 Special case: call the scheduler API
             response = await CreateOrUpdateAccountInPaytrade(
               {
                 syncId,
@@ -1490,7 +1495,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
             if (syncId) {
               handleRoute(AppRoutes.USER_SYNC_LOG + syncId);
             } else {
-              handleRoute(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+              await checkXeroAndRoute(response?.bank_account_id, AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
             }
             return;
           } else {
@@ -1594,13 +1599,47 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
     setNoticeMailUuids([]);
   };
 
-  // function handleDelegateStatus(selectedOption: any) {
-  //   if (selectedOption.value === "Yes" && planName === "Basic") {
-  //     setOpenModal(true);
-  //   } else {
-  //     formik.handleChange("DelegateStatus")(selectedOption?.value);
-  //   }
-  // }
+  const checkXeroAndRoute = async (
+    bankAccountId: number,
+    targetRoute: string
+  ) => {
+    try {
+      const xeroDetails = await getXeroDetailsForCompany();
+      if (
+        xeroDetails?.integration_status === "Connected - active" &&
+        xeroDetails?.pt_to_xero_bank_auto_create === true
+      ) {
+        setPendingXeroBankId(bankAccountId);
+        setPendingRoute(targetRoute);
+        setShowXeroConfirm(true);
+        setLoader(false);
+        return;
+      }
+    } catch {}
+    handleRoute(targetRoute);
+  };
+
+  const handleXeroConfirmYes = async () => {
+    if (!pendingXeroBankId) return;
+    setXeroCreating(true);
+    await CreateBankAccountsInXero({ bankAccountId: pendingXeroBankId });
+    setXeroCreating(false);
+    setShowXeroConfirm(false);
+    handleRoute(pendingRoute || AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+  };
+
+  const handleXeroConfirmNo = async () => {
+    if (pendingXeroBankId) {
+      await skipXeroAutoCreate(pendingXeroBankId);
+    }
+    setShowXeroConfirm(false);
+    handleRoute(pendingRoute || AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+  };
+
+  const handleXeroConfirmDismiss = () => {
+    setShowXeroConfirm(false);
+    handleRoute(pendingRoute || AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+  };
 
   async function handleDelegateStatus(selectedOption: any) {
     if (selectedOption.value === "Yes") {
@@ -2699,6 +2738,32 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
               ))}
             </>
           )}
+        </BaseModal>
+      )}
+      {showXeroConfirm && (
+        <BaseModal
+          modalId="xero-bank-create-confirm"
+          displayModal={showXeroConfirm}
+          onHeaderIconClose={handleXeroConfirmDismiss}
+          restrictOncloseFunctionInHeader
+          title="Create in Xero?"
+          onClose={handleXeroConfirmNo}
+          onConfirm={() => {
+            handleXeroConfirmYes();
+            return true;
+          }}
+          firstButtonName="No, skip"
+          secondButtonName={xeroCreating ? "Creating..." : "Yes, create now"}
+        >
+          <h4 className="text_center">
+            Your Xero integration is active with automatic bank account sync
+            enabled. Would you like to create this bank account in Xero now?
+          </h4>
+          <p className="text_center" style={{ marginTop: "8px", color: "#666" }}>
+            If you skip, you can still create it manually from the Xero Bank
+            Accounts sync page. The automatic scheduler will not retry skipped
+            accounts.
+          </p>
         </BaseModal>
       )}
     </Fragment>

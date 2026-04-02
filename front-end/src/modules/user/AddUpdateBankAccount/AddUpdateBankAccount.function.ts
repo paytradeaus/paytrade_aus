@@ -7,6 +7,29 @@ import { apolloClient } from "@/network/apolloClient";
 import { ApiResponse } from "@/shared/constant/messages";
 
 import { gql } from "@apollo/client";
+
+export const skipXeroAutoCreate = async (
+  bankAccountId: number
+): Promise<boolean> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation SkipXeroAutoCreate($bankAccountId: Float!) {
+          skipXeroAutoCreate(bank_account_id: $bankAccountId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { bankAccountId },
+    });
+    return (
+      response?.data?.skipXeroAutoCreate?.status === ApiResponse.SUCCESS
+    );
+  } catch {
+    return false;
+  }
+};
 import { IBankTrustAccountDetails } from "../BankAccounts/bankTrustAccount.types";
 
 export interface BankAccount {

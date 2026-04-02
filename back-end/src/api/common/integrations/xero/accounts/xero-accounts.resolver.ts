@@ -625,6 +625,31 @@ export class XeroAccountsResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {
+    name: 'skipXeroAutoCreate',
+    description: 'Marks a bank account to skip automatic creation in Xero.',
+  })
+  async skipXeroAutoCreate(
+    @Context() context,
+    @Args('bank_account_id', { description: 'The PayTrade bank account ID' })
+    bank_account_id: number,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      return await this.xeroAccountsService.markSkipXeroAutoCreate(
+        decoded,
+        bank_account_id,
+      );
+    } catch (error) {
+      return framedResponse(
+        'ERROR',
+        error?.message ? error.message : error,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
     name: 'completeBankAccountDraft',
     description: 'Completes a draft bank account with the required missing fields and activates it.',
   })

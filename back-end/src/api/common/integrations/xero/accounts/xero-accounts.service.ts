@@ -2554,6 +2554,22 @@ export class XeroAccountsService {
     }
   }
 
+  async markSkipXeroAutoCreate(decoded: any, bank_account_id: number) {
+    const userCompanyId = decoded?.companyId;
+    if (!userCompanyId) throw `Unauthorized: company context missing`;
+
+    const result = await this.accountDetails.update(
+      { bank_account_id, company_id: userCompanyId },
+      { skip_xero_auto_create: true },
+    );
+
+    if (!result.affected || result.affected === 0) {
+      return framedResponse('ERROR', 'Bank account not found or does not belong to your company');
+    }
+
+    return framedResponse('SUCCESS', 'Bank account marked to skip auto-create in Xero');
+  }
+
   async getIntegrationDetails(company_id) {
     return await this.xeroIntegrationDetails.findOne({
       where: { company_id, status: 'ACTIVE' },

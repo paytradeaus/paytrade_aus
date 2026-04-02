@@ -14778,6 +14778,12 @@ type Mutation {
     company_id: Float!
   ): StringResponse!
 
+  """Marks a bank account to skip automatic creation in Xero."""
+  skipXeroAutoCreate(
+    """The PayTrade bank account ID"""
+    bank_account_id: Float!
+  ): StringResponse!
+
   """
   Allow a public user to submit a contact request after successful reCAPTCHA verification.
   """

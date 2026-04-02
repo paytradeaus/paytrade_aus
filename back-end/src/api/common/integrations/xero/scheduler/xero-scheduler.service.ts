@@ -214,7 +214,7 @@ export class XeroSchedulerService {
   // @Cron('45 11 * * *', {
   //   timeZone: 'Australia/Sydney',
   // })
-  @Cron('0 13 * * *', { timeZone: 'UTC' })
+  @Cron('0 * * * *', { timeZone: 'UTC' })
   async checkAndRunJobs() {
     try {
       this.logger.log('Starts');
@@ -640,7 +640,7 @@ export class XeroSchedulerService {
           });
 
           const unmappedPtAccounts = allPtAccounts.filter(
-            (a) => !mappedPtIds.has(a.bank_account_id),
+            (a) => !mappedPtIds.has(a.bank_account_id) && !a.skip_xero_auto_create,
           );
 
           for (const ptAccount of unmappedPtAccounts) {
