@@ -84,10 +84,10 @@ export default function XeroBankAccount() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to xero",
-      icon: "fa-light fa-angle-double-right",
-      onClick: (row: any) => handleOptionClick(row, "Sync to xero"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in Xero",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in Xero"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const xeroBankAccountsActions = [
@@ -98,10 +98,10 @@ export default function XeroBankAccount() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to paytrade",
-      icon: "fa-light fa-angle-double-left",
-      onClick: (row: any) => handleOptionClick(row, "Sync to paytrade"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in PayTrade",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in PayTrade"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const mappedBankAccountsActions = [
@@ -211,14 +211,13 @@ export default function XeroBankAccount() {
     return {
       contacts:
         data?.account_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.account_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && val.account_status?.toLocaleLowerCase() !== "draft",
+              manual: isUnmapped,
+              createIcon: isUnmapped,
             },
           };
         }) || [],
@@ -250,14 +249,14 @@ export default function XeroBankAccount() {
     return {
       contacts:
         data?.account_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.account_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.account_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped && isNotDraft,
             },
           };
         }) || [],
@@ -339,36 +338,38 @@ export default function XeroBankAccount() {
       setShowManualMapping(true);
     } else if (
       tabStatus === "Paytrade bank accounts" &&
-      label === "Sync to xero"
+      label === "Create in Xero"
     ) {
-      setTableLoader(true);
-      await CreateBankAccountsInXero({ bankAccountId: +row?.account_id });
-      const { contacts, totalCount } = await fetchPaytradeBankAccounts(
-        currentPage,
-        entriesPerPage,
-        search,
-        sortValues,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in Xero",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.account_name}</b> in Xero?
+          </>
+        ),
+        id: "Create_in_xero?",
+      });
     } else if (
       tabStatus === "Xero bank accounts" &&
-      label === "Sync to paytrade"
+      label === "Create in PayTrade"
     ) {
-      setTableLoader(true);
-      await CreateBankAccountsInPaytrade({
-        companyId: +(localStorage.getItem("companyId") || 0),
-        accountId: row?.account_id,
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in PayTrade",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.account_name}</b> in PayTrade?
+          </>
+        ),
+        id: "Create_in_paytrade?",
       });
-      const { contacts, totalCount } = await fetchXeroBankAccounts(
-        currentPage,
-        entriesPerPage,
-        search,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
     }
   };
 
@@ -407,6 +408,36 @@ export default function XeroBankAccount() {
     setTotalRows(totalCount);
   };
 
+  const handleCreateInXero = async () => {
+    setTableLoader(true);
+    await CreateBankAccountsInXero({ bankAccountId: +selectedContact?.account_id });
+    const { contacts, totalCount } = await fetchPaytradeBankAccounts(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleCreateInPaytrade = async () => {
+    setTableLoader(true);
+    await CreateBankAccountsInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+      accountId: selectedContact?.account_id,
+    });
+    const { contacts, totalCount } = await fetchXeroBankAccounts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
   const modelClose = () => {
     if (modelConfig.id === "Sync_xero_bankAccounts?") {
       syncXeroBankAccounts();
@@ -414,6 +445,10 @@ export default function XeroBankAccount() {
       handleAutoMappingBankAccounts();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapBankAccounts();
+    } else if (modelConfig.id === "Create_in_xero?") {
+      handleCreateInXero();
+    } else if (modelConfig.id === "Create_in_paytrade?") {
+      handleCreateInPaytrade();
     }
   };
 
