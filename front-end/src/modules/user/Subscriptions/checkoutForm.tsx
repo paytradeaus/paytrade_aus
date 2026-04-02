@@ -83,8 +83,9 @@ const CheckoutForm = ({ hideCardValidationButton }: any) => {
         <CardElement
           className="stripeCardElement"
           id="stripeCardElement"
-          onChange={() => {
-            if (displayBillingDetails) {
+          onChange={(event) => {
+            // [Replit Update 2026-04-02] Only auto-submit when card input is complete, not on every keystroke
+            if (displayBillingDetails && event.complete) {
               cardButtonRef.current.click();
             }
           }}
