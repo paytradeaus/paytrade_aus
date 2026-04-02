@@ -25,10 +25,6 @@ NEXT_PUBLIC_DEPLOYED_URL = "https://1916bc7e-fc49-48b0-a4f8-2f1339e15b69-00-39yc
 NEXT_PUBLIC_DEPLOYED_URL = "https://paytrade.app/"
 DEPLOYED_URL = "https://paytrade.app/"
 
-[[ports]]
-localPort = 5000
-externalPort = 80
-
 [workflows]
 runButton = "Project"
 
