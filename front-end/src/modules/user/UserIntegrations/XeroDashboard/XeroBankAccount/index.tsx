@@ -541,8 +541,7 @@ export default function XeroBankAccount() {
     setManualMapData("");
   };
   const checkActionCondition = () => {
-    const inactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
-    const isConnected = xeroData?.integration_status && !inactiveStatuses.includes(xeroData.integration_status);
+    const isConnected = xeroData?.status === "ACTIVE";
     const actionMapping: any = {
       "Mapped bank accounts": mappedBankAccountsActions,
       "Xero bank accounts": isConnected
