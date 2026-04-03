@@ -416,6 +416,8 @@ export class XeroService {
           'x.simplified_retention_accounting AS simplified_retention_accounting',
           'x.pt_to_xero_bank_auto_create AS pt_to_xero_bank_auto_create',
           'x.xero_to_pt_bank_auto_create AS xero_to_pt_bank_auto_create',
+          'x.pt_to_xero_contact_auto_create AS pt_to_xero_contact_auto_create',
+          'x.xero_to_pt_contact_auto_create AS xero_to_pt_contact_auto_create',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -1800,6 +1802,12 @@ export class XeroService {
       }
       if (data.xero_to_pt_bank_auto_create !== undefined) {
         xeroDetails.xero_to_pt_bank_auto_create = data.xero_to_pt_bank_auto_create;
+      }
+      if (data.pt_to_xero_contact_auto_create !== undefined) {
+        xeroDetails.pt_to_xero_contact_auto_create = data.pt_to_xero_contact_auto_create;
+      }
+      if (data.xero_to_pt_contact_auto_create !== undefined) {
+        xeroDetails.xero_to_pt_contact_auto_create = data.xero_to_pt_contact_auto_create;
       }
       xeroDetails.bill_tax_code = data.bill_tax_code;
       xeroDetails.invoice_tax_code = data.invoice_tax_code;

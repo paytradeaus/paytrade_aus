@@ -283,6 +283,8 @@ export const getXeroDetailsForCompany = async (
               simplified_retention_accounting
               pt_to_xero_bank_auto_create
               xero_to_pt_bank_auto_create
+              pt_to_xero_contact_auto_create
+              xero_to_pt_contact_auto_create
               project_category_id
               project_category_name
               pt_to_xero_bill_as_draft

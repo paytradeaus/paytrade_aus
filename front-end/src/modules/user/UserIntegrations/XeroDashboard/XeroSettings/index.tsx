@@ -96,6 +96,8 @@ export default function XeroSettings() {
       setInitialPtToXeroBankAutoCreate(!!data?.pt_to_xero_bank_auto_create);
       setXeroToPtBankAutoCreate(!!data?.xero_to_pt_bank_auto_create);
       setInitialXeroToPtBankAutoCreate(!!data?.xero_to_pt_bank_auto_create);
+      setPtToXeroContactAutoCreate(!!data?.pt_to_xero_contact_auto_create);
+      setXeroToPtContactAutoCreate(!!data?.xero_to_pt_contact_auto_create);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -166,6 +168,8 @@ export default function XeroSettings() {
   const [initialPtToXeroBankAutoCreate, setInitialPtToXeroBankAutoCreate] = useState(false);
   const [xeroToPtBankAutoCreate, setXeroToPtBankAutoCreate] = useState(false);
   const [initialXeroToPtBankAutoCreate, setInitialXeroToPtBankAutoCreate] = useState(false);
+  const [ptToXeroContactAutoCreate, setPtToXeroContactAutoCreate] = useState(false);
+  const [xeroToPtContactAutoCreate, setXeroToPtContactAutoCreate] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -277,6 +281,8 @@ export default function XeroSettings() {
         simplified_retention_accounting: simplifiedRetention,
         pt_to_xero_bank_auto_create: ptToXeroBankAutoCreate,
         xero_to_pt_bank_auto_create: xeroToPtBankAutoCreate,
+        pt_to_xero_contact_auto_create: ptToXeroContactAutoCreate,
+        xero_to_pt_contact_auto_create: xeroToPtContactAutoCreate,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1063,6 +1069,57 @@ export default function XeroSettings() {
                     {xeroToPtBankAutoCreate && (
                       <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
                         Warning: Accounts created from Xero will be in draft status. Any syncs involving these accounts will produce errors until the required fields (account type, financial institution, opening date, etc.) are completed.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Contact auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control whether new contacts (clients and suppliers) are automatically created in the other system when they are added.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create PayTrade contacts in Xero?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new client or supplier is added in PayTrade, they will be automatically created as a contact in Xero during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"pt_to_xero_contact_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setPtToXeroContactAutoCreate(e === "Yes");
+                      }}
+                      value={ptToXeroContactAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                  <div>
+                    <h5>Auto-create Xero contacts in PayTrade?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new contact is found in Xero, they will be created in PayTrade during the next sync. Xero&apos;s customer/supplier flags determine the type.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"xero_to_pt_contact_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setXeroToPtContactAutoCreate(e === "Yes");
+                      }}
+                      value={xeroToPtContactAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                    {xeroToPtContactAutoCreate && (
+                      <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
+                        Note: Contacts marked as &quot;Customer&quot; in Xero will be created as Clients. All others will be created as Suppliers. You can change the type after import.
                       </p>
                     )}
                   </div>

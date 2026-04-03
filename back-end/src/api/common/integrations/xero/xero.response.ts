@@ -145,6 +145,12 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Auto-create new Xero bank accounts in PayTrade (as draft)' })
   xero_to_pt_bank_auto_create: boolean;
 
+  @Field({ nullable: true, description: 'Auto-create new PayTrade contacts in Xero' })
+  pt_to_xero_contact_auto_create: boolean;
+
+  @Field({ nullable: true, description: 'Auto-create new Xero contacts in PayTrade' })
+  xero_to_pt_contact_auto_create: boolean;
+
   @Field({ nullable: true, description: 'Invoice tax code' })
   invoice_tax_code: string;
 

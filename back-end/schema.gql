@@ -20528,6 +20528,9 @@ input UpdateSettingsInput {
   """Sync draft setting for PT to Xero bills"""
   pt_to_xero_bill_as_draft: String
 
+  """Auto-create new PayTrade contacts in Xero"""
+  pt_to_xero_contact_auto_create: Boolean
+
   """Sync draft setting for PT to Xero invoices"""
   pt_to_xero_invoice_as_draft: String
 
@@ -20562,6 +20565,9 @@ input UpdateSettingsInput {
 
   """Sync draft setting for Xero to PT bills"""
   xero_to_pt_bill_as_draft: String
+
+  """Auto-create new Xero contacts in PayTrade"""
+  xero_to_pt_contact_auto_create: Boolean
 
   """Sync draft setting for Xero to PT invoices"""
   xero_to_pt_invoice_as_draft: String
@@ -22000,6 +22006,9 @@ type XeroResponse {
   """Sync setting for PT to Xero bills as draft"""
   pt_to_xero_bill_as_draft: String
 
+  """Auto-create new PayTrade contacts in Xero"""
+  pt_to_xero_contact_auto_create: Boolean
+
   """Sync setting for PT to Xero invoices as draft"""
   pt_to_xero_invoice_as_draft: String
 
@@ -22046,6 +22055,9 @@ type XeroResponse {
 
   """Sync setting for Xero to PT bills as draft"""
   xero_to_pt_bill_as_draft: String
+
+  """Auto-create new Xero contacts in PayTrade"""
+  xero_to_pt_contact_auto_create: Boolean
 
   """Sync setting for Xero to PT invoices as draft"""
   xero_to_pt_invoice_as_draft: String

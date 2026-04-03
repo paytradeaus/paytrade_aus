@@ -1080,6 +1080,33 @@ export class ClientSuppliersDetailsService {
     });
   }
 
+  async getActiveContactsByCompanyId(company_id: number) {
+    return await this.clientSuppliersDetails.find({
+      where: {
+        company_id,
+        is_deleted: false,
+        client_supplier_status: In(['Completed', 'Draft'] as any),
+      },
+      select: [
+        'client_supplier_id',
+        'client_supplier_name',
+        'client_supplier_type',
+        'client_email_id',
+        'business_name',
+      ],
+    });
+  }
+
+  async findByNameAndCompany(name: string, company_id: number) {
+    return await this.clientSuppliersDetails.findOne({
+      where: {
+        company_id,
+        client_supplier_name: name,
+        is_deleted: false,
+      },
+    });
+  }
+
   async getClientSuppliersListByProjectId(
     getClientSuppliersListForProjectsInput: GetClientSuppliersListForProjectsInput,
     timezone,

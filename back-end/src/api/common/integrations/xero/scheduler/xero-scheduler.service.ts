@@ -1641,6 +1641,172 @@ export class XeroSchedulerService {
             }
           }
 
+          if (xeroDetails.pt_to_xero_contact_auto_create) {
+            const mappedPtContactIds = new Set(
+              (await this.xeroContactDetails.find({
+                where: { integration_id: xeroDetails.integration_id },
+                select: ['pt_contact_id'],
+              }))
+                .map((c) => c.pt_contact_id)
+                .filter(Boolean),
+            );
+
+            const allPtContacts = await this.clientSuppliersDetailsService
+              .getActiveContactsByCompanyId(company_id);
+
+            const unmappedPtContacts = (allPtContacts || []).filter(
+              (c) => !mappedPtContactIds.has(c.client_supplier_id),
+            );
+
+            for (const ptContact of unmappedPtContacts) {
+              try {
+                await this.xeroContactsService.createContact(decoded, {
+                  client_supplier_id: ptContact.client_supplier_id,
+                  mapped_status: 'System',
+                });
+
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 469,
+                  dynamic_values: { contact_name: ptContact.client_supplier_name },
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    paytradeId: ptContact.client_supplier_id,
+                  },
+                  reference_id: null,
+                  history: [
+                    `Auto-created ${ptContact.client_supplier_name} in Xero from PayTrade`,
+                    'Export successful',
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [],
+                  paytrade_records: [ptContact],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } catch (autoCreateErr) {
+                this.logger.error(
+                  `Failed to auto-create PT contact ${ptContact.client_supplier_name} in Xero: ${autoCreateErr}`,
+                );
+              }
+            }
+          }
+
+          if (xeroDetails.xero_to_pt_contact_auto_create) {
+            const unmappedXeroContacts = await this.xeroContactDetails.find({
+              where: {
+                integration_id: xeroDetails.integration_id,
+                pt_contact_id: null as any,
+                contact_status: 'ACTIVE',
+              },
+            });
+
+            for (const xeroContact of unmappedXeroContacts) {
+              try {
+                const contactType = xeroContact.is_customer ? 'Client' : 'Supplier';
+
+                const existingContact = await this.clientSuppliersDetailsService
+                  .findByNameAndCompany(
+                    xeroContact.contact_name,
+                    company_id,
+                  );
+
+                if (existingContact) {
+                  await this.xeroContactDetails
+                    .createQueryBuilder()
+                    .update(XeroContactDetails)
+                    .set({
+                      pt_contact_id: existingContact.client_supplier_id,
+                      mapped_status: 'System',
+                      updated_by: userId,
+                      updated_on: moment.tz('UTC'),
+                      updated_group: createdGroup,
+                    })
+                    .where(
+                      'contact_id = :contact_id AND integration_id = :integration_id',
+                      {
+                        contact_id: xeroContact.contact_id,
+                        integration_id: xeroDetails.integration_id,
+                      },
+                    )
+                    .execute();
+                  continue;
+                }
+
+                const createPayload: any = {
+                  company_id,
+                  client_supplier_name: xeroContact.contact_name,
+                  business_name: xeroContact.contact_name,
+                  client_supplier_type: contactType,
+                  client_supplier_status: 'Completed',
+                  related_entity: 'Individual',
+                  account_details: [],
+                };
+
+                const newContact =
+                  await this.clientSuppliersDetailsService.insertClientSupplierDetails(
+                    decoded,
+                    createPayload,
+                  );
+
+                if (newContact && newContact.client_supplier_id) {
+                  await this.xeroContactDetails
+                    .createQueryBuilder()
+                    .update(XeroContactDetails)
+                    .set({
+                      pt_contact_id: newContact.client_supplier_id,
+                      mapped_status: 'System',
+                      updated_by: userId,
+                      updated_on: moment.tz('UTC'),
+                      updated_group: createdGroup,
+                    })
+                    .where(
+                      'contact_id = :contact_id AND integration_id = :integration_id',
+                      {
+                        contact_id: xeroContact.contact_id,
+                        integration_id: xeroDetails.integration_id,
+                      },
+                    )
+                    .execute();
+
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: 470,
+                    dynamic_values: {
+                      contact_name: xeroContact.contact_name,
+                      contact_type: contactType,
+                    },
+                    project_id: null,
+                    contract_id: null,
+                    reference: {
+                      xeroId: xeroContact.id,
+                      paytradeId: newContact.client_supplier_id,
+                    },
+                    reference_id: xeroContact.id,
+                    history: [
+                      `Auto-created ${xeroContact.contact_name} in PayTrade as ${contactType}`,
+                      'Import successful',
+                    ],
+                    important_checks: {},
+                    error_message: null,
+                    xero_records: [xeroContact],
+                    paytrade_records: [newContact],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
+                }
+              } catch (autoCreateErr) {
+                this.logger.error(
+                  `Failed to auto-create Xero contact ${xeroContact.contact_name} in PayTrade: ${autoCreateErr}`,
+                );
+              }
+            }
+          }
+
           allContacts = await this.xeroContactDetails.find({
             where: { integration_id: xeroDetails.integration_id },
             select: ['contact_id', 'pt_contact_id', 'contact_status'],
