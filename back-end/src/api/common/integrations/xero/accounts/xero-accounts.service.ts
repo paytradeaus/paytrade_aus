@@ -65,6 +65,17 @@ export class XeroAccountsService {
     });
   }
 
+  private readonly INACTIVE_STATUSES = [
+    'Inactive',
+    'Deleted - archived',
+    'Disconnected',
+    'Connected - paused',
+  ];
+
+  private isXeroConnectionUsable(integrationStatus: string): boolean {
+    return !this.INACTIVE_STATUSES.includes(integrationStatus);
+  }
+
   async getAccountsDetails(bank_account_id) {
     return await this.accountDetails.findOne({
       where: { bank_account_id },
@@ -94,8 +105,9 @@ export class XeroAccountsService {
       }
 
       if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         throw `Paytrade is currently not active in Xero.`;
       }
@@ -483,7 +495,9 @@ export class XeroAccountsService {
     }
 
     if (
-      xeroDetails.integrationDetails.integration_status !== 'Connected - active'
+      !this.isXeroConnectionUsable(
+        xeroDetails.integrationDetails.integration_status,
+      )
     ) {
       throw `Paytrade is currently not active in Xero.`;
     }
@@ -2331,8 +2345,9 @@ export class XeroAccountsService {
         xeroDetails &&
         xeroDetails.integration_id &&
         xeroDetails?.integrationDetails &&
-        xeroDetails?.integrationDetails?.integration_status ===
-        'Connected - active'
+        this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         if (data.status === 'Draft') {
           const payload = {
