@@ -2,6 +2,7 @@
 import BreadCrumbs from "@/components/BreadCrumbs";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import DynamicTable from "@/components/Table";
 import TabSwitch from "@/components/TabSwitch";
 import FormikControl from "@/components/FormikControl";
@@ -41,6 +42,7 @@ interface TableConfig {
 }
 
 export default function XeroBankAccount() {
+  const router = useRouter();
   const queryParams = useSearchParams();
   const to = queryParams.get("navigateTo") || 0;
   const [tabStatus, setTabStatus] = useState(
@@ -733,6 +735,21 @@ export default function XeroBankAccount() {
               }}
             />
           )}
+        </div>
+      </div>
+
+      <div className="pt_filtergroup">
+        <div className="grid pt_topfilters">
+          <CustomButton
+            styles={{ height: "40px" }}
+            buttonName="Close"
+            iconClassName="fa-light fa-close"
+            buttonType={buttonType.CONTRAST_SMALL}
+            actionType="button"
+            onClick={() => {
+              router.push("/user/integrations/xero");
+            }}
+          />
         </div>
       </div>
 

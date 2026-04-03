@@ -1020,9 +1020,9 @@ export default function XeroDashboard() {
           }}
         >
           <p>
-            Completed sync and mapped few {currentMappingData?.from} Some of the{" "}
-            {currentMappingData?.from} are not mapped. do you want to continue
-            mapping these manually?
+            Sync complete. Some {currentMappingData?.from} were mapped
+            automatically, but others could not be matched. Would you like to
+            map the remaining {currentMappingData?.from} manually?
           </p>
           <div className="mapping_result">
             <div className="stats">
