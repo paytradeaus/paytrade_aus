@@ -11,6 +11,8 @@ import CustomButton from "@/components/CustomButton/CustomButton";
 import BaseModal from "@/components/BaseModal";
 import {
   autoMappingContact,
+  BatchCreateContactsInPaytrade,
+  BatchCreateContactsInXero,
   CreateContactInPaytrade,
   CreateContactInXero,
   fetchClientSuppliersList,
@@ -34,7 +36,7 @@ import {
   xeroContactsRenderData,
 } from "../../integration.constant";
 import GridExportActions from "@/components/GridExportActions";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface TableConfig {
   headers: any[];
@@ -43,6 +45,7 @@ interface TableConfig {
 }
 
 export default function XeroContacts() {
+  const router = useRouter();
   const queryParams = useSearchParams();
   const to = queryParams.get("navigateTo") || 0;
   const [tabStatus, setTabStatus] = useState(contactsTabOptions[+to]?.label);
@@ -85,10 +88,10 @@ export default function XeroContacts() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to xero",
-      icon: "fa-light fa-angle-double-right",
-      onClick: (row: any) => handleOptionClick(row, "Sync to xero"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in Xero",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in Xero"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const xeroContactsActions = [
@@ -99,10 +102,10 @@ export default function XeroContacts() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to paytrade",
-      icon: "fa-light fa-angle-double-left",
-      onClick: (row: any) => handleOptionClick(row, "Sync to paytrade"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in PayTrade",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in PayTrade"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const mappedContactsActions = [
@@ -212,14 +215,13 @@ export default function XeroContacts() {
     return {
       contacts:
         data?.contact_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.contact_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && val.contact_status?.toLocaleLowerCase() !== "draft",
+              manual: isUnmapped,
+              createIcon: isUnmapped,
             },
           };
         }) || [],
@@ -251,14 +253,14 @@ export default function XeroContacts() {
     return {
       contacts:
         data?.contact_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.contact_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.contact_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped && isNotDraft,
             },
           };
         }) || [],
@@ -336,32 +338,40 @@ export default function XeroContacts() {
       getOptionForManualContactMappingXero();
       setSelectedContact(row);
       setShowManualMapping(true);
-    } else if (tabStatus === "Paytrade contacts" && label === "Sync to xero") {
-      setTableLoader(true);
-      await CreateContactInXero({ clientSupplierId: +row?.contact_id });
-      const { contacts, totalCount } = await fetchPaytradeContacts(
-        currentPage,
-        entriesPerPage,
-        search,
-        sortValues,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
-    } else if (tabStatus === "Xero contacts" && label === "Sync to paytrade") {
-      setTableLoader(true);
-      await CreateContactInPaytrade({
-        companyId: +(localStorage.getItem("companyId") || 0),
-        contactId: row?.contact_id,
+    } else if (
+      tabStatus === "Paytrade contacts" &&
+      label === "Create in Xero"
+    ) {
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in Xero",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.client_supplier_name || row?.contact_name}</b> in Xero?
+          </>
+        ),
+        id: "Create_in_xero?",
       });
-      const { contacts, totalCount } = await fetchXeroContacts(
-        currentPage,
-        entriesPerPage,
-        search,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
+    } else if (
+      tabStatus === "Xero contacts" &&
+      label === "Create in PayTrade"
+    ) {
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in PayTrade",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.contact_name}</b> in PayTrade?
+          </>
+        ),
+        id: "Create_in_paytrade?",
+      });
     }
   };
 
@@ -400,6 +410,67 @@ export default function XeroContacts() {
     setTotalRows(totalCount);
   };
 
+  const handleCreateInXero = async () => {
+    setTableLoader(true);
+    await CreateContactInXero({ clientSupplierId: +selectedContact?.contact_id });
+    const { contacts, totalCount } = await fetchPaytradeContacts(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleCreateInPaytrade = async () => {
+    setTableLoader(true);
+    await CreateContactInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+      contactId: selectedContact?.contact_id,
+    });
+    const { contacts, totalCount } = await fetchXeroContacts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInPaytrade = async () => {
+    setTableLoader(true);
+    await BatchCreateContactsInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+    });
+    const { contacts, totalCount } = await fetchXeroContacts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInXero = async () => {
+    setTableLoader(true);
+    await BatchCreateContactsInXero({
+      companyId: +(localStorage.getItem("companyId") || 0),
+    });
+    const { contacts, totalCount } = await fetchPaytradeContacts(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
   const modelClose = () => {
     if (modelConfig.id === "Sync_xero_contacts?") {
       syncXeroContacts();
@@ -407,6 +478,14 @@ export default function XeroContacts() {
       handleAutoMappingContact();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapContact();
+    } else if (modelConfig.id === "Create_in_xero?") {
+      handleCreateInXero();
+    } else if (modelConfig.id === "Create_in_paytrade?") {
+      handleCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_paytrade?") {
+      handleBatchCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_xero?") {
+      handleBatchCreateInXero();
     }
   };
 
@@ -643,16 +722,49 @@ export default function XeroContacts() {
                 }
                 styles={{ margin: "0 10px 10px 10px" }}
               />
-              {/* <CustomButton
-                buttonName="RESET"
-                iconClassName="fa-light fa-undo"
-                buttonType={buttonType.SMALL_BUTTON}
-                actionType="button"
-                onClick={() => setShowResetModal(true)}
-                styles={{ margin: "0 10px 10px 10px" }}
-              /> */}
+              {xeroData?.integration_status === "Connected - active" && (
+                <CustomButton
+                  buttonName="CREATE ALL IN PAYTRADE"
+                  iconClassName="fa-light fa-plus-circle"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() =>
+                    setModelConfig({
+                      show: true,
+                      title: "Create All in PayTrade",
+                      secondButtonName: "Create All",
+                      firstButtonName: "Cancel",
+                      description:
+                        "Create all unmapped Xero contacts in PayTrade? Contacts with missing required fields will be skipped.",
+                      id: "Batch_create_in_paytrade?",
+                    })
+                  }
+                  styles={{ margin: "0 10px 10px 10px" }}
+                />
+              )}
             </>
           )}
+          {tabStatus === "Paytrade contacts" &&
+            xeroData?.integration_status === "Connected - active" && (
+              <CustomButton
+                buttonName="CREATE ALL IN XERO"
+                iconClassName="fa-light fa-plus-circle"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                onClick={() =>
+                  setModelConfig({
+                    show: true,
+                    title: "Create All in Xero",
+                    secondButtonName: "Create All",
+                    firstButtonName: "Cancel",
+                    description:
+                      "Create all unmapped PayTrade contacts in Xero?",
+                    id: "Batch_create_in_xero?",
+                  })
+                }
+                styles={{ margin: "0 10px 10px 10px" }}
+              />
+            )}
           {showTable && (
             <DynamicTable
               headers={
@@ -683,6 +795,21 @@ export default function XeroContacts() {
               }}
             />
           )}
+        </div>
+      </div>
+
+      <div className="pt_filtergroup">
+        <div className="grid pt_topfilters">
+          <CustomButton
+            styles={{ height: "40px" }}
+            buttonName="Close"
+            iconClassName="fa-light fa-close"
+            buttonType={buttonType.CONTRAST_SMALL}
+            actionType="button"
+            onClick={() => {
+              router.push("/user/integrations/xero");
+            }}
+          />
         </div>
       </div>
 

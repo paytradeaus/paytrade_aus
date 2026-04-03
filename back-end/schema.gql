@@ -13598,6 +13598,22 @@ type Mutation {
     company_id: Float!
   ): AutoMapResponse!
 
+  """
+  Creates all unmapped Xero contacts in PayTrade for the specified company.
+  """
+  batchCreateContactsInPaytrade(
+    """ID of the company to create contacts for."""
+    company_id: Float!
+  ): GetPaytradeContactsResponse!
+
+  """
+  Creates all unmapped PayTrade contacts in Xero for the specified company.
+  """
+  batchCreateContactsInXero(
+    """ID of the company to create contacts for."""
+    company_id: Float!
+  ): GetXeroContactsResponse!
+
   """Match multiple transaction-payment pairs in a single batch operation."""
   batchMatchExactTransactions(
     """List of sub-payment ID arrays, one per transaction."""

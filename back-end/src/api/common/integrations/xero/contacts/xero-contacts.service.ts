@@ -2543,4 +2543,98 @@ export class XeroContactsService {
       throw errMsg;
     }
   }
+
+  async batchCreateContactsInPaytrade(decoded: any, companyId: number) {
+    const result = { created: 0, skipped: 0, failed: 0 };
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { company_id: companyId, status: 'ACTIVE' },
+      });
+      if (!xeroDetails) {
+        throw new Error('No active Xero integration found');
+      }
+
+      const unmappedContacts = await this.xeroContactDetails
+        .createQueryBuilder('contact')
+        .where('contact.integration_id = :integrationId', {
+          integrationId: xeroDetails.integration_id,
+        })
+        .andWhere('contact.mapped_status IS NULL')
+        .getMany();
+
+      for (const contact of unmappedContacts) {
+        try {
+          const xeroPayload = {
+            company_id: companyId,
+            contact_id: contact.contact_id,
+          };
+          const response: any = await this.insertContactDetailsInPaytrade(
+            decoded,
+            xeroPayload,
+          );
+          if (response?.code === 'CONTACT_MISSING_FIELDS') {
+            result.skipped++;
+          } else {
+            result.created++;
+          }
+        } catch (err) {
+          result.failed++;
+          this.logger.warn(
+            `Batch create in PayTrade failed for contact ${contact.contact_id}: ${err?.message || err}`,
+          );
+        }
+      }
+
+      return result;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
+
+  async batchCreateContactsInXero(decoded: any, companyId: number) {
+    const result = { created: 0, skipped: 0, failed: 0 };
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { company_id: companyId, status: 'ACTIVE' },
+      });
+      if (!xeroDetails) {
+        throw new Error('No active Xero integration found');
+      }
+
+      const unmappedPtContacts = await this.clientSuppliersDetails
+        .createQueryBuilder('cs')
+        .leftJoin(
+          'xero_contact_details',
+          'xcd',
+          `xcd.pt_contact_id = cs.id AND xcd.integration_id = :integrationId`,
+          { integrationId: xeroDetails.integration_id },
+        )
+        .where('cs.company_id = :companyId', { companyId })
+        .andWhere('cs.status = :status', { status: 'ACTIVE' })
+        .andWhere('xcd.id IS NULL')
+        .getMany();
+
+      for (const contact of unmappedPtContacts) {
+        try {
+          const xeroPayload = {
+            client_supplier_id: contact.id,
+            mapped_status: 'System',
+          };
+          await this.createContact(decoded, xeroPayload);
+          result.created++;
+        } catch (err) {
+          result.failed++;
+          this.logger.warn(
+            `Batch create in Xero failed for PT contact ${contact.id}: ${err?.message || err}`,
+          );
+        }
+      }
+
+      return result;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
 }

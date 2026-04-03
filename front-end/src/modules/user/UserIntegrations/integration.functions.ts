@@ -886,6 +886,90 @@ export async function CreateContactInPaytrade(
   }
 }
 
+export async function BatchCreateContactsInPaytrade(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation BatchCreateContactsInPaytrade($companyId: Float!) {
+          batchCreateContactsInPaytrade(company_id: $companyId) {
+            data {
+              created
+              skipped
+              failed
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.batchCreateContactsInPaytrade?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        response?.data?.batchCreateContactsInPaytrade?.message
+      );
+    } else {
+      showErrorToast(
+        response?.data?.batchCreateContactsInPaytrade?.message
+      );
+    }
+  } catch (error: any) {
+    showErrorToast(error);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+}
+
+export async function BatchCreateContactsInXero(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation BatchCreateContactsInXero($companyId: Float!) {
+          batchCreateContactsInXero(company_id: $companyId) {
+            data {
+              created
+              skipped
+              failed
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.batchCreateContactsInXero?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.batchCreateContactsInXero?.message);
+    } else {
+      showErrorToast(response?.data?.batchCreateContactsInXero?.message);
+    }
+  } catch (error: any) {
+    showErrorToast(error);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+}
+
 export const syncAllProjectsByCompanyId = async (
   data: any,
   setLoading?: Function

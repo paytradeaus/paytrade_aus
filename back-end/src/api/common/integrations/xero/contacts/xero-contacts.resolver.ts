@@ -335,6 +335,82 @@ export class XeroContactsResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => GetPaytradeContactsResponse, {
+    name: 'batchCreateContactsInPaytrade',
+    description:
+      'Creates all unmapped Xero contacts in PayTrade for the specified company.',
+  })
+  async batchCreateContactsInPaytrade(
+    @Context() context,
+    @Args('company_id', {
+      description: 'ID of the company to create contacts for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for batch creating contacts in PayTrade for company: ${company_id}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result =
+        await this.xeroContactsService.batchCreateContactsInPaytrade(
+          decoded,
+          company_id,
+        );
+      this.logger.log(
+        `Batch create contacts in PayTrade completed: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`,
+      );
+      return framedResponse(
+        'SUCCESS',
+        `Created ${result.created} contacts in PayTrade (${result.skipped} skipped, ${result.failed} failed)`,
+        result,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => GetXeroContactsResponse, {
+    name: 'batchCreateContactsInXero',
+    description:
+      'Creates all unmapped PayTrade contacts in Xero for the specified company.',
+  })
+  async batchCreateContactsInXero(
+    @Context() context,
+    @Args('company_id', {
+      description: 'ID of the company to create contacts for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for batch creating contacts in Xero for company: ${company_id}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result =
+        await this.xeroContactsService.batchCreateContactsInXero(
+          decoded,
+          company_id,
+        );
+      this.logger.log(
+        `Batch create contacts in Xero completed: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`,
+      );
+      return framedResponse(
+        'SUCCESS',
+        `Created ${result.created} contacts in Xero (${result.skipped} skipped, ${result.failed} failed)`,
+        result,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => GetPaytradeContactsResponse, {
     name: 'createContactInPaytradeThroughWebhook',
     description:
       'Creates or updates a client/supplier contact in Paytrade via webhook integration.',
