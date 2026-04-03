@@ -1,0 +1,4989 @@
+[
+  {
+    "id": 1,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank accounts has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 2,
+    "sync_type": "Contacts",
+    "description": "<p>Contacts has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 3,
+    "sync_type": "Projects",
+    "description": "<p>Projects has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 4,
+    "sync_type": "Contracts",
+    "description": "<p>Contracts has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 5,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank accounts has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 6,
+    "sync_type": "Contacts",
+    "description": "<p>Contacts has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 7,
+    "sync_type": "Projects",
+    "description": "<p>Projects has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 8,
+    "sync_type": "Contracts",
+    "description": "<p>Contracts has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 9,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 10,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 11,
+    "sync_type": "Projects",
+    "description": "<p>Project {{project_name}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 12,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 13,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 14,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 15,
+    "sync_type": "Projects",
+    "description": "<p>Project {{project_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 16,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 17,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been added in draft state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 18,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been added in draft state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 19,
+    "sync_type": "Projects",
+    "description": "<p>Project {{project_name}} has been added in draft state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 20,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been added in draft state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 21,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been edited automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 22,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been edited automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 23,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 24,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 25,
+    "sync_type": "Projects",
+    "description": "<p>Project {{project_name}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 26,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 27,
+    "sync_type": "Bank accounts",
+    "description": "<p>Add bank account in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_BANK_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 28,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_CONTACT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 29,
+    "sync_type": "Projects",
+    "description": "<p>Add project in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_PROJECT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 30,
+    "sync_type": "Contracts",
+    "description": "<p>Add contract in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_CONTRACT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 31,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_EDIT_BANK_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 32,
+    "sync_type": "Contacts",
+    "description": "<p>Contact edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_EDIT_CONTACT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 33,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_BANK_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 34,
+    "sync_type": "Contacts",
+    "description": "<p>Contact delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_CONTACT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 35,
+    "sync_type": "Projects",
+    "description": "<p>Project delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_PROJECT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 36,
+    "sync_type": "Contracts",
+    "description": "<p>Contract delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_CONTRACT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 37,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account edit in xero failed - account is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BANK_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 38,
+    "sync_type": "Contacts",
+    "description": "<p>Contact edit in xero failed - contact is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_CONTACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 39,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account delete in xero failed - account is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_BANK_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 40,
+    "sync_type": "Contacts",
+    "description": "<p>Contact delete in xero failed - contact is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CONTACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 41,
+    "sync_type": "Projects",
+    "description": "<p>Project delete in xero failed - project is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 42,
+    "sync_type": "Contracts",
+    "description": "<p>Contract delete in xero failed - contract is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 43,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 44,
+    "sync_type": "Contacts",
+    "description": "<p>Contact {{contact_name}} has been added in active state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 45,
+    "sync_type": "Projects",
+    "description": "<p>Project {{project_name}} has been added in active state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 46,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been added in active state  automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 47,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been restored automatically.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 48,
+    "sync_type": "Bills",
+    "description": "<p>Bills has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 49,
+    "sync_type": "Bills",
+    "description": "<p>Bills has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 50,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 51,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been synced and created in draft state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 52,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been added in draft state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 53,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been edited automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 54,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 55,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_BILL_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 56,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_EDIT_BILL_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 57,
+    "sync_type": "Bills",
+    "description": "<p>Bill delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_BILL_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 58,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed - bill is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 59,
+    "sync_type": "Bills",
+    "description": "<p>Bill delete in xero failed - bill is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_BILL_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 60,
+    "sync_type": "Bills",
+    "description": "<p>Bill {{id}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 61,
+    "sync_type": "Invoices",
+    "description": "<p>Invoices has been imported</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 62,
+    "sync_type": "Invoices",
+    "description": "<p>Invoices has been synced</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 63,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 64,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been synced and created in draft state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 65,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been added in draft state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 66,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been edited automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 67,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 68,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_ADD_INVOICE_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 69,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_EDIT_INVOICE_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 70,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_DELETE_INVOICE_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 71,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed - invoice is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 72,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice delete in xero failed - invoice is not mapped</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_INVOICE_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 73,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice {{id}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 74,
+    "sync_type": "Bank accounts",
+    "description": "<p>Add bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "ADD_BANK_ALREADY_MAPPED_TO_PAYTRADE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 75,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "ADD_CONTACT_ALREADY_MAPPED_TO_PAYTRADE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 76,
+    "sync_type": "Payments",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_SYNC_MISSING_CONTRACT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 77,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CLAIM_UNAUTHORIZED",
+    "associated_log_ids": [
+      410
+    ]
+  },
+  {
+    "id": 78,
+    "sync_type": "Contracts",
+    "description": "<p>Contract {{contract_name}} has been edited automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 79,
+    "sync_type": "Projects",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 80,
+    "sync_type": "Contracts",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 81,
+    "sync_type": "Projects",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 82,
+    "sync_type": "Contracts",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_FROM_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 83,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 84,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 85,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 86,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 87,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_MANDATORY_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 88,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_NO_RETENTION_IN_RETENTION_CLAIM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 89,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 90,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 91,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 92,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 93,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 94,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BILL_ATLEAST_ONE_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 95,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 96,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 97,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 98,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 99,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_MANDATORY_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 100,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_NO_RETENTION_IN_RETENTION_CLAIM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 101,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 102,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 103,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 104,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 105,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 106,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_PROJECT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 107,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_INVOICE_ATLEAST_ONE_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 108,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 109,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 110,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 111,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 112,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_MANDATORY_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 113,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_NO_RETENTION_IN_RETENTION_CLAIM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 114,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 115,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 116,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 117,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 118,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 119,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_ATLEAST_ONE_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 120,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 121,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 122,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 123,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 124,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_MANDATORY_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 125,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_NO_RETENTION_IN_RETENTION_CLAIM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 126,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 127,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 128,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 129,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 130,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 131,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_PROJECT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 132,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_ATLEAST_ONE_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 133,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_ATLEAST_ONE_LINE_ITEM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 134,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 135,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_ATLEAST_ONE_LINE_ITEM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 136,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 137,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 138,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 139,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 140,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 141,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 142,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 143,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 144,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 145,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 146,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 147,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 148,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 149,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISMATCH_IN_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 150,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISMATCH_IN_CLIENT_SUPPLIER",
+    "associated_log_ids": null
+  },
+  {
+    "id": 151,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISMATCH_IN_PROJECT",
+    "associated_log_ids": null
+  },
+  {
+    "id": 152,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISMATCH_IN_PROJECT",
+    "associated_log_ids": null
+  },
+  {
+    "id": 153,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 154,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 155,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_TWO_PAIRS_MUST_FOR_RETENTION",
+    "associated_log_ids": null
+  },
+  {
+    "id": 156,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_TWO_PAIRS_MUST_FOR_RETENTION",
+    "associated_log_ids": null
+  },
+  {
+    "id": 157,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_RETENTION_LIST_UNIDENTIFIED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 158,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_RETENTION_LIST_UNIDENTIFIED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 159,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MULTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 160,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MULTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 161,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CONTRACT_SIZE_EXCEEDS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 162,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CONTRACT_SIZE_EXCEEDS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 163,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_ALREADY_MAPPED_TO_PAYTRADE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 164,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_ALREADY_MAPPED_TO_PAYTRADE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 165,
+    "sync_type": "Bills",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_SYNC_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 166,
+    "sync_type": "Bills",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_SYNC_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 167,
+    "sync_type": "Payments",
+    "description": "<p>Bill {{id}} has been synced and created in active state</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 168,
+    "sync_type": "Payments",
+    "description": "<p>Payment {{id}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 169,
+    "sync_type": "Payments",
+    "description": "<p>Credit note {{id}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 170,
+    "sync_type": "Payments",
+    "description": "<p>Payment {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 171,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 172,
+    "sync_type": "Payments",
+    "description": "<p>Add credit note in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "CN_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 173,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PAYMENT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 174,
+    "sync_type": "Payments",
+    "description": "<p>Add credit note in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "CN_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 175,
+    "sync_type": "Payments",
+    "description": "<p>Add credit note in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "CN_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 176,
+    "sync_type": "Payments",
+    "description": "<p>Add credit note in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "CN_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 177,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 178,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 179,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 180,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 181,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 182,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_RETENTION_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 183,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_RETENTION_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 184,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_MISSING_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 185,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_MISSING_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 186,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_PROJECT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 187,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_PROJECT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 188,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 189,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 190,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_CLAIM_NOT_AUTHORIZED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 191,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 192,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 193,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_RETENTION_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 194,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_RETENTION_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 195,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_PAYMENT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 196,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_PAYMENT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 197,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 198,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 199,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 200,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_STATUS_UNAUTHORISED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 201,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact {{contact_name}} has been synced through wehbook</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 202,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_OVERPAYMENT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 203,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_OVERPAYMENT_STATUS_UNAUTHORISED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 204,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OVERPAYMENT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 205,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_OVERPAYMENT_NOT_FOUND_IN_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 206,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_REFUND_NOT_IN_SYNC",
+    "associated_log_ids": null
+  },
+  {
+    "id": 207,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PAYMENT_STATUS_UNAUTHORISED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 208,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 209,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 210,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 211,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 212,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 213,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 214,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment {{id}} has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 215,
+    "sync_type": "Payments",
+    "description": "<p>Add credit note in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "CN_ADD_CREDIT_NOTE_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 216,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_OVERPAYMENT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 217,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 218,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 219,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 220,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 221,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 222,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund has been added in active state automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 223,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_ADD_OVERPAYMENT_REFUND_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 224,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 225,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 226,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 227,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_CLIENT_SUPPLIER_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 228,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OP_CLIENT_SUPPLIER_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 229,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OVERPAYMENT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 230,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 231,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 232,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_REFUND_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 233,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 234,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_STATUS_UNAUTHORISED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 235,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 236,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 237,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_OVERPAYMENT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 238,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_OVERPAYMENT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 239,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_OPR_REFUND_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 240,
+    "sync_type": "Payments",
+    "description": "<p>Overpayment refund delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_REFUND_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 241,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 242,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 243,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_PAYMENT_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 244,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_ID_MISSING",
+    "associated_log_ids": null
+  },
+  {
+    "id": 245,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_ALLOCATION_ID_MISSING",
+    "associated_log_ids": null
+  },
+  {
+    "id": 246,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 247,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CN_ALLOCATION_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 248,
+    "sync_type": "Payments",
+    "description": "<p>Credit note delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CREDIT_NOTE_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 249,
+    "sync_type": "Payments",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_SYNC_MISSING_PROJECT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 250,
+    "sync_type": "Payments",
+    "description": "<p>Credit note {{id}} has been deleted automatically</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 251,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero sucess</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 252,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_RESOURCE_NOT_FOUND",
+    "associated_log_ids": [
+      412
+    ]
+  },
+  {
+    "id": 253,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_ATLEAST_ONE_LINE_ITEM",
+    "associated_log_ids": [
+      413
+    ]
+  },
+  {
+    "id": 254,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_TRACKING_ID_MISSING",
+    "associated_log_ids": [
+      414
+    ]
+  },
+  {
+    "id": 255,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_VALID_LINE_ITEM",
+    "associated_log_ids": [
+      415
+    ]
+  },
+  {
+    "id": 256,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_PROJECT_CATEGORY_ID",
+    "associated_log_ids": [
+      416
+    ]
+  },
+  {
+    "id": 257,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_CONTRACT_CATEGORY_ID",
+    "associated_log_ids": [
+      417
+    ]
+  },
+  {
+    "id": 258,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PROJECT_CATEGORY_ID_MISMATCH",
+    "associated_log_ids": [
+      418
+    ]
+  },
+  {
+    "id": 259,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_CATEGORY_ID_MISMATCH",
+    "associated_log_ids": [
+      419
+    ]
+  },
+  {
+    "id": 260,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_ACCOUNT_FIELDS",
+    "associated_log_ids": [
+      420
+    ]
+  },
+  {
+    "id": 261,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_ACCOUNT_FIELDS_MISMATCH",
+    "associated_log_ids": [
+      421
+    ]
+  },
+  {
+    "id": 262,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_TAX_FIELDS",
+    "associated_log_ids": [
+      422
+    ]
+  },
+  {
+    "id": 263,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_TAX_FIELDS_MISMATCH",
+    "associated_log_ids": [
+      423
+    ]
+  },
+  {
+    "id": 264,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_NOT_FOUND",
+    "associated_log_ids": [
+      424
+    ]
+  },
+  {
+    "id": 265,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_NOT_MAPPED",
+    "associated_log_ids": [
+      425
+    ]
+  },
+  {
+    "id": 266,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PT_CONTACT_NOT_FOUND",
+    "associated_log_ids": [
+      426
+    ]
+  },
+  {
+    "id": 267,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_NOT_FOUND",
+    "associated_log_ids": [
+      427
+    ]
+  },
+  {
+    "id": 268,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": [
+      428
+    ]
+  },
+  {
+    "id": 269,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PROJECT_NOT_MAPPED",
+    "associated_log_ids": [
+      429
+    ]
+  },
+  {
+    "id": 270,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PROJECT_NOT_FOUND",
+    "associated_log_ids": [
+      430
+    ]
+  },
+  {
+    "id": 271,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISMATCH_IN_CONTACT",
+    "associated_log_ids": [
+      431
+    ]
+  },
+  {
+    "id": 272,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISMATCH_IN_PROJECT",
+    "associated_log_ids": [
+      432
+    ]
+  },
+  {
+    "id": 273,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": [
+      433
+    ]
+  },
+  {
+    "id": 274,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MUST_BE_2_LINES",
+    "associated_log_ids": [
+      434
+    ]
+  },
+  {
+    "id": 275,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_RETENTION_LIST_UNIDENTIFIED",
+    "associated_log_ids": [
+      435
+    ]
+  },
+  {
+    "id": 276,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MUTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      436
+    ]
+  },
+  {
+    "id": 277,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_SIZE_EXCEEDS",
+    "associated_log_ids": [
+      437
+    ]
+  },
+  {
+    "id": 278,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISMATCH_IN_CLAIM_TYPE",
+    "associated_log_ids": [
+      438
+    ]
+  },
+  {
+    "id": 279,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_NOT_FOUND",
+    "associated_log_ids": [
+      439
+    ]
+  },
+  {
+    "id": 280,
+    "sync_type": "Bank accounts",
+    "description": "<p>Add bank account in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_BANK_ALREADY_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 281,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account edit in xero failed - account is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BANK_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 282,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account delete in xero failed - account is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_BANK_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 283,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_CONTACT_ALREADY_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 284,
+    "sync_type": "Contacts",
+    "description": "<p>Contact edit in xero failed - contact is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_CONTACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 285,
+    "sync_type": "Contacts",
+    "description": "<p>Contact delete in xero failed - contact is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CONTACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 286,
+    "sync_type": "Projects",
+    "description": "<p>Add project in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_PROJECT_ALREADY_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 287,
+    "sync_type": "Projects",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_DELETE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 288,
+    "sync_type": "Projects",
+    "description": "<p>Project delete in xero failed - project is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PROJECT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 289,
+    "sync_type": "Projects",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO_SYNC",
+    "associated_log_ids": [
+      395
+    ]
+  },
+  {
+    "id": 290,
+    "sync_type": "Contracts",
+    "description": "<p>Project import in xero failed - project is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "SYNC_PROJECT_CATEGORY_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 291,
+    "sync_type": "Contracts",
+    "description": "<p>Add contract in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "ADD_CONTRACT_ALREADY_MAPPED_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 292,
+    "sync_type": "Contracts",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_DELETE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 293,
+    "sync_type": "Contracts",
+    "description": "<p>Contract delete in xero failed - contract is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 294,
+    "sync_type": "Contracts",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO_SYNC",
+    "associated_log_ids": null
+  },
+  {
+    "id": 295,
+    "sync_type": "Contracts",
+    "description": "<p>Contract undo delete in xero failed - contract is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "UNDO_DELETE_CONTRACT_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 296,
+    "sync_type": "Bills",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 297,
+    "sync_type": "Bills",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 298,
+    "sync_type": "Invoices",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 299,
+    "sync_type": "Invoices",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 300,
+    "sync_type": "Bills",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 301,
+    "sync_type": "Bills",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 302,
+    "sync_type": "Invoices",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 303,
+    "sync_type": "Invoices",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 304,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed - bill is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 305,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed - invoice is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 306,
+    "sync_type": "Bills",
+    "description": "<p>Bill edit in xero failed - bill is not updated</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_BILL_NOT_UPDATED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 307,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice edit in xero failed - invoice is not updated</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "EDIT_INVOICE_NOT_UPDATED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 308,
+    "sync_type": "Bills",
+    "description": "<p>Bill delete in xero failed - bill is not updated</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_BILL_NOT_UPDATED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 309,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice delete in xero failed - invoice is not updated</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_INVOICE_NOT_UPDATED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 310,
+    "sync_type": "Bills",
+    "description": "<p>Bill delete in xero failed - bill is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_BILL_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 311,
+    "sync_type": "Invoices",
+    "description": "<p>Invoice delete in xero failed - invoice is not found</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_INVOICE_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 312,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISSING_TRACKING_ID_IN_LINE_ITEM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 313,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISSING_TRACKING_ID_IN_LINE_ITEM",
+    "associated_log_ids": null
+  },
+  {
+    "id": 314,
+    "sync_type": "Bills",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 315,
+    "sync_type": "Invoices",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 316,
+    "sync_type": "Bills",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 317,
+    "sync_type": "Invoices",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 318,
+    "sync_type": "Bills",
+    "description": "<p>Mismatch in project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISMATCH_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 319,
+    "sync_type": "Invoices",
+    "description": "<p>Mismatch in project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISMATCH_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 320,
+    "sync_type": "Bills",
+    "description": "<p>Mismatch in contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISMATCH_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_BILL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 321,
+    "sync_type": "Invoices",
+    "description": "<p>Mismatch in contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISMATCH_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_ADD_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 322,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISMATCH_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 323,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISMATCH_ACCOUNT_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 324,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_MISMATCH_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 325,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISMATCH_TAX_FIELD",
+    "associated_log_ids": null
+  },
+  {
+    "id": 326,
+    "sync_type": "Invoices",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_SYNC_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 327,
+    "sync_type": "Invoices",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_PAYTRADE_IN_SYNC_INVOICE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 328,
+    "sync_type": "Payments",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_MISSING_PROJECT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 329,
+    "sync_type": "Payments",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_MISSING_CONTRACT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 330,
+    "sync_type": "Payments",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 331,
+    "sync_type": "Payments",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "MISSING_CONTRACT_TRACKING_CATEGORY_ID_FROM_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 332,
+    "sync_type": "Payments",
+    "description": "<p>Add payment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_ADD_PAYMENT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 333,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OP_ADD_OVERPAYMENT_TO_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 334,
+    "sync_type": "Payments",
+    "description": "<p>Add overpayment refund in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "OPR_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 335,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_CLAIM_NOT_FOUND",
+    "associated_log_ids": null
+  },
+  {
+    "id": 336,
+    "sync_type": "Payments",
+    "description": "<p>Payment delete in xero failed</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_CLAIM_NOT_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 337,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      440
+    ]
+  },
+  {
+    "id": 338,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      441
+    ]
+  },
+  {
+    "id": 339,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MULTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      442
+    ]
+  },
+  {
+    "id": 340,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_NO_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      443
+    ]
+  },
+  {
+    "id": 341,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_NO_BANK_TRANSFER_IDENTIFIED",
+    "associated_log_ids": [
+      444
+    ]
+  },
+  {
+    "id": 342,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_RETENTION_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      445
+    ]
+  },
+  {
+    "id": 343,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_RETENTION_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      446
+    ]
+  },
+  {
+    "id": 344,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MULTIPLE_CREDIT_NOTES_IDENTIFIED",
+    "associated_log_ids": [
+      447
+    ]
+  },
+  {
+    "id": 345,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_CANNOT_CREATE",
+    "associated_log_ids": [
+      448
+    ]
+  },
+  {
+    "id": 346,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_UNFOUND",
+    "associated_log_ids": [
+      449
+    ]
+  },
+  {
+    "id": 347,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      450
+    ]
+  },
+  {
+    "id": 348,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      451
+    ]
+  },
+  {
+    "id": 349,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_REFUND_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      452
+    ]
+  },
+  {
+    "id": 350,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CLAIM_RECEIVED_DATE_IN_FUTURE",
+    "associated_log_ids": [
+      453
+    ]
+  },
+  {
+    "id": 351,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CLAIM_SENT_DATE_IN_FUTURE",
+    "associated_log_ids": [
+      454
+    ]
+  },
+  {
+    "id": 352,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CLAIM_DUE_DATE_IN_PAST",
+    "associated_log_ids": [
+      455
+    ]
+  },
+  {
+    "id": 353,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_NON_PAID_REASONS",
+    "associated_log_ids": [
+      456
+    ]
+  },
+  {
+    "id": 354,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_SUPPORTING_ATTACHMENTS",
+    "associated_log_ids": [
+      457
+    ]
+  },
+  {
+    "id": 355,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CLAIM_RECEIVED_DATE_IN_FUTURE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 356,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CLAIM_SENT_DATE_IN_FUTURE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 357,
+    "sync_type": "Bills",
+    "description": "<p>Add bill in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_BILL_CLAIM_DUE_DATE_IN_PAST",
+    "associated_log_ids": null
+  },
+  {
+    "id": 358,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_CLAIM_DUE_DATE_IN_PAST",
+    "associated_log_ids": null
+  },
+  {
+    "id": 359,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISSING_NON_PAID_REASONS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 360,
+    "sync_type": "Invoices",
+    "description": "<p>Add invoice in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "XP_ADD_INVOICE_MISSING_SUPPORTING_ATTACHMENTS",
+    "associated_log_ids": null
+  },
+  {
+    "id": 361,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_MISSING_FIELDS",
+    "associated_log_ids": [
+      458
+    ]
+  },
+  {
+    "id": 362,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_OVERPAYMENT_REFUND_MISSING_FIELDS",
+    "associated_log_ids": [
+      459
+    ]
+  },
+  {
+    "id": 363,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS",
+    "associated_log_ids": [
+      460
+    ]
+  },
+  {
+    "id": 364,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTACT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      370,
+      386
+    ]
+  },
+  {
+    "id": 365,
+    "sync_type": "Bank accounts",
+    "description": "<p>Add bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "BANK_MISSING_FIELDS",
+    "associated_log_ids": [
+      379
+    ]
+  },
+  {
+    "id": 366,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTACT_MISSING_FIELDS",
+    "associated_log_ids": [
+      368,
+      384
+    ]
+  },
+  {
+    "id": 367,
+    "sync_type": "Contacts",
+    "description": "<p>Add contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTACT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      369,
+      385
+    ]
+  },
+  {
+    "id": 368,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_MISSING_FIELDS",
+    "associated_log_ids": [
+      366,
+      384
+    ]
+  },
+  {
+    "id": 369,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      367,
+      385
+    ]
+  },
+  {
+    "id": 370,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      364,
+      386
+    ]
+  },
+  {
+    "id": 371,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_WITHHOLD_REASON_PAYMENTS",
+    "associated_log_ids": [
+      461
+    ]
+  },
+  {
+    "id": 372,
+    "sync_type": "Projects",
+    "description": "<p>Add project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "PROJECT_MISSING_FIELDS",
+    "associated_log_ids": [
+      394
+    ]
+  },
+  {
+    "id": 373,
+    "sync_type": "Projects",
+    "description": "<p>Add project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "PROJECT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      393
+    ]
+  },
+  {
+    "id": 374,
+    "sync_type": "Projects",
+    "description": "<p>Add project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "PROJECT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      392
+    ]
+  },
+  {
+    "id": 375,
+    "sync_type": "Contracts",
+    "description": "<p>Add contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTRACT_MISSING_FIELDS",
+    "associated_log_ids": [
+      409
+    ]
+  },
+  {
+    "id": 376,
+    "sync_type": "Contracts",
+    "description": "<p>Add contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTRACT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      408
+    ]
+  },
+  {
+    "id": 377,
+    "sync_type": "Contracts",
+    "description": "<p>Add contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CONTRACT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      407
+    ]
+  },
+  {
+    "id": 378,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      462
+    ]
+  },
+  {
+    "id": 379,
+    "sync_type": "Account schedulers",
+    "description": "<p>Scheduler for bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_BANK_MISSING_FIELDS",
+    "associated_log_ids": [
+      365
+    ]
+  },
+  {
+    "id": 380,
+    "sync_type": "Account schedulers",
+    "description": "<p>Bank account {{account_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 381,
+    "sync_type": "Account schedulers",
+    "description": "<p>Bank accounts has been synced through schedulers</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 382,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contacts has been synced through schedulers</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 383,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact {{contact_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 384,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Scheduler for contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_MISSING_FIELDS",
+    "associated_log_ids": [
+      366,
+      368
+    ]
+  },
+  {
+    "id": 385,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Scheduler for contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      367,
+      369
+    ]
+  },
+  {
+    "id": 386,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Scheduler for contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      364,
+      370
+    ]
+  },
+  {
+    "id": 387,
+    "sync_type": "Bank accounts",
+    "description": "<p>Add bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "BANK_UPGRADE_SUBSCRIPTION",
+    "associated_log_ids": [
+      388
+    ]
+  },
+  {
+    "id": 388,
+    "sync_type": "Account schedulers",
+    "description": "<p>Scheduler for bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_BANK_UPGRADE_SUBSCRIPTION",
+    "associated_log_ids": [
+      387
+    ]
+  },
+  {
+    "id": 389,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      390
+    ]
+  },
+  {
+    "id": 390,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Scheduler for contact in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      389
+    ]
+  },
+  {
+    "id": 391,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Refresh token in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_XERO_REFRESH",
+    "associated_log_ids": [
+      463
+    ]
+  },
+  {
+    "id": 392,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      374
+    ]
+  },
+  {
+    "id": 393,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      373
+    ]
+  },
+  {
+    "id": 394,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_MISSING_FIELDS",
+    "associated_log_ids": [
+      372
+    ]
+  },
+  {
+    "id": 395,
+    "sync_type": "Project schedulers",
+    "description": "<p>Missing project tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_PROJECT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": [
+      289
+    ]
+  },
+  {
+    "id": 396,
+    "sync_type": "Project schedulers",
+    "description": "<p>Projects has been synced through schedulers</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 397,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_NAME_CANNOT_BE_EDITED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 398,
+    "sync_type": "Projects",
+    "description": "<p>Add project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "PROJECT_UPGRADE_SUBSCRIPTION",
+    "associated_log_ids": [
+      399
+    ]
+  },
+  {
+    "id": 399,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_UPGRADE_SUBSCRIPTION",
+    "associated_log_ids": [
+      398
+    ]
+  },
+  {
+    "id": 400,
+    "sync_type": "Project schedulers",
+    "description": "<p>Scheduler for project in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_CANNOT_BE_DELETED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 401,
+    "sync_type": "Project schedulers",
+    "description": "<p>Project {{project_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 402,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Missing contract tracking category ID</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_CONTRACT_TRACKING_CATEGORY_ID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 403,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Scheduler for contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_CANNOT_BE_DELETED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 404,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Contract {{contract_name}} has been synced and created in {{status}} state</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 405,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Contracts has been synced through schedulers</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 406,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Scheduler for contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NAME_CANNOT_BE_EDITED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 407,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Scheduler for contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NAME_EXISTS_AND_MAPPED",
+    "associated_log_ids": [
+      377
+    ]
+  },
+  {
+    "id": 408,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Scheduler for contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NAME_EXISTS_BUT_UNMAPPED",
+    "associated_log_ids": [
+      376
+    ]
+  },
+  {
+    "id": 409,
+    "sync_type": "Contract schedulers",
+    "description": "<p>Scheduler for contract in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_MISSING_FIELDS",
+    "associated_log_ids": [
+      375
+    ]
+  },
+  {
+    "id": 410,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CLAIM_UNAUTHORIZED",
+    "associated_log_ids": [
+      77
+    ]
+  },
+  {
+    "id": 411,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero sucess</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 412,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_RESOURCE_NOT_FOUND",
+    "associated_log_ids": [
+      252
+    ]
+  },
+  {
+    "id": 413,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_ATLEAST_ONE_LINE_ITEM",
+    "associated_log_ids": [
+      253
+    ]
+  },
+  {
+    "id": 414,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_TRACKING_ID_MISSING",
+    "associated_log_ids": [
+      254
+    ]
+  },
+  {
+    "id": 415,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_VALID_LINE_ITEM",
+    "associated_log_ids": [
+      255
+    ]
+  },
+  {
+    "id": 416,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_PROJECT_CATEGORY_ID",
+    "associated_log_ids": [
+      256
+    ]
+  },
+  {
+    "id": 417,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_CONTRACT_CATEGORY_ID",
+    "associated_log_ids": [
+      257
+    ]
+  },
+  {
+    "id": 418,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_CATEGORY_ID_MISMATCH",
+    "associated_log_ids": [
+      258
+    ]
+  },
+  {
+    "id": 419,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_CATEGORY_ID_MISMATCH",
+    "associated_log_ids": [
+      259
+    ]
+  },
+  {
+    "id": 420,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_ACCOUNT_FIELDS",
+    "associated_log_ids": [
+      260
+    ]
+  },
+  {
+    "id": 421,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_ACCOUNT_FIELDS_MISMATCH",
+    "associated_log_ids": [
+      261
+    ]
+  },
+  {
+    "id": 422,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_TAX_FIELDS",
+    "associated_log_ids": [
+      262
+    ]
+  },
+  {
+    "id": 423,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_TAX_FIELDS_MISMATCH",
+    "associated_log_ids": [
+      263
+    ]
+  },
+  {
+    "id": 424,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_NOT_FOUND",
+    "associated_log_ids": [
+      264
+    ]
+  },
+  {
+    "id": 425,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_NOT_MAPPED",
+    "associated_log_ids": [
+      265
+    ]
+  },
+  {
+    "id": 426,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PT_CONTACT_NOT_FOUND",
+    "associated_log_ids": [
+      266
+    ]
+  },
+  {
+    "id": 427,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NOT_FOUND",
+    "associated_log_ids": [
+      267
+    ]
+  },
+  {
+    "id": 428,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NOT_MAPPED",
+    "associated_log_ids": [
+      268
+    ]
+  },
+  {
+    "id": 429,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_NOT_MAPPED",
+    "associated_log_ids": [
+      269
+    ]
+  },
+  {
+    "id": 430,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PROJECT_NOT_FOUND",
+    "associated_log_ids": [
+      270
+    ]
+  },
+  {
+    "id": 431,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISMATCH_IN_CONTACT",
+    "associated_log_ids": [
+      271
+    ]
+  },
+  {
+    "id": 432,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISMATCH_IN_PROJECT",
+    "associated_log_ids": [
+      272
+    ]
+  },
+  {
+    "id": 433,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_NOT_IN_PROGRESS",
+    "associated_log_ids": [
+      273
+    ]
+  },
+  {
+    "id": 434,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MUST_BE_2_LINES",
+    "associated_log_ids": [
+      274
+    ]
+  },
+  {
+    "id": 435,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_RETENTION_LIST_UNIDENTIFIED",
+    "associated_log_ids": [
+      275
+    ]
+  },
+  {
+    "id": 436,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MUTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      276
+    ]
+  },
+  {
+    "id": 437,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_SIZE_EXCEEDS",
+    "associated_log_ids": [
+      277
+    ]
+  },
+  {
+    "id": 438,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISMATCH_IN_CLAIM_TYPE",
+    "associated_log_ids": [
+      278
+    ]
+  },
+  {
+    "id": 439,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_NOT_FOUND",
+    "associated_log_ids": [
+      279
+    ]
+  },
+  {
+    "id": 440,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      337
+    ]
+  },
+  {
+    "id": 441,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      338
+    ]
+  },
+  {
+    "id": 442,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MULTIPLE_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      339
+    ]
+  },
+  {
+    "id": 443,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_NO_RETENTIONS_IDENTIFIED",
+    "associated_log_ids": [
+      340
+    ]
+  },
+  {
+    "id": 444,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_NO_BANK_TRANSFER_IDENTIFIED",
+    "associated_log_ids": [
+      341
+    ]
+  },
+  {
+    "id": 445,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_RETENTION_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      342
+    ]
+  },
+  {
+    "id": 446,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_RETENTION_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      343
+    ]
+  },
+  {
+    "id": 447,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MULTIPLE_CREDIT_NOTES_IDENTIFIED",
+    "associated_log_ids": [
+      344
+    ]
+  },
+  {
+    "id": 448,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_CANNOT_CREATE",
+    "associated_log_ids": [
+      345
+    ]
+  },
+  {
+    "id": 449,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_UNFOUND",
+    "associated_log_ids": [
+      346
+    ]
+  },
+  {
+    "id": 450,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_FOUND",
+    "associated_log_ids": [
+      347
+    ]
+  },
+  {
+    "id": 451,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_ACCOUNT_NOT_MAPPED",
+    "associated_log_ids": [
+      348
+    ]
+  },
+  {
+    "id": 452,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_REFUND_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      349
+    ]
+  },
+  {
+    "id": 453,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CLAIM_RECEIVED_DATE_IN_FUTURE",
+    "associated_log_ids": [
+      350
+    ]
+  },
+  {
+    "id": 454,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CLAIM_SENT_DATE_IN_FUTURE",
+    "associated_log_ids": [
+      351
+    ]
+  },
+  {
+    "id": 455,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CLAIM_DUE_DATE_IN_PAST",
+    "associated_log_ids": [
+      352
+    ]
+  },
+  {
+    "id": 456,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_NON_PAID_REASONS",
+    "associated_log_ids": [
+      353
+    ]
+  },
+  {
+    "id": 457,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS",
+    "associated_log_ids": [
+      354
+    ]
+  },
+  {
+    "id": 458,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_MISSING_FIELDS",
+    "associated_log_ids": [
+      361
+    ]
+  },
+  {
+    "id": 459,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_OVERPAYMENT_REFUND_MISSING_FIELDS",
+    "associated_log_ids": [
+      362
+    ]
+  },
+  {
+    "id": 460,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_SUPPORTING_ATTACHMENTS_PAYMENTS",
+    "associated_log_ids": [
+      363
+    ]
+  },
+  {
+    "id": 461,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_MISSING_WITHHOLD_REASON_PAYMENTS",
+    "associated_log_ids": [
+      371
+    ]
+  },
+  {
+    "id": 462,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_CANNOT_BE_DELETED",
+    "associated_log_ids": [
+      378
+    ]
+  },
+  {
+    "id": 463,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Refresh token in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_XERO_REFRESH",
+    "associated_log_ids": [
+      391
+    ]
+  },
+  {
+    "id": 464,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice webhook in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_MISSING_WITHHOLD_REASON_PAYMENTS",
+    "associated_log_ids": [
+      461
+    ]
+  },
+  {
+    "id": 465,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice scheduler in xero failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_TRACKING_ID_MISSING",
+    "associated_log_ids": [
+      254
+    ]
+  },
+  {
+    "id": 466,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been auto-created in Xero</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 467,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} has been auto-created in PayTrade as draft from Xero. Complete the required fields to activate it.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SCHEDULER_BANK_DRAFT_INCOMPLETE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 468,
+    "sync_type": "Bank accounts",
+    "description": "<p>Bank account {{account_name}} draft has been activated after completing required fields</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 469,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact {{contact_name}} has been auto-created in Xero</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 470,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact {{contact_name}} has been auto-created in PayTrade as a {{contact_type}}. Review and update if needed.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  }
+]

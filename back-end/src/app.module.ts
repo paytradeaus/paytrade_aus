@@ -107,6 +107,7 @@ import { CommunityBotModule } from './api/common/community-bot/community-bot.mod
 import { AiSupportModule } from './api/common/ai-support/ai-support.module';
 import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
 import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
+import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
 
 @Module({
   imports: [
@@ -290,6 +291,7 @@ import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module
     AiSupportModule,
     AdminMenuSeederModule,
     ComplianceSeederModule,
+    XeroLogTemplatesSeederModule,
   ],
   providers: [
     AppService,
