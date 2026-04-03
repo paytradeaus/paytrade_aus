@@ -77,8 +77,7 @@ export default function XeroContracts() {
   const [manualMapData, setManualMapData] = useState<any>("");
   const [manualMapOptions, setManualMapOptions] = useState([]);
 
-  const xeroInactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
-  const isXeroConnected = xeroData?.integration_status && !xeroInactiveStatuses.includes(xeroData.integration_status);
+  const isXeroConnected = xeroData?.integration_status === "Connected - active";
 
   const paytradeContractsActions = [
     {
