@@ -60,6 +60,17 @@ export class XeroContractsService {
     });
   }
 
+  private readonly INACTIVE_STATUSES = [
+    'Inactive',
+    'Deleted - archived',
+    'Disconnected',
+    'Connected - paused',
+  ];
+
+  private isXeroConnectionUsable(integrationStatus: string): boolean {
+    return !this.INACTIVE_STATUSES.includes(integrationStatus);
+  }
+
   async getContractDetail(pt_contract_id: number, integration_id: number) {
     return await this.xeroContractDetails.findOne({
       where: { pt_contract_id, integration_id },
@@ -94,6 +105,13 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
+      }
 
       await this.xeroService.refreshTokenSet(
         contractDetails.company_id,
@@ -564,6 +582,14 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
+      }
+
       const checkExistenceInDb = await this.getContractDetailsByContractId(
         contract_id,
         xeroDetails.integration_id,
@@ -907,6 +933,13 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
+      }
 
       if (!xeroDetails.contract_category_id) {
         await this.xeroService.insertXeroSyncLogs(decoded, {

@@ -59,6 +59,17 @@ export class XeroProjectsService {
     });
   }
 
+  private readonly INACTIVE_STATUSES = [
+    'Inactive',
+    'Deleted - archived',
+    'Disconnected',
+    'Connected - paused',
+  ];
+
+  private isXeroConnectionUsable(integrationStatus: string): boolean {
+    return !this.INACTIVE_STATUSES.includes(integrationStatus);
+  }
+
   async getProjectsDetails(project_id) {
     return await this.projectDetails.findOne({
       where: { project_id },
@@ -91,6 +102,14 @@ export class XeroProjectsService {
       !xeroDetails?.integrationDetails
     ) {
       throw `No xero integration found`;
+    }
+
+    if (
+      !this.isXeroConnectionUsable(
+        xeroDetails.integrationDetails.integration_status,
+      )
+    ) {
+      throw `Paytrade is currently not active in Xero.`;
     }
 
     await this.xeroService.refreshTokenSet(company_id, this.xero);
@@ -144,6 +163,14 @@ export class XeroProjectsService {
         !xeroDetails?.integrationDetails
       ) {
         throw `No xero integration found`;
+      }
+
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
       }
 
       await this.xeroService.refreshTokenSet(
@@ -522,6 +549,14 @@ export class XeroProjectsService {
         !xeroDetails?.integrationDetails
       ) {
         throw `No xero integration found`;
+      }
+
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
       }
 
       const checkExistenceInDb = await this.getProjectDetailsByProjectId(
@@ -907,6 +942,13 @@ export class XeroProjectsService {
         throw `No xero integration found`;
       }
 
+      if (
+        !this.isXeroConnectionUsable(
+          xeroDetails.integrationDetails.integration_status,
+        )
+      ) {
+        throw `Paytrade is currently not active in Xero.`;
+      }
 
       if (!xeroDetails.project_category_id) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
