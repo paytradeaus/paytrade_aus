@@ -1742,7 +1742,7 @@ export class XeroSchedulerService {
                   business_name: xeroContact.contact_name,
                   client_supplier_type: contactType,
                   client_supplier_status: 'Completed',
-                  related_entity: 'Individual',
+                  related_entity: 'No',
                   account_details: [],
                 };
 
