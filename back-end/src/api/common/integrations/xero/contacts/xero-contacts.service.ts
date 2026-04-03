@@ -2544,6 +2544,117 @@ export class XeroContactsService {
     }
   }
 
+  async autoCreateSingleContactInPaytrade(
+    decoded: any,
+    companyId: number,
+    contactId: string,
+  ) {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: companyId, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails) {
+      throw new Error('No active Xero integration found');
+    }
+
+    const xeroContact = await this.xeroContactDetails.findOne({
+      where: {
+        contact_id: contactId,
+        integration_id: xeroDetails.integration_id,
+      },
+    });
+    if (!xeroContact) {
+      throw new Error('Contact not found in Xero contact details');
+    }
+    if (xeroContact.pt_contact_id && xeroContact.mapped_status) {
+      throw new Error('Contact is already mapped');
+    }
+
+    const contactType = xeroContact.is_customer ? 'Client' : 'Supplier';
+    const userId = decoded ? decoded.userId : null;
+    const createdGroup = decoded ? 'USER' : 'SYSTEM';
+
+    const existingContact =
+      await this.clientSuppliersDetailsService.findByNameAndCompany(
+        xeroContact.contact_name,
+        companyId,
+      );
+
+    if (existingContact) {
+      await this.xeroContactDetails
+        .createQueryBuilder()
+        .update()
+        .set({
+          pt_contact_id: existingContact.client_supplier_id,
+          mapped_status: 'System',
+          updated_by: userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: createdGroup,
+        })
+        .where(
+          'contact_id = :contact_id AND integration_id = :integration_id',
+          {
+            contact_id: contactId,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      return {
+        id: existingContact.id,
+        contact_id: existingContact.client_supplier_id,
+        contact_name: existingContact.client_supplier_name,
+        contact_status: existingContact.client_supplier_status,
+      };
+    }
+
+    const createPayload: any = {
+      company_id: companyId,
+      client_supplier_name: xeroContact.contact_name,
+      business_name: xeroContact.contact_name,
+      client_supplier_type: contactType,
+      client_supplier_status: 'Completed',
+      related_entity: 'Individual',
+      account_details: [],
+    };
+
+    const newContact =
+      await this.clientSuppliersDetailsService.insertClientSupplierDetails(
+        decoded,
+        createPayload,
+      );
+
+    if (newContact && newContact.client_supplier_id) {
+      await this.xeroContactDetails
+        .createQueryBuilder()
+        .update()
+        .set({
+          pt_contact_id: newContact.client_supplier_id,
+          mapped_status: 'System',
+          updated_by: userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: createdGroup,
+        })
+        .where(
+          'contact_id = :contact_id AND integration_id = :integration_id',
+          {
+            contact_id: contactId,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      return {
+        id: newContact.id,
+        contact_id: newContact.client_supplier_id,
+        contact_name: newContact.client_supplier_name,
+        contact_status: newContact.client_supplier_status,
+      };
+    }
+
+    throw new Error('Failed to create contact in PayTrade');
+  }
+
   async batchCreateContactsInPaytrade(decoded: any, companyId: number) {
     const result = { created: 0, skipped: 0, failed: 0 };
     try {
@@ -2554,34 +2665,31 @@ export class XeroContactsService {
         throw new Error('No active Xero integration found');
       }
 
-      const unmappedContacts = await this.xeroContactDetails
-        .createQueryBuilder('contact')
-        .where('contact.integration_id = :integrationId', {
-          integrationId: xeroDetails.integration_id,
-        })
-        .andWhere('contact.mapped_status IS NULL')
-        .getMany();
+      const unmappedContacts = await this.xeroContactDetails.find({
+        where: {
+          integration_id: xeroDetails.integration_id,
+          pt_contact_id: null as any,
+          contact_status: 'ACTIVE',
+        },
+      });
 
-      for (const contact of unmappedContacts) {
+      for (const xeroContact of unmappedContacts) {
         try {
-          const xeroPayload = {
-            company_id: companyId,
-            contact_id: contact.contact_id,
-          };
-          const response: any = await this.insertContactDetailsInPaytrade(
+          await this.autoCreateSingleContactInPaytrade(
             decoded,
-            xeroPayload,
+            companyId,
+            xeroContact.contact_id,
           );
-          if (response === false) {
+          result.created++;
+        } catch (err) {
+          if (err?.message === 'Contact is already mapped') {
             result.skipped++;
           } else {
-            result.created++;
+            result.failed++;
+            this.logger.warn(
+              `Batch create in PayTrade failed for contact ${xeroContact.contact_id}: ${err?.message || err}`,
+            );
           }
-        } catch (err) {
-          result.failed++;
-          this.logger.warn(
-            `Batch create in PayTrade failed for contact ${contact.contact_id}: ${err?.message || err}`,
-          );
         }
       }
 

@@ -305,18 +305,29 @@ export class XeroContactsResolver {
       );
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
 
-      const xeroPayload = {
-        company_id,
-        contact_id,
-        sync_id,
-        payload,
-      };
+      let response: any;
 
-      const response: any =
-        await this.xeroContactsService.insertContactDetailsInPaytrade(
-          decoded,
-          xeroPayload,
-        );
+      if (payload) {
+        const xeroPayload = {
+          company_id,
+          contact_id,
+          sync_id,
+          payload,
+        };
+        response =
+          await this.xeroContactsService.insertContactDetailsInPaytrade(
+            decoded,
+            xeroPayload,
+          );
+      } else {
+        response =
+          await this.xeroContactsService.autoCreateSingleContactInPaytrade(
+            decoded,
+            company_id,
+            contact_id,
+          );
+      }
+
       this.logger.log(
         `Paytrade Client supplier details created successfully with data: ${JSON.stringify(response)}`,
       );
