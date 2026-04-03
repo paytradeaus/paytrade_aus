@@ -962,6 +962,13 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
   - **PT → Xero:** Finds unmapped PayTrade clients/suppliers and creates them as contacts in Xero automatically
   - **Xero → PT:** Finds unmapped Xero contacts and creates them as clients/suppliers in PayTrade. Contact type is determined automatically from Xero's `isCustomer` flag (Customer → Client, otherwise → Supplier). Users can change the type after import. Contacts with missing required fields generate a sync log entry (templates 469-470)
 
+#### Instant Contact Auto-Create on Save
+- When `pt_to_xero_contact_auto_create` is enabled and the Xero integration is connected:
+  - **New client/supplier** saved with status "Completed" → automatically created in Xero immediately
+  - **Existing Draft client/supplier** changed to "Completed" → automatically created in Xero immediately
+  - **Existing Completed client/supplier** not yet in Xero (pre-integration) → automatically created in Xero on next edit
+- This mirrors the bank account auto-create-on-save pattern. If the toggle is off, the contact is only saved in PayTrade and can be manually created in Xero from the mapping page
+
 #### Real-Time Sync from Xero
 - When changes are made in Xero (new contacts, updated invoices, payments applied), PayTrade is notified automatically
 - Changes to contacts, invoices, and bills are synced in near-real-time

@@ -100,7 +100,8 @@ export class ClientSuppliersDetailsResolver {
             'Connected - active'
         ) {
           if (
-            createClientSuppliersDetailInput.client_supplier_status === 'Draft'
+            createClientSuppliersDetailInput.client_supplier_status === 'Draft' &&
+            xeroDetails.pt_to_xero_contact_auto_create
           ) {
             const payload = {
               tenant_id: xeroDetails.tenant_id,
@@ -157,19 +158,21 @@ export class ClientSuppliersDetailsResolver {
             createClientSuppliersDetailInput.client_supplier_status ===
             'Completed'
           ) {
-            const xeroPayload = {
-              client_supplier_id: clientSupplierDetails.client_supplier_id,
-              mapped_status: 'System',
-            };
+            if (xeroDetails.pt_to_xero_contact_auto_create) {
+              const xeroPayload = {
+                client_supplier_id: clientSupplierDetails.client_supplier_id,
+                mapped_status: 'System',
+              };
 
-            const xeroResponse: any =
-              await this.xeroContactsService.createContact(
-                decoded,
-                xeroPayload,
+              const xeroResponse: any =
+                await this.xeroContactsService.createContact(
+                  decoded,
+                  xeroPayload,
+                );
+              this.logger.log(
+                `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
               );
-            this.logger.log(
-              `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
-            );
+            }
           }
         }
         return framedResponse(
@@ -331,7 +334,31 @@ export class ClientSuppliersDetailsResolver {
               clientSuppliersDetails.client_supplier_id,
               xeroDetails.integration_id,
             );
-          if (isContactExists) {
+          if (!isContactExists && xeroDetails.pt_to_xero_contact_auto_create) {
+            if (
+              updateClientSuppliersDetailInput.client_supplier_status ===
+                'Completed'
+            ) {
+              const xeroPayload = {
+                client_supplier_id: clientSuppliersDetails.client_supplier_id,
+                mapped_status: 'System',
+              };
+              try {
+                const xeroResponse: any =
+                  await this.xeroContactsService.createContact(
+                    decoded,
+                    xeroPayload,
+                  );
+                this.logger.log(
+                  `Auto-created contact in Xero for PT contact ${clientSuppliersDetails.client_supplier_id}: ${JSON.stringify(xeroResponse)}`,
+                );
+              } catch (xeroErr) {
+                this.logger.warn(
+                  `Auto-create contact in Xero failed for PT contact ${clientSuppliersDetails.client_supplier_id}: ${xeroErr?.message || xeroErr}`,
+                );
+              }
+            }
+          } else if (isContactExists) {
             if (
               clientSuppliersDetails.client_supplier_status === 'Draft' &&
               updateClientSuppliersDetailInput.client_supplier_status ===
@@ -387,19 +414,21 @@ export class ClientSuppliersDetailsResolver {
               updateClientSuppliersDetailInput.client_supplier_status ===
                 'Completed'
             ) {
-              const xeroPayload = {
-                client_supplier_id: clientSuppliersDetails.client_supplier_id,
-                mapped_status: 'System',
-              };
+              if (xeroDetails.pt_to_xero_contact_auto_create) {
+                const xeroPayload = {
+                  client_supplier_id: clientSuppliersDetails.client_supplier_id,
+                  mapped_status: 'System',
+                };
 
-              const xeroResponse: any =
-                await this.xeroContactsService.createContact(
-                  decoded,
-                  xeroPayload,
+                const xeroResponse: any =
+                  await this.xeroContactsService.createContact(
+                    decoded,
+                    xeroPayload,
+                  );
+                this.logger.log(
+                  `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
                 );
-              this.logger.log(
-                `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
-              );
+              }
             } else if (
               clientSuppliersDetails.client_supplier_status === 'Completed'
             ) {
