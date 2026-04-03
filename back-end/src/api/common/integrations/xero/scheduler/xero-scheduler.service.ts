@@ -1743,6 +1743,7 @@ export class XeroSchedulerService {
                   client_supplier_type: contactType,
                   client_supplier_status: 'Completed',
                   related_entity: 'No',
+                  client_email_id: '',
                   account_details: [],
                 };
 
