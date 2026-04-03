@@ -364,7 +364,13 @@ export default function IntegrationList({
       icon: "fa-light fa-cog",
       onClick: (row: any) => {
         localStorage.setItem("xeroIntegrationId", row.id);
-        router.push(`/user/integrations/xero/settings`);
+        const isFullyActive =
+          row.integration_status === "Connected - active";
+        router.push(
+          isFullyActive
+            ? `/user/integrations/xero/settings`
+            : `/user/integrations/xero`,
+        );
       },
       conditionalApiDisplayKey: "settings",
     },
