@@ -1,0 +1,380 @@
+[
+  {
+    "id": "0295cdc5-263c-4437-b7a1-5be51bb92e00",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 4,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Ensure only subcontractor beneficiaries are paid from the project trust  account; do not pay other parties such as suppliers, employees, or\n        contractors from other projects from the project trust account.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "04aa733f-97b2-4b1e-b27f-19aadf5d68a4",
+    "check_number": 9,
+    "check_name": "ANNUAL ACCOUNT REVIEW REPORTS",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #5a5a5a;\">\n        <p>\n            Ensure you engage an independent auditor to carry out a review of the trust account every 12 months.\n        </p>\n        <p>\n            The auditor must START the review within 20 business days of the end of the review period and submit their account review report to the QBCC within 20 business days after the review is completed. <span style=\"font-weight: bold;\">Note</span> - a copy of the account review report must also be given to you as the trustee by the auditor.\n        </p>\n        <p>\n            Ensure you provide the QBCC a notice if you are not required to engage an auditor to carry out an account review because the trust account was not used to hold retention amounts during the review period <a href=\"#\" style=\"color: #007bff; text-decoration: underline;\">submit an online notice of account review exemption</a> OR manually using the <span style=\"font-weight: bold;\">TA5 - Notice of no trust account review.</span>\n        </p>\n    </div>",
+    "is_active": true
+  },
+  {
+    "id": "0bdce3f7-9b15-4d95-a7d0-fbda8cecfadb",
+    "check_number": 1,
+    "check_name": "CHECK CONTRACT ELIGIBILITY",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<div>\n <p>\n        Use the <a href=\"https://my.qbcc.qld.gov.au/myQBCC/s/trust-accounts-tool\" target=\"_blank\" rel=\"noopener noreferrer\">trust account tool</a> to determine whether a project trust is required.\n      </p>\n      <p style=\"font-weight: 500;\">Project trust account eligibility criteria:</p>\n      <ol>\n        <li>You're a head contractor or a related entity sub contractor engaged by a contracting party applicable to current phase</li>\n        <li>The contract price is as per the relevant phase</li>\n        <li>More than 50 per cent of the contract price is for project trust work</li>\n        <li>You are engaging one or more subcontractors</li>\n      </ol>\n      <p>\n        <p style=\"font-weight: 500;\">\n          If all of the eligibility criteria is met (and no exemptions apply), you must use a\n          project trust account for the project.\n        </p>\n      </p>\n    </div>",
+    "is_active": true
+  },
+  {
+    "id": "0fd9ce84-f57d-427c-b533-bd6ee0d4aefa",
+    "check_number": 1,
+    "check_name": "CHECK CONTRACT ELIGIBILITY",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Use the <a href=\"https://my.qbcc.qld.gov.au/myQBCC/s/trust-accounts-tool\" target=\"_blank\" rel=\"noopener noreferrer\">trust account tool</a> to determine whether a trust is required.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "11b6e629-3d5a-44dc-893e-3ba33e8d46e5",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        You can delegate your powers or organise for someone to help administer\n        the account.\n      </p>\n      <p>\n        <span style=\"font-weight: 500;\">Reminder:</span> <a href=\"https://www.qbcc.qld.gov.au/resources/guide/myqbcc-help\" target=\"_blank\" rel=\"noopener noreferrer\">set up permissions in myQBCC</a>\n        so that they can lodge forms on your behalf.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "13f2e7d3-5458-4c10-94f0-d1eefa4429df",
+    "check_number": 2,
+    "check_name": "OPEN PROJECT TRUST ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Open the project trust at an\n        <a href=\"https://www.qbcc.qld.gov.au/running-business/trust-accounts/opening-using-trusts/approved-financial-institutions\" target=\"_blank\" rel=\"noopener noreferrer\">approved financial institution</a> within 20 business days\n        after entering into the first subcontract (or after the contract).\n      </p>\n<p>Ensure account name includes the words 'trust' and the trustee's name</p>\n\n<p>\n        <strong>Reminder:</strong> Only one project trust account is required\n        per eligible contract.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "1561a2bb-c085-401a-8e1b-438d7d43d22b",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 2,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Ensure a notice is given to the QBCC informing of the nominated account administrator—submit\n        an online notice of account administrator or manually using the form\n        <span style=\"font-weight: 500;\">\n          TA7 - Notice of retention trust account administrator.\n        </span>\n      </p>\n      <p>\n         <span style=\"font-weight: 500;color:grey\">Reminder:</span>\n        <a href=\"https://www.qbcc.qld.gov.au/resources/template/notice-subcontractor-project-trust-account-opened-changed-s23-s18c\" target=\"_blank\" rel=\"noopener noreferrer\">set up permissions in myQBCC</a> <span style=\"font-weight: 500;color:grey\">so that they can lodge forms on your behalf.</span>\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "1e47d802-655a-427d-a277-da2e432ea2e8",
+    "check_number": 8,
+    "check_name": "RELEASING RETENTION AMOUNTS TO YOURSELF AS TRUSTEE",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        You may pay yourself as trustee to correct defects or omissions in the work carried out by a\n        beneficiary —BUT ONLY after the end of the defects liability period.\n      </p>\n      <p>\n        Give a notice of payment made to yourself as trustee to the contracted party within 5\n        business days of making the payment. You can use the template notice\n        <span style=\"font-weight: 500;\">\n          Payment advice to beneficiary—payment to other party\n        </span>\n        from retention trust account or you can create your own that includes the required\n        information.\n      </p>\n      <p>Record the payment withdrawal in the record of deposits and withdrawals and the trust account ledger.</p>",
+    "is_active": true
+  },
+  {
+    "id": "2796467e-1507-469f-bb96-a65036db0a70",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 4,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p><span style=\"font-weight: 500;\">Send notices to the QBCC: </span>within five business days of opening the account—submit an online notice of trust account\nopening OR manually via the TA3 - Notice of opening project trust account and/or retention trust account (PDF).\n</p>",
+    "is_active": true
+  },
+  {
+    "id": "286a10f4-d743-4e4a-b1ba-4ba9ad129cf2",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 3,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        You may transfer the trust account to another\n        <a href=\"https://www.qbcc.qld.gov.au/running-business/trust-accounts/opening-using-trusts/approved-financial-institutions\" target=\"_blank\" rel=\"noopener noreferrer\">approved financial institution.</a> You must ensure you\n        notify the QBCC, the contracting party and all subcontractor\n        beneficiaries of the updated trust account information after doing so.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "30428db8-c7b5-48fe-b6d6-ed5bd145e19d",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 3,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Ensure all payments to subcontractor beneficiaries are made only from the project trust account (and transfer retention amounts withheld into the retention trust account).\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "33d0568b-76ec-4a03-800e-989c8ca4ebaa",
+    "check_number": 9,
+    "check_name": "MONTHLY RECONCILIATIONS AND RECORDKEEPING",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Ensure you conduct a monthly reconciliation of the trust account, within 15 business days of\n        the end of each month, to balance trust records and rectify any anomalies.\n      </p>\n      <p>\n        <span style=\"font-weight: 500;\">To complete a reconciliation:</span> Reconcile the bank\n        statement to the trust ledger trial balance statement.\n      </p>\n      <p>\n        Ensure copies of all project, payment and trust documentation is kept as part of the trust\n        records, and for a minimum of 7 years.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "3ac6aafc-210b-4cd8-83ef-7fd5c6b4b47e",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        If the trustee will not be responsible for administering the retention trust account, the\n        trustee must nominate a person to be the account administrator.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "45c47928-64eb-4dd3-adfd-56ff2a1306f6",
+    "check_number": 2,
+    "check_name": "OPEN RETENTION TRUST ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Open the account for the retention trust at an\n        <a href=\"https://www.qbcc.qld.gov.au/running-business/trust-accounts/opening-using-trusts/approved-financial-institutions\" target=\"_blank\" rel=\"noopener noreferrer\">approved financial institution</a> before withholding the retention amount from\n        payment.\n      </p>\n      <div>Ensure account name includes the words ‘trust’ and the trustee’s name.</div>\n\n      <span style=\"font-weight: 500;\">Reminder: Only one retention trust account is required per contracting party.</span>",
+    "is_active": true
+  },
+  {
+    "id": "46f3079d-8bb0-41f7-98cf-b6184bf9bc6b",
+    "check_number": 10,
+    "check_name": "CLOSE THE ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Ensure the account is only closed when there are no amounts left to be paid for the project\n        to subcontractors OR the only type of work left is maintenance work\n      </p>\n      <p>\n        <span style=\"font-weight: 500;\">Send a notice to the QBCC: </span> confirming the account has been closed within\n        five business days of closing the account— submit an online <a href=\"https://my.qbcc.qld.gov.au/myQBCC/s/\" target=\"_blank\" rel=\"noopener noreferrer\"> notice of trust account changing or closing</a> OR manually via the\n        <a href=\"https://www.qbcc.qld.gov.au/resources/form/form-ta2-notice-closing-changing-trust-account\" target=\"_blank\" rel=\"noopener noreferrer\">TA2 - Notice of trust account changing or closing a trust account (PDF).</a>\n      </p>\n      <p>\n        <span style=\"font-weight: 500;\">Send a notice to the contracting party:</span> confirming the account has been\n        closed within five business days of closing the account—use the\n        <a href=\"https://www.qbcc.qld.gov.au/resources/template/notice-contracting-party-project-trust-account-changed-closed-s18-s18c\" target=\"_blank\" rel=\"noopener noreferrer\">notice of change or closure of a project trust account (PDF).</a>\n      </p>",
+    "is_active": false
+  },
+  {
+    "id": "49472268-3f0e-4dd9-8968-de6cfe5a9b06",
+    "check_number": 8,
+    "check_name": "MONTHLY RECONCILIATIONS AND RECORDKEEPING",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Ensure you conduct a monthly reconciliation of the trust account, within\n        15 business days of the end of each month, to balance trust records and\n        rectify any anomalies.\n      </p>\n      <p>\n        <span style=\"font-weight: 500;\">To complete a reconciliation:</span> Reconcile the bank\n        statement to the records of deposits and withdrawals to the trust ledger\n        trial balance statement.\n      </p>\n      <p>\n        Ensure copies of all project, payment, and trust documentation are kept\n        as part of the trust records, and for a minimum of seven years.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "4f15a84c-deda-4aea-a230-7752f27cdc02",
+    "check_number": 5,
+    "check_name": "WITHHOLDING RETENTION AMOUNTS FROM PAYMENT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Respond to a payment claim with a payment schedule advising the retention amount to be\n        withheld.\n      </p>\n      <p>\n        Ensure all cash retention amounts are deposited into the retention trust account at the time\n        they are withheld.\n      </p>\n     ",
+    "is_active": true
+  },
+  {
+    "id": "4f594662-47d2-46d4-92c9-f8a2b300e670",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 2,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        You can withdraw an amount equal to the interest earned on the account\n        only once every 12 months and/or upon closure of the trust account.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "53d607f5-e0bb-466b-afe2-0da2cd2767c5",
+    "check_number": 7,
+    "check_name": "RELEASING RETENTION AMOUNTS TO SOMEONE ELSE FROM THE ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        You may pay another person (other than the beneficiary) to correct defects or omissions in\n        the work carried out by a beneficiary.\n      </p>\n      <p>\n        Give a notice of payment made to another person to the contracted party within 5 business\n        days of making the payment. You can use the template notice\n       <span style=\"font-weight: 500;\">\n          Payment advice to beneficiary—payment to other party\n        </span>\n        from retention trust account or you can create your own that includes the required\n        information.\n      </p>\n    <p>Record the payment withdrawal in the record of deposits and withdrawals and the trust account ledger within 3 business days of payment withdrawal.</p>",
+    "is_active": true
+  },
+  {
+    "id": "5c75b32a-da7c-477b-aafb-4cfa38cde295",
+    "check_number": 5,
+    "check_name": "WITHHOLDING RETENTION AMOUNTS FROM PAYMENT",
+    "rule_number": 2,
+    "bank_account_type": "Retention Trust Account",
+    "content": " <p>\n        Give notice of the deposit of the retention amount into the retention trust account (e.g.\n        remittance advice) to the contracted party within 5 business days. You can use the template\n        notice Payment advice to beneficiary—deposit into retention trust account or you can create\n        your own that includes the required information.\n      </p>\n\n        <p>Record the retention deposit in the record of deposits and withdrawals and trust account ledger within 3 business days of the deposit</p>",
+    "is_active": true
+  },
+  {
+    "id": "5e8204e2-5b26-4570-a016-b8b2eaff955b",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 3,
+    "bank_account_type": "Project Trust Account",
+    "content": " <p>\n         <span style=\"font-weight: 500;\">Send notices to subcontractors engaged:</span> either at the\n        time of entering into contract or within 10 business days of\n        establishing the trust—use the PDF provided after online notification to\n        the QBCC, this <a href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">template notice</a> or\n        <a href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">create your own</a>.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "720bf5ef-1062-404d-8ed9-23c8f5e38456",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Respond to a payment claim with a payment schedule if you disagree or if\n        you are withholding retentions.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "76bdbe77-5d95-4336-96a5-c1b6c8822d35",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 2,
+    "bank_account_type": "Retention Trust Account",
+    "content": " <p>\n       <span style=\"font-weight: 500;\">Send notices to the contracted party :</span> before the\n        retention amount is withheld from payment—use the PDF provided after online notification to\n        the QBCC, the template\n        <a href=\"https://www.qbcc.qld.gov.au/resources/guide/trustee-guide-retention-trusts\" target=\"_blank\" rel=\"noopener noreferrer\">\n          Notice to subcontractor—retention trust account opened or changed (s23-s18c)</a>, or create your\n          own.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "823ba626-80ca-4624-a4a6-d8743f71a35d",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 3,
+    "bank_account_type": "Retention Trust Account",
+    "content": " <p>\n       <span style=\"font-weight: 500;\">Send notices to the QBCC within 5 business days of adding a contract to the related entity :</span> submit an online notice to notify the QBCC where a contracted party for a project/retention trust contract (the trustee) has entered into a subcontract\nwith a ‘related entity’  using the TA3 - Notice of related entities\n      </p>\n",
+    "is_active": true
+  },
+  {
+    "id": "8477eed6-2e0b-4590-af89-d3233e387112",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 5,
+    "bank_account_type": "Project Trust Account",
+    "content": " <p>\n        Record the payment withdrawal in the record of deposits and withdrawals  and the trust account ledger.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "8d3f1bc8-0cd7-4fde-ae1e-239cb294e5bf",
+    "check_number": 11,
+    "check_name": "CLOSE THE ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Ensure the account is only closed when there are no amounts left to be paid to beneficiaries\n      </p>\n      <p>\n       <span style=\"font-weight: 500;\">Remember: </span>a retention trust account can be used\n        to hold retentions across multiple contracts and need not be closed at the end of a project.\n      </p>\n      <p>\n        Send a notice to the QBCC confirming the account has been closed within 5 business days of\n        closing the account —Submit an\n        <a href=\"https://my.qbcc.qld.gov.au/myQBCC/s/\" target=\"_blank\" rel=\"noopener noreferrer\">online notice of trust account changing or closing</a> OR manually via the\n        <span style=\"font-weight: 500;\">\n          TA2 - Notice of trust account changing or closing a trust account\n        </span>\n      </p>\n      <p>\n        Engage an independent auditor to carry out a review of the account within 20 business days\n        of closing the trust account.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "8d8a99c4-4f17-48eb-a507-3ae4ddb10e64",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 2,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Top up the trust account if there are insufficient funds available to\n        pay amounts due to be paid.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "96324e86-ab57-474c-9eb3-d785572be85e",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 2,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n       <span style=\"font-weight: 500;\">Send notices to the contracting party:</span> within five\n        business days of opening the account—use the PDF provided after online\n        notification to the QBCC, this <a href=\"https://www.qbcc.qld.gov.au/resources/template/notice-contracting-party-project-trust-account-opened-s18b\" target=\"_blank\" rel=\"noopener noreferrer\">template notice</a> or\n        <a href=\"https://www.qbcc.qld.gov.au/sites/default/files/template-notice-project-trust-transfer-another-financial-institution-s23-s18c.docx\" target=\"_blank\" rel=\"noopener noreferrer\">create your own</a>.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "9b0a1dd0-6ea4-4bb5-8d9a-da61d17f80da",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 8,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n Upload signed contracts related to Project Trust Accounts\n </p>",
+    "is_active": true
+  },
+  {
+    "id": "9c5a0f89-7ccb-47f3-a4e4-be80e19718dc",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 7,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n If there are insufficient funds to pay all subcontractors and you are  unable to top up the account, proportional payments may apply. Notify the QBCC if this occurs.\n </p>",
+    "is_active": true
+  },
+  {
+    "id": "9ee83711-4caf-4224-8c9c-f78127677f6f",
+    "check_number": 7,
+    "check_name": "PAYMENTS TO YOURSELF AS TRUSTEE",
+    "rule_number": 2,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>  Ensure all the payment withdrawal and deposits are recorded in the trust account journal within 3 business days of the payment date. </p>",
+    "is_active": true
+  },
+  {
+    "id": "a573c970-b18d-42df-aaa8-100f569f0d2b",
+    "check_number": 6,
+    "check_name": "RELEASING RETENTION AMOUNTS TO CONTRACTED PARTIES",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        Ensure all eligible retention amounts are released and paid to the contracted party only\n        from the retention trust account.\n      </p>\n      <p>\n        Give a notice of payment (e.g. remittance advice) to the contracted party within 5 business\n        days of making the payment. You can use the template notice\n       <span style=\"font-weight: 500;\">\n          Payment advice to beneficiary—paid from retention trust account\n        </span>\n        or you can create your own that includes the required information.\n      </p>\n  <p>Record the payment withdrawal in the trust account ledger within 3 business days of payment withdrawal</p>",
+    "is_active": true
+  },
+  {
+    "id": "acab4a0d-22e1-4cbb-883a-018a0ba6c584",
+    "check_number": 7,
+    "check_name": "PAYMENTS TO YOURSELF AS TRUSTEE",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Only withdraw funds from the trust account to pay yourself after\n        ensuring sufficient funds remain in the account to pay subcontractor\n        beneficiaries amounts that are due to be paid.\n      </p>\n      <p>\n        Record the payment withdrawal in the record of deposits and withdrawals\n        and the trust account ledger.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "adab4716-0f84-478f-97d9-28451d1ac609",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 9,
+    "bank_account_type": "Project Trust Account",
+    "content": " <p>\n        Ensure all the payments made are recorded in the trust account journal within 3 business days of the deposit date.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "b5add7af-d9c3-4032-9bd7-ee4255ea4e19",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        <span style=\"font-weight: 500;\">Send notices to the QBCC:</span> within five business days of\n        opening the account—submit an\n        <a href=\"https://www.qbcc.qld.gov.au/resources/template/notice-subcontractor-project-trust-account-opened-changed-s23-s18c\" target=\"_blank\" rel=\"noopener noreferrer\">online notice of trust account opening</a> OR manually via\n        the\n        <a href=\"https://www.qbcc.qld.gov.au/resources/form/form-ta1-notice-opening-project-retention-trust-account\" target=\"_blank\" rel=\"noopener noreferrer\">\n          TA1 - Notice of opening project trust account and/or retention trust\n          account (PDF)\n        </a>\n        .\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "bc68f438-b097-4dc3-b568-eb7ab758634c",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 6,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Give a notice of payment (e.g. remittance advice) to the contracted\n        party within five business days of making the payment.\n        <a href=\"https://www.qbcc.qld.gov.au/sites/default/files/form-trusts-payment-advice-withdrawal-project-trust.pdf\" target=\"_blank\" rel=\"noopener noreferrer\">Here is a template</a> that you can use or you can create\n        your own that includes the required information.\n </p>",
+    "is_active": true
+  },
+  {
+    "id": "bea2b113-21c9-41aa-a3b6-3737fe917af7",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 5,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        You may transfer the trust account to another\n        <a href=\"https://www.qbcc.qld.gov.au/running-business/trust-accounts/opening-using-trusts/approved-financial-institutions\" target=\"_blank\" rel=\"noopener noreferrer\">approved financial institution.</a> You must ensure you notify the QBCC and all contracted party beneficiaries of the updated trust account information after doing so.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "cd1b7621-569b-49c9-a25a-6da95a00afca",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 3,
+    "bank_account_type": "Retention Trust Account",
+    "content": " <p>\n        Ensure the trustee or nominated account administrator completes mandatory retention trust training within the prescribed time frames.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "e8323ccf-be09-4bbe-8efd-c32cf0db2240",
+    "check_number": 4,
+    "check_name": "ADMINISTRATION OF THE ACCOUNT",
+    "rule_number": 4,
+    "bank_account_type": "Retention Trust Account",
+    "content": " <p>\n        You can withdraw an amount equal to the interest earned on the account only once every 12\n        months and/or upon closure of the trust account.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "e850d4cf-3a77-418c-9b19-c9395c6c1ea1",
+    "check_number": 10,
+    "check_name": "ANNUAL ACCOUNT REVIEW REPORTS",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #5a5a5a;\">\n        <p>\n            Ensure you engage an independent auditor to carry out a review of the trust account every 12 months.\n        </p>\n        <p>\n            The auditor must START the review within 20 business days of the end of the review period and submit their account review report to the QBCC within 20 business days after the review is completed. <span style=\"font-weight: bold;\">Note</span> - a copy of the account review report must also be given to you as the trustee by the auditor.\n        </p>\n        <p>\n            Ensure you provide the QBCC a notice if you are not required to engage an auditor to carry out an account review because the trust account was not used to hold retention amounts during the review period <a href=\"https://my.qbcc.qld.gov.au/myQBCC/s/\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color: #007bff; text-decoration: underline;\">submit an online notice of account review exemption</a> OR manually using the <span style=\"font-weight: bold;\">TA5 - Notice of no trust account review.</span>\n        </p>\n    </div>",
+    "is_active": true
+  },
+  {
+    "id": "eb55ba60-aadf-4959-ba8a-1f3578d056f8",
+    "check_number": 3,
+    "check_name": "NOTIFY PARTIES OF THE TRUST ACCOUNT",
+    "rule_number": 1,
+    "bank_account_type": "Retention Trust Account",
+    "content": "<p>\n        <span style=\"font-weight: 500;\">Send notices to the QBCC :</span> within 5 business days\n        of opening the account - submit an <a href=\"https://my.qbcc.qld.gov.au/s/login/\" target=\"_blank\" rel=\"noopener noreferrer\"> online notice of trust account opening</a> OR manually using the\n        <span style=\"font-weight: 500;\">\n          TA1 - Notice of Opening Project Trust Account and/or Retention Trust Account.\n        </span>\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "eddc4efd-2d5b-4df6-843b-2a587aff7417",
+    "check_number": 5,
+    "check_name": "PAYMENTS FROM THE PRINCIPAL",
+    "rule_number": 1,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>Submit your payment claim and supporting statement to the principal.</p>\n    <p>Ensure the principal deposits payments for the project trust contract only into the project trust account.</p>\n    <p>Record the payment deposit in the record of deposits and withdrawals and the trust account ledger.</p>\n<p>  Ensure all the principal deposit payments are recorded in the trust account journal within 3 business days of the deposit date. </p>",
+    "is_active": true
+  }
+]

@@ -106,6 +106,7 @@ import { SeoKeywordsModule } from './api/admin/seo-keywords/seo-keywords.module'
 import { CommunityBotModule } from './api/common/community-bot/community-bot.module';
 import { AiSupportModule } from './api/common/ai-support/ai-support.module';
 import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
+import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
 
 @Module({
   imports: [
@@ -288,6 +289,7 @@ import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module'
     CommunityBotModule,
     AiSupportModule,
     AdminMenuSeederModule,
+    ComplianceSeederModule,
   ],
   providers: [
     AppService,
