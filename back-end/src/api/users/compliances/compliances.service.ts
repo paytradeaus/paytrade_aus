@@ -488,7 +488,7 @@ export class CompliancesService {
       `Fetching compliances with data: ${JSON.stringify(data)}`,
     );
 
-    const checkpoints = await this.checkpointRepo.find({
+    let checkpoints = await this.checkpointRepo.find({
       where: {
         project_id: data.project_id,
         bank_account_type: data.bank_account_type,
@@ -501,6 +501,56 @@ export class CompliancesService {
         },
       },
     });
+
+    if (!checkpoints.length && data.project_id) {
+      this.logger.log(
+        `No checkpoints found for project ${data.project_id} / ${data.bank_account_type}, auto-populating...`,
+      );
+      try {
+        const isPTA = data.bank_account_type === 'Project Trust Account';
+        const bankAccountType = data.bank_account_type || 'Project Trust Account';
+
+        const allChecks = await this.complianceChecksRepo.find({
+          where: { bank_account_type: bankAccountType },
+        });
+
+        const uniqueCheckNumbers = [
+          ...new Set(allChecks.map((c) => c.check_number)),
+        ];
+
+        for (const checkNumber of uniqueCheckNumbers) {
+          try {
+            await this.syncCompliancesOfProject(
+              data.project_id,
+              checkNumber,
+              isPTA,
+            );
+          } catch (syncErr) {
+            this.logger.error(
+              `Auto-sync failed for project ${data.project_id} check ${checkNumber}: ${syncErr.message}`,
+            );
+          }
+        }
+
+        checkpoints = await this.checkpointRepo.find({
+          where: {
+            project_id: data.project_id,
+            bank_account_type: data.bank_account_type,
+          },
+          relations: ['rules'],
+          order: {
+            check_number: 'ASC',
+            rules: {
+              rule_number: 'ASC',
+            },
+          },
+        });
+      } catch (autoPopErr) {
+        this.logger.error(
+          `Auto-populate checkpoints failed for project ${data.project_id}: ${autoPopErr.message}`,
+        );
+      }
+    }
 
     const complianceResult = checkpoints.map((checkpoint, index) => {
       let check_colour_code = checkpoint.check_colour_code;
