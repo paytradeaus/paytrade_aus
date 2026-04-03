@@ -216,11 +216,11 @@ import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module
       },
     }),
     ServeStaticModule.forRoot({
-      rootPath: join('assets'),
+      rootPath: join(process.cwd(), 'assets'),
       serveRoot: '/assets',
     }),
     ServeStaticModule.forRoot({
-      rootPath: join('uploads'),
+      rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
     BullModule.forRoot({
