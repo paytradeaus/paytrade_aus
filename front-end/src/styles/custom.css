@@ -1184,15 +1184,22 @@ small i {
 .xero_dashboard {
   display: flex;
   flex-direction: row-reverse;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   align-content: start;
   padding: 0px 30px 20px 0;
+  overflow: hidden;
 }
 
 .xero_dashboard .stats {
   display: flex;
+  flex-wrap: wrap;
+}
+
+.pt_box {
+  overflow: hidden;
+  min-width: 0;
 }
 .xero_dashboard .stats div {
   font-size: 11px;
