@@ -55,7 +55,7 @@ export default function XeroProjects() {
   const [xeroData, setXeroData] = useState<any>("");
 
   const [headers, setHeaders] = useState<any>([]);
-  const [gridData, setGridData] = useState([]);
+  const [gridData, setGridData] = useState<any[]>([]);
   const [gridActions, setGridActions] = useState([]);
   const [renderRowList, setRenderRowList] = useState([]);
   const [status, setStatus] = useState("");

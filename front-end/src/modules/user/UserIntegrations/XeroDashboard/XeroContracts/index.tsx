@@ -55,7 +55,7 @@ export default function XeroContracts() {
   const [tableLoader, setTableLoader] = useState(false);
 
   const [headers, setHeaders] = useState([]);
-  const [gridData, setGridData] = useState([]);
+  const [gridData, setGridData] = useState<any[]>([]);
   const [gridActions, setGridActions] = useState([]);
   const [renderRowList, setRenderRowList] = useState([]);
   const [status, setStatus] = useState("");
