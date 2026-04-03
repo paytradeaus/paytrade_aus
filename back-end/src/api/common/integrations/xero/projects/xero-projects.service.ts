@@ -93,11 +93,6 @@ export class XeroProjectsService {
       throw `No xero integration found`;
     }
 
-    if (
-      xeroDetails?.integrationDetails?.integration_status !==
-      'Connected - active'
-    )
-      throw `Paytrade is currently not active in Xero.`;
     await this.xeroService.refreshTokenSet(company_id, this.xero);
 
     const contactsResponse = await this.xero.accountingApi.getContacts(
@@ -149,13 +144,6 @@ export class XeroProjectsService {
         !xeroDetails?.integrationDetails
       ) {
         throw `No xero integration found`;
-      }
-
-      if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
-      ) {
-        throw `Paytrade is currently not active in Xero.`;
       }
 
       await this.xeroService.refreshTokenSet(
@@ -535,12 +523,6 @@ export class XeroProjectsService {
       ) {
         throw `No xero integration found`;
       }
-
-      if (
-        xeroDetails?.integrationDetails?.integration_status !==
-        'Connected - active'
-      )
-        throw `Paytrade is currently not active in Xero.`;
 
       const checkExistenceInDb = await this.getProjectDetailsByProjectId(
         project_id,
@@ -925,12 +907,6 @@ export class XeroProjectsService {
         throw `No xero integration found`;
       }
 
-      if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
-      ) {
-        throw `Paytrade is currently not active in Xero.`;
-      }
 
       if (!xeroDetails.project_category_id) {
         await this.xeroService.insertXeroSyncLogs(decoded, {

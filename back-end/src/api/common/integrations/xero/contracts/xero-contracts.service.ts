@@ -94,12 +94,6 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
-      if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
-      ) {
-        throw `Paytrade is currently not active in Xero.`;
-      }
 
       await this.xeroService.refreshTokenSet(
         contractDetails.company_id,
@@ -570,12 +564,6 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
-      if (
-        xeroDetails?.integrationDetails?.integration_status !==
-        'Connected - active'
-      )
-        throw `Paytrade is currently not active in Xero.`;
-
       const checkExistenceInDb = await this.getContractDetailsByContractId(
         contract_id,
         xeroDetails.integration_id,
@@ -919,12 +907,6 @@ export class XeroContractsService {
         throw `No xero integration found`;
       }
 
-      if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
-      ) {
-        throw `Paytrade is currently not active in Xero.`;
-      }
 
       if (!xeroDetails.contract_category_id) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
