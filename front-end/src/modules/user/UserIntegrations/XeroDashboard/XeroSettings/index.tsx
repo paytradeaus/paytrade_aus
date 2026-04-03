@@ -98,6 +98,10 @@ export default function XeroSettings() {
       setInitialXeroToPtBankAutoCreate(!!data?.xero_to_pt_bank_auto_create);
       setPtToXeroContactAutoCreate(!!data?.pt_to_xero_contact_auto_create);
       setXeroToPtContactAutoCreate(!!data?.xero_to_pt_contact_auto_create);
+      setPtToXeroProjectAutoCreate(!!data?.pt_to_xero_project_auto_create);
+      setXeroToPtProjectAutoCreate(!!data?.xero_to_pt_project_auto_create);
+      setPtToXeroContractAutoCreate(!!data?.pt_to_xero_contract_auto_create);
+      setXeroToPtContractAutoCreate(!!data?.xero_to_pt_contract_auto_create);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -170,6 +174,10 @@ export default function XeroSettings() {
   const [initialXeroToPtBankAutoCreate, setInitialXeroToPtBankAutoCreate] = useState(false);
   const [ptToXeroContactAutoCreate, setPtToXeroContactAutoCreate] = useState(false);
   const [xeroToPtContactAutoCreate, setXeroToPtContactAutoCreate] = useState(false);
+  const [ptToXeroProjectAutoCreate, setPtToXeroProjectAutoCreate] = useState(false);
+  const [xeroToPtProjectAutoCreate, setXeroToPtProjectAutoCreate] = useState(false);
+  const [ptToXeroContractAutoCreate, setPtToXeroContractAutoCreate] = useState(false);
+  const [xeroToPtContractAutoCreate, setXeroToPtContractAutoCreate] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -283,6 +291,10 @@ export default function XeroSettings() {
         xero_to_pt_bank_auto_create: xeroToPtBankAutoCreate,
         pt_to_xero_contact_auto_create: ptToXeroContactAutoCreate,
         xero_to_pt_contact_auto_create: xeroToPtContactAutoCreate,
+        pt_to_xero_project_auto_create: ptToXeroProjectAutoCreate,
+        xero_to_pt_project_auto_create: xeroToPtProjectAutoCreate,
+        pt_to_xero_contract_auto_create: ptToXeroContractAutoCreate,
+        xero_to_pt_contract_auto_create: xeroToPtContractAutoCreate,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1122,6 +1134,98 @@ export default function XeroSettings() {
                         Note: Contacts marked as &quot;Customer&quot; in Xero will be created as Clients. All others will be created as Suppliers. You can change the type after import.
                       </p>
                     )}
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Project auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control whether new projects are automatically created in the other system when they are added.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create PayTrade projects in Xero?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new project is added in PayTrade, it will be automatically created in Xero as a tracking category option during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"pt_to_xero_project_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setPtToXeroProjectAutoCreate(e === "Yes");
+                      }}
+                      value={ptToXeroProjectAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                  <div>
+                    <h5>Auto-create Xero projects in PayTrade?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new project tracking option is found in Xero, it will be created in PayTrade during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"xero_to_pt_project_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setXeroToPtProjectAutoCreate(e === "Yes");
+                      }}
+                      value={xeroToPtProjectAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Contract auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control whether new contracts are automatically created in the other system when they are added.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create PayTrade contracts in Xero?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new contract is added in PayTrade, it will be automatically created in Xero as a tracking category option during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"pt_to_xero_contract_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setPtToXeroContractAutoCreate(e === "Yes");
+                      }}
+                      value={ptToXeroContractAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                  <div>
+                    <h5>Auto-create Xero contracts in PayTrade?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a new contract tracking option is found in Xero, it will be created in PayTrade during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"xero_to_pt_contract_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setXeroToPtContractAutoCreate(e === "Yes");
+                      }}
+                      value={xeroToPtContractAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
                   </div>
                 </div>
               </details>

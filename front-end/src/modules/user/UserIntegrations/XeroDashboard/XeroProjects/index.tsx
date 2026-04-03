@@ -20,6 +20,7 @@ import {
   CreateProjectInXero,
   getXeroDetailsForCompany,
 } from "../../integration.functions";
+import { showSuccessToast } from "@/components/Toaster";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   mappedProjectsHeaders,
@@ -32,7 +33,7 @@ import {
   xeroProjectsRenderData,
 } from "../../integration.constant";
 import GridExportActions from "@/components/GridExportActions";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface TableConfig {
   headers: any[];
@@ -41,6 +42,7 @@ interface TableConfig {
 }
 
 export default function XeroProjects() {
+  const router = useRouter();
   const queryParams = useSearchParams();
   const to = queryParams.get("navigateTo") || 0;
   const [tabStatus, setTabStatus] = useState(projectsTabOptions[+to]?.label);
@@ -74,6 +76,9 @@ export default function XeroProjects() {
   const [manualMapData, setManualMapData] = useState<any>("");
   const [manualMapOptions, setManualMapOptions] = useState([]);
 
+  const xeroInactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
+  const isXeroConnected = xeroData?.integration_status && !xeroInactiveStatuses.includes(xeroData.integration_status);
+
   const paytradeProjectsActions = [
     {
       label: "Manual map",
@@ -82,10 +87,10 @@ export default function XeroProjects() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to xero",
-      icon: "fa-light fa-angle-double-right",
-      onClick: (row: any) => handleOptionClick(row, "Sync to xero"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in Xero",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in Xero"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const xeroProjectsActions = [
@@ -96,10 +101,10 @@ export default function XeroProjects() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to paytrade",
-      icon: "fa-light fa-angle-double-left",
-      onClick: (row: any) => handleOptionClick(row, "Sync to paytrade"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in PayTrade",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in PayTrade"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const mappedProjectsActions = [
@@ -209,14 +214,14 @@ export default function XeroProjects() {
     return {
       contacts:
         data?.project_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.project_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.project_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped,
             },
           };
         }) || [],
@@ -248,14 +253,14 @@ export default function XeroProjects() {
     return {
       contacts:
         data?.project_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.project_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.project_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped && isNotDraft,
             },
           };
         }) || [],
@@ -323,6 +328,7 @@ export default function XeroProjects() {
     };
     fetchData();
   }, [tabStatus, currentPage, entriesPerPage, search, sortValues, status]);
+
   const handleOptionClick = async (row: any, label: string) => {
     if (tabStatus === "Xero projects" && label == "Manual Map") {
       getOptionForManualProjectMappingForXero();
@@ -332,32 +338,40 @@ export default function XeroProjects() {
       getOptionForManualProjectMappingForPaytrade();
       setSelectedContact(row);
       setShowManualMapping(true);
-    } else if (tabStatus === "Paytrade projects" && label === "Sync to xero") {
-      setTableLoader(true);
-      await CreateProjectInXero({ projectId: +row?.project_id });
-      const { contacts, totalCount } = await fetchPaytradeProjects(
-        currentPage,
-        entriesPerPage,
-        search,
-        sortValues,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
-    } else if (tabStatus === "Xero projects" && label === "Sync to paytrade") {
-      setTableLoader(true);
-      await CreateProjectInPaytrade({
-        companyId: +(localStorage.getItem("companyId") || 0),
-        projectId: row?.project_id,
+    } else if (
+      tabStatus === "Paytrade projects" &&
+      label === "Create in Xero"
+    ) {
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in Xero",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.project_name}</b> in Xero?
+          </>
+        ),
+        id: "Create_in_xero?",
       });
-      const { contacts, totalCount } = await fetchXeroProjects(
-        currentPage,
-        entriesPerPage,
-        search,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
+    } else if (
+      tabStatus === "Xero projects" &&
+      label === "Create in PayTrade"
+    ) {
+      setSelectedContact(row);
+      setModelConfig({
+        show: true,
+        title: "Create in PayTrade",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.project_name}</b> in PayTrade?
+          </>
+        ),
+        id: "Create_in_paytrade?",
+      });
     }
   };
 
@@ -396,6 +410,86 @@ export default function XeroProjects() {
     setTotalRows(totalCount);
   };
 
+  const handleCreateInXero = async () => {
+    setTableLoader(true);
+    await CreateProjectInXero({ projectId: +selectedContact?.project_id });
+    const { contacts, totalCount } = await fetchPaytradeProjects(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleCreateInPaytrade = async () => {
+    setTableLoader(true);
+    await CreateProjectInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+      projectId: selectedContact?.project_id,
+    });
+    const { contacts, totalCount } = await fetchXeroProjects(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInPaytrade = async () => {
+    setTableLoader(true);
+    let created = 0;
+    let failed = 0;
+    for (const row of gridData) {
+      try {
+        await CreateProjectInPaytrade({
+          companyId: +(localStorage.getItem("companyId") || 0),
+          projectId: row.project_id,
+        });
+        created++;
+      } catch {
+        failed++;
+      }
+    }
+    showSuccessToast(`Created ${created} project(s)${failed > 0 ? `, ${failed} failed` : ""}`);
+    const { contacts, totalCount } = await fetchXeroProjects(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInXero = async () => {
+    setTableLoader(true);
+    let created = 0;
+    let failed = 0;
+    for (const row of gridData) {
+      try {
+        await CreateProjectInXero({ projectId: +row.project_id });
+        created++;
+      } catch {
+        failed++;
+      }
+    }
+    showSuccessToast(`Created ${created} project(s) in Xero${failed > 0 ? `, ${failed} failed` : ""}`);
+    const { contacts, totalCount } = await fetchPaytradeProjects(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
   const modelClose = () => {
     if (modelConfig.id === "Sync_xero_projects?") {
       syncXeroProjects();
@@ -403,6 +497,14 @@ export default function XeroProjects() {
       handleAutoMappingProjects();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapProject();
+    } else if (modelConfig.id === "Create_in_xero?") {
+      handleCreateInXero();
+    } else if (modelConfig.id === "Create_in_paytrade?") {
+      handleCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_paytrade?") {
+      handleBatchCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_xero?") {
+      handleBatchCreateInXero();
     }
   };
 
@@ -492,17 +594,16 @@ export default function XeroProjects() {
     }
     setManualMapData("");
   };
+
   const checkActionCondition = () => {
     const actionMapping: any = {
       "Mapped projects": mappedProjectsActions,
-      "Xero projects":
-        xeroData?.integration_status === "Connected - active"
-          ? xeroProjectsActions
-          : xeroProjectsActions.slice(0, 1),
-      "Paytrade projects":
-        xeroData?.integration_status === "Connected - active"
-          ? paytradeProjectsActions
-          : paytradeProjectsActions.slice(0, 1),
+      "Xero projects": isXeroConnected
+        ? xeroProjectsActions
+        : xeroProjectsActions.slice(0, 1),
+      "Paytrade projects": isXeroConnected
+        ? paytradeProjectsActions
+        : paytradeProjectsActions.slice(0, 1),
     };
     return actionMapping[tabStatus] || [];
   };
@@ -646,16 +747,49 @@ export default function XeroProjects() {
                 }
                 styles={{ margin: "0 10px 10px 10px" }}
               />
-              {/* <CustomButton
-                buttonName="RESET"
-                iconClassName="fa-light fa-undo"
-                buttonType={buttonType.SMALL_BUTTON}
-                actionType="button"
-                onClick={() => setShowResetModal(true)}
-                styles={{ margin: "0 10px 10px 10px" }}
-              /> */}
+              {isXeroConnected && (
+                <CustomButton
+                  buttonName="CREATE ALL IN PAYTRADE"
+                  iconClassName="fa-light fa-plus-circle"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() =>
+                    setModelConfig({
+                      show: true,
+                      title: "Create All in PayTrade",
+                      secondButtonName: "Create All",
+                      firstButtonName: "Cancel",
+                      description:
+                        "Create all unmapped Xero projects in PayTrade? Projects with missing required fields will be skipped.",
+                      id: "Batch_create_in_paytrade?",
+                    })
+                  }
+                  styles={{ margin: "0 10px 10px 10px" }}
+                />
+              )}
             </>
           )}
+          {tabStatus === "Paytrade projects" &&
+            isXeroConnected && (
+              <CustomButton
+                buttonName="CREATE ALL IN XERO"
+                iconClassName="fa-light fa-plus-circle"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                onClick={() =>
+                  setModelConfig({
+                    show: true,
+                    title: "Create All in Xero",
+                    secondButtonName: "Create All",
+                    firstButtonName: "Cancel",
+                    description:
+                      "Create all unmapped PayTrade projects in Xero?",
+                    id: "Batch_create_in_xero?",
+                  })
+                }
+                styles={{ margin: "0 10px 10px 10px" }}
+              />
+            )}
           {showTable && (
             <DynamicTable
               headers={
@@ -687,6 +821,19 @@ export default function XeroProjects() {
             />
           )}
         </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
+        <CustomButton
+          styles={{ height: "40px" }}
+          buttonName="Close"
+          iconClassName="fa-light fa-close"
+          buttonType={buttonType.CONTRAST_SMALL}
+          actionType="button"
+          onClick={() => {
+            router.push("/user/integrations/xero");
+          }}
+        />
       </div>
 
       {modelConfig.show && (

@@ -812,6 +812,20 @@ Users can also create new Xero accounts directly from this screen by specifying 
 | **PT → Xero Contact Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero contacts for any unmapped PayTrade clients/suppliers |
 | **Xero → PT Contact Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates PayTrade clients/suppliers for any unmapped Xero contacts. The contact type is determined automatically: Xero contacts flagged as "Customer" become Clients in PayTrade, all others become Suppliers. Users can change the type after import. |
 
+#### Project Auto-Create Settings
+
+| Setting | Direction | Description |
+|---------|-----------|-------------|
+| **PT → Xero Project Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero tracking category options for any unmapped PayTrade projects |
+| **Xero → PT Project Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates PayTrade projects for any unmapped Xero tracking category options |
+
+#### Contract Auto-Create Settings
+
+| Setting | Direction | Description |
+|---------|-----------|-------------|
+| **PT → Xero Contract Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero tracking category options for any unmapped PayTrade contracts |
+| **Xero → PT Contract Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates PayTrade contracts for any unmapped Xero tracking category options |
+
 These toggles are found at the bottom of the Xero Settings page under the auto-creation sections.
 
 #### Other Settings
@@ -850,11 +864,25 @@ Each mapping module follows the same pattern with three tabs:
 - **Create All in Xero:** A batch button on the PayTrade Contacts tab that creates all unmapped PayTrade contacts in Xero in one operation.
 - **Close button:** Returns to the Xero Dashboard.
 
-#### Project and Contract Mapping
-- Uses Xero Tracking Category Options (not separate Xero entities)
+#### Project Mapping
+- Links PayTrade projects to Xero tracking category options
 - Each PayTrade project maps to a tracking category option in Xero — this is required
+- Tracking categories must be configured in Settings before mapping
+- **Create in Xero button:** On the PayTrade Projects tab, each unmapped row has a "Create in Xero" action button (plus icon). Clicking it shows a confirmation prompt, then creates the corresponding tracking category option in Xero and auto-maps it.
+- **Create in PayTrade button:** On the Xero Projects tab, each unmapped row has a "Create in PayTrade" action button (plus icon). Clicking it shows a confirmation prompt, then creates a project in PayTrade.
+- **Create All in PayTrade:** A batch button on the Xero Projects tab that creates all unmapped Xero projects in PayTrade. Projects with missing required fields are skipped.
+- **Create All in Xero:** A batch button on the PayTrade Projects tab that creates all unmapped PayTrade projects in Xero.
+- **Close button:** Returns to the Xero Dashboard.
+
+#### Contract Mapping
+- Links PayTrade contracts to Xero tracking category options
 - Contract mapping is **optional** — see section 19.5 for smart contract resolution
 - Tracking categories must be configured in Settings before mapping
+- **Create in Xero button:** On the PayTrade Contracts tab, each unmapped row has a "Create in Xero" action button (plus icon). Clicking it shows a confirmation prompt, then creates the corresponding tracking category option in Xero and auto-maps it.
+- **Create in PayTrade button:** On the Xero Contracts tab, each unmapped row has a "Create in PayTrade" action button (plus icon). Clicking it shows a confirmation prompt, then creates a contract in PayTrade.
+- **Create All in PayTrade:** A batch button on the Xero Contracts tab that creates all unmapped Xero contracts in PayTrade. Contracts with missing required fields are skipped.
+- **Create All in Xero:** A batch button on the PayTrade Contracts tab that creates all unmapped PayTrade contracts in Xero.
+- **Close button:** Returns to the Xero Dashboard.
 
 ### 19.5 Smart Contract Resolution *(Updated 2026-03-29)*
 

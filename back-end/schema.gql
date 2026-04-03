@@ -20571,11 +20571,17 @@ input UpdateSettingsInput {
   """Auto-create new PayTrade contacts in Xero"""
   pt_to_xero_contact_auto_create: Boolean
 
+  """Auto-create new PayTrade contracts in Xero"""
+  pt_to_xero_contract_auto_create: Boolean
+
   """Sync draft setting for PT to Xero invoices"""
   pt_to_xero_invoice_as_draft: String
 
   """Sync draft setting for PT to Xero payments"""
   pt_to_xero_payment_as_draft: String
+
+  """Auto-create new PayTrade projects in Xero"""
+  pt_to_xero_project_auto_create: Boolean
 
   """Reference format for invoices/bills"""
   reference_format: String
@@ -20609,11 +20615,17 @@ input UpdateSettingsInput {
   """Auto-create new Xero contacts in PayTrade"""
   xero_to_pt_contact_auto_create: Boolean
 
+  """Auto-create new Xero contracts in PayTrade"""
+  xero_to_pt_contract_auto_create: Boolean
+
   """Sync draft setting for Xero to PT invoices"""
   xero_to_pt_invoice_as_draft: String
 
   """Sync draft setting for Xero to PT payments"""
   xero_to_pt_payment_as_draft: String
+
+  """Auto-create new Xero projects in PayTrade"""
+  xero_to_pt_project_auto_create: Boolean
 }
 
 """
@@ -22049,11 +22061,17 @@ type XeroResponse {
   """Auto-create new PayTrade contacts in Xero"""
   pt_to_xero_contact_auto_create: Boolean
 
+  """Auto-create new PayTrade contracts in Xero"""
+  pt_to_xero_contract_auto_create: Boolean
+
   """Sync setting for PT to Xero invoices as draft"""
   pt_to_xero_invoice_as_draft: String
 
   """Sync setting for PT to Xero payments as draft"""
   pt_to_xero_payment_as_draft: String
+
+  """Auto-create new PayTrade projects in Xero"""
+  pt_to_xero_project_auto_create: Boolean
 
   """Reference format for invoices/bills"""
   reference_format: String
@@ -22099,11 +22117,17 @@ type XeroResponse {
   """Auto-create new Xero contacts in PayTrade"""
   xero_to_pt_contact_auto_create: Boolean
 
+  """Auto-create new Xero contracts in PayTrade"""
+  xero_to_pt_contract_auto_create: Boolean
+
   """Sync setting for Xero to PT invoices as draft"""
   xero_to_pt_invoice_as_draft: String
 
   """Sync setting for Xero to PT payments as draft"""
   xero_to_pt_payment_as_draft: String
+
+  """Auto-create new Xero projects in PayTrade"""
+  xero_to_pt_project_auto_create: Boolean
 }
 
 """Input for specifying accounts that are yet to be mapped"""

@@ -738,19 +738,17 @@ export default function XeroBankAccount() {
         </div>
       </div>
 
-      <div className="pt_filtergroup">
-        <div className="grid pt_topfilters">
-          <CustomButton
-            styles={{ height: "40px" }}
-            buttonName="Close"
-            iconClassName="fa-light fa-close"
-            buttonType={buttonType.CONTRAST_SMALL}
-            actionType="button"
-            onClick={() => {
-              router.push("/user/integrations/xero");
-            }}
-          />
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
+        <CustomButton
+          styles={{ height: "40px" }}
+          buttonName="Close"
+          iconClassName="fa-light fa-close"
+          buttonType={buttonType.CONTRAST_SMALL}
+          actionType="button"
+          onClick={() => {
+            router.push("/user/integrations/xero");
+          }}
+        />
       </div>
 
       {modelConfig.show && (

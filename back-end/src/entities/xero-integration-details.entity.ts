@@ -111,6 +111,18 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   xero_to_pt_contact_auto_create: boolean;
 
+  @Column({ type: 'boolean', nullable: true, default: false })
+  pt_to_xero_project_auto_create: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  xero_to_pt_project_auto_create: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  pt_to_xero_contract_auto_create: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  xero_to_pt_contract_auto_create: boolean;
+
   @Column({ type: 'text', nullable: true })
   invoice_tax_code: string;
 

@@ -21,6 +21,7 @@ import {
   syncAllContractsByCompanyId,
   unMappingContract,
 } from "../../integration.functions";
+import { showSuccessToast } from "@/components/Toaster";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   contractsTabOptions,
@@ -33,7 +34,7 @@ import {
   xeroContractsRenderData,
 } from "../../integration.constant";
 import GridExportActions from "@/components/GridExportActions";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface TableConfig {
   headers: any[];
@@ -42,6 +43,7 @@ interface TableConfig {
 }
 
 export default function XeroContracts() {
+  const router = useRouter();
   const queryParams = useSearchParams();
   const to = queryParams.get("navigateTo") || 0;
   const [tabStatus, setTabStatus] = useState(contractsTabOptions[+to]?.label);
@@ -75,6 +77,9 @@ export default function XeroContracts() {
   const [manualMapData, setManualMapData] = useState<any>("");
   const [manualMapOptions, setManualMapOptions] = useState([]);
 
+  const xeroInactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
+  const isXeroConnected = xeroData?.integration_status && !xeroInactiveStatuses.includes(xeroData.integration_status);
+
   const paytradeContractsActions = [
     {
       label: "Manual map",
@@ -83,10 +88,10 @@ export default function XeroContracts() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to xero",
-      icon: "fa-light fa-angle-double-right",
-      onClick: (row: any) => handleOptionClick(row, "Sync to xero"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in Xero",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in Xero"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const xeroContractsActions = [
@@ -97,10 +102,10 @@ export default function XeroContracts() {
       conditionalApiDisplayKey: "manual",
     },
     {
-      label: "Sync to paytrade",
-      icon: "fa-light fa-angle-double-left",
-      onClick: (row: any) => handleOptionClick(row, "Sync to paytrade"),
-      conditionalApiDisplayKey: "syncIcon",
+      label: "Create in PayTrade",
+      icon: "fa-light fa-plus-circle",
+      onClick: (row: any) => handleOptionClick(row, "Create in PayTrade"),
+      conditionalApiDisplayKey: "createIcon",
     },
   ];
   const mappedContractsActions = [
@@ -210,14 +215,14 @@ export default function XeroContracts() {
     return {
       contracts:
         data?.contract_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.contract_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.contract_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped,
             },
           };
         }) || [],
@@ -249,14 +254,14 @@ export default function XeroContracts() {
     return {
       contracts:
         data?.contract_list.map((val: any) => {
+          const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const isNotDraft = val.contract_status?.toLocaleLowerCase() !== "draft";
           return {
             ...val,
             dynamicIcon: {
-              syncIcon:
-                val.mapped_status?.toLocaleLowerCase() == "mapped"
-                  ? false
-                  : val.contract_status?.toLocaleLowerCase() !== "draft",
-              manual: val.mapped_status?.toLocaleLowerCase() !== "mapped",
+              syncIcon: isUnmapped && isNotDraft,
+              manual: isUnmapped,
+              createIcon: isUnmapped && isNotDraft,
             },
           };
         }) || [],
@@ -334,32 +339,40 @@ export default function XeroContracts() {
       getOptionForManualContactMappingForPaytrade();
       setSelectedContract(row);
       setShowManualMapping(true);
-    } else if (tabStatus === "Paytrade contracts" && label === "Sync to xero") {
-      setTableLoader(true);
-      await CreateContractInXero({ contractId: +row?.contract_id });
-      const { contracts, totalCount } = await fetchPaytradeContracts(
-        currentPage,
-        entriesPerPage,
-        search,
-        sortValues,
-        setTableLoader
-      );
-      setGridData(contracts);
-      setTotalRows(totalCount);
-    } else if (tabStatus === "Xero contracts" && label === "Sync to paytrade") {
-      setTableLoader(true);
-      await CreateContractInPaytrade({
-        companyId: +(localStorage.getItem("companyId") || 0),
-        contractId: row?.contract_id,
+    } else if (
+      tabStatus === "Paytrade contracts" &&
+      label === "Create in Xero"
+    ) {
+      setSelectedContract(row);
+      setModelConfig({
+        show: true,
+        title: "Create in Xero",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.contract_name || row?.client_supplier_name}</b> in Xero?
+          </>
+        ),
+        id: "Create_in_xero?",
       });
-      const { contracts, totalCount } = await fetchXeroContracts(
-        currentPage,
-        entriesPerPage,
-        search,
-        setTableLoader
-      );
-      setGridData(contracts);
-      setTotalRows(totalCount);
+    } else if (
+      tabStatus === "Xero contracts" &&
+      label === "Create in PayTrade"
+    ) {
+      setSelectedContract(row);
+      setModelConfig({
+        show: true,
+        title: "Create in PayTrade",
+        secondButtonName: "Create",
+        firstButtonName: "Cancel",
+        description: (
+          <>
+            Create <b>{row?.contract_name}</b> in PayTrade?
+          </>
+        ),
+        id: "Create_in_paytrade?",
+      });
     }
   };
 
@@ -398,6 +411,86 @@ export default function XeroContracts() {
     setTotalRows(totalCount);
   };
 
+  const handleCreateInXero = async () => {
+    setTableLoader(true);
+    await CreateContractInXero({ contractId: +selectedContract?.contract_id });
+    const { contracts, totalCount } = await fetchPaytradeContracts(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contracts);
+    setTotalRows(totalCount);
+  };
+
+  const handleCreateInPaytrade = async () => {
+    setTableLoader(true);
+    await CreateContractInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+      contractId: selectedContract?.contract_id,
+    });
+    const { contracts, totalCount } = await fetchXeroContracts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contracts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInPaytrade = async () => {
+    setTableLoader(true);
+    let created = 0;
+    let failed = 0;
+    for (const row of gridData) {
+      try {
+        await CreateContractInPaytrade({
+          companyId: +(localStorage.getItem("companyId") || 0),
+          contractId: row.contract_id,
+        });
+        created++;
+      } catch {
+        failed++;
+      }
+    }
+    showSuccessToast(`Created ${created} contract(s)${failed > 0 ? `, ${failed} failed` : ""}`);
+    const { contracts, totalCount } = await fetchXeroContracts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contracts);
+    setTotalRows(totalCount);
+  };
+
+  const handleBatchCreateInXero = async () => {
+    setTableLoader(true);
+    let created = 0;
+    let failed = 0;
+    for (const row of gridData) {
+      try {
+        await CreateContractInXero({ contractId: +row.contract_id });
+        created++;
+      } catch {
+        failed++;
+      }
+    }
+    showSuccessToast(`Created ${created} contract(s) in Xero${failed > 0 ? `, ${failed} failed` : ""}`);
+    const { contracts, totalCount } = await fetchPaytradeContracts(
+      currentPage,
+      entriesPerPage,
+      search,
+      sortValues,
+      setTableLoader
+    );
+    setGridData(contracts);
+    setTotalRows(totalCount);
+  };
+
   const modelClose = () => {
     if (modelConfig.id === "Sync_xero_contracts?") {
       syncXeroContracts();
@@ -405,6 +498,14 @@ export default function XeroContracts() {
       handleAutoMappingContract();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapContract();
+    } else if (modelConfig.id === "Create_in_xero?") {
+      handleCreateInXero();
+    } else if (modelConfig.id === "Create_in_paytrade?") {
+      handleCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_paytrade?") {
+      handleBatchCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_xero?") {
+      handleBatchCreateInXero();
     }
   };
 
@@ -492,14 +593,12 @@ export default function XeroContracts() {
   const checkActionCondition = () => {
     const actionMapping: any = {
       "Mapped contracts": mappedContractsActions,
-      "Xero contracts":
-        xeroData?.integration_status === "Connected - active"
-          ? xeroContractsActions
-          : xeroContractsActions.slice(0, 1),
-      "Paytrade contracts":
-        xeroData?.integration_status === "Connected - active"
-          ? paytradeContractsActions
-          : paytradeContractsActions.slice(0, 1),
+      "Xero contracts": isXeroConnected
+        ? xeroContractsActions
+        : xeroContractsActions.slice(0, 1),
+      "Paytrade contracts": isXeroConnected
+        ? paytradeContractsActions
+        : paytradeContractsActions.slice(0, 1),
     };
     return actionMapping[tabStatus] || [];
   };
@@ -644,16 +743,49 @@ export default function XeroContracts() {
                 }
                 styles={{ margin: "0 10px 10px 10px" }}
               />
-              {/* <CustomButton
-                buttonName="RESET"
-                iconClassName="fa-light fa-undo"
-                buttonType={buttonType.SMALL_BUTTON}
-                actionType="button"
-                onClick={() => setShowResetModal(true)}
-                styles={{ margin: "0 10px 10px 10px" }}
-              /> */}
+              {isXeroConnected && (
+                <CustomButton
+                  buttonName="CREATE ALL IN PAYTRADE"
+                  iconClassName="fa-light fa-plus-circle"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() =>
+                    setModelConfig({
+                      show: true,
+                      title: "Create All in PayTrade",
+                      secondButtonName: "Create All",
+                      firstButtonName: "Cancel",
+                      description:
+                        "Create all unmapped Xero contracts in PayTrade? Contracts with missing required fields will be skipped.",
+                      id: "Batch_create_in_paytrade?",
+                    })
+                  }
+                  styles={{ margin: "0 10px 10px 10px" }}
+                />
+              )}
             </>
           )}
+          {tabStatus === "Paytrade contracts" &&
+            isXeroConnected && (
+              <CustomButton
+                buttonName="CREATE ALL IN XERO"
+                iconClassName="fa-light fa-plus-circle"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                onClick={() =>
+                  setModelConfig({
+                    show: true,
+                    title: "Create All in Xero",
+                    secondButtonName: "Create All",
+                    firstButtonName: "Cancel",
+                    description:
+                      "Create all unmapped PayTrade contracts in Xero?",
+                    id: "Batch_create_in_xero?",
+                  })
+                }
+                styles={{ margin: "0 10px 10px 10px" }}
+              />
+            )}
           {showTable && (
             <DynamicTable
               headers={
@@ -685,6 +817,19 @@ export default function XeroContracts() {
             />
           )}
         </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
+        <CustomButton
+          styles={{ height: "40px" }}
+          buttonName="Close"
+          iconClassName="fa-light fa-close"
+          buttonType={buttonType.CONTRAST_SMALL}
+          actionType="button"
+          onClick={() => {
+            router.push("/user/integrations/xero");
+          }}
+        />
       </div>
 
       {modelConfig.show && (
