@@ -80,6 +80,9 @@ export default function XeroContacts() {
   const [manualMapData, setManualMapData] = useState<any>("");
   const [manualMapOptions, setManualMapOptions] = useState([]);
 
+  const xeroInactiveStatuses = ["Inactive", "Deleted - archived", "Disconnected", "Connected - paused"];
+  const isXeroConnected = xeroData?.integration_status && !xeroInactiveStatuses.includes(xeroData.integration_status);
+
   const paytradeContactsActions = [
     {
       label: "Manual map",
@@ -572,14 +575,12 @@ export default function XeroContacts() {
   const checkActionCondition = () => {
     const actionMapping: any = {
       "Mapped contacts": mappedContactsActions,
-      "Xero contacts":
-        xeroData?.integration_status === "Connected - active"
-          ? xeroContactsActions
-          : xeroContactsActions.slice(0, 1),
-      "Paytrade contacts":
-        xeroData?.integration_status === "Connected - active"
-          ? paytradeContactsActions
-          : paytradeContactsActions.slice(0, 1),
+      "Xero contacts": isXeroConnected
+        ? xeroContactsActions
+        : xeroContactsActions.slice(0, 1),
+      "Paytrade contacts": isXeroConnected
+        ? paytradeContactsActions
+        : paytradeContactsActions.slice(0, 1),
     };
     return actionMapping[tabStatus] || [];
   };
@@ -722,7 +723,7 @@ export default function XeroContacts() {
                 }
                 styles={{ margin: "0 10px 10px 10px" }}
               />
-              {xeroData?.integration_status === "Connected - active" && (
+              {isXeroConnected && (
                 <CustomButton
                   buttonName="CREATE ALL IN PAYTRADE"
                   iconClassName="fa-light fa-plus-circle"
@@ -745,7 +746,7 @@ export default function XeroContacts() {
             </>
           )}
           {tabStatus === "Paytrade contacts" &&
-            xeroData?.integration_status === "Connected - active" && (
+            isXeroConnected && (
               <CustomButton
                 buttonName="CREATE ALL IN XERO"
                 iconClassName="fa-light fa-plus-circle"
