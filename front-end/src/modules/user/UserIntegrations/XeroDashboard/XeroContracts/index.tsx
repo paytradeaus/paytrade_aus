@@ -452,7 +452,7 @@ export default function XeroContracts() {
           contractId: row.contract_id,
         });
         created++;
-      } catch {
+      } catch (e) {
         failed++;
       }
     }
@@ -475,7 +475,7 @@ export default function XeroContracts() {
       try {
         await CreateContractInXero({ contractId: +row.contract_id });
         created++;
-      } catch {
+      } catch (e) {
         failed++;
       }
     }

@@ -451,7 +451,7 @@ export default function XeroProjects() {
           projectId: row.project_id,
         });
         created++;
-      } catch {
+      } catch (e) {
         failed++;
       }
     }
@@ -474,7 +474,7 @@ export default function XeroProjects() {
       try {
         await CreateProjectInXero({ projectId: +row.project_id });
         created++;
-      } catch {
+      } catch (e) {
         failed++;
       }
     }
