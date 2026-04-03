@@ -805,7 +805,14 @@ Users can also create new Xero accounts directly from this screen by specifying 
 | **PT → Xero Bank Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero bank accounts for any unmapped PayTrade bank accounts |
 | **Xero → PT Bank Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates draft PayTrade bank accounts for any unmapped Xero bank accounts. Draft accounts require additional details (account type, financial institution, opening date, etc.) before they become active |
 
-These toggles are found at the bottom of the Xero Settings page under the sync preferences section.
+#### Contact Auto-Create Settings
+
+| Setting | Direction | Description |
+|---------|-----------|-------------|
+| **PT → Xero Contact Auto-Create** | PayTrade → Xero | When enabled, the hourly scheduler automatically creates matching Xero contacts for any unmapped PayTrade clients/suppliers |
+| **Xero → PT Contact Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates PayTrade clients/suppliers for any unmapped Xero contacts. The contact type is determined automatically: Xero contacts flagged as "Customer" become Clients in PayTrade, all others become Suppliers. Users can change the type after import. |
+
+These toggles are found at the bottom of the Xero Settings page under the auto-creation sections.
 
 #### Other Settings
 - **Reference Format:** Customise the reference prefix for synced documents
@@ -837,7 +844,11 @@ Each mapping module follows the same pattern with three tabs:
 #### Contact Mapping
 - Links Xero contacts to PayTrade clients and suppliers
 - Contacts must be mapped before invoices/bills referencing them can sync
-- Users can import contacts from Xero into PayTrade
+- **Create in Xero button:** On the PayTrade Contacts tab, each unmapped row has a "Create in Xero" action button (plus icon). Clicking it shows a confirmation prompt, then creates the corresponding contact in Xero and auto-maps it.
+- **Create in PayTrade button:** On the Xero Contacts tab, each unmapped row has a "Create in PayTrade" action button (plus icon). Clicking it shows a confirmation prompt, then creates a client/supplier in PayTrade. The type (Client or Supplier) is determined automatically from Xero's `isCustomer` flag — customers become Clients, all others become Suppliers. Users can change the type after import. Contacts with missing required fields (e.g. no address or email) are flagged and require the user to complete a pre-filled form.
+- **Create All in PayTrade:** A batch button on the Xero Contacts tab that creates all unmapped Xero contacts in PayTrade in one operation. Contacts with missing required fields are skipped (counted in the results summary).
+- **Create All in Xero:** A batch button on the PayTrade Contacts tab that creates all unmapped PayTrade contacts in Xero in one operation.
+- **Close button:** Returns to the Xero Dashboard.
 
 #### Project and Contract Mapping
 - Uses Xero Tracking Category Options (not separate Xero entities)
@@ -944,6 +955,12 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
   - **PT → Xero:** Finds unmapped PayTrade bank accounts (excluding those the user declined via the save prompt) and creates them in Xero automatically
   - **Xero → PT:** Finds unmapped Xero bank accounts and creates them in PayTrade as draft accounts. A sync log entry is created with a "missing fields" status so the user can complete the required details (account type, financial institution, opening date, etc.) via the Resolve workflow on the Sync Log Details page
 - Accounts that were explicitly declined ("No" at the Xero prompt on save) are marked with `skip_xero_auto_create` and excluded from the scheduler
+
+#### Hourly Contact Auto-Create
+- Runs **every hour** (on the hour) via `XeroSchedulerService`, alongside bank account auto-create
+- For each active integration with the relevant toggle enabled:
+  - **PT → Xero:** Finds unmapped PayTrade clients/suppliers and creates them as contacts in Xero automatically
+  - **Xero → PT:** Finds unmapped Xero contacts and creates them as clients/suppliers in PayTrade. Contact type is determined automatically from Xero's `isCustomer` flag (Customer → Client, otherwise → Supplier). Users can change the type after import. Contacts with missing required fields generate a sync log entry (templates 469-470)
 
 #### Real-Time Sync from Xero
 - When changes are made in Xero (new contacts, updated invoices, payments applied), PayTrade is notified automatically
