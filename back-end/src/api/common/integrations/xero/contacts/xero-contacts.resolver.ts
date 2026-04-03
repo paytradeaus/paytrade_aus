@@ -10,6 +10,7 @@ import {
   YetToMapContactsInput,
 } from './dto/xero.input';
 import {
+  BatchCreateContactsResponse,
   GetPaytradeContactsListResponse,
   GetPaytradeContactsResponse,
   GetXeroContactsListResponse,
@@ -334,7 +335,7 @@ export class XeroContactsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
-  @Mutation(() => GetPaytradeContactsResponse, {
+  @Mutation(() => BatchCreateContactsResponse, {
     name: 'batchCreateContactsInPaytrade',
     description:
       'Creates all unmapped Xero contacts in PayTrade for the specified company.',
@@ -372,7 +373,7 @@ export class XeroContactsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
-  @Mutation(() => GetXeroContactsResponse, {
+  @Mutation(() => BatchCreateContactsResponse, {
     name: 'batchCreateContactsInXero',
     description:
       'Creates all unmapped PayTrade contacts in Xero for the specified company.',

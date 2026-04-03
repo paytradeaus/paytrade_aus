@@ -1,4 +1,4 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { ObjectType, Field, Int } from '@nestjs/graphql';
 import { MappedStatuses } from 'src/libs/@paytrade-types/paytrade-types';
 
 @ObjectType({ description: 'Represents a single Xero contact record' })
@@ -161,4 +161,28 @@ export class GetPaytradeContactsResponse {
 
   @Field({ nullable: true, description: 'Single Paytrade contact payload' })
   data?: GetPaytradeContacts;
+}
+
+@ObjectType({ description: 'Batch create contacts result counts' })
+export class BatchCreateContactsData {
+  @Field(() => Int, { description: 'Number of contacts successfully created' })
+  created: number;
+
+  @Field(() => Int, { description: 'Number of contacts skipped (missing required fields)' })
+  skipped: number;
+
+  @Field(() => Int, { description: 'Number of contacts that failed to create' })
+  failed: number;
+}
+
+@ObjectType({ description: 'Response wrapper for batch contact creation' })
+export class BatchCreateContactsResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field(() => BatchCreateContactsData, { nullable: true, description: 'Batch creation result counts' })
+  data?: BatchCreateContactsData;
 }

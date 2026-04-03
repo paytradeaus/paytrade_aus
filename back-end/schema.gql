@@ -1450,6 +1450,30 @@ type BankProjectDetail {
   project_name: String!
 }
 
+"""Batch create contacts result counts"""
+type BatchCreateContactsData {
+  """Number of contacts successfully created"""
+  created: Int!
+
+  """Number of contacts that failed to create"""
+  failed: Int!
+
+  """Number of contacts skipped (missing required fields)"""
+  skipped: Int!
+}
+
+"""Response wrapper for batch contact creation"""
+type BatchCreateContactsResponse {
+  """Batch creation result counts"""
+  data: BatchCreateContactsData
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
 """Data for batch match response."""
 type BatchMatchData {
   """Total failed."""
@@ -13604,7 +13628,7 @@ type Mutation {
   batchCreateContactsInPaytrade(
     """ID of the company to create contacts for."""
     company_id: Float!
-  ): GetPaytradeContactsResponse!
+  ): BatchCreateContactsResponse!
 
   """
   Creates all unmapped PayTrade contacts in Xero for the specified company.
@@ -13612,7 +13636,7 @@ type Mutation {
   batchCreateContactsInXero(
     """ID of the company to create contacts for."""
     company_id: Float!
-  ): GetXeroContactsResponse!
+  ): BatchCreateContactsResponse!
 
   """Match multiple transaction-payment pairs in a single batch operation."""
   batchMatchExactTransactions(

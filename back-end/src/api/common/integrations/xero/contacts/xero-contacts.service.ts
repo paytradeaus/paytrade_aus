@@ -2572,7 +2572,7 @@ export class XeroContactsService {
             decoded,
             xeroPayload,
           );
-          if (response?.code === 'CONTACT_MISSING_FIELDS') {
+          if (response === false) {
             result.skipped++;
           } else {
             result.created++;
@@ -2607,18 +2607,18 @@ export class XeroContactsService {
         .leftJoin(
           'xero_contact_details',
           'xcd',
-          `xcd.pt_contact_id = cs.id AND xcd.integration_id = :integrationId`,
+          `xcd.pt_contact_id = cs.client_supplier_id AND xcd.integration_id = :integrationId`,
           { integrationId: xeroDetails.integration_id },
         )
         .where('cs.company_id = :companyId', { companyId })
-        .andWhere('cs.status = :status', { status: 'ACTIVE' })
+        .andWhere('cs.client_supplier_status = :status', { status: 'Completed' })
         .andWhere('xcd.id IS NULL')
         .getMany();
 
       for (const contact of unmappedPtContacts) {
         try {
           const xeroPayload = {
-            client_supplier_id: contact.id,
+            client_supplier_id: contact.client_supplier_id,
             mapped_status: 'System',
           };
           await this.createContact(decoded, xeroPayload);
