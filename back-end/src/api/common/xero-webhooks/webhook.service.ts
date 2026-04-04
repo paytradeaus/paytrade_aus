@@ -3242,7 +3242,8 @@ export class XeroWebhookService {
                     : xeroDetails.liability_receivable_code),
               );
 
-              if ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2)) {
+              const draftSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+              if (!draftSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: data?.sync_id || null,
                   api_name: 'createClaimInPaytrade',
@@ -5130,7 +5131,8 @@ export class XeroWebhookService {
             : xeroDetails.liability_receivable_code),
       );
 
-      if ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2)) {
+      const updateSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+      if (!updateSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
