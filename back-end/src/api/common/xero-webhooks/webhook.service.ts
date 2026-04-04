@@ -1793,103 +1793,6 @@ export class XeroWebhookService {
       //   return false;
       // }
 
-      const xeroContractDetails = contractTrackingId
-        ? await this.xeroContractDetails.findOne({
-            where: {
-              contract_id: contractTrackingId,
-              integration_id: xeroDetails.integration_id,
-            },
-          })
-        : null;
-
-      if (!xeroContractDetails) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id || null,
-          api_name: 'createClaimInPaytrade',
-          api_payload: {
-            sync_run_type,
-            invoice_id: invoice?.invoiceID,
-            tenant_id,
-            type:
-              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: sync_run_type === 'webhook' ? 267 : 427,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {},
-          reference_id: null,
-          history: [
-            `API triggered from invoice ${sync_run_type}`,
-            'Import failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Failed',
-          },
-          error_message: `Contract details not found`,
-          xero_records: [invoice],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      }
-
-      const contractDetails =
-        xeroContractDetails && xeroContractDetails?.pt_contract_id
-          ? await this.contractDetails.findOne({
-              where: { contract_id: xeroContractDetails.pt_contract_id },
-            })
-          : null;
-
-      if (!contractDetails) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id || null,
-          api_name: 'createClaimInPaytrade',
-          api_payload: {
-            sync_run_type,
-            invoice_id: invoice?.invoiceID,
-            tenant_id,
-            type:
-              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
-            contract_id: xeroContractDetails?.contract_id,
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: sync_run_type === 'webhook' ? 268 : 428,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {},
-          reference_id: null,
-          history: [
-            `API triggered from invoice ${sync_run_type}`,
-            'Import failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Failed',
-          },
-          error_message: `Contract details not mapped`,
-          xero_records: [{ ...invoice, xeroContractDetails }],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      }
-
       const xeroProjectDetails = projectTrackingId
         ? await this.xeroProjectDetails.findOne({
             where: {
@@ -1899,7 +1802,7 @@ export class XeroWebhookService {
           })
         : null;
 
-      if (!xeroProjectDetails) {
+      if (projectTrackingId && !xeroProjectDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1915,7 +1818,7 @@ export class XeroWebhookService {
           log_template_id: sync_run_type === 'webhook' ? 270 : 430,
           dynamic_values: {},
           project_id: null,
-          contract_id: xeroContractDetails?.id,
+          contract_id: null,
           reference: {},
           reference_id: null,
           history: [
@@ -1948,7 +1851,7 @@ export class XeroWebhookService {
             })
           : null;
 
-      if (!projectDetails) {
+      if (projectTrackingId && !projectDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1964,7 +1867,57 @@ export class XeroWebhookService {
           log_template_id: sync_run_type === 'webhook' ? 269 : 429,
           dynamic_values: {},
           project_id: null,
-          contract_id: xeroContractDetails?.id,
+          contract_id: null,
+          reference: {},
+          reference_id: null,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contract mapping validation': 'Ok',
+            'Project mapping validation': 'Failed',
+          },
+          error_message: `Project details not mapped`,
+          xero_records: [{ ...invoice, xeroProjectDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
+      const xeroContractDetails = contractTrackingId
+        ? await this.xeroContractDetails.findOne({
+            where: {
+              contract_id: contractTrackingId,
+              integration_id: xeroDetails.integration_id,
+            },
+          })
+        : null;
+
+      if (contractTrackingId && !xeroContractDetails) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 267 : 427,
+          dynamic_values: {},
+          project_id: xeroProjectDetails?.id,
+          contract_id: null,
           reference: {},
           reference_id: null,
           history: [
@@ -1979,8 +1932,8 @@ export class XeroWebhookService {
             'Client/Supplier mapping validation': 'Ok',
             'Contract mapping validation': 'Failed',
           },
-          error_message: `Project details not mapped`,
-          xero_records: [{ ...invoice, xeroProjectDetails }],
+          error_message: `Contract details not found`,
+          xero_records: [invoice],
           paytrade_records: [],
           new_records: null,
           updated_records: null,
@@ -1989,7 +1942,145 @@ export class XeroWebhookService {
         return false;
       }
 
+      let contractDetails =
+        xeroContractDetails && xeroContractDetails?.pt_contract_id
+          ? await this.contractDetails.findOne({
+              where: { contract_id: xeroContractDetails.pt_contract_id },
+            })
+          : null;
+
+      if (contractTrackingId && !contractDetails) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            contract_id: xeroContractDetails?.contract_id,
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 268 : 428,
+          dynamic_values: {},
+          project_id: xeroProjectDetails?.id,
+          contract_id: null,
+          reference: {},
+          reference_id: null,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contract mapping validation': 'Failed',
+          },
+          error_message: `Contract details not mapped`,
+          xero_records: [{ ...invoice, xeroContractDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
+      if (!contractTrackingId && !contractDetails && projectDetails && xeroContactDetails?.pt_contact_id) {
+        const matchingContracts = await this.contractDetails.find({
+          where: {
+            project_id: projectDetails.project_id,
+            client_supplier_id: xeroContactDetails.pt_contact_id,
+          },
+        });
+
+        if (matchingContracts.length === 1) {
+          contractDetails = matchingContracts[0];
+        } else if (matchingContracts.length === 0) {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id || null,
+            api_name: 'createClaimInPaytrade',
+            api_payload: {
+              sync_run_type,
+              invoice_id: invoice?.invoiceID,
+              tenant_id,
+              type:
+                invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: sync_run_type === 'webhook' ? 267 : 427,
+            dynamic_values: {},
+            project_id: xeroProjectDetails?.id,
+            contract_id: null,
+            reference: {},
+            reference_id: null,
+            history: [
+              `API triggered from invoice ${sync_run_type}`,
+              'Import failed',
+            ],
+            important_checks: {
+              'Import data format validation': 'Ok',
+              'Import tracking id validation': 'Ok',
+              'Import account type validation': 'Ok',
+              'Import tax type validation': 'Ok',
+              'Client/Supplier mapping validation': 'Ok',
+              'Contract mapping validation': 'Failed',
+            },
+            error_message: `No contract found for this project and contact`,
+            xero_records: [invoice],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          return false;
+        } else {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id || null,
+            api_name: 'createClaimInPaytrade',
+            api_payload: {
+              sync_run_type,
+              invoice_id: invoice?.invoiceID,
+              tenant_id,
+              type:
+                invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: sync_run_type === 'webhook' ? 267 : 427,
+            dynamic_values: {},
+            project_id: xeroProjectDetails?.id,
+            contract_id: null,
+            reference: {},
+            reference_id: null,
+            history: [
+              `API triggered from invoice ${sync_run_type}`,
+              'Import failed',
+            ],
+            important_checks: {
+              'Import data format validation': 'Ok',
+              'Import tracking id validation': 'Ok',
+              'Import account type validation': 'Ok',
+              'Import tax type validation': 'Ok',
+              'Client/Supplier mapping validation': 'Ok',
+              'Contract mapping validation': 'Failed',
+            },
+            error_message: `Multiple contracts found for this project and contact. Please assign a contract tracking category in Xero`,
+            xero_records: [invoice],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          return false;
+        }
+      }
+
       if (
+        contractDetails &&
         clientSuppliersDetails.client_supplier_id !==
         contractDetails.client_supplier_id
       ) {
@@ -2033,7 +2124,7 @@ export class XeroWebhookService {
         return false;
       }
 
-      if (projectDetails.project_id !== contractDetails.project_id) {
+      if (contractDetails && projectDetails && projectDetails.project_id !== contractDetails.project_id) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -2120,6 +2211,7 @@ export class XeroWebhookService {
 
       //Get new claim- Invoice type check - Validate against contract size OK
       if (
+        contractDetails &&
         invoice?.status !== Invoice.StatusEnum.DRAFT &&
         Number(invoice.total) > Number(contractDetails.initial_contract_sum)
       ) {
@@ -2305,7 +2397,7 @@ export class XeroWebhookService {
                 inner join sub_payments s on p.payment_id = s.payment_id and p.current_status <> 'Deleted' 
                 inner join retention_details r on p.payment_id = r.payment_id and s.sub_payment_id = r.sub_payment_id and r.retention_status = 'Retained' 
                 inner join integration_details i on i.company_id = pc.company_id and i.integration_status = 'Connected - active'  
-                where pc.company_id = ${company_id} and pc.project_id = ${xeroProjectDetails.pt_project_id} and pc.client_supplier_id = ${xeroContactDetails.pt_contact_id} and pc.contract_id = ${xeroContractDetails.pt_contract_id};`;
+                where pc.company_id = ${company_id} and pc.project_id = ${xeroProjectDetails?.pt_project_id || projectDetails?.project_id} and pc.client_supplier_id = ${xeroContactDetails.pt_contact_id} and pc.contract_id = ${contractDetails?.contract_id};`;
 
               const retentionDetails =
                 await this.dataSource.query(retentionListQuery);
@@ -2880,8 +2972,8 @@ export class XeroWebhookService {
                 : 'Receivable',
             cash_retention_type,
             status: claimStatus,
-            project_id: contractDetails.project_id,
-            contract_id: contractDetails.contract_id,
+            project_id: contractDetails?.project_id || projectDetails?.project_id,
+            contract_id: contractDetails?.contract_id,
             client_supplier_id: xeroContactDetails.pt_contact_id,
             client_supplier_type: clientSuppliersDetails.client_supplier_type,
             due_date: new Date(invoice.dueDate),
@@ -3095,7 +3187,7 @@ export class XeroWebhookService {
                       inner join sub_payments s on p.payment_id = s.payment_id and p.current_status <> 'Deleted' 
                       inner join retention_details r on p.payment_id = r.payment_id and s.sub_payment_id = r.sub_payment_id and r.retention_status = 'Retained' 
                       inner join integration_details i on i.company_id = pc.company_id and i.integration_status = 'Connected - active' 
-                      where pc.company_id = ${company_id} and pc.project_id = ${xeroProjectDetails.pt_project_id} and pc.client_supplier_id = ${xeroContactDetails.pt_contact_id} and pc.contract_id = ${xeroContractDetails.pt_contract_id};`;
+                      where pc.company_id = ${company_id} and pc.project_id = ${xeroProjectDetails?.pt_project_id || projectDetails?.project_id} and pc.client_supplier_id = ${xeroContactDetails.pt_contact_id} and pc.contract_id = ${contractDetails?.contract_id};`;
 
                     const retentionDetails =
                       await this.dataSource.query(retentionListQuery);
@@ -3693,8 +3785,8 @@ export class XeroWebhookService {
                 cash_retention_type,
                 status: claimStatus,
                 previous_status: claimDetails?.status,
-                project_id: contractDetails.project_id,
-                contract_id: contractDetails.contract_id,
+                project_id: contractDetails?.project_id || projectDetails?.project_id,
+                contract_id: contractDetails?.contract_id,
                 client_supplier_id: xeroContactDetails.pt_contact_id,
                 client_supplier_type:
                   clientSuppliersDetails.client_supplier_type,
