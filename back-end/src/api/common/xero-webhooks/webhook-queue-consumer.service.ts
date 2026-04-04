@@ -29,18 +29,32 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
   }
 
   onModuleInit() {
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (!isProduction) {
-      this.logger.log('Xero webhook queue consumer disabled in development');
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      this.logger.warn('REDIS_URL not configured - Xero webhook queue consumer disabled');
       return;
     }
-    
-    const redisUrl = process.env.REDIS_URL;
-    if (redisUrl) {
-      this.redis = new Redis(redisUrl);
-      this.logger.log('Xero webhook queue consumer initialized');
-    } else {
-      this.logger.error('REDIS_URL not configured - webhook queue consumer disabled');
+
+    try {
+      this.redis = new Redis(redisUrl, {
+        maxRetriesPerRequest: 3,
+        retryStrategy: (times) => {
+          if (times > 5) return null;
+          return Math.min(times * 1000, 5000);
+        },
+      });
+
+      this.redis.on('connect', () => {
+        this.logger.log('Xero webhook queue consumer connected to Redis');
+      });
+
+      this.redis.on('error', (err) => {
+        this.logger.error(`Xero webhook queue Redis error: ${err.message}`);
+      });
+
+      this.logger.log(`Xero webhook queue consumer initialized (NODE_ENV=${process.env.NODE_ENV || 'not set'})`);
+    } catch (err) {
+      this.logger.error(`Failed to initialize Xero webhook queue consumer: ${err.message}`);
     }
   }
 
@@ -53,6 +67,11 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     this.isProcessing = true;
 
     try {
+      const queueLength = await this.redis.llen('xero_webhook_queue');
+      if (queueLength > 0) {
+        this.logger.log(`Found ${queueLength} events in xero_webhook_queue`);
+      }
+
       let processed = 0;
       const maxBatch = 10;
 
@@ -64,6 +83,7 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
         }
 
         processed++;
+        this.logger.log(`Dequeued event ${processed}: ${eventJson.substring(0, 200)}`);
         
         try {
           const event = JSON.parse(eventJson);
@@ -74,7 +94,7 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
       }
 
       if (processed > 0) {
-        this.logger.log(`Processed ${processed} Xero webhook events`);
+        this.logger.log(`Processed ${processed} Xero webhook events from queue`);
       }
     } catch (err) {
       this.logger.error(`Queue processing error: ${err.message}`);
