@@ -25,12 +25,12 @@ import { XeroService } from '../xero.service';
 import { handleAxiosError } from 'src/api/common/error-handler';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
-import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
+import { ClientSuppliersDetails, ClientSupplierType, RelatedEntity } from 'src/entities/client-suppliers-details.entity';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { PaymentClaimTypes } from 'src/libs/@paytrade-types/paytrade-types';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
-import { ContractDetails } from 'src/entities/contract-details.entity';
+import { ContractDetails, ClientSupplierRole, RetentionType } from 'src/entities/contract-details.entity';
 import { ContractType } from 'src/entities/contract-type.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
@@ -5257,10 +5257,10 @@ export class XeroInvoicesService {
     projectRole: string,
     invoiceType: string,
     relatedEntity: string,
-  ): { clientSupplierType: string; clientSupplierRole: string } | null {
+  ): { clientSupplierType: ClientSupplierType; clientSupplierRole: ClientSupplierRole } | null {
     const isBill = invoiceType === 'ACCPAY';
 
-    const matrix: Record<string, { clientSupplierType: string; clientSupplierRole: string } | null> = {
+    const matrix: Record<string, { clientSupplierType: ClientSupplierType; clientSupplierRole: ClientSupplierRole } | null> = {
       'Head Contractor_bill_No': { clientSupplierType: 'Supplier', clientSupplierRole: 'Sub Contractor' },
       'Head Contractor_bill_Yes': { clientSupplierType: 'Supplier', clientSupplierRole: 'Related Entity Sub Contractor' },
       'Head Contractor_invoice_No': { clientSupplierType: 'Client', clientSupplierRole: 'Principal' },
@@ -5373,10 +5373,10 @@ export class XeroInvoicesService {
 
     const contractTypeRecord = await this.dataSource.getRepository(ContractType).findOne({
       where: {
-        project_role: projectDetails.project_role as any,
-        client_supplier_type: derived.clientSupplierType as any,
-        related_entity: relatedEntity as any,
-        client_supplier_role: derived.clientSupplierRole as any,
+        project_role: projectDetails.project_role,
+        client_supplier_type: derived.clientSupplierType,
+        related_entity: relatedEntity as RelatedEntity,
+        client_supplier_role: derived.clientSupplierRole,
       },
     });
 
@@ -5445,33 +5445,30 @@ export class XeroInvoicesService {
       return null;
     }
 
-    const retentionType = projectDetails.rta_eligibility === 'Yes' ? 'Cash' : 'None';
+    const retentionType: RetentionType = projectDetails.rta_eligibility === 'Yes' ? 'Cash' : 'None';
     const now = moment.tz('UTC').toDate();
 
     try {
       const newContract = this.contractDetails.create({
         company_id: company_id,
         contract_name: contractName,
-        client_supplier_role: derived.clientSupplierRole as any,
+        client_supplier_role: derived.clientSupplierRole,
         contract_type: contractTypeRecord.contract_type,
-        contract_status: 'In Progress' as any,
+        contract_status: 'In Progress',
         contract_date: now,
         project_id: projectDetails.project_id,
-        project_role: projectDetails.project_role,
         client_supplier_id: clientSuppliersDetails.client_supplier_id,
-        client_supplier_type: derived.clientSupplierType as any,
-        related_entity: relatedEntity as any,
-        retention_type: retentionType as any,
+        retention_type: retentionType,
         payment_terms: 10,
         initial_contract_sum: 99999999,
         contract_start_date: now,
         defect_liability_end_date: moment.tz('UTC').add(1, 'year').toDate(),
         created_by: decoded?.userId,
         created_on: now,
-        created_group: 'SYSTEM' as any,
-      } as any);
+        created_group: 'SYSTEM',
+      });
 
-      const saved: ContractDetails = await this.contractDetails.save(newContract) as any;
+      const saved = await this.contractDetails.save(newContract);
 
       const updatedContractId = 100000 + Number(saved.contract_id);
       await this.dataSource
