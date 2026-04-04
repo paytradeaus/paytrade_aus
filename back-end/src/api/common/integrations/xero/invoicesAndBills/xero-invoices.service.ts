@@ -5309,6 +5309,7 @@ export class XeroInvoicesService {
     const contactName = clientSuppliersDetails.client_supplier_name || `Contact ${clientSuppliersDetails.client_supplier_id}`;
     const relatedEntity = clientSuppliersDetails.related_entity || 'No';
     const smartLogPayload = { invoice_id: data.invoice_id, tenant_id: data.tenant_id };
+    const projectUuid = projectDetails.id;
 
     if (relatedEntity === 'Yes') {
       this.logger.log(
@@ -5320,7 +5321,7 @@ export class XeroInvoicesService {
         integration_id: xeroDetails.integration_id,
         log_template_id: 477,
         dynamic_values: { contact_name: contactName },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
@@ -5357,7 +5358,7 @@ export class XeroInvoicesService {
           claim_type: claimType,
           contact_name: contactName,
         },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
@@ -5396,7 +5397,7 @@ export class XeroInvoicesService {
           client_supplier_role: derived.clientSupplierRole,
           validation_message: validationMsg,
         },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
@@ -5428,7 +5429,7 @@ export class XeroInvoicesService {
           expected_type: derived.clientSupplierType,
           project_role: projectDetails.project_role,
         },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
@@ -5449,15 +5450,16 @@ export class XeroInvoicesService {
     const projectBankAccounts = await bankAccountsRepo.find({
       where: { company_id },
     });
+    const pidStr = String(projectDetails.project_id);
     const projectPtaBankAccounts = projectBankAccounts.filter(
       (ba) =>
         ba.account_type === 'Project Trust Account' &&
-        ba.project_ids?.includes(projectDetails.project_id),
+        ba.project_ids?.map(String).includes(pidStr),
     );
     const projectRtaBankAccounts = projectBankAccounts.filter(
       (ba) =>
         ba.account_type === 'Retention Trust Account' &&
-        ba.project_ids?.includes(projectDetails.project_id),
+        ba.project_ids?.map(String).includes(pidStr),
     );
 
     let ptaAccount: BankAccounts | null = null;
@@ -5474,7 +5476,7 @@ export class XeroInvoicesService {
           integration_id: xeroDetails.integration_id,
           log_template_id: 482,
           dynamic_values: { project_name: projectName, contact_name: contactName },
-          project_id: String(projectDetails.project_id),
+          project_id: projectUuid,
           contract_id: null,
           reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
           reference_id: checkExistenceInDb?.id,
@@ -5503,7 +5505,7 @@ export class XeroInvoicesService {
           integration_id: xeroDetails.integration_id,
           log_template_id: 483,
           dynamic_values: { project_name: projectName, contact_name: contactName },
-          project_id: String(projectDetails.project_id),
+          project_id: projectUuid,
           contract_id: null,
           reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
           reference_id: checkExistenceInDb?.id,
@@ -5589,7 +5591,7 @@ export class XeroInvoicesService {
           integration_id: xeroDetails.integration_id,
           log_template_id: 485,
           dynamic_values: { contact_name: contactName },
-          project_id: String(projectDetails.project_id),
+          project_id: projectUuid,
           contract_id: null,
           reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
           reference_id: checkExistenceInDb?.id,
@@ -5626,7 +5628,7 @@ export class XeroInvoicesService {
         integration_id: xeroDetails.integration_id,
         log_template_id: 479,
         dynamic_values: { contract_name: contractName },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
@@ -5706,7 +5708,7 @@ export class XeroInvoicesService {
           client_supplier_type: derived.clientSupplierType,
           client_supplier_role: derived.clientSupplierRole,
         },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: String(updatedContractId),
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: saved.id },
         reference_id: checkExistenceInDb?.id,
@@ -5734,7 +5736,7 @@ export class XeroInvoicesService {
           contact_name: contactName,
           error_message: errorMsg,
         },
-        project_id: String(projectDetails.project_id),
+        project_id: projectUuid,
         contract_id: null,
         reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
         reference_id: checkExistenceInDb?.id,
