@@ -176,9 +176,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Get all blog categories and their routes
+  const validBlogList = blogList.filter((post: any) => post?.category?.value);
   let uniqueCategories: any = [];
-  blogList.forEach((post: any) => {
+  validBlogList.forEach((post: any) => {
     if (!uniqueCategories.includes(post.category.value)) {
       uniqueCategories.push(post.category.value);
     }
@@ -189,7 +189,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "hourly",
     priority: 1,
   }));
-  const blogRoutes = blogList.map((blog: any) => ({
+  const blogRoutes = validBlogList.map((blog: any) => ({
     url: `${baseUrl}blog/${slugifyString(blog.category.value)}/${slugifyString(
       blog.title
     )}/${blog.id}`,
@@ -198,9 +198,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   }));
 
-  // Get all resources and their routes
+  const validResourceList = resourceList.filter((post: any) => post?.category?.value);
   let uniqueResource: any = [];
-  resourceList.forEach((post: any) => {
+  validResourceList.forEach((post: any) => {
     if (!uniqueResource.includes(post.category.value)) {
       uniqueResource.push(post.category.value);
     }
@@ -211,7 +211,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "hourly",
     priority: 1,
   }));
-  const resourceRoutes = resourceList.map((blog: any) => ({
+  const resourceRoutes = validResourceList.map((blog: any) => ({
     url: `${baseUrl}articles/${slugifyString(
       blog.category.value
     )}/${slugifyString(blog.title)}/${blog.id}`,
@@ -220,9 +220,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   }));
 
-  // Get all how to guides and their routes
+  const validHowToGuidesList = howToGuidesList.filter((post: any) => post?.category?.value);
   let uniqueHowToGuides: any = [];
-  howToGuidesList.forEach((post: any) => {
+  validHowToGuidesList.forEach((post: any) => {
     if (!uniqueHowToGuides.includes(post.category.value)) {
       uniqueHowToGuides.push(post.category.value);
     }
@@ -233,7 +233,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "hourly",
     priority: 1,
   }));
-  const howToGuidesRoutes = howToGuidesList.map((blog: any) => ({
+  const howToGuidesRoutes = validHowToGuidesList.map((blog: any) => ({
     url: `${baseUrl}how-to-guides/${slugifyString(
       blog.category.value
     )}/${slugifyString(blog.title)}/${blog.id}`,
@@ -242,11 +242,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   }));
 
-  // Get all discussion categories and their routes
   let uniqueDiscussion: any = [];
   discussionList.forEach((post: any) => {
-    if (!uniqueDiscussion.includes(post.category.value)) {
-      uniqueDiscussion.push(post.category.value);
+    const catVal = post?.category?.value;
+    if (catVal && !uniqueDiscussion.includes(catVal)) {
+      uniqueDiscussion.push(catVal);
     }
   });
   const discussionCategoryRoutes = uniqueDiscussion.map((category: any) => ({
@@ -264,11 +264,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   }));
 
-  // Get all product idea categories and their routes
   let uniqueProductIdea: any = [];
   productIdeaList.forEach((post: any) => {
-    if (!uniqueProductIdea.includes(post.category.value)) {
-      uniqueProductIdea.push(post.category.value);
+    const catVal = post?.category?.value;
+    if (catVal && !uniqueProductIdea.includes(catVal)) {
+      uniqueProductIdea.push(catVal);
     }
   });
   const productIdeaCategoryRoutes = uniqueProductIdea.map((category: any) => ({
