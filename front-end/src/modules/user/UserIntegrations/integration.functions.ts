@@ -538,12 +538,6 @@ export const syncContactFinancialDetails = async (
       mutation: gql`
         mutation SyncContactFinancialDetails($companyId: Float!) {
           syncContactFinancialDetails(company_id: $companyId) {
-            data {
-              synced_to_pt
-              synced_to_xero
-              skipped
-              errors
-            }
             message
             status
           }
