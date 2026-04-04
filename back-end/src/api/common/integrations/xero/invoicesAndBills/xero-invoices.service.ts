@@ -5551,7 +5551,7 @@ export class XeroInvoicesService {
                 account_type: 'Cash Account' as const,
                 account_name: xeroBatchPayments.bankAccountName || contactName,
                 account_number: xeroBatchPayments.bankAccountNumber || '',
-                bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
+                bsb_number: xeroBatchPayments.code && /^\d+$/.test(xeroBatchPayments.code.trim()) ? parseInt(xeroBatchPayments.code.trim(), 10) : null,
                 company_id: company_id,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
                 status: 'Open' as const,
