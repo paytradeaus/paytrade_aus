@@ -529,6 +529,51 @@ export const syncAllContactsByCompanyId = async (
   }
 };
 
+export const syncContactFinancialDetails = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation SyncContactFinancialDetails($companyId: Float!) {
+          syncContactFinancialDetails(company_id: $companyId) {
+            data {
+              synced_to_pt
+              synced_to_xero
+              skipped
+              errors
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.syncContactFinancialDetails;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      window.open(res.message, "_self");
+      return null;
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res.message);
+      return res?.data;
+    }
+    if (res?.status === ApiResponse.ERROR) {
+      showErrorToast(res.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
 export const getContactByContactId = async (
   data: any,
   setLoading?: Function

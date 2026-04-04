@@ -5031,4 +5031,180 @@ export class XeroSchedulerService {
       this.logger.error(`[Xero Scheduler] Failed in overpayment scheduler: ${error}`);
     }
   }
+
+  async manualSyncContactFinancialDetails(
+    decoded: any,
+    company_id: number,
+  ): Promise<{ synced_to_pt: number; synced_to_xero: number; skipped: number; errors: number }> {
+    const result = { synced_to_pt: 0, synced_to_xero: 0, skipped: 0, errors: 0 };
+
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+
+    if (!xeroDetails) {
+      throw new Error('No active Xero integration found for this company');
+    }
+
+    const bankAccountsRepo = this.xeroContactDetails.manager.getRepository(BankAccounts);
+
+    const mappedContactsForFinancial = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE',
+      },
+    });
+    const mappedWithPt = mappedContactsForFinancial.filter(c => c.pt_contact_id);
+
+    for (const mappedContact of mappedWithPt) {
+      try {
+        const ptAccountDetails = await bankAccountsRepo.find({
+          where: { client_supplier_id: mappedContact.pt_contact_id },
+        });
+        const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
+
+        let xeroFullContact: any = null;
+        let hasXeroFinancial = false;
+        let xeroBatchPayments: any = null;
+
+        try {
+          const fullContactResp = await this.xero.accountingApi.getContact(
+            xeroDetails.tenant_id,
+            mappedContact.contact_id,
+          );
+          xeroFullContact = fullContactResp?.body?.contacts?.[0];
+          xeroBatchPayments = xeroFullContact?.batchPayments;
+          hasXeroFinancial = !!(
+            xeroBatchPayments &&
+            (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
+          );
+        } catch (fetchErr) {
+          this.logger.error(
+            `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
+          );
+          result.errors++;
+          continue;
+        }
+
+        const userId = decoded?.id || decoded?.sub;
+        const createdGroup = decoded?.company_id || company_id;
+
+        if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
+          try {
+            const accountDetail: any = {
+              account_type: 'Cash Account',
+              account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
+              account_number: xeroBatchPayments.bankAccountNumber || '',
+              bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
+              client_supplier_id: mappedContact.pt_contact_id,
+              created_by: userId,
+              created_on: new Date(),
+              created_group: createdGroup,
+              updated_by: userId,
+              updated_on: new Date(),
+              updated_group: createdGroup,
+            };
+            await this.clientSuppliersDetailsService.insertAccountDetails([accountDetail]);
+
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 471,
+              dynamic_values: {
+                contact_name: mappedContact.contact_name,
+                account_name: accountDetail.account_name,
+              },
+              project_id: null,
+              contract_id: null,
+              reference: {
+                xeroId: mappedContact.id,
+                paytradeId: String(mappedContact.pt_contact_id),
+              },
+              reference_id: mappedContact.id,
+              history: [
+                `Financial details synced from Xero for ${mappedContact.contact_name}`,
+                'Manual sync',
+              ],
+              important_checks: {},
+              error_message: null,
+              xero_records: [xeroFullContact],
+              paytrade_records: null,
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            result.synced_to_pt++;
+          } catch (createErr) {
+            this.logger.error(
+              `Failed to create account details for ${mappedContact.contact_name}: ${createErr}`,
+            );
+            result.errors++;
+          }
+        } else if (xeroDetails.sync_contact_financial_to_xero && hasPtAccount && !hasXeroFinancial) {
+          try {
+            const firstAccount = ptAccountDetails[0];
+            const batchPaymentData = {
+              bankAccountName: firstAccount.account_name || '',
+              bankAccountNumber: firstAccount.account_number || '',
+              code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
+            };
+
+            await this.xero.accountingApi.updateContact(
+              xeroDetails.tenant_id,
+              mappedContact.contact_id,
+              {
+                contacts: [{
+                  name: mappedContact.contact_name,
+                  batchPayments: batchPaymentData,
+                }],
+              },
+            );
+
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 472,
+              dynamic_values: {
+                contact_name: mappedContact.contact_name,
+                account_name: firstAccount.account_name || '',
+              },
+              project_id: null,
+              contract_id: null,
+              reference: {
+                xeroId: mappedContact.id,
+                paytradeId: String(mappedContact.pt_contact_id),
+              },
+              reference_id: mappedContact.id,
+              history: [
+                `Financial details synced to Xero for ${mappedContact.contact_name}`,
+                'Manual sync',
+              ],
+              important_checks: {},
+              error_message: null,
+              xero_records: null,
+              paytrade_records: [firstAccount],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            result.synced_to_xero++;
+          } catch (pushErr) {
+            this.logger.error(
+              `Failed to push financial details to Xero for ${mappedContact.contact_name}: ${pushErr}`,
+            );
+            result.errors++;
+          }
+        } else {
+          result.skipped++;
+        }
+      } catch (contactErr) {
+        this.logger.error(
+          `Error processing contact financial sync for ${mappedContact.contact_name}: ${contactErr}`,
+        );
+        result.errors++;
+      }
+    }
+
+    return result;
+  }
 }

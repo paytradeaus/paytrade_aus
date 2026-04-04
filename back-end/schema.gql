@@ -14948,6 +14948,14 @@ type Mutation {
     projectId: Float!
   ): FetchAllCompliancesResponse!
 
+  """
+  Manually triggers contact financial details sync between PayTrade and Xero for all mapped contacts.
+  """
+  syncContactFinancialDetails(
+    """ID of the company to sync contact financial details for."""
+    company_id: Float!
+  ): StringResponse!
+
   """Triggers notices for a specific bank account and its related projects."""
   triggerAccountNotices(
     """

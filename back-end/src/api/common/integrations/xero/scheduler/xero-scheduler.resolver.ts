@@ -461,4 +461,53 @@ export class XeroSchedulerResolver {
       return framedResponse('ERROR', error?.message ? error.message : error);
     }
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'syncContactFinancialDetails',
+    description:
+      'Manually triggers contact financial details sync between PayTrade and Xero for all mapped contacts.',
+  })
+  async syncContactFinancialDetails(
+    @Context() context,
+    @Args('company_id', {
+      description: 'ID of the company to sync contact financial details for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result =
+        await this.xeroSchedulerService.manualSyncContactFinancialDetails(
+          decoded,
+          company_id,
+        );
+      const message = `Financial sync complete: ${result.synced_to_pt} synced to PayTrade, ${result.synced_to_xero} synced to Xero, ${result.skipped} skipped, ${result.errors} errors`;
+      return framedResponse('SUCCESS', message, result);
+    } catch (error) {
+      if (
+        this.xeroResolver.refreshTokenReAuthenticate({
+          error: error?.message || error,
+        })
+      ) {
+        try {
+          const decoded = await this.jwtInternalService.decodeJwtToken(context);
+          const response = await this.xeroService.getAuthUrl(
+            company_id,
+            decoded?.id,
+            false,
+            decoded?.timezone,
+          );
+          return framedResponse('XERO_REFRESH', response);
+        } catch (refreshError) {
+          return framedResponse(
+            'ERROR',
+            refreshError?.message ? refreshError.message : refreshError,
+          );
+        }
+      }
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
 }
