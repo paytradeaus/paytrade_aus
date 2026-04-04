@@ -5183,7 +5183,7 @@ export class XeroSchedulerService {
       }
     }
 
-    const userId = decoded?.id || decoded?.sub;
+    const userId = decoded ? decoded.userId : null;
     const createdGroup = decoded ? 'USER' : 'SYSTEM';
 
     const contactsNeedingPush: Array<{ mappedContact: any; firstAccount: any; resolvedCsId: number }> = [];
@@ -5204,8 +5204,41 @@ export class XeroSchedulerService {
         });
         const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
 
-        const xeroFullContact = xeroContactMap.get(mappedContact.contact_id) || null;
-        const xeroBatchPayments = xeroFullContact?.batchPayments;
+        let xeroFullContact = xeroContactMap.get(mappedContact.contact_id) || null;
+        let xeroBatchPayments = xeroFullContact?.batchPayments;
+
+        if (!xeroBatchPayments && mappedContact.contact_id) {
+          try {
+            const fullContactResp = await this.xero.accountingApi.getContact(
+              xeroDetails.tenant_id,
+              mappedContact.contact_id,
+            );
+            xeroFullContact = fullContactResp?.body?.contacts?.[0] || xeroFullContact;
+            xeroBatchPayments = xeroFullContact?.batchPayments;
+          } catch (fetchErr: any) {
+            if (fetchErr?.response?.statusCode === 429 || fetchErr?.statusCode === 429) {
+              const retryAfter = parseInt(fetchErr?.response?.headers?.['retry-after'] || '5', 10);
+              await delay(retryAfter * 1000);
+              try {
+                const retryResp = await this.xero.accountingApi.getContact(
+                  xeroDetails.tenant_id,
+                  mappedContact.contact_id,
+                );
+                xeroFullContact = retryResp?.body?.contacts?.[0] || xeroFullContact;
+                xeroBatchPayments = xeroFullContact?.batchPayments;
+              } catch (retryErr) {
+                this.logger.warn(
+                  `Failed to fetch contact ${mappedContact.contact_name} after rate-limit retry: ${retryErr}`,
+                );
+              }
+            } else {
+              this.logger.warn(
+                `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr?.message || fetchErr}`,
+              );
+            }
+          }
+        }
+
         const hasXeroFinancial = !!(
           xeroBatchPayments &&
           (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
