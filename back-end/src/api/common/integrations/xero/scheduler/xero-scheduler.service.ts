@@ -1936,7 +1936,8 @@ export class XeroSchedulerService {
               if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
                 try {
                   const bsbRaw = xeroBatchPayments.code ? xeroBatchPayments.code.trim() : '';
-                  const bsbParsed = bsbRaw && /^\d+$/.test(bsbRaw) ? parseInt(bsbRaw, 10) : 0;
+                  const bsbDigits = bsbRaw.replace(/\D/g, '');
+                  const bsbParsed = bsbDigits.length > 0 ? parseInt(bsbDigits, 10) : null;
                   const accountDetail: any = {
                     account_type: 'Cash Account',
                     account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
@@ -5250,7 +5251,8 @@ export class XeroSchedulerService {
         if (hasXeroFinancial && !hasPtAccount) {
           try {
             const bsbRaw = xeroBatchPayments.code ? xeroBatchPayments.code.trim() : '';
-            const bsbParsed = bsbRaw && /^\d+$/.test(bsbRaw) ? parseInt(bsbRaw, 10) : 0;
+            const bsbDigits = bsbRaw.replace(/\D/g, '');
+            const bsbParsed = bsbDigits.length > 0 ? parseInt(bsbDigits, 10) : null;
             const accountDetail: any = {
               account_type: 'Cash Account',
               account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
