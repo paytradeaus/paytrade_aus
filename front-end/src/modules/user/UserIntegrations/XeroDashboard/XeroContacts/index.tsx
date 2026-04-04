@@ -22,6 +22,7 @@ import {
   getXeroDetailsForCompany,
   manualMappingContact,
   syncAllContactsByCompanyId,
+  syncContactFinancialDetails,
   unMappingContact,
 } from "../../integration.functions";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
@@ -81,6 +82,8 @@ export default function XeroContacts() {
   const [manualMapOptions, setManualMapOptions] = useState([]);
 
   const isXeroConnected = xeroData?.status === "ACTIVE";
+  const [financialSyncLoading, setFinancialSyncLoading] =
+    useState<boolean>(false);
 
   const paytradeContactsActions = [
     {
@@ -685,23 +688,42 @@ export default function XeroContacts() {
       <div className="grid">
         <div className="pt_box">
           {tabStatus === "Mapped contacts" && (
-            <CustomButton
-              buttonName="AUTO MAP"
-              iconClassName="fa-light fa-link"
-              buttonType={buttonType.CONTRAST_SMALL}
-              actionType="button"
-              onClick={() =>
-                setModelConfig({
-                  show: true,
-                  title: "",
-                  secondButtonName: "Map",
-                  firstButtonName: "Cancel",
-                  description: "Map contacts?",
-                  id: "Map_contacts?",
-                })
-              }
-              styles={{ margin: "0 10px 10px 10px" }}
-            />
+            <>
+              <CustomButton
+                buttonName="AUTO MAP"
+                iconClassName="fa-light fa-link"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                onClick={() =>
+                  setModelConfig({
+                    show: true,
+                    title: "",
+                    secondButtonName: "Map",
+                    firstButtonName: "Cancel",
+                    description: "Map contacts?",
+                    id: "Map_contacts?",
+                  })
+                }
+                styles={{ margin: "0 10px 10px 10px" }}
+              />
+              {isXeroConnected && (
+                <CustomButton
+                  buttonName={financialSyncLoading ? "Syncing..." : "SYNC FINANCIAL DETAILS"}
+                  iconClassName="fa-light fa-money-check-dollar"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  disabled={financialSyncLoading}
+                  onClick={async () => {
+                    setFinancialSyncLoading(true);
+                    await syncContactFinancialDetails(
+                      { companyId: +(localStorage.getItem("companyId") || 0) },
+                      setFinancialSyncLoading
+                    );
+                  }}
+                  styles={{ margin: "0 10px 10px 10px" }}
+                />
+              )}
+            </>
           )}
           {tabStatus === "Xero contacts" && (
             <>
