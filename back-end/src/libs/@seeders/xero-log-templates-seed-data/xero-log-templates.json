@@ -2514,7 +2514,7 @@
   {
     "id": 252,
     "sync_type": "Invoice webhook",
-    "description": "<p>Invoice webhook in xero failed</p>",
+    "description": "<p>Invoice/bill webhook processing failed</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -4291,7 +4291,7 @@
   {
     "id": 412,
     "sync_type": "Invoice schedulers",
-    "description": "<p>Invoice scheduler in xero failed</p>",
+    "description": "<p>Invoice/bill scheduler processing failed</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
