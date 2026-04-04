@@ -2001,43 +2001,75 @@ export class XeroWebhookService {
         if (matchingContracts.length === 1) {
           contractDetails = matchingContracts[0];
         } else if (matchingContracts.length === 0) {
-          await this.xeroService.insertXeroSyncLogs(decoded, {
-            id: data?.sync_id || null,
-            api_name: 'createClaimInPaytrade',
-            api_payload: {
-              sync_run_type,
+          if (xeroDetails.smart_contract_auto_create && projectDetails && clientSuppliersDetails) {
+            this.logger.log(
+              `[Webhook] Smart contract auto-create enabled. Attempting for project ${projectDetails.project_id} and contact ${xeroContactDetails.pt_contact_id}.`
+            );
+            const smartContract = await this.xeroInvoicesService.smartCreateContract(decoded, {
+              company_id,
+              projectDetails,
+              clientSuppliersDetails,
+              invoiceDetails: invoice,
+              xeroDetails,
+              data: {
+                sync_id: data?.sync_id || null,
+                invoice_id: invoice?.invoiceID,
+                tenant_id,
+              },
               invoice_id: invoice?.invoiceID,
-              tenant_id,
-              type:
-                invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
-            },
-            integration_id: xeroDetails.integration_id,
-            log_template_id: sync_run_type === 'webhook' ? 267 : 427,
-            dynamic_values: {},
-            project_id: xeroProjectDetails?.id,
-            contract_id: null,
-            reference: {},
-            reference_id: null,
-            history: [
-              `API triggered from invoice ${sync_run_type}`,
-              'Import failed',
-            ],
-            important_checks: {
-              'Import data format validation': 'Ok',
-              'Import tracking id validation': 'Ok',
-              'Import account type validation': 'Ok',
-              'Import tax type validation': 'Ok',
-              'Client/Supplier mapping validation': 'Ok',
-              'Contract mapping validation': 'Failed',
-            },
-            error_message: `No contract found for this project and contact`,
-            xero_records: [invoice],
-            paytrade_records: [],
-            new_records: null,
-            updated_records: null,
-            synced_records: null,
-          });
-          return false;
+              checkExistenceInDb: existingXeroInvoice || null,
+            });
+
+            if (smartContract) {
+              contractDetails = smartContract;
+              this.logger.log(
+                `[Webhook] Smart contract auto-created: contract_id=${smartContract.contract_id}. Continuing claim import.`
+              );
+            } else {
+              this.logger.log(
+                `[Webhook] Smart contract auto-creation failed or was skipped. Returning false.`
+              );
+              return false;
+            }
+          } else {
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: data?.sync_id || null,
+              api_name: 'createClaimInPaytrade',
+              api_payload: {
+                sync_run_type,
+                invoice_id: invoice?.invoiceID,
+                tenant_id,
+                type:
+                  invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: sync_run_type === 'webhook' ? 267 : 427,
+              dynamic_values: {},
+              project_id: xeroProjectDetails?.id,
+              contract_id: null,
+              reference: {},
+              reference_id: null,
+              history: [
+                `API triggered from invoice ${sync_run_type}`,
+                'Import failed',
+              ],
+              important_checks: {
+                'Import data format validation': 'Ok',
+                'Import tracking id validation': 'Ok',
+                'Import account type validation': 'Ok',
+                'Import tax type validation': 'Ok',
+                'Client/Supplier mapping validation': 'Ok',
+                'Contract mapping validation': 'Failed',
+              },
+              error_message: `No contract found for this project and contact`,
+              xero_records: [invoice],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return false;
+          }
         } else {
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,

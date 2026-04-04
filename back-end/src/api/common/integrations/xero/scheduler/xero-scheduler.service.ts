@@ -1935,11 +1935,14 @@ export class XeroSchedulerService {
 
               if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
                 try {
+                  const bsbRaw = xeroBatchPayments.code ? xeroBatchPayments.code.trim() : '';
+                  const bsbParsed = bsbRaw && /^\d+$/.test(bsbRaw) ? parseInt(bsbRaw, 10) : 0;
                   const accountDetail: any = {
                     account_type: 'Cash Account',
                     account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
                     account_number: xeroBatchPayments.bankAccountNumber || '',
-                    bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
+                    bsb_number: bsbParsed,
+                    company_id: company_id,
                     client_supplier_id: resolvedCsId,
                     created_by: userId,
                     created_on: new Date(),
