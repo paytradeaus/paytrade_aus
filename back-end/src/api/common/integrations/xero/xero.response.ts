@@ -459,6 +459,60 @@ export class GetSyncLogs {
   count: Record<string, any>[];
 }
 
+@ObjectType({ description: 'A single integration issue for the dashboard widget' })
+export class IntegrationIssue {
+  @Field({ nullable: true })
+  id: string;
+
+  @Field({ nullable: true })
+  sync_id: number;
+
+  @Field({ nullable: true })
+  sync_type: string;
+
+  @Field({ nullable: true })
+  sync_status: XeroStatus;
+
+  @Field({ nullable: true })
+  description: string;
+
+  @Field({ nullable: true })
+  error_code: string;
+
+  @Field({ nullable: true })
+  error_message: string;
+
+  @Field({ nullable: true })
+  project_name: string;
+
+  @Field({ nullable: true })
+  contract_name: string;
+
+  @Field({ nullable: true })
+  created_on: Date;
+}
+
+@ObjectType({ description: 'Integration issues list for dashboard' })
+export class IntegrationIssuesList {
+  @Field(() => [IntegrationIssue], { nullable: true })
+  issues?: IntegrationIssue[];
+
+  @Field()
+  total_count: number;
+}
+
+@ObjectType({ description: 'Response wrapper for integration issues' })
+export class IntegrationIssuesResponse {
+  @Field()
+  status: string;
+
+  @Field()
+  message: string;
+
+  @Field({ nullable: true })
+  data?: IntegrationIssuesList;
+}
+
 @ObjectType({ description: 'Response wrapper for fetching sync logs' })
 export class GetSyncLogsResponse {
   @Field({ description: 'Response status' })

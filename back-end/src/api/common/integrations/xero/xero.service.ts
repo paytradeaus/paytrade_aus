@@ -1320,6 +1320,65 @@ export class XeroService {
     };
   }
 
+  async getIntegrationIssuesForDashboard(company_id: number) {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+
+    if (!xeroDetails) {
+      return { issues: [], total_count: 0 };
+    }
+
+    const queryBuilder = this.xeroSyncLogs
+      .createQueryBuilder('log')
+      .select('log.id', 'id')
+      .addSelect('log.sync_id', 'sync_id')
+      .addSelect('template.sync_type', 'sync_type')
+      .addSelect('template.sync_status', 'sync_status')
+      .addSelect('template.description', 'description')
+      .addSelect('template.error_code', 'error_code')
+      .addSelect('log.error_message', 'error_message')
+      .addSelect('project.project_name', 'project_name')
+      .addSelect('contract.contract_name', 'contract_name')
+      .addSelect('log.dynamic_values', 'dynamic_values')
+      .addSelect('log.created_on', 'created_on')
+      .innerJoin('log.xeroLogTemplates', 'template')
+      .leftJoin('log.xeroProjectDetails', 'project')
+      .leftJoin('log.xeroContractDetails', 'contract')
+      .where('log.integration_id = :integrationId', {
+        integrationId: xeroDetails.integration_id,
+      })
+      .andWhere("template.sync_status IN ('Failed', 'Warning')")
+      .orderBy('log.created_on', 'DESC')
+      .limit(10);
+
+    const [issues, total_count] = await Promise.all([
+      queryBuilder.getRawMany(),
+      this.xeroSyncLogs
+        .createQueryBuilder('log')
+        .innerJoin('log.xeroLogTemplates', 'template')
+        .where('log.integration_id = :integrationId', {
+          integrationId: xeroDetails.integration_id,
+        })
+        .andWhere("template.sync_status IN ('Failed', 'Warning')")
+        .getCount(),
+    ]);
+
+    const processedIssues = issues.map((issue) => {
+      let desc = issue.description || '';
+      if (issue.dynamic_values && typeof issue.dynamic_values === 'object') {
+        Object.entries(issue.dynamic_values).forEach(([key, value]) => {
+          desc = desc.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+        });
+      }
+      desc = desc.replace(/<[^>]*>/g, '');
+      return { ...issue, description: desc };
+    });
+
+    return { issues: processedIssues, total_count };
+  }
+
   async viewXeroSyncLog(id: string) {
     const syncLog = await this.xeroSyncLogs
       .createQueryBuilder('l')

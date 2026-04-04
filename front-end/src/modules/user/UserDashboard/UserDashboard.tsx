@@ -8,6 +8,7 @@ import {
   FetchAllComplianceResultsInDashboard,
   FetchAllUnmatchedPaymentsOfACompany,
   FetchAllUnsentNoticesOfACompany,
+  FetchIntegrationIssuesForDashboard,
   getProjectListsForCompany,
   ListAllSubPayments,
   setDontShowAgain,
@@ -74,6 +75,11 @@ export default function UserDashboard() {
     data: [],
     loader: false,
   });
+  const [integrationIssues, setIntegrationIssues] = useState<any>({
+    data: [],
+    loader: false,
+    totalCount: 0,
+  });
 
   useEffect(() => {
     initialInvoke();
@@ -110,6 +116,7 @@ export default function UserDashboard() {
     getCompliancesList();
     getProjectsLists();
     getUnmatchedTransactionsList();
+    getIntegrationIssuesList();
     getFetchBankAccountsLists(AccountType.CASH_ACCOUNT);
     getFetchBankAccountsLists(AccountType.PROJECT_TRUST_ACCOUNT);
     getFetchBankAccountsLists(AccountType.RETENTION_TRUST_ACCOUNT);
@@ -296,6 +303,26 @@ export default function UserDashboard() {
         data: [],
         loader: false,
       });
+    }
+  }
+
+  async function getIntegrationIssuesList() {
+    try {
+      const companyId = getCompanyIdFromStorage();
+      if (!companyId) return;
+      setIntegrationIssues({ data: [], loader: true, totalCount: 0 });
+
+      const response = await FetchIntegrationIssuesForDashboard(
+        Number(companyId)
+      );
+
+      setIntegrationIssues({
+        data: response?.issues ?? [],
+        loader: false,
+        totalCount: response?.total_count ?? 0,
+      });
+    } catch (err: any) {
+      setIntegrationIssues({ data: [], loader: false, totalCount: 0 });
     }
   }
 
@@ -586,6 +613,29 @@ export default function UserDashboard() {
             transactionsRightMainContentTwo: "status",
             accountType: "account_type",
           }}
+        />
+      </div>
+
+      <div className="grid">
+        <DashboardBox
+          title={"Integration issues"}
+          boxButtonName={"View sync log"}
+          boxButtonLink={AppRoutes.USER_XERO}
+          cardData={integrationIssues.data ?? []}
+          boxTotalCount={integrationIssues?.totalCount || ""}
+          enableLoader={integrationIssues?.loader}
+          enableWithOverLink
+          onCardClick={(cardObj) => {
+            router.push(
+              `${AppRoutes.USER_SYNC_LOG}${cardObj?.id}`
+            );
+          }}
+          mappingKeys={{
+            HeaderRightContent: "sync_type",
+            leftMainContentOne: "description",
+            statusRightMainContentOne: "sync_status",
+          }}
+          enableInvalidForRightMainContentOne
         />
       </div>
 

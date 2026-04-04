@@ -12432,6 +12432,33 @@ type IntegrationDetails {
   integration_type: String!
 }
 
+"""A single integration issue for the dashboard widget"""
+type IntegrationIssue {
+  contract_name: String
+  created_on: DateTime
+  description: String
+  error_code: String
+  error_message: String
+  id: String
+  project_name: String
+  sync_id: Float
+  sync_status: String
+  sync_type: String
+}
+
+"""Integration issues list for dashboard"""
+type IntegrationIssuesList {
+  issues: [IntegrationIssue!]
+  total_count: Float!
+}
+
+"""Response wrapper for integration issues"""
+type IntegrationIssuesResponse {
+  data: IntegrationIssuesList
+  message: String!
+  status: String!
+}
+
 """Represents the list of invitations associated with a business or user."""
 type InvitationListRes {
   """
@@ -17640,6 +17667,7 @@ type Query {
 
   """Checks if the holiday table has sufficient future dates."""
   getHolidayTableStatus: HolidayTableStatusResponse!
+  getIntegrationIssuesForDashboard(company_id: Float!): IntegrationIssuesResponse!
 
   """Fetches a list of all integrations associated with a specific company."""
   getIntegrationListsForCompany(

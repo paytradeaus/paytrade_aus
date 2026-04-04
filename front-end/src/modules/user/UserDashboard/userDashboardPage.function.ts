@@ -291,3 +291,47 @@ export const setDontShowAgain = async (): Promise<
     return null;
   }
 };
+
+export async function FetchIntegrationIssuesForDashboard(
+  company_id: number
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetIntegrationIssuesForDashboard($company_id: Float!) {
+          getIntegrationIssuesForDashboard(company_id: $company_id) {
+            data {
+              issues {
+                id
+                sync_id
+                sync_type
+                sync_status
+                description
+                error_code
+                error_message
+                project_name
+                contract_name
+                created_on
+              }
+              total_count
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: { company_id },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getIntegrationIssuesForDashboard?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getIntegrationIssuesForDashboard?.data;
+    }
+    return null;
+  } catch (error: any) {
+    return null;
+  }
+}

@@ -15,6 +15,7 @@ import {
   GetTaxRateResponse,
   GetTrackingCategoryListResponse,
   GetXeroResponse,
+  IntegrationIssuesResponse,
   OrganisationResponse,
   ViewSyncLogResponse,
 } from './xero.response';
@@ -648,6 +649,26 @@ export class XeroResolver {
         'SUCCESS',
         `Fetched Xero count details successfully`,
         xeroDetails,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Query(() => IntegrationIssuesResponse, {
+    name: 'getIntegrationIssuesForDashboard',
+  })
+  async getIntegrationIssuesForDashboard(
+    @Args('company_id') company_id: number,
+  ): Promise<any> {
+    try {
+      const result =
+        await this.xeroService.getIntegrationIssuesForDashboard(company_id);
+      return framedResponse(
+        'SUCCESS',
+        'Fetched integration issues successfully',
+        result,
       );
     } catch (error) {
       return framedResponse('ERROR', error.message ? error.message : error);
