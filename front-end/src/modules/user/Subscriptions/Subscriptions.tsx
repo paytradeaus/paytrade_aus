@@ -120,7 +120,7 @@ export default function Subscriptions() {
               </div>
             )}
 
-            <PlanTable features={[]} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
+            <PlanTable subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
 
             <div
               className="pt_box pt_faqs pt_paymentmethods"
