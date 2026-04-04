@@ -534,8 +534,8 @@ export const syncContactFinancialDetails = async (
   setLoading?: Function
 ): Promise<any> => {
   try {
-    const response = await apolloClient.query({
-      query: gql`
+    const response = await apolloClient.mutate({
+      mutation: gql`
         mutation SyncContactFinancialDetails($companyId: Float!) {
           syncContactFinancialDetails(company_id: $companyId) {
             data {
