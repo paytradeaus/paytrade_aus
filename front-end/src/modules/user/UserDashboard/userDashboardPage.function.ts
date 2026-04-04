@@ -314,6 +314,9 @@ export async function FetchIntegrationIssuesForDashboard(
                 created_on
               }
               total_count
+              succeeded_count
+              warning_count
+              failed_count
             }
             message
             status

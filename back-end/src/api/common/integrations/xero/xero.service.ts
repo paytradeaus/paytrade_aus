@@ -1327,8 +1327,10 @@ export class XeroService {
     });
 
     if (!xeroDetails) {
-      return { issues: [], total_count: 0 };
+      return { issues: [], total_count: 0, succeeded_count: 0, warning_count: 0, failed_count: 0 };
     }
+
+    const integrationId = xeroDetails.integration_id;
 
     const queryBuilder = this.xeroSyncLogs
       .createQueryBuilder('log')
@@ -1346,24 +1348,28 @@ export class XeroService {
       .innerJoin('log.xeroLogTemplates', 'template')
       .leftJoin('log.xeroProjectDetails', 'project')
       .leftJoin('log.xeroContractDetails', 'contract')
-      .where('log.integration_id = :integrationId', {
-        integrationId: xeroDetails.integration_id,
-      })
-      .andWhere("template.sync_status IN ('Failed', 'Warning')")
+      .where('log.integration_id = :integrationId', { integrationId })
       .orderBy('log.created_on', 'DESC')
       .limit(10);
 
-    const [issues, total_count] = await Promise.all([
+    const [issues, counts] = await Promise.all([
       queryBuilder.getRawMany(),
       this.xeroSyncLogs
         .createQueryBuilder('log')
+        .select('template.sync_status', 'sync_status')
+        .addSelect('COUNT(*)', 'status_count')
         .innerJoin('log.xeroLogTemplates', 'template')
-        .where('log.integration_id = :integrationId', {
-          integrationId: xeroDetails.integration_id,
-        })
-        .andWhere("template.sync_status IN ('Failed', 'Warning')")
-        .getCount(),
+        .where('log.integration_id = :integrationId', { integrationId })
+        .groupBy('template.sync_status')
+        .getRawMany(),
     ]);
+
+    const countMap: Record<string, number> = {};
+    let total = 0;
+    for (const row of counts) {
+      countMap[row.sync_status] = parseInt(row.status_count, 10);
+      total += parseInt(row.status_count, 10);
+    }
 
     const processedIssues = issues.map((issue) => {
       let desc = issue.description || '';
@@ -1376,7 +1382,13 @@ export class XeroService {
       return { ...issue, description: desc };
     });
 
-    return { issues: processedIssues, total_count };
+    return {
+      issues: processedIssues,
+      total_count: total,
+      succeeded_count: countMap['Succeeded'] || 0,
+      warning_count: countMap['Warning'] || 0,
+      failed_count: countMap['Failed'] || 0,
+    };
   }
 
   async viewXeroSyncLog(id: string) {

@@ -492,13 +492,22 @@ export class IntegrationIssue {
   created_on: Date;
 }
 
-@ObjectType({ description: 'Integration issues list for dashboard' })
+@ObjectType({ description: 'Sync log summary for dashboard' })
 export class IntegrationIssuesList {
   @Field(() => [IntegrationIssue], { nullable: true })
   issues?: IntegrationIssue[];
 
   @Field()
   total_count: number;
+
+  @Field()
+  succeeded_count: number;
+
+  @Field()
+  warning_count: number;
+
+  @Field()
+  failed_count: number;
 }
 
 @ObjectType({ description: 'Response wrapper for integration issues' })

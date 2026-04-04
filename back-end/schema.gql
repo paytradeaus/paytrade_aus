@@ -12446,10 +12446,13 @@ type IntegrationIssue {
   sync_type: String
 }
 
-"""Integration issues list for dashboard"""
+"""Sync log summary for dashboard"""
 type IntegrationIssuesList {
+  failed_count: Float!
   issues: [IntegrationIssue!]
+  succeeded_count: Float!
   total_count: Float!
+  warning_count: Float!
 }
 
 """Response wrapper for integration issues"""

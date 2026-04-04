@@ -38,7 +38,7 @@ The application features a Next.js frontend and a NestJS backend communicating v
     - **Smart Contract Auto-Creation**: Automatically creates contracts from Xero claims (invoices/bills) based on predefined logic and defaults when no existing contract matches.
     - **Project & Contract Auto-Create**: Two-way synchronization for projects and contracts, mapping them to Xero tracking categories, with individual and batch creation options.
     - **Manual Contact Financial Sync**: On-demand synchronization of financial details for mapped contacts.
-    - **Integration Issues Dashboard Widget**: Displays recent Xero sync failures and warnings on the user dashboard.
+    - **Sync Log Summary Dashboard Widget**: Displays a summary of recent Xero sync activity on the user dashboard, with colour-coded status breakdown (Synced/Warnings/Failed) and the 10 most recent sync log entries.
 - **Demo/Sandbox Mode**: Per-company demo mode with isolated Stripe test keys for payments, allowing companies and subscription plans to operate in a sandbox environment.
 
 ## External Dependencies

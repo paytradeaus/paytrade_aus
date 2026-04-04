@@ -75,10 +75,13 @@ export default function UserDashboard() {
     data: [],
     loader: false,
   });
-  const [integrationIssues, setIntegrationIssues] = useState<any>({
+  const [syncLogSummary, setSyncLogSummary] = useState<any>({
     data: [],
     loader: false,
     totalCount: 0,
+    succeededCount: 0,
+    warningCount: 0,
+    failedCount: 0,
   });
 
   useEffect(() => {
@@ -116,7 +119,7 @@ export default function UserDashboard() {
     getCompliancesList();
     getProjectsLists();
     getUnmatchedTransactionsList();
-    getIntegrationIssuesList();
+    getSyncLogSummaryList();
     getFetchBankAccountsLists(AccountType.CASH_ACCOUNT);
     getFetchBankAccountsLists(AccountType.PROJECT_TRUST_ACCOUNT);
     getFetchBankAccountsLists(AccountType.RETENTION_TRUST_ACCOUNT);
@@ -306,23 +309,26 @@ export default function UserDashboard() {
     }
   }
 
-  async function getIntegrationIssuesList() {
+  async function getSyncLogSummaryList() {
     try {
       const companyId = getCompanyIdFromStorage();
       if (!companyId) return;
-      setIntegrationIssues({ data: [], loader: true, totalCount: 0 });
+      setSyncLogSummary({ data: [], loader: true, totalCount: 0, succeededCount: 0, warningCount: 0, failedCount: 0 });
 
       const response = await FetchIntegrationIssuesForDashboard(
         Number(companyId)
       );
 
-      setIntegrationIssues({
+      setSyncLogSummary({
         data: response?.issues ?? [],
         loader: false,
         totalCount: response?.total_count ?? 0,
+        succeededCount: response?.succeeded_count ?? 0,
+        warningCount: response?.warning_count ?? 0,
+        failedCount: response?.failed_count ?? 0,
       });
     } catch (err: any) {
-      setIntegrationIssues({ data: [], loader: false, totalCount: 0 });
+      setSyncLogSummary({ data: [], loader: false, totalCount: 0, succeededCount: 0, warningCount: 0, failedCount: 0 });
     }
   }
 
@@ -618,12 +624,12 @@ export default function UserDashboard() {
 
       <div className="grid">
         <DashboardBox
-          title={"Integration issues"}
+          title={"Sync log summary"}
           boxButtonName={"View sync log"}
           boxButtonLink={AppRoutes.USER_XERO}
-          cardData={integrationIssues.data ?? []}
-          boxTotalCount={integrationIssues?.totalCount || ""}
-          enableLoader={integrationIssues?.loader}
+          cardData={syncLogSummary.data ?? []}
+          boxTotalCount={syncLogSummary?.totalCount || ""}
+          enableLoader={syncLogSummary?.loader}
           enableWithOverLink
           onCardClick={(cardObj) => {
             router.push(
@@ -635,7 +641,31 @@ export default function UserDashboard() {
             leftMainContentOne: "description",
             statusRightMainContentOne: "sync_status",
           }}
-          enableInvalidForRightMainContentOne
+          statusClassFn={(cardObj) => {
+            const status = cardObj?.sync_status;
+            if (status === "Failed") return "invalid";
+            if (status === "Warning") return "warning-status";
+            if (status === "Succeeded") return "valid";
+            return "";
+          }}
+          subHeaderContent={
+            syncLogSummary?.totalCount > 0 ? (
+              <div style={{ display: "flex", gap: "12px", fontSize: "12px" }}>
+                <span style={{ color: "#43a047" }}>
+                  <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }}></i>
+                  {syncLogSummary.succeededCount} Synced
+                </span>
+                <span style={{ color: "#ef6c00" }}>
+                  <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "4px" }}></i>
+                  {syncLogSummary.warningCount} Warnings
+                </span>
+                <span style={{ color: "#e53935" }}>
+                  <i className="fa-solid fa-circle-xmark" style={{ marginRight: "4px" }}></i>
+                  {syncLogSummary.failedCount} Failed
+                </span>
+              </div>
+            ) : null
+          }
         />
       </div>
 

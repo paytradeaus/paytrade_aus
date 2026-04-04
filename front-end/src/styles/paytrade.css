@@ -2419,8 +2419,17 @@ small a {
   color: #fff;
 }
 
+.pt_dashbox .warning-status {
+  color: #ef6c00;
+}
+
+.pt_dashbox .valid {
+  color: #43a047;
+}
+
 .pt_dashbox:hover .invalid,
-.pt_dashbox:hover .valid {
+.pt_dashbox:hover .valid,
+.pt_dashbox:hover .warning-status {
   color: var(--wind);
 }
 

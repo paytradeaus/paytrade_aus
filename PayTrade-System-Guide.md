@@ -330,11 +330,14 @@ The dashboard is the central hub for all business operations after login.
 #### Unmatched Transactions
 - Highlights bank transactions that haven't been reconciled with claims or payments
 
-#### Integration Issues
-- Shows the count of recent Xero sync failures and warnings for the company
+#### Sync Log Summary
+- Shows a summary of recent Xero sync activity for the company
 - Visible only when a Xero integration is active
-- Displays the total number of unresolved issues (Failed and Warning statuses)
-- Clicking the widget navigates to the Xero Dashboard sync log for detailed review and resolution
+- Displays the total sync log count with a breakdown: Synced (green), Warnings (orange), and Failed (red)
+- Lists the 10 most recent sync log entries (all statuses: Succeeded, Warning, Failed)
+- Each entry shows the sync type, description, and colour-coded status
+- Clicking an entry navigates to the detailed sync log view for that record
+- The "View sync log" button links to the Xero Dashboard for full sync log access
 - Data refreshes each time the dashboard loads
 
 #### Activity Log Access

@@ -15,8 +15,10 @@ interface DashboardBoxProps {
   boxButtonName?: string; // Text for the box button (default: "View All")
   mappingKeys: any; // Object to map dynamic keys to display data in each card
   enableInvalidForRightMainContentOne?: boolean; // Adds an "invalid" class if true
+  statusClassFn?: (cardObj: any) => string;
   displayDaysToMatch?: boolean; // Flag to display unmatched amount and days left
   HeaderLeftContent?: React.ReactNode; // Optional content for left header area
+  subHeaderContent?: React.ReactNode;
   isContact?: boolean;
   onCardClick?: (cardObj: any, index: number) => void;
 }
@@ -33,8 +35,10 @@ export default function DashboardBox({
   mappingKeys,
   isContact = false,
   enableInvalidForRightMainContentOne,
+  statusClassFn,
   displayDaysToMatch,
   HeaderLeftContent,
+  subHeaderContent,
   onCardClick,
 }: Readonly<DashboardBoxProps>) {
   // Renders the optional right-side main content of each card
@@ -101,6 +105,10 @@ export default function DashboardBox({
             <button className="contrast">{boxButtonName}</button>
           </a>
         </Link>
+      )}
+
+      {subHeaderContent && (
+        <div style={{ padding: "0 16px 8px" }}>{subHeaderContent}</div>
       )}
 
       {/* Main container for cards */}
@@ -197,10 +205,12 @@ export default function DashboardBox({
                   {renderRightSideOptionalMainContentOne(cardObj)}
                   <b
                     className={
-                      cardObj?.[mappingKeys?.projectsRightMainContentOne] ||
-                      enableInvalidForRightMainContentOne
-                        ? "invalid"
-                        : ""
+                      statusClassFn
+                        ? statusClassFn(cardObj)
+                        : cardObj?.[mappingKeys?.projectsRightMainContentOne] ||
+                          enableInvalidForRightMainContentOne
+                          ? "invalid"
+                          : ""
                     }
                   >
                     {cardObj?.[mappingKeys?.rightMainContentOne] ||
