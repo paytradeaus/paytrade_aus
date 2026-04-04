@@ -96,6 +96,10 @@ export class CommunityBotService {
     this.logger.log(`This run will create ${questionCount} questions`);
 
     const category = await this.getDiscussionCategory();
+    if (!category) {
+      this.logger.error('Cannot generate bot content: No MasterTypes record found with master_type = "Discussion Topic". Bot posts require a valid category to avoid null category_id in the database.');
+      return { questionsCreated: 0, answersCreated: 0, botsCreated: 0 };
+    }
     const existingTitles = await this.getRecentTitles();
 
     let totalQuestions = 0;
@@ -544,6 +548,9 @@ Return ONLY the HTML answer content, no JSON wrapping.`,
     this.logger.log('Manual single question generation triggered');
 
     const category = await this.getDiscussionCategory();
+    if (!category) {
+      throw new Error('No MasterTypes record found with master_type = "Discussion Topic". Bot posts require a valid category.');
+    }
     const existingTitles = await this.getRecentTitles();
     let botsCreated = 0;
 
