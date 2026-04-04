@@ -5172,7 +5172,7 @@ export class XeroSchedulerService {
         await delay(350);
 
         const userId = decoded?.id || decoded?.sub;
-        const createdGroup = decoded?.company_id || company_id;
+        const createdGroup = decoded ? 'USER' : 'SYSTEM';
 
         if (hasXeroFinancial && !hasPtAccount) {
           try {
