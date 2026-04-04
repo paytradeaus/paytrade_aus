@@ -5121,7 +5121,7 @@ export class XeroSchedulerService {
         const userId = decoded?.id || decoded?.sub;
         const createdGroup = decoded?.company_id || company_id;
 
-        if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
+        if (hasXeroFinancial && !hasPtAccount) {
           try {
             const accountDetail: any = {
               account_type: 'Cash Account',
@@ -5171,7 +5171,7 @@ export class XeroSchedulerService {
             );
             result.errors++;
           }
-        } else if (xeroDetails.sync_contact_financial_to_xero && hasPtAccount && !hasXeroFinancial) {
+        } else if (hasPtAccount && !hasXeroFinancial) {
           try {
             const firstAccount = ptAccountDetails[0];
             const batchPaymentData = {
