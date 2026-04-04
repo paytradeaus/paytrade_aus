@@ -1813,7 +1813,7 @@ export class XeroWebhookService {
       const clientSuppliersDetails = await this.clientSuppliersDetails.findOne({
         where: { client_supplier_id: xeroContactDetails.pt_contact_id },
       });
-      this.logger.log(`[BILL_TRACE] V-Step 11: clientSuppliersDetails=${clientSuppliersDetails ? `id=${clientSuppliersDetails.client_supplier_id}, name=${clientSuppliersDetails.company_name}` : 'null'}`);
+      this.logger.log(`[BILL_TRACE] V-Step 11: clientSuppliersDetails=${clientSuppliersDetails ? `id=${clientSuppliersDetails.client_supplier_id}, name=${clientSuppliersDetails.client_supplier_name}` : 'null'}`);
 
       // if (!clientSuppliersDetails) {
       //   await this.xeroService.insertXeroSyncLogs(
