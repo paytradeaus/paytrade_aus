@@ -1,6 +1,5 @@
 import { RootState, useAppSelector } from "@/redux/store";
 import {
-  subscriptionColorCodes,
   subscriptionPlanFeatures,
 } from "@/shared/constant/data";
 import React, { useEffect, useMemo, useState } from "react";
@@ -8,10 +7,11 @@ import { gql } from "@apollo/client";
 import { client } from "@/app/api/adminApi/adminApi";
 
 interface PlanTableProps {
-  features: any[];
   subscriptionPlanTypes?: any;
   isYearly?: boolean;
 }
+
+type FetchState = "loading" | "success" | "error";
 
 function parseFeatureValue(val: string | null | undefined): { text?: string; enabled?: boolean } {
   if (val === null || val === undefined || val === "") return { enabled: false };
@@ -42,6 +42,13 @@ const LEGACY_COLUMN_MAP: Record<string, string> = {
   advanced_value: "advanced",
   pro_audit_value: "pro-audit",
 };
+
+const FALLBACK_COLUMNS: { key: string; label: string; plan: any }[] = [
+  { key: "basic", label: "Basic", plan: null },
+  { key: "standard", label: "Standard", plan: null },
+  { key: "advanced", label: "Advanced", plan: null },
+  { key: "pro-audit", label: "Pro Audit", plan: null },
+];
 
 function normalizePlanKey(name: string): string {
   return (name || "").toLowerCase().trim().replace(/\s*-\s*sandbox$/i, "").replace(/[\s_]+/g, "-");
@@ -79,21 +86,16 @@ const COLORS = {
   red: "#e74c3c",
 };
 
-const FALLBACK_COLUMNS: { key: string; label: string; plan: any }[] = [
-  { key: "basic", label: "Basic", plan: null },
-  { key: "standard", label: "Standard", plan: null },
-  { key: "advanced", label: "Advanced", plan: null },
-  { key: "pro-audit", label: "Pro Audit", plan: null },
-];
-
-const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, isYearly }) => {
+const PlanTable: React.FC<PlanTableProps> = ({ subscriptionPlanTypes, isYearly }) => {
   const [apiPricingFeatures, setApiPricingFeatures] = useState<any[] | null>(null);
+  const [featuresFetchState, setFeaturesFetchState] = useState<FetchState>("loading");
   const getTheme: any = useAppSelector(
     (state: RootState) => state?.appTheme?.currentTheme
   );
 
   useEffect(() => {
     async function fetchPricingFeatures() {
+      setFeaturesFetchState("loading");
       try {
         const response = await client.query({
           query: FETCH_PRICING_FEATURES,
@@ -101,9 +103,13 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
         });
         if (response?.data?.getAllPricingTableFeatures?.status === "SUCCESS") {
           setApiPricingFeatures(response.data.getAllPricingTableFeatures.data || []);
+          setFeaturesFetchState("success");
+        } else {
+          setFeaturesFetchState("error");
         }
       } catch (err) {
         console.error("Failed to fetch pricing features, using fallback:", err);
+        setFeaturesFetchState("error");
       }
     }
     fetchPricingFeatures();
@@ -185,7 +191,7 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
   const tableData = useMemo(() => {
     if (columns.length === 0) return [];
 
-    let baseRows = apiPricingFeatures
+    let baseRows = (featuresFetchState === "success" && apiPricingFeatures)
       ? mapApiFeaturesToDynamic(apiPricingFeatures)
       : mapFallbackToDynamic();
 
@@ -205,7 +211,7 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
     }
 
     return baseRows;
-  }, [columns, apiPricingFeatures, subscriptionPlanTypes, isYearly]);
+  }, [columns, apiPricingFeatures, featuresFetchState, subscriptionPlanTypes, isYearly]);
 
   function getFallbackPrice(colKey: string): string {
     const legacyPriceRow = subscriptionPlanFeatures[0] as Record<string, any>;
@@ -225,9 +231,17 @@ const PlanTable: React.FC<PlanTableProps> = ({ features, subscriptionPlanTypes, 
     return col.plan.price ? `${col.plan.price}${suffix}` : "Free";
   }
 
-  const priceColor = isLightTheme()
-    ? subscriptionColorCodes.BLACK
-    : subscriptionColorCodes.WHITE;
+  const priceColor = isLightTheme() ? "black" : "#DCE3EC";
+
+  if (featuresFetchState === "loading") {
+    return (
+      <div className="grid">
+        <div className="pt_defaulttable_scroll">
+          <p className="centered">Loading features...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid">

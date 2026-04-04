@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 export default function PricingPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
-  const [subscriptionPlanTypes, setSubscriptionPlanTypes] = useState<any>([]);
+  const [subscriptionPlanTypes, setSubscriptionPlanTypes] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [isYearly, setIsYearly] = useState(false);
   const dispatch = useAppDispatch();
@@ -189,7 +189,7 @@ export default function PricingPage() {
                 <p>Loading Plans...</p>
               )}
             </div>
-            <PlanTable features={[]} subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
+            <PlanTable subscriptionPlanTypes={subscriptionPlanTypes} isYearly={isYearly} />
           </div>
         </div>
       </div>

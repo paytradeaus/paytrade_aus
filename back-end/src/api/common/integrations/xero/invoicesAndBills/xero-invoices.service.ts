@@ -18,6 +18,7 @@ import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.en
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, ILike, In, Repository } from 'typeorm';
 import {
+  BankAccounts,
   PaymentClaimInvoices,
   PaymentClaims,
 } from 'src/entities/banking.entity';
@@ -5410,6 +5411,150 @@ export class XeroInvoicesService {
       return null;
     }
 
+    const actualContactType = clientSuppliersDetails.client_supplier_type;
+    if (actualContactType && actualContactType !== derived.clientSupplierType) {
+      this.logger.log(
+        `Smart contract creation failed: contact type mismatch — expected '${derived.clientSupplierType}', got '${actualContactType}'`
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 484,
+        dynamic_values: {
+          contact_name: contactName,
+          actual_type: actualContactType,
+          expected_type: derived.clientSupplierType,
+          project_role: projectDetails.project_role,
+        },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: `Contact '${contactName}' is type '${actualContactType}' but expected '${derived.clientSupplierType}'`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [clientSuppliersDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
+    const bankAccountsRepo = this.dataSource.getRepository(BankAccounts);
+
+    const projectBankAccounts = await bankAccountsRepo.find({
+      where: { company_id },
+    });
+    const projectPtaBankAccounts = projectBankAccounts.filter(
+      (ba) =>
+        ba.account_type === 'Project Trust Account' &&
+        ba.project_ids?.includes(projectDetails.project_id),
+    );
+    const projectRtaBankAccounts = projectBankAccounts.filter(
+      (ba) =>
+        ba.account_type === 'Retention Trust Account' &&
+        ba.project_ids?.includes(projectDetails.project_id),
+    );
+
+    let ptaAccount: BankAccounts | null = null;
+    let rtaAccount: BankAccounts | null = null;
+
+    if (projectDetails.pta_eligibility === 'Yes') {
+      if (projectPtaBankAccounts.length === 0) {
+        this.logger.log(
+          `Smart contract creation failed: project '${projectName}' is PTA-eligible but has no PTA bank account`
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'smartCreateContract',
+          api_payload: smartLogPayload,
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 482,
+          dynamic_values: { project_name: projectName, contact_name: contactName },
+          project_id: String(projectDetails.project_id),
+          contract_id: null,
+          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+          reference_id: checkExistenceInDb?.id,
+          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+          important_checks: {},
+          error_message: `Project '${projectName}' is PTA-eligible but has no Project Trust Account`,
+          xero_records: [invoiceDetails],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return null;
+      }
+      ptaAccount = projectPtaBankAccounts[0];
+    }
+
+    if (projectDetails.rta_eligibility === 'Yes') {
+      if (projectRtaBankAccounts.length === 0) {
+        this.logger.log(
+          `Smart contract creation failed: project '${projectName}' is RTA-eligible but has no RTA bank account`
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'smartCreateContract',
+          api_payload: smartLogPayload,
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 483,
+          dynamic_values: { project_name: projectName, contact_name: contactName },
+          project_id: String(projectDetails.project_id),
+          contract_id: null,
+          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+          reference_id: checkExistenceInDb?.id,
+          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+          important_checks: {},
+          error_message: `Project '${projectName}' is RTA-eligible but has no Retention Trust Account`,
+          xero_records: [invoiceDetails],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return null;
+      }
+      rtaAccount = projectRtaBankAccounts[0];
+    }
+
+    let supplierPaymentToAccount: BankAccounts | null = null;
+    if (derived.clientSupplierType === 'Supplier') {
+      const supplierAccounts = await bankAccountsRepo.find({
+        where: {
+          client_supplier_id: clientSuppliersDetails.client_supplier_id,
+        },
+      });
+      if (!supplierAccounts || supplierAccounts.length === 0) {
+        this.logger.log(
+          `Smart contract creation failed: supplier '${contactName}' has no payment details`
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'smartCreateContract',
+          api_payload: smartLogPayload,
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 485,
+          dynamic_values: { contact_name: contactName },
+          project_id: String(projectDetails.project_id),
+          contract_id: null,
+          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+          reference_id: checkExistenceInDb?.id,
+          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+          important_checks: {},
+          error_message: `Supplier '${contactName}' has no bank account details in PayTrade`,
+          xero_records: [invoiceDetails],
+          paytrade_records: [clientSuppliersDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return null;
+      }
+      supplierPaymentToAccount = supplierAccounts[0];
+    }
+
     const contractName = await startCasePreserveUnicode(
       `${projectName} - ${contactName} - Smart Contract`
     );
@@ -5449,7 +5594,7 @@ export class XeroInvoicesService {
     const now = moment.tz('UTC').toDate();
 
     try {
-      const newContract = this.contractDetails.create({
+      const contractData: any = {
         company_id: company_id,
         contract_name: contractName,
         client_supplier_role: derived.clientSupplierRole,
@@ -5466,9 +5611,21 @@ export class XeroInvoicesService {
         created_by: decoded?.userId,
         created_on: now,
         created_group: 'SYSTEM',
-      });
+      };
 
-      const saved = await this.contractDetails.save(newContract);
+      if (ptaAccount) {
+        contractData.payment_from_account = ptaAccount.bank_account_id;
+      }
+      if (rtaAccount) {
+        contractData.retention_from_account = rtaAccount.bank_account_id;
+      }
+      if (supplierPaymentToAccount) {
+        contractData.payment_to_account = supplierPaymentToAccount.bank_account_id;
+      }
+
+      const newContract = this.contractDetails.create(contractData as ContractDetails);
+
+      const saved = await this.contractDetails.save(newContract) as ContractDetails;
 
       const updatedContractId = 100000 + Number(saved.contract_id);
       await this.dataSource

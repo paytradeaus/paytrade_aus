@@ -5095,5 +5095,45 @@
     "from_xero": true,
     "error_code": "CONTACT_FINANCIAL_DETAILS_MISMATCH",
     "associated_log_ids": null
+  },
+  {
+    "id": 482,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed for project '{{project_name}}' and contact '{{contact_name}}': project is PTA-eligible but no Project Trust Account is linked to this project. Please create and assign a PTA bank account to the project first.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_NO_PTA",
+    "associated_log_ids": null
+  },
+  {
+    "id": 483,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed for project '{{project_name}}' and contact '{{contact_name}}': project is RTA-eligible but no Retention Trust Account is linked to this project. Please create and assign an RTA bank account to the project first.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_NO_RTA",
+    "associated_log_ids": null
+  },
+  {
+    "id": 484,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: contact '{{contact_name}}' is type '{{actual_type}}' but the claim requires type '{{expected_type}}' for project role '{{project_role}}'. Please update the contact type or create the contract manually.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_TYPE_MISMATCH",
+    "associated_log_ids": null
+  },
+  {
+    "id": 485,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: supplier '{{contact_name}}' has no payment (bank account) details in PayTrade. Please add financial details for the supplier or sync them from Xero before creating a contract.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS",
+    "associated_log_ids": null
   }
 ]
