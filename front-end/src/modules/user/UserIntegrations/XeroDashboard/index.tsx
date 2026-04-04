@@ -27,7 +27,6 @@ import {
   syncAllContactsByCompanyId,
   syncAllContractsByCompanyId,
   syncAllProjectsByCompanyId,
-  syncContactFinancialDetails,
   updateTrackingCategory,
   xeroSyncLogs,
 } from "../integration.functions";
@@ -78,9 +77,6 @@ export default function XeroDashboard() {
   });
   const [categoryTrackingError, setCategoryTrackingError] =
     useState<string>("");
-  const [financialSyncLoading, setFinancialSyncLoading] =
-    useState<boolean>(false);
-
   const handleRowClick = (rowData: any) => {
     router.push("/user/integrations/xero/syncLogDetails/" + rowData?.id);
   };
@@ -686,22 +682,6 @@ export default function XeroDashboard() {
                       </p>
                     </div>
                   </div>
-                </div>
-                <div style={{ marginTop: '10px' }}>
-                  <CustomButton
-                    buttonName={financialSyncLoading ? "Syncing..." : "Sync financial details"}
-                    iconClassName="fa-light fa-money-check-dollar"
-                    buttonType={buttonType.CONTRAST_SMALL}
-                    disabled={financialSyncLoading}
-                    onClick={async () => {
-                      setFinancialSyncLoading(true);
-                      await syncContactFinancialDetails(
-                        { companyId },
-                        setFinancialSyncLoading
-                      );
-                      fetchXeroSyncLogs();
-                    }}
-                  />
                 </div>
               </div>
             </div>
