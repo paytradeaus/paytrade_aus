@@ -2,10 +2,19 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 const logger = new PaytradeLogger('ERROR_HANDLER');
 
+function safeStringify(obj: any): string {
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    if (obj?.message) return obj.message;
+    return String(obj);
+  }
+}
+
 export async function handleError(error): Promise<string> {
   return new Promise(async (resolve, reject) => {
     var errorMessage = '';
-    logger.log(`error: ${JSON.stringify(error)}`);
+    logger.log(`error: ${safeStringify(error)}`);
     if (error.detail) {
       const matchUnique = error.detail.match(
         /Key \(([^)]+)\)=\([^)]+\) already exists./,

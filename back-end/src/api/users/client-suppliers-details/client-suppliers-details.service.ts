@@ -779,7 +779,7 @@ export class ClientSuppliersDetailsService {
                   account_details_to_be_added,
                 );
                 this.logger.log(
-                  `Response recieved while inserting accountDetails: ${JSON.stringify(accountDetails)}`,
+                  `Response received while inserting accountDetails: ${accountDetails?.length ?? 0} records`,
                 );
               }
             }

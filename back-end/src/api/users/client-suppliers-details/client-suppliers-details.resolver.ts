@@ -125,7 +125,7 @@ export class ClientSuppliersDetailsResolver {
             const response: any =
               await this.xeroContactsService.insertContactDetails(payload);
             this.logger.log(
-              `Xero Client supplier details inserted successfully with data: ${JSON.stringify(response)}`,
+              `Xero Client supplier details inserted successfully for contact: ${payload?.contact_name}`,
             );
 
             if (response) {
@@ -170,7 +170,7 @@ export class ClientSuppliersDetailsResolver {
                   xeroPayload,
                 );
               this.logger.log(
-                `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
+                `Xero Client supplier auto-created for contact: ${clientSupplierDetails.client_supplier_id}`,
               );
             }
           }
@@ -313,9 +313,9 @@ export class ClientSuppliersDetailsResolver {
           updateClientSuppliersDetailInput,
           decoded,
         );
-      this.logger.log(`editClientSupplierDetails: ${JSON.stringify(editClientSuppliersDetailsRes)}`);
+      this.logger.log(`editClientSupplierDetails: id=${editClientSuppliersDetailsRes?.id}`);
       this.logger.log(
-        `Response recieved while leaving the client: ${JSON.stringify(editClientSuppliersDetailsRes)}`,
+        `Response received for editing client supplier: id=${editClientSuppliersDetailsRes?.id}`,
       );
 
       if (editClientSuppliersDetailsRes) {
@@ -379,7 +379,7 @@ export class ClientSuppliersDetailsResolver {
               const response: any =
                 await this.xeroContactsService.updateContactDetails(payload);
               this.logger.log(
-                `Xero Client supplier details inserted successfully with data: ${JSON.stringify(response)}`,
+                `Xero Client supplier details updated successfully for contact: ${payload?.contact_name}`,
               );
               if (response) {
                 const addSyncLogResponse =
@@ -426,7 +426,7 @@ export class ClientSuppliersDetailsResolver {
                     xeroPayload,
                   );
                 this.logger.log(
-                  `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
+                  `Xero Client supplier auto-created for contact: ${clientSuppliersDetails.client_supplier_id}`,
                 );
               }
             } else if (
@@ -441,7 +441,7 @@ export class ClientSuppliersDetailsResolver {
                   xeroPayload,
                 );
               this.logger.log(
-                `Xero Client supplier details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
+                `Xero Client supplier details synced for contact: ${clientSuppliersDetails.client_supplier_id}`,
               );
             }
           }
