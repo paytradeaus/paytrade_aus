@@ -32,6 +32,7 @@ The application features a Next.js frontend and a NestJS backend communicating v
 - **SEO & How-To Guides Systems**: Backend-managed systems for dynamic landing pages with SEO keywords and categorized how-to guides.
 - **AI Support Assistant**: A search-first support flow incorporating OpenAI GPT-4o for answering user queries, with features like rate limiting, relevance gating, and web search enrichment. A reusable `AiHelpWidget` provides contextual AI support.
 - **Smart Reconciliation Matching**: QuickBooks-style smart matching system for bank transactions, supporting exact and near matches with configurable tolerance and quick-adjust functionalities, all within atomic transactions.
+- **Xero Token Refresh Lock**: Redis-based per-company mutex (`xero-token-lock:{company_id}`) in `XeroService.refreshTokenSet()` prevents concurrent OAuth2 token refreshes from invalidating each other. Uses `SET NX EX` for acquire, Lua compare-and-delete for safe release, with 15s TTL and 10s wait. Waiters re-read the DB for freshly refreshed tokens.
 - **Xero Integrations (Auto-Creation & Sync)**:
     - **Bank Account Auto-Create**: Two-way synchronization between PayTrade and Xero for bank accounts, with hourly schedulers and manual sync options.
     - **Contact Auto-Create**: Two-way synchronization for contacts, supporting individual and batch creation with type determination (Client/Supplier) from Xero data.

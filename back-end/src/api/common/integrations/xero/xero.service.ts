@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import {
   Account,
   AccountType,
@@ -16,6 +16,7 @@ import { In, Repository, DataSource } from 'typeorm';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 import axios from 'axios';
+import Redis from 'ioredis';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { handleAxiosError } from '../../error-handler';
 import {
@@ -36,9 +37,14 @@ import { UserDetails } from 'src/entities/user-details.entity';
 dotenv.config();
 
 @Injectable()
-export class XeroService {
+export class XeroService implements OnModuleInit, OnModuleDestroy {
   private logger = new PaytradeLogger('XERO_SERVICE');
   private xero: XeroClient;
+  private redis: Redis | null = null;
+  private static readonly TOKEN_LOCK_TTL_SECONDS = 15;
+  private static readonly TOKEN_LOCK_WAIT_MS = 500;
+  private static readonly TOKEN_LOCK_MAX_RETRIES = 20;
+
   constructor(
     @InjectRepository(XeroIntegrationDetails)
     private xeroIntegrationDetails: Repository<XeroIntegrationDetails>,
@@ -74,6 +80,67 @@ export class XeroService {
       state: '',
       httpTimeout: 10000, // Set timeout for requests
     });
+  }
+
+  onModuleInit() {
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+      try {
+        this.redis = new Redis(redisUrl, {
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times) => {
+            if (times > 5) return null;
+            return Math.min(times * 1000, 5000);
+          },
+        });
+        this.redis.on('error', (err) => {
+          this.logger.error(`Redis connection error (token lock): ${err.message}`);
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to connect Redis for token lock: ${err?.message}`);
+        this.redis = null;
+      }
+    } else {
+      this.logger.warn('REDIS_URL not configured - token refresh lock disabled');
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.redis) {
+      this.redis.disconnect();
+      this.redis = null;
+    }
+  }
+
+  private async acquireTokenLock(companyId: number): Promise<string | null> {
+    if (!this.redis) return null;
+    const lockKey = `xero-token-lock:${companyId}`;
+    const lockValue = `${process.pid}-${Date.now()}`;
+    const result = await this.redis.set(
+      lockKey,
+      lockValue,
+      'EX',
+      XeroService.TOKEN_LOCK_TTL_SECONDS,
+      'NX',
+    );
+    return result === 'OK' ? lockValue : null;
+  }
+
+  private async releaseTokenLock(companyId: number, lockValue: string): Promise<void> {
+    if (!this.redis) return;
+    const lockKey = `xero-token-lock:${companyId}`;
+    const script = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    await this.redis.eval(script, 1, lockKey, lockValue);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async getAuthResponse(company_id: number) {
@@ -2044,38 +2111,93 @@ export class XeroService {
       await xero.setTokenSet(tokenSet);
       const expiresAt = tokenSet.expires_at;
       if (moment.unix(expiresAt).isBefore(moment().utc()) || safeRefresh) {
-        const readTokenSet = await xero.readTokenSet();
-        const refreshedTokenSet = await this.refreshAccessTokenManually(
-          xeroDetails.refresh_token,
-        );
-        refreshedTokenSet.expires_at = moment()
-          .utc()
-          .add(refreshedTokenSet?.expires_in, 'seconds')
-          .unix();
-        await xero.setTokenSet(refreshedTokenSet);
-        if (!refreshedTokenSet.access_token) {
-          throw new Error('Unable to authorize Xero. Please try again');
-        }
-        const tenants = await xero.updateTenants();
-        if (tenants.length === 0) {
-          throw new Error(
-            'No tenants found. Ensure the user is connected to a Xero organization.',
-          );
-        }
+        let lockValue: string | null = null;
+        try {
+          lockValue = await this.acquireTokenLock(company_id);
+          if (!lockValue) {
+            for (let i = 0; i < XeroService.TOKEN_LOCK_MAX_RETRIES; i++) {
+              await this.sleep(XeroService.TOKEN_LOCK_WAIT_MS);
+              lockValue = await this.acquireTokenLock(company_id);
+              if (lockValue) break;
+            }
+          }
 
-        // xeroDetails.tenant_id = tenants[0]?.tenantId;
-        // xeroDetails.tenant_name = tenants[0]?.tenantName;
-        // xeroDetails.tenant_type = tenants[0]?.tenantType;
-        xeroDetails.status = tenants[0]?.orgData?.organisationStatus;
-        xeroDetails.subscription_status = tenants[0]?.orgData?._class;
-        xeroDetails.id_token = refreshedTokenSet.id_token;
-        xeroDetails.access_token = refreshedTokenSet.access_token;
-        xeroDetails.refresh_token = refreshedTokenSet.refresh_token;
-        xeroDetails.expires_at = refreshedTokenSet.expires_at;
-        // xeroDetails.updated_by = decoded?.userId
-        xeroDetails.updated_on = moment.tz('UTC');
-        // xeroDetails.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER'
-        return await this.xeroIntegrationDetails.save(xeroDetails);
+          if (!lockValue) {
+            this.logger.warn(`Token lock wait exhausted for company ${company_id}, re-reading token from DB`);
+            const freshDetails = await this.xeroIntegrationDetails.findOne({
+              where: { company_id, status: 'ACTIVE' },
+            });
+            if (freshDetails && moment.unix(freshDetails.expires_at).isAfter(moment().utc())) {
+              const freshTokenSet = {
+                id_token: freshDetails.id_token,
+                access_token: freshDetails.access_token,
+                refresh_token: freshDetails.refresh_token,
+                expires_at: freshDetails.expires_at,
+                token_type: 'Bearer',
+                scope: tokenSet.scope,
+              };
+              await xero.setTokenSet(freshTokenSet);
+              await xero.updateTenants();
+              return freshDetails;
+            }
+            throw new Error(`Unable to acquire token lock and token still expired for company ${company_id}`);
+          }
+
+          const freshDetails = await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          });
+          if (freshDetails && moment.unix(freshDetails.expires_at).isAfter(moment().utc()) && !safeRefresh) {
+            const freshTokenSet = {
+              id_token: freshDetails.id_token,
+              access_token: freshDetails.access_token,
+              refresh_token: freshDetails.refresh_token,
+              expires_at: freshDetails.expires_at,
+              token_type: 'Bearer',
+              scope: tokenSet.scope,
+            };
+            await xero.setTokenSet(freshTokenSet);
+            await xero.updateTenants();
+            return freshDetails;
+          }
+
+          const latestRefreshToken = freshDetails?.refresh_token || xeroDetails.refresh_token;
+          const refreshedTokenSet = await this.refreshAccessTokenManually(
+            latestRefreshToken,
+          );
+          refreshedTokenSet.expires_at = moment()
+            .utc()
+            .add(refreshedTokenSet?.expires_in, 'seconds')
+            .unix();
+          await xero.setTokenSet(refreshedTokenSet);
+          if (!refreshedTokenSet.access_token) {
+            throw new Error('Unable to authorize Xero. Please try again');
+          }
+          const tenants = await xero.updateTenants();
+          if (tenants.length === 0) {
+            throw new Error(
+              'No tenants found. Ensure the user is connected to a Xero organization.',
+            );
+          }
+
+          const detailsToSave = freshDetails || xeroDetails;
+          detailsToSave.status = tenants[0]?.orgData?.organisationStatus;
+          detailsToSave.subscription_status = tenants[0]?.orgData?._class;
+          detailsToSave.id_token = refreshedTokenSet.id_token;
+          detailsToSave.access_token = refreshedTokenSet.access_token;
+          detailsToSave.refresh_token = refreshedTokenSet.refresh_token;
+          detailsToSave.expires_at = refreshedTokenSet.expires_at;
+          detailsToSave.updated_on = moment.tz('UTC');
+          const saved = await this.xeroIntegrationDetails.save(detailsToSave);
+          return saved;
+        } finally {
+          if (lockValue) {
+            try {
+              await this.releaseTokenLock(company_id, lockValue);
+            } catch (releaseErr) {
+              this.logger.warn(`Failed to release token lock for company ${company_id}: ${releaseErr?.message || releaseErr}`);
+            }
+          }
+        }
       }
       await xero.updateTenants();
       return xeroDetails;
