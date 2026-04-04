@@ -5112,6 +5112,7 @@ export class XeroSchedulerService {
     const mappedWithPt = mappedContactsForFinancial.filter(c => c.pt_contact_id);
 
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    let currentDelay = 700;
 
     for (const mappedContact of mappedWithPt) {
       try {
@@ -5124,52 +5125,52 @@ export class XeroSchedulerService {
         let hasXeroFinancial = false;
         let xeroBatchPayments: any = null;
 
-        try {
-          const fullContactResp = await this.xero.accountingApi.getContact(
-            xeroDetails.tenant_id,
-            mappedContact.contact_id,
-          );
-          xeroFullContact = fullContactResp?.body?.contacts?.[0];
-          xeroBatchPayments = xeroFullContact?.batchPayments;
-          hasXeroFinancial = !!(
-            xeroBatchPayments &&
-            (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
-          );
-        } catch (fetchErr: any) {
-          if (fetchErr?.response?.statusCode === 429 || fetchErr?.statusCode === 429) {
-            const retryAfter = parseInt(fetchErr?.response?.headers?.['retry-after'] || '60', 10);
-            this.logger.warn(
-              `Xero rate limit hit for ${mappedContact.contact_name}, waiting ${retryAfter}s before retry...`,
+        const fetchContactFromXero = async (): Promise<boolean> => {
+          try {
+            const fullContactResp = await this.xero.accountingApi.getContact(
+              xeroDetails.tenant_id,
+              mappedContact.contact_id,
             );
-            await delay(retryAfter * 1000);
-            try {
-              const retryResp = await this.xero.accountingApi.getContact(
-                xeroDetails.tenant_id,
-                mappedContact.contact_id,
+            xeroFullContact = fullContactResp?.body?.contacts?.[0];
+            xeroBatchPayments = xeroFullContact?.batchPayments;
+            hasXeroFinancial = !!(
+              xeroBatchPayments &&
+              (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
+            );
+            return true;
+          } catch (err: any) {
+            if (err?.response?.statusCode === 429 || err?.statusCode === 429) {
+              const retryAfter = parseInt(err?.response?.headers?.['retry-after'] || '60', 10);
+              this.logger.warn(
+                `Xero rate limit hit for ${mappedContact.contact_name}, waiting ${retryAfter}s before retry...`,
               );
-              xeroFullContact = retryResp?.body?.contacts?.[0];
-              xeroBatchPayments = xeroFullContact?.batchPayments;
-              hasXeroFinancial = !!(
-                xeroBatchPayments &&
-                (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
-              );
-            } catch (retryErr) {
-              this.logger.error(
-                `Failed to fetch contact ${mappedContact.contact_name} from Xero after retry: ${retryErr}`,
-              );
-              result.errors++;
-              continue;
+              await delay(retryAfter * 1000);
+              currentDelay = Math.min(currentDelay + 200, 2000);
+              return null;
             }
-          } else {
+            throw err;
+          }
+        };
+
+        let fetched = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const ok = await fetchContactFromXero();
+            if (ok === true) { fetched = true; break; }
+          } catch (fetchErr) {
             this.logger.error(
               `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
             );
-            result.errors++;
-            continue;
+            break;
           }
         }
 
-        await delay(350);
+        if (!fetched) {
+          result.errors++;
+          continue;
+        }
+
+        await delay(currentDelay);
 
         const userId = decoded?.id || decoded?.sub;
         const createdGroup = decoded ? 'USER' : 'SYSTEM';
@@ -5233,16 +5234,44 @@ export class XeroSchedulerService {
               code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
             };
 
-            await this.xero.accountingApi.updateContact(
-              xeroDetails.tenant_id,
-              mappedContact.contact_id,
-              {
-                contacts: [{
-                  name: mappedContact.contact_name,
-                  batchPayments: batchPaymentData,
-                }],
-              },
-            );
+            let pushed = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                await this.xero.accountingApi.updateContact(
+                  xeroDetails.tenant_id,
+                  mappedContact.contact_id,
+                  {
+                    contacts: [{
+                      name: mappedContact.contact_name,
+                      batchPayments: batchPaymentData,
+                    }],
+                  },
+                );
+                pushed = true;
+                break;
+              } catch (pushErr: any) {
+                if (pushErr?.response?.statusCode === 429 || pushErr?.statusCode === 429) {
+                  const retryAfter = parseInt(pushErr?.response?.headers?.['retry-after'] || '60', 10);
+                  this.logger.warn(
+                    `Xero rate limit hit pushing ${mappedContact.contact_name}, waiting ${retryAfter}s...`,
+                  );
+                  await delay(retryAfter * 1000);
+                  currentDelay = Math.min(currentDelay + 200, 2000);
+                } else {
+                  throw pushErr;
+                }
+              }
+            }
+
+            if (!pushed) {
+              this.logger.error(
+                `Failed to push financial details to Xero for ${mappedContact.contact_name} after retries`,
+              );
+              result.errors++;
+              continue;
+            }
+
+            await delay(currentDelay);
 
             await this.xeroService.insertXeroSyncLogs(decoded, {
               integration_id: xeroDetails.integration_id,
