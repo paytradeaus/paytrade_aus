@@ -350,7 +350,7 @@ export class ClientSuppliersDetailsResolver {
                     xeroPayload,
                   );
                 this.logger.log(
-                  `Auto-created contact in Xero for PT contact ${clientSuppliersDetails.client_supplier_id}: ${JSON.stringify(xeroResponse)}`,
+                  `Auto-created contact in Xero for PT contact ${clientSuppliersDetails.client_supplier_id}: id=${xeroResponse?.id || xeroResponse}`,
                 );
               } catch (xeroErr) {
                 this.logger.warn(
@@ -420,14 +420,20 @@ export class ClientSuppliersDetailsResolver {
                   mapped_status: 'System',
                 };
 
-                const xeroResponse: any =
-                  await this.xeroContactsService.createContact(
-                    decoded,
-                    xeroPayload,
+                try {
+                  const xeroResponse: any =
+                    await this.xeroContactsService.createContact(
+                      decoded,
+                      xeroPayload,
+                    );
+                  this.logger.log(
+                    `Xero Client supplier auto-created for contact: ${clientSuppliersDetails.client_supplier_id}: id=${xeroResponse?.id || xeroResponse}`,
                   );
-                this.logger.log(
-                  `Xero Client supplier auto-created for contact: ${clientSuppliersDetails.client_supplier_id}`,
-                );
+                } catch (xeroErr) {
+                  this.logger.warn(
+                    `Auto-create contact in Xero failed (Draft→Completed) for PT contact ${clientSuppliersDetails.client_supplier_id}: ${xeroErr?.message || xeroErr}`,
+                  );
+                }
               }
             } else if (
               clientSuppliersDetails.client_supplier_status === 'Completed'
@@ -435,14 +441,20 @@ export class ClientSuppliersDetailsResolver {
               const xeroPayload = {
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
               };
-              const xeroResponse: any =
-                await this.xeroContactsService.editContact(
-                  decoded,
-                  xeroPayload,
+              try {
+                const xeroResponse: any =
+                  await this.xeroContactsService.editContact(
+                    decoded,
+                    xeroPayload,
+                  );
+                this.logger.log(
+                  `Xero Client supplier details synced for contact: ${clientSuppliersDetails.client_supplier_id}`,
                 );
-              this.logger.log(
-                `Xero Client supplier details synced for contact: ${clientSuppliersDetails.client_supplier_id}`,
-              );
+              } catch (xeroErr) {
+                this.logger.warn(
+                  `Xero edit contact sync failed for PT contact ${clientSuppliersDetails.client_supplier_id}: ${xeroErr?.message || xeroErr}`,
+                );
+              }
             }
           }
         }

@@ -583,35 +583,25 @@ export default function DropdownFields() {
   async function getClientSupplierDetails(contractIdOverride?: any) {
     const { contractId, cash_retention_type } = formik.values || {};
     const effectiveContractId = contractIdOverride ?? contractId;
+    const effectiveCashRetentionType = cash_retention_type || "Claim";
 
     if (effectiveContractId) {
       const payload = {
         contract_id: effectiveContractId,
-        cash_retention_type: cash_retention_type,
+        cash_retention_type: effectiveCashRetentionType,
         payment_id: RPaymentid ? Number(RPaymentid) : null,
       };
+
+      console.log("[PT_DEBUG] getClientSupplierDetails payload:", JSON.stringify(payload));
 
       const clientSupplierDetails =
         await fetchClientSupplierDetailsForPaymentClaim(payload);
 
+      console.log("[PT_DEBUG] getClientSupplierDetails response:", clientSupplierDetails ? "received data" : "null/empty", clientSupplierDetails ? { name: clientSupplierDetails?.client_supplier_name, address: clientSupplierDetails?.client_supplier_address } : null);
+
       if (clientSupplierDetails) {
-        // Do something with the client supplier details
         setPaymentDetails(clientSupplierDetails);
         setDelegationBankId(clientSupplierDetails?.payment_to_account);
-        // Object.keys(ClientSupplierBankDetails).forEach((k: any) => {
-        //   if (k === "dueDate") {
-        //     console.log(
-        //       "🚀 ~ getClientSupplierDetails ~ clientSupplierDetails?.[ClientSupplierBankDetails?.[k]]:",
-        //       clientSupplierDetails?.[ClientSupplierBankDetails?.[k]]
-        //     );
-        //   }
-        //   formik.setFieldValue(
-        //     k,
-        //     clientSupplierDetails?.[ClientSupplierBankDetails?.[k]]
-        //       ? clientSupplierDetails?.[ClientSupplierBankDetails?.[k]]
-        //       : ""
-        //   );
-        // });
         Object.keys(ClientSupplierBankDetails).forEach((k: any) => {
           formik.setFieldValue(
             k,
