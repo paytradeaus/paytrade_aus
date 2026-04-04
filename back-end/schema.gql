@@ -20603,6 +20603,12 @@ input UpdateSettingsInput {
   """
   simplified_retention_accounting: Boolean
 
+  """Sync contact financial details from Xero to PayTrade"""
+  sync_contact_financial_to_pt: Boolean
+
+  """Sync contact financial details from PayTrade to Xero"""
+  sync_contact_financial_to_xero: Boolean
+
   """Wait time for sync operations"""
   wait_time: Float
 
@@ -22095,6 +22101,12 @@ type XeroResponse {
 
   """Integration status"""
   status: String
+
+  """Sync contact financial details from Xero to PayTrade"""
+  sync_contact_financial_to_pt: Boolean
+
+  """Sync contact financial details from PayTrade to Xero"""
+  sync_contact_financial_to_xero: Boolean
 
   """Tenant ID"""
   tenant_id: String

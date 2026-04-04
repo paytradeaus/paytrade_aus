@@ -15,6 +15,7 @@ import {
   getXeroAccountCodes,
   getXeroDetailsForCompany,
   pauseOrUnpauseXero,
+  syncAllContactsByCompanyId,
   updateSettings,
 } from "../../integration.functions";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -102,6 +103,8 @@ export default function XeroSettings() {
       setXeroToPtProjectAutoCreate(!!data?.xero_to_pt_project_auto_create);
       setPtToXeroContractAutoCreate(!!data?.pt_to_xero_contract_auto_create);
       setXeroToPtContractAutoCreate(!!data?.xero_to_pt_contract_auto_create);
+      setSyncContactFinancialToXero(!!data?.sync_contact_financial_to_xero);
+      setSyncContactFinancialToPt(!!data?.sync_contact_financial_to_pt);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -178,6 +181,8 @@ export default function XeroSettings() {
   const [xeroToPtProjectAutoCreate, setXeroToPtProjectAutoCreate] = useState(false);
   const [ptToXeroContractAutoCreate, setPtToXeroContractAutoCreate] = useState(false);
   const [xeroToPtContractAutoCreate, setXeroToPtContractAutoCreate] = useState(false);
+  const [syncContactFinancialToXero, setSyncContactFinancialToXero] = useState(false);
+  const [syncContactFinancialToPt, setSyncContactFinancialToPt] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -295,6 +300,8 @@ export default function XeroSettings() {
         xero_to_pt_project_auto_create: xeroToPtProjectAutoCreate,
         pt_to_xero_contract_auto_create: ptToXeroContractAutoCreate,
         xero_to_pt_contract_auto_create: xeroToPtContractAutoCreate,
+        sync_contact_financial_to_xero: syncContactFinancialToXero,
+        sync_contact_financial_to_pt: syncContactFinancialToPt,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -404,6 +411,17 @@ export default function XeroSettings() {
             if (response) {
               router.push(`/user/integrations/xero/syncLogDetails/${syncId}`);
             }
+            break;
+          }
+          case "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_PT":
+          case "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_XERO": {
+            const response = await syncAllContactsByCompanyId({
+              companyId: +(localStorage.getItem("companyId") || 0),
+            });
+            if (response) {
+              router.push(`/user/integrations/xero/syncLogDetails/${syncId}`);
+            }
+            break;
           }
         }
       }
@@ -1132,6 +1150,57 @@ export default function XeroSettings() {
                     {xeroToPtContactAutoCreate && (
                       <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
                         Note: Contacts marked as &quot;Customer&quot; in Xero will be created as Clients. All others will be created as Suppliers. You can change the type after import.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Contact financial details sync</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  Control whether bank account details (account name, number, BSB) are automatically synced between mapped contacts. Only the first account per contact is synced. Imported accounts default to Cash Account type.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Sync PayTrade account details to Xero?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a mapped contact in PayTrade has account details but the Xero contact does not have batch payment details, the first account will be synced to Xero during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"sync_contact_financial_to_xero"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setSyncContactFinancialToXero(e === "Yes");
+                      }}
+                      value={syncContactFinancialToXero ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                  </div>
+                  <div>
+                    <h5>Sync Xero financial details to PayTrade?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      When a mapped contact in Xero has batch payment details but the PayTrade contact has no account details, the financial details will be imported as a Cash Account during the next sync.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"sync_contact_financial_to_pt"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setSyncContactFinancialToPt(e === "Yes");
+                      }}
+                      value={syncContactFinancialToPt ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                    {syncContactFinancialToPt && (
+                      <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
+                        Note: Imported accounts will default to Cash Account type. You can change the account type after import — this will not trigger a sync error as account type is a PayTrade-only field.
                       </p>
                     )}
                   </div>

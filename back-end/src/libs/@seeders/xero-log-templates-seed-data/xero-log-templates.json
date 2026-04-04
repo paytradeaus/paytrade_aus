@@ -4985,5 +4985,45 @@
     "from_xero": true,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 471,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Financial details for contact {{contact_name}} have been synced from Xero to PayTrade (Account: {{account_name}}).</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 472,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Financial details for contact {{contact_name}} have been synced from PayTrade to Xero (Account: {{account_name}}).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 473,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact {{contact_name}} has financial details in Xero ({{account_name}}) but no account details in PayTrade. Enable financial details sync or add account details manually.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_PT",
+    "associated_log_ids": null
+  },
+  {
+    "id": 474,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact {{contact_name}} has account details in PayTrade ({{account_name}}) but no financial details in Xero. Enable financial details sync or add batch payment details manually in Xero.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Warning",
+    "from_xero": false,
+    "error_code": "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_XERO",
+    "associated_log_ids": null
   }
 ]

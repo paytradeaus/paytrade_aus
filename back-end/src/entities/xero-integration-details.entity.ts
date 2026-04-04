@@ -123,6 +123,12 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   xero_to_pt_contract_auto_create: boolean;
 
+  @Column({ type: 'boolean', nullable: true, default: false })
+  sync_contact_financial_to_xero: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  sync_contact_financial_to_pt: boolean;
+
   @Column({ type: 'text', nullable: true })
   invoice_tax_code: string;
 

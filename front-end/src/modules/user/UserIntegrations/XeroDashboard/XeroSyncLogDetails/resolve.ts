@@ -725,6 +725,13 @@ export async function resolveList(data: any) {
       }
       return false;
     }
+    case "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_PT":
+    case "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_XERO": {
+      window.location.href =
+        AppRoutes.USER_INTEGRATION +
+        `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}`;
+      return true;
+    }
     default: {
       return false;
     }

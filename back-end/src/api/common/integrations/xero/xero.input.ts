@@ -268,6 +268,12 @@ export class UpdateSettingsInput {
   @Field({ nullable: true, description: 'Auto-create new Xero contracts in PayTrade' })
   xero_to_pt_contract_auto_create: boolean;
 
+  @Field({ nullable: true, description: 'Sync contact financial details from PayTrade to Xero' })
+  sync_contact_financial_to_xero: boolean;
+
+  @Field({ nullable: true, description: 'Sync contact financial details from Xero to PayTrade' })
+  sync_contact_financial_to_pt: boolean;
+
   @Field({ nullable: true, description: 'Invoice tax code' })
   invoice_tax_code: string;
 

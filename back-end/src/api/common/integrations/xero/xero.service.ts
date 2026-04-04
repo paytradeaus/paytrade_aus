@@ -422,6 +422,8 @@ export class XeroService {
           'x.xero_to_pt_project_auto_create AS xero_to_pt_project_auto_create',
           'x.pt_to_xero_contract_auto_create AS pt_to_xero_contract_auto_create',
           'x.xero_to_pt_contract_auto_create AS xero_to_pt_contract_auto_create',
+          'x.sync_contact_financial_to_xero AS sync_contact_financial_to_xero',
+          'x.sync_contact_financial_to_pt AS sync_contact_financial_to_pt',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -1824,6 +1826,12 @@ export class XeroService {
       }
       if (data.xero_to_pt_contract_auto_create !== undefined) {
         xeroDetails.xero_to_pt_contract_auto_create = data.xero_to_pt_contract_auto_create;
+      }
+      if (data.sync_contact_financial_to_xero !== undefined) {
+        xeroDetails.sync_contact_financial_to_xero = data.sync_contact_financial_to_xero;
+      }
+      if (data.sync_contact_financial_to_pt !== undefined) {
+        xeroDetails.sync_contact_financial_to_pt = data.sync_contact_financial_to_pt;
       }
       xeroDetails.bill_tax_code = data.bill_tax_code;
       xeroDetails.invoice_tax_code = data.invoice_tax_code;
