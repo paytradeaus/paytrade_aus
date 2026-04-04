@@ -1545,10 +1545,17 @@ export class ClientSuppliersDetailsService {
           contract_id,
         })
         .getRawOne();
-      this.logger.log(`queriedDetails: ${JSON.stringify(queriedDetails)}`);
+      this.logger.log(`[CLAIM_AUTOFILL] queriedDetails for contract ${contract_id}: ${JSON.stringify(queriedDetails)}`);
 
       if (!queriedDetails)
         throw `Invalid data. Contract details not found. Please provide a valid contract_id.`;
+
+      this.logger.log(
+        `[CLAIM_AUTOFILL] contract ${contract_id}: type=${queriedDetails.client_supplier_type}, ` +
+        `payment_to=${queriedDetails.payment_to_account}, payment_from=${queriedDetails.payment_from_account}, ` +
+        `retention=${queriedDetails.payment_retention_account}, name=${queriedDetails.client_supplier_name}, ` +
+        `address=${queriedDetails.client_supplier_address}`
+      );
 
       let fetchedPaymentToAccountDetails = {};
       let fetchedPaymentFromAccountDetails = {};
@@ -1653,10 +1660,27 @@ export class ClientSuppliersDetailsService {
         ...fetchedPaymentToAccountDetails,
         ...{ claim_amount: previous_claim_amount },
       };
-      this.logger.log(`allClientSupplierDetails: ${JSON.stringify(allClientSupplierDetails)}`);
+
+      const missingFields = [];
+      if (!allClientSupplierDetails.client_supplier_name) missingFields.push('client_supplier_name');
+      if (!allClientSupplierDetails.client_supplier_address) missingFields.push('client_supplier_address');
+      if (!allClientSupplierDetails.payment_to_account_type) missingFields.push('payment_to_account_type');
+      if (!allClientSupplierDetails.payment_to_account_name) missingFields.push('payment_to_account_name');
+      if (!allClientSupplierDetails.payment_terms) missingFields.push('payment_terms');
+      if (queriedDetails.client_supplier_type === 'Supplier') {
+        if (!allClientSupplierDetails.payment_from_account_type) missingFields.push('payment_from_account_type');
+        if (!allClientSupplierDetails.payment_from_account_name) missingFields.push('payment_from_account_name');
+      }
+
+      if (missingFields.length > 0) {
+        this.logger.warn(
+          `[CLAIM_AUTOFILL] contract ${contract_id}: MISSING FIELDS for claim form: [${missingFields.join(', ')}]`
+        );
+      }
 
       this.logger.log(
-        `Client supplier details fetched successfully with data: ${JSON.stringify(allClientSupplierDetails)}`,
+        `[CLAIM_AUTOFILL] contract ${contract_id}: returning ${Object.keys(allClientSupplierDetails).length} fields, ` +
+        `previous_claim_amount=${previous_claim_amount}`
       );
       return allClientSupplierDetails;
     } catch (error) {

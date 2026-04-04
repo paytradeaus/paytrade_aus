@@ -40,6 +40,9 @@ import { AddPaymentClaimInput } from 'src/api/users/banking/payment-claims/payme
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { Group } from 'src/entities/user-details.entity';
 import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
+import { NoticesService } from 'src/api/users/notices/notices.service';
+import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
+import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -74,6 +77,8 @@ export class XeroInvoicesService {
     private readonly paymentClaimsService: PaymentClaimsService,
     private readonly xeroService: XeroService,
     private readonly dataSource: DataSource,
+    private readonly noticesService: NoticesService,
+    private readonly emailQueueProducer: EmailQueueProducer,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -5724,6 +5729,52 @@ export class XeroInvoicesService {
         updated_records: null,
         synced_records: null,
       });
+
+      if (derived.clientSupplierType === 'Supplier') {
+        try {
+          this.logger.log(
+            `[SMART_CONTRACT_NOTICES] Triggering contract notices for smart contract ${updatedContractId} (Supplier type)`
+          );
+          const noticeResult: any = await this.noticesService.handleTriggerContractNotices(
+            decoded,
+            {
+              contract_id: updatedContractId,
+              view_preview: true,
+            },
+          );
+
+          const mailsToSend = noticeResult?.data?.mails_to_sent || [];
+          const updateInputs = noticeResult?.data?.update_notice_inputs || [];
+
+          if (mailsToSend.length > 0) {
+            for (let i = 0; i < mailsToSend.length; i++) {
+              const mailDetails = mailsToSend[i];
+              const updatePayload = updateInputs[i];
+
+              await this.emailQueueProducer.emailQueueProducer({
+                ...mailDetails,
+                mail_type: EmailTypeEnum.notice,
+              });
+
+              if (updatePayload) {
+                await this.noticesService.handleUpdateNotice(decoded, updatePayload);
+              }
+            }
+            this.logger.log(
+              `[SMART_CONTRACT_NOTICES] Sent ${mailsToSend.length} notice(s) for smart contract ${updatedContractId}`
+            );
+          } else {
+            this.logger.log(
+              `[SMART_CONTRACT_NOTICES] No notices to send for smart contract ${updatedContractId} (subscription level may not require auto-send)`
+            );
+          }
+        } catch (noticeErr) {
+          const noticeErrMsg = noticeErr instanceof Error ? noticeErr.message : String(noticeErr);
+          this.logger.warn(
+            `[SMART_CONTRACT_NOTICES] Notice generation failed for smart contract ${updatedContractId}: ${noticeErrMsg}`
+          );
+        }
+      }
 
       return saved;
     } catch (error) {
