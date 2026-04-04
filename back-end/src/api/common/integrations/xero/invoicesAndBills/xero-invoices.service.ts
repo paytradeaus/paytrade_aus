@@ -5522,11 +5522,59 @@ export class XeroInvoicesService {
 
     let supplierPaymentToAccount: BankAccounts | null = null;
     if (derived.clientSupplierType === 'Supplier') {
-      const supplierAccounts = await bankAccountsRepo.find({
+      let supplierAccounts = await bankAccountsRepo.find({
         where: {
           client_supplier_id: clientSuppliersDetails.client_supplier_id,
         },
       });
+
+      if (!supplierAccounts || supplierAccounts.length === 0) {
+        const xeroContact = await this.xeroContactDetails
+          .createQueryBuilder('xcd')
+          .where('xcd.integration_id = :integrationId', { integrationId: xeroDetails.integration_id })
+          .andWhere('xcd.pt_contact_id::text = :ptId', { ptId: String(clientSuppliersDetails.client_supplier_id) })
+          .andWhere('xcd.contact_status = :status', { status: 'ACTIVE' })
+          .getOne();
+
+        if (xeroContact?.contact_id) {
+          try {
+            await this.xeroService.refreshTokenSet(company_id, this.xero);
+            const xeroContactResp = await this.xero.accountingApi.getContact(
+              xeroDetails.tenant_id,
+              xeroContact.contact_id,
+            );
+            const xeroFullContact = xeroContactResp?.body?.contacts?.[0] || null;
+            const xeroBatchPayments = xeroFullContact?.batchPayments;
+            if (xeroBatchPayments && (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)) {
+              const newAccount = bankAccountsRepo.create({
+                account_type: 'Cash Account',
+                account_name: xeroBatchPayments.bankAccountName || contactName,
+                account_number: xeroBatchPayments.bankAccountNumber || '',
+                bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
+                client_supplier_id: clientSuppliersDetails.client_supplier_id,
+                created_by: decoded?.userId,
+                created_on: new Date(),
+                created_group: 'SYSTEM',
+                updated_by: decoded?.userId,
+                updated_on: new Date(),
+                updated_group: 'SYSTEM',
+              } as any);
+              await bankAccountsRepo.save(newAccount);
+              this.logger.log(
+                `Auto-imported financial details from Xero for supplier '${contactName}'`
+              );
+              supplierAccounts = await bankAccountsRepo.find({
+                where: { client_supplier_id: clientSuppliersDetails.client_supplier_id },
+              });
+            }
+          } catch (importErr) {
+            this.logger.warn(
+              `Failed to auto-import financial details from Xero for supplier '${contactName}': ${importErr}`
+            );
+          }
+        }
+      }
+
       if (!supplierAccounts || supplierAccounts.length === 0) {
         this.logger.log(
           `Smart contract creation failed: supplier '${contactName}' has no payment details`

@@ -430,7 +430,11 @@ export default function XeroSettings() {
           case "SMART_CONTRACT_RELATED_ENTITY":
           case "SMART_CONTRACT_TYPE_ERROR":
           case "SMART_CONTRACT_NAME_CONFLICT":
-          case "SMART_CONTRACT_GENERAL_ERROR": {
+          case "SMART_CONTRACT_GENERAL_ERROR":
+          case "SMART_CONTRACT_NO_PTA":
+          case "SMART_CONTRACT_NO_RTA":
+          case "SMART_CONTRACT_TYPE_MISMATCH":
+          case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS": {
             const response = await CreateClaimInPaytrade({
               associatedRetentionSubPaymentId: null,
               retentionId: null,
