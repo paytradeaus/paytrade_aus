@@ -283,7 +283,18 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
                 )}
 
                 {item?.results.map?.((obj: any, index: any) => (
-                  <div key={index}>
+                  <div
+                    key={index}
+                    style={{
+                      padding: "16px 0",
+                      borderBottom:
+                        index < item.results.length - 1
+                          ? "1px solid #e0e0e0"
+                          : "none",
+                      marginBottom:
+                        index < item.results.length - 1 ? "8px" : "0",
+                    }}
+                  >
                     <div
                       style={{
                         display: "flex",
@@ -299,8 +310,8 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
                         <i
                           className={
                             obj?.notify
-                              ? "fa-light fa-bell mute-icon" // Normal state
-                              : "fa-light fa-bell-slash mute-icon" // Muted state
+                              ? "fa-light fa-bell mute-icon"
+                              : "fa-light fa-bell-slash mute-icon"
                           }
                           onClick={(e) => {
                             e.preventDefault();

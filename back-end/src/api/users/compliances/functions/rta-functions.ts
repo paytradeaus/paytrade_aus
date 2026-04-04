@@ -1009,32 +1009,34 @@ export class ComplianceRTAFunctions {
           ...fetchedContentOf3rdRule,
         });
       } else {
-        if (!retentionTrustAccount.retention_trust_certificate_attachment_ids) {
-          const fetchedRuleDetails = await fetchComplianceRuleDetails(
-            4,
-            21,
-            fetchedAllRules,
-          );
-          resultsOfCheck.push({
-            ...fetchedRuleDetails,
-            ...{
-              reference_id: String(retentionTrustAccount.bank_account_id),
-            },
-            ...fetchedContentOf3rdRule,
-          });
-        } else if (
-          retentionTrustAccount.retention_trust_certificate_attachment_ids
-        ) {
-          const fetchedRuleDetails = await fetchComplianceRuleDetails(
-            4,
-            22,
-            fetchedAllRules,
-          );
-          resultsOfCheck.push({
-            ...fetchedRuleDetails,
-            ...fetchedContentOf3rdRule,
-          });
-        }
+        // RTA mandatory training requirement has been removed from legislation.
+        // Commenting out rules 21/22 (certificate upload check) until further notice.
+        // if (!retentionTrustAccount.retention_trust_certificate_attachment_ids) {
+        //   const fetchedRuleDetails = await fetchComplianceRuleDetails(
+        //     4,
+        //     21,
+        //     fetchedAllRules,
+        //   );
+        //   resultsOfCheck.push({
+        //     ...fetchedRuleDetails,
+        //     ...{
+        //       reference_id: String(retentionTrustAccount.bank_account_id),
+        //     },
+        //     ...fetchedContentOf3rdRule,
+        //   });
+        // } else if (
+        //   retentionTrustAccount.retention_trust_certificate_attachment_ids
+        // ) {
+        //   const fetchedRuleDetails = await fetchComplianceRuleDetails(
+        //     4,
+        //     22,
+        //     fetchedAllRules,
+        //   );
+        //   resultsOfCheck.push({
+        //     ...fetchedRuleDetails,
+        //     ...fetchedContentOf3rdRule,
+        //   });
+        // }
       }
 
       //Check 4 rule 4
