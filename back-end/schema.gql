@@ -21447,6 +21447,9 @@ type ViewClientSuppliersRes {
   """ACN number if applicable."""
   acn_number: String
 
+  """Number of bank accounts associated with this client/supplier."""
+  bank_account_count: Float
+
   """Business name of the client/supplier, if applicable."""
   business_name: String
 

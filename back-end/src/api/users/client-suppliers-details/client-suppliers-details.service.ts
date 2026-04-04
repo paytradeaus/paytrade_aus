@@ -273,6 +273,12 @@ export class ClientSuppliersDetailsService {
       .groupBy('pc.client_supplier_id')
       .having('COUNT(pc.client_supplier_id) > 0');
 
+    const bankAccountSubQuery = this.bankAccountsRepo
+      .createQueryBuilder('ba')
+      .select('ba.client_supplier_id', 'client_supplier_id')
+      .addSelect('COUNT(ba.id)::numeric', 'bank_account_count')
+      .groupBy('ba.client_supplier_id');
+
     const queryBuilder = await this.clientSuppliersDetails
       .createQueryBuilder('cs')
       .select('cs.id', 'id')
@@ -302,6 +308,7 @@ export class ClientSuppliersDetailsService {
       .addSelect('cs.created_on', 'created_on')
       .addSelect('contract.contract_count', 'contract_count')
       .addSelect('claims.claim_count', 'claim_count')
+      .addSelect('COALESCE(bank.bank_account_count, 0)', 'bank_account_count')
       .leftJoin(
         '(' + contractSubQuery.getQuery() + ')',
         'contract',
@@ -311,6 +318,11 @@ export class ClientSuppliersDetailsService {
         '(' + claimSubQuery.getQuery() + ')',
         'claims',
         'claims.client_supplier_id = cs.client_supplier_id',
+      )
+      .leftJoin(
+        '(' + bankAccountSubQuery.getQuery() + ')',
+        'bank',
+        'bank.client_supplier_id = cs.client_supplier_id',
       )
       .where(`cs.company_id = :companyId`, {
         companyId: company_id,
@@ -395,7 +407,8 @@ export class ClientSuppliersDetailsService {
     if (
       getClientSuppliersListsInput.sorting_field &&
       getClientSuppliersListsInput.sorting_field !== 'contract_count' &&
-      getClientSuppliersListsInput.sorting_field !== 'claim_count'
+      getClientSuppliersListsInput.sorting_field !== 'claim_count' &&
+      getClientSuppliersListsInput.sorting_field !== 'bank_account_count'
     ) {
       switch (getClientSuppliersListsInput.sorting_field) {
         case 'client_supplier_name':
@@ -515,6 +528,39 @@ export class ClientSuppliersDetailsService {
             )
           : sortedResult?.length;
       // Slice the results array to get the results for the current page
+      finalResult = sortedResult?.slice(startIndex, endIndex);
+      finalCount = sortedResult?.length || 0;
+    } else if (
+      getClientSuppliersListsInput.sorting_field &&
+      getClientSuppliersListsInput.sorting_field === 'bank_account_count'
+    ) {
+      let sortedResult: any[] = [];
+      if (sorting_order === 'ASC') {
+        sortedResult = Array.from(rawResults).sort(
+          (a, b) => (a.bank_account_count || 0) - (b.bank_account_count || 0),
+        );
+      } else {
+        sortedResult = Array.from(rawResults).sort(
+          (a, b) => (b.bank_account_count || 0) - (a.bank_account_count || 0),
+        );
+      }
+
+      const startIndex =
+        getClientSuppliersListsInput.page_number &&
+        getClientSuppliersListsInput.page_size
+          ? (getClientSuppliersListsInput.page_number - 1) *
+            getClientSuppliersListsInput.page_size
+          : 0;
+      const endIndex =
+        getClientSuppliersListsInput.page_number &&
+        getClientSuppliersListsInput.page_size
+          ? Math.min(
+              (getClientSuppliersListsInput.page_number - 1) *
+                getClientSuppliersListsInput.page_size +
+                getClientSuppliersListsInput.page_size,
+              sortedResult?.length,
+            )
+          : sortedResult?.length;
       finalResult = sortedResult?.slice(startIndex, endIndex);
       finalCount = sortedResult?.length || 0;
     } else {
@@ -1144,6 +1190,12 @@ export class ClientSuppliersDetailsService {
       .groupBy('pc.client_supplier_id')
       .having('COUNT(pc.client_supplier_id) > 0');
 
+    const bankAccountSubQuery = this.bankAccountsRepo
+      .createQueryBuilder('ba')
+      .select('ba.client_supplier_id', 'client_supplier_id')
+      .addSelect('COUNT(ba.id)::numeric', 'bank_account_count')
+      .groupBy('ba.client_supplier_id');
+
     const queryBuilder = await this.clientSuppliersDetails
       .createQueryBuilder('cs')
       .distinct(true)
@@ -1174,6 +1226,7 @@ export class ClientSuppliersDetailsService {
       .addSelect('cs.created_on', 'created_on')
       .addSelect('contract.contract_count', 'contract_count')
       .addSelect('claims.claim_count', 'claim_count')
+      .addSelect('COALESCE(bank.bank_account_count, 0)', 'bank_account_count')
       .innerJoin('cs.contractDetails', 'cd')
       .leftJoin(
         '(' + contractSubQuery.getQuery() + ')',
@@ -1184,6 +1237,11 @@ export class ClientSuppliersDetailsService {
         '(' + claimSubQuery.getQuery() + ')',
         'claims',
         'claims.client_supplier_id = cs.client_supplier_id',
+      )
+      .leftJoin(
+        '(' + bankAccountSubQuery.getQuery() + ')',
+        'bank',
+        'bank.client_supplier_id = cs.client_supplier_id',
       )
       .where(`cs.company_id = :companyId`, {
         companyId: company_id,

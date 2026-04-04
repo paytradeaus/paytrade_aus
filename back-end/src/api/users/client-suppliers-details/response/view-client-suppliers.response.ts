@@ -140,6 +140,13 @@ export class ViewClientSuppliersRes {
     description: 'Number of claims associated with this client/supplier.',
   })
   claim_count: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'Number of bank accounts associated with this client/supplier.',
+  })
+  bank_account_count: number;
 }
 
 @ObjectType({

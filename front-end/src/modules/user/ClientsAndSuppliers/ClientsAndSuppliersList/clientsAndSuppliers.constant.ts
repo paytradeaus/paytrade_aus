@@ -30,6 +30,7 @@ const clientsAndSuppliersHeaders = [
   { title: "Business Name", dataKey: "business_name" },
   { title: "Client/Supplier", dataKey: "client_supplier_type" },
   { title: "Address", dataKey: "client_supplier_address" },
+  { title: "Bank A/C", dataKey: "bank_account_count" },
   { title: "Payment Claims", dataKey: "claim_count" },
   { title: "Contracts", dataKey: "contract_count" },
   { title: "Status", dataKey: "client_supplier_status" },
@@ -60,6 +61,7 @@ const pdfHeaders = [
   "Business Name",
   "Client/Supplier",
   "Address",
+  "Bank A/C",
   "Payment Claims",
   "Contracts",
   "Status",
@@ -70,6 +72,7 @@ const pdfDataRow = [
   "business_name",
   "client_supplier_type",
   "client_supplier_address",
+  "bank_account_count",
   "claim_count",
   "contract_count",
   "client_supplier_status",
@@ -81,10 +84,10 @@ const clientAndSupplierRenderData = [
   { key: "business_name" },
   { key: "client_supplier_type" },
   { key: "client_supplier_address" },
+  { key: "bank_account_count", enableBankAccountIcons: true },
   { key: "claim_count" },
   { key: "contract_count" },
   { key: "client_supplier_status", enableStatusIcons: true },
-  // { key: "status" },
 ];
 
 const excelColumnNames = [
@@ -92,6 +95,7 @@ const excelColumnNames = [
   { value: "business_name", label: "Business Name" },
   { value: "client_supplier_type", label: "Client/Supplier" },
   { value: "client_supplier_address", label: "Address" },
+  { value: "bank_account_count", label: "Bank A/C" },
   { value: "claim_count", label: "Payment Claims" },
   { value: "contract_count", label: "Contracts" },
   { value: "client_supplier_status", label: "Status" },

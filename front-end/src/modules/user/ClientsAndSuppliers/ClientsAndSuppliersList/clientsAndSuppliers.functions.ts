@@ -175,6 +175,7 @@ export async function fetchClientSuppliersList(postData: any): Promise<any> {
                 client_supplier_type
                 client_website
                 company_id
+                bank_account_count
                 contract_count
                 country
                 created_by
@@ -360,6 +361,7 @@ export async function getClientSuppliersListByProjectId(
                 client_supplier_type
                 client_website
                 company_id
+                bank_account_count
                 contract_count
                 country
                 created_by

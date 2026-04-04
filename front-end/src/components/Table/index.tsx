@@ -240,7 +240,22 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
         />
       );
     }
-    if (rowDataKeys?.enableStatusIcons) {
+    if (rowDataKeys?.enableBankAccountIcons) {
+      const count = Number(rowData?.[rowDataKeys?.key]) || 0;
+      if (count > 0) {
+        return (
+          <span className="valid">
+            <i className={`fa-light fa-circle-check`}></i> {count}
+          </span>
+        );
+      } else {
+        return (
+          <span className="alert">
+            <i className={`fa-light fa-triangle-exclamation`}></i> Missing
+          </span>
+        );
+      }
+    } else if (rowDataKeys?.enableStatusIcons) {
       if (rowData?.showValidIcon) {
         return (
           <span className="valid">
