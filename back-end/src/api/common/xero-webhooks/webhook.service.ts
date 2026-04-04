@@ -727,10 +727,11 @@ export class XeroWebhookService {
   async handleInvoiceCreateUpdate(data: any, decoded?: any) {
     const { resource_id, tenant_id, eventType, sync_run_type } = data;
     this.logger.log(
-      `[Xero Service] Invoice CREATED: ${resource_id} of Tenant ${tenant_id}`,
+      `[BILL_TRACE] === START handleInvoiceCreateUpdate === resource_id=${resource_id}, tenant=${tenant_id}, eventType=${eventType}, sync_run_type=${sync_run_type}`,
     );
 
     try {
+      this.logger.log(`[BILL_TRACE] Step 1: Looking up xero integration for tenant ${tenant_id}...`);
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
         where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
@@ -742,24 +743,29 @@ export class XeroWebhookService {
         !xeroDetails?.integrationDetails
       ) {
         this.logger.error(
-          `[Xero Webhook] No integration found for tenant_id: ${tenant_id}`,
+          `[BILL_TRACE] Step 1 FAILED: No integration found for tenant_id: ${tenant_id}`,
         );
         return false;
       }
+
+      this.logger.log(`[BILL_TRACE] Step 1 OK: integration_id=${xeroDetails.integration_id}, company_id=${xeroDetails.company_id}, status=${xeroDetails.integrationDetails.integration_status}`);
 
       if (
         xeroDetails.integrationDetails.integration_status !==
         'Connected - active'
       ) {
         this.logger.error(
-          `[Xero Webhook] Paytrade is currently not active in Xero`,
+          `[BILL_TRACE] Step 1 FAILED: Integration not active (status=${xeroDetails.integrationDetails.integration_status})`,
         );
         return false;
       }
 
       const companyId = xeroDetails.company_id;
+      this.logger.log(`[BILL_TRACE] Step 2: Refreshing Xero token for company ${companyId}...`);
       await this.xeroService.refreshTokenSet(companyId, this.xero);
+      this.logger.log(`[BILL_TRACE] Step 2 OK: Token refreshed`);
 
+      this.logger.log(`[BILL_TRACE] Step 3: Fetching invoice ${resource_id} from Xero API...`);
       const response = await this.xero.accountingApi.getInvoice(
         tenant_id,
         resource_id,
@@ -767,6 +773,7 @@ export class XeroWebhookService {
       const invoice = response.body.invoices?.[0];
 
       if (!invoice) {
+        this.logger.error(`[BILL_TRACE] Step 3 FAILED: Invoice not found in Xero response`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           api_name: 'createClaimInPaytrade',
           api_payload: {
@@ -798,10 +805,12 @@ export class XeroWebhookService {
         return false;
       }
 
-      if (invoice?.status !== Invoice.StatusEnum.DRAFT) {
-        // Process invoice create logic..
-        this.logger.log('*****************invoice****************' + " " + JSON.stringify(invoice));
+      this.logger.log(`[BILL_TRACE] Step 3 OK: Invoice fetched — invoiceID=${invoice.invoiceID}, type=${invoice.type}, status=${invoice.status}, contact=${invoice.contact?.name} (${invoice.contact?.contactID}), lineItems=${invoice.lineItems?.length ?? 0}`);
 
+      if (invoice?.status !== Invoice.StatusEnum.DRAFT) {
+        this.logger.log(`[BILL_TRACE] Step 4: Invoice is NOT Draft (status=${invoice.status}). Proceeding with processing...`);
+
+        this.logger.log(`[BILL_TRACE] Step 5: Looking up xero contact mapping for contactID=${invoice.contact?.contactID}...`);
         const xeroContactDetails = await this.xeroContactDetails.findOne({
           where: {
             contact_id: invoice.contact?.contactID,
@@ -809,6 +818,7 @@ export class XeroWebhookService {
           },
         });
         if (!xeroContactDetails) {
+          this.logger.error(`[BILL_TRACE] Step 5 FAILED: Contact not found in xero mapping (contactID=${invoice.contact?.contactID}). Writing sync log template 264/424.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
             api_name: 'createClaimInPaytrade',
@@ -847,7 +857,10 @@ export class XeroWebhookService {
           return false;
         }
 
+        this.logger.log(`[BILL_TRACE] Step 5 OK: Contact mapped — pt_contact_id=${xeroContactDetails.pt_contact_id}, contact_name=${xeroContactDetails.contact_name}`);
+
         if (!xeroContactDetails.pt_contact_id) {
+          this.logger.error(`[BILL_TRACE] Step 5 FAILED: Contact exists but pt_contact_id is null/empty. Writing sync log template 265/425.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
             api_name: 'createClaimInPaytrade',
@@ -887,6 +900,7 @@ export class XeroWebhookService {
           return false;
         }
 
+        this.logger.log(`[BILL_TRACE] Step 6: All pre-checks passed. Calling validateAndProcessWebhookInvoice...`);
         const invoiceResponse = await this.validateAndProcessWebhookInvoice(
           invoice,
           xeroDetails,
@@ -899,13 +913,16 @@ export class XeroWebhookService {
           decoded,
         );
 
-        this.logger.log(JSON.stringify({ invoiceResponse }));
+        this.logger.log(`[BILL_TRACE] Step 6 RESULT: validateAndProcessWebhookInvoice returned ${JSON.stringify(invoiceResponse)}`);
+        this.logger.log(`[BILL_TRACE] === END handleInvoiceCreateUpdate (processed) ===`);
         return invoiceResponse;
       }
+      this.logger.log(`[BILL_TRACE] Step 4: Invoice is DRAFT (status=${invoice?.status}). Skipping processing — returning true silently.`);
+      this.logger.log(`[BILL_TRACE] === END handleInvoiceCreateUpdate (draft skipped) ===`);
       return true;
     } catch (err) {
       const error = await handleAxiosError(err);
-      this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
+      this.logger.error(`[BILL_TRACE] CATCH: handleInvoiceCreateUpdate failed — ${JSON.stringify(error)}`);
 
       const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
         error,
@@ -1267,8 +1284,9 @@ export class XeroWebhookService {
     decoded?: any,
   ) {
     try {
-      this.logger.log('Webhook::eventType::' + " " + JSON.stringify(eventType));
-      // 1. Check if invoice exists in xeroInvoicesBills
+      this.logger.log(`[BILL_TRACE] === START validateAndProcessWebhookInvoice === invoiceID=${invoice.invoiceID}, eventType=${eventType}, sync_run_type=${sync_run_type}`);
+
+      this.logger.log(`[BILL_TRACE] V-Step 1: Checking if invoice already exists in xeroInvoicesBills...`);
       let existingXeroInvoice = await this.xeroInvoicesBills.findOne({
         where: {
           invoice_id: invoice.invoiceID,
@@ -1276,19 +1294,27 @@ export class XeroWebhookService {
         },
       });
 
+      this.logger.log(`[BILL_TRACE] V-Step 1: existingXeroInvoice=${existingXeroInvoice ? `id=${existingXeroInvoice.id}, pt_claim_id=${existingXeroInvoice.pt_claim_id}` : 'null'}`);
+
       if (
         existingXeroInvoice &&
         existingXeroInvoice?.pt_claim_id &&
         eventType === 'CREATE'
       ) {
-        return false; // restricting edit claim during create event when triggered from paytrade
+        this.logger.log(`[BILL_TRACE] V-Step 1 EXIT: Already has pt_claim_id and eventType=CREATE. Returning false (skip duplicate create).`);
+        return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 2: Refreshing Xero token...`);
       await this.xeroService.refreshTokenSet(company_id, this.xero);
+      this.logger.log(`[BILL_TRACE] V-Step 2 OK`);
+
+      this.logger.log(`[BILL_TRACE] V-Step 3: Validating line items... lineItems count=${invoice.lineItems?.length ?? 0}, first accountCode=${invoice.lineItems?.[0]?.accountCode ?? 'null'}`);
       if (
         !invoice.lineItems ||
         (invoice.lineItems.length > 0 && !invoice.lineItems[0]?.accountCode)
       ) {
+        this.logger.error(`[BILL_TRACE] V-Step 3 FAILED: No line items or missing accountCode. Writing sync log 253/413.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1322,8 +1348,11 @@ export class XeroWebhookService {
         });
         return false;
       }
+      this.logger.log(`[BILL_TRACE] V-Step 3 OK: Line items valid`);
 
+      this.logger.log(`[BILL_TRACE] V-Step 4: Checking tracking categories...`);
       if (!this.hasValidTracking(invoice)) {
+        this.logger.error(`[BILL_TRACE] V-Step 4 FAILED: Missing tracking in line items. Writing sync log 254/414.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1357,8 +1386,11 @@ export class XeroWebhookService {
         });
         return false;
       }
+      this.logger.log(`[BILL_TRACE] V-Step 4 OK: Tracking valid`);
 
+      this.logger.log(`[BILL_TRACE] V-Step 5: Checking invoice format...`);
       if (!this.isInvoiceFormatValid(invoice)) {
+        this.logger.error(`[BILL_TRACE] V-Step 5 FAILED: Invoice format invalid. Writing sync log 255/415.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1392,8 +1424,11 @@ export class XeroWebhookService {
         });
         return false;
       }
+      this.logger.log(`[BILL_TRACE] V-Step 5 OK: Format valid`);
 
+      this.logger.log(`[BILL_TRACE] V-Step 6: Checking project_category_id=${xeroDetails.project_category_id}, contract_category_id=${xeroDetails.contract_category_id}...`);
       if (!xeroDetails.project_category_id) {
+        this.logger.error(`[BILL_TRACE] V-Step 6 FAILED: Missing project_category_id. Writing sync log 256/416.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1430,6 +1465,7 @@ export class XeroWebhookService {
       }
 
       if (!xeroDetails.contract_category_id) {
+        this.logger.error(`[BILL_TRACE] V-Step 6 FAILED: Missing contract_category_id. Writing sync log 257/417.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1466,15 +1502,19 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 6 OK: Category IDs present`);
+
       let contractTrackingId = null;
       let projectTrackingId = null;
 
-      if (
-        invoice?.status !== Invoice.StatusEnum.DRAFT &&
+      this.logger.log(`[BILL_TRACE] V-Step 7: Extracting tracking IDs from line items...`);
+      const hasTracking = invoice?.status !== Invoice.StatusEnum.DRAFT &&
         invoice?.lineItems &&
         invoice?.lineItems?.some((li) => li.tracking?.length) &&
-        invoice?.lineItems[0]?.tracking[0]?.trackingCategoryID
-      ) {
+        invoice?.lineItems[0]?.tracking[0]?.trackingCategoryID;
+      this.logger.log(`[BILL_TRACE] V-Step 7: hasTracking=${!!hasTracking}, first line tracking=${JSON.stringify(invoice?.lineItems?.[0]?.tracking)}`);
+
+      if (hasTracking) {
         let contractTrackingCategoryId = null;
         let projectTrackingCategoryId = null;
 
@@ -1489,6 +1529,8 @@ export class XeroWebhookService {
             projectTrackingId = item?.trackingOptionID;
           }
         });
+
+        this.logger.log(`[BILL_TRACE] V-Step 7: Extracted — projectTrackingId=${projectTrackingId}, contractTrackingId=${contractTrackingId}, projectCategoryMatch=${projectTrackingCategoryId}, contractCategoryMatch=${contractTrackingCategoryId}`);
 
         // if (!projectTrackingCategoryId) {
         //   await this.xeroService.insertXeroSyncLogs(
@@ -1567,7 +1609,9 @@ export class XeroWebhookService {
         // }
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 8: Validating account codes...`);
       if (!this.isAccountCodeValid(invoice, xeroDetails)) {
+        this.logger.error(`[BILL_TRACE] V-Step 8 FAILED: Account code invalid. Writing sync log 260/420.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1603,7 +1647,9 @@ export class XeroWebhookService {
         });
         return false;
       }
+      this.logger.log(`[BILL_TRACE] V-Step 8 OK: Account code valid`);
 
+      this.logger.log(`[BILL_TRACE] V-Step 9: Checking line item account codes against configured codes...`);
       const codes = [
         xeroDetails.bill_code,
         xeroDetails.retention_payable_retained_code,
@@ -1616,8 +1662,10 @@ export class XeroWebhookService {
       ];
 
       const accountCodes = codes?.filter((code) => code !== null);
+      this.logger.log(`[BILL_TRACE] V-Step 9: Configured account codes=${JSON.stringify(accountCodes)}, line item codes=${JSON.stringify(invoice?.lineItems?.map(li => li.accountCode))}`);
       for (let item of invoice?.lineItems) {
         if (!accountCodes.includes(item.accountCode)) {
+          this.logger.error(`[BILL_TRACE] V-Step 9 FAILED: accountCode=${item.accountCode} not in configured codes. Writing sync log 261/421.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
             api_name: 'createClaimInPaytrade',
@@ -1655,6 +1703,9 @@ export class XeroWebhookService {
         }
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 9 OK: All line item account codes match`);
+
+      this.logger.log(`[BILL_TRACE] V-Step 10: Validating tax codes... type=${invoice.type}`);
       let expectedTaxCode = null;
 
       if (invoice.type === Invoice.TypeEnum.ACCPAY) {
@@ -1663,7 +1714,9 @@ export class XeroWebhookService {
         expectedTaxCode = xeroDetails.invoice_tax_code;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 10: expectedTaxCode=${expectedTaxCode}, line item taxTypes=${JSON.stringify(invoice?.lineItems?.map(li => ({ desc: li.description?.substring(0, 30), taxType: li.taxType, taxAmount: li.taxAmount })))}`);
       if (!expectedTaxCode) {
+        this.logger.error(`[BILL_TRACE] V-Step 10 FAILED: Missing expectedTaxCode. Writing sync log 262/422.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1707,7 +1760,9 @@ export class XeroWebhookService {
           )
         : [];
 
+      this.logger.log(`[BILL_TRACE] V-Step 10: mismatchedTaxLines count=${mismatchedTaxLines.length}`);
       if (mismatchedTaxLines.length > 0) {
+        this.logger.error(`[BILL_TRACE] V-Step 10 FAILED: Tax code mismatch on ${mismatchedTaxLines.length} line(s). Writing sync log 263/423.`);
         const mismatchDetails = mismatchedTaxLines
           .map(
             (item) =>
@@ -1752,9 +1807,13 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 10 OK: All tax codes valid`);
+
+      this.logger.log(`[BILL_TRACE] V-Step 11: Looking up client/supplier for pt_contact_id=${xeroContactDetails.pt_contact_id}...`);
       const clientSuppliersDetails = await this.clientSuppliersDetails.findOne({
         where: { client_supplier_id: xeroContactDetails.pt_contact_id },
       });
+      this.logger.log(`[BILL_TRACE] V-Step 11: clientSuppliersDetails=${clientSuppliersDetails ? `id=${clientSuppliersDetails.client_supplier_id}, name=${clientSuppliersDetails.company_name}` : 'null'}`);
 
       // if (!clientSuppliersDetails) {
       //   await this.xeroService.insertXeroSyncLogs(
@@ -1793,6 +1852,7 @@ export class XeroWebhookService {
       //   return false;
       // }
 
+      this.logger.log(`[BILL_TRACE] V-Step 12: Looking up xero project mapping for projectTrackingId=${projectTrackingId}...`);
       const xeroProjectDetails = projectTrackingId
         ? await this.xeroProjectDetails.findOne({
             where: {
@@ -1801,8 +1861,10 @@ export class XeroWebhookService {
             },
           })
         : null;
+      this.logger.log(`[BILL_TRACE] V-Step 12: xeroProjectDetails=${xeroProjectDetails ? `id=${xeroProjectDetails.id}, pt_project_id=${xeroProjectDetails.pt_project_id}` : 'null'}`);
 
       if (projectTrackingId && !xeroProjectDetails) {
+        this.logger.error(`[BILL_TRACE] V-Step 12 FAILED: Project tracking exists but no xero mapping. Writing sync log 270/430.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1844,14 +1906,17 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 13: Looking up PT project for pt_project_id=${xeroProjectDetails?.pt_project_id}...`);
       const projectDetails =
         xeroProjectDetails && xeroProjectDetails?.pt_project_id
           ? await this.projectDetails.findOne({
               where: { project_id: xeroProjectDetails.pt_project_id },
             })
           : null;
+      this.logger.log(`[BILL_TRACE] V-Step 13: projectDetails=${projectDetails ? `project_id=${projectDetails.project_id}, project_name=${projectDetails.project_name}` : 'null'}`);
 
       if (projectTrackingId && !projectDetails) {
+        this.logger.error(`[BILL_TRACE] V-Step 13 FAILED: Project mapping exists but PT project not found. Writing sync log 269/429.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1893,6 +1958,7 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 14: Looking up xero contract mapping for contractTrackingId=${contractTrackingId}...`);
       const xeroContractDetails = contractTrackingId
         ? await this.xeroContractDetails.findOne({
             where: {
@@ -1901,8 +1967,10 @@ export class XeroWebhookService {
             },
           })
         : null;
+      this.logger.log(`[BILL_TRACE] V-Step 14: xeroContractDetails=${xeroContractDetails ? `id=${xeroContractDetails.id}, pt_contract_id=${xeroContractDetails.pt_contract_id}` : 'null'}`);
 
       if (contractTrackingId && !xeroContractDetails) {
+        this.logger.error(`[BILL_TRACE] V-Step 14 FAILED: Contract tracking exists but no xero mapping. Writing sync log 267/427.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1942,14 +2010,17 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 15: Looking up PT contract for pt_contract_id=${xeroContractDetails?.pt_contract_id}...`);
       let contractDetails =
         xeroContractDetails && xeroContractDetails?.pt_contract_id
           ? await this.contractDetails.findOne({
               where: { contract_id: xeroContractDetails.pt_contract_id },
             })
           : null;
+      this.logger.log(`[BILL_TRACE] V-Step 15: contractDetails=${contractDetails ? `contract_id=${contractDetails.contract_id}, status=${contractDetails.contract_status}` : 'null'}`);
 
       if (contractTrackingId && !contractDetails) {
+        this.logger.error(`[BILL_TRACE] V-Step 15 FAILED: Contract mapping exists but PT contract not found. Writing sync log 268/428.`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -1990,20 +2061,25 @@ export class XeroWebhookService {
         return false;
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 16: Contract resolution — contractTrackingId=${contractTrackingId}, contractDetails=${contractDetails ? 'found' : 'null'}, projectDetails=${projectDetails ? 'found' : 'null'}, pt_contact_id=${xeroContactDetails?.pt_contact_id}`);
       if (!contractTrackingId && !contractDetails && projectDetails && xeroContactDetails?.pt_contact_id) {
+        this.logger.log(`[BILL_TRACE] V-Step 16: No contract tracking — searching by project_id=${projectDetails.project_id} + client_supplier_id=${xeroContactDetails.pt_contact_id}...`);
         const matchingContracts = await this.contractDetails.find({
           where: {
             project_id: projectDetails.project_id,
             client_supplier_id: xeroContactDetails.pt_contact_id,
           },
         });
+        this.logger.log(`[BILL_TRACE] V-Step 16: Found ${matchingContracts.length} matching contract(s)`);
 
         if (matchingContracts.length === 1) {
           contractDetails = matchingContracts[0];
+          this.logger.log(`[BILL_TRACE] V-Step 16: Single contract match — contract_id=${contractDetails.contract_id}`);
         } else if (matchingContracts.length === 0) {
+          this.logger.log(`[BILL_TRACE] V-Step 16: No contracts found. smart_contract_auto_create=${xeroDetails.smart_contract_auto_create}`);
           if (xeroDetails.smart_contract_auto_create && projectDetails && clientSuppliersDetails) {
             this.logger.log(
-              `[Webhook] Smart contract auto-create enabled. Attempting for project ${projectDetails.project_id} and contact ${xeroContactDetails.pt_contact_id}.`
+              `[BILL_TRACE] V-Step 16: Smart contract auto-create ENABLED. Attempting for project ${projectDetails.project_id} and contact ${xeroContactDetails.pt_contact_id}...`
             );
             const smartContract = await this.xeroInvoicesService.smartCreateContract(decoded, {
               company_id,
@@ -2023,11 +2099,11 @@ export class XeroWebhookService {
             if (smartContract) {
               contractDetails = smartContract;
               this.logger.log(
-                `[Webhook] Smart contract auto-created: contract_id=${smartContract.contract_id}. Continuing claim import.`
+                `[BILL_TRACE] V-Step 16: Smart contract auto-created: contract_id=${smartContract.contract_id}. Continuing claim import.`
               );
             } else {
               this.logger.log(
-                `[Webhook] Smart contract auto-creation failed or was skipped. Returning false.`
+                `[BILL_TRACE] V-Step 16: Smart contract auto-creation FAILED or was skipped. Returning false.`
               );
               return false;
             }
@@ -2111,11 +2187,14 @@ export class XeroWebhookService {
         }
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 17: Final validations — contractDetails=${contractDetails ? `id=${contractDetails.contract_id}, status=${contractDetails.contract_status}, project_id=${contractDetails.project_id}, client_supplier_id=${contractDetails.client_supplier_id}` : 'null'}`);
+
       if (
         contractDetails &&
         clientSuppliersDetails.client_supplier_id !==
         contractDetails.client_supplier_id
       ) {
+        this.logger.error(`[BILL_TRACE] V-Step 17 FAILED: Client/supplier mismatch — invoice contact cs_id=${clientSuppliersDetails.client_supplier_id} vs contract cs_id=${contractDetails.client_supplier_id}`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -2157,6 +2236,7 @@ export class XeroWebhookService {
       }
 
       if (contractDetails && projectDetails && projectDetails.project_id !== contractDetails.project_id) {
+        this.logger.error(`[BILL_TRACE] V-Step 17 FAILED: Project mismatch — tracking project_id=${projectDetails.project_id} vs contract project_id=${contractDetails.project_id}`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -2201,6 +2281,7 @@ export class XeroWebhookService {
         contractDetails &&
         contractDetails.contract_status !== 'In Progress'
       ) {
+        this.logger.error(`[BILL_TRACE] V-Step 17 FAILED: Contract not in progress (status=${contractDetails.contract_status})`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -2241,12 +2322,13 @@ export class XeroWebhookService {
         return false;
       }
 
-      //Get new claim- Invoice type check - Validate against contract size OK
+      this.logger.log(`[BILL_TRACE] V-Step 18: Checking contract size — invoice total=${invoice.total}, contract initial_contract_sum=${contractDetails?.initial_contract_sum}`);
       if (
         contractDetails &&
         invoice?.status !== Invoice.StatusEnum.DRAFT &&
         Number(invoice.total) > Number(contractDetails.initial_contract_sum)
       ) {
+        this.logger.error(`[BILL_TRACE] V-Step 18 FAILED: Invoice total ${invoice.total} > contract sum ${contractDetails.initial_contract_sum}`);
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -2288,6 +2370,9 @@ export class XeroWebhookService {
         //send warning email
       }
 
+      this.logger.log(`[BILL_TRACE] V-Step 18 OK: All validations passed`);
+      this.logger.log(`[BILL_TRACE] V-Step 19: Saving xero invoice record... existingXeroInvoice=${existingXeroInvoice ? `id=${existingXeroInvoice.id}` : 'null (new)'}`);
+
       let xeroInvoice;
       if (existingXeroInvoice) {
         existingXeroInvoice.tenant_id = xeroDetails.tenant_id;
@@ -2307,7 +2392,7 @@ export class XeroWebhookService {
         existingXeroInvoice.updated_group = 'SYSTEM';
         existingXeroInvoice.updated_on = moment().toISOString();
         xeroInvoice = await this.xeroInvoicesBills.save(existingXeroInvoice);
-        this.logger.log('Webhook::xeroInvoice::exist::' + " " + JSON.stringify(existingXeroInvoice));
+        this.logger.log(`[BILL_TRACE] V-Step 19: Updated existing xero invoice — id=${xeroInvoice?.id}`);
       } else {
         const xeroPayload: any = {
           invoice_id: invoice.invoiceID,
@@ -2331,10 +2416,11 @@ export class XeroWebhookService {
         };
         const newXeroInvoice = await this.xeroInvoicesBills.create(xeroPayload);
         xeroInvoice = await this.xeroInvoicesBills.save(newXeroInvoice);
-        this.logger.log('Webhook::xeroInvoice::new::' + " " + JSON.stringify(xeroInvoice));
+        this.logger.log(`[BILL_TRACE] V-Step 19: Created new xero invoice — id=${xeroInvoice?.id}`);
       }
 
       if (xeroInvoice) {
+        this.logger.log(`[BILL_TRACE] V-Step 20: Invoice saved. pt_claim_id=${xeroInvoice?.pt_claim_id || 'null'}. Proceeding to claim creation...`);
         if (!xeroInvoice?.pt_claim_id) {
           const retentionClaimnlineItem = invoice?.lineItems?.some(
             (item) =>
@@ -2365,7 +2451,9 @@ export class XeroWebhookService {
           );
 
           const webhookSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+          this.logger.log(`[BILL_TRACE] V-Step 20: cash_retention_type check — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, simplifiedRetention=${webhookSimplifiedRetention}`);
           if (!webhookSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
+            this.logger.error(`[BILL_TRACE] V-Step 20 FAILED: Retention line item count mismatch (need 2). Writing sync log 274/434.`);
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: data?.sync_id || null,
               api_name: 'createClaimInPaytrade',
@@ -4189,10 +4277,11 @@ export class XeroWebhookService {
           }
         }
       }
+      this.logger.log(`[BILL_TRACE] validateAndProcessWebhookInvoice returning false (no xeroInvoice or end of method)`);
       return false;
     } catch (err) {
       this.logger.error(
-        `[Webhook Validation Fail] ${invoice.invoiceID}: ${'Unexpected error: ' + (err?.message || err)}`,
+        `[BILL_TRACE] CATCH: validateAndProcessWebhookInvoice EXCEPTION — ${err?.message || err}\n${err?.stack || ''}`,
       );
       try {
         await this.xeroService.insertXeroSyncLogs(decoded, {
