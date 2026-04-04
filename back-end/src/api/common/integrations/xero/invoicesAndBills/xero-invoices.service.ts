@@ -2480,7 +2480,7 @@ export class XeroInvoicesService {
       return (
         sum +
         (item?.unitAmount === null ? 0.0 : Math.abs(Number(item?.unitAmount))) +
-        (item?.taxAmount === null ? 0.0 : Number(item?.taxAmount))
+        (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
       );
     }, 0.0);
 
@@ -2502,12 +2502,19 @@ export class XeroInvoicesService {
             : xeroDetails.invoice_code),
       );
 
-      invoices = await this.adjustItemsWithRetention(
-        invoiceDetails,
-        filteredInvoices,
-        retentionAmount,
-        invoiceDetails.lineAmountTypes,
-      );
+      if (cashRetention && importSimplifiedRetention) {
+        invoices = this.mapItemsDirectly(
+          filteredInvoices,
+          invoiceDetails.lineAmountTypes,
+        );
+      } else {
+        invoices = await this.adjustItemsWithRetention(
+          invoiceDetails,
+          filteredInvoices,
+          retentionAmount,
+          invoiceDetails.lineAmountTypes,
+        );
+      }
 
       const subtotal = invoices.reduce((sum, i) => sum + i.unit_price, 0);
       retainedAmountExcludingGST = retentionAmount
@@ -2515,7 +2522,7 @@ export class XeroInvoicesService {
           ? retentionAmount / 1.1
           : retentionAmount
         : 0;
-      retentionPercentage = (retainedAmountExcludingGST / subtotal) * 100;
+      retentionPercentage = subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
     }
 
     if (
@@ -2892,6 +2899,34 @@ export class XeroInvoicesService {
       invoice_id: response.payment_claim_id,
       status: response.status,
     };
+  }
+
+  mapItemsDirectly(items: any[], lineAmountTypes: LineAmountTypes) {
+    return items.map((item) => {
+      const unitAmount =
+        lineAmountTypes === LineAmountTypes.Inclusive
+          ? item.unitAmount - item.taxAmount
+          : item.unitAmount;
+
+      const gst = [LineAmountTypes.Inclusive, LineAmountTypes.Exclusive].includes(
+        lineAmountTypes,
+      )
+        ? parseFloat(Math.abs(Number(item.taxAmount || 0)).toFixed(2))
+        : 0.0;
+
+      const totalAmountIncludingGst =
+        lineAmountTypes === LineAmountTypes.Inclusive
+          ? item.unitAmount * item.quantity
+          : item.unitAmount * item.quantity + (item.taxAmount || 0);
+
+      return {
+        unit_price: parseFloat(Number(unitAmount).toFixed(2)),
+        gst,
+        total_amount_including_gst: parseFloat(totalAmountIncludingGst.toFixed(2)),
+        description: item.description,
+        quantity: item.quantity,
+      };
+    });
   }
 
   async adjustItemsWithRetention(

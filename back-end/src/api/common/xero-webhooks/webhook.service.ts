@@ -2768,7 +2768,7 @@ export class XeroWebhookService {
               (item?.unitAmount === null
                 ? 0.0
                 : Math.abs(Number(item?.unitAmount))) +
-              (item?.taxAmount === null ? 0.0 : Number(item?.taxAmount))
+              (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
             );
           }, 0.0);
 
@@ -2792,12 +2792,19 @@ export class XeroWebhookService {
                   ? xeroDetails.bill_code
                   : xeroDetails.invoice_code),
             );
-            invoices = await this.xeroInvoicesService.adjustItemsWithRetention(
-              invoice,
-              filteredInvoices,
-              retentionAmount,
-              invoice.lineAmountTypes,
-            );
+            if (cashRetention && webhookSimplifiedRetention) {
+              invoices = this.xeroInvoicesService.mapItemsDirectly(
+                filteredInvoices,
+                invoice.lineAmountTypes,
+              );
+            } else {
+              invoices = await this.xeroInvoicesService.adjustItemsWithRetention(
+                invoice,
+                filteredInvoices,
+                retentionAmount,
+                invoice.lineAmountTypes,
+              );
+            }
 
             const subtotal = invoices.reduce((sum, i) => sum + i.unit_price, 0);
             retainedAmountExcludingGST = retentionAmount
@@ -2805,7 +2812,7 @@ export class XeroWebhookService {
                 ? retentionAmount / 1.1
                 : retentionAmount
               : 0;
-            retentionPercentage = (retainedAmountExcludingGST / subtotal) * 100;
+            retentionPercentage = subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
           }
 
           if (
@@ -3574,7 +3581,7 @@ export class XeroWebhookService {
                   (item?.unitAmount === null
                     ? 0.0
                     : Math.abs(Number(item?.unitAmount))) +
-                  (item?.taxAmount === null ? 0.0 : Number(item?.taxAmount))
+                  (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
                 );
               }, 0.0);
 
@@ -3598,13 +3605,20 @@ export class XeroWebhookService {
                       ? xeroDetails.bill_code
                       : xeroDetails.invoice_code),
                 );
-                invoices =
-                  await this.xeroInvoicesService.adjustItemsWithRetention(
-                    invoice,
+                if (cashRetention && draftSimplifiedRetention) {
+                  invoices = this.xeroInvoicesService.mapItemsDirectly(
                     filteredInvoices,
-                    retentionAmount,
                     invoice.lineAmountTypes,
                   );
+                } else {
+                  invoices =
+                    await this.xeroInvoicesService.adjustItemsWithRetention(
+                      invoice,
+                      filteredInvoices,
+                      retentionAmount,
+                      invoice.lineAmountTypes,
+                    );
+                }
                 for (const element of invoices) {
                   element.payment_claim_id = claimDetails?.payment_claim_id;
                 }
@@ -3618,7 +3632,7 @@ export class XeroWebhookService {
                     : retentionAmount
                   : 0;
                 retentionPercentage =
-                  (retainedAmountExcludingGST / subtotal) * 100;
+                  subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
               }
 
               if (
@@ -5242,7 +5256,7 @@ export class XeroWebhookService {
           (item?.unitAmount === null
             ? 0.0
             : Math.abs(Number(item?.unitAmount))) +
-          (item?.taxAmount === null ? 0.0 : Number(item?.taxAmount))
+          (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
         );
       }, 0.0);
 
