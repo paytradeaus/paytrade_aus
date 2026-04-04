@@ -5058,6 +5058,8 @@ export class XeroSchedulerService {
     });
     const mappedWithPt = mappedContactsForFinancial.filter(c => c.pt_contact_id);
 
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
     for (const mappedContact of mappedWithPt) {
       try {
         const ptAccountDetails = await bankAccountsRepo.find({
@@ -5080,13 +5082,41 @@ export class XeroSchedulerService {
             xeroBatchPayments &&
             (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
           );
-        } catch (fetchErr) {
-          this.logger.error(
-            `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
-          );
-          result.errors++;
-          continue;
+        } catch (fetchErr: any) {
+          if (fetchErr?.response?.statusCode === 429 || fetchErr?.statusCode === 429) {
+            const retryAfter = parseInt(fetchErr?.response?.headers?.['retry-after'] || '60', 10);
+            this.logger.warn(
+              `Xero rate limit hit for ${mappedContact.contact_name}, waiting ${retryAfter}s before retry...`,
+            );
+            await delay(retryAfter * 1000);
+            try {
+              const retryResp = await this.xero.accountingApi.getContact(
+                xeroDetails.tenant_id,
+                mappedContact.contact_id,
+              );
+              xeroFullContact = retryResp?.body?.contacts?.[0];
+              xeroBatchPayments = xeroFullContact?.batchPayments;
+              hasXeroFinancial = !!(
+                xeroBatchPayments &&
+                (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
+              );
+            } catch (retryErr) {
+              this.logger.error(
+                `Failed to fetch contact ${mappedContact.contact_name} from Xero after retry: ${retryErr}`,
+              );
+              result.errors++;
+              continue;
+            }
+          } else {
+            this.logger.error(
+              `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
+            );
+            result.errors++;
+            continue;
+          }
         }
+
+        await delay(350);
 
         const userId = decoded?.id || decoded?.sub;
         const createdGroup = decoded?.company_id || company_id;
