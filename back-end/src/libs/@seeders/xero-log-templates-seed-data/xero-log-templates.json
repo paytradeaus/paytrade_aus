@@ -5085,5 +5085,15 @@
     "from_xero": true,
     "error_code": "SMART_CONTRACT_GENERAL_ERROR",
     "associated_log_ids": null
+  },
+  {
+    "id": 481,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Financial details mismatch for contact '{{contact_name}}'. PayTrade has account '{{pt_account_name}}' (BSB: {{pt_bsb}}, Acc: {{pt_account_number}}) but Xero has '{{xero_account_name}}' (BSB: {{xero_bsb}}, Acc: {{xero_account_number}}). Please review and update the correct details manually.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "CONTACT_FINANCIAL_DETAILS_MISMATCH",
+    "associated_log_ids": null
   }
 ]

@@ -483,7 +483,16 @@ export class XeroSchedulerResolver {
           decoded,
           company_id,
         );
-      const message = `Financial sync complete: ${result.synced_to_pt} synced to PayTrade, ${result.synced_to_xero} synced to Xero, ${result.skipped} skipped, ${result.errors} errors`;
+      const parts = [
+        `${result.synced_to_pt} synced to PayTrade`,
+        `${result.synced_to_xero} synced to Xero`,
+        `${result.skipped} skipped`,
+      ];
+      if (result.mismatches > 0) {
+        parts.push(`${result.mismatches} mismatches`);
+      }
+      parts.push(`${result.errors} errors`);
+      const message = `Financial sync complete: ${parts.join(', ')}`;
       return framedResponse('SUCCESS', message, result);
     } catch (error) {
       if (

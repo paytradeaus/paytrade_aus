@@ -2066,6 +2066,59 @@ export class XeroSchedulerService {
                   updated_records: null,
                   synced_records: null,
                 });
+              } else if (hasPtAccount && hasXeroFinancial) {
+                const firstAccount = ptAccountDetails[0];
+                const ptName = firstAccount.account_name || '';
+                const ptNumber = firstAccount.account_number || '';
+                const ptBsb = firstAccount.bsb_number ? String(firstAccount.bsb_number) : '';
+                const xeroName = xeroBatchPayments.bankAccountName || '';
+                const xeroNumber = xeroBatchPayments.bankAccountNumber || '';
+                const xeroBsb = xeroBatchPayments.code || '';
+
+                const detailsMatch =
+                  ptName === xeroName &&
+                  ptNumber === xeroNumber &&
+                  ptBsb === xeroBsb;
+
+                if (!detailsMatch) {
+                  try {
+                    await this.xeroService.insertXeroSyncLogs(decoded, {
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 481,
+                      dynamic_values: {
+                        contact_name: mappedContact.contact_name,
+                        pt_account_name: ptName,
+                        pt_bsb: ptBsb || 'N/A',
+                        pt_account_number: ptNumber || 'N/A',
+                        xero_account_name: xeroName,
+                        xero_bsb: xeroBsb || 'N/A',
+                        xero_account_number: xeroNumber || 'N/A',
+                      },
+                      project_id: null,
+                      contract_id: null,
+                      reference: {
+                        xeroId: mappedContact.id,
+                        paytradeId: String(mappedContact.pt_contact_id),
+                      },
+                      reference_id: mappedContact.id,
+                      history: [
+                        `Financial details mismatch detected for ${mappedContact.contact_name}`,
+                        'Scheduled sync',
+                      ],
+                      important_checks: {},
+                      error_message: null,
+                      xero_records: [xeroFullContact],
+                      paytrade_records: [firstAccount],
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                    });
+                  } catch (logErr) {
+                    this.logger.error(
+                      `Failed to log financial mismatch for ${mappedContact.contact_name}: ${logErr}`,
+                    );
+                  }
+                }
               }
             } catch (financialErr) {
               this.logger.error(
@@ -5035,8 +5088,8 @@ export class XeroSchedulerService {
   async manualSyncContactFinancialDetails(
     decoded: any,
     company_id: number,
-  ): Promise<{ synced_to_pt: number; synced_to_xero: number; skipped: number; errors: number }> {
-    const result = { synced_to_pt: 0, synced_to_xero: 0, skipped: 0, errors: 0 };
+  ): Promise<{ synced_to_pt: number; synced_to_xero: number; skipped: number; errors: number; mismatches: number }> {
+    const result = { synced_to_pt: 0, synced_to_xero: 0, skipped: 0, errors: 0, mismatches: 0 };
 
     await this.xeroService.refreshTokenSet(company_id, this.xero);
 
@@ -5223,6 +5276,62 @@ export class XeroSchedulerService {
               `Failed to push financial details to Xero for ${mappedContact.contact_name}: ${pushErr}`,
             );
             result.errors++;
+          }
+        } else if (hasPtAccount && hasXeroFinancial) {
+          const firstAccount = ptAccountDetails[0];
+          const ptName = firstAccount.account_name || '';
+          const ptNumber = firstAccount.account_number || '';
+          const ptBsb = firstAccount.bsb_number ? String(firstAccount.bsb_number) : '';
+          const xeroName = xeroBatchPayments.bankAccountName || '';
+          const xeroNumber = xeroBatchPayments.bankAccountNumber || '';
+          const xeroBsb = xeroBatchPayments.code || '';
+
+          const detailsMatch =
+            ptName === xeroName &&
+            ptNumber === xeroNumber &&
+            ptBsb === xeroBsb;
+
+          if (!detailsMatch) {
+            try {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 481,
+                dynamic_values: {
+                  contact_name: mappedContact.contact_name,
+                  pt_account_name: ptName,
+                  pt_bsb: ptBsb || 'N/A',
+                  pt_account_number: ptNumber || 'N/A',
+                  xero_account_name: xeroName,
+                  xero_bsb: xeroBsb || 'N/A',
+                  xero_account_number: xeroNumber || 'N/A',
+                },
+                project_id: null,
+                contract_id: null,
+                reference: {
+                  xeroId: mappedContact.id,
+                  paytradeId: String(mappedContact.pt_contact_id),
+                },
+                reference_id: mappedContact.id,
+                history: [
+                  `Financial details mismatch detected for ${mappedContact.contact_name}`,
+                  'Manual sync',
+                ],
+                important_checks: {},
+                error_message: null,
+                xero_records: [xeroFullContact],
+                paytrade_records: [firstAccount],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            } catch (logErr) {
+              this.logger.error(
+                `Failed to log financial mismatch for ${mappedContact.contact_name}: ${logErr}`,
+              );
+            }
+            result.mismatches++;
+          } else {
+            result.skipped++;
           }
         } else {
           result.skipped++;
