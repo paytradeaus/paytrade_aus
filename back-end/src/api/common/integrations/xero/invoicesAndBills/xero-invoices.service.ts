@@ -5552,7 +5552,9 @@ export class XeroInvoicesService {
                 account_name: xeroBatchPayments.bankAccountName || contactName,
                 account_number: xeroBatchPayments.bankAccountNumber || '',
                 bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
+                company_id: company_id,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
+                status: 'Open' as const,
                 created_by: decoded?.userId,
                 created_on: new Date(),
                 created_group: 'SYSTEM' as Group,
@@ -5562,15 +5564,16 @@ export class XeroInvoicesService {
               });
               await bankAccountsRepo.save(newAccount);
               this.logger.log(
-                `Auto-imported financial details from Xero for supplier '${contactName}'`
+                `Auto-imported financial details from Xero for supplier '${contactName}' (company ${company_id})`
               );
               supplierAccounts = await bankAccountsRepo.find({
                 where: { client_supplier_id: clientSuppliersDetails.client_supplier_id },
               });
             }
           } catch (importErr) {
+            const errMsg = importErr instanceof Error ? importErr.message : String(importErr);
             this.logger.warn(
-              `Failed to auto-import financial details from Xero for supplier '${contactName}': ${importErr}`
+              `Failed to auto-import financial details from Xero for supplier '${contactName}' (company ${company_id}, contact_id ${xeroContact.contact_id}): ${errMsg}`
             );
           }
         }
