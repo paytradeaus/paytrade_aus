@@ -1485,7 +1485,15 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       .leftJoin(
         'bank_accounts',
         'b',
-        "b.id = (l.reference::jsonb->>'paytradeId')::uuid AND t.sync_type = 'Bank accounts'",
+        `t.sync_type = 'Bank accounts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'paytradeId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN b.id = (l.reference::jsonb->>'paytradeId')::uuid
+            WHEN l.reference::jsonb->>'paytradeId' ~ '^[0-9]+$'
+            THEN b.bank_account_id = (l.reference::jsonb->>'paytradeId')::bigint
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'xero_bank_account_details',

@@ -4284,6 +4284,8 @@ export class XeroWebhookService {
         `[BILL_TRACE] CATCH: validateAndProcessWebhookInvoice EXCEPTION — ${err?.message || err}\n${err?.stack || ''}`,
       );
       try {
+        const errMessage = err?.message || err;
+        const invoiceType = invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice';
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -4291,8 +4293,7 @@ export class XeroWebhookService {
             sync_run_type,
             invoice_id: invoice?.invoiceID,
             tenant_id,
-            type:
-              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            type: invoiceType,
           },
           integration_id: xeroDetails.integration_id,
           log_template_id: sync_run_type === 'webhook' ? 252 : 412,
@@ -4302,13 +4303,13 @@ export class XeroWebhookService {
           reference: {},
           reference_id: null,
           history: [
-            `API triggered from invoice ${sync_run_type}`,
-            'Import failed',
+            `API triggered from ${invoiceType} ${sync_run_type}`,
+            `Processing failed: ${errMessage}`,
           ],
           important_checks: {
             'Import data format validation': 'Failed',
           },
-          error_message: `Unexpected error during claim processing: ${err?.message || err}`,
+          error_message: `${invoiceType} processing failed: ${errMessage}`,
           xero_records: [invoice],
           paytrade_records: [],
           new_records: null,
