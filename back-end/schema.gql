@@ -20603,6 +20603,11 @@ input UpdateSettingsInput {
   """
   simplified_retention_accounting: Boolean
 
+  """
+  Auto-create contracts when Xero claims arrive with no matching contract
+  """
+  smart_contract_auto_create: Boolean
+
   """Sync contact financial details from Xero to PayTrade"""
   sync_contact_financial_to_pt: Boolean
 
@@ -22098,6 +22103,11 @@ type XeroResponse {
   Whether simplified retention accounting is enabled (no liability accounts)
   """
   simplified_retention_accounting: Boolean
+
+  """
+  Auto-create contracts when Xero claims arrive with no matching contract
+  """
+  smart_contract_auto_create: Boolean
 
   """Integration status"""
   status: String
