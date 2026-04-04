@@ -732,6 +732,16 @@ export async function resolveList(data: any) {
         `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}`;
       return true;
     }
+    case "SMART_CONTRACT_INVALID_ROLE":
+    case "SMART_CONTRACT_RELATED_ENTITY":
+    case "SMART_CONTRACT_TYPE_ERROR":
+    case "SMART_CONTRACT_NAME_CONFLICT":
+    case "SMART_CONTRACT_GENERAL_ERROR": {
+      window.location.href =
+        AppRoutes.USER_INTEGRATION +
+        `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&synctype=claim`;
+      return true;
+    }
     default: {
       return false;
     }

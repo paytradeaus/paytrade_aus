@@ -5025,5 +5025,65 @@
     "from_xero": false,
     "error_code": "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_XERO",
     "associated_log_ids": null
+  },
+  {
+    "id": 475,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract '{{contract_name}}' auto-created for project '{{project_name}}' and contact '{{contact_name}}' ({{client_supplier_type}}/{{client_supplier_role}}).</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 476,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: invalid combination of project role '{{project_role}}' and claim type '{{claim_type}}' for contact '{{contact_name}}'.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_INVALID_ROLE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 477,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: contact '{{contact_name}}' is a Related Entity. Contracts for related entities must be created manually.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_RELATED_ENTITY",
+    "associated_log_ids": null
+  },
+  {
+    "id": 478,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: contract type validation error for project role '{{project_role}}' and contact role '{{client_supplier_role}}'. {{validation_message}}</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_TYPE_ERROR",
+    "associated_log_ids": null
+  },
+  {
+    "id": 479,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: a contract named '{{contract_name}}' already exists for this project and contact. Please map the existing contract or rename it.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_NAME_CONFLICT",
+    "associated_log_ids": null
+  },
+  {
+    "id": 480,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed for project '{{project_name}}' and contact '{{contact_name}}': {{error_message}}</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_GENERAL_ERROR",
+    "associated_log_ids": null
   }
 ]

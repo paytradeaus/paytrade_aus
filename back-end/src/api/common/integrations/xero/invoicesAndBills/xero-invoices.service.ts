@@ -31,11 +31,13 @@ import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { PaymentClaimTypes } from 'src/libs/@paytrade-types/paytrade-types';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
+import { ContractType } from 'src/entities/contract-type.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { AddPaymentClaimInput } from 'src/api/users/banking/payment-claims/payment-claims.input';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -1930,8 +1932,40 @@ export class XeroInvoicesService {
         }
       } else {
         this.logger.log(
-          `No candidate contracts found for supplier ${xeroContactDetails.pt_contact_id}. Proceeding without contract.`
+          `No candidate contracts found for supplier ${xeroContactDetails.pt_contact_id}.`
         );
+
+        if (xeroDetails.smart_contract_auto_create && projectDetails && clientSuppliersDetails) {
+          this.logger.log(
+            `Smart contract auto-create is enabled. Attempting to create contract for ` +
+            `project ${projectDetails.project_id} and contact ${xeroContactDetails.pt_contact_id}.`
+          );
+          const smartContract = await this.smartCreateContract(decoded, {
+            company_id,
+            projectDetails,
+            clientSuppliersDetails,
+            invoiceDetails,
+            xeroDetails,
+            data,
+            invoice_id,
+            checkExistenceInDb,
+          });
+
+          if (smartContract) {
+            contractDetails = smartContract;
+            this.logger.log(
+              `Smart contract auto-created: contract_id=${smartContract.contract_id}. Continuing claim import.`
+            );
+          } else {
+            this.logger.log(
+              `Smart contract auto-creation failed or was skipped. Claim import will proceed without contract.`
+            );
+          }
+        } else {
+          this.logger.log(
+            `Smart contract auto-create is disabled or missing project/contact. Proceeding without contract.`
+          );
+        }
       }
     }
 
@@ -5216,6 +5250,298 @@ export class XeroInvoicesService {
       }
     } catch (error) {
       throw error;
+    }
+  }
+
+  private deriveSmartContractParams(
+    projectRole: string,
+    invoiceType: string,
+    relatedEntity: string,
+  ): { clientSupplierType: string; clientSupplierRole: string } | null {
+    const isBill = invoiceType === 'ACCPAY';
+
+    const matrix: Record<string, { clientSupplierType: string; clientSupplierRole: string } | null> = {
+      'Head Contractor_bill_No': { clientSupplierType: 'Supplier', clientSupplierRole: 'Sub Contractor' },
+      'Head Contractor_bill_Yes': { clientSupplierType: 'Supplier', clientSupplierRole: 'Related Entity Sub Contractor' },
+      'Head Contractor_invoice_No': { clientSupplierType: 'Client', clientSupplierRole: 'Principal' },
+      'Head Contractor_invoice_Yes': { clientSupplierType: 'Client', clientSupplierRole: 'Principal' },
+      'Principal_bill_No': { clientSupplierType: 'Supplier', clientSupplierRole: 'Head Contractor' },
+      'Principal_bill_Yes': { clientSupplierType: 'Supplier', clientSupplierRole: 'Head Contractor' },
+      'Principal_invoice_No': null,
+      'Principal_invoice_Yes': null,
+      'Sub Contractor_bill_No': { clientSupplierType: 'Supplier', clientSupplierRole: 'Sub Contractor' },
+      'Sub Contractor_bill_Yes': { clientSupplierType: 'Supplier', clientSupplierRole: 'Related Entity Sub Contractor' },
+      'Sub Contractor_invoice_No': { clientSupplierType: 'Client', clientSupplierRole: 'Head Contractor' },
+      'Sub Contractor_invoice_Yes': { clientSupplierType: 'Client', clientSupplierRole: 'Head Contractor' },
+    };
+
+    const key = `${projectRole}_${isBill ? 'bill' : 'invoice'}_${relatedEntity}`;
+    return matrix[key] ?? null;
+  }
+
+  async smartCreateContract(
+    decoded: any,
+    params: {
+      company_id: number;
+      projectDetails: ProjectDetails;
+      clientSuppliersDetails: ClientSuppliersDetails;
+      invoiceDetails: any;
+      xeroDetails: any;
+      data: any;
+      invoice_id: string;
+      checkExistenceInDb: any;
+    },
+  ): Promise<ContractDetails | null> {
+    const {
+      company_id,
+      projectDetails,
+      clientSuppliersDetails,
+      invoiceDetails,
+      xeroDetails,
+      data,
+      invoice_id,
+      checkExistenceInDb,
+    } = params;
+
+    const projectName = projectDetails.project_name || `Project ${projectDetails.project_id}`;
+    const contactName = clientSuppliersDetails.client_supplier_name || `Contact ${clientSuppliersDetails.client_supplier_id}`;
+    const relatedEntity = clientSuppliersDetails.related_entity || 'No';
+    const smartLogPayload = { invoice_id: data.invoice_id, tenant_id: data.tenant_id };
+
+    if (relatedEntity === 'Yes') {
+      this.logger.log(
+        `Smart contract creation skipped: contact ${contactName} is a Related Entity.`
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 477,
+        dynamic_values: { contact_name: contactName },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: `Contact is a Related Entity — contracts must be created manually`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
+    const derived = this.deriveSmartContractParams(
+      projectDetails.project_role,
+      invoiceDetails.type,
+      relatedEntity,
+    );
+
+    if (!derived) {
+      const claimType = invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 'Bill' : 'Invoice';
+      this.logger.log(
+        `Smart contract creation failed: invalid combination ${projectDetails.project_role} + ${claimType}`
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 476,
+        dynamic_values: {
+          project_role: projectDetails.project_role,
+          claim_type: claimType,
+          contact_name: contactName,
+        },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: `Invalid role/claim type combination: ${projectDetails.project_role} cannot receive ${claimType}s`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
+    const contractTypeRecord = await this.dataSource.getRepository(ContractType).findOne({
+      where: {
+        project_role: projectDetails.project_role as any,
+        client_supplier_type: derived.clientSupplierType as any,
+        related_entity: relatedEntity as any,
+        client_supplier_role: derived.clientSupplierRole as any,
+      },
+    });
+
+    if (!contractTypeRecord || contractTypeRecord.contract_type === 'Error') {
+      const validationMsg = contractTypeRecord?.validation ||
+        `PayTrade doesn't allow ${projectDetails.project_role}/${derived.clientSupplierRole} contract types`;
+      this.logger.log(`Smart contract creation failed: contract type validation error — ${validationMsg}`);
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 478,
+        dynamic_values: {
+          project_role: projectDetails.project_role,
+          client_supplier_role: derived.clientSupplierRole,
+          validation_message: validationMsg,
+        },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: validationMsg,
+        xero_records: [invoiceDetails],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
+    const contractName = await startCasePreserveUnicode(
+      `${projectName} - ${contactName} - Smart Contract`
+    );
+
+    const existingContract = await this.contractDetails.findOne({
+      where: {
+        company_id: company_id,
+        contract_name: contractName,
+      },
+    });
+
+    if (existingContract) {
+      this.logger.log(`Smart contract creation failed: contract name '${contractName}' already exists`);
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 479,
+        dynamic_values: { contract_name: contractName },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: `Contract name '${contractName}' already exists`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
+    const retentionType = projectDetails.rta_eligibility === 'Yes' ? 'Cash' : 'None';
+    const now = moment.tz('UTC').toDate();
+
+    try {
+      const newContract = this.contractDetails.create({
+        company_id: company_id,
+        contract_name: contractName,
+        client_supplier_role: derived.clientSupplierRole as any,
+        contract_type: contractTypeRecord.contract_type,
+        contract_status: 'In Progress' as any,
+        contract_date: now,
+        project_id: projectDetails.project_id,
+        project_role: projectDetails.project_role,
+        client_supplier_id: clientSuppliersDetails.client_supplier_id,
+        client_supplier_type: derived.clientSupplierType as any,
+        related_entity: relatedEntity as any,
+        retention_type: retentionType as any,
+        payment_terms: 10,
+        initial_contract_sum: 99999999,
+        contract_start_date: now,
+        defect_liability_end_date: moment.tz('UTC').add(1, 'year').toDate(),
+        created_by: decoded?.userId,
+        created_on: now,
+        created_group: 'SYSTEM' as any,
+      } as any);
+
+      const saved: ContractDetails = await this.contractDetails.save(newContract) as any;
+
+      const updatedContractId = 100000 + Number(saved.contract_id);
+      await this.dataSource
+        .createQueryBuilder()
+        .update(ContractDetails)
+        .set({ contract_id: updatedContractId })
+        .where('id = :id', { id: saved.id })
+        .execute();
+
+      saved.contract_id = updatedContractId;
+
+      this.logger.log(
+        `Smart contract created: contract_id=${updatedContractId}, name='${contractName}', ` +
+        `type=${derived.clientSupplierType}/${derived.clientSupplierRole}`
+      );
+
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 475,
+        dynamic_values: {
+          contract_name: contractName,
+          project_name: projectName,
+          contact_name: contactName,
+          client_supplier_type: derived.clientSupplierType,
+          client_supplier_role: derived.clientSupplierRole,
+        },
+        project_id: String(projectDetails.project_id),
+        contract_id: String(updatedContractId),
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: saved.id },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract created'],
+        important_checks: {},
+        error_message: null,
+        xero_records: [invoiceDetails],
+        paytrade_records: [saved],
+        new_records: [saved],
+        updated_records: null,
+        synced_records: null,
+      });
+
+      return saved;
+    } catch (error) {
+      const errorMsg = error?.message || String(error);
+      this.logger.error(`Smart contract creation failed with error: ${errorMsg}`);
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 480,
+        dynamic_values: {
+          project_name: projectName,
+          contact_name: contactName,
+          error_message: errorMsg,
+        },
+        project_id: String(projectDetails.project_id),
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: errorMsg,
+        xero_records: [invoiceDetails],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
     }
   }
 }

@@ -105,6 +105,7 @@ export default function XeroSettings() {
       setXeroToPtContractAutoCreate(!!data?.xero_to_pt_contract_auto_create);
       setSyncContactFinancialToXero(!!data?.sync_contact_financial_to_xero);
       setSyncContactFinancialToPt(!!data?.sync_contact_financial_to_pt);
+      setSmartContractAutoCreate(!!data?.smart_contract_auto_create);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -183,6 +184,7 @@ export default function XeroSettings() {
   const [xeroToPtContractAutoCreate, setXeroToPtContractAutoCreate] = useState(false);
   const [syncContactFinancialToXero, setSyncContactFinancialToXero] = useState(false);
   const [syncContactFinancialToPt, setSyncContactFinancialToPt] = useState(false);
+  const [smartContractAutoCreate, setSmartContractAutoCreate] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -302,6 +304,7 @@ export default function XeroSettings() {
         xero_to_pt_contract_auto_create: xeroToPtContractAutoCreate,
         sync_contact_financial_to_xero: syncContactFinancialToXero,
         sync_contact_financial_to_pt: syncContactFinancialToPt,
+        smart_contract_auto_create: smartContractAutoCreate,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -417,6 +420,24 @@ export default function XeroSettings() {
           case "SCHEDULER_CONTACT_FINANCIAL_NOT_SYNCED_TO_XERO": {
             const response = await syncAllContactsByCompanyId({
               companyId: +(localStorage.getItem("companyId") || 0),
+            });
+            if (response) {
+              router.push(`/user/integrations/xero/syncLogDetails/${syncId}`);
+            }
+            break;
+          }
+          case "SMART_CONTRACT_INVALID_ROLE":
+          case "SMART_CONTRACT_RELATED_ENTITY":
+          case "SMART_CONTRACT_TYPE_ERROR":
+          case "SMART_CONTRACT_NAME_CONFLICT":
+          case "SMART_CONTRACT_GENERAL_ERROR": {
+            const response = await CreateClaimInPaytrade({
+              associatedRetentionSubPaymentId: null,
+              retentionId: null,
+              invoiceId: invoiceId || null,
+              tenantId: tenantId || null,
+              syncId: syncId,
+              syncRunType: synctype || null,
             });
             if (response) {
               router.push(`/user/integrations/xero/syncLogDetails/${syncId}`);
@@ -1295,6 +1316,39 @@ export default function XeroSettings() {
                       value={xeroToPtContractAutoCreate ? "Yes" : "No"}
                       options={yesNoOptions}
                     />
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Smart contract auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  When enabled, if a Xero claim (invoice or bill) arrives and no matching contract is found, PayTrade will automatically create a contract using smart defaults based on the project role, contact type, and trust account eligibility.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create contracts from Xero claims?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      A new contract will be created with the name "[Project] - [Contact] - Smart Contract", status set to In Progress, payment terms of 10 days, and appropriate client/supplier roles derived from the project role and claim type.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"smart_contract_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setSmartContractAutoCreate(e === "Yes");
+                      }}
+                      value={smartContractAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                    {smartContractAutoCreate && (
+                      <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
+                        Note: Auto-created contracts use a placeholder contract sum of $99,999,999 and should be reviewed. Related Entity contacts and invalid role/claim combinations will not be auto-created.
+                      </p>
+                    )}
                   </div>
                 </div>
               </details>
