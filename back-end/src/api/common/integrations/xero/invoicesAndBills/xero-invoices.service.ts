@@ -1552,12 +1552,20 @@ export class XeroInvoicesService {
       return false;
     }
 
-    if (
-      invoiceDetails.lineItems.length > 0 &&
-      invoiceDetails.lineItems?.some(
-        (item) => item?.taxAmount > 0 && item?.taxType !== expectedTaxCode,
-      )
-    ) {
+    const mismatchedTaxLines = invoiceDetails.lineItems.length > 0
+      ? invoiceDetails.lineItems.filter(
+          (item) => item?.taxAmount > 0 && item?.taxType !== expectedTaxCode,
+        )
+      : [];
+
+    if (mismatchedTaxLines.length > 0) {
+      const mismatchDetails = mismatchedTaxLines
+        .map(
+          (item) =>
+            `Line "${item.description || 'No description'}" has tax type "${item.taxType}" but expected "${expectedTaxCode}"`,
+        )
+        .join('; ');
+
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: data?.sync_id,
         api_name: 'createInvoiceOrBillInPaytrade',
@@ -1582,7 +1590,7 @@ export class XeroInvoicesService {
           'Import account type validation': 'Ok',
           'Import tax type validation': 'Failed',
         },
-        error_message: `Mismatch in tax field type`,
+        error_message: `Mismatch in tax field type. ${mismatchDetails}`,
         xero_records: [invoiceDetails],
         paytrade_records: [],
         new_records: null,
