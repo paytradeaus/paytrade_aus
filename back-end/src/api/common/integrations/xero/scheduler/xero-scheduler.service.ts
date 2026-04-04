@@ -1875,6 +1875,7 @@ export class XeroSchedulerService {
           }
 
           const bankAccountsRepo = this.xeroContactDetails.manager.getRepository(BankAccounts);
+          const csRepo = this.xeroContactDetails.manager.getRepository(ClientSuppliersDetails);
           const mappedContactsForFinancial = await this.xeroContactDetails.find({
             where: {
               integration_id: xeroDetails.integration_id,
@@ -1883,10 +1884,30 @@ export class XeroSchedulerService {
           });
           const mappedWithPt = mappedContactsForFinancial.filter(c => c.pt_contact_id);
 
+          const resolveClientSupplierId = async (ptContactId: any): Promise<number | null> => {
+            const asNum = Number(ptContactId);
+            if (!isNaN(asNum) && Number.isInteger(asNum)) {
+              return asNum;
+            }
+            const csRecord = await csRepo.findOne({
+              where: { id: String(ptContactId) },
+              select: ['client_supplier_id'],
+            });
+            return csRecord?.client_supplier_id ?? null;
+          };
+
           for (const mappedContact of mappedWithPt) {
             try {
+              const resolvedCsId = await resolveClientSupplierId(mappedContact.pt_contact_id);
+              if (!resolvedCsId) {
+                this.logger.warn(
+                  `Could not resolve client_supplier_id for contact ${mappedContact.contact_name} (pt_contact_id: ${mappedContact.pt_contact_id})`,
+                );
+                continue;
+              }
+
               const ptAccountDetails = await bankAccountsRepo.find({
-                where: { client_supplier_id: mappedContact.pt_contact_id },
+                where: { client_supplier_id: resolvedCsId },
               });
               const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
 
@@ -1919,7 +1940,7 @@ export class XeroSchedulerService {
                     account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
                     account_number: xeroBatchPayments.bankAccountNumber || '',
                     bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
-                    client_supplier_id: mappedContact.pt_contact_id,
+                    client_supplier_id: resolvedCsId,
                     created_by: userId,
                     created_on: new Date(),
                     created_group: createdGroup,
@@ -5102,6 +5123,7 @@ export class XeroSchedulerService {
     }
 
     const bankAccountsRepo = this.xeroContactDetails.manager.getRepository(BankAccounts);
+    const csRepo = this.xeroContactDetails.manager.getRepository(ClientSuppliersDetails);
 
     const mappedContactsForFinancial = await this.xeroContactDetails.find({
       where: {
@@ -5111,13 +5133,34 @@ export class XeroSchedulerService {
     });
     const mappedWithPt = mappedContactsForFinancial.filter(c => c.pt_contact_id);
 
+    const resolveClientSupplierId = async (ptContactId: any): Promise<number | null> => {
+      const asNum = Number(ptContactId);
+      if (!isNaN(asNum) && Number.isInteger(asNum)) {
+        return asNum;
+      }
+      const csRecord = await csRepo.findOne({
+        where: { id: String(ptContactId) },
+        select: ['client_supplier_id'],
+      });
+      return csRecord?.client_supplier_id ?? null;
+    };
+
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     let currentDelay = 700;
 
     for (const mappedContact of mappedWithPt) {
       try {
+        const resolvedCsId = await resolveClientSupplierId(mappedContact.pt_contact_id);
+        if (!resolvedCsId) {
+          this.logger.warn(
+            `Could not resolve client_supplier_id for contact ${mappedContact.contact_name} (pt_contact_id: ${mappedContact.pt_contact_id})`,
+          );
+          result.skipped++;
+          continue;
+        }
+
         const ptAccountDetails = await bankAccountsRepo.find({
-          where: { client_supplier_id: mappedContact.pt_contact_id },
+          where: { client_supplier_id: resolvedCsId },
         });
         const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
 
@@ -5182,7 +5225,7 @@ export class XeroSchedulerService {
               account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
               account_number: xeroBatchPayments.bankAccountNumber || '',
               bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
-              client_supplier_id: mappedContact.pt_contact_id,
+              client_supplier_id: resolvedCsId,
               created_by: userId,
               created_on: new Date(),
               created_group: createdGroup,
