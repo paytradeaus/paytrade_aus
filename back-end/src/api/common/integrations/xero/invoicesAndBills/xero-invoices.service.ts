@@ -5557,6 +5557,7 @@ export class XeroInvoicesService {
                 company_id: company_id,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
                 status: 'Open' as const,
+                added_by_client_supplier: true,
                 created_by: decoded?.userId,
                 created_on: new Date(),
                 created_group: 'SYSTEM' as Group,

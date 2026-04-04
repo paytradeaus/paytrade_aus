@@ -1896,6 +1896,40 @@ export class XeroSchedulerService {
             return csRecord?.client_supplier_id ?? null;
           };
 
+          const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+          let allFullContacts: any[] = [];
+          try {
+            const fullContactsResp = await this.xero.accountingApi.getContacts(
+              xeroDetails.tenant_id,
+            );
+            allFullContacts = fullContactsResp?.body?.contacts || [];
+          } catch (bulkErr: any) {
+            if (bulkErr?.response?.statusCode === 429 || bulkErr?.statusCode === 429) {
+              const retryAfter = parseInt(bulkErr?.response?.headers?.['retry-after'] || '60', 10);
+              this.logger.warn(`Xero rate limit on bulk contacts fetch for financial sync, waiting ${retryAfter}s...`);
+              await delay(retryAfter * 1000);
+              try {
+                const retryResp = await this.xero.accountingApi.getContacts(xeroDetails.tenant_id);
+                allFullContacts = retryResp?.body?.contacts || [];
+              } catch (retryErr) {
+                this.logger.error(`Failed to fetch full contacts after retry: ${retryErr}`);
+              }
+            } else {
+              this.logger.error(`Failed to fetch full contacts for financial sync: ${bulkErr}`);
+            }
+          }
+
+          const xeroContactMap = new Map<string, any>();
+          for (const xc of allFullContacts) {
+            if (xc.contactID) {
+              xeroContactMap.set(xc.contactID, xc);
+            }
+          }
+          this.logger.log(`Bulk fetched ${allFullContacts.length} full contacts for financial sync (map size: ${xeroContactMap.size})`);
+
+          const safeCreatedGroup = (createdGroup === 'USER' || createdGroup === 'SYSTEM' || createdGroup === 'ADMIN') ? createdGroup : 'SYSTEM';
+
           for (const mappedContact of mappedWithPt) {
             try {
               const resolvedCsId = await resolveClientSupplierId(mappedContact.pt_contact_id);
@@ -1911,27 +1945,12 @@ export class XeroSchedulerService {
               });
               const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
 
-              let xeroFullContact: any = null;
-              let hasXeroFinancial = false;
-              let xeroBatchPayments: any = null;
-
-              try {
-                const fullContactResp = await this.xero.accountingApi.getContact(
-                  xeroDetails.tenant_id,
-                  mappedContact.contact_id,
-                );
-                xeroFullContact = fullContactResp?.body?.contacts?.[0];
-                xeroBatchPayments = xeroFullContact?.batchPayments;
-                hasXeroFinancial = !!(
-                  xeroBatchPayments &&
-                  (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
-                );
-              } catch (fetchErr) {
-                this.logger.error(
-                  `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
-                );
-                continue;
-              }
+              let xeroFullContact: any = xeroContactMap.get(mappedContact.contact_id) || null;
+              let xeroBatchPayments = xeroFullContact?.batchPayments;
+              let hasXeroFinancial = !!(
+                xeroBatchPayments &&
+                (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
+              );
 
               if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
                 try {
@@ -1949,10 +1968,10 @@ export class XeroSchedulerService {
                     added_by_client_supplier: true,
                     created_by: userId,
                     created_on: new Date(),
-                    created_group: createdGroup,
+                    created_group: safeCreatedGroup,
                     updated_by: userId,
                     updated_on: new Date(),
-                    updated_group: createdGroup,
+                    updated_group: safeCreatedGroup,
                   };
                   await this.clientSuppliersDetailsService.insertAccountDetails([accountDetail]);
 
@@ -5190,7 +5209,8 @@ export class XeroSchedulerService {
     }
 
     const userId = decoded ? decoded.userId : null;
-    const createdGroup = decoded ? 'USER' : 'SYSTEM';
+    const rawCreatedGroup = decoded ? 'USER' : 'SYSTEM';
+    const createdGroup = (rawCreatedGroup === 'USER' || rawCreatedGroup === 'SYSTEM' || rawCreatedGroup === 'ADMIN') ? rawCreatedGroup : 'SYSTEM';
 
     const contactsNeedingPush: Array<{ mappedContact: any; firstAccount: any; resolvedCsId: number }> = [];
 
