@@ -72,8 +72,14 @@ export class XeroContactsService {
   }
 
   async getClientSuppliersDetails(client_supplier_id) {
+    const asNum = Number(client_supplier_id);
+    if (!isNaN(asNum) && Number.isInteger(asNum)) {
+      return await this.clientSuppliersDetails.findOne({
+        where: { client_supplier_id: asNum },
+      });
+    }
     return await this.clientSuppliersDetails.findOne({
-      where: { client_supplier_id },
+      where: { id: String(client_supplier_id) },
     });
   }
 
@@ -2108,7 +2114,7 @@ export class XeroContactsService {
         .leftJoin(
           XeroContactDetails,
           'contact',
-          'contact.pt_contact_id = cs.client_supplier_id AND xero.integration_id = contact.integration_id',
+          '(contact.pt_contact_id::text = cs.client_supplier_id::text OR contact.pt_contact_id::text = cs.id::text) AND xero.integration_id = contact.integration_id',
         )
         .where(`cs.company_id = :companyId`, {
           companyId: data.company_id,
@@ -2243,7 +2249,7 @@ export class XeroContactsService {
         .innerJoin(
           ClientSuppliersDetails,
           'c',
-          'contact.pt_contact_id = c.client_supplier_id',
+          'contact.pt_contact_id::text = c.client_supplier_id::text OR contact.pt_contact_id::text = c.id::text',
         )
         .where(`contact.mapped_status IN (:...mappedStatuses)`, {
           mappedStatuses: ['Manual', 'Auto', 'System'],
@@ -2716,7 +2722,7 @@ export class XeroContactsService {
         .leftJoin(
           'xero_contact_details',
           'xcd',
-          `xcd.pt_contact_id = cs.client_supplier_id AND xcd.integration_id = :integrationId`,
+          `(xcd.pt_contact_id::text = cs.client_supplier_id::text OR xcd.pt_contact_id::text = cs.id::text) AND xcd.integration_id = :integrationId`,
           { integrationId: xeroDetails.integration_id },
         )
         .where('cs.company_id = :companyId', { companyId })

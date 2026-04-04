@@ -2169,7 +2169,7 @@ export class XeroSchedulerService {
             .innerJoin(
               ClientSuppliersDetails,
               'c',
-              'contact.pt_contact_id = c.client_supplier_id',
+              'contact.pt_contact_id::text = c.client_supplier_id::text OR contact.pt_contact_id::text = c.id::text',
             )
             .distinct(true)
             .where(
@@ -2274,10 +2274,16 @@ export class XeroSchedulerService {
       await this.xeroContactDetails.save(xeroContactDetails);
 
       if (xeroContactDetails?.pt_contact_id) {
-        const clientSupplierDetails =
-          await this.xeroContactsService.getClientSuppliersDetails(
-            xeroContactDetails?.pt_contact_id,
-          );
+        const ptId = xeroContactDetails.pt_contact_id;
+        const asNum = Number(ptId);
+        let clientSupplierDetails: any = null;
+        if (!isNaN(asNum) && Number.isInteger(asNum)) {
+          clientSupplierDetails = await this.xeroContactsService.getClientSuppliersDetails(asNum);
+        } else {
+          clientSupplierDetails = await this.xeroContactDetails.manager
+            .getRepository(ClientSuppliersDetails)
+            .findOne({ where: { id: String(ptId) } });
+        }
         if (xeroContactDetails && clientSupplierDetails) {
           const contact = await this.xeroContactsService.getContactByContactId(
             contact_id,
@@ -5146,7 +5152,41 @@ export class XeroSchedulerService {
     };
 
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    let currentDelay = 700;
+
+    let allXeroContacts: any[] = [];
+    try {
+      const xeroContactsResp = await this.xero.accountingApi.getContacts(
+        xeroDetails.tenant_id,
+      );
+      allXeroContacts = xeroContactsResp?.body?.contacts || [];
+    } catch (fetchErr: any) {
+      if (fetchErr?.response?.statusCode === 429 || fetchErr?.statusCode === 429) {
+        const retryAfter = parseInt(fetchErr?.response?.headers?.['retry-after'] || '60', 10);
+        this.logger.warn(`Xero rate limit on bulk contacts fetch, waiting ${retryAfter}s...`);
+        await delay(retryAfter * 1000);
+        try {
+          const retryResp = await this.xero.accountingApi.getContacts(xeroDetails.tenant_id);
+          allXeroContacts = retryResp?.body?.contacts || [];
+        } catch (retryErr) {
+          this.logger.error(`Failed to fetch Xero contacts after retry: ${retryErr}`);
+          throw new Error('Unable to fetch contacts from Xero. Please try again later.');
+        }
+      } else {
+        throw fetchErr;
+      }
+    }
+
+    const xeroContactMap = new Map<string, any>();
+    for (const xc of allXeroContacts) {
+      if (xc.contactID) {
+        xeroContactMap.set(xc.contactID, xc);
+      }
+    }
+
+    const userId = decoded?.id || decoded?.sub;
+    const createdGroup = decoded ? 'USER' : 'SYSTEM';
+
+    const contactsNeedingPush: Array<{ mappedContact: any; firstAccount: any; resolvedCsId: number }> = [];
 
     for (const mappedContact of mappedWithPt) {
       try {
@@ -5164,59 +5204,12 @@ export class XeroSchedulerService {
         });
         const hasPtAccount = ptAccountDetails && ptAccountDetails.length > 0;
 
-        let xeroFullContact: any = null;
-        let hasXeroFinancial = false;
-        let xeroBatchPayments: any = null;
-
-        const fetchContactFromXero = async (): Promise<boolean> => {
-          try {
-            const fullContactResp = await this.xero.accountingApi.getContact(
-              xeroDetails.tenant_id,
-              mappedContact.contact_id,
-            );
-            xeroFullContact = fullContactResp?.body?.contacts?.[0];
-            xeroBatchPayments = xeroFullContact?.batchPayments;
-            hasXeroFinancial = !!(
-              xeroBatchPayments &&
-              (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
-            );
-            return true;
-          } catch (err: any) {
-            if (err?.response?.statusCode === 429 || err?.statusCode === 429) {
-              const retryAfter = parseInt(err?.response?.headers?.['retry-after'] || '60', 10);
-              this.logger.warn(
-                `Xero rate limit hit for ${mappedContact.contact_name}, waiting ${retryAfter}s before retry...`,
-              );
-              await delay(retryAfter * 1000);
-              currentDelay = Math.min(currentDelay + 200, 2000);
-              return null;
-            }
-            throw err;
-          }
-        };
-
-        let fetched = false;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const ok = await fetchContactFromXero();
-            if (ok === true) { fetched = true; break; }
-          } catch (fetchErr) {
-            this.logger.error(
-              `Failed to fetch full contact ${mappedContact.contact_name} from Xero: ${fetchErr}`,
-            );
-            break;
-          }
-        }
-
-        if (!fetched) {
-          result.errors++;
-          continue;
-        }
-
-        await delay(currentDelay);
-
-        const userId = decoded?.id || decoded?.sub;
-        const createdGroup = decoded ? 'USER' : 'SYSTEM';
+        const xeroFullContact = xeroContactMap.get(mappedContact.contact_id) || null;
+        const xeroBatchPayments = xeroFullContact?.batchPayments;
+        const hasXeroFinancial = !!(
+          xeroBatchPayments &&
+          (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)
+        );
 
         if (hasXeroFinancial && !hasPtAccount) {
           try {
@@ -5269,86 +5262,11 @@ export class XeroSchedulerService {
             result.errors++;
           }
         } else if (hasPtAccount && !hasXeroFinancial) {
-          try {
-            const firstAccount = ptAccountDetails[0];
-            const batchPaymentData = {
-              bankAccountName: firstAccount.account_name || '',
-              bankAccountNumber: firstAccount.account_number || '',
-              code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
-            };
-
-            let pushed = false;
-            for (let attempt = 0; attempt < 3; attempt++) {
-              try {
-                await this.xero.accountingApi.updateContact(
-                  xeroDetails.tenant_id,
-                  mappedContact.contact_id,
-                  {
-                    contacts: [{
-                      name: mappedContact.contact_name,
-                      batchPayments: batchPaymentData,
-                    }],
-                  },
-                );
-                pushed = true;
-                break;
-              } catch (pushErr: any) {
-                if (pushErr?.response?.statusCode === 429 || pushErr?.statusCode === 429) {
-                  const retryAfter = parseInt(pushErr?.response?.headers?.['retry-after'] || '60', 10);
-                  this.logger.warn(
-                    `Xero rate limit hit pushing ${mappedContact.contact_name}, waiting ${retryAfter}s...`,
-                  );
-                  await delay(retryAfter * 1000);
-                  currentDelay = Math.min(currentDelay + 200, 2000);
-                } else {
-                  throw pushErr;
-                }
-              }
-            }
-
-            if (!pushed) {
-              this.logger.error(
-                `Failed to push financial details to Xero for ${mappedContact.contact_name} after retries`,
-              );
-              result.errors++;
-              continue;
-            }
-
-            await delay(currentDelay);
-
-            await this.xeroService.insertXeroSyncLogs(decoded, {
-              integration_id: xeroDetails.integration_id,
-              log_template_id: 472,
-              dynamic_values: {
-                contact_name: mappedContact.contact_name,
-                account_name: firstAccount.account_name || '',
-              },
-              project_id: null,
-              contract_id: null,
-              reference: {
-                xeroId: mappedContact.id,
-                paytradeId: String(mappedContact.pt_contact_id),
-              },
-              reference_id: mappedContact.id,
-              history: [
-                `Financial details synced to Xero for ${mappedContact.contact_name}`,
-                'Manual sync',
-              ],
-              important_checks: {},
-              error_message: null,
-              xero_records: null,
-              paytrade_records: [firstAccount],
-              new_records: null,
-              updated_records: null,
-              synced_records: null,
-            });
-            result.synced_to_xero++;
-          } catch (pushErr) {
-            this.logger.error(
-              `Failed to push financial details to Xero for ${mappedContact.contact_name}: ${pushErr}`,
-            );
-            result.errors++;
-          }
+          contactsNeedingPush.push({
+            mappedContact,
+            firstAccount: ptAccountDetails[0],
+            resolvedCsId,
+          });
         } else if (hasPtAccount && hasXeroFinancial) {
           const firstAccount = ptAccountDetails[0];
           const ptName = firstAccount.account_name || '';
@@ -5411,6 +5329,87 @@ export class XeroSchedulerService {
       } catch (contactErr) {
         this.logger.error(
           `Error processing contact financial sync for ${mappedContact.contact_name}: ${contactErr}`,
+        );
+        result.errors++;
+      }
+    }
+
+    for (const { mappedContact, firstAccount } of contactsNeedingPush) {
+      try {
+        const batchPaymentData = {
+          bankAccountName: firstAccount.account_name || '',
+          bankAccountNumber: firstAccount.account_number || '',
+          code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
+        };
+
+        let pushed = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await this.xero.accountingApi.updateContact(
+              xeroDetails.tenant_id,
+              mappedContact.contact_id,
+              {
+                contacts: [{
+                  name: mappedContact.contact_name,
+                  batchPayments: batchPaymentData,
+                }],
+              },
+            );
+            pushed = true;
+            break;
+          } catch (pushErr: any) {
+            if (pushErr?.response?.statusCode === 429 || pushErr?.statusCode === 429) {
+              const retryAfter = parseInt(pushErr?.response?.headers?.['retry-after'] || '60', 10);
+              this.logger.warn(
+                `Xero rate limit hit pushing ${mappedContact.contact_name}, waiting ${retryAfter}s...`,
+              );
+              await delay(retryAfter * 1000);
+            } else {
+              throw pushErr;
+            }
+          }
+        }
+
+        if (!pushed) {
+          this.logger.error(
+            `Failed to push financial details to Xero for ${mappedContact.contact_name} after retries`,
+          );
+          result.errors++;
+          continue;
+        }
+
+        await delay(700);
+
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 472,
+          dynamic_values: {
+            contact_name: mappedContact.contact_name,
+            account_name: firstAccount.account_name || '',
+          },
+          project_id: null,
+          contract_id: null,
+          reference: {
+            xeroId: mappedContact.id,
+            paytradeId: String(mappedContact.pt_contact_id),
+          },
+          reference_id: mappedContact.id,
+          history: [
+            `Financial details synced to Xero for ${mappedContact.contact_name}`,
+            'Manual sync',
+          ],
+          important_checks: {},
+          error_message: null,
+          xero_records: null,
+          paytrade_records: [firstAccount],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        result.synced_to_xero++;
+      } catch (pushErr) {
+        this.logger.error(
+          `Failed to push financial details to Xero for ${mappedContact.contact_name}: ${pushErr}`,
         );
         result.errors++;
       }
