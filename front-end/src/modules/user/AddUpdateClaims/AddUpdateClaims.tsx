@@ -169,6 +169,7 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
       formik?.setFieldValue("totalAmount", apiResponse?.claim_amount);
       formik?.setFieldValue("projectId", apiResponse?.project_id);
       setSelectedProjectId(apiResponse?.project_id);
+      
       formik.setFieldValue(
         "cashRetention",
         apiResponse?.cash_retention ? "Retention" : "No Retention"

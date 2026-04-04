@@ -7601,8 +7601,14 @@ type FetchDetailsOfImportPaymentClaim {
   """Type of the payment claim."""
   claim_type: String!
 
+  """Client/Supplier ID associated with the claim, if any."""
+  client_supplier_id: Float
+
   """Business ID associated with the claim."""
   company_id: Float!
+
+  """Contract ID associated with the claim, if any."""
+  contract_id: Float
 
   """Formatted string of claim amount."""
   formatted_claim_amount: String

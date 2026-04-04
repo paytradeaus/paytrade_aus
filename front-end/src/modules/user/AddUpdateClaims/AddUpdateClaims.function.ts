@@ -747,6 +747,8 @@ async function fetchDetailsOfAPaymentClaimForImport(
               claim_amount
               claim_type
               company_id
+              contract_id
+              client_supplier_id
               invoice_list {
                 description
                 gst

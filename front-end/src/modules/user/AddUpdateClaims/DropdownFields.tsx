@@ -127,25 +127,29 @@ export default function DropdownFields() {
   }, []);
 
   useEffect(() => {
-    if (
-      contractOptions?.length > 0 &&
-      ((quickContractId && !formik.values.contractId) ||
+    if (contractOptions?.length > 0) {
+      const importContractId = (importClaimsAPIData as any)?.contract_id;
+      const shouldAutoSelect =
+        (quickContractId && !formik.values.contractId) ||
         (!quickContractId &&
           formik.values.contractId &&
-          !_.isEmpty(retainedDataFromSubscription)))
-    ) {
-      let ContractValue = formik.values.contractId
-        ? formik.values.contractId
-        : quickContractId;
-      const matchingContract = contractOptions?.find(
-        (c: any) => String(c?.contract_id) === String(ContractValue)
-      );
+          !_.isEmpty(retainedDataFromSubscription)) ||
+        (importClaimIdFromMail && importContractId && !selectedContractID);
 
-      if (matchingContract) {
-        onContractChange(matchingContract, true); // 👈 call your existing handler
+      if (shouldAutoSelect) {
+        let ContractValue = formik.values.contractId
+          ? formik.values.contractId
+          : quickContractId || importContractId;
+        const matchingContract = contractOptions?.find(
+          (c: any) => String(c?.contract_id) === String(ContractValue)
+        );
+
+        if (matchingContract) {
+          onContractChange(matchingContract, true);
+        }
       }
     }
-  }, [quickContractId, contractOptions]);
+  }, [quickContractId, contractOptions, importClaimsAPIData]);
 
   useEffect(() => {
     if (quickProjectId && projectOpt?.length > 0 && !formik?.values.projectId) {

@@ -2720,6 +2720,8 @@ export class PaymentClaimsService {
         `'Billable' AS claim_type`,
         'pc.cash_retention_type AS cash_retention_type',
         'pc.project_id AS project_id',
+        'pc.contract_id AS contract_id',
+        'pc.client_supplier_id AS client_supplier_id',
         'pc.claim_amount AS claim_amount',
         'pc.is_gst_optional AS is_gst_optional',
         'pc.cash_retention AS cash_retention',

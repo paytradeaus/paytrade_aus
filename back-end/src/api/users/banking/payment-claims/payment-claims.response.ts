@@ -898,6 +898,18 @@ export class FetchDetailsOfImportPaymentClaim {
   })
   project_id: number;
 
+  @Field({
+    nullable: true,
+    description: 'Contract ID associated with the claim, if any.',
+  })
+  contract_id: number;
+
+  @Field({
+    nullable: true,
+    description: 'Client/Supplier ID associated with the claim, if any.',
+  })
+  client_supplier_id: number;
+
   @Field(() => Float, { nullable: true, description: 'Total claim amount.' })
   claim_amount: number;
 
