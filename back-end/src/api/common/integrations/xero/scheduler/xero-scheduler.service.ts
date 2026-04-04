@@ -509,13 +509,17 @@ export class XeroSchedulerService {
 
         const existingAccountIdsSet = new Set(existingAccountIds);
         accounts.forEach((account) => {
+          const rawBankNumber = account.bankAccountNumber || '';
+          const digitsOnly = rawBankNumber.replace(/\D/g, '');
+          const bsbParsed = digitsOnly.length >= 6 ? parseInt(digitsOnly.slice(0, 6), 10) : null;
+          const accountNumberParsed = digitsOnly.length > 6 ? digitsOnly.slice(6) : rawBankNumber.slice(6) || null;
           const accountData: any = {
             account_id: account.accountID,
             integration_id: xeroDetails.integration_id,
             tenant_id: xeroDetails.tenant_id,
             account_name: account.name,
-            account_number: account.bankAccountNumber?.slice(6),
-            bsb_number: account.bankAccountNumber?.slice(0, 6),
+            account_number: accountNumberParsed,
+            bsb_number: bsbParsed,
             account_type: account.type,
             account_status: account.status,
             description: account.description,
@@ -995,8 +999,8 @@ export class XeroSchedulerService {
                   api_payload: {
                     account_id,
                     account_name: account.name,
-                    account_number: account.bankAccountNumber?.slice(6),
-                    bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                    account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
+                    bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
                     payload: payload || {},
                     account_status: data?.account_status,
                   },
@@ -1136,8 +1140,8 @@ export class XeroSchedulerService {
               company_id,
               account_name: account.name || account_name || 'Unnamed Xero Account',
               account_type: account_type || 'Cash Account',
-              account_number: account.bankAccountNumber?.slice(6) || account_number || '',
-              bsb_number: Number(account.bankAccountNumber?.slice(0, 6)) || bsb_number || 0,
+              account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || account_number || '',
+              bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || bsb_number || 0,
               financial_institution: financial_institution || 'From Xero - pending update',
               opening_date: opening_date || new Date().toISOString().split('T')[0],
               delegate_powers: delegate_powers || 'Not Applicable',
@@ -1178,8 +1182,8 @@ export class XeroSchedulerService {
               api_payload: {
                 account_id,
                 account_name: account.name,
-                account_number: account.bankAccountNumber?.slice(6),
-                bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
+                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
                 account_status: account.status,
                 created_as_draft: true,
               },
@@ -1220,8 +1224,8 @@ export class XeroSchedulerService {
               api_payload: {
                 account_id,
                 account_name: account.name,
-                account_number: account.bankAccountNumber?.slice(6),
-                bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
+                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
                 account_status: account.status,
               },
               integration_id: xeroDetails.integration_id,
@@ -1278,8 +1282,8 @@ export class XeroSchedulerService {
               api_payload: {
                 account_id,
                 account_name: account.name,
-                account_number: account.bankAccountNumber?.slice(6),
-                bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
+                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
                 payload: data.payload || {},
                 account_status: data?.account_status,
               },
@@ -1364,8 +1368,8 @@ export class XeroSchedulerService {
                 api_payload: {
                   account_id,
                   account_name: account.name,
-                  account_number: account.bankAccountNumber?.slice(6),
-                  bsb_number: Number(account.bankAccountNumber?.slice(0, 6)),
+                  account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
+                  bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
                   account_status: account.status,
                 },
                 integration_id: xeroDetails.integration_id,

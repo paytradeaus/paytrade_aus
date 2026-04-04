@@ -4194,6 +4194,41 @@ export class XeroWebhookService {
       this.logger.error(
         `[Webhook Validation Fail] ${invoice.invoiceID}: ${'Unexpected error: ' + (err?.message || err)}`,
       );
+      try {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 252 : 412,
+          dynamic_values: {},
+          project_id: null,
+          contract_id: null,
+          reference: {},
+          reference_id: null,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Failed',
+          },
+          error_message: `Unexpected error during claim processing: ${err?.message || err}`,
+          xero_records: [invoice],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (logErr) {
+        this.logger.error(`[Webhook] Failed to write sync log for error: ${logErr?.message || logErr}`);
+      }
     }
   }
 
