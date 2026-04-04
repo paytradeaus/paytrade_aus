@@ -1067,6 +1067,84 @@ Contact PayTrade support if:
 - You see errors related to Xero authentication or token refresh (this may indicate the Xero connection needs to be re-authorised)
 - You believe the sync result is incorrect (e.g., a payment was classified as the wrong type)
 
+### 19.10 Smart Contract Auto-Creation from Xero Claims
+
+**Setting:** Found under **Xero Settings → Contract Auto-Create** as **"Smart Contract Auto-Create"**
+**Requirement:** Both a project tracking category and a contact must be mapped before smart creation can trigger.
+
+When a Xero invoice or bill arrives and no existing contract can be resolved (via the smart resolution in 19.5), the system can automatically create a new contract in PayTrade instead of failing the sync. This is controlled by the **Smart Contract Auto-Create** toggle in Xero Settings.
+
+#### How It Works
+
+1. **Trigger:** A Xero claim (invoice or bill) arrives with a mapped project and mapped contact, but no contract can be resolved via tracking ID, single-contract match, or amount match (see 19.5).
+2. **Validation:** The system checks that the contact is not a "Related Entity" type (template 477 — related entities are rejected because they cannot hold contracts directly).
+3. **Contract Type Determination:** The system determines the correct contract type based on the company's role in the project and whether the claim is an invoice or a bill:
+
+| Company Role | Claim Type | Contract Party Type | Contract Direction |
+|---|---|---|---|
+| Head Contractor | Bill | Supplier / Sub-Contractor | Company pays the contact |
+| Head Contractor | Invoice | Client / Principal | Contact pays the company |
+| Principal | Bill | Supplier / Head Contractor | Company pays the contact |
+| Principal | Invoice | — | **Not supported** (fails with sync log) |
+| Sub-Contractor | Bill | Supplier / Sub-Contractor | Company pays the contact |
+| Sub-Contractor | Invoice | Client / Head Contractor | Contact pays the company |
+
+4. **Contract Defaults:** The auto-created contract uses these defaults:
+   - **Name:** `[Project Name] - [Contact Name] - Smart Contract`
+   - **Status:** In Progress
+   - **Payment Terms:** 10 days
+   - **Initial Contract Sum:** $99,999,999 (placeholder — should be updated by the user)
+   - **Defect Liability End Date:** 1 year from creation
+   - **Retention Type:** Cash (if the project has a Retention Trust Account)
+
+5. **After Creation:** The contract is automatically mapped to a Xero tracking category option (if contract tracking is configured), and the original claim sync retries with the new contract.
+
+#### Sync Log Entries
+
+| Template | Status | Description |
+|---|---|---|
+| 475 | Succeeded | Smart contract auto-created successfully |
+| 476 | Failed | Smart contract auto-creation failed (with reason) |
+| 477 | Failed | Related Entity contact type — cannot auto-create contract |
+| 478 | Succeeded | Smart contract Xero tracking category option created |
+| 479 | Failed | Smart contract Xero tracking category creation failed |
+| 480 | Failed | Unsupported company role / claim type combination |
+
+#### Important Notes
+- The placeholder contract sum of $99,999,999 is intentionally high so it does not block future claim syncs. Users should update the actual contract value.
+- Trust account assignment (PTA/RTA payment routing) is not set automatically — users should review and configure trust account fields on the contract after creation.
+- If the Smart Contract Auto-Create toggle is off, the sync fails as normal and the user resolves it manually via the Sync Log.
+
+### 19.11 Contact Financial Details Sync
+
+**Location:** **Xero Dashboard → Contacts → Mapped Contacts tab → "SYNC FINANCIAL DETAILS" button**
+
+This feature synchronises bank account / payment details between PayTrade and Xero for all mapped contacts. It ensures that payment information (BSB, account number, etc.) is available in both systems.
+
+#### How It Works
+
+1. **Manual Trigger:** Click the **"SYNC FINANCIAL DETAILS"** button on the Mapped Contacts tab inside the Contacts sync screen.
+2. **Automatic Trigger:** The hourly scheduler also runs this sync for all active integrations.
+3. **Sync Logic:** For each mapped contact:
+   - If **Xero has payment details** but **PayTrade does not** → creates a cash account in PayTrade with the contact's bank details
+   - If **PayTrade has account details** but **Xero does not** → pushes batch payment details (BSB, account number, etc.) to the Xero contact
+   - If **both systems already have details** → no action (existing details are never overwritten or deleted)
+4. **Results:** A toast notification shows the outcome, and the sync log is updated.
+
+#### Sync Log Entries
+
+| Template | Status | Description |
+|---|---|---|
+| 471 | Succeeded | Financial details synced from Xero to PayTrade |
+| 472 | Failed | Financial details sync from Xero to PayTrade failed |
+| 473 | Succeeded | Financial details synced from PayTrade to Xero |
+| 474 | Failed | Financial details sync from PayTrade to Xero failed |
+
+#### Important Notes
+- This feature only adds missing details — it never deletes or overwrites existing payment information in either system.
+- The button only appears when the Xero integration is connected and active.
+- Contact must be mapped (linked between PayTrade and Xero) before financial details can sync.
+
 ---
 
 ## 20. Community
