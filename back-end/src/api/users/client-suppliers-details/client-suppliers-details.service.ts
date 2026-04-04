@@ -1550,54 +1550,55 @@ export class ClientSuppliersDetailsService {
       if (!queriedDetails)
         throw `Invalid data. Contract details not found. Please provide a valid contract_id.`;
 
-      if (!queriedDetails.payment_to_account)
-        throw `No payment_to_account found in the contracts entity.`;
-
+      let fetchedPaymentToAccountDetails = {};
       let fetchedPaymentFromAccountDetails = {};
       if (queriedDetails.client_supplier_type == 'Supplier') {
-        const paymentDetails = await this.paymentsRepo.findOne({
-          where: { payment_id },
-        });
-        const bank_account_id =
-          cash_retention_type == 'Claim'
-            ? queriedDetails.payment_from_account
-            : paymentDetails.retention_account;
+        let bank_account_id = null;
+
+        if (cash_retention_type == 'Claim') {
+          bank_account_id = queriedDetails.payment_from_account;
+        } else if (payment_id) {
+          const paymentDetails = await this.paymentsRepo.findOne({
+            where: { payment_id },
+          });
+          bank_account_id = paymentDetails?.retention_account || queriedDetails.payment_retention_account;
+        } else {
+          bank_account_id = queriedDetails.payment_retention_account || queriedDetails.payment_from_account;
+        }
 
         this.logger.log(`bank_account_id: ${bank_account_id}`);
-        fetchedPaymentFromAccountDetails = await this.bankAccountsRepo
-          .createQueryBuilder('ba')
-          .select([
-            'ba.account_name AS payment_from_account_name',
-            'ba.account_type AS payment_from_account_type',
-            'ba.account_number AS payment_from_account_number',
-            'ba.bsb_number AS payment_from_account_bsb_number',
-          ])
-          .where('ba.bank_account_id = :bank_account_id', {
-            bank_account_id,
-          })
-          .getRawOne();
-        this.logger.log(`fetchedPaymentFromAccountDetails: ${JSON.stringify(fetchedPaymentFromAccountDetails)}`);
-
-        if (!fetchedPaymentFromAccountDetails)
-          throw `Payment from account id present in the contracts entity is invalid or not present in the bank accounts entity.`;
+        if (bank_account_id) {
+          fetchedPaymentFromAccountDetails = await this.bankAccountsRepo
+            .createQueryBuilder('ba')
+            .select([
+              'ba.account_name AS payment_from_account_name',
+              'ba.account_type AS payment_from_account_type',
+              'ba.account_number AS payment_from_account_number',
+              'ba.bsb_number AS payment_from_account_bsb_number',
+            ])
+            .where('ba.bank_account_id = :bank_account_id', {
+              bank_account_id,
+            })
+            .getRawOne();
+          this.logger.log(`fetchedPaymentFromAccountDetails: ${JSON.stringify(fetchedPaymentFromAccountDetails)}`);
+        }
       }
 
-      const fetchedPaymentToAccountDetails = await this.bankAccountsRepo
-        .createQueryBuilder('ba')
-        .select([
-          'ba.account_type AS payment_to_account_type',
-          'ba.account_name AS payment_to_account_name',
-          'ba.bsb_number AS payment_to_account_bsb_number',
-          'ba.account_number AS payment_to_account_number',
-        ])
-        .where('ba.bank_account_id = :bank_account_id', {
-          bank_account_id: queriedDetails.payment_to_account,
-        })
-        .getRawOne();
-      this.logger.log(`fetchedPaymentToAccountDetails: ${JSON.stringify(fetchedPaymentToAccountDetails)}`);
-
-      if (!fetchedPaymentToAccountDetails)
-        throw `Payment to account id present in the contracts entity is invalid or not present in the bank accounts entity.`;
+      if (queriedDetails.payment_to_account) {
+        fetchedPaymentToAccountDetails = await this.bankAccountsRepo
+          .createQueryBuilder('ba')
+          .select([
+            'ba.account_type AS payment_to_account_type',
+            'ba.account_name AS payment_to_account_name',
+            'ba.bsb_number AS payment_to_account_bsb_number',
+            'ba.account_number AS payment_to_account_number',
+          ])
+          .where('ba.bank_account_id = :bank_account_id', {
+            bank_account_id: queriedDetails.payment_to_account,
+          })
+          .getRawOne();
+        this.logger.log(`fetchedPaymentToAccountDetails: ${JSON.stringify(fetchedPaymentToAccountDetails)}`);
+      }
 
       let previous_claim_amount = 0;
       const claimDetails = await this.paymentClaimsRepo

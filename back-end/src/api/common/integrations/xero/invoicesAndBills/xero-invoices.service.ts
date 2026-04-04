@@ -5668,14 +5668,16 @@ export class XeroInvoicesService {
         created_group: 'SYSTEM',
       };
 
-      if (ptaAccount) {
-        contractData.payment_from_account = ptaAccount.bank_account_id;
+      if (supplierPaymentToAccount) {
+        contractData.payment_to_account = supplierPaymentToAccount.bank_account_id;
+        if (ptaAccount) {
+          contractData.payment_from_account = ptaAccount.bank_account_id;
+        }
+      } else if (ptaAccount) {
+        contractData.payment_to_account = ptaAccount.bank_account_id;
       }
       if (rtaAccount) {
         contractData.retention_from_account = rtaAccount.bank_account_id;
-      }
-      if (supplierPaymentToAccount) {
-        contractData.payment_to_account = supplierPaymentToAccount.bank_account_id;
       }
 
       const newContract = this.contractDetails.create(contractData as ContractDetails);

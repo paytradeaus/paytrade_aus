@@ -267,7 +267,9 @@ export default function DropdownFields() {
   }, [selectedProjectID, formik?.values?.claim_type]);
 
   useEffect(() => {
-    getClientSupplierDetails();
+    if (selectedContractID) {
+      getClientSupplierDetails(selectedContractID);
+    }
   }, [selectedContractID]);
 
   useEffect(() => {
@@ -578,12 +580,13 @@ export default function DropdownFields() {
     formik?.values?.retentionPercentage,
   ]);
 
-  async function getClientSupplierDetails() {
+  async function getClientSupplierDetails(contractIdOverride?: any) {
     const { contractId, cash_retention_type } = formik.values || {};
+    const effectiveContractId = contractIdOverride ?? contractId;
 
-    if (contractId) {
+    if (effectiveContractId) {
       const payload = {
-        contract_id: contractId,
+        contract_id: effectiveContractId,
         cash_retention_type: cash_retention_type,
         payment_id: RPaymentid ? Number(RPaymentid) : null,
       };
