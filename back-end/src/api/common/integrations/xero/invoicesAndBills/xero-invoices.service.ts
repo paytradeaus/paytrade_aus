@@ -38,6 +38,7 @@ import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payme
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { AddPaymentClaimInput } from 'src/api/users/banking/payment-claims/payment-claims.input';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { Group } from 'src/entities/user-details.entity';
 import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -5547,18 +5548,18 @@ export class XeroInvoicesService {
             const xeroBatchPayments = xeroFullContact?.batchPayments;
             if (xeroBatchPayments && (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)) {
               const newAccount = bankAccountsRepo.create({
-                account_type: 'Cash Account',
+                account_type: 'Cash Account' as const,
                 account_name: xeroBatchPayments.bankAccountName || contactName,
                 account_number: xeroBatchPayments.bankAccountNumber || '',
                 bsb_number: xeroBatchPayments.code ? parseInt(xeroBatchPayments.code, 10) : 0,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
                 created_by: decoded?.userId,
                 created_on: new Date(),
-                created_group: 'SYSTEM',
+                created_group: 'SYSTEM' as Group,
                 updated_by: decoded?.userId,
                 updated_on: new Date(),
-                updated_group: 'SYSTEM',
-              } as any);
+                updated_group: 'SYSTEM' as Group,
+              });
               await bankAccountsRepo.save(newAccount);
               this.logger.log(
                 `Auto-imported financial details from Xero for supplier '${contactName}'`
