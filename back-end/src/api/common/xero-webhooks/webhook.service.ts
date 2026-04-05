@@ -2087,6 +2087,7 @@ export class XeroWebhookService {
           where: {
             project_id: projectDetails.project_id,
             client_supplier_id: xeroContactDetails.pt_contact_id,
+            contract_status: Not('Deleted'),
           },
         });
         this.logger.log(`[BILL_TRACE] V-Step 16: Found ${matchingContracts.length} matching contract(s)`);
