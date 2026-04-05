@@ -1746,35 +1746,29 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
   }
 
   async iterateLogArray(syncLogArray) {
-    return new Promise(async (resolve, reject) => {
-      if (syncLogArray && syncLogArray.length > 0) {
-        syncLogArray?.forEach(async (element) => {
-          if (element.dynamic_values) {
-            // element.dynamic_values = JSON.parse(element.dynamic_values);
-            const replaceVariablesRes = await this.replaceVariables(
-              element.description,
-              element.dynamic_values,
-            );
-            element.description = replaceVariablesRes;
-          }
-        });
-      } else {
-        syncLogArray = [];
+    if (syncLogArray && syncLogArray.length > 0) {
+      for (const element of syncLogArray) {
+        if (element.dynamic_values) {
+          const replaceVariablesRes = await this.replaceVariables(
+            element.description,
+            element.dynamic_values,
+          );
+          element.description = replaceVariablesRes;
+        }
       }
-      resolve(syncLogArray);
-    });
+      return syncLogArray;
+    }
+    return [];
   }
 
   async replaceVariables(template: string, variables: Record<string, string>) {
-    return new Promise(async (resolve, reject) => {
-      let result = template;
-      if (Object.keys(result).length !== 0) {
-        for (const [key, value] of Object.entries(variables)) {
-          result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
-        }
+    let result = template;
+    if (variables && Object.keys(variables).length !== 0) {
+      for (const [key, value] of Object.entries(variables)) {
+        result = result.replace(new RegExp(`{{${key}}}`, 'g'), String(value ?? ''));
       }
-      resolve(result);
-    });
+    }
+    return result;
   }
 
   async getAccountCodes(data: GetAccountCodesInput) {
