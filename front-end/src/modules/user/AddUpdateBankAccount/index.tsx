@@ -46,7 +46,8 @@ import {
   skipXeroAutoCreate,
   TriggerAccountNotices,
 } from "./AddUpdateBankAccount.function";
-import { CreateBankAccountsInXero, getXeroDetailsForCompany } from "../UserIntegrations/integration.functions";
+import { CreateBankAccountsInXero, getXeroDetailsForCompany, viewXeroSyncLog } from "../UserIntegrations/integration.functions";
+import { CreateClaimInPaytrade } from "../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 import {
   getClientSupplierLists,
   getProjectsLists,
@@ -70,7 +71,6 @@ import { setAddBankAccountDetails } from "@/redux/slices/dashboardSlices";
 import _ from "lodash";
 import { queryParamsData } from "../BankAccounts/bankAccount.constant";
 import { getSubscriptionDetailsByCompanyId } from "../Subscriptions/subscriptions.function";
-import { viewXeroSyncLog } from "../UserIntegrations/integration.functions";
 
 const AUTO_CLOSE_TIME = 30;
 
@@ -2138,8 +2138,32 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
     return responce;
   };
 
-  function handleRoute(dynamicRoute?: string) {
+  async function handleRoute(dynamicRoute?: string) {
     resetRetainedBankData();
+
+    const smartContractBankErrors = [
+      "SMART_CONTRACT_NO_PTA",
+      "SMART_CONTRACT_NO_RTA",
+    ];
+    if (
+      syncId &&
+      ErrorCode &&
+      smartContractBankErrors.includes(ErrorCode) &&
+      dynamicRoute?.includes(AppRoutes.USER_SYNC_LOG)
+    ) {
+      setLoaderInfo("Retrying claim import...");
+      const logData = await viewXeroSyncLog({ viewXeroSyncLogId: syncId });
+      if (logData?.api_payload) {
+        await CreateClaimInPaytrade({
+          associatedRetentionSubPaymentId: null,
+          retentionId: null,
+          invoiceId: logData.api_payload.invoice_id || null,
+          tenantId: logData.api_payload.tenant_id || null,
+          syncId: syncId,
+          syncRunType: logData.api_payload.sync_run_type || null,
+        });
+      }
+    }
 
     if (quickAddRecord) {
       if (quickAddRecord == quickAddOnRoute.CASH_ACC) {

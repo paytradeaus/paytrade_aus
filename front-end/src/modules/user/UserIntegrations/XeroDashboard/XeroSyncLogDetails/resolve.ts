@@ -732,20 +732,88 @@ export async function resolveList(data: any) {
         `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}`;
       return true;
     }
-    case "SMART_CONTRACT_INVALID_ROLE":
+    case "SMART_CONTRACT_CONTACT_INCOMPLETE":
+    case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS":
+    case "SMART_CONTRACT_TYPE_MISMATCH": {
+      const contactRetry = await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: data?.api_payload?.invoice_id || null,
+        tenantId: data?.api_payload?.tenant_id || null,
+        syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      if (!contactRetry) {
+        const csUuid = data?.api_payload?.client_supplier_uuid
+          || data?.paytrade_records?.[0]?.id;
+        if (csUuid) {
+          window.location.href =
+            AppRoutes.USER_EDIT_CLIENTS_AND_SUPPLIERS +
+            `/${csUuid}?tab=current&syncId=${data?.id}&errorCode=${data?.error_code}`;
+        } else {
+          window.location.href =
+            AppRoutes.USER_INTEGRATION +
+            `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&synctype=claim`;
+        }
+      }
+      return false;
+    }
+    case "SMART_CONTRACT_NO_PTA":
+    case "SMART_CONTRACT_NO_RTA": {
+      const bankRetry = await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: data?.api_payload?.invoice_id || null,
+        tenantId: data?.api_payload?.tenant_id || null,
+        syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      if (!bankRetry) {
+        window.location.href =
+          AppRoutes.USER_BANK_ACCOUNTS_CURRENT +
+          `?syncId=${data?.id}&errorCode=${data?.error_code}`;
+      }
+      return false;
+    }
     case "SMART_CONTRACT_RELATED_ENTITY":
     case "SMART_CONTRACT_TYPE_ERROR":
     case "SMART_CONTRACT_NAME_CONFLICT":
-    case "SMART_CONTRACT_GENERAL_ERROR":
-    case "SMART_CONTRACT_NO_PTA":
-    case "SMART_CONTRACT_NO_RTA":
-    case "SMART_CONTRACT_TYPE_MISMATCH":
-    case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS":
-    case "SMART_CONTRACT_CONTACT_INCOMPLETE": {
-      window.location.href =
-        AppRoutes.USER_INTEGRATION +
-        `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&synctype=claim`;
-      return true;
+    case "SMART_CONTRACT_INVALID_ROLE": {
+      const structRetry = await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: data?.api_payload?.invoice_id || null,
+        tenantId: data?.api_payload?.tenant_id || null,
+        syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      if (!structRetry) {
+        window.location.href =
+          AppRoutes.USER_ADD_CONTRACTS +
+          `?syncId=${data?.id}&errorCode=${data?.error_code}&contactId=${data?.api_payload?.client_supplier_id || ""}`;
+      }
+      return false;
+    }
+    case "SMART_CONTRACT_GENERAL_ERROR": {
+      const generalRetry = await CreateClaimInPaytrade({
+        associatedRetentionSubPaymentId: null,
+        retentionId: null,
+        invoiceId: data?.api_payload?.invoice_id || null,
+        tenantId: data?.api_payload?.tenant_id || null,
+        syncId: data?.id,
+        syncRunType: data?.api_payload?.sync_run_type || null,
+      });
+      if (!generalRetry) {
+        if (data?.api_payload?.type == "bill") {
+          window.open(xeroEditBillUrl(data?.api_payload?.invoice_id), "_blank");
+        } else {
+          window.open(
+            await xeroEditInvoiceUrl(data?.api_payload?.invoice_id),
+            "_blank"
+          );
+        }
+      }
+      return false;
     }
     default: {
       return false;

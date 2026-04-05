@@ -26,6 +26,7 @@ import { useLoaderContext } from "@/context/useLoader";
 import { ADD, EDIT, quickAddRoutes } from "@/shared/constant/general";
 import { quickAddOnRoute } from "../../AddUpdateBankAccount/AddUpdateBankAccount.constant";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
+import { CreateClaimInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 const AddClientsAndSuppliersContext: any = createContext(null);
 
@@ -211,13 +212,31 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
 
       const clientsResponse: any = await api;
 
-      // Check if the request was successful
       if (clientsResponse?.status) {
-        // Display success message and reset form on successful submission
         showSuccessToast(clientsResponse?.message);
         dispatch(setClientsSuppliersData(""));
         dispatch(setAccountDetailsData(""));
         formik.resetForm();
+
+        const smartContractErrorCodes = [
+          "SMART_CONTRACT_CONTACT_INCOMPLETE",
+          "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS",
+          "SMART_CONTRACT_TYPE_MISMATCH",
+        ];
+        if (
+          syncLogData &&
+          smartContractErrorCodes.includes(syncLogData?.error_code)
+        ) {
+          setLoaderInfo("Retrying claim import...");
+          await CreateClaimInPaytrade({
+            associatedRetentionSubPaymentId: null,
+            retentionId: null,
+            invoiceId: syncLogData?.api_payload?.invoice_id || null,
+            tenantId: syncLogData?.api_payload?.tenant_id || null,
+            syncId: syncLogData?.id,
+            syncRunType: syncLogData?.api_payload?.sync_run_type || null,
+          });
+        }
 
         routeBack();
         setLoader(false);

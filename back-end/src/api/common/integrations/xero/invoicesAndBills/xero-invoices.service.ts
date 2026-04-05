@@ -5348,7 +5348,17 @@ export class XeroInvoicesService {
     const projectName = projectDetails.project_name || `Project ${projectDetails.project_id}`;
     const contactName = clientSuppliersDetails.client_supplier_name || `Contact ${clientSuppliersDetails.client_supplier_id}`;
     const relatedEntity = clientSuppliersDetails.related_entity || 'No';
-    const smartLogPayload = { invoice_id: data.invoice_id, tenant_id: data.tenant_id };
+    const isBill = invoiceDetails?.type === 'ACCPAY';
+    const smartLogPayload = {
+      invoice_id: data.invoice_id,
+      tenant_id: data.tenant_id,
+      client_supplier_id: clientSuppliersDetails.client_supplier_id,
+      client_supplier_uuid: clientSuppliersDetails.id,
+      project_id: projectDetails.project_id,
+      project_uuid: projectDetails.id,
+      sync_run_type: data.sync_run_type || null,
+      type: isBill ? 'bill' : 'invoice',
+    };
     const projectUuid = projectDetails.id;
 
     if (relatedEntity === 'Yes') {

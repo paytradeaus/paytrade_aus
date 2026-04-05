@@ -50,7 +50,7 @@ import {
   updateDelegatePowers,
 } from "../../Subscriptions/subscriptions.function";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
-import { CreateOrUpdateContractInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
+import { CreateClaimInPaytrade, CreateOrUpdateContractInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 interface ProjectOption {
   value: string;
@@ -1003,10 +1003,34 @@ export default function AddEditContracts(props: any) {
             );
           }
 
-          handleRouterBack(
-            response?.contract_id,
-            response?.client_supplier_type
-          );
+          const smartContractStructErrors = [
+            "SMART_CONTRACT_RELATED_ENTITY",
+            "SMART_CONTRACT_TYPE_ERROR",
+            "SMART_CONTRACT_NAME_CONFLICT",
+            "SMART_CONTRACT_INVALID_ROLE",
+          ];
+          if (
+            syncId &&
+            errorCode &&
+            smartContractStructErrors.includes(errorCode) &&
+            syncLogData?.api_payload
+          ) {
+            setLoaderInfo("Retrying claim import...");
+            await CreateClaimInPaytrade({
+              associatedRetentionSubPaymentId: null,
+              retentionId: null,
+              invoiceId: syncLogData.api_payload.invoice_id || null,
+              tenantId: syncLogData.api_payload.tenant_id || null,
+              syncId: syncId,
+              syncRunType: syncLogData.api_payload.sync_run_type || null,
+            });
+            router.push(AppRoutes.USER_SYNC_LOG + syncId);
+          } else {
+            handleRouterBack(
+              response?.contract_id,
+              response?.client_supplier_type
+            );
+          }
           setLoader(false);
         } else {
           setLoader(false);

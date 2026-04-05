@@ -434,7 +434,8 @@ export default function XeroSettings() {
           case "SMART_CONTRACT_NO_PTA":
           case "SMART_CONTRACT_NO_RTA":
           case "SMART_CONTRACT_TYPE_MISMATCH":
-          case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS": {
+          case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS":
+          case "SMART_CONTRACT_CONTACT_INCOMPLETE": {
             const response = await CreateClaimInPaytrade({
               associatedRetentionSubPaymentId: null,
               retentionId: null,
