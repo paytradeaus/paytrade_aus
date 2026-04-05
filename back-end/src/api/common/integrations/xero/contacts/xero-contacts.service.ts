@@ -1068,12 +1068,36 @@ export class XeroContactsService {
           const addresses = [];
           addresses.push(address);
 
-          const contactData = {
+          const contactData: any = {
             name: clientSupplierDetails.client_supplier_name,
             addresses: addresses,
             emailAddress: clientSupplierDetails.client_email_id,
             phones: phones,
           };
+
+          if (xeroDetails.sync_contact_financial_to_xero) {
+            const fullDetails = await this.clientSuppliersDetails.findOne({
+              where: { client_supplier_id: clientSupplierDetails.client_supplier_id },
+              relations: ['accountDetails'],
+            });
+            const bankAccount = fullDetails?.accountDetails?.find(
+              (acc) => acc.account_number && acc.bsb_number,
+            );
+            if (bankAccount) {
+              contactData.batchPayments = {
+                bankAccountName: bankAccount.account_name || '',
+                bankAccountNumber: bankAccount.account_number,
+                code: String(bankAccount.bsb_number),
+              };
+              this.logger.log(
+                `Including financial details in Xero contact update for ${clientSupplierDetails.client_supplier_name}`,
+              );
+            } else {
+              this.logger.log(
+                `Skipping financial details sync — no complete bank account (account_number + BSB) found for ${clientSupplierDetails.client_supplier_name}`,
+              );
+            }
+          }
 
           const response = await this.xero.accountingApi.updateContact(
             xeroDetails.tenant_id,
