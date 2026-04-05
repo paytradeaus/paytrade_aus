@@ -10,7 +10,17 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
 
-const QUEUE_KEY = 'xero_webhook_queue';
+const LEGACY_QUEUE_KEY = 'xero_webhook_queue';
+
+function resolveEnvironment(): string {
+  if (process.env.APP_ENVIRONMENT) {
+    return process.env.APP_ENVIRONMENT;
+  }
+  if (process.env.REPL_ID) {
+    return 'development';
+  }
+  return 'production';
+}
 
 const ATOMIC_POP_SCRIPT = `
 local val = redis.call('rpop', KEYS[1])
@@ -31,6 +41,8 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
   private logger: PaytradeLogger;
   private redis: Redis;
   private isProcessing = false;
+  private environment: string;
+  private queueKey: string;
 
   constructor(
     private readonly xeroWebhookService: XeroWebhookService,
@@ -42,6 +54,8 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     private userRoles: Repository<CompanyUserRoles>,
   ) {
     this.logger = new PaytradeLogger('XERO_WEBHOOK_QUEUE');
+    this.environment = resolveEnvironment();
+    this.queueKey = `xero_webhook_queue:${this.environment}`;
   }
 
   onModuleInit() {
@@ -73,9 +87,23 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
         lua: ATOMIC_POP_SCRIPT,
       });
 
-      this.logger.log(`Initialized (NODE_ENV=${process.env.NODE_ENV || 'not set'})`);
+      this.logger.log(
+        `Initialized — env=${this.environment}, queue=${this.queueKey}, ` +
+        `legacyFallback=${this.environment === 'production' ? 'yes' : 'no'}, ` +
+        `APP_ENVIRONMENT=${process.env.APP_ENVIRONMENT || '(not set)'}, ` +
+        `REPL_ID=${process.env.REPL_ID ? 'yes' : 'no'}`,
+      );
     } catch (err) {
       this.logger.error(`Failed to initialize: ${err.message}`);
+    }
+  }
+
+  private async popEvent(key: string): Promise<string | null> {
+    try {
+      return await (this.redis as any).atomicPop(key) as string | null;
+    } catch (luaErr) {
+      this.logger.warn(`[ATOMIC_POP] Lua failed for ${key} (${luaErr.message}), using rpop`);
+      return await this.redis.rpop(key);
     }
   }
 
@@ -92,13 +120,10 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
       const maxBatch = 10;
 
       while (processed < maxBatch) {
-        let eventJson: string | null = null;
+        let eventJson = await this.popEvent(this.queueKey);
 
-        try {
-          eventJson = await (this.redis as any).atomicPop(QUEUE_KEY) as string | null;
-        } catch (luaErr) {
-          this.logger.warn(`[ATOMIC_POP] Lua script failed (${luaErr.message}), falling back to rpop`);
-          eventJson = await this.redis.rpop(QUEUE_KEY);
+        if (!eventJson && this.environment === 'production') {
+          eventJson = await this.popEvent(LEGACY_QUEUE_KEY);
         }
 
         if (!eventJson) {
