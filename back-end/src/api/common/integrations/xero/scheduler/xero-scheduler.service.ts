@@ -722,6 +722,28 @@ export class XeroSchedulerService {
               this.logger.error(
                 `Failed to auto-create PT account ${ptAccount.account_name} in Xero: ${autoCreateErr}`,
               );
+
+              let friendlyError = String(autoCreateErr);
+              let rawError = String(autoCreateErr);
+              try {
+                const errObj =
+                  typeof autoCreateErr === 'object' && autoCreateErr !== null
+                    ? autoCreateErr
+                    : JSON.parse(String(autoCreateErr));
+                const body = errObj?.response?.body || errObj?.body || errObj;
+                const validationMsgs =
+                  body?.Elements?.flatMap((el: any) =>
+                    (el?.ValidationErrors || []).map((ve: any) => ve?.Message),
+                  ).filter(Boolean) || [];
+                if (validationMsgs.length > 0) {
+                  friendlyError = `${body?.Type || 'Error'} (${errObj?.response?.statusCode || 'N/A'}): ${validationMsgs.join('; ')}`;
+                } else if (body?.Message) {
+                  friendlyError = `${body?.Type || 'Error'} (${errObj?.response?.statusCode || 'N/A'}): ${body.Message}`;
+                }
+                rawError = JSON.stringify(errObj?.response || errObj);
+              } catch {
+              }
+
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 integration_id: xeroDetails.integration_id,
                 log_template_id: 27,
@@ -732,10 +754,10 @@ export class XeroSchedulerService {
                 reference_id: null,
                 history: [
                   `Auto-create ${ptAccount.account_name} in Xero failed`,
-                  String(autoCreateErr),
+                  friendlyError,
                 ],
                 important_checks: {},
-                error_message: String(autoCreateErr),
+                error_message: rawError,
                 xero_records: [],
                 paytrade_records: [ptAccount],
                 new_records: null,
@@ -1144,7 +1166,7 @@ export class XeroSchedulerService {
               bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || bsb_number || 0,
               financial_institution: financial_institution || 'From Xero - pending update',
               opening_date: opening_date || new Date().toISOString().split('T')[0],
-              delegate_powers: delegate_powers || 'Not Applicable',
+              delegate_powers: delegate_powers || null,
               status: 'Draft',
             };
             const bankResponse = await this.bankAccountsService.addBankAccount(

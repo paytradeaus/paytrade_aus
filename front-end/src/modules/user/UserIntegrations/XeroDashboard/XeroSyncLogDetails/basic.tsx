@@ -112,6 +112,52 @@ export default function SyncLogDetailsBasic() {
   const [compulsoryAttachments, setCompulsoryAttachments] = useState<any>();
   const [attachmentError, setAttachmentError] = useState<string>("");
 
+  const parseErrorMessage = (raw: string): { summary: string; details: string } => {
+    if (!raw) return { summary: '', details: '' };
+    try {
+      const parsed = JSON.parse(raw);
+      const body = parsed?.response?.body || parsed?.body || parsed;
+      const statusCode = parsed?.response?.statusCode || parsed?.statusCode;
+      const validationErrors =
+        body?.Elements?.flatMap((el: any) =>
+          (el?.ValidationErrors || []).map((ve: any) => ve?.Message)
+        ).filter(Boolean) || [];
+      if (validationErrors.length > 0) {
+        const summary = validationErrors.join('; ');
+        return {
+          summary: `${body?.Type || 'Error'} (${statusCode || 'N/A'}): ${summary}`,
+          details: raw,
+        };
+      }
+      if (body?.Message) {
+        return {
+          summary: `${body?.Type || 'Error'} (${statusCode || 'N/A'}): ${body.Message}`,
+          details: raw,
+        };
+      }
+    } catch {
+    }
+    return { summary: raw, details: '' };
+  };
+
+  const parseHistoryEntry = (entry: string): string => {
+    if (!entry) return '';
+    try {
+      const parsed = JSON.parse(entry);
+      const body = parsed?.response?.body || parsed?.body || parsed;
+      const validationErrors =
+        body?.Elements?.flatMap((el: any) =>
+          (el?.ValidationErrors || []).map((ve: any) => ve?.Message)
+        ).filter(Boolean) || [];
+      if (validationErrors.length > 0) {
+        return `${body?.Type || 'Error'}: ${validationErrors.join('; ')}`;
+      }
+      if (body?.Message) return `${body?.Type || 'Error'}: ${body.Message}`;
+    } catch {
+    }
+    return entry;
+  };
+
   const [generateClaimData, setGenerateClaimData] = useState<any[]>([]);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
@@ -1285,7 +1331,7 @@ export default function SyncLogDetailsBasic() {
                       >
                         <span
                           style={{
-                            flex: 1, // places it below the heading
+                            flex: 1,
                             whiteSpace: "normal",
                             wordWrap: "break-word",
                             overflowWrap: "break-word",
@@ -1293,7 +1339,53 @@ export default function SyncLogDetailsBasic() {
                             margin: 0,
                           }}
                         >
-                          {syncLogDetailsData?.error_message}
+                          {(() => {
+                            const { summary, details } = parseErrorMessage(
+                              syncLogDetailsData?.error_message
+                            );
+                            return (
+                              <>
+                                <span>{summary}</span>
+                                {details && (
+                                  <details
+                                    style={{
+                                      marginTop: "6px",
+                                      fontSize: "0.85em",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    <summary
+                                      style={{
+                                        color: "#666",
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      Full API response
+                                    </summary>
+                                    <pre
+                                      style={{
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-all",
+                                        background: "#fff5f5",
+                                        padding: "8px",
+                                        borderRadius: "4px",
+                                        marginTop: "4px",
+                                        fontSize: "0.85em",
+                                        maxHeight: "200px",
+                                        overflow: "auto",
+                                      }}
+                                    >
+                                      {JSON.stringify(
+                                        JSON.parse(details),
+                                        null,
+                                        2
+                                      )}
+                                    </pre>
+                                  </details>
+                                )}
+                              </>
+                            );
+                          })()}
                         </span>
                         <button
                           style={{
@@ -1574,11 +1666,13 @@ export default function SyncLogDetailsBasic() {
                   <div className="pt_infodata">
                     <div className="pt_infolistdata">
                       <h6>History</h6>
-                      {syncLogDetailsData?.history?.map((val: any) => (
-                        <>
-                          {val} <br />
-                        </>
-                      ))}
+                      {syncLogDetailsData?.history?.map(
+                        (val: any, idx: number) => (
+                          <div key={idx} style={{ marginBottom: "4px" }}>
+                            {parseHistoryEntry(val)}
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 )}
