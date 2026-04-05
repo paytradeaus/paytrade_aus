@@ -8,19 +8,19 @@ import {
   description: 'Details of a client/supplier relevant for a payment claim.',
 })
 export class FetchClientSupplierDetailsForPaymentClaim {
-  @Field({ description: 'Unique identifier of the client or supplier.' })
+  @Field({ nullable: true, description: 'Unique identifier of the client or supplier.' })
   client_supplier_id: number;
 
-  @Field({ description: 'Name of the client or supplier.' })
+  @Field({ nullable: true, description: 'Name of the client or supplier.' })
   client_supplier_name: string;
 
-  @Field({ description: 'Address of the client or supplier.' })
+  @Field({ nullable: true, description: 'Address of the client or supplier.' })
   client_supplier_address: string;
 
-  @Field({ description: 'Type of client or supplier.' })
+  @Field({ nullable: true, description: 'Type of client or supplier.' })
   client_supplier_type: ClientSupplierType;
 
-  @Field({ description: 'Payment terms applicable to the client/supplier.' })
+  @Field({ nullable: true, description: 'Payment terms applicable to the client/supplier.' })
   payment_terms: number;
 
   @Field({
@@ -53,19 +53,19 @@ export class FetchClientSupplierDetailsForPaymentClaim {
   })
   payment_from_account_number: string;
 
-  @Field({ description: 'Account ID to which payments are made.' })
+  @Field({ nullable: true, description: 'Account ID to which payments are made.' })
   payment_to_account: number;
 
-  @Field({ description: 'Type of the payment-to account.' })
+  @Field({ nullable: true, description: 'Type of the payment-to account.' })
   payment_to_account_type: string;
 
-  @Field({ description: 'Name of the payment-to account.' })
+  @Field({ nullable: true, description: 'Name of the payment-to account.' })
   payment_to_account_name: string;
 
-  @Field({ description: 'BSB number of the payment-to account.' })
+  @Field({ nullable: true, description: 'BSB number of the payment-to account.' })
   payment_to_account_bsb_number: string;
 
-  @Field({ description: 'Account number of the payment-to account.' })
+  @Field({ nullable: true, description: 'Account number of the payment-to account.' })
   payment_to_account_number: string;
 
   @Field({ nullable: true, description: 'Initial contract sum (optional).' })

@@ -5135,5 +5135,15 @@
     "from_xero": true,
     "error_code": "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS",
     "associated_log_ids": null
+  },
+  {
+    "id": 486,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation failed: contact '{{contact_name}}' is missing required information ({{missing_fields}}). Please update the contact details in PayTrade and retry the sync.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SMART_CONTRACT_CONTACT_INCOMPLETE",
+    "associated_log_ids": null
   }
 ]

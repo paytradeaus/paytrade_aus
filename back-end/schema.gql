@@ -6443,16 +6443,16 @@ type FetchClientSupplierDetailsForPaymentClaim {
   claim_amount: Float
 
   """Address of the client or supplier."""
-  client_supplier_address: String!
+  client_supplier_address: String
 
   """Unique identifier of the client or supplier."""
-  client_supplier_id: Float!
+  client_supplier_id: Float
 
   """Name of the client or supplier."""
-  client_supplier_name: String!
+  client_supplier_name: String
 
   """Type of client or supplier."""
-  client_supplier_type: String!
+  client_supplier_type: String
 
   """Initial contract sum (optional)."""
   initial_contract_sum: Float
@@ -6473,22 +6473,22 @@ type FetchClientSupplierDetailsForPaymentClaim {
   payment_from_account_type: String
 
   """Payment terms applicable to the client/supplier."""
-  payment_terms: Float!
+  payment_terms: Float
 
   """Account ID to which payments are made."""
-  payment_to_account: Float!
+  payment_to_account: Float
 
   """BSB number of the payment-to account."""
-  payment_to_account_bsb_number: String!
+  payment_to_account_bsb_number: String
 
   """Name of the payment-to account."""
-  payment_to_account_name: String!
+  payment_to_account_name: String
 
   """Account number of the payment-to account."""
-  payment_to_account_number: String!
+  payment_to_account_number: String
 
   """Type of the payment-to account."""
-  payment_to_account_type: String!
+  payment_to_account_type: String
 
   """Variation amount in the contract (optional)."""
   variation_amount: Float

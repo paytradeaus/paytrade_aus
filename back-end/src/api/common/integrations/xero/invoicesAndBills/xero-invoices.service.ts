@@ -5485,6 +5485,44 @@ export class XeroInvoicesService {
       return null;
     }
 
+    const missingContactFields: string[] = [];
+    if (!clientSuppliersDetails.client_supplier_address) {
+      missingContactFields.push('Address');
+    }
+    if (!clientSuppliersDetails.client_email_id) {
+      missingContactFields.push('Email Address');
+    }
+
+    if (missingContactFields.length > 0) {
+      const missingList = missingContactFields.join(', ');
+      this.logger.log(
+        `Smart contract creation failed: contact '${contactName}' is missing critical info: ${missingList}`
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 486,
+        dynamic_values: {
+          contact_name: contactName,
+          missing_fields: missingList,
+        },
+        project_id: projectUuid,
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: `Contact '${contactName}' is missing required information: ${missingList}. Please update the contact in PayTrade and retry.`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [clientSuppliersDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
     const bankAccountsRepo = this.dataSource.getRepository(BankAccounts);
 
     const projectBankAccounts = await bankAccountsRepo.find({
