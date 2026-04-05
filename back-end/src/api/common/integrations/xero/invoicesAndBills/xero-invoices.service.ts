@@ -5498,42 +5498,13 @@ export class XeroInvoicesService {
       return null;
     }
 
-    const missingContactFields: string[] = [];
+    const allIssues: string[] = [];
+
     if (!clientSuppliersDetails.client_supplier_address) {
-      missingContactFields.push('Address');
+      allIssues.push('Address');
     }
     if (!clientSuppliersDetails.client_email_id) {
-      missingContactFields.push('Email Address');
-    }
-
-    if (missingContactFields.length > 0) {
-      const missingList = missingContactFields.join(', ');
-      this.logger.log(
-        `Smart contract creation failed: contact '${contactName}' is missing critical info: ${missingList}`
-      );
-      await this.xeroService.insertXeroSyncLogs(decoded, {
-        api_name: 'smartCreateContract',
-        api_payload: smartLogPayload,
-        integration_id: xeroDetails.integration_id,
-        log_template_id: 486,
-        dynamic_values: {
-          contact_name: contactName,
-          missing_fields: missingList,
-        },
-        project_id: xeroProjectId,
-        contract_id: null,
-        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
-        reference_id: checkExistenceInDb?.id,
-        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
-        important_checks: {},
-        error_message: `Contact '${contactName}' is missing required information: ${missingList}. Please update the contact in PayTrade and retry.`,
-        xero_records: [invoiceDetails],
-        paytrade_records: [clientSuppliersDetails],
-        new_records: null,
-        updated_records: null,
-        synced_records: null,
-      });
-      return null;
+      allIssues.push('Email Address');
     }
 
     const bankAccountsRepo = this.dataSource.getRepository(BankAccounts);
@@ -5558,60 +5529,18 @@ export class XeroInvoicesService {
 
     if (projectDetails.pta_eligibility === 'Yes') {
       if (projectPtaBankAccounts.length === 0) {
-        this.logger.log(
-          `Smart contract creation failed: project '${projectName}' is PTA-eligible but has no PTA bank account`
-        );
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          api_name: 'smartCreateContract',
-          api_payload: smartLogPayload,
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 482,
-          dynamic_values: { project_name: projectName, contact_name: contactName },
-          project_id: xeroProjectId,
-          contract_id: null,
-          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
-          reference_id: checkExistenceInDb?.id,
-          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
-          important_checks: {},
-          error_message: `Project '${projectName}' is PTA-eligible but has no Project Trust Account`,
-          xero_records: [invoiceDetails],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return null;
+        allIssues.push(`Project '${projectName}' is PTA-eligible but has no Project Trust Account`);
+      } else {
+        ptaAccount = projectPtaBankAccounts[0];
       }
-      ptaAccount = projectPtaBankAccounts[0];
     }
 
     if (projectDetails.rta_eligibility === 'Yes') {
       if (projectRtaBankAccounts.length === 0) {
-        this.logger.log(
-          `Smart contract creation failed: project '${projectName}' is RTA-eligible but has no RTA bank account`
-        );
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          api_name: 'smartCreateContract',
-          api_payload: smartLogPayload,
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 483,
-          dynamic_values: { project_name: projectName, contact_name: contactName },
-          project_id: xeroProjectId,
-          contract_id: null,
-          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
-          reference_id: checkExistenceInDb?.id,
-          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
-          important_checks: {},
-          error_message: `Project '${projectName}' is RTA-eligible but has no Retention Trust Account`,
-          xero_records: [invoiceDetails],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return null;
+        allIssues.push(`Project '${projectName}' is RTA-eligible but has no Retention Trust Account`);
+      } else {
+        rtaAccount = projectRtaBankAccounts[0];
       }
-      rtaAccount = projectRtaBankAccounts[0];
     }
 
     let supplierPaymentToAccount: BankAccounts | null = null;
@@ -5674,31 +5603,54 @@ export class XeroInvoicesService {
       }
 
       if (!supplierAccounts || supplierAccounts.length === 0) {
-        this.logger.log(
-          `Smart contract creation failed: supplier '${contactName}' has no payment details`
-        );
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          api_name: 'smartCreateContract',
-          api_payload: smartLogPayload,
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 485,
-          dynamic_values: { contact_name: contactName },
-          project_id: xeroProjectId,
-          contract_id: null,
-          reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
-          reference_id: checkExistenceInDb?.id,
-          history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
-          important_checks: {},
-          error_message: `Supplier '${contactName}' has no bank account details in PayTrade`,
-          xero_records: [invoiceDetails],
-          paytrade_records: [clientSuppliersDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return null;
+        allIssues.push(`Supplier '${contactName}' has no bank account details in PayTrade`);
+      } else {
+        supplierPaymentToAccount = supplierAccounts[0];
       }
-      supplierPaymentToAccount = supplierAccounts[0];
+    }
+
+    if (allIssues.length > 0) {
+      const issueList = allIssues.join('; ');
+      const contactFieldsMissing = allIssues.filter(i =>
+        ['Address', 'Email Address'].includes(i)
+      );
+      const otherIssues = allIssues.filter(i =>
+        !['Address', 'Email Address'].includes(i)
+      );
+      let errorMessage = '';
+      if (contactFieldsMissing.length > 0 && otherIssues.length > 0) {
+        errorMessage = `Contact '${contactName}' is missing required information: ${contactFieldsMissing.join(', ')}. Also: ${otherIssues.join('; ')}. Please update the details in PayTrade and retry.`;
+      } else if (contactFieldsMissing.length > 0) {
+        errorMessage = `Contact '${contactName}' is missing required information: ${contactFieldsMissing.join(', ')}. Please update the contact in PayTrade and retry.`;
+      } else {
+        errorMessage = `${otherIssues.join('; ')}. Please update the details in PayTrade and retry.`;
+      }
+      this.logger.log(
+        `Smart contract creation failed: ${issueList}`
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 486,
+        dynamic_values: {
+          contact_name: contactName,
+          missing_fields: issueList,
+        },
+        project_id: xeroProjectId,
+        contract_id: null,
+        reference: { xeroId: checkExistenceInDb?.id, paytradeId: null },
+        reference_id: checkExistenceInDb?.id,
+        history: [`API triggered from claim ${invoice_id}`, 'Smart contract creation failed'],
+        important_checks: {},
+        error_message: errorMessage,
+        xero_records: [invoiceDetails],
+        paytrade_records: [clientSuppliersDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
     }
 
     const contractName = await startCasePreserveUnicode(

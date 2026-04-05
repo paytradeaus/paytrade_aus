@@ -93,6 +93,8 @@ export class XeroSchedulerService {
     private userRoles: Repository<CompanyUserRoles>,
     @InjectRepository(SubscriptionDetails)
     private subscriptionDetails: Repository<SubscriptionDetails>,
+    @InjectRepository(XeroInvoicesBills)
+    private xeroInvoicesBillsRepo: Repository<XeroInvoicesBills>,
     private readonly jwtService: JwtService,
     private authService: AuthService,
     private readonly xeroService: XeroService,
@@ -5695,5 +5697,247 @@ export class XeroSchedulerService {
     }
 
     return result;
+  }
+
+  @Cron('*/15 * * * *', { timeZone: 'UTC' })
+  async webhookFallbackSync() {
+    const PREFIX = '[WEBHOOK_FALLBACK]';
+    try {
+      this.logger.log(`${PREFIX} Starting webhook fallback sync...`);
+
+      const activeIntegrations = await this.integrationDetails.find({
+        where: { integration_status: 'Connected - active' },
+      });
+
+      if (!activeIntegrations || activeIntegrations.length === 0) {
+        this.logger.log(`${PREFIX} No active integrations found, skipping.`);
+        return;
+      }
+
+      for (const integration of activeIntegrations) {
+        const companyId = integration.company_id;
+        try {
+          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+            where: { company_id: companyId, status: 'ACTIVE' },
+          });
+
+          if (!xeroDetails) {
+            this.logger.log(`${PREFIX} No active Xero details for company ${companyId}, skipping.`);
+            continue;
+          }
+
+          try {
+            await this.xeroService.refreshTokenSet(companyId, this.xero);
+          } catch (refreshErr) {
+            this.logger.error(`${PREFIX} Token refresh failed for company ${companyId}: ${refreshErr?.message || refreshErr}`);
+            continue;
+          }
+
+          const refreshedXero = await this.xeroIntegrationDetails.findOne({
+            where: { company_id: companyId, status: 'ACTIVE' },
+          });
+          if (!refreshedXero?.access_token) {
+            this.logger.error(`${PREFIX} No access token after refresh for company ${companyId}`);
+            continue;
+          }
+
+          const companyAdmin = await this.userRoles.findOne({
+            where: {
+              company_id: companyId,
+              company_role: In(['PRIMARY ADMIN']),
+              status: 'Active',
+            },
+            relations: ['userDetails'],
+          });
+
+          if (!companyAdmin?.userDetails?.email_id) {
+            this.logger.error(`${PREFIX} No admin found for company ${companyId}`);
+            continue;
+          }
+
+          const authResponse = await this.authService.getAuthToken(
+            companyAdmin.userDetails.email_id,
+            false,
+          );
+          const decoded = this.jwtService.decode(authResponse.data['access_token']);
+
+          const sinceDate = moment().subtract(2, 'hours').toISOString();
+          this.logger.log(`${PREFIX} Company ${companyId}: checking invoices modified since ${sinceDate}`);
+
+          let xeroInvoices: any[] = [];
+          try {
+            const invoiceResp = await this.xero.accountingApi.getInvoices(
+              refreshedXero.tenant_id,
+              sinceDate,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+            );
+            xeroInvoices = invoiceResp?.body?.invoices || [];
+          } catch (apiErr) {
+            this.logger.error(`${PREFIX} Failed to fetch invoices for company ${companyId}: ${apiErr?.message || apiErr}`);
+          }
+
+          this.logger.log(`${PREFIX} Company ${companyId}: found ${xeroInvoices.length} recently modified invoices`);
+
+          if (xeroInvoices.length > 0) {
+            const xeroInvoiceIds = xeroInvoices.map((inv: any) => inv.invoiceID);
+
+            const existingRecords = await this.xeroInvoicesBillsRepo.find({
+              where: {
+                invoice_id: In(xeroInvoiceIds),
+                integration_id: refreshedXero.integration_id,
+              },
+              select: ['invoice_id', 'updated_on'],
+            });
+
+            const existingMap = new Map<string, Date>();
+            for (const rec of existingRecords) {
+              existingMap.set(rec.invoice_id, rec.updated_on);
+            }
+
+            let processedCount = 0;
+            let skippedCount = 0;
+
+            for (const invoice of xeroInvoices) {
+              const invoiceId = invoice.invoiceID;
+              const xeroUpdatedDate = invoice.updatedDateUTC
+                ? new Date(invoice.updatedDateUTC)
+                : null;
+
+              const ptRecord = existingMap.get(invoiceId);
+
+              if (ptRecord && xeroUpdatedDate) {
+                const ptTime = new Date(ptRecord).getTime();
+                const xeroTime = xeroUpdatedDate.getTime();
+                if (xeroTime <= ptTime + 60000) {
+                  skippedCount++;
+                  continue;
+                }
+              } else if (ptRecord && !xeroUpdatedDate) {
+                skippedCount++;
+                continue;
+              }
+
+              const isNew = !ptRecord;
+              this.logger.log(
+                `${PREFIX} Company ${companyId}: ${isNew ? 'NEW' : 'UPDATED'} invoice gap detected: ${invoiceId} (${invoice.type || 'unknown type'})`
+              );
+
+              try {
+                await this.xeroWebhookService.handleInvoiceCreateUpdate(
+                  {
+                    resource_id: invoiceId,
+                    tenant_id: refreshedXero.tenant_id,
+                    eventType: isNew ? 'CREATE' : 'UPDATE',
+                    sync_run_type: 'fallback',
+                  },
+                  decoded,
+                );
+                processedCount++;
+              } catch (procErr) {
+                this.logger.error(
+                  `${PREFIX} Company ${companyId}: Failed to process invoice ${invoiceId}: ${procErr?.message || procErr}`
+                );
+              }
+            }
+
+            this.logger.log(
+              `${PREFIX} Company ${companyId}: invoices done. Processed=${processedCount}, Skipped=${skippedCount}, Total=${xeroInvoices.length}`
+            );
+          }
+
+          let xeroContacts: any[] = [];
+          try {
+            const contactResp = await this.xero.accountingApi.getContacts(
+              refreshedXero.tenant_id,
+              sinceDate,
+            );
+            xeroContacts = contactResp?.body?.contacts || [];
+          } catch (apiErr) {
+            this.logger.error(`${PREFIX} Failed to fetch contacts for company ${companyId}: ${apiErr?.message || apiErr}`);
+          }
+
+          this.logger.log(`${PREFIX} Company ${companyId}: found ${xeroContacts.length} recently modified contacts`);
+
+          if (xeroContacts.length > 0) {
+            const existingMappedContacts = await this.xeroContactDetails.find({
+              where: {
+                integration_id: refreshedXero.integration_id,
+                contact_status: 'ACTIVE',
+              },
+              select: ['contact_id', 'updated_on'],
+            });
+
+            const contactMap = new Map<string, Date>();
+            for (const mc of existingMappedContacts) {
+              contactMap.set(mc.contact_id, mc.updated_on);
+            }
+
+            let contactProcessed = 0;
+            let contactSkipped = 0;
+
+            for (const contact of xeroContacts) {
+              const contactId = contact.contactID;
+              const xeroUpdatedDate = contact.updatedDateUTC
+                ? new Date(contact.updatedDateUTC)
+                : null;
+
+              const ptContactRecord = contactMap.get(contactId);
+
+              if (ptContactRecord && xeroUpdatedDate) {
+                const ptTime = new Date(ptContactRecord).getTime();
+                const xeroTime = xeroUpdatedDate.getTime();
+                if (xeroTime <= ptTime + 60000) {
+                  contactSkipped++;
+                  continue;
+                }
+              } else if (ptContactRecord && !xeroUpdatedDate) {
+                contactSkipped++;
+                continue;
+              }
+
+              this.logger.log(
+                `${PREFIX} Company ${companyId}: contact gap detected: ${contactId} (${contact.name || 'unknown'})`
+              );
+
+              try {
+                await this.xeroWebhookService.handleContactCreateUpdate(
+                  contactId,
+                  refreshedXero.tenant_id,
+                  '',
+                  {},
+                  decoded,
+                );
+                contactProcessed++;
+              } catch (procErr) {
+                this.logger.error(
+                  `${PREFIX} Company ${companyId}: Failed to process contact ${contactId}: ${procErr?.message || procErr}`
+                );
+              }
+            }
+
+            this.logger.log(
+              `${PREFIX} Company ${companyId}: contacts done. Processed=${contactProcessed}, Skipped=${contactSkipped}, Total=${xeroContacts.length}`
+            );
+          }
+
+        } catch (companyErr) {
+          this.logger.error(`${PREFIX} Error processing company ${companyId}: ${companyErr?.message || companyErr}`);
+        }
+      }
+
+      this.logger.log(`${PREFIX} Webhook fallback sync complete.`);
+    } catch (err) {
+      this.logger.error(`${PREFIX} Fatal error in webhook fallback sync: ${err?.message || err}`);
+    }
   }
 }
