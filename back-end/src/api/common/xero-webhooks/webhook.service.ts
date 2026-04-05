@@ -2113,6 +2113,7 @@ export class XeroWebhookService {
               },
               invoice_id: invoice?.invoiceID,
               checkExistenceInDb: existingXeroInvoice || null,
+              xeroProjectDetailsId: xeroProjectDetails?.id || null,
             });
 
             if (smartContract) {
