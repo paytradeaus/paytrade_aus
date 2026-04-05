@@ -31,6 +31,32 @@ export default function TrustRecordGrid() {
 
   const trustTrainingGridActions: any = [
     {
+      label: "Edit",
+      style: "secondary",
+      icon: "fa-light fa-pen-to-square",
+      onClick: (row: any) => {
+        formik.resetForm({
+          values: {
+            ...formik.values,
+            account_name: row?.account_name || "",
+            bsb_number: row?.bsb_number || "",
+            account_type: row?.account_type || "",
+            account_number: row?.account_number || "",
+          },
+        });
+        formik.setTouched({
+          account_name: false,
+          bsb_number: false,
+          account_type: false,
+          account_number: false,
+        });
+        formik.setFieldValue("isPaymentDetailsRequired", true);
+        formik.setFieldValue("editingAccountId", row?.id || null);
+        setDisplayTrainingRecords(true);
+        setDisplayAccountRecordsGrid(false);
+      },
+    },
+    {
       label: "Delete",
       style: "contrast",
       icon: "fa-light fa-trash",

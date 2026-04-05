@@ -63,6 +63,7 @@ const OverallTrustTrainingGridHeaders = [
     dataKey: "account_number",
     restrictSorting: true,
   },
+  { title: "Edit", restrictSorting: true, alignCenter: true },
   { title: "Delete", restrictSorting: true, alignCenter: true },
 ];
 

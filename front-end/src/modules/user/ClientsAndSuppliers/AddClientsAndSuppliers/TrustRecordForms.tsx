@@ -23,12 +23,13 @@ export default function TrustRecordForms() {
     formik.setFieldTouched("account_type", false);
     formik.setFieldTouched("account_number", false);
     formik?.setFieldValue("isTrainingFieldsRequired", false);
-    formik?.setFieldValue("isPaymentDetailsRequired", false); // New Field
+    formik?.setFieldValue("isPaymentDetailsRequired", false);
 
     formik?.setFieldValue("account_name", "");
     formik?.setFieldValue("bsb_number", "");
     formik?.setFieldValue("account_type", "");
     formik?.setFieldValue("account_number", "");
+    formik?.setFieldValue("editingAccountId", null);
     if (accountDetailsGridData?.length > 0) {
       setDisplayAccountRecordsGrid(true);
     }
@@ -46,23 +47,35 @@ export default function TrustRecordForms() {
       formik?.values?.bsb_number &&
       formik?.values?.account_number
     ) {
-      const { account_name, bsb_number, account_type, account_number } =
+      const { account_name, bsb_number, account_type, account_number, editingAccountId } =
         formik?.values || {};
-      setAccountDetailsGridData((prev: any) => [
-        ...prev,
-        {
-          account_name,
-          bsb_number,
-          account_type,
-          account_number,
-          id: generateUniqueId(),
-        },
-      ]);
+
+      if (editingAccountId) {
+        setAccountDetailsGridData((prev: any) =>
+          prev.map((item: any) =>
+            item?.id === editingAccountId
+              ? { ...item, account_name, bsb_number, account_type, account_number }
+              : item
+          )
+        );
+      } else {
+        setAccountDetailsGridData((prev: any) => [
+          ...prev,
+          {
+            account_name,
+            bsb_number,
+            account_type,
+            account_number,
+            id: generateUniqueId(),
+          },
+        ]);
+      }
       setDisplayAccountRecordsGrid(true);
       await formik?.setFieldValue("account_name", "");
       await formik?.setFieldValue("bsb_number", "");
       await formik?.setFieldValue("account_type", "");
       await formik?.setFieldValue("account_number", "");
+      await formik?.setFieldValue("editingAccountId", null);
       setDisplayTrainingRecords(false);
       return true;
     }

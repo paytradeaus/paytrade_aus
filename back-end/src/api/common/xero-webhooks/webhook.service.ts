@@ -2391,6 +2391,85 @@ export class XeroWebhookService {
       }
 
       this.logger.log(`[BILL_TRACE] V-Step 18 OK: All validations passed`);
+
+      this.logger.log(`[BILL_TRACE] V-Step 18b: Validating contact completeness...`);
+      const contactIssues: string[] = [];
+      if (clientSuppliersDetails) {
+        if (!clientSuppliersDetails.client_email_id) {
+          contactIssues.push('Email Address');
+        }
+        if (!clientSuppliersDetails.client_supplier_address) {
+          contactIssues.push('Address');
+        }
+      }
+      if (
+        clientSuppliersDetails &&
+        clientSuppliersDetails.client_supplier_type === 'Supplier' &&
+        contractDetails
+      ) {
+        const supplierBankAccounts = await this.bankAccounts.find({
+          where: { client_supplier_id: clientSuppliersDetails.client_supplier_id },
+        });
+        if (!supplierBankAccounts || supplierBankAccounts.length === 0) {
+          contactIssues.push(`Supplier bank account details`);
+        } else {
+          const hasComplete = supplierBankAccounts.some(
+            (acc) => acc.account_number && acc.bsb_number,
+          );
+          if (!hasComplete) {
+            contactIssues.push(`Supplier bank account BSB number`);
+          }
+        }
+      }
+
+      if (contactIssues.length > 0) {
+        const contactName = clientSuppliersDetails?.client_supplier_name || xeroContactDetails?.contact_name || 'Unknown';
+        const issueList = contactIssues.join(', ');
+        this.logger.error(`[BILL_TRACE] V-Step 18b FAILED: Contact '${contactName}' missing: ${issueList}`);
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type: invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            contact_id: invoice?.contact?.contactID,
+            client_supplier_id: clientSuppliersDetails?.client_supplier_id,
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 486 : 486,
+          dynamic_values: {
+            contact_name: contactName,
+            missing_fields: issueList,
+          },
+          project_id: xeroProjectDetails?.id,
+          contract_id: xeroContractDetails?.id,
+          reference: {},
+          reference_id: null,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed — contact details incomplete',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contact completeness validation': 'Failed',
+          },
+          error_message: `Contact '${contactName}' is missing required information: ${issueList}. Please update the contact in PayTrade and retry.`,
+          xero_records: [invoice],
+          paytrade_records: [clientSuppliersDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+      this.logger.log(`[BILL_TRACE] V-Step 18b OK: Contact details complete`);
+
       this.logger.log(`[BILL_TRACE] V-Step 19: Saving xero invoice record... existingXeroInvoice=${existingXeroInvoice ? `id=${existingXeroInvoice.id}` : 'null (new)'}`);
 
       let xeroInvoice;
