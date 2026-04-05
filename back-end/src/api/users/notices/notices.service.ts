@@ -5639,6 +5639,77 @@ export class NoticesService {
         };
       }
 
+      if (notice.notice_type == 'Supplier S18C Project Trust Account Notice') {
+        let bank = await useRepo(this.bankDetails).findOne({
+          where: { id: bankAccount.financial_institution },
+        });
+
+        pdfData = {
+          paytradeLogo: paytradeLogo,
+          sign: subscription?.signature ? subscription.signature : ' ',
+          noticeData: {
+            invoice_id: notice.notice_id,
+            project_description: project.project_description,
+            project_address: project.site_address,
+            client_supplier_name: clientSupplier.client_supplier_name,
+            user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
+            account_name: bankAccount.account_name,
+            bank_name: bank.institution_name,
+            bsb: bankAccount.bsb_number,
+            dateO: convertToLocalDate(bankAccount.opening_date),
+            account_number: bankAccount.account_number,
+            notice_date: convertToLocalDate(notice.created_on),
+          },
+        };
+      }
+
+      if (notice.notice_type == 'Supplier S18C Retention Trust Account Notice') {
+        let bank = await useRepo(this.bankDetails).findOne({
+          where: { id: bankAccount.financial_institution },
+        });
+
+        pdfData = {
+          paytradeLogo: paytradeLogo,
+          sign: subscription?.signature ? subscription.signature : ' ',
+          noticeData: {
+            invoice_id: notice.notice_id,
+            project_description: project.project_description,
+            project_address: project.site_address,
+            client_supplier_name: clientSupplier?.client_supplier_name,
+            user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
+            account_name: bankAccount.account_name,
+            bank_name: bank.institution_name,
+            bsb: bankAccount.bsb_number,
+            account_number: bankAccount.account_number,
+            notice_date: convertToLocalDate(notice.created_on),
+          },
+        };
+      }
+
+      if (notice.notice_type == 'Contracting Party Account Closing Notice') {
+        let bank = await useRepo(this.bankDetails).findOne({
+          where: { id: bankAccount.financial_institution },
+        });
+
+        pdfData = {
+          paytradeLogo: paytradeLogo,
+          noticeData: {
+            invoice_id: notice.notice_id,
+            project_description: project.project_description,
+            project_address: project.site_address,
+            client_supplier_name: clientSupplier.client_supplier_name,
+            user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
+            account_name: bankAccount.account_name,
+            bank_name: bank.institution_name,
+            bsb: bankAccount.bsb_number,
+            account_number: bankAccount.account_number,
+            sign: subscription?.signature ? subscription.signature : ' ',
+            opening_date: convertToLocalDate(bankAccount.opening_date),
+            notice_date: convertToLocalDate(notice.created_on),
+          },
+        };
+      }
+
       if (notice.notice_type == 'Supplier Payment Remittance Advice Notice') {
         let retention_amount = 0;
 
@@ -6449,6 +6520,228 @@ export class NoticesService {
           retentionDateOpened: pdfData.retnAcct?.name
             ? pdfData.retnAcct?.dateO?.noticeDate
             : '',
+          declarationCheckbox1: true || '',
+          declarationCheckbox2: true || '',
+          declarationCheckbox3: true || '',
+          declarationName: pdfData.declaration?.name || '',
+          declarationPosition: pdfData.declaration?.position || '',
+          signature:
+            pdfData.sign != ' '
+              ? await this.resizeBase64Image(pdfData.sign, 430, 76)
+              : '',
+          declarationDate: pdfData.notice_date?.noticeDate || '',
+          onBehalfOfName: pdfData.trusteeDetails?.company || '',
+        };
+      }
+
+      if (notice.notice_type == 'QBCC TA2 Account Closing Notice') {
+        const trustAccount = await useRepo(this.bankAccountsRepo).findOne({
+          where: {
+            bank_account_id: notice.bank_account_id,
+            status: Not('Deleted'),
+          },
+        });
+
+        let bank = await useRepo(this.bankDetails).findOne({
+          where: { id: trustAccount?.financial_institution },
+        });
+
+        let signature, approver, approver_position;
+        if (AccDelegation === 'Paid-delegated') {
+          signature = portalAdmin_details?.signature
+            ? portalAdmin_details.signature
+            : ' ';
+          approver =
+            portalAdmin_details.first_name +
+            ' ' +
+            portalAdmin_details.last_name;
+          approver_position = 'PayTrade Admin';
+        } else {
+          signature = subscription?.signature ? subscription.signature : ' ';
+          approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
+          approver_position = userLoggedIn.position_title;
+        }
+
+        pdfData = {
+          paytradeLogo: qbccLogo,
+          sign: signature,
+          notice_date: convertToLocalDate(notice.created_on),
+          trusteeDetails: {
+            name: companyAdmin.first_name + ' ' + companyAdmin.last_name,
+            position: companyAdmin.position_title,
+            company: company.company_name,
+            address: company.company_address,
+            abn: company.abn_number,
+            acn: company.acn_number,
+            qbcc: company.qbcc_number,
+            suburb: company.region,
+            mail: company.company_email_id,
+            country: company.country,
+            state: await this.getStateCodeFromPlaceId(company.place_id),
+            phone: convertPhoneNumber(company.company_phone_no),
+          },
+          trustAcct: {
+            name: trustAccount?.account_name,
+            bsb: trustAccount?.bsb_number,
+            dateO: trustAccount?.account_name
+              ? convertToLocalDate(trustAccount?.opening_date)
+              : '',
+            accno: trustAccount?.account_number,
+            finIns: bank?.institution_name || '',
+          },
+          declaration: {
+            name: approver,
+            position: approver_position,
+          },
+        };
+
+        noticeData = {
+          trusteeName: pdfData.trusteeDetails?.name || '',
+          abn: pdfData.trusteeDetails?.abn || '',
+          acn: pdfData.trusteeDetails?.acn || '',
+          qbcc: pdfData.trusteeDetails?.qbcc || '',
+          trusteeBusinessAddress: pdfData.trusteeDetails?.address || '',
+          trusteeSubUrb: pdfData.trusteeDetails?.suburb || '',
+          trusteePostCode: pdfData.trusteeDetails?.postcode || '',
+          trusteeState: pdfData.trusteeDetails?.state || '',
+          trusteePhone: pdfData.trusteeDetails?.phone || '',
+          trusteeEmail: pdfData.trusteeDetails?.mail || '',
+          isProjectTrust: true,
+          isRetentionTrust: '',
+          beforeAccountName: pdfData.trustAcct?.name || '',
+          beforeFinancialInstitution: pdfData.trustAcct?.finIns || '',
+          beforeBsb: pdfData.trustAcct?.name
+            ? `${pdfData.trustAcct?.bsb}`
+            : '',
+          beforeAccountNumber: pdfData.trustAcct?.name
+            ? pdfData.trustAcct?.accno
+            : '',
+          hasClosedAndEnded: true,
+          dateAccountClosed: pdfData.notice_date?.noticeDate || '',
+          hasTransferred: '',
+          dateAccountTransferred: '',
+          hasNameChanged: '',
+          afterNameChangeAccountName: '',
+          dateOfChange: '',
+          afterTransferAccountName: '',
+          afterFinancialInstitution: '',
+          afterBsb: '',
+          afterAccountNumber: '',
+          afterDateOpened: '',
+          afterDateIntended: '',
+          declarationCheckbox1: true || '',
+          declarationCheckbox2: true || '',
+          declarationCheckbox3: true || '',
+          declarationName: pdfData.declaration?.name || '',
+          declarationPosition: pdfData.declaration?.position || '',
+          signature:
+            pdfData.sign != ' '
+              ? await this.resizeBase64Image(pdfData.sign, 430, 76)
+              : '',
+          declarationDate: pdfData.notice_date?.noticeDate || '',
+          onBehalfOfName: pdfData.trusteeDetails?.company || '',
+        };
+      }
+
+      if (notice.notice_type == 'QBCC TA2 Retention Account Closing Notice') {
+        const retentionAccount = await useRepo(this.bankAccountsRepo).findOne({
+          where: {
+            bank_account_id: notice.bank_account_id,
+            status: Not('Deleted'),
+          },
+        });
+
+        let retnbank = await useRepo(this.bankDetails).findOne({
+          where: { id: retentionAccount?.financial_institution },
+        });
+
+        let signature, approver, approver_position;
+        if (AccDelegation === 'Paid-delegated') {
+          signature = portalAdmin_details?.signature
+            ? portalAdmin_details.signature
+            : ' ';
+          approver =
+            portalAdmin_details.first_name +
+            ' ' +
+            portalAdmin_details.last_name;
+          approver_position = 'PayTrade Admin';
+        } else {
+          signature = subscription?.signature ? subscription.signature : ' ';
+          approver = userLoggedIn.first_name + ' ' + userLoggedIn.last_name;
+          approver_position = userLoggedIn.position_title;
+        }
+
+        pdfData = {
+          paytradeLogo: qbccLogo,
+          sign: signature,
+          notice_date: convertToLocalDate(notice.created_on),
+          trusteeDetails: {
+            name: companyAdmin.first_name + ' ' + companyAdmin.last_name,
+            position: companyAdmin.position_title,
+            company: company.company_name,
+            address: company.company_address,
+            abn: company.abn_number,
+            acn: company.acn_number,
+            qbcc: company.qbcc_number,
+            suburb: company.region,
+            mail: company.company_email_id,
+            country: company.country,
+            state: await this.getStateCodeFromPlaceId(company.place_id),
+            phone: convertPhoneNumber(company.company_phone_no),
+          },
+          retnAcct: {
+            name: retentionAccount?.account_name,
+            bsb: retentionAccount?.bsb_number,
+            dateO: retentionAccount?.account_name
+              ? convertToLocalDate(retentionAccount?.opening_date)
+              : '',
+            accno: retentionAccount?.account_number,
+            finIns: retentionAccount?.account_name
+              ? retnbank?.institution_name
+              : ' ',
+          },
+          declaration: {
+            name: approver,
+            position: approver_position,
+          },
+        };
+
+        noticeData = {
+          trusteeName: pdfData.trusteeDetails?.name || '',
+          abn: pdfData.trusteeDetails?.abn || '',
+          acn: pdfData.trusteeDetails?.acn || '',
+          qbcc: pdfData.trusteeDetails?.qbcc || '',
+          trusteeBusinessAddress: pdfData.trusteeDetails?.address || '',
+          trusteeSubUrb: pdfData.trusteeDetails?.suburb || '',
+          trusteePostCode: pdfData.trusteeDetails?.postcode || '',
+          trusteeState: pdfData.trusteeDetails?.state || '',
+          trusteePhone: pdfData.trusteeDetails?.phone || '',
+          trusteeEmail: pdfData.trusteeDetails?.mail || '',
+          isProjectTrust: '',
+          isRetentionTrust: true,
+          beforeAccountName: pdfData.retnAcct?.name || '',
+          beforeFinancialInstitution: pdfData.retnAcct?.name
+            ? pdfData.retnAcct?.finIns
+            : '',
+          beforeBsb: pdfData.retnAcct?.name
+            ? `${pdfData.retnAcct?.bsb}`
+            : '',
+          beforeAccountNumber: pdfData.retnAcct?.name
+            ? pdfData.retnAcct?.accno
+            : '',
+          hasClosedAndEnded: true,
+          dateAccountClosed: pdfData.notice_date?.noticeDate || '',
+          hasTransferred: '',
+          dateAccountTransferred: '',
+          hasNameChanged: '',
+          afterNameChangeAccountName: '',
+          dateOfChange: '',
+          afterTransferAccountName: '',
+          afterFinancialInstitution: '',
+          afterBsb: '',
+          afterAccountNumber: '',
+          afterDateOpened: '',
+          afterDateIntended: '',
           declarationCheckbox1: true || '',
           declarationCheckbox2: true || '',
           declarationCheckbox3: true || '',

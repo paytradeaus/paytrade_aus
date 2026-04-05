@@ -10,6 +10,7 @@ import {
   SANS_12_BLACK,
 } from 'jimp/fonts';
 import { ta1_coordinates } from '../coordinates/qbcc-ta1.coordinates.mjs';
+import { ta2_coordinates } from '../coordinates/qbcc-ta2.coordinates.mjs';
 import { ta3_coordinates } from '../coordinates/qbcc-ta3.coordinates.mjs';
 import { ta4_coordinates } from '../coordinates/qbcc-ta4.coordinates.mjs';
 import { ta5_coordinates } from '../coordinates/qbcc-ta5.coordinates.mjs';
@@ -37,14 +38,14 @@ async function main(notice_type, data, outputFilePath) {
         case 'QBCC TA2 Account Closing Notice':
           {
             inputFolder = 'assets/notices/QBCC TA2 Account Closing notice';
-            pdfCoordinates = ta1_coordinates;
+            pdfCoordinates = ta2_coordinates;
           }
           break;
         case 'QBCC TA2 Retention Account Closing Notice':
           {
             inputFolder =
               'assets/notices/QBCC TA2 Retention Account Closing notice';
-            pdfCoordinates = ta1_coordinates;
+            pdfCoordinates = ta2_coordinates;
           }
           break;
         case 'QBCC TA3 Notice Of Related Entities':
