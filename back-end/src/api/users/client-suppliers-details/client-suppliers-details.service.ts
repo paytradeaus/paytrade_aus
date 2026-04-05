@@ -782,6 +782,21 @@ export class ClientSuppliersDetailsService {
                   `Response received while inserting accountDetails: ${accountDetails?.length ?? 0} records`,
                 );
               }
+
+              const account_details_to_be_updated =
+                updateClientSuppliersDetailInput.account_details.filter(
+                  (newAcc) =>
+                    newAcc.id &&
+                    clientSuppliersDetails.accountDetails?.some(
+                      (oldAcc) => oldAcc.id === newAcc.id,
+                    ),
+                );
+              if (account_details_to_be_updated.length > 0) {
+                await this.bankAccountsRepo.save(account_details_to_be_updated);
+                this.logger.log(
+                  `Response received while updating accountDetails: ${account_details_to_be_updated.length} records`,
+                );
+              }
             }
             if (
               updateClientSuppliersDetailInput.removed_account_ids &&
