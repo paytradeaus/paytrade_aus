@@ -5573,7 +5573,7 @@ export class XeroInvoicesService {
                 account_type: 'Cash Account' as const,
                 account_name: xeroBatchPayments.bankAccountName || contactName,
                 account_number: xeroBatchPayments.bankAccountNumber || '',
-                bsb_number: xeroBatchPayments.code && /^\d+$/.test(xeroBatchPayments.code.trim()) ? parseInt(xeroBatchPayments.code.trim(), 10) : null,
+                bsb_number: xeroBatchPayments.code && /^\d[\d\s\-]*\d$|^\d$/.test(xeroBatchPayments.code.trim()) ? parseInt(xeroBatchPayments.code.trim().replace(/[\s\-]/g, ''), 10) : null,
                 company_id: company_id,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
                 status: 'Open' as const,
@@ -5605,7 +5605,14 @@ export class XeroInvoicesService {
       if (!supplierAccounts || supplierAccounts.length === 0) {
         allIssues.push(`Supplier '${contactName}' has no bank account details in PayTrade`);
       } else {
-        supplierPaymentToAccount = supplierAccounts[0];
+        const completeAccount = supplierAccounts.find(
+          (acc) => acc.account_number && acc.bsb_number,
+        );
+        if (completeAccount) {
+          supplierPaymentToAccount = completeAccount;
+        } else {
+          allIssues.push(`Supplier '${contactName}' bank account details are incomplete (missing BSB number)`);
+        }
       }
     }
 

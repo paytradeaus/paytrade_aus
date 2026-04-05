@@ -100,7 +100,7 @@ type AccountDetailsList {
   bank_account_id: Float!
 
   """BSB number of the bank account."""
-  bsb_number: Float!
+  bsb_number: Float
 
   """ID of the client or supplier this account belongs to."""
   client_supplier_id: Float!

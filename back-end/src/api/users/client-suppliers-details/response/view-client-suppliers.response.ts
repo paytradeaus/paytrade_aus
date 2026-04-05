@@ -178,7 +178,7 @@ export class AccountDetailsList {
   })
   account_type: BankAccountType;
 
-  @Field({ description: 'BSB number of the bank account.' })
+  @Field({ nullable: true, description: 'BSB number of the bank account.' })
   bsb_number: number;
 }
 
