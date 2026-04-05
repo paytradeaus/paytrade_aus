@@ -1522,8 +1522,8 @@ export class NoticesService {
       noticeGen = true;
 
       if (
-        noticeListWithData.trustAccDelegation === 'Paid' ||
-        noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
+        noticeListWithData.retentionAccDelegation === 'Paid' ||
+        noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
         (userMode && userMode == 'Onboarding')
       ) {
         const generateMailNoticePayload: GenerateMailForANoticeInput = {
@@ -1531,8 +1531,8 @@ export class NoticesService {
         };
 
         if (
-          noticeListWithData.trustAccDelegation === 'Paid' ||
-          noticeListWithData.trustAccDelegation === 'Paid-delegated'
+          noticeListWithData.retentionAccDelegation === 'Paid' ||
+          noticeListWithData.retentionAccDelegation === 'Paid-delegated'
         ) {
           const doc = await this.generateNoticeDocument(
             generateMailNoticePayload,
@@ -1553,7 +1553,7 @@ export class NoticesService {
         };
 
         if (
-          noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
+          noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
           if (userMode && userMode == 'Normal') {

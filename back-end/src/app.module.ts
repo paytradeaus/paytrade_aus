@@ -108,6 +108,7 @@ import { AiSupportModule } from './api/common/ai-support/ai-support.module';
 import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
 import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
 import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
+import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
 
 @Module({
   imports: [
@@ -292,6 +293,7 @@ import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates
     AdminMenuSeederModule,
     ComplianceSeederModule,
     XeroLogTemplatesSeederModule,
+    NoticeTemplatesSeederModule,
   ],
   providers: [
     AppService,

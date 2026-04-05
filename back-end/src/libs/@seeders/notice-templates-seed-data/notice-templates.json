@@ -1,0 +1,149 @@
+[
+  {
+    "notice_template_name": "Supplier S23 Project Trust Account Notice",
+    "memo_notes": "Please add and send the S23 notice to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA3 Notice Of Related Entities",
+    "memo_notes": "Please add and send the TA3 notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA1 Project Trust Account Notice",
+    "memo_notes": "Please add and send the QBCC TA1  notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Client S18B Project Trust Account Notice",
+    "memo_notes": "Please add and send the S18B Project Trust Account notice to your client.",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA1 Retention Trust Account Notice",
+    "memo_notes": "Please add and send the QBCC TA1 notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Client Payment Claim Notice",
+    "memo_notes": "Please add and send your payment claim/invoice and supporting statement to your client",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Payment with Retention Schedule Notice",
+    "memo_notes": "Please add and send a payment schedule with the retained amount to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Retention Payment Schedule Notice",
+    "memo_notes": "Please add and send a payment schedule and supporting statement to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Retention Payment Remittance Notice",
+    "memo_notes": "Please add and send a payment advice for the payment from the retention trust accont to your supplier/contracted party.",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Payment Schedule Notice",
+    "memo_notes": "Please add and send a payment schedule and supporting statement to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Payment Remittance Advice Notice",
+    "memo_notes": "Please add and send a payment/remittance advice to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA4 Part Payment Notice",
+    "memo_notes": "Please add and send the QBCC TA4 notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA5 Nil Return Notice",
+    "memo_notes": "Please add and send the QBCC TA5 notice to the QBCC.",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier Payment with Retention Withheld Notice",
+    "memo_notes": "Please add and send a payment advice for the deposit into retention trut account to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "S75 supporting document",
+    "memo_notes": "Supporting document",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier S23 Retention Trust Account Notice",
+    "memo_notes": "Please add and send the S23 Retention Trust Account notice to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier S18C Retention Trust Account Notice",
+    "memo_notes": "Please add and send the S18C Retention Trust Account notice to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Supplier S18C Project Trust Account Notice",
+    "memo_notes": "Please add and send the S18C Project Trust Account notice to your supplier/contracted party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA2 Account Closing Notice",
+    "memo_notes": "Please add and send the QBCC TA2 Account Closing notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "Contracting Party Account Closing Notice",
+    "memo_notes": "Please add and send the Account Closing notice to the contracting party",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  },
+  {
+    "notice_template_name": "QBCC TA2 Retention Account Closing Notice",
+    "memo_notes": "Please add and send the QBCC TA2 Retention Account Closing notice to the QBCC",
+    "sign_required": false,
+    "created_group": "SYSTEM",
+    "updated_group": "SYSTEM"
+  }
+]
