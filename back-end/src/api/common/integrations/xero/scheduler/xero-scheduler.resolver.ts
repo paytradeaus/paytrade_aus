@@ -465,6 +465,60 @@ export class XeroSchedulerResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {
+    name: 'syncContactInformation',
+    description:
+      'Manually syncs contact information (address, phone, email) from Xero to PayTrade for all mapped contacts.',
+  })
+  async syncContactInformation(
+    @Context() context,
+    @Args('company_id', {
+      description: 'ID of the company to sync contact information for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result =
+        await this.xeroSchedulerService.manualSyncContactInformation(
+          decoded,
+          company_id,
+        );
+      const parts = [
+        `${result.updated} contacts updated`,
+        `${result.skipped} skipped`,
+        `${result.errors} errors`,
+      ];
+      const message = `Contact info sync complete: ${parts.join(', ')}`;
+      return framedResponse('SUCCESS', message, result);
+    } catch (error) {
+      if (
+        this.xeroResolver.refreshTokenReAuthenticate({
+          error: error?.message || error,
+        })
+      ) {
+        try {
+          const decoded = await this.jwtInternalService.decodeJwtToken(context);
+          const response = await this.xeroService.getAuthUrl(
+            company_id,
+            decoded?.id,
+            false,
+            decoded?.timezone,
+          );
+          return framedResponse('XERO_REFRESH', response);
+        } catch (refreshError) {
+          return framedResponse(
+            'ERROR',
+            refreshError?.message ? refreshError.message : refreshError,
+          );
+        }
+      }
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
     name: 'syncContactFinancialDetails',
     description:
       'Manually triggers contact financial details sync between PayTrade and Xero for all mapped contacts.',

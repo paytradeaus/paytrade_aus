@@ -14965,6 +14965,14 @@ type Mutation {
     company_id: Float!
   ): StringResponse!
 
+  """
+  Manually syncs contact information (address, phone, email) from Xero to PayTrade for all mapped contacts.
+  """
+  syncContactInformation(
+    """ID of the company to sync contact information for."""
+    company_id: Float!
+  ): StringResponse!
+
   """Triggers notices for a specific bank account and its related projects."""
   triggerAccountNotices(
     """

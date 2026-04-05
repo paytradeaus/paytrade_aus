@@ -240,6 +240,26 @@ export class XeroWebhookService {
             where: { client_supplier_id: xeroContactDetails.pt_contact_id },
           });
         if (xeroContactDetails?.contact_status === 'ACTIVE') {
+          const xeroAddress =
+            contact.addresses?.find((a: any) => a.addressType === 'POBOX') ||
+            contact.addresses?.find((a: any) => a.addressType === 'STREET');
+          const xeroPhone =
+            contact.phones?.find((p: any) => p.phoneType === 'MOBILE') ||
+            contact.phones?.find((p: any) => p.phoneType === 'DEFAULT');
+
+          const syncedAddress = xeroAddress?.addressLine1
+            ? xeroAddress.addressLine1
+            : clientSuppliersDetails.client_supplier_address;
+          const syncedCountry = xeroAddress?.country
+            ? xeroAddress.country
+            : clientSuppliersDetails.country;
+          const syncedPhone = xeroPhone?.phoneNumber
+            ? xeroPhone.phoneNumber
+            : clientSuppliersDetails.client_phone_no;
+          const syncedEmail = contact.emailAddress
+            ? contact.emailAddress
+            : clientSuppliersDetails.client_email_id;
+
           const payload: UpdateClientSuppliersDetailInput = {
             company_id: companyId,
             id: clientSuppliersDetails.id,
@@ -251,14 +271,13 @@ export class XeroWebhookService {
             related_entity: clientSuppliersDetails.related_entity,
             entity_type: clientSuppliersDetails.entity_type,
             place_id: clientSuppliersDetails.place_id,
-            client_supplier_address:
-              clientSuppliersDetails.client_supplier_address,
-            country: clientSuppliersDetails.country,
+            client_supplier_address: syncedAddress,
+            country: syncedCountry,
             region: clientSuppliersDetails.region,
             latitude: clientSuppliersDetails.latitude,
             longitude: clientSuppliersDetails.longitude,
-            client_phone_no: clientSuppliersDetails.client_phone_no,
-            client_email_id: contact.emailAddress,
+            client_phone_no: syncedPhone,
+            client_email_id: syncedEmail,
             client_website: clientSuppliersDetails.client_website,
             qbcc_number: clientSuppliersDetails.qbcc_number,
             acn_number: clientSuppliersDetails.acn_number,

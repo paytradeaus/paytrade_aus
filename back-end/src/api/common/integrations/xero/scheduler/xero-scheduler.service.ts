@@ -5486,4 +5486,192 @@ export class XeroSchedulerService {
 
     return result;
   }
+
+  async manualSyncContactInformation(
+    decoded: any,
+    company_id: number,
+  ): Promise<{ updated: number; skipped: number; errors: number }> {
+    const result = { updated: 0, skipped: 0, errors: 0 };
+
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+
+    if (!xeroDetails) {
+      throw new Error('No active Xero integration found for this company');
+    }
+
+    const csRepo = this.xeroContactDetails.manager.getRepository(ClientSuppliersDetails);
+
+    const mappedContacts = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE',
+      },
+    });
+    const mappedWithPt = mappedContacts.filter(c => c.pt_contact_id);
+
+    const resolveClientSupplierId = async (ptContactId: any): Promise<number | null> => {
+      const asNum = Number(ptContactId);
+      if (!isNaN(asNum) && Number.isInteger(asNum)) {
+        return asNum;
+      }
+      const csRecord = await csRepo.findOne({
+        where: { id: String(ptContactId) },
+        select: ['client_supplier_id'],
+      });
+      return csRecord?.client_supplier_id ?? null;
+    };
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    let allXeroContacts: any[] = [];
+    try {
+      const xeroContactsResp = await this.xero.accountingApi.getContacts(
+        xeroDetails.tenant_id,
+      );
+      allXeroContacts = xeroContactsResp?.body?.contacts || [];
+    } catch (fetchErr: any) {
+      if (fetchErr?.response?.statusCode === 429 || fetchErr?.statusCode === 429) {
+        const retryAfter = parseInt(fetchErr?.response?.headers?.['retry-after'] || '60', 10);
+        this.logger.warn(`Xero rate limit on bulk contacts fetch, waiting ${retryAfter}s...`);
+        await delay(retryAfter * 1000);
+        try {
+          const retryResp = await this.xero.accountingApi.getContacts(xeroDetails.tenant_id);
+          allXeroContacts = retryResp?.body?.contacts || [];
+        } catch (retryErr) {
+          this.logger.error(`Failed to fetch Xero contacts after retry: ${retryErr}`);
+          throw new Error('Unable to fetch contacts from Xero. Please try again later.');
+        }
+      } else {
+        throw fetchErr;
+      }
+    }
+
+    const xeroContactMap = new Map<string, any>();
+    for (const xc of allXeroContacts) {
+      if (xc.contactID) {
+        xeroContactMap.set(xc.contactID, xc);
+      }
+    }
+
+    for (const mappedContact of mappedWithPt) {
+      try {
+        const resolvedCsId = await resolveClientSupplierId(mappedContact.pt_contact_id);
+        if (!resolvedCsId) {
+          this.logger.warn(
+            `[ContactInfoSync] Could not resolve client_supplier_id for ${mappedContact.contact_name} (pt_contact_id: ${mappedContact.pt_contact_id})`,
+          );
+          result.skipped++;
+          continue;
+        }
+
+        const xeroContact = xeroContactMap.get(mappedContact.contact_id);
+        if (!xeroContact) {
+          this.logger.warn(
+            `[ContactInfoSync] Xero contact not found for ${mappedContact.contact_name} (${mappedContact.contact_id})`,
+          );
+          result.skipped++;
+          continue;
+        }
+
+        const ptContact = await csRepo.findOne({
+          where: { client_supplier_id: resolvedCsId },
+        });
+        if (!ptContact) {
+          result.skipped++;
+          continue;
+        }
+
+        const xeroAddress =
+          xeroContact.addresses?.find((a: any) => a.addressType === 'POBOX') ||
+          xeroContact.addresses?.find((a: any) => a.addressType === 'STREET');
+        const xeroPhone =
+          xeroContact.phones?.find((p: any) => p.phoneType === 'MOBILE') ||
+          xeroContact.phones?.find((p: any) => p.phoneType === 'DEFAULT');
+
+        const newAddress = xeroAddress?.addressLine1 || '';
+        const newCountry = xeroAddress?.country || '';
+        const newPhone = xeroPhone?.phoneNumber || '';
+        const newEmail = xeroContact.emailAddress || '';
+
+        const addressChanged = newAddress && newAddress !== (ptContact.client_supplier_address || '');
+        const countryChanged = newCountry && newCountry !== (ptContact.country || '');
+        const phoneChanged = newPhone && newPhone !== (ptContact.client_phone_no || '');
+        const emailChanged = newEmail && newEmail !== (ptContact.client_email_id || '');
+
+        if (!addressChanged && !countryChanged && !phoneChanged && !emailChanged) {
+          result.skipped++;
+          continue;
+        }
+
+        const updatePayload: any = {};
+        if (addressChanged) updatePayload.client_supplier_address = newAddress;
+        if (countryChanged) updatePayload.country = newCountry;
+        if (phoneChanged) updatePayload.client_phone_no = newPhone;
+        if (emailChanged) updatePayload.client_email_id = newEmail;
+
+        await csRepo.update(
+          { client_supplier_id: resolvedCsId },
+          updatePayload,
+        );
+
+        const changedFields: string[] = [];
+        if (addressChanged) changedFields.push(`Address: "${newAddress}"`);
+        if (countryChanged) changedFields.push(`Country: "${newCountry}"`);
+        if (phoneChanged) changedFields.push(`Phone: "${newPhone}"`);
+        if (emailChanged) changedFields.push(`Email: "${newEmail}"`);
+
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 383,
+          dynamic_values: {
+            contact_name: mappedContact.contact_name,
+            fields_updated: changedFields.join(', '),
+          },
+          project_id: null,
+          contract_id: null,
+          reference: {
+            xeroId: mappedContact.id,
+            paytradeId: String(mappedContact.pt_contact_id),
+          },
+          reference_id: mappedContact.id,
+          history: [
+            `Contact information synced from Xero for ${mappedContact.contact_name}`,
+            `Updated: ${changedFields.join(', ')}`,
+            'Manual sync',
+          ],
+          important_checks: {},
+          error_message: null,
+          xero_records: [{
+            address: newAddress,
+            country: newCountry,
+            phone: newPhone,
+            email: newEmail,
+          }],
+          paytrade_records: [{
+            address: ptContact.client_supplier_address,
+            country: ptContact.country,
+            phone: ptContact.client_phone_no,
+            email: ptContact.client_email_id,
+          }],
+          new_records: null,
+          updated_records: updatePayload,
+          synced_records: null,
+        });
+
+        result.updated++;
+        await delay(200);
+      } catch (contactErr: any) {
+        this.logger.error(
+          `[ContactInfoSync] Error syncing ${mappedContact.contact_name}: ${contactErr?.message || contactErr}`,
+        );
+        result.errors++;
+      }
+    }
+
+    return result;
+  }
 }

@@ -750,11 +750,13 @@ function generateGuides(categoryMap) {
 
       ${sectionHeading('What Xero Integration Does')}
       <ul>
-        <li><strong>Sync Contacts:</strong> Import your Xero contacts as PayTrade clients and suppliers</li>
+        <li><strong>Sync Contacts:</strong> Import your Xero contacts as PayTrade clients and suppliers, including address, phone, and email</li>
         <li><strong>Sync Invoices:</strong> Keep invoices in sync between both platforms</li>
         <li><strong>Sync Bills:</strong> Bills from Xero appear in PayTrade for reconciliation</li>
         <li><strong>Map Bank Accounts:</strong> Link your Xero bank accounts to PayTrade trust accounts</li>
         <li><strong>Project Mapping:</strong> Associate Xero tracking categories with PayTrade projects</li>
+        <li><strong>Sync Contact Info:</strong> Keep contact addresses, phone numbers, and email addresses up to date from Xero</li>
+        <li><strong>Sync Financial Details:</strong> Synchronise bank account and payment details between systems</li>
       </ul>
 
       ${sectionHeading('How to Connect')}
@@ -763,6 +765,14 @@ function generateGuides(categoryMap) {
       ${stepBox(3, 'Authorise in Xero', 'You will be redirected to Xero\'s login page. Sign in and authorise PayTrade to access your Xero organisation.')}
       ${stepBox(4, 'Map Your Accounts', 'After authorisation, go to the Xero settings page to map your bank accounts and contacts between the two systems.')}
       ${stepBox(5, 'Start Syncing', 'Once mapped, data will sync automatically. Use the Sync Log to monitor activity and troubleshoot any issues.')}
+
+      ${sectionHeading('Syncing Contact Information')}
+      <p>Once contacts are mapped, you can sync their details from Xero using two dedicated buttons on the <strong>Mapped Contacts</strong> tab:</p>
+      <ul>
+        <li><strong>SYNC CONTACT INFO:</strong> Pulls address, phone number, and email from Xero into PayTrade for all mapped contacts. Only updates fields where Xero has data — existing PayTrade values are never cleared.</li>
+        <li><strong>SYNC FINANCIAL DETAILS:</strong> Synchronises bank account and payment details (BSB, account number) between PayTrade and Xero. Adds missing details in either direction without overwriting existing ones.</li>
+      </ul>
+      <p>Contact information also syncs automatically in real time when contacts are updated in Xero.</p>
 
       ${warningBox('Xero integration is only available on Advanced and Pro Audit subscription plans. If you are on Basic or Standard, you will need to upgrade to access this feature.')}
 

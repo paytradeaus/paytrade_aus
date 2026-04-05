@@ -1010,6 +1010,7 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
 #### Real-Time Sync from Xero
 - When changes are made in Xero (new contacts, updated invoices, payments applied), PayTrade is notified automatically
 - Changes to contacts, invoices, and bills are synced in near-real-time
+- **Contact updates** from Xero automatically sync: name, email address, phone number (Mobile or Default), and address (PO Box or Street) — if Xero has data for a field, it overwrites the PayTrade value; if Xero's field is empty, the existing PayTrade value is preserved
 - Payment changes are subject to the **Processing Wait Time** (see 19.7) to allow multi-step transactions to complete before classification
 
 ### 19.9 Sync Logs and Error Resolution
@@ -1147,6 +1148,39 @@ This feature synchronises bank account / payment details between PayTrade and Xe
 - This feature only adds missing details — it never deletes or overwrites existing payment information in either system.
 - The button only appears when the Xero integration is connected and active.
 - Contact must be mapped (linked between PayTrade and Xero) before financial details can sync.
+
+### 19.12 Contact Information Sync (Address, Phone, Email)
+
+**Location:** **Xero Dashboard → Contacts → Mapped Contacts tab → "SYNC CONTACT INFO" button**
+
+This feature synchronises contact information — address, phone number, and email address — from Xero to PayTrade for all mapped contacts. It complements the Financial Details Sync (19.11) by keeping core contact details up to date.
+
+#### How It Works
+
+1. **Manual Trigger:** Click the **"SYNC CONTACT INFO"** button on the Mapped Contacts tab inside the Contacts sync screen.
+2. **Real-Time (Automatic):** When a contact is updated in Xero, the webhook handler also syncs address, phone, and email automatically (see Real-Time Sync in 19.8).
+3. **Sync Logic:** For each mapped contact:
+   - Reads the contact's address (PO Box or Street type), phone (Mobile or Default type), and email from Xero
+   - Compares each field with the current PayTrade value
+   - If Xero has a value that differs from PayTrade → updates PayTrade with the Xero value
+   - If Xero's field is empty → the existing PayTrade value is preserved (never cleared)
+   - If all fields already match → the contact is skipped
+4. **Results:** A toast notification shows the outcome (e.g., "Contact info sync complete: 5 contacts updated, 3 skipped, 0 errors"), and a sync log entry is created for each updated contact.
+
+#### Field Mapping
+
+| Xero Field | PayTrade Field | Priority |
+|---|---|---|
+| Addresses → PO Box or Street → Address Line 1 | Client/Supplier Address | PO Box checked first, then Street |
+| Addresses → Country | Country | Same address object |
+| Phones → Mobile or Default → Phone Number | Phone Number | Mobile checked first, then Default |
+| Email Address | Email | Direct mapping |
+
+#### Important Notes
+- This is a one-way sync (Xero → PayTrade only) — it does not push contact info from PayTrade to Xero.
+- The button only appears when the Xero integration is connected and active.
+- Contacts must be mapped before their information can sync.
+- The sync never clears existing PayTrade values — it only updates when Xero has data.
 
 ---
 

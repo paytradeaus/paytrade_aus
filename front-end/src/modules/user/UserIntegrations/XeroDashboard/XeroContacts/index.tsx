@@ -23,6 +23,7 @@ import {
   manualMappingContact,
   syncAllContactsByCompanyId,
   syncContactFinancialDetails,
+  syncContactInformation,
   unMappingContact,
 } from "../../integration.functions";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
@@ -83,6 +84,8 @@ export default function XeroContacts() {
 
   const isXeroConnected = xeroData?.status === "ACTIVE";
   const [financialSyncLoading, setFinancialSyncLoading] =
+    useState<boolean>(false);
+  const [contactInfoSyncLoading, setContactInfoSyncLoading] =
     useState<boolean>(false);
 
   const paytradeContactsActions = [
@@ -707,21 +710,38 @@ export default function XeroContacts() {
                 styles={{ margin: "0 10px 10px 10px" }}
               />
               {isXeroConnected && (
-                <CustomButton
-                  buttonName={financialSyncLoading ? "Syncing..." : "SYNC FINANCIAL DETAILS"}
-                  iconClassName="fa-light fa-money-check-dollar"
-                  buttonType={buttonType.CONTRAST_SMALL}
-                  actionType="button"
-                  disabled={financialSyncLoading}
-                  onClick={async () => {
-                    setFinancialSyncLoading(true);
-                    await syncContactFinancialDetails(
-                      { companyId: +(localStorage.getItem("companyId") || 0) },
-                      setFinancialSyncLoading
-                    );
-                  }}
-                  styles={{ margin: "0 10px 10px 10px" }}
-                />
+                <>
+                  <CustomButton
+                    buttonName={contactInfoSyncLoading ? "Syncing..." : "SYNC CONTACT INFO"}
+                    iconClassName="fa-light fa-address-card"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    disabled={contactInfoSyncLoading}
+                    onClick={async () => {
+                      setContactInfoSyncLoading(true);
+                      await syncContactInformation(
+                        { companyId: +(localStorage.getItem("companyId") || 0) },
+                        setContactInfoSyncLoading
+                      );
+                    }}
+                    styles={{ margin: "0 10px 10px 10px" }}
+                  />
+                  <CustomButton
+                    buttonName={financialSyncLoading ? "Syncing..." : "SYNC FINANCIAL DETAILS"}
+                    iconClassName="fa-light fa-money-check-dollar"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    disabled={financialSyncLoading}
+                    onClick={async () => {
+                      setFinancialSyncLoading(true);
+                      await syncContactFinancialDetails(
+                        { companyId: +(localStorage.getItem("companyId") || 0) },
+                        setFinancialSyncLoading
+                      );
+                    }}
+                    styles={{ margin: "0 10px 10px 10px" }}
+                  />
+                </>
               )}
             </>
           )}
