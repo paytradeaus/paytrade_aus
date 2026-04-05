@@ -138,13 +138,20 @@ export default function AddClientsAndSuppliers() {
 
   useEffect(() => {
     if (syncLogData) {
-      const { client_email_id = "", client_supplier_name = "" } =
-        syncLogData?.api_payload;
-      formik.setValues({
-        ...formik.values,
-        client_email_id,
-        client_supplier_name,
-      });
+      const payload = syncLogData?.api_payload || {};
+      const updates: Record<string, any> = {};
+      if (payload.client_email_id) {
+        updates.client_email_id = payload.client_email_id;
+      }
+      if (payload.client_supplier_name) {
+        updates.client_supplier_name = payload.client_supplier_name;
+      }
+      if (Object.keys(updates).length > 0) {
+        formik.setValues({
+          ...formik.values,
+          ...updates,
+        });
+      }
     }
   }, [syncLogData]);
 
