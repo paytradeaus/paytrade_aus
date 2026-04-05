@@ -5819,7 +5819,15 @@ export class XeroInvoicesService {
       if (derived.clientSupplierType === 'Supplier') {
         try {
           this.logger.log(
-            `[SMART_CONTRACT_NOTICES] Triggering contract notices for smart contract ${updatedContractId} (Supplier type)`
+            `[SMART_CONTRACT_NOTICES] === BEGIN notice flow for smart contract ${updatedContractId} ===`
+          );
+          this.logger.log(
+            `[SMART_CONTRACT_NOTICES] Contract details: type=${derived.clientSupplierType}, ` +
+            `role=${derived.clientSupplierRole}, has_project=${!!projectName}, has_contact=${!!contactName}`
+          );
+          this.logger.log(
+            `[SMART_CONTRACT_NOTICES] Bank accounts assigned: payment_from=${contractData.payment_from_account || 'NONE'}, ` +
+            `payment_to=${contractData.payment_to_account || 'NONE'}, retention_from=${contractData.retention_from_account || 'NONE'}`
           );
           const noticeResult: any = await this.noticesService.handleTriggerContractNotices(
             decoded,
@@ -5827,6 +5835,13 @@ export class XeroInvoicesService {
               contract_id: updatedContractId,
               view_preview: true,
             },
+          );
+
+          this.logger.log(
+            `[SMART_CONTRACT_NOTICES] handleTriggerContractNotices returned: status=${noticeResult?.status}, ` +
+            `mails_to_sent count=${noticeResult?.data?.mails_to_sent?.length || 0}, ` +
+            `update_notice_inputs count=${noticeResult?.data?.update_notice_inputs?.length || 0}, ` +
+            `notice_previews count=${noticeResult?.data?.notice_previews?.length || 0}`
           );
 
           const mailsToSend = noticeResult?.data?.mails_to_sent || [];
@@ -5837,12 +5852,20 @@ export class XeroInvoicesService {
               const mailDetails = mailsToSend[i];
               const updatePayload = updateInputs[i];
 
+              this.logger.log(
+                `[SMART_CONTRACT_NOTICES] Queueing notice email ${i + 1}/${mailsToSend.length}: ` +
+                `has_recipient=${!!mailDetails?.to}, subject=${mailDetails?.subject || 'N/A'}`
+              );
               await this.emailQueueProducer.emailQueueProducer({
                 ...mailDetails,
                 mail_type: EmailTypeEnum.notice,
               });
 
               if (updatePayload) {
+                this.logger.log(
+                  `[SMART_CONTRACT_NOTICES] Updating notice status: notice_id=${updatePayload?.notice_id}, ` +
+                  `status=${updatePayload?.status}, auto_sent=${updatePayload?.auto_sent}`
+                );
                 await this.noticesService.handleUpdateNotice(decoded, updatePayload);
               }
             }
@@ -5851,15 +5874,23 @@ export class XeroInvoicesService {
             );
           } else {
             this.logger.log(
-              `[SMART_CONTRACT_NOTICES] No notices to send for smart contract ${updatedContractId} (subscription level may not require auto-send)`
+              `[SMART_CONTRACT_NOTICES] No notices to send for smart contract ${updatedContractId}. ` +
+              `This typically means: no PTA/RTA bank accounts assigned, or subscription plan is Basic (Manual notices only).`
             );
           }
+          this.logger.log(
+            `[SMART_CONTRACT_NOTICES] === END notice flow for smart contract ${updatedContractId} ===`
+          );
         } catch (noticeErr) {
           const noticeErrMsg = noticeErr instanceof Error ? noticeErr.message : String(noticeErr);
           this.logger.warn(
-            `[SMART_CONTRACT_NOTICES] Notice generation failed for smart contract ${updatedContractId}: ${noticeErrMsg}`
+            `[SMART_CONTRACT_NOTICES] Notice generation FAILED for smart contract ${updatedContractId}: ${noticeErrMsg}`
           );
         }
+      } else {
+        this.logger.log(
+          `[SMART_CONTRACT_NOTICES] Skipping notices — clientSupplierType='${derived.clientSupplierType}' (only Supplier triggers S23/TA3 notices)`
+        );
       }
 
       return saved;

@@ -1274,24 +1274,47 @@ export class NoticesService {
         `${linkExtensions[6]}` +
         cntrts.id +
         `?from=log`;
-      this.logger.log(`contractLink: ${contractLink}`);
 
       if (cntrts) {
+        this.logger.log(
+          `[NOTICE_TRIGGER] Contract ${contract_id} loaded: company_id=${cntrts.company_id}, ` +
+          `payment_from_account=${cntrts.contractPaymentFromAccount?.bank_account_id || 'NONE'} (type=${cntrts.contractPaymentFromAccount?.account_type || 'N/A'}), ` +
+          `payment_to_account=${cntrts.contractPaymentToAccount?.bank_account_id || 'NONE'}, ` +
+          `retention_from_account=${cntrts.contractRetentionFromAccount?.bank_account_id || 'NONE'} (type=${cntrts.contractRetentionFromAccount?.account_type || 'N/A'}), ` +
+          `related_entity=${cntrts.clientSuppliersDetails?.related_entity || 'N/A'}`
+        );
+
         if (cntrts.contractPaymentFromAccount) {
           if (
             cntrts.contractPaymentFromAccount.account_type ===
             'Project Trust Account'
           ) {
             trustAccountNotice = true;
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 PTA notice WILL be triggered (payment_from is PTA). Checking subscription type...`
+            );
             trustAccDelegation = await this.getSubscriptionType(
               cntrts.company_id,
               cntrts.contractPaymentFromAccount.bank_account_id,
             );
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 PTA subscription result: '${trustAccDelegation}' ` +
+              `(Paid=auto-generate+doc, Paid-delegated=auto-send, Basic=manual only)`
+            );
 
             if (cntrts.clientSuppliersDetails.related_entity === 'Yes') {
               trustQBCC = true;
+              this.logger.log(`[NOTICE_TRIGGER] S23 PTA QBCC notice also required (related_entity=Yes)`);
             }
+          } else {
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 PTA notice NOT triggered — payment_from account type is '${cntrts.contractPaymentFromAccount.account_type}', not PTA`
+            );
           }
+        } else {
+          this.logger.log(
+            `[NOTICE_TRIGGER] S23 PTA notice NOT triggered — no payment_from_account assigned`
+          );
         }
         if (cntrts.contractRetentionFromAccount) {
           if (
@@ -1299,14 +1322,30 @@ export class NoticesService {
             'Retention Trust Account'
           ) {
             RetentionAccountNotice = true;
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 RTA notice WILL be triggered (retention_from is RTA). Checking subscription type...`
+            );
             retentionAccDelegation = await this.getSubscriptionType(
               cntrts.company_id,
               cntrts.contractRetentionFromAccount.bank_account_id,
             );
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 RTA subscription result: '${retentionAccDelegation}' ` +
+              `(Paid=auto-generate+doc, Paid-delegated=auto-send, Basic=manual only)`
+            );
             if (cntrts.clientSuppliersDetails.related_entity === 'Yes') {
               retentionQBCC = true;
+              this.logger.log(`[NOTICE_TRIGGER] S23 RTA QBCC notice also required (related_entity=Yes)`);
             }
+          } else {
+            this.logger.log(
+              `[NOTICE_TRIGGER] S23 RTA notice NOT triggered — retention_from account type is '${cntrts.contractRetentionFromAccount.account_type}', not RTA`
+            );
           }
+        } else {
+          this.logger.log(
+            `[NOTICE_TRIGGER] S23 RTA notice NOT triggered — no retention_from_account assigned`
+          );
         }
 
         const response = {
@@ -1323,7 +1362,11 @@ export class NoticesService {
           company_id: cntrts.company_id,
         };
 
-        this.logger.log(`response: triggerContractNotice: ${JSON.stringify(response)}`);
+        this.logger.log(
+          `[NOTICE_TRIGGER] Final decision: S23_PTA=${trustAccountNotice}, S23_RTA=${RetentionAccountNotice}, ` +
+          `QBCC_PTA=${trustQBCC}, QBCC_RTA=${retentionQBCC}, ` +
+          `PTA_delegation='${trustAccDelegation || 'N/A'}', RTA_delegation='${retentionAccDelegation || 'N/A'}'`
+        );
 
         return response;
       } else {
@@ -1347,10 +1390,9 @@ export class NoticesService {
         ? await this.fetchModeOfAnUser(decoded?.userId, manager)
         : null;
 
-    // const userDetailsRepo = manager.getRepository('UserDetails' as any);
-    // const userDetails = await this.userDetails.findOne({
-    //   where: { user_id: decoded?.userId },
-    // });
+    this.logger.log(
+      `[HANDLE_NOTICE] User mode for userId=${decoded?.userId}: '${userMode}' (Normal=send notices, Onboarding=mark as Sent-Onboarded)`
+    );
 
     let notice_previews = [];
     let qbcc_notice_previews = [];
@@ -1364,10 +1406,17 @@ export class NoticesService {
     );
 
     this.logger.log(
-      `List of contract notices to trigger: ${JSON.stringify(noticeListWithData)}`,
+      `[HANDLE_NOTICE] triggerContractNotices result: S23_PTA=${noticeListWithData.trustAccountNotice}, ` +
+      `S23_RTA=${noticeListWithData.RetentionAccountNotice}, ` +
+      `PTA_delegation='${noticeListWithData.trustAccDelegation || 'N/A'}', ` +
+      `RTA_delegation='${noticeListWithData.retentionAccDelegation || 'N/A'}', ` +
+      `clientMail_present=${!!noticeListWithData.clientMail}`
     );
 
     if (noticeListWithData.trustAccountNotice === true) {
+      this.logger.log(
+        `[HANDLE_NOTICE] === S23 PTA Notice: GENERATING for contract ${noticeListWithData.contract_id} ===`
+      );
       const generateNoticePayload: Partial<generateNoticeInput> = {
         company_id: noticeListWithData.company_id,
         contract_id: noticeListWithData.contract_id,
@@ -1380,6 +1429,10 @@ export class NoticesService {
         manager,
       )) as generateNoticeResponse;
 
+      this.logger.log(
+        `[HANDLE_NOTICE] S23 PTA notice generated: notice_id=${newNotice?.data?.id}, notice_id_ref=${newNotice?.data?.notice_id}`
+      );
+
       const contractNoticeStatus = await this.updateContractNoticeStatus(
         payload.contract_id,
         manager,
@@ -1390,6 +1443,9 @@ export class NoticesService {
         noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
         (userMode && userMode == 'Onboarding')
       ) {
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 PTA: Paid/delegated/onboarding path — generating mail. delegation='${noticeListWithData.trustAccDelegation}', userMode='${userMode}'`
+        );
         const generateMailNoticePayload: GenerateMailForANoticeInput = {
           id: newNotice?.data?.id,
         };
@@ -1398,6 +1454,7 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid' ||
           noticeListWithData.trustAccDelegation === 'Paid-delegated'
         ) {
+          this.logger.log(`[HANDLE_NOTICE] S23 PTA: Generating PDF document (paid plan)`);
           const doc = await this.generateNoticeDocument(
             generateMailNoticePayload,
             decoded,
@@ -1410,11 +1467,13 @@ export class NoticesService {
           manager,
         );
 
-        // as generateNoticeMailResponse;
-
         if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
           throw new Error(`Mail generation failed: ${newMail?.message}`);
         }
+
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 PTA mail generated: mail_id=${newMail?.data?.id}, notice_id=${newMail?.data?.notice_id}`
+        );
 
         const sentMailNoticePayload: SentMailForANoticeInput = {
           id: newMail?.data?.id,
@@ -1426,6 +1485,7 @@ export class NoticesService {
           userMode === 'Onboarding'
         ) {
           if (userMode && userMode == 'Normal') {
+            this.logger.log(`[HANDLE_NOTICE] S23 PTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
               decoded,
               sentMailNoticePayload,
@@ -1446,6 +1506,8 @@ export class NoticesService {
             notice_previews.push(mailSent.data.preview);
             mails_to_sent.push(mailSent.data.mails);
             noticeGen = true;
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] S23 PTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
           }
 
           const updateNoticePayload: updateNoticesInput = {
@@ -1459,15 +1521,16 @@ export class NoticesService {
             toMail: noticeListWithData.clientMail,
           };
 
-          // const updateStatus = await this.handleUpdateNotice(
-          //   decoded,
-          //   updateNoticePayload,
-          //   manager,
-          // );
-
           update_notice_inputs.push(updateNoticePayload);
+        } else {
+          this.logger.log(
+            `[HANDLE_NOTICE] S23 PTA: Paid (not delegated) — mail generated but NOT auto-sent. User must send manually.`
+          );
         }
       } else {
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 PTA: Basic plan — notice generated, activity log created, no mail auto-generation`
+        );
         const noticeLink =
           `${process.env.LOG_BASE_URL}` +
           `${linkExtensions[14]}` +
@@ -1505,6 +1568,9 @@ export class NoticesService {
       }
     }
     if (noticeListWithData.RetentionAccountNotice === true) {
+      this.logger.log(
+        `[HANDLE_NOTICE] === S23 RTA Notice: GENERATING for contract ${noticeListWithData.contract_id} ===`
+      );
       const generateNoticePayload: Partial<generateNoticeInput> = {
         company_id: noticeListWithData.company_id,
         contract_id: noticeListWithData.contract_id,
@@ -1515,10 +1581,10 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
       )) as generateNoticeResponse;
-      // const contractNoticeStatus = await this.updateContractNoticeStatus(
-      //   payload.contract_id,
-      //   manager
-      // );
+
+      this.logger.log(
+        `[HANDLE_NOTICE] S23 RTA notice generated: notice_id=${newNotice?.data?.id}, notice_id_ref=${newNotice?.data?.notice_id}`
+      );
       noticeGen = true;
 
       if (
@@ -1526,6 +1592,9 @@ export class NoticesService {
         noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
         (userMode && userMode == 'Onboarding')
       ) {
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 RTA: Paid/delegated/onboarding path — generating mail. delegation='${noticeListWithData.retentionAccDelegation}', userMode='${userMode}'`
+        );
         const generateMailNoticePayload: GenerateMailForANoticeInput = {
           id: newNotice?.data?.id,
         };
@@ -1534,6 +1603,7 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid' ||
           noticeListWithData.retentionAccDelegation === 'Paid-delegated'
         ) {
+          this.logger.log(`[HANDLE_NOTICE] S23 RTA: Generating PDF document (paid plan)`);
           const doc = await this.generateNoticeDocument(
             generateMailNoticePayload,
             decoded,
@@ -1547,6 +1617,10 @@ export class NoticesService {
           manager,
         );
 
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 RTA mail generated: mail_id=${newMail?.data?.id}, notice_id=${newMail?.data?.notice_id}`
+        );
+
         const sentMailNoticePayload: SentMailForANoticeInput = {
           id: newMail?.data?.id,
           view_preview: true,
@@ -1557,6 +1631,7 @@ export class NoticesService {
           (userMode && userMode == 'Onboarding')
         ) {
           if (userMode && userMode == 'Normal') {
+            this.logger.log(`[HANDLE_NOTICE] S23 RTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
               decoded,
               sentMailNoticePayload,
@@ -1577,6 +1652,8 @@ export class NoticesService {
             notice_previews.push(mailSent.data.preview);
             mails_to_sent.push(mailSent.data.mails);
             noticeGen = true;
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] S23 RTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
           }
 
           const updateNoticePayload: updateNoticesInput = {
@@ -1589,14 +1666,16 @@ export class NoticesService {
             toName: noticeListWithData.clientName,
             toMail: noticeListWithData.clientMail,
           };
-          // const updateStatus = await this.handleUpdateNotice(
-          //   decoded,
-          //   updateNoticePayload,
-          //   manager,
-          // );
           update_notice_inputs.push(updateNoticePayload);
+        } else {
+          this.logger.log(
+            `[HANDLE_NOTICE] S23 RTA: Paid (not delegated) — mail generated but NOT auto-sent. User must send manually.`
+          );
         }
       } else {
+        this.logger.log(
+          `[HANDLE_NOTICE] S23 RTA: Basic plan — notice generated, activity log created, no mail auto-generation`
+        );
         //Generating notice link link to view matched transactions.
         const noticeLink =
           `${process.env.LOG_BASE_URL}` +
@@ -1635,6 +1714,9 @@ export class NoticesService {
       }
     }
     if (noticeListWithData.trustQBCC === true) {
+      this.logger.log(
+        `[HANDLE_NOTICE] === QBCC TA3 PTA Notice: GENERATING for contract ${noticeListWithData.contract_id} (related_entity=Yes) ===`
+      );
       const generateNoticePayload: Partial<generateNoticeInput> = {
         company_id: noticeListWithData.company_id,
         contract_id: noticeListWithData.contract_id,
@@ -1647,10 +1729,10 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
       )) as generateNoticeResponse;
-      // const contractNoticeStatus = await this.updateContractNoticeStatus(
-      //   payload.contract_id,
-      //   manager,
-      // );
+
+      this.logger.log(
+        `[HANDLE_NOTICE] QBCC TA3 PTA notice generated: notice_id=${newNotice?.data?.id}`
+      );
       noticeGen = true;
 
       if (
@@ -1658,6 +1740,9 @@ export class NoticesService {
         noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
         (userMode && userMode == 'Onboarding')
       ) {
+        this.logger.log(
+          `[HANDLE_NOTICE] QBCC TA3 PTA: Paid/delegated/onboarding path. delegation='${noticeListWithData.trustAccDelegation}', userMode='${userMode}'`
+        );
         const generateMailNoticePayload: GenerateMailForANoticeInput = {
           id: newNotice?.data?.id,
         };
@@ -1666,6 +1751,7 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid' ||
           noticeListWithData.trustAccDelegation === 'Paid-delegated'
         ) {
+          this.logger.log(`[HANDLE_NOTICE] QBCC TA3 PTA: Generating PDF document (paid plan)`);
           const doc = await this.generateNoticeDocument(
             generateMailNoticePayload,
             decoded,
@@ -1678,6 +1764,7 @@ export class NoticesService {
           (userMode && userMode == 'Onboarding')
         ) {
           if (userMode && userMode == 'Normal') {
+            this.logger.log(`[HANDLE_NOTICE] QBCC TA3 PTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,
               newNotice?.data?.id,
@@ -1698,6 +1785,8 @@ export class NoticesService {
 
             qbcc_notice_previews.push(adminMail.data.qbcc_notice_file);
             mails_to_sent.push(adminMail.data.mails);
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] QBCC TA3 PTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
           }
 
           const updateNoticePayload: updateNoticesInput = {
@@ -1710,13 +1799,15 @@ export class NoticesService {
           };
 
           update_notice_inputs.push(updateNoticePayload);
-          // const updateStatus = await this.handleUpdateNotice(
-          //   decoded,
-          //   updateNoticePayload,
-          //   manager,
-          // );
+        } else {
+          this.logger.log(
+            `[HANDLE_NOTICE] QBCC TA3 PTA: Paid (not delegated) — doc generated but NOT auto-sent`
+          );
         }
       } else {
+        this.logger.log(
+          `[HANDLE_NOTICE] QBCC TA3 PTA: Basic plan — notice generated, activity log only`
+        );
         //Generating notice link link to view matched transactions.
         const noticeLink =
           `${process.env.LOG_BASE_URL}` +
@@ -1755,6 +1846,9 @@ export class NoticesService {
       }
     }
     if (noticeListWithData.retentionQBCC === true) {
+      this.logger.log(
+        `[HANDLE_NOTICE] === QBCC TA3 RTA Notice: GENERATING for contract ${noticeListWithData.contract_id} (related_entity=Yes, retention) ===`
+      );
       const generateNoticePayload: Partial<generateNoticeInput> = {
         company_id: noticeListWithData.company_id,
         contract_id: noticeListWithData.contract_id,
@@ -1768,6 +1862,10 @@ export class NoticesService {
         manager,
       )) as generateNoticeResponse;
 
+      this.logger.log(
+        `[HANDLE_NOTICE] QBCC TA3 RTA notice generated: notice_id=${newNotice?.data?.id}`
+      );
+
       const contractNoticeStatus = await this.updateContractNoticeStatus(
         payload.contract_id,
         manager,
@@ -1779,6 +1877,9 @@ export class NoticesService {
         noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
         (userMode && userMode == 'Onboarding')
       ) {
+        this.logger.log(
+          `[HANDLE_NOTICE] QBCC TA3 RTA: Paid/delegated/onboarding path. delegation='${noticeListWithData.retentionAccDelegation}', userMode='${userMode}'`
+        );
         const generateMailNoticePayload: GenerateMailForANoticeInput = {
           id: newNotice?.data?.id,
         };
@@ -1787,6 +1888,7 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid' ||
           noticeListWithData.retentionAccDelegation === 'Paid-delegated'
         ) {
+          this.logger.log(`[HANDLE_NOTICE] QBCC TA3 RTA: Generating PDF document (paid plan)`);
           const doc = await this.generateNoticeDocument(
             generateMailNoticePayload,
             decoded,
@@ -1799,6 +1901,7 @@ export class NoticesService {
           (userMode && userMode == 'Onboarding')
         ) {
           if (userMode && userMode == 'Normal') {
+            this.logger.log(`[HANDLE_NOTICE] QBCC TA3 RTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,
               newNotice?.data?.id,
@@ -1819,6 +1922,8 @@ export class NoticesService {
 
             qbcc_notice_previews.push(adminMail.data.qbcc_notice_file);
             mails_to_sent.push(adminMail.data.mails);
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] QBCC TA3 RTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
           }
 
           const updateNoticePayload: updateNoticesInput = {
@@ -1829,14 +1934,16 @@ export class NoticesService {
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
           };
-          // const updateStatus = await this.handleUpdateNotice(
-          //   decoded,
-          //   updateNoticePayload,
-          //   manager,
-          // );
           update_notice_inputs.push(updateNoticePayload);
+        } else {
+          this.logger.log(
+            `[HANDLE_NOTICE] QBCC TA3 RTA: Paid (not delegated) — doc generated but NOT auto-sent`
+          );
         }
       } else {
+        this.logger.log(
+          `[HANDLE_NOTICE] QBCC TA3 RTA: Basic plan — notice generated, activity log only`
+        );
         //Generating notice link link to view matched transactions.
         const noticeLink =
           `${process.env.LOG_BASE_URL}` +
@@ -1875,6 +1982,12 @@ export class NoticesService {
       }
     }
 
+    this.logger.log(
+      `[HANDLE_NOTICE] === SUMMARY: noticeGen=${noticeGen}, ` +
+      `mails_to_sent=${mails_to_sent.length}, update_notice_inputs=${update_notice_inputs.length}, ` +
+      `notice_previews=${notice_previews.length}, qbcc_notice_previews=${qbcc_notice_previews.length} ===`
+    );
+
     if (noticeGen === true) {
       return framedResponse('SUCCESS', `Notices added to list successfully.`, {
         notice_previews,
@@ -1883,6 +1996,9 @@ export class NoticesService {
         update_notice_inputs,
       });
     } else {
+      this.logger.log(
+        `[HANDLE_NOTICE] No notices generated — contract likely has no PTA/RTA bank accounts and no related entity`
+      );
       return framedResponse('SUCCESS');
     }
   }
@@ -7576,6 +7692,10 @@ export class NoticesService {
   async getSubscriptionType(company_id, account_id, manager?: EntityManager) {
     let hasDelegationAuthority = false;
 
+    this.logger.log(
+      `[SUBSCRIPTION_CHECK] Checking subscription for company_id=${company_id}, account_id=${account_id}`
+    );
+
     const subscriptionDetails =
       await this.paymentGatewayService.getSubscriptionDetailsByCompanyId(
         company_id,
@@ -7601,9 +7721,20 @@ export class NoticesService {
       hasDelegationAuthority = true;
     }
 
+    this.logger.log(
+      `[SUBSCRIPTION_CHECK] Plan: ${subscriptionDetails?.plan_name || 'Unknown'}, ` +
+      `notices_value='${planValue}', delegation_authority=${hasDelegationAuthority}, ` +
+      `is_free_plan_eligible=${subscriptionDetails?.is_free_plan_eligible || false}, ` +
+      `expiry_date=${subscriptionDetails?.expiry_date || 'N/A'}`
+    );
+
     const account_details = await bankRepo.findOne({
       where: { bank_account_id: account_id },
     });
+
+    this.logger.log(
+      `[SUBSCRIPTION_CHECK] Bank account ${account_id}: delegate_powers='${account_details?.delegate_powers || 'N/A'}'`
+    );
 
     let subscription_plan = 'Basic';
 
@@ -7614,24 +7745,38 @@ export class NoticesService {
 
       const isExpired = expiryDate ? moment.utc().isAfter(expiryDate) : false;
 
-      // planValue === 'Manual' &&
-      // !subscriptionDetails?.is_free_plan_eligible
+      this.logger.log(
+        `[SUBSCRIPTION_CHECK] Expiry check: isExpired=${isExpired}`
+      );
+
       if (
         (planValue === 'Manual' || (hasDelegationAuthority && isExpired)) &&
         !subscriptionDetails?.is_free_plan_eligible
       ) {
-        //subscribedPlan.planDetails.plan_type == 'Free'
         subscription_plan = 'Basic';
+        this.logger.log(
+          `[SUBSCRIPTION_CHECK] Result: 'Basic' (planValue='${planValue}' is Manual or delegation expired, not free plan eligible)`
+        );
       } else {
         if (
           hasDelegationAuthority &&
           account_details?.delegate_powers === 'Yes'
         ) {
           subscription_plan = 'Paid-delegated';
+          this.logger.log(
+            `[SUBSCRIPTION_CHECK] Result: 'Paid-delegated' (delegation authority + delegate_powers=Yes)`
+          );
         } else {
           subscription_plan = 'Paid';
+          this.logger.log(
+            `[SUBSCRIPTION_CHECK] Result: 'Paid' (paid plan, delegation=${hasDelegationAuthority}, delegate_powers='${account_details?.delegate_powers || 'N/A'}')`
+          );
         }
       }
+    } else {
+      this.logger.log(
+        `[SUBSCRIPTION_CHECK] Result: 'Basic' (no notices plan value and not free plan eligible)`
+      );
     }
 
     return subscription_plan;
