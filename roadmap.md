@@ -40,5 +40,5 @@ The following notice types now have full template infrastructure (email template
 - Consider adding an `account_closure_events` table or status field on `bank_accounts` to track closure state and drive the trigger logic.
 - Email sending follows the existing `notice-to-client-supplier` template pattern.
 
-## Dynamic Pricing Table (Task #1 — In Progress)
-- Update the features table on the frontend to use dynamic pricing data from the backend API instead of hardcoded values.
+## Dynamic Pricing Table — COMPLETED
+- Features table on the frontend now uses dynamic pricing data from the backend API.
