@@ -1074,6 +1074,19 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     decoded,
     createXeroSyncLogInput: CreateXeroSyncLogInput,
   ) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (createXeroSyncLogInput.contract_id != null && !uuidRegex.test(String(createXeroSyncLogInput.contract_id))) {
+      this.logger.warn(
+        `[insertXeroSyncLogs] contract_id is not a valid UUID: "${createXeroSyncLogInput.contract_id}". Forcing to null.`
+      );
+      createXeroSyncLogInput.contract_id = null;
+    }
+    if (createXeroSyncLogInput.project_id != null && !uuidRegex.test(String(createXeroSyncLogInput.project_id))) {
+      this.logger.warn(
+        `[insertXeroSyncLogs] project_id is not a valid UUID: "${createXeroSyncLogInput.project_id}". Forcing to null.`
+      );
+      createXeroSyncLogInput.project_id = null;
+    }
     let xeroSyncLog;
     if (!createXeroSyncLogInput?.id) {
       delete createXeroSyncLogInput?.id;

@@ -5749,6 +5749,8 @@ export class XeroInvoicesService {
         `type=${derived.clientSupplierType}/${derived.clientSupplierRole}`
       );
 
+      const savedPlain = JSON.parse(JSON.stringify(saved));
+
       await this.xeroService.insertXeroSyncLogs(decoded, {
         api_name: 'smartCreateContract',
         api_payload: smartLogPayload,
@@ -5760,7 +5762,7 @@ export class XeroInvoicesService {
           contact_name: contactName,
           client_supplier_type: derived.clientSupplierType,
           client_supplier_role: derived.clientSupplierRole,
-          contract_id: updatedContractId,
+          numeric_contract_id: updatedContractId,
         },
         project_id: xeroProjectId,
         contract_id: null,
@@ -5770,8 +5772,8 @@ export class XeroInvoicesService {
         important_checks: {},
         error_message: null,
         xero_records: [invoiceDetails],
-        paytrade_records: [saved],
-        new_records: [saved],
+        paytrade_records: [savedPlain],
+        new_records: [savedPlain],
         updated_records: null,
         synced_records: null,
       });
