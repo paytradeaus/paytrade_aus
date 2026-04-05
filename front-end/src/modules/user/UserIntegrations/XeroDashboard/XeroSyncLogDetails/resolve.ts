@@ -740,7 +740,8 @@ export async function resolveList(data: any) {
     case "SMART_CONTRACT_NO_PTA":
     case "SMART_CONTRACT_NO_RTA":
     case "SMART_CONTRACT_TYPE_MISMATCH":
-    case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS": {
+    case "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS":
+    case "SMART_CONTRACT_CONTACT_INCOMPLETE": {
       window.location.href =
         AppRoutes.USER_INTEGRATION +
         `/xero/settings?syncId=${data?.id}&errorCode=${data?.error_code}&invoiceId=${data?.api_payload?.invoice_id}&synctype=claim`;
