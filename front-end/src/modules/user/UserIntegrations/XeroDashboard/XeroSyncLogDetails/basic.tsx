@@ -26,6 +26,7 @@ import DynamicTable from "@/components/Table";
 import { GridListHeaders } from "@/modules/user/AddUpdateClaims/AddUpdateClaims.constant";
 import {
   checkAndCreateOverPaymentAndRefunds,
+  CreateClaimInPaytrade,
   CreateClaimInPaytradeForTable,
   CreateClaimInPaytradeReason,
   createInvoiceOrBillInPaytradeTable,
@@ -48,6 +49,7 @@ export default function SyncLogDetailsBasic() {
   const [claimType, setClaimType] = useState<any>("");
   const [viewLogData, setViewLogData] = useState<any>();
   const [resolveInprogress, setResolveInprogress] = useState(false);
+  const [retryInprogress, setRetryInprogress] = useState(false);
   const statusColors = {
     Ok: "#22bb33",
     Failed: "#FF2C2C",
@@ -551,6 +553,33 @@ export default function SyncLogDetailsBasic() {
 
     return trackingDetails;
   };
+
+  const retryableApiNames = [
+    "createInvoiceOrBillInPaytrade",
+    "smartCreateContract",
+  ];
+
+  const isRetryable =
+    viewLogData?.sync_status === "Failed" &&
+    viewLogData?.api_payload?.invoice_id &&
+    viewLogData?.api_payload?.tenant_id &&
+    retryableApiNames.includes(viewLogData?.api_name);
+
+  async function retryHandle() {
+    setRetryInprogress(true);
+    setLoading(true);
+    await CreateClaimInPaytrade({
+      associatedRetentionSubPaymentId: null,
+      retentionId: null,
+      invoiceId: viewLogData?.api_payload?.invoice_id || null,
+      tenantId: viewLogData?.api_payload?.tenant_id || null,
+      syncId: viewLogData?.id,
+      syncRunType: viewLogData?.api_payload?.sync_run_type || null,
+    });
+    setLoading(false);
+    setRetryInprogress(false);
+    getViewSyncLogDetails();
+  }
 
   async function resolveHandle() {
     setResolveInprogress(true);
@@ -1292,6 +1321,35 @@ export default function SyncLogDetailsBasic() {
                           ></i>
                           {resolveInprogress ? "Inprogress..." : "Resolve"}
                         </button>
+                        {isRetryable && (
+                          <button
+                            style={{
+                              whiteSpace: "nowrap",
+                              padding: "6px 14px",
+                              backgroundColor: "#2563EB",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              height: "fit-content",
+                              margin: 0,
+                            }}
+                            onClick={() => retryHandle()}
+                            disabled={retryInprogress}
+                          >
+                            <i
+                              className="fa-light fa-rotate-right"
+                              style={{
+                                marginRight: "10px",
+                                marginLeft: "10px",
+                              }}
+                            ></i>
+                            {retryInprogress ? "Retrying..." : "Retry"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1366,6 +1424,35 @@ export default function SyncLogDetailsBasic() {
                                       {resolveInprogress
                                         ? "Inprogress..."
                                         : "Resolve"}
+                                    </button>
+                                  )}
+                                  {syncLogDetailsData?.important_checks[val] ==
+                                    "Failed" &&
+                                    isRetryable && (
+                                    <button
+                                      style={{
+                                        width: "auto",
+                                        marginLeft: "10px",
+                                        paddingRight: "10px",
+                                        backgroundColor: "#2563EB",
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        cursor: "pointer",
+                                      }}
+                                      onClick={() => retryHandle()}
+                                      disabled={retryInprogress}
+                                    >
+                                      <i
+                                        className="fa-light fa-rotate-right"
+                                        style={{
+                                          marginRight: "10px",
+                                          marginLeft: "10px",
+                                        }}
+                                      ></i>
+                                      {retryInprogress
+                                        ? "Retrying..."
+                                        : "Retry"}
                                     </button>
                                   )}
                                 </div>
