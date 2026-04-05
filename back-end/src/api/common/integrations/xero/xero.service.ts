@@ -1465,22 +1465,46 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       .leftJoin(
         'client_suppliers_details',
         'c',
-        "c.id = (l.reference::jsonb->>'paytradeId')::uuid AND t.sync_type = 'Contacts'",
+        `t.sync_type = 'Contacts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'paytradeId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN c.id = (l.reference::jsonb->>'paytradeId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'xero_contact_details',
         'contact',
-        "contact.id = (l.reference::jsonb->>'xeroId')::uuid AND t.sync_type = 'Contacts'",
+        `t.sync_type = 'Contacts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'xeroId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN contact.id = (l.reference::jsonb->>'xeroId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'project_details',
         'p',
-        "p.id = (l.reference::jsonb->>'paytradeId')::uuid AND t.sync_type = 'Projects'",
+        `t.sync_type = 'Projects' AND (
+          CASE
+            WHEN l.reference::jsonb->>'paytradeId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN p.id = (l.reference::jsonb->>'paytradeId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'xero_project_details',
         'project',
-        "project.id = (l.reference::jsonb->>'xeroId')::uuid AND t.sync_type = 'Projects'",
+        `t.sync_type = 'Projects' AND (
+          CASE
+            WHEN l.reference::jsonb->>'xeroId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN project.id = (l.reference::jsonb->>'xeroId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'bank_accounts',
@@ -1498,17 +1522,35 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       .leftJoin(
         'xero_bank_account_details',
         'bank',
-        "bank.id = (l.reference::jsonb->>'xeroId')::uuid AND t.sync_type = 'Bank accounts'",
+        `t.sync_type = 'Bank accounts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'xeroId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN bank.id = (l.reference::jsonb->>'xeroId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'contract_details',
         'cd',
-        "cd.id = (l.reference::jsonb->>'paytradeId')::uuid AND t.sync_type = 'Contracts'",
+        `t.sync_type = 'Contracts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'paytradeId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN cd.id = (l.reference::jsonb->>'paytradeId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin(
         'xero_contract_details',
         'contract',
-        "contract.id = (l.reference::jsonb->>'xeroId')::uuid AND t.sync_type = 'Contracts'",
+        `t.sync_type = 'Contracts' AND (
+          CASE
+            WHEN l.reference::jsonb->>'xeroId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN contract.id = (l.reference::jsonb->>'xeroId')::uuid
+            ELSE false
+          END
+        )`,
       )
       .leftJoin('xero_project_details', 'pd', 'pd.id = l.project_id')
       .select([
