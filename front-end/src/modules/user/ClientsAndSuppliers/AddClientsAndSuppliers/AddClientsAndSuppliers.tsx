@@ -174,11 +174,17 @@ export default function AddClientsAndSuppliers() {
             : {}),
         };
 
-        // Check data existence using verifyClientSuppliersExistence
         const response = await verifyClientSuppliersExistence(postData);
 
-        // Update error field based on existence check results
-        if (response?.length > 0) {
+        const currentId = formik.values.client_supplier_id;
+        const filtered = currentId
+          ? response?.filter(
+              (item: any) =>
+                String(item.client_supplier_id) !== String(currentId)
+            )
+          : response;
+
+        if (filtered?.length > 0) {
           await formik.setFieldValue(errorFieldName.current, true);
         } else {
           await formik.setFieldValue(errorFieldName.current, false);

@@ -603,6 +603,7 @@ export default function SyncLogDetailsBasic() {
   const retryableApiNames = [
     "createInvoiceOrBillInPaytrade",
     "smartCreateContract",
+    "createClaimInPaytrade",
   ];
 
   const isRetryable =
