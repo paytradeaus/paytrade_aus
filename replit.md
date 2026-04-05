@@ -47,7 +47,7 @@ The application features a Next.js frontend and a NestJS backend communicating v
 
 ## External Dependencies
 - **PostgreSQL**: Primary application database.
-- **Redis**: Shared across all environments (dev/staging/production). Used for BullMQ job queuing and Xero webhook event queue. The webhook queue is namespaced per environment (`xero_webhook_queue:{environment}`) to prevent cross-environment consumption. Environment is derived from `APP_ENVIRONMENT` env var, falling back to `development` on Replit (`REPL_ID` present) or `production` otherwise. The Cloudflare webhook relay worker must push to `xero_webhook_queue:production`.
+- **Redis**: Shared across all environments (dev/staging/production). Used for BullMQ job queuing and Xero webhook event queue. The webhook queue is namespaced per environment (`xero_webhook_queue:{environment}`) — each backend consumes only its own queue. Auto-detection: `REPL_ID` without `REPLIT_DEPLOYMENT` → `development`, `REPL_ID` with `REPLIT_DEPLOYMENT` → `staging`, neither → `production`. Override with `APP_ENVIRONMENT` env var. The Cloudflare webhook relay worker fans out to all three queues (`xero_webhook_queue:production`, `xero_webhook_queue:staging`, `xero_webhook_queue:development`).
 - **Cloudflare R2**: Cloud storage for application files, logs, and database backups.
 - **OpenAI API**: For AI content generation and support assistant.
 - **Puppeteer**: For PDF document generation.

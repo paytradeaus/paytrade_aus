@@ -10,14 +10,12 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
 
-const LEGACY_QUEUE_KEY = 'xero_webhook_queue';
-
 function resolveEnvironment(): string {
   if (process.env.APP_ENVIRONMENT) {
     return process.env.APP_ENVIRONMENT;
   }
   if (process.env.REPL_ID) {
-    return 'development';
+    return process.env.REPLIT_DEPLOYMENT ? 'staging' : 'development';
   }
   return 'production';
 }
@@ -89,21 +87,21 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
 
       this.logger.log(
         `Initialized — env=${this.environment}, queue=${this.queueKey}, ` +
-        `legacyFallback=${this.environment === 'production' ? 'yes' : 'no'}, ` +
         `APP_ENVIRONMENT=${process.env.APP_ENVIRONMENT || '(not set)'}, ` +
-        `REPL_ID=${process.env.REPL_ID ? 'yes' : 'no'}`,
+        `REPL_ID=${process.env.REPL_ID ? 'yes' : 'no'}, ` +
+        `REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT ? 'yes' : 'no'}`,
       );
     } catch (err) {
       this.logger.error(`Failed to initialize: ${err.message}`);
     }
   }
 
-  private async popEvent(key: string): Promise<string | null> {
+  private async popEvent(): Promise<string | null> {
     try {
-      return await (this.redis as any).atomicPop(key) as string | null;
+      return await (this.redis as any).atomicPop(this.queueKey) as string | null;
     } catch (luaErr) {
-      this.logger.warn(`[ATOMIC_POP] Lua failed for ${key} (${luaErr.message}), using rpop`);
-      return await this.redis.rpop(key);
+      this.logger.warn(`[ATOMIC_POP] Lua failed (${luaErr.message}), using rpop`);
+      return await this.redis.rpop(this.queueKey);
     }
   }
 
@@ -120,11 +118,7 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
       const maxBatch = 10;
 
       while (processed < maxBatch) {
-        let eventJson = await this.popEvent(this.queueKey);
-
-        if (!eventJson && this.environment === 'production') {
-          eventJson = await this.popEvent(LEGACY_QUEUE_KEY);
-        }
+        const eventJson = await this.popEvent();
 
         if (!eventJson) {
           break;
