@@ -10,6 +10,22 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
 
+const QUEUE_KEY = 'xero_webhook_queue';
+
+const ATOMIC_POP_SCRIPT = `
+local val = redis.call('rpop', KEYS[1])
+if val then return val end
+local len = redis.call('llen', KEYS[1])
+if len > 0 then
+  val = redis.call('lindex', KEYS[1], -1)
+  if val then
+    redis.call('lrem', KEYS[1], -1, val)
+    return val
+  end
+end
+return nil
+`;
+
 @Injectable()
 export class XeroWebhookQueueConsumer implements OnModuleInit {
   private logger: PaytradeLogger;
@@ -52,6 +68,11 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
         this.logger.error(`Redis error: ${err.message}`);
       });
 
+      this.redis.defineCommand('atomicPop', {
+        numberOfKeys: 1,
+        lua: ATOMIC_POP_SCRIPT,
+      });
+
       this.logger.log(`Initialized (NODE_ENV=${process.env.NODE_ENV || 'not set'})`);
     } catch (err) {
       this.logger.error(`Failed to initialize: ${err.message}`);
@@ -67,55 +88,20 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     this.isProcessing = true;
 
     try {
-      const queueLength = await this.redis.llen('xero_webhook_queue');
-      if (queueLength === 0) {
-        return;
-      }
-
-      this.logger.log(`[POLL] Found ${queueLength} event(s) in queue`);
-
-      const peekValue = await this.redis.lindex('xero_webhook_queue', -1);
-      this.logger.log(`[PEEK] Last element — type=${typeof peekValue}, length=${peekValue?.length ?? 'null'}, value=${peekValue ? peekValue.substring(0, 300) : 'NULL'}`);
-
       let processed = 0;
       const maxBatch = 10;
 
       while (processed < maxBatch) {
-        this.logger.log(`[RPOP] Attempting rpop (iteration ${processed + 1})...`);
-        const eventJson = await this.redis.rpop('xero_webhook_queue');
-        this.logger.log(`[RPOP] Result — type=${typeof eventJson}, value=${eventJson === null ? 'null' : eventJson === undefined ? 'undefined' : eventJson === '' ? 'EMPTY_STRING' : eventJson.substring(0, 300)}`);
+        let eventJson: string | null = null;
+
+        try {
+          eventJson = await (this.redis as any).atomicPop(QUEUE_KEY) as string | null;
+        } catch (luaErr) {
+          this.logger.warn(`[ATOMIC_POP] Lua script failed (${luaErr.message}), falling back to rpop`);
+          eventJson = await this.redis.rpop(QUEUE_KEY);
+        }
 
         if (!eventJson) {
-          if (processed === 0) {
-            this.logger.warn(`[RPOP] Returned falsy after llen=${queueLength}. Checking queue again...`);
-            const recheckLen = await this.redis.llen('xero_webhook_queue');
-            this.logger.warn(`[RPOP] Queue length after failed rpop: ${recheckLen}`);
-            const keyType = await this.redis.type('xero_webhook_queue');
-            this.logger.warn(`[RPOP] Key type: ${keyType}`);
-            if (recheckLen > 0) {
-              this.logger.warn(`[FALLBACK] Attempting lindex+lrem...`);
-              try {
-                const fallbackValue = await this.redis.lindex('xero_webhook_queue', -1);
-                this.logger.log(`[FALLBACK] lindex result — type=${typeof fallbackValue}, value=${fallbackValue ? fallbackValue.substring(0, 300) : 'NULL'}`);
-                if (fallbackValue) {
-                  const removeCount = await this.redis.lrem('xero_webhook_queue', -1, fallbackValue);
-                  this.logger.log(`[FALLBACK] lrem removed ${removeCount} element(s)`);
-                  if (removeCount > 0) {
-                    processed++;
-                    try {
-                      const event = JSON.parse(fallbackValue);
-                      this.logger.log(`[FALLBACK] Parsed event: ${JSON.stringify(event)}`);
-                      await this.processEvent(event);
-                    } catch (parseErr) {
-                      this.logger.error(`[FALLBACK] Failed to process: ${parseErr.message}`);
-                    }
-                  }
-                }
-              } catch (fallbackErr) {
-                this.logger.error(`[FALLBACK] Failed: ${fallbackErr.message}`);
-              }
-            }
-          }
           break;
         }
 
@@ -131,7 +117,9 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
         }
       }
 
-      this.logger.log(`[DONE] Processed ${processed} event(s) from queue`);
+      if (processed > 0) {
+        this.logger.log(`[DONE] Processed ${processed} event(s) from queue`);
+      }
     } catch (err) {
       this.logger.error(`[QUEUE_ERROR] ${err.message}\n${err.stack}`);
     } finally {
