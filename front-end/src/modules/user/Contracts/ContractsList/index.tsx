@@ -197,6 +197,12 @@ export default function ContractsList({ overViewDetails = {} }: any) {
 
       if (response?.contract_list?.length > 0) {
         const modifiedGridData = response?.contract_list.map((listObj: any) => {
+          const warnings: string[] = [];
+          if (!listObj?.payment_from_account || !listObj?.payment_to_account)
+            warnings.push("Bank A/C");
+          if (!listObj?.buyer_name) warnings.push("Buyer");
+          if (!listObj?.seller_name) warnings.push("Seller");
+          if (!listObj?.project_name) warnings.push("Project");
           return {
             ...listObj,
             contract_date: listObj?.contract_date
@@ -218,6 +224,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
                   )
                 : "0.00"
             }`,
+            missing_data_warnings: warnings,
           };
         });
 

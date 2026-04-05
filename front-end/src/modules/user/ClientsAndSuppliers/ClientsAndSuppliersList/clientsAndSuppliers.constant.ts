@@ -33,6 +33,7 @@ const clientsAndSuppliersHeaders = [
   { title: "Bank A/C", dataKey: "bank_account_count" },
   { title: "Payment Claims", dataKey: "claim_count" },
   { title: "Contracts", dataKey: "contract_count" },
+  { title: "Data Status", dataKey: "missing_data_warnings", restrictSorting: true },
   { title: "Status", dataKey: "client_supplier_status" },
   { title: "Actions", dataKey: "status", restrictSorting: true },
 ];
@@ -87,6 +88,7 @@ const clientAndSupplierRenderData = [
   { key: "bank_account_count", enableBankAccountIcons: true },
   { key: "claim_count" },
   { key: "contract_count" },
+  { key: "missing_data_warnings", enableMissingDataWarning: true },
   { key: "client_supplier_status", enableStatusIcons: true },
 ];
 

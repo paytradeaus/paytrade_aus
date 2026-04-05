@@ -20,6 +20,7 @@ const contractListHeaders = [
     title: "Contract Sum",
   },
   { dataKey: "variation_amount", title: "Agreed Variations" },
+  { dataKey: "missing_data_warnings", title: "Data Status", restrictSorting: true },
   { title: "Actions", dataKey: "status", restrictSorting: true },
 ];
 
@@ -31,6 +32,7 @@ const contractsRenderData = [
   { key: "seller_name" },
   { key: "initial_contract_sum" },
   { key: "variation_amount" },
+  { key: "missing_data_warnings", enableMissingDataWarning: true },
 ];
 
 const excelColumnNames = [

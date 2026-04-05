@@ -274,7 +274,16 @@ export default function ClientsAndSuppliers({ overViewDetails = {} }: any) {
 
     try {
       if (response) {
-        setClientAndSuppliersListData(response?.client_suppliers_list);
+        const enrichedList = (response?.client_suppliers_list || []).map(
+          (item: any) => {
+            const warnings: string[] = [];
+            if (!item.client_email_id) warnings.push("Email");
+            if (!item.client_supplier_address) warnings.push("Address");
+            if (!Number(item.bank_account_count)) warnings.push("Bank A/C");
+            return { ...item, missing_data_warnings: warnings };
+          }
+        );
+        setClientAndSuppliersListData(enrichedList);
         setTotalRows(response?.total_count);
       }
       setTableLoader(false);
@@ -545,7 +554,7 @@ export default function ClientsAndSuppliers({ overViewDetails = {} }: any) {
               displayAllStaticActions
               onRowClick={handleRowClick}
               showLoader={tableLoader}
-              loaderColSpan={8}
+              loaderColSpan={9}
               renderRowList={clientAndSupplierRenderData}
               currentPage={page}
               entriesPerPage={perPage}

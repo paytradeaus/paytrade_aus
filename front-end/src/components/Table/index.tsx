@@ -240,7 +240,23 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
         />
       );
     }
-    if (rowDataKeys?.enableBankAccountIcons) {
+    if (rowDataKeys?.enableMissingDataWarning) {
+      const missingItems: string[] = rowData?.[rowDataKeys?.key] || [];
+      if (missingItems.length > 0) {
+        return (
+          <span className="alert" title={missingItems.join(", ")}>
+            <i className={`fa-light fa-triangle-exclamation`}></i>{" "}
+            {missingItems.join(", ")}
+          </span>
+        );
+      } else {
+        return (
+          <span className="valid">
+            <i className={`fa-light fa-circle-check`}></i> OK
+          </span>
+        );
+      }
+    } else if (rowDataKeys?.enableBankAccountIcons) {
       const count = Number(rowData?.[rowDataKeys?.key]) || 0;
       if (count > 0) {
         return (
