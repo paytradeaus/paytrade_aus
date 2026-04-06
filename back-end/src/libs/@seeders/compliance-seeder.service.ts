@@ -54,7 +54,7 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
         complianceSettingsData as any[],
       );
       await this.fixCsvUploadWarningColour();
-      await this.deactivatePtaCheck9();
+      await this.deactivateAnnualAccountReviewChecks();
       this.logger.log('Compliance seeding complete');
     } catch (error) {
       this.logger.error(`Compliance seeding failed: ${error.message}`);
@@ -76,12 +76,17 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
     }
   }
 
-  private async deactivatePtaCheck9() {
-    const targetId = '04aa733f-97b2-4b1e-b27f-19aadf5d68a4';
-    const row = await this.checksRepo.findOne({ where: { id: targetId } as any });
-    if (row && (row as any).is_active === true) {
-      await this.checksRepo.update(targetId, { is_active: false } as any);
-      this.logger.log('compliance_checks: deactivated PTA check 9 (Annual Account Review Reports)');
+  private async deactivateAnnualAccountReviewChecks() {
+    const targets = [
+      { id: '04aa733f-97b2-4b1e-b27f-19aadf5d68a4', label: 'PTA check 9' },
+      { id: 'e850d4cf-3a77-418c-9b19-c9395c6c1ea1', label: 'RTA check 10' },
+    ];
+    for (const target of targets) {
+      const row = await this.checksRepo.findOne({ where: { id: target.id } as any });
+      if (row && (row as any).is_active === true) {
+        await this.checksRepo.update(target.id, { is_active: false } as any);
+        this.logger.log(`compliance_checks: deactivated ${target.label} (Annual Account Review Reports)`);
+      }
     }
   }
 
