@@ -5761,8 +5761,9 @@ export class XeroSchedulerService {
           );
           const decoded = this.jwtService.decode(authResponse.data['access_token']);
 
-          const sinceDate = moment().subtract(2, 'hours').toISOString();
-          this.logger.log(`${PREFIX} Company ${companyId}: checking invoices modified since ${sinceDate}`);
+          const sinceMoment = moment().subtract(2, 'hours');
+          const sinceDate = sinceMoment.toDate();
+          this.logger.log(`${PREFIX} Company ${companyId}: checking invoices modified since ${sinceMoment.toISOString()}`);
 
           let xeroInvoices: any[] = [];
           try {
