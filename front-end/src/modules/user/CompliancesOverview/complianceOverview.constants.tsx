@@ -43,6 +43,8 @@ export const getButtonType = (buttonType: string) => {
       return "Add Contract";
     case actionButtonType.EDIT_BANK_ACCOUNT:
       return "Edit Bank Account";
+    case actionButtonType.EDIT_CONTRACT:
+      return "Go to Contract";
     case actionButtonType.EDIT_PROJECT:
       return "Edit Project";
     case actionButtonType.MATCH_TRANSACTIONS:

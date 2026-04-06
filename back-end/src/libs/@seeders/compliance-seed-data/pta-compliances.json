@@ -596,8 +596,8 @@
   {
     "id": "d3dd91e8-4cd2-4179-a4cd-5340e06f1494",
     "bank_account_type": "Project Trust Account",
-    "display_message": "<div>\n      <p>\n        <span style=\"font-weight: 600; color: #e23b30;\">ACTION REQUIRED</span>\n      </p>\n      <span>\n        Please upload the latest transaction csv for the Project Trust Account via the Project Trust Account Overview Page.\n</span>\n    </div>",
-    "display_message_colour": "#e23b30",
+    "display_message": "<div>\n      <p>\n        <span style=\"font-weight: 600; color: #e6a817;\">ACTION RECOMMENDED</span>\n      </p>\n      <span>\n        Please upload the latest transaction csv for the Project Trust Account via the Project Trust Account Overview Page.\n</span>\n    </div>",
+    "display_message_colour": "#e6a817",
     "action_button_type": "UPDATE_TRANSACTION_LIST",
     "check_number": 7,
     "check_name": "PAYMENTS TO YOURSELF AS TRUSTEE",

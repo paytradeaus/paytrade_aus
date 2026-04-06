@@ -53,9 +53,35 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
         this.settingsRepo,
         complianceSettingsData as any[],
       );
+      await this.fixCsvUploadWarningColour();
+      await this.deactivatePtaCheck9();
       this.logger.log('Compliance seeding complete');
     } catch (error) {
       this.logger.error(`Compliance seeding failed: ${error.message}`);
+    }
+  }
+
+  private async fixCsvUploadWarningColour() {
+    const targetId = 'd3dd91e8-4cd2-4179-a4cd-5340e06f1494';
+    const row = await this.ptaRepo.findOne({ where: { id: targetId } as any });
+    if (row && (row as any).display_message_colour === '#e23b30') {
+      const warningColor = '#e6a817';
+      await this.ptaRepo.update(targetId, {
+        display_message_colour: warningColor,
+        display_message: (row as any).display_message
+          ?.replace(/#e23b30/g, warningColor)
+          ?.replace('ACTION REQUIRED', 'ACTION RECOMMENDED'),
+      } as any);
+      this.logger.log('pta_compliances: updated check 7 rule 2 colour to warning');
+    }
+  }
+
+  private async deactivatePtaCheck9() {
+    const targetId = '04aa733f-97b2-4b1e-b27f-19aadf5d68a4';
+    const row = await this.checksRepo.findOne({ where: { id: targetId } as any });
+    if (row && (row as any).is_active === true) {
+      await this.checksRepo.update(targetId, { is_active: false } as any);
+      this.logger.log('compliance_checks: deactivated PTA check 9 (Annual Account Review Reports)');
     }
   }
 
