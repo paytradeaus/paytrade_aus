@@ -1131,7 +1131,7 @@ export class PtSubscriptionService {
                       price: matchingActivePrice.stripe_price_id,
                     },
                   ],
-                  proration_behavior: 'create_prorations',
+                  proration_behavior: 'always_invoice',
                 },
               );
               const mailTemplate = await this.getMailTemplateByMailType(

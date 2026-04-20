@@ -513,7 +513,7 @@ export class PaymentGatewayService {
                     price: pricingDetails.stripe_price_id,
                   },
                 ],
-                proration_behavior: 'create_prorations',
+                proration_behavior: 'always_invoice',
                 ...(couponDetail && {
                   coupon: couponDetail.stripe_coupon_id,
                 }),
