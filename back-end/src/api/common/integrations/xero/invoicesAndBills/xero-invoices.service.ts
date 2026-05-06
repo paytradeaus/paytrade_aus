@@ -832,13 +832,21 @@ export class XeroInvoicesService {
         dueDate: moment(claimDetails.due_date).toDate(), // 14 days later need to check
       };
 
+      // create path always uses Inclusive when GST-optional (no Exclusive option exposed)
+      const resolvedLineAmountTypes: LineAmountTypes = claimDetails.is_gst_optional
+        ? LineAmountTypes.Inclusive
+        : LineAmountTypes.NoTax;
+      // Pick the per-line price source based on the actual Xero
+      // lineAmountTypes (not is_gst_optional). Inclusive lines must be
+      // sent inc-GST; Exclusive/NoTax lines must be sent ex-GST.
+      const isInclusiveLine = resolvedLineAmountTypes === LineAmountTypes.Inclusive;
       if (invoices && invoices.length > 0 && invoices[0] !== null) {
         this.logger.log(`invoices: ${JSON.stringify(invoices)}`);
         let lineItems = [];
         const totalLineAmount = invoices?.reduce((sum, item) => {
           return (
             sum +
-            (claimDetails.is_gst_optional
+            (isInclusiveLine
               ? item?.total_amount_including_gst === null
                 ? 0.0
                 : Math.abs(Number(item?.total_amount_including_gst))
@@ -852,10 +860,6 @@ export class XeroInvoicesService {
           claimDetails.claim_type === 'Billable'
             ? xeroDetails.bill_tax_code
             : xeroDetails.invoice_tax_code;
-        // create path always uses Inclusive when GST-optional (no Exclusive option exposed)
-        const resolvedLineAmountTypes: LineAmountTypes = claimDetails.is_gst_optional
-          ? LineAmountTypes.Inclusive
-          : LineAmountTypes.NoTax;
         for (const element of invoices) {
           // Protect against division by zero to prevent Infinity/NaN values.
           // `retention_amount` is stored ex-GST in PayTrade. The share to
@@ -868,7 +872,7 @@ export class XeroInvoicesService {
           // retention * 0.1 too low.
           const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount && totalLineAmount !== 0)
             ? (Number(claimDetails.retention_amount) *
-                (claimDetails.is_gst_optional
+                (isInclusiveLine
                   ? Number(element.total_amount_including_gst)
                   : Number(element.unit_price))) /
               totalLineAmount
@@ -877,7 +881,7 @@ export class XeroInvoicesService {
             description: element.description,
             quantity: element.quantity,
             unitAmount:
-              (claimDetails.is_gst_optional
+              (isInclusiveLine
                 ? Number(element.total_amount_including_gst)
                 : Number(element.unit_price)) - retentionShare,
             accountCode:
@@ -3917,13 +3921,20 @@ export class XeroInvoicesService {
         // specs honour Exclusive vs Inclusive vs NoTax correctly. For
         // Exclusive we keep retention amounts ex-GST (no *1.1).
         const resolvedLineAmountTypes: LineAmountTypes = invoice.lineAmountTypes as LineAmountTypes;
+        // Pick the per-line price source based on the actual Xero
+        // lineAmountTypes (not is_gst_optional). Inclusive lines must be
+        // sent inc-GST; Exclusive/NoTax lines must be sent ex-GST.
+        // This matters in the update path because an existing Xero
+        // invoice may carry lineAmountTypes=Exclusive while the PT claim
+        // has is_gst_optional=true.
+        const isInclusiveLine = resolvedLineAmountTypes === LineAmountTypes.Inclusive;
 
         if (invoices && invoices.length > 0 && invoices[0] !== null) {
           let lineItems = [];
           const totalLineAmount = invoices?.reduce((sum, item) => {
             return (
               sum +
-              (claimDetails.is_gst_optional
+              (isInclusiveLine
                 ? item?.total_amount_including_gst === null
                   ? 0.0
                   : Math.abs(Number(item?.total_amount_including_gst))
@@ -3943,7 +3954,7 @@ export class XeroInvoicesService {
             // the ex-GST value pro-rated by line amount — never grossed up.
             const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount && totalLineAmount !== 0)
               ? (Number(claimDetails.retention_amount) *
-                  (claimDetails.is_gst_optional
+                  (isInclusiveLine
                     ? Number(element.total_amount_including_gst)
                     : Number(element.unit_price))) /
                 totalLineAmount
@@ -3952,7 +3963,7 @@ export class XeroInvoicesService {
               description: element.description,
               quantity: element.quantity,
               unitAmount:
-                (claimDetails.is_gst_optional
+                (isInclusiveLine
                   ? Number(element.total_amount_including_gst)
                   : Number(element.unit_price)) - retentionShare,
               accountCode:
