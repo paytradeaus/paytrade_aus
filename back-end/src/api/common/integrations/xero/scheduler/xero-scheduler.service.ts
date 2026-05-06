@@ -898,15 +898,21 @@ export class XeroSchedulerService {
           })
           .filter((record) => record.sync_status !== 'Already synced');
 
-        const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
-          decoded,
-          {
+        if (
+          (newData?.length || 0) > 0 ||
+          (oldData?.length || 0) > 0 ||
+          (syncedData?.length || 0) > 0
+        ) {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
             integration_id: xeroDetails.integration_id,
             log_template_id: 381,
             dynamic_values: {},
             project_id: null,
             contract_id: null,
-            reference: {},
+            reference: {
+              xero_record_count: accounts?.length || 0,
+              paytrade_record_count: allBankAccounts?.length || 0,
+            },
             reference_id: null,
             history: [
               `API triggered from bank account scheduler`,
@@ -914,13 +920,13 @@ export class XeroSchedulerService {
             ],
             important_checks: {},
             error_message: null,
-            xero_records: accounts,
-            paytrade_records: allBankAccounts,
+            xero_records: null,
+            paytrade_records: null,
             new_records: newData,
             updated_records: oldData,
             synced_records: syncedData,
-          },
-        );
+          });
+        }
       }
 
       return newAccounts;
@@ -2288,26 +2294,32 @@ export class XeroSchedulerService {
         }
       }
 
-      const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
-        decoded,
-        {
+      if (
+        (newData?.length || 0) > 0 ||
+        (oldData?.length || 0) > 0 ||
+        (syncedData?.length || 0) > 0
+      ) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
           integration_id: xeroDetails.integration_id,
           log_template_id: 382,
           dynamic_values: {},
           project_id: null,
           contract_id: null,
-          reference: {},
+          reference: {
+            xero_record_count: allXeroContacts?.length || 0,
+            paytrade_record_count: allContacts?.length || 0,
+          },
           reference_id: null,
           history: [`API triggered from contact scheduler`, 'Sync successful'],
           important_checks: {},
           error_message: null,
-          xero_records: allXeroContacts,
-          paytrade_records: allContacts,
+          xero_records: null,
+          paytrade_records: null,
           new_records: newData,
           updated_records: oldData,
           synced_records: syncedData,
-        },
-      );
+        });
+      }
 
       return newContacts;
     } catch (error) {
@@ -3366,16 +3378,22 @@ export class XeroSchedulerService {
         .filter((record) => record.sync_status !== 'Already synced');
       // console.log({ syncedData });
 
-      const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
-        decoded,
-        {
+      if (
+        (newData?.length || 0) > 0 ||
+        (oldData?.length || 0) > 0 ||
+        (syncedData?.length || 0) > 0
+      ) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id,
           integration_id: xeroDetails.integration_id,
           log_template_id: 396,
           dynamic_values: {},
           project_id: null,
           contract_id: null,
-          reference: {},
+          reference: {
+            xero_record_count: projects?.length || 0,
+            paytrade_record_count: allProjects?.length || 0,
+          },
           reference_id: null,
           history: [`API triggered from project scheduler`, 'Sync successful'],
           important_checks: {
@@ -3383,13 +3401,13 @@ export class XeroSchedulerService {
             'Import data format validation': 'Ok',
           },
           error_message: null,
-          xero_records: projects,
-          paytrade_records: allProjects,
+          xero_records: null,
+          paytrade_records: null,
           new_records: newData,
           updated_records: oldData,
           synced_records: syncedData,
-        },
-      );
+        });
+      }
 
       return newProjects;
     } catch (err) {
@@ -4437,16 +4455,22 @@ export class XeroSchedulerService {
         .filter((record) => record.sync_status !== 'Already synced');
       // console.log({ syncedData });
 
-      const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
-        decoded,
-        {
+      if (
+        (newData?.length || 0) > 0 ||
+        (oldData?.length || 0) > 0 ||
+        (syncedData?.length || 0) > 0
+      ) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id,
           integration_id: xeroDetails.integration_id,
           log_template_id: 405,
           dynamic_values: {},
           project_id: null,
           contract_id: null,
-          reference: {},
+          reference: {
+            xero_record_count: contracts?.length || 0,
+            paytrade_record_count: allContracts?.length || 0,
+          },
           reference_id: null,
           history: [`API triggered from contract scheduler`, 'Sync successful'],
           important_checks: {
@@ -4454,13 +4478,13 @@ export class XeroSchedulerService {
             'Import data format validation': 'Ok',
           },
           error_message: null,
-          xero_records: contracts,
-          paytrade_records: allContracts,
+          xero_records: null,
+          paytrade_records: null,
           new_records: newData,
           updated_records: oldData,
           synced_records: syncedData,
-        },
-      );
+        });
+      }
 
       return newContracts;
     } catch (err) {
@@ -5080,34 +5104,11 @@ export class XeroSchedulerService {
         }
       }
 
-      const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
-        decoded,
-        {
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 411,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {},
-          reference_id: null,
-          history: [`API triggered from invoice scheduler`, 'Sync successful'],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Ok',
-            'Project mapping validation': 'Ok',
-          },
-          error_message: null,
-          xero_records: invoices,
-          paytrade_records: [],
-          new_records: [],
-          updated_records: [],
-          synced_records: [],
-        },
-      );
+      // Per-invoice sync logs are already written inside createClaimInPaytrade for
+      // every processed invoice (template IDs 412+). The previous unconditional
+      // template-411 summary row was duplicative and fired on every scheduler tick
+      // for any tenant with at least one SUBMITTED/AUTHORISED/PAID invoice, so it
+      // has been removed to stop bloating xero_sync_logs with no-op summaries.
 
       return newInvoices;
     } catch (err) {
