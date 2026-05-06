@@ -787,9 +787,38 @@ Users map PayTrade financial activities to specific Xero account codes:
 Users can also create new Xero accounts directly from this screen by specifying Account Type, Code, and Name.
 
 #### Tax Rate Configuration
-- **Invoice Tax Code:** Default tax rate for invoices synced to Xero
-- **Bill Tax Code:** Default tax rate for bills synced to Xero
-- Users can create new tax rates with custom components, compound tax support, and report tax type (Input, Output, None, Exempt)
+- **Invoice Tax Code:** Default tax rate for invoices synced to Xero (e.g. GST on Income)
+- **Bill Tax Code:** Default tax rate for bills synced to Xero (e.g. GST on Expenses)
+- Users can create custom tax rates with components, compound tax support, and report tax type (Input, Output, None, Exempt) via the **Add new tax rate** modal.
+
+##### Tax Code Status Panel (Live Validation)
+A dedicated **"Tax code status in Xero"** panel sits between the tax-code dropdowns and the Add buttons. It validates that each canonical Australian GST tax code actually exists in the connected Xero organisation, so users cannot save a setting that will fail at sync time.
+
+The canonical set checked against Xero:
+
+| Display Name | Xero Tax Type Code | Report Tax Type | Default Rate |
+|---|---|---|---|
+| GST on Income | OUTPUT | OUTPUT | 10% |
+| GST on Expenses | INPUT | INPUT | 10% |
+| GST Free Income | EXEMPTOUTPUT | EXEMPTOUTPUT | 0% |
+| GST Free Expenses | EXEMPTEXPENSES | EXEMPTEXPENSES | 0% |
+| GST on Imports | GSTONIMPORTS | GSTONIMPORTS | 0% |
+| BAS Excluded | BASEXCLUDED | BASEXCLUDED | 0% |
+
+**Behaviour:**
+- On page load, PayTrade calls Xero's `getTaxRates(Status==ACTIVE)` and merges the result with the canonical list above.
+- Each canonical entry shows ✓ "Found in Xero" or ⚠️ "Not in Xero" in the status panel.
+- Codes missing from Xero are kept in the **Invoice Tax Code** and **Bill Tax Code** dropdowns but rendered as **disabled** with a `(not in Xero)` suffix — users cannot select them.
+- Each missing entry has a **Create in Xero** button next to it that calls Xero's `createTaxRates` API with the canonical preset (display name, report tax type, single GST component at the listed rate). The panel auto-refreshes on success.
+- A **Recheck** button at the top of the panel re-runs the validation. Use this after creating a tax rate directly in Xero (Accounting → Advanced → Tax rates).
+- If the user has previously saved a tax-code setting and that code later becomes inactive/missing in Xero, an inline orange warning appears beneath the affected dropdown: *"This tax code is not active in Xero — sync will fail until you create it (below) or pick another."*
+- Any extra ACTIVE tax rates returned by Xero that are not in the canonical set are also appended to the dropdowns as selectable options (so non-AU customers and custom rates remain usable).
+
+**Why this matters:** Tax codes can be archived or deleted by users in Xero. Without validation, PayTrade would happily save a setting like "GST on Expenses" that no longer exists, then silently fail every claim/bill sync downstream. The status panel surfaces the mismatch up-front and gives a one-click fix.
+
+**Implementation locations:**
+- Frontend: `front-end/src/modules/user/UserIntegrations/XeroDashboard/XeroSettings/index.tsx` (`fetchTaxRates`, `createMissingTaxCode`, status panel JSX), canonical list in `front-end/src/modules/user/UserIntegrations/integration.constant.ts` (`canonicalXeroTaxCodes`)
+- Backend: existing `getTaxRates` and `createTaxRates` resolvers in `back-end/src/api/common/integrations/xero/xero.resolver.ts` (no backend changes were needed)
 
 #### Tracking Categories
 - **Project Tracking Category:** A Xero tracking category that represents PayTrade "Projects"
