@@ -3273,13 +3273,12 @@ export class XeroWebhookService {
             claim_amount: Number(invoice.total || 0) + retentionAmount,
             cash_retention: cashRetention,
             retention_percentage: retentionPercentage,
-            retention_amount: cashRetention
-              ? retentionAmount
-                ? invoice.lineAmountTypes !== LineAmountTypes.NoTax
-                  ? retentionAmount / 1.1
-                  : retentionAmount
-                : 0
-              : 0,
+            // Use the already-computed ex-GST retention (which is just
+            // `retentionUnitOnly` when retention is present). The previous
+            // `retentionAmount / 1.1` re-strip wrongly attributed phantom
+            // GST when retention lines were BAS Excluded — see
+            // adjustItemsWithRetention rationale.
+            retention_amount: cashRetention ? retainedAmountExcludingGST : 0,
             retention_amount_with_gst: retentionAmount,
             compulsory_attachment_ids: data?.compulsory_attachment_ids || [],
             all_subcontracts_paid: claimNotPaidCount > 0 ? false : true,
@@ -4078,14 +4077,11 @@ export class XeroWebhookService {
                 claim_amount: Number(invoice.total || 0) + retentionAmount,
                 cash_retention: cashRetention,
                 retention_percentage: retentionPercentage,
-                //(retentionAmount / Number(invoice.subTotal || 0)) * 100,
-                retention_amount: cashRetention
-                  ? retentionAmount
-                    ? invoice.lineAmountTypes !== LineAmountTypes.NoTax
-                      ? retentionAmount / 1.1
-                      : retentionAmount
-                    : 0
-                  : 0,
+                // See V-Step site above and adjustItemsWithRetention
+                // rationale: use the already-computed ex-GST retention
+                // (`retentionUnitOnly`) so BAS-Excluded retention lines
+                // aren't double-stripped for phantom GST.
+                retention_amount: cashRetention ? retainedAmountExcludingGST : 0,
                 retention_amount_with_gst: retentionAmount,
                 compulsory_attachment_ids:
                   data?.compulsory_attachment_ids ||
