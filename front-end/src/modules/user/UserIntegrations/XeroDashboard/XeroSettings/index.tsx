@@ -23,6 +23,7 @@ import * as Yup from "yup";
 import { useFormik } from "formik";
 import {
   accountTypeOptions,
+  canonicalXeroTaxCodes,
   taxRateOptions,
   yesNoOptions,
 } from "../../integration.constant";
@@ -57,7 +58,10 @@ export default function XeroSettings() {
     totalSimpleTax: 0,
     effectiveTaxRatePercent: 0,
   });
-  const [taxCodeOptions, setTaxCodeOptions] = useState([]);
+  const [taxCodeOptions, setTaxCodeOptions] = useState<any[]>([]);
+  const [xeroTaxRates, setXeroTaxRates] = useState<any[]>([]);
+  const [taxCheckLoading, setTaxCheckLoading] = useState(false);
+  const [creatingTaxType, setCreatingTaxType] = useState<string | null>(null);
 
   const queryParams: any = useSearchParams();
   const syncId: any = queryParams.get("syncId");
@@ -151,14 +155,76 @@ export default function XeroSettings() {
     });
   }
 
-  function fetchTaxRates() {
-    getTaxRates({
+  function fetchTaxRates(showLoader = false) {
+    if (showLoader) setTaxCheckLoading(true);
+    return getTaxRates({
       getTaxTypeInput: {
         company_id: +(localStorage.getItem("companyId") || 0),
       },
-    }).then((data) => {
-      setTaxCodeOptions(data);
-    });
+    })
+      .then((data) => {
+        const xeroRates = Array.isArray(data) ? data : [];
+        setXeroTaxRates(xeroRates);
+
+        // Merge canonical list with whatever Xero actually has.
+        // Canonical entries that aren't in Xero are kept in the dropdown
+        // but greyed out so users can't accidentally pick one that will
+        // fail downstream when syncing claims/bills.
+        const xeroByType = new Map(
+          xeroRates.map((r: any) => [r.type, r] as [string, any])
+        );
+        const merged: any[] = canonicalXeroTaxCodes.map((c) => {
+          const inXero = xeroByType.get(c.type);
+          return {
+            type: c.type,
+            name: inXero?.name
+              ? inXero.name
+              : `${c.name} (not in Xero)`,
+            disabled: !inXero,
+          };
+        });
+
+        // Append any extras that exist in Xero but aren't in our canonical list.
+        const canonicalTypes = new Set(
+          canonicalXeroTaxCodes.map((c) => c.type)
+        );
+        xeroRates
+          .filter((r: any) => r?.type && !canonicalTypes.has(r.type))
+          .forEach((r: any) =>
+            merged.push({ type: r.type, name: r.name, disabled: false })
+          );
+
+        setTaxCodeOptions(merged);
+      })
+      .finally(() => {
+        if (showLoader) setTaxCheckLoading(false);
+      });
+  }
+
+  async function createMissingTaxCode(canonical: any) {
+    setCreatingTaxType(canonical.type);
+    try {
+      const payload = {
+        createTaxTypeInput: {
+          company_id: +(localStorage.getItem("companyId") || 0),
+          display_name: canonical.name,
+          report_tax_type: canonical.report_tax_type,
+          tax_component: [
+            {
+              component_name: canonical.component_name || "GST",
+              is_compound: false,
+              rate: canonical.rate,
+            },
+          ],
+        },
+      };
+      const result = await createTaxTypeApi(payload);
+      if (result === true) {
+        await fetchTaxRates();
+      }
+    } finally {
+      setCreatingTaxType(null);
+    }
   }
 
   async function disconnect() {
@@ -1718,6 +1784,23 @@ export default function XeroSettings() {
                       onBlur={settingsFormik.handleBlur("invoice_tax_code")}
                       error={settingsFormik?.errors?.invoice_tax_code}
                     />
+                    {settingsFormik.values.invoice_tax_code &&
+                      taxCodeOptions.find(
+                        (o) =>
+                          o.type === settingsFormik.values.invoice_tax_code
+                      )?.disabled && (
+                        <small
+                          style={{
+                            color: "#d97706",
+                            display: "block",
+                            marginTop: "4px",
+                          }}
+                        >
+                          <i className="fa-solid fa-triangle-exclamation" />{" "}
+                          This tax code is not active in Xero — sync will fail
+                          until you create it (below) or pick another.
+                        </small>
+                      )}
                   </div>
                   <div>
                     <h5>
@@ -1741,8 +1824,140 @@ export default function XeroSettings() {
                       onBlur={settingsFormik.handleBlur("bill_tax_code")}
                       error={settingsFormik?.errors?.bill_tax_code}
                     />
+                    {settingsFormik.values.bill_tax_code &&
+                      taxCodeOptions.find(
+                        (o) => o.type === settingsFormik.values.bill_tax_code
+                      )?.disabled && (
+                        <small
+                          style={{
+                            color: "#d97706",
+                            display: "block",
+                            marginTop: "4px",
+                          }}
+                        >
+                          <i className="fa-solid fa-triangle-exclamation" />{" "}
+                          This tax code is not active in Xero — sync will fail
+                          until you create it (below) or pick another.
+                        </small>
+                      )}
                   </div>
                   <div></div>
+                </div>
+                <div
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "6px",
+                    padding: "14px 16px",
+                    margin: "8px 0 16px",
+                    background: "#fafafa",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    <div>
+                      <strong style={{ fontSize: "14px" }}>
+                        Tax code status in Xero
+                      </strong>
+                      <p
+                        style={{
+                          color: "#666",
+                          fontSize: "12px",
+                          margin: "4px 0 0",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        Tax codes greyed out in the dropdowns above don't
+                        currently exist in your connected Xero organisation —
+                        selecting one would cause sync failures. Click "Create
+                        in Xero" to add a missing one, or add it directly in
+                        Xero (Accounting &gt; Advanced &gt; Tax rates) and then
+                        click Recheck.
+                      </p>
+                    </div>
+                    <CustomButton
+                      buttonName={taxCheckLoading ? "Checking…" : "Recheck"}
+                      iconClassName="fa-light fa-rotate"
+                      buttonType={buttonType.SECONDARY_SMALL}
+                      actionType="button"
+                      onClick={() => fetchTaxRates(true)}
+                      disabled={taxCheckLoading || !!creatingTaxType}
+                    />
+                  </div>
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    {canonicalXeroTaxCodes.map((c) => {
+                      const inXero = xeroTaxRates.find(
+                        (r: any) => r.type === c.type
+                      );
+                      const isCreating = creatingTaxType === c.type;
+                      return (
+                        <div
+                          key={c.type}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "6px 10px",
+                            background: "#fff",
+                            border: "1px solid #eee",
+                            borderRadius: "4px",
+                            fontSize: "13px",
+                          }}
+                        >
+                          <span>
+                            {inXero ? (
+                              <i
+                                className="fa-solid fa-circle-check"
+                                style={{
+                                  color: "#16a34a",
+                                  marginRight: "8px",
+                                }}
+                              />
+                            ) : (
+                              <i
+                                className="fa-solid fa-triangle-exclamation"
+                                style={{
+                                  color: "#d97706",
+                                  marginRight: "8px",
+                                }}
+                              />
+                            )}
+                            <strong>{c.name}</strong>
+                            <span
+                              style={{ color: "#888", marginLeft: "8px" }}
+                            >
+                              {inXero
+                                ? inXero.name !== c.name
+                                  ? `Found in Xero as "${inXero.name}"`
+                                  : "Found in Xero"
+                                : "Not in Xero"}
+                            </span>
+                          </span>
+                          {!inXero && (
+                            <CustomButton
+                              buttonName={
+                                isCreating ? "Creating…" : "Create in Xero"
+                              }
+                              iconClassName="fa-light fa-hexagon-plus"
+                              buttonType={buttonType.SECONDARY_SMALL}
+                              actionType="button"
+                              onClick={() => createMissingTaxCode(c)}
+                              disabled={
+                                isCreating ||
+                                taxCheckLoading ||
+                                !!creatingTaxType
+                              }
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <CustomButton
                   buttonName="Add new account"

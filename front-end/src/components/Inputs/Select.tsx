@@ -48,7 +48,11 @@ export default function Select({
   // Function to render available options for the select element.
   function renderAvailableOptions() {
     return options?.map((x: any, index: number) => (
-      <option value={x?.[valueKey]} key={index} disabled={disableAllOptions}>
+      <option
+        value={x?.[valueKey]}
+        key={index}
+        disabled={disableAllOptions || !!x?.disabled}
+      >
         {x?.[renderKey]}
       </option>
     ));

@@ -457,3 +457,51 @@ export const taxRateOptions = [
   { value: "BASEXCLUDED", label: "BAS Excluded" },
   { value: "EXEMPTEXPENSES", label: "GST Free Expenses" },
 ];
+
+// Canonical AU GST tax codes that PayTrade expects to be available in Xero.
+// Used by XeroSettings to validate the connected Xero org and offer
+// one-click creation of any that are missing.
+export const canonicalXeroTaxCodes = [
+  {
+    type: "OUTPUT",
+    name: "GST on Income",
+    report_tax_type: "OUTPUT",
+    rate: 10,
+    component_name: "GST",
+  },
+  {
+    type: "INPUT",
+    name: "GST on Expenses",
+    report_tax_type: "INPUT",
+    rate: 10,
+    component_name: "GST",
+  },
+  {
+    type: "EXEMPTOUTPUT",
+    name: "GST Free Income",
+    report_tax_type: "EXEMPTOUTPUT",
+    rate: 0,
+    component_name: "GST",
+  },
+  {
+    type: "EXEMPTEXPENSES",
+    name: "GST Free Expenses",
+    report_tax_type: "EXEMPTEXPENSES",
+    rate: 0,
+    component_name: "GST",
+  },
+  {
+    type: "GSTONIMPORTS",
+    name: "GST on Imports",
+    report_tax_type: "GSTONIMPORTS",
+    rate: 0,
+    component_name: "GST",
+  },
+  {
+    type: "BASEXCLUDED",
+    name: "BAS Excluded",
+    report_tax_type: "BASEXCLUDED",
+    rate: 0,
+    component_name: "GST",
+  },
+];
