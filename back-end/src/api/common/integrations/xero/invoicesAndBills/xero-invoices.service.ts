@@ -51,6 +51,12 @@ dotenv.config();
 export class XeroInvoicesService {
   private logger = new PaytradeLogger('XERO_INVOICES_SERVICE');
   private xero: XeroClient;
+  // Per-tenant cache of Xero account tax types (keyed `${tenantId}:${code}`).
+  // Used by retention/liability producer logic to decide whether to gross
+  // up unitAmount * 1.1 when sending lines to Xero — only accounts whose
+  // taxType is GST-applicable (INPUT, OUTPUT, etc) should be grossed up.
+  // BAS Excluded / Exempt / None accounts must be sent as ex-GST as-is.
+  private accountTaxTypeCache = new Map<string, { taxType: string; expiresAt: number }>();
   constructor(
     @InjectRepository(XeroIntegrationDetails)
     private xeroIntegrationDetails: Repository<XeroIntegrationDetails>,
@@ -842,12 +848,26 @@ export class XeroInvoicesService {
           );
         }, 0.0);
         const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+        const fallbackTaxCode =
+          claimDetails.claim_type === 'Billable'
+            ? xeroDetails.bill_tax_code
+            : xeroDetails.invoice_tax_code;
+        // create path always uses Inclusive when GST-optional (no Exclusive option exposed)
+        const resolvedLineAmountTypes: LineAmountTypes = claimDetails.is_gst_optional
+          ? LineAmountTypes.Inclusive
+          : LineAmountTypes.NoTax;
         for (const element of invoices) {
-          // Protect against division by zero to prevent Infinity/NaN values
+          // Protect against division by zero to prevent Infinity/NaN values.
+          // `retention_amount` is stored ex-GST in PayTrade. The share to
+          // deduct from each bill_code line is the ex-GST retention pro-rated
+          // by line amount. Whether the line is expressed inc-GST or ex-GST,
+          // the deduction is the same dollar value (retention has no GST
+          // component on its own — that is captured separately on the
+          // retention/liability lines below). The previous `* 1.1` here
+          // double-counted the gross-up and produced bill totals that were
+          // retention * 0.1 too low.
           const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount && totalLineAmount !== 0)
-            ? ((claimDetails.is_gst_optional
-                ? Number(claimDetails.retention_amount) * 1.1
-                : Number(claimDetails.retention_amount)) *
+            ? (Number(claimDetails.retention_amount) *
                 (claimDetails.is_gst_optional
                   ? Number(element.total_amount_including_gst)
                   : Number(element.unit_price))) /
@@ -888,59 +908,65 @@ export class XeroInvoicesService {
           claimDetails.cash_retention_type === 'Claim'
         ) {
           if (useSimplifiedRetention) {
-            let retentionLine: LineItem = {
+            const retentionHeldCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.retention_payable_retained_code
+                : xeroDetails.retention_receivable_retained_code;
+            const heldSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              retentionHeldCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
+            const retentionLine: LineItem = {
               description: 'Retention Held',
               quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
+              unitAmount: -heldSpec.unitAmount,
+              accountCode: retentionHeldCode,
               tracking: lineItemTrackings,
+              ...(heldSpec.taxType ? { taxType: heldSpec.taxType } : {}),
             };
-            if (claimDetails.is_gst_optional) {
-              retentionLine = {
-                ...retentionLine,
-                taxType:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.bill_tax_code
-                    : xeroDetails.invoice_tax_code,
-              };
-            }
             lineItems.push(retentionLine);
           } else {
             // Standard 3-line pattern: +retention held, -liability for defects
+            const retentionHeldCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.retention_payable_retained_code
+                : xeroDetails.retention_receivable_retained_code;
+            const liabilityCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.liability_payable_code
+                : xeroDetails.liability_receivable_code;
+            const heldSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              retentionHeldCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
+            const liabSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              liabilityCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
             const lineItem1: LineItem = {
               description: 'Retention Held',
               quantity: 1,
-              unitAmount: claimDetails.is_gst_optional
-                ? claimDetails.retention_amount * 1.1
-                : claimDetails.retention_amount,
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
+              unitAmount: heldSpec.unitAmount,
+              accountCode: retentionHeldCode,
               tracking: lineItemTrackings,
+              ...(heldSpec.taxType ? { taxType: heldSpec.taxType } : {}),
             };
             const lineItem2: LineItem = {
               description: 'Liability for defects',
               quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.liability_payable_code
-                  : xeroDetails.liability_receivable_code,
+              unitAmount: -liabSpec.unitAmount,
+              accountCode: liabilityCode,
               tracking: lineItemTrackings,
+              ...(liabSpec.taxType ? { taxType: liabSpec.taxType } : {}),
             };
             lineItems.push(lineItem1);
             lineItems.push(lineItem2);
@@ -955,59 +981,65 @@ export class XeroInvoicesService {
             );
           }, 0.0);
           if (useSimplifiedRetention) {
-            let retentionReleaseLine: LineItem = {
+            const retentionReleaseCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.retention_payable_retained_code
+                : xeroDetails.retention_receivable_retained_code;
+            const releaseSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              retentionReleaseCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
+            const retentionReleaseLine: LineItem = {
               description: 'Retention Release',
               quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
+              unitAmount: -releaseSpec.unitAmount,
+              accountCode: retentionReleaseCode,
               tracking: lineItemTrackings,
+              ...(releaseSpec.taxType ? { taxType: releaseSpec.taxType } : {}),
             };
-            if (claimDetails.is_gst_optional) {
-              retentionReleaseLine = {
-                ...retentionReleaseLine,
-                taxType:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.bill_tax_code
-                    : xeroDetails.invoice_tax_code,
-              };
-            }
             lineItems.push(retentionReleaseLine);
           } else {
             // Standard 3-line pattern: +liability for defects, -retention release
+            const liabilityCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.liability_payable_code
+                : xeroDetails.liability_receivable_code;
+            const retentionReleaseCode =
+              claimDetails.claim_type === 'Billable'
+                ? xeroDetails.retention_payable_retained_code
+                : xeroDetails.retention_receivable_retained_code;
+            const liabSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              liabilityCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
+            const releaseSpec = await this.getRetentionLineSpec(
+              Number(claimDetails.retention_amount),
+              retentionReleaseCode,
+              xeroDetails.tenant_id,
+              resolvedLineAmountTypes,
+              fallbackTaxCode,
+            );
             const lineItem1: LineItem = {
               description: 'Liability for defects',
               quantity: 1,
-              unitAmount: claimDetails.is_gst_optional
-                ? claimDetails.retention_amount * 1.1
-                : claimDetails.retention_amount,
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.liability_payable_code
-                  : xeroDetails.liability_receivable_code,
+              unitAmount: liabSpec.unitAmount,
+              accountCode: liabilityCode,
               tracking: lineItemTrackings,
+              ...(liabSpec.taxType ? { taxType: liabSpec.taxType } : {}),
             };
             const lineItem2: LineItem = {
               description: 'Retention Release',
               quantity: 1,
-              unitAmount: Number(
-                '-' +
-                  (claimDetails.is_gst_optional
-                    ? claimDetails.retention_amount * 1.1
-                    : claimDetails.retention_amount),
-              ),
-              accountCode:
-                claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code,
+              unitAmount: -releaseSpec.unitAmount,
+              accountCode: retentionReleaseCode,
               tracking: lineItemTrackings,
+              ...(releaseSpec.taxType ? { taxType: releaseSpec.taxType } : {}),
             };
 
             lineItems.push(lineItem1);
@@ -3000,6 +3032,86 @@ export class XeroInvoicesService {
     });
   }
 
+  // Look up a Xero account's taxType by accountCode for a given tenant.
+  // Cached for 5 minutes per (tenant, code). Returns undefined on lookup
+  // failure (caller should fall back to legacy behaviour).
+  async getAccountTaxType(tenantId: string, code: string): Promise<string | undefined> {
+    if (!code || !tenantId) return undefined;
+    const key = `${tenantId}:${code}`;
+    const cached = this.accountTaxTypeCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.taxType;
+    try {
+      const resp = await this.xero.accountingApi.getAccounts(
+        tenantId,
+        undefined,
+        `Code=="${code}"`,
+      );
+      const account = resp?.body?.accounts?.[0];
+      const taxType = account?.taxType as string | undefined;
+      if (taxType) {
+        this.accountTaxTypeCache.set(key, {
+          taxType,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        });
+      }
+      this.logger.log(
+        `[RETENTION_TAX_LOOKUP] tenant=${tenantId} code=${code} taxType=${taxType}`,
+      );
+      return taxType;
+    } catch (e) {
+      this.logger.log(
+        `[RETENTION_TAX_LOOKUP_FAIL] tenant=${tenantId} code=${code} error=${e?.message || e}`,
+      );
+      return undefined;
+    }
+  }
+
+  // Returns true when the given Xero taxType carries GST (10% inc/exc),
+  // false for BAS-Excluded / Exempt / None / Input-Taxed style accounts.
+  // Defaults to true (preserve legacy gross-up behaviour) when unknown.
+  isGstApplicableTaxType(taxType: string | undefined): boolean {
+    if (!taxType) return true;
+    const noGst = new Set([
+      'BASEXCLUDED',
+      'NONE',
+      'EXEMPTOUTPUT',
+      'EXEMPTEXPENSES',
+      'EXEMPTCAPITAL',
+      'INPUTTAXED',
+    ]);
+    return !noGst.has(taxType.toUpperCase());
+  }
+
+  // Resolves the unitAmount + explicit taxType to send on a Xero retention
+  // or liability line. PayTrade stores `retention_amount` as ex-GST. We
+  // gross up to inc-GST (* 1.1) ONLY when ALL of:
+  //   - the invoice's lineAmountTypes is Inclusive (unitAmount is inc-GST), AND
+  //   - the destination Xero account has a GST-applicable tax type.
+  // For Exclusive invoices the unitAmount must remain ex-GST regardless
+  // of the account tax type. For NoTax invoices we send ex-GST and omit
+  // taxType. The taxType is set explicitly on Inclusive/Exclusive lines
+  // for deterministic Xero behaviour rather than relying on account default.
+  async getRetentionLineSpec(
+    retentionAmount: number,
+    accountCode: string,
+    tenantId: string,
+    lineAmountTypes: LineAmountTypes,
+    fallbackTaxCode: string | undefined,
+  ): Promise<{ unitAmount: number; taxType: string | undefined }> {
+    const amount = Number(retentionAmount) || 0;
+    if (lineAmountTypes === LineAmountTypes.NoTax) {
+      return { unitAmount: amount, taxType: undefined };
+    }
+    const accountTaxType = await this.getAccountTaxType(tenantId, accountCode);
+    const grossUp =
+      lineAmountTypes === LineAmountTypes.Inclusive &&
+      this.isGstApplicableTaxType(accountTaxType);
+    return {
+      unitAmount: grossUp ? amount * 1.1 : amount,
+      taxType: accountTaxType || fallbackTaxCode,
+    };
+  }
+
   async adjustItemsWithRetention(
     invoice,
     items,
@@ -3801,6 +3913,10 @@ export class XeroInvoicesService {
           date: moment(invoice_date).toDate(), // today's date
           dueDate: moment(claimDetails.due_date).toDate(), // 14 days later need to check
         };
+        // Capture the resolved lineAmountTypes so retention/liability line
+        // specs honour Exclusive vs Inclusive vs NoTax correctly. For
+        // Exclusive we keep retention amounts ex-GST (no *1.1).
+        const resolvedLineAmountTypes: LineAmountTypes = invoice.lineAmountTypes as LineAmountTypes;
 
         if (invoices && invoices.length > 0 && invoices[0] !== null) {
           let lineItems = [];
@@ -3817,11 +3933,16 @@ export class XeroInvoicesService {
             );
           }, 0.0);
           const useSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+          const fallbackTaxCode =
+            claimDetails.claim_type === 'Billable'
+              ? xeroDetails.bill_tax_code
+              : xeroDetails.invoice_tax_code;
           for (const element of invoices) {
-            const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount)
-              ? ((claimDetails.is_gst_optional
-                  ? Number(claimDetails.retention_amount) * 1.1
-                  : Number(claimDetails.retention_amount)) *
+            // See createInvoiceOrBillInXero for explanation: retention_amount
+            // is ex-GST and the share to deduct from each bill_code line is
+            // the ex-GST value pro-rated by line amount — never grossed up.
+            const retentionShare = (!useSimplifiedRetention && claimDetails.retention_amount && totalLineAmount !== 0)
+              ? (Number(claimDetails.retention_amount) *
                   (claimDetails.is_gst_optional
                     ? Number(element.total_amount_including_gst)
                     : Number(element.unit_price))) /
@@ -3861,58 +3982,64 @@ export class XeroInvoicesService {
             claimDetails.cash_retention_type === 'Claim'
           ) {
             if (useSimplifiedRetention) {
-              let retentionLine: LineItem = {
+              const retentionHeldCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code;
+              const heldSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                retentionHeldCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
+              const retentionLine: LineItem = {
                 description: 'Retention Held',
                 quantity: 1,
-                unitAmount: Number(
-                  '-' +
-                    (claimDetails.is_gst_optional
-                      ? claimDetails.retention_amount * 1.1
-                      : claimDetails.retention_amount),
-                ),
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.retention_payable_retained_code
-                    : xeroDetails.retention_receivable_retained_code,
+                unitAmount: -heldSpec.unitAmount,
+                accountCode: retentionHeldCode,
                 tracking: lineItemTrackings,
+                ...(heldSpec.taxType ? { taxType: heldSpec.taxType } : {}),
               };
-              if (claimDetails.is_gst_optional) {
-                retentionLine = {
-                  ...retentionLine,
-                  taxType:
-                    claimDetails.claim_type === 'Billable'
-                      ? xeroDetails.bill_tax_code
-                      : xeroDetails.invoice_tax_code,
-                };
-              }
               lineItems.push(retentionLine);
             } else {
+              const retentionHeldCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code;
+              const liabilityCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.liability_payable_code
+                  : xeroDetails.liability_receivable_code;
+              const heldSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                retentionHeldCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
+              const liabSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                liabilityCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
               const lineItem1: LineItem = {
                 description: 'Retention Held',
                 quantity: 1,
-                unitAmount: claimDetails.is_gst_optional
-                  ? claimDetails.retention_amount * 1.1
-                  : claimDetails.retention_amount,
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.retention_payable_retained_code
-                    : xeroDetails.retention_receivable_retained_code,
+                unitAmount: heldSpec.unitAmount,
+                accountCode: retentionHeldCode,
                 tracking: lineItemTrackings,
+                ...(heldSpec.taxType ? { taxType: heldSpec.taxType } : {}),
               };
               const lineItem2: LineItem = {
                 description: 'Liability for defects',
                 quantity: 1,
-                unitAmount: Number(
-                  '-' +
-                    (claimDetails.is_gst_optional
-                      ? claimDetails.retention_amount * 1.1
-                      : claimDetails.retention_amount),
-                ),
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.liability_payable_code
-                    : xeroDetails.liability_receivable_code,
+                unitAmount: -liabSpec.unitAmount,
+                accountCode: liabilityCode,
                 tracking: lineItemTrackings,
+                ...(liabSpec.taxType ? { taxType: liabSpec.taxType } : {}),
               };
               lineItems.push(lineItem1);
               lineItems.push(lineItem2);
@@ -3927,58 +4054,64 @@ export class XeroInvoicesService {
               );
             }, 0.0);
             if (useSimplifiedRetention) {
-              let retentionReleaseLine: LineItem = {
+              const retentionReleaseCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code;
+              const releaseSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                retentionReleaseCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
+              const retentionReleaseLine: LineItem = {
                 description: 'Retention Release',
                 quantity: 1,
-                unitAmount: Number(
-                  '-' +
-                    (claimDetails.is_gst_optional
-                      ? claimDetails.retention_amount * 1.1
-                      : claimDetails.retention_amount),
-                ),
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.retention_payable_retained_code
-                    : xeroDetails.retention_receivable_retained_code,
+                unitAmount: -releaseSpec.unitAmount,
+                accountCode: retentionReleaseCode,
                 tracking: lineItemTrackings,
+                ...(releaseSpec.taxType ? { taxType: releaseSpec.taxType } : {}),
               };
-              if (claimDetails.is_gst_optional) {
-                retentionReleaseLine = {
-                  ...retentionReleaseLine,
-                  taxType:
-                    claimDetails.claim_type === 'Billable'
-                      ? xeroDetails.bill_tax_code
-                      : xeroDetails.invoice_tax_code,
-                };
-              }
               lineItems.push(retentionReleaseLine);
             } else {
+              const liabilityCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.liability_payable_code
+                  : xeroDetails.liability_receivable_code;
+              const retentionReleaseCode =
+                claimDetails.claim_type === 'Billable'
+                  ? xeroDetails.retention_payable_retained_code
+                  : xeroDetails.retention_receivable_retained_code;
+              const liabSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                liabilityCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
+              const releaseSpec = await this.getRetentionLineSpec(
+                Number(claimDetails.retention_amount),
+                retentionReleaseCode,
+                xeroDetails.tenant_id,
+                resolvedLineAmountTypes,
+                fallbackTaxCode,
+              );
               const lineItem1: LineItem = {
                 description: 'Liability for defects',
                 quantity: 1,
-                unitAmount: claimDetails.is_gst_optional
-                  ? claimDetails.retention_amount * 1.1
-                  : claimDetails.retention_amount,
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.liability_payable_code
-                    : xeroDetails.liability_receivable_code,
+                unitAmount: liabSpec.unitAmount,
+                accountCode: liabilityCode,
                 tracking: lineItemTrackings,
+                ...(liabSpec.taxType ? { taxType: liabSpec.taxType } : {}),
               };
               const lineItem2: LineItem = {
                 description: 'Retention Release',
                 quantity: 1,
-                unitAmount: Number(
-                  '-' +
-                    (claimDetails.is_gst_optional
-                      ? claimDetails.retention_amount * 1.1
-                      : claimDetails.retention_amount),
-                ),
-                accountCode:
-                  claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.retention_payable_retained_code
-                    : xeroDetails.retention_receivable_retained_code,
+                unitAmount: -releaseSpec.unitAmount,
+                accountCode: retentionReleaseCode,
                 tracking: lineItemTrackings,
+                ...(releaseSpec.taxType ? { taxType: releaseSpec.taxType } : {}),
               };
 
               lineItems.push(lineItem1);
