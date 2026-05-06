@@ -4020,27 +4020,8 @@ export class XeroSchedulerService {
       const createdGroup = decoded ? 'USER' : 'SYSTEM';
       const mappedStatus = decoded ? 'Auto' : 'System';
       if (!xeroDetails.contract_category_id) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: sync_id,
-          api_name: 'refreshContracts',
-          api_payload: { company_id, category_type: 'contract' },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 402,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {},
-          reference_id: null,
-          history: [`API triggered from contract scheduler`, 'Import failed'],
-          important_checks: { 'Import tracking id validation': 'Failed' },
-          error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-          xero_records: [],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
+        this.logger.log(`refreshContracts: contract_category_id not configured (optional) — skipping contract tracking refresh for company ${company_id}.`);
+        return true;
       }
 
       const where = null;
@@ -5858,9 +5839,10 @@ export class XeroSchedulerService {
 
           let xeroContacts: any[] = [];
           try {
+            const contactSinceDate = new Date(sinceMoment.valueOf());
             const contactResp = await this.xero.accountingApi.getContacts(
               refreshedXero.tenant_id,
-              sinceDate,
+              contactSinceDate,
             );
             xeroContacts = contactResp?.body?.contacts || [];
           } catch (apiErr) {

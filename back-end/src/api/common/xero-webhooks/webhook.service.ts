@@ -1484,44 +1484,10 @@ export class XeroWebhookService {
       }
 
       if (!xeroDetails.contract_category_id) {
-        this.logger.error(`[BILL_TRACE] V-Step 6 FAILED: Missing contract_category_id. Writing sync log 257/417.`);
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id || null,
-          api_name: 'createClaimInPaytrade',
-          api_payload: {
-            sync_run_type,
-            invoice_id: invoice?.invoiceID,
-            tenant_id,
-            category_type: 'contract',
-            type:
-              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: sync_run_type === 'webhook' ? 257 : 417,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {},
-          reference_id: null,
-          history: [
-            `API triggered from invoice ${sync_run_type}`,
-            'Import failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Failed',
-          },
-          error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-          xero_records: [invoice],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
+        this.logger.log(`[BILL_TRACE] V-Step 6: contract_category_id not configured (optional) — skipping contract tracking extraction; will rely on project + smart contract auto-create if enabled.`);
       }
 
-      this.logger.log(`[BILL_TRACE] V-Step 6 OK: Category IDs present`);
+      this.logger.log(`[BILL_TRACE] V-Step 6 OK: Project category ID present`);
 
       let contractTrackingId = null;
       let projectTrackingId = null;

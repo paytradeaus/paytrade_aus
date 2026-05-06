@@ -3402,39 +3402,7 @@ export class XeroInvoicesService {
       }
 
       if (!xeroDetails.contract_category_id) {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id,
-          api_name: 'editInvoiceOrBillInXero',
-          api_payload: {
-            payment_claim_id: data.payment_claim_id,
-            category_type: 'contract',
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: claimDetails.claim_type == 'Billable' ? 301 : 303,
-          dynamic_values: {},
-          project_id: null,
-          contract_id: null,
-          reference: {
-            xeroId: null,
-            paytradeId: claimDetails?.id,
-          },
-          reference_id: claimDetails?.id,
-          history: [
-            `API triggered from claim ${claimDetails?.payment_claim_id}`,
-            'Export failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Ok',
-            'Import tracking id validation': 'Failed',
-          },
-          error_message: `Missing contract tracking category ID. Please configure the mapping in Settings to continue.`,
-          xero_records: [],
-          paytrade_records: [claimDetails],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
+        this.logger.log(`contract_category_id not configured (optional) — proceeding without contract tracking dimension on line items.`);
       }
 
       let expectedCodeCheck = null;

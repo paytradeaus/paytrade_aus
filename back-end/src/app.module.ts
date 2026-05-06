@@ -226,18 +226,17 @@ import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-se
       serveRoot: '/uploads',
     }),
     BullModule.forRoot({
-      connection:
-        process.env.NODE_ENV === 'production' && process.env.REDIS_URL
-          ? {
-              url: process.env.REDIS_URL,
-              tls: process.env.REDIS_URL.startsWith('rediss://')
-                ? {}
-                : undefined,
-            }
-          : {
-              host: '127.0.0.1',
-              port: 6379,
-            },
+      connection: process.env.REDIS_URL
+        ? {
+            url: process.env.REDIS_URL,
+            tls: process.env.REDIS_URL.startsWith('rediss://')
+              ? {}
+              : undefined,
+          }
+        : {
+            host: '127.0.0.1',
+            port: 6379,
+          },
     }),
     BullModule.registerQueue({
       name: 'xero-refresh-token',
