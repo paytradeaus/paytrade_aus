@@ -1982,13 +1982,17 @@ export class XeroSchedulerService {
 
               if (xeroDetails.sync_contact_financial_to_pt && hasXeroFinancial && !hasPtAccount) {
                 try {
-                  const bsbRaw = xeroBatchPayments.code ? xeroBatchPayments.code.trim() : '';
-                  const bsbDigits = bsbRaw.replace(/\D/g, '');
-                  const bsbParsed = bsbDigits.length > 0 ? parseInt(bsbDigits, 10) : null;
+                  // Xero stores AU contact bank details as a single concatenated string
+                  // in BatchPayments.BankAccountNumber — first 6 digits are the BSB,
+                  // the remainder is the account number. There is no separate `code`
+                  // field on a Contact's BatchPayments (that exists only on Accounts).
+                  const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
+                  const bsbParsed = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+                  const acctParsed = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
                   const accountDetail: any = {
                     account_type: 'Cash Account',
                     account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
-                    account_number: xeroBatchPayments.bankAccountNumber || '',
+                    account_number: acctParsed,
                     bsb_number: bsbParsed,
                     company_id: company_id,
                     client_supplier_id: resolvedCsId,
@@ -2065,10 +2069,15 @@ export class XeroSchedulerService {
               if (xeroDetails.sync_contact_financial_to_xero && hasPtAccount && !hasXeroFinancial) {
                 try {
                   const firstAccount = ptAccountDetails[0];
+                  // Xero AU expects a single concatenated string: 6-digit BSB
+                  // (zero-padded) + account number. No separate `code` field.
+                  const bsbDigitsPush = firstAccount.bsb_number
+                    ? String(firstAccount.bsb_number).replace(/\D/g, '').padStart(6, '0')
+                    : '';
+                  const acctDigitsPush = (firstAccount.account_number || '').replace(/\D/g, '');
                   const batchPaymentData = {
                     bankAccountName: firstAccount.account_name || '',
-                    bankAccountNumber: firstAccount.account_number || '',
-                    code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
+                    bankAccountNumber: `${bsbDigitsPush}${acctDigitsPush}`,
                   };
 
                   await this.xero.accountingApi.updateContact(
@@ -2143,11 +2152,18 @@ export class XeroSchedulerService {
               } else if (hasPtAccount && hasXeroFinancial) {
                 const firstAccount = ptAccountDetails[0];
                 const ptName = firstAccount.account_name || '';
-                const ptNumber = firstAccount.account_number || '';
-                const ptBsb = firstAccount.bsb_number ? String(firstAccount.bsb_number) : '';
+                const ptNumberDigits = (firstAccount.account_number || '').replace(/\D/g, '');
+                const ptBsbDigits = firstAccount.bsb_number
+                  ? String(firstAccount.bsb_number).replace(/\D/g, '').padStart(6, '0')
+                  : '';
                 const xeroName = xeroBatchPayments.bankAccountName || '';
-                const xeroNumber = xeroBatchPayments.bankAccountNumber || '';
-                const xeroBsb = xeroBatchPayments.code || '';
+                // Split Xero's concatenated bankAccountNumber: first 6 digits = BSB,
+                // remainder = account number.
+                const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
+                const xeroBsb = xeroDigits.length >= 6 ? xeroDigits.slice(0, 6) : '';
+                const xeroNumber = xeroDigits.length > 6 ? xeroDigits.slice(6) : xeroDigits;
+                const ptNumber = ptNumberDigits;
+                const ptBsb = ptBsbDigits;
 
                 const detailsMatch =
                   ptName === xeroName &&
@@ -5281,13 +5297,17 @@ export class XeroSchedulerService {
 
         if (hasXeroFinancial && !hasPtAccount) {
           try {
-            const bsbRaw = xeroBatchPayments.code ? xeroBatchPayments.code.trim() : '';
-            const bsbDigits = bsbRaw.replace(/\D/g, '');
-            const bsbParsed = bsbDigits.length > 0 ? parseInt(bsbDigits, 10) : null;
+            // Xero stores AU contact bank details as a single concatenated string
+            // in BatchPayments.BankAccountNumber — first 6 digits are the BSB,
+            // the remainder is the account number. There is no separate `code`
+            // field on a Contact's BatchPayments (that exists only on Accounts).
+            const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
+            const bsbParsed = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+            const acctParsed = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
             const accountDetail: any = {
               account_type: 'Cash Account',
               account_name: xeroBatchPayments.bankAccountName || mappedContact.contact_name,
-              account_number: xeroBatchPayments.bankAccountNumber || '',
+              account_number: acctParsed,
               bsb_number: bsbParsed,
               company_id: company_id,
               client_supplier_id: resolvedCsId,
@@ -5344,11 +5364,18 @@ export class XeroSchedulerService {
         } else if (hasPtAccount && hasXeroFinancial) {
           const firstAccount = ptAccountDetails[0];
           const ptName = firstAccount.account_name || '';
-          const ptNumber = firstAccount.account_number || '';
-          const ptBsb = firstAccount.bsb_number ? String(firstAccount.bsb_number) : '';
+          const ptNumberDigits = (firstAccount.account_number || '').replace(/\D/g, '');
+          const ptBsbDigits = firstAccount.bsb_number
+            ? String(firstAccount.bsb_number).replace(/\D/g, '').padStart(6, '0')
+            : '';
           const xeroName = xeroBatchPayments.bankAccountName || '';
-          const xeroNumber = xeroBatchPayments.bankAccountNumber || '';
-          const xeroBsb = xeroBatchPayments.code || '';
+          // Split Xero's concatenated bankAccountNumber: first 6 digits = BSB,
+          // remainder = account number.
+          const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
+          const xeroBsb = xeroDigits.length >= 6 ? xeroDigits.slice(0, 6) : '';
+          const xeroNumber = xeroDigits.length > 6 ? xeroDigits.slice(6) : xeroDigits;
+          const ptNumber = ptNumberDigits;
+          const ptBsb = ptBsbDigits;
 
           const detailsMatch =
             ptName === xeroName &&
@@ -5410,10 +5437,15 @@ export class XeroSchedulerService {
 
     for (const { mappedContact, firstAccount } of contactsNeedingPush) {
       try {
+        // Xero AU expects a single concatenated string: 6-digit BSB
+        // (zero-padded) + account number. No separate `code` field.
+        const bsbDigitsPush = firstAccount.bsb_number
+          ? String(firstAccount.bsb_number).replace(/\D/g, '').padStart(6, '0')
+          : '';
+        const acctDigitsPush = (firstAccount.account_number || '').replace(/\D/g, '');
         const batchPaymentData = {
           bankAccountName: firstAccount.account_name || '',
-          bankAccountNumber: firstAccount.account_number || '',
-          code: firstAccount.bsb_number ? String(firstAccount.bsb_number) : '',
+          bankAccountNumber: `${bsbDigitsPush}${acctDigitsPush}`,
         };
 
         let pushed = false;

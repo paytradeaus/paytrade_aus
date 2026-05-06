@@ -5537,11 +5537,18 @@ export class XeroInvoicesService {
             const xeroFullContact = xeroContactResp?.body?.contacts?.[0] || null;
             const xeroBatchPayments = xeroFullContact?.batchPayments;
             if (xeroBatchPayments && (xeroBatchPayments.bankAccountNumber || xeroBatchPayments.bankAccountName)) {
+              // Xero stores AU contact bank details as a single concatenated string
+              // in BatchPayments.BankAccountNumber — first 6 digits are the BSB,
+              // the remainder is the account number. There is no separate `code`
+              // field on a Contact's BatchPayments (that exists only on Accounts).
+              const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
+              const bsbParsedNew = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+              const acctParsedNew = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
               const newAccount = bankAccountsRepo.create({
                 account_type: 'Cash Account' as const,
                 account_name: xeroBatchPayments.bankAccountName || contactName,
-                account_number: xeroBatchPayments.bankAccountNumber || '',
-                bsb_number: xeroBatchPayments.code && /^\d[\d\s\-]*\d$|^\d$/.test(xeroBatchPayments.code.trim()) ? parseInt(xeroBatchPayments.code.trim().replace(/[\s\-]/g, ''), 10) : null,
+                account_number: acctParsedNew,
+                bsb_number: bsbParsedNew,
                 company_id: company_id,
                 client_supplier_id: clientSuppliersDetails.client_supplier_id,
                 status: 'Open' as const,

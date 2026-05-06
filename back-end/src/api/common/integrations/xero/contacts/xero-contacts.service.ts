@@ -1084,10 +1084,13 @@ export class XeroContactsService {
               (acc) => acc.account_number && acc.bsb_number,
             );
             if (bankAccount) {
+              // Xero AU expects a single concatenated string: 6-digit BSB
+              // (zero-padded) + account number. No separate `code` field.
+              const bsbDigitsPush = String(bankAccount.bsb_number).replace(/\D/g, '').padStart(6, '0');
+              const acctDigitsPush = String(bankAccount.account_number || '').replace(/\D/g, '');
               contactData.batchPayments = {
                 bankAccountName: bankAccount.account_name || '',
-                bankAccountNumber: bankAccount.account_number,
-                code: String(bankAccount.bsb_number),
+                bankAccountNumber: `${bsbDigitsPush}${acctDigitsPush}`,
               };
               this.logger.log(
                 `Including financial details in Xero contact update for ${clientSupplierDetails.client_supplier_name}`,
