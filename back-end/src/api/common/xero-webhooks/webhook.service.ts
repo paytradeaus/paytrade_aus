@@ -2912,15 +2912,22 @@ export class XeroWebhookService {
               ].includes(item?.accountCode),
             ) || [];
 
-          const retentionAmount = retentionLineItems.reduce((sum, item) => {
-            return (
-              sum +
-              (item?.unitAmount === null
-                ? 0.0
-                : Math.abs(Number(item?.unitAmount))) +
-              (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
-            );
+          // See xero-invoices.service.ts adjustItemsWithRetention for
+          // the full rationale: track ex-GST (unit) and GST (tax)
+          // retention portions separately so BAS-Excluded retention
+          // lines aren't double-deducted for phantom GST.
+          const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
+            const u = Math.abs(Number(item?.unitAmount || 0));
+            const t = Math.abs(Number(item?.taxAmount || 0));
+            const unitExGst =
+              invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
+            return sum + unitExGst;
           }, 0.0);
+          const retentionTaxOnly = retentionLineItems.reduce(
+            (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
+            0.0,
+          );
+          const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
           const cashRetention =
             cash_retention_type === 'Claim' &&
@@ -2951,18 +2958,16 @@ export class XeroWebhookService {
               invoices = await this.xeroInvoicesService.adjustItemsWithRetention(
                 invoice,
                 filteredInvoices,
-                retentionAmount,
+                retentionUnitOnly,
+                retentionTaxOnly,
                 invoice.lineAmountTypes,
               );
             }
 
             const subtotal = invoices.reduce((sum, i) => sum + i.unit_price, 0);
-            retainedAmountExcludingGST = retentionAmount
-              ? invoice.lineAmountTypes !== LineAmountTypes.NoTax
-                ? retentionAmount / 1.1
-                : retentionAmount
-              : 0;
+            retainedAmountExcludingGST = retentionUnitOnly;
             retentionPercentage = subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
+            this.logger.log(`[BILL_TRACE] V-Step retention math: retentionUnitOnly=${retentionUnitOnly}, retentionTaxOnly=${retentionTaxOnly}, subtotal=${subtotal}, retentionPercentage=${retentionPercentage}`);
           }
 
           if (
@@ -3707,15 +3712,18 @@ export class XeroWebhookService {
                   ].includes(item?.accountCode),
                 ) || [];
 
-              const retentionAmount = retentionLineItems.reduce((sum, item) => {
-                return (
-                  sum +
-                  (item?.unitAmount === null
-                    ? 0.0
-                    : Math.abs(Number(item?.unitAmount))) +
-                  (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
-                );
+              const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
+                const u = Math.abs(Number(item?.unitAmount || 0));
+                const t = Math.abs(Number(item?.taxAmount || 0));
+                const unitExGst =
+                  invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
+                return sum + unitExGst;
               }, 0.0);
+              const retentionTaxOnly = retentionLineItems.reduce(
+                (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
+                0.0,
+              );
+              const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
               const cashRetention =
                 cash_retention_type === 'Claim' &&
@@ -3747,7 +3755,8 @@ export class XeroWebhookService {
                     await this.xeroInvoicesService.adjustItemsWithRetention(
                       invoice,
                       filteredInvoices,
-                      retentionAmount,
+                      retentionUnitOnly,
+                      retentionTaxOnly,
                       invoice.lineAmountTypes,
                     );
                 }
@@ -3758,13 +3767,10 @@ export class XeroWebhookService {
                   (sum, i) => sum + i.unit_price,
                   0,
                 );
-                retainedAmountExcludingGST = retentionAmount
-                  ? invoice.lineAmountTypes !== LineAmountTypes.NoTax
-                    ? retentionAmount / 1.1
-                    : retentionAmount
-                  : 0;
+                retainedAmountExcludingGST = retentionUnitOnly;
                 retentionPercentage =
                   subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
+                this.logger.log(`[BILL_TRACE] D-Step retention math: retentionUnitOnly=${retentionUnitOnly}, retentionTaxOnly=${retentionTaxOnly}, subtotal=${subtotal}, retentionPercentage=${retentionPercentage}`);
               }
 
               if (

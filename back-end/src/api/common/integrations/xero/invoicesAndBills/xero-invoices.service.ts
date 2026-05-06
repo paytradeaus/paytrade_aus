@@ -2535,13 +2535,24 @@ export class XeroInvoicesService {
         ].includes(item?.accountCode),
       ) || [];
 
-    const retentionAmount = retentionLineItems.reduce((sum, item) => {
-      return (
-        sum +
-        (item?.unitAmount === null ? 0.0 : Math.abs(Number(item?.unitAmount))) +
-        (item?.taxAmount === null ? 0.0 : Math.abs(Number(item?.taxAmount)))
-      );
+    // Track ex-GST (unit) and GST (tax) portions of the retention
+    // separately so we don't lose the BAS-Excluded vs GST-on-Expenses
+    // signal carried by each retention line. `unitExGst` normalises the
+    // unitAmount to an ex-GST figure whatever `lineAmountTypes` is.
+    const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
+      const u = Math.abs(Number(item?.unitAmount || 0));
+      const t = Math.abs(Number(item?.taxAmount || 0));
+      const unitExGst =
+        invoiceDetails.lineAmountTypes === LineAmountTypes.Inclusive
+          ? u - t
+          : u;
+      return sum + unitExGst;
     }, 0.0);
+    const retentionTaxOnly = retentionLineItems.reduce(
+      (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
+      0.0,
+    );
+    const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
     const cashRetention =
       retentionLineItems && retentionLineItems.length > 0 && retentionAmount > 0
@@ -2570,17 +2581,18 @@ export class XeroInvoicesService {
         invoices = await this.adjustItemsWithRetention(
           invoiceDetails,
           filteredInvoices,
-          retentionAmount,
+          retentionUnitOnly,
+          retentionTaxOnly,
           invoiceDetails.lineAmountTypes,
         );
       }
 
       const subtotal = invoices.reduce((sum, i) => sum + i.unit_price, 0);
-      retainedAmountExcludingGST = retentionAmount
-        ? invoiceDetails.lineAmountTypes !== LineAmountTypes.NoTax
-          ? retentionAmount / 1.1
-          : retentionAmount
-        : 0;
+      // Use the ex-GST sum directly — BAS-Excluded retention has no GST
+      // to strip out, and GST-on-Expenses retention has its tax tracked
+      // on the line itself. The old `retentionAmount / 1.1` over-stripped
+      // GST whenever taxAmount was already zero on the retention line.
+      retainedAmountExcludingGST = retentionUnitOnly;
       retentionPercentage = subtotal !== 0 ? (retainedAmountExcludingGST / subtotal) * 100 : 0;
     }
 
@@ -2991,9 +3003,21 @@ export class XeroInvoicesService {
   async adjustItemsWithRetention(
     invoice,
     items,
-    retentionAmountIncludingGST: number,
+    retentionUnitOnly: number,
+    retentionTaxOnly: number,
     lineAmountTypes,
   ) {
+    // Why two scalars instead of one inc-GST total: when the user has
+    // their retention accounts mapped as `BAS Excluded` in Xero (a very
+    // common configuration), the retention line(s) carry the full
+    // retention as `unitAmount` with `taxAmount = 0`. The previous
+    // signature collapsed both into a single inc-GST scalar and then
+    // re-split it using the bill-code line's own GST ratio, which
+    // wrongly attributed phantom GST to the retention. Tracking the
+    // ex-GST and GST portions separately (computed by the caller from
+    // each retention line's true unitAmount/taxAmount with respect to
+    // the invoice's lineAmountTypes) preserves the source-of-truth
+    // split and produces the correct gross unit price and percentage.
     const totalOriginal = (invoice?.subTotal ?? 0) + (invoice?.totalTax ?? 0);
 
     return items.map((item) => {
@@ -3005,24 +3029,17 @@ export class XeroInvoicesService {
       const lineAmount =
         lineAmountTypes === LineAmountTypes.Inclusive
           ? item.unitAmount * item.quantity
-          : item.unitAmount * item.quantity + item.taxAmount;
+          : item.unitAmount * item.quantity + (item.taxAmount || 0);
 
       // Protect against division by zero to prevent Infinity/NaN values
       const itemRatio = totalOriginal !== 0 ? lineAmount / totalOriginal : 0;
 
-      const retentionShare = retentionAmountIncludingGST * itemRatio;
-
-      // Protect against division by zero to prevent Infinity/NaN values
-      const baseRatio = lineAmount !== 0 ? unitAmount / lineAmount : 0;
-
-      const taxRatio = lineAmount !== 0 ? item.taxAmount / lineAmount : 0;
-
-      const unitRetention = retentionShare * baseRatio;
-      const taxRetention = retentionShare * taxRatio;
+      const unitRetention = retentionUnitOnly * itemRatio;
+      const taxRetention = retentionTaxOnly * itemRatio;
 
       const newUnitAmount = unitAmount + unitRetention;
-      const newTaxAmount = item.taxAmount + taxRetention;
-      const newAmountIncludingGST = lineAmount + retentionShare;
+      const newTaxAmount = (item.taxAmount || 0) + taxRetention;
+      const newAmountIncludingGST = lineAmount + unitRetention + taxRetention;
 
       this.logger.log(JSON.stringify({
         newUnitAmount,
@@ -3030,7 +3047,8 @@ export class XeroInvoicesService {
         newAmountIncludingGST,
         unitRetention,
         taxRetention,
-        retentionShare,
+        retentionUnitOnly,
+        retentionTaxOnly,
       }));
       return {
         unit_price: [
