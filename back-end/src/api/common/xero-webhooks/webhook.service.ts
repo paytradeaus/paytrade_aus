@@ -124,6 +124,109 @@ export class XeroWebhookService {
     this.logger = new PaytradeLogger('XERO_WEBHOOK_SERVICE');
   }
 
+  /**
+   * Classify a Xero invoice/bill as a regular Claim or a Retention Release
+   * (cash_retention_type = 'Claim' | 'Retention claim') in a way that is
+   * robust to the common misconfiguration where the user has pointed
+   * `retention_payable_release_code` and `retention_payable_retained_code`
+   * (or the receivable equivalents) at the same Xero account.
+   *
+   * Option C predicate (agreed with product):
+   *   isRelease  iff (no base bill_code/invoice_code line is present)
+   *              AND (net signed sum on retained_code <= 0)
+   *              AND (at least one line on release_code OR retained_code).
+   *
+   * Why: PayTrade's own producer (xero-invoices.service.ts ~lines 786-938)
+   * writes a release as base items on `release_code` (positive) plus a
+   * NEGATIVE balancing line on `retained_code` and a POSITIVE balancing
+   * line on `liability_code`, and never includes a `bill_code` /
+   * `invoice_code` line. A regular Claim with a retention component does
+   * include base lines on `bill_code`/`invoice_code` and a POSITIVE line
+   * on `retained_code`. The presence of a base line + sign of the
+   * retained-code line are therefore the two signals that uniquely
+   * separate the two shapes even when codes are shared.
+   *
+   * Returns the classifier flag plus the lineItem1/lineItem2 booleans
+   * used by the existing 2-line guard, with a `codesShared` adjustment
+   * that prevents the guard from false-triggering when retained_code
+   * === release_code.
+   */
+  static classifyRetentionShape(invoice: any, xeroDetails: any): {
+    retentionClaimnlineItem: boolean;
+    lineItem1: boolean;
+    lineItem2: boolean;
+    hasBaseLine: boolean;
+    netRetainedSigned: number;
+    codesShared: boolean;
+  } {
+    const isAccPay = invoice?.type === Invoice.TypeEnum.ACCPAY;
+    const releaseCode = isAccPay
+      ? xeroDetails?.retention_payable_release_code
+      : xeroDetails?.retention_receivable_release_code;
+    const retainedCode = isAccPay
+      ? xeroDetails?.retention_payable_retained_code
+      : xeroDetails?.retention_receivable_retained_code;
+    const liabilityCode = isAccPay
+      ? xeroDetails?.liability_payable_code
+      : xeroDetails?.liability_receivable_code;
+    const baseCode = isAccPay
+      ? xeroDetails?.bill_code
+      : xeroDetails?.invoice_code;
+
+    const codesShared = !!(
+      releaseCode &&
+      retainedCode &&
+      releaseCode === retainedCode
+    );
+
+    const lineItems: any[] = invoice?.lineItems || [];
+
+    const hasBaseLine =
+      !!baseCode && lineItems.some((item) => item?.accountCode === baseCode);
+    const hasReleaseCodeLine =
+      !!releaseCode &&
+      lineItems.some((item) => item?.accountCode === releaseCode);
+    const hasRetainedCodeLine =
+      !!retainedCode &&
+      lineItems.some((item) => item?.accountCode === retainedCode);
+    const hasLiabilityLine =
+      !!liabilityCode &&
+      lineItems.some((item) => item?.accountCode === liabilityCode);
+
+    const netRetainedSigned = lineItems
+      .filter((item) => retainedCode && item?.accountCode === retainedCode)
+      .reduce(
+        (sum: number, item: any) => sum + Number(item?.unitAmount || 0),
+        0,
+      );
+
+    // Option C: a release has no base line AND nets <=0 on the retained
+    // code AND has at least one line on release_code (or retained_code,
+    // since when codes are shared they are the same line).
+    const retentionClaimnlineItem =
+      !hasBaseLine &&
+      (hasReleaseCodeLine || hasRetainedCodeLine) &&
+      netRetainedSigned <= 0;
+
+    // Preserve the existing 2-line guard semantics, but when codes are
+    // shared do not double-count the same line as both release and
+    // retained — collapse to a single signal so (lineItem1 XOR lineItem2)
+    // does not false-trigger the "There should be 2 line items" error.
+    const lineItem1 = retentionClaimnlineItem
+      ? hasReleaseCodeLine
+      : hasRetainedCodeLine;
+    const lineItem2 = hasLiabilityLine;
+
+    return {
+      retentionClaimnlineItem,
+      lineItem1,
+      lineItem2,
+      hasBaseLine,
+      netRetainedSigned,
+      codesShared,
+    };
+  }
+
   private log(message: string) {
     this.logger.log(`${message}`);
   }
@@ -2488,36 +2591,17 @@ export class XeroWebhookService {
       if (xeroInvoice) {
         this.logger.log(`[BILL_TRACE] V-Step 20: Invoice saved. pt_claim_id=${xeroInvoice?.pt_claim_id || 'null'}. Proceeding to claim creation...`);
         if (!xeroInvoice?.pt_claim_id) {
-          const retentionClaimnlineItem = invoice?.lineItems?.some(
-            (item) =>
-              item?.accountCode ===
-              (invoice.type === Invoice.TypeEnum.ACCPAY
-                ? xeroDetails.retention_payable_release_code
-                : xeroDetails.retention_receivable_release_code),
-          );
-
-          const lineItem1 = invoice?.lineItems?.some(
-            (item) =>
-              item?.accountCode ===
-              (retentionClaimnlineItem
-                ? invoice.type === Invoice.TypeEnum.ACCPAY
-                  ? xeroDetails.retention_payable_release_code
-                  : xeroDetails.retention_receivable_release_code
-                : invoice.type === Invoice.TypeEnum.ACCPAY
-                  ? xeroDetails.retention_payable_retained_code
-                  : xeroDetails.retention_receivable_retained_code),
-          );
-
-          const lineItem2 = invoice?.lineItems?.some(
-            (item) =>
-              item?.accountCode ===
-              (invoice.type === Invoice.TypeEnum.ACCPAY
-                ? xeroDetails.liability_payable_code
-                : xeroDetails.liability_receivable_code),
-          );
+          const {
+            retentionClaimnlineItem,
+            lineItem1,
+            lineItem2,
+            hasBaseLine,
+            netRetainedSigned,
+            codesShared,
+          } = XeroWebhookService.classifyRetentionShape(invoice, xeroDetails);
 
           const webhookSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
-          this.logger.log(`[BILL_TRACE] V-Step 20: cash_retention_type check — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, simplifiedRetention=${webhookSimplifiedRetention}`);
+          this.logger.log(`[BILL_TRACE] V-Step 20: cash_retention_type check — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, hasBaseLine=${hasBaseLine}, netRetainedSigned=${netRetainedSigned}, codesShared=${codesShared}, simplifiedRetention=${webhookSimplifiedRetention}`);
           if (!webhookSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
             this.logger.error(`[BILL_TRACE] V-Step 20 FAILED: Retention line item count mismatch (need 2). Writing sync log 274/434.`);
             await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -3287,35 +3371,17 @@ export class XeroWebhookService {
           if (['DRAFT', 'SUBMITTED', 'AUTHORISED'].includes(invoice.status)) {
             if (['Draft', 'Confirmed'].includes(claimDetails.status)) {
               claimDetails['invoices'] = claimDetails.paymentClaimInvoices;
-              const retentionClaimnlineItem = invoice?.lineItems?.some(
-                (item) =>
-                  item?.accountCode ===
-                  (invoice.type === Invoice.TypeEnum.ACCPAY
-                    ? xeroDetails.retention_payable_release_code
-                    : xeroDetails.retention_receivable_release_code),
-              );
-
-              const lineItem1 = invoice?.lineItems?.some(
-                (item) =>
-                  item?.accountCode ===
-                  (retentionClaimnlineItem
-                    ? invoice.type === Invoice.TypeEnum.ACCPAY
-                      ? xeroDetails.retention_payable_release_code
-                      : xeroDetails.retention_receivable_release_code
-                    : invoice.type === Invoice.TypeEnum.ACCPAY
-                      ? xeroDetails.retention_payable_retained_code
-                      : xeroDetails.retention_receivable_retained_code),
-              );
-
-              const lineItem2 = invoice?.lineItems?.some(
-                (item) =>
-                  item?.accountCode ===
-                  (invoice.type === Invoice.TypeEnum.ACCPAY
-                    ? xeroDetails.liability_payable_code
-                    : xeroDetails.liability_receivable_code),
-              );
+              const {
+                retentionClaimnlineItem,
+                lineItem1,
+                lineItem2,
+                hasBaseLine,
+                netRetainedSigned,
+                codesShared,
+              } = XeroWebhookService.classifyRetentionShape(invoice, xeroDetails);
 
               const draftSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+              this.logger.log(`[BILL_TRACE] D-Step: cash_retention_type check (draft path) — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, hasBaseLine=${hasBaseLine}, netRetainedSigned=${netRetainedSigned}, codesShared=${codesShared}, simplifiedRetention=${draftSimplifiedRetention}`);
               if (!draftSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: data?.sync_id || null,
@@ -5183,35 +5249,17 @@ export class XeroWebhookService {
         }
       }
 
-      const retentionClaimnlineItem = invoice?.lineItems?.some(
-        (item) =>
-          item?.accountCode ===
-          (invoice.type === Invoice.TypeEnum.ACCPAY
-            ? xeroDetails.retention_payable_release_code
-            : xeroDetails.retention_receivable_release_code),
-      );
-
-      const lineItem1 = invoice?.lineItems?.some(
-        (item) =>
-          item?.accountCode ===
-          (retentionClaimnlineItem
-            ? invoice.type === Invoice.TypeEnum.ACCPAY
-              ? xeroDetails.retention_payable_release_code
-              : xeroDetails.retention_receivable_release_code
-            : invoice.type === Invoice.TypeEnum.ACCPAY
-              ? xeroDetails.retention_payable_retained_code
-              : xeroDetails.retention_receivable_retained_code),
-      );
-
-      const lineItem2 = invoice?.lineItems?.some(
-        (item) =>
-          item?.accountCode ===
-          (invoice.type === Invoice.TypeEnum.ACCPAY
-            ? xeroDetails.liability_payable_code
-            : xeroDetails.liability_receivable_code),
-      );
+      const {
+        retentionClaimnlineItem,
+        lineItem1,
+        lineItem2,
+        hasBaseLine,
+        netRetainedSigned,
+        codesShared,
+      } = XeroWebhookService.classifyRetentionShape(invoice, xeroDetails);
 
       const updateSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
+      this.logger.log(`[BILL_TRACE] U-Step: cash_retention_type check (update path) — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, hasBaseLine=${hasBaseLine}, netRetainedSigned=${netRetainedSigned}, codesShared=${codesShared}, simplifiedRetention=${updateSimplifiedRetention}`);
       if (!updateSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
