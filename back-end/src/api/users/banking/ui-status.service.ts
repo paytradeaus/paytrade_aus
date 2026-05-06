@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, IsNull } from 'typeorm';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { PaymentClaims } from 'src/entities/banking.entity';
@@ -202,10 +202,17 @@ export class StatusService {
         claim_type = null;
       }
 
+      // Coerce empty-string claim_type/payment_type/current_status to IsNull()
+      // so TypeORM emits `IS NULL` instead of `= ''`. The seeded
+      // ui_status_and_action_buttons rows store these columns as NULL when
+      // not applicable (e.g. payment_type for a claim with no payments yet).
+      // Without this coercion, Xero-imported claims (which arrive with
+      // status='Confirmed' and no payments) miss the matching row and end
+      // up with empty claim_overview_buttons / claim_list_buttons.
       whereConditions = {
-        claim_type: claim_type,
-        payment_type: payment_type,
-        current_status: current_status,
+        claim_type: claim_type === '' || claim_type == null ? IsNull() : claim_type,
+        payment_type: payment_type === '' || payment_type == null ? IsNull() : payment_type,
+        current_status: current_status === '' || current_status == null ? IsNull() : current_status,
       };
       // }
       // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
@@ -456,10 +463,17 @@ export class StatusService {
         claim_type = null;
       }
 
+      // Coerce empty-string claim_type/payment_type/current_status to IsNull()
+      // so TypeORM emits `IS NULL` instead of `= ''`. The seeded
+      // ui_status_and_action_buttons rows store these columns as NULL when
+      // not applicable (e.g. payment_type for a claim with no payments yet).
+      // Without this coercion, Xero-imported claims (which arrive with
+      // status='Confirmed' and no payments) miss the matching row and end
+      // up with empty claim_overview_buttons / claim_list_buttons.
       whereConditions = {
-        claim_type: claim_type,
-        payment_type: payment_type,
-        current_status: current_status,
+        claim_type: claim_type === '' || claim_type == null ? IsNull() : claim_type,
+        payment_type: payment_type === '' || payment_type == null ? IsNull() : payment_type,
+        current_status: current_status === '' || current_status == null ? IsNull() : current_status,
       };
       // }
       // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
@@ -737,10 +751,17 @@ export class StatusService {
         claim_type = null;
       }
 
+      // Coerce empty-string claim_type/payment_type/current_status to IsNull()
+      // so TypeORM emits `IS NULL` instead of `= ''`. The seeded
+      // ui_status_and_action_buttons rows store these columns as NULL when
+      // not applicable (e.g. payment_type for a claim with no payments yet).
+      // Without this coercion, Xero-imported claims (which arrive with
+      // status='Confirmed' and no payments) miss the matching row and end
+      // up with empty claim_overview_buttons / claim_list_buttons.
       whereConditions = {
-        claim_type: claim_type,
-        payment_type: payment_type,
-        current_status: current_status,
+        claim_type: claim_type === '' || claim_type == null ? IsNull() : claim_type,
+        payment_type: payment_type === '' || payment_type == null ? IsNull() : payment_type,
+        current_status: current_status === '' || current_status == null ? IsNull() : current_status,
       };
       this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       let statusDetails = await transactionalEntityManager.findOne(
@@ -1099,10 +1120,17 @@ export class StatusService {
         claim_type = null;
       }
 
+      // Coerce empty-string claim_type/payment_type/current_status to IsNull()
+      // so TypeORM emits `IS NULL` instead of `= ''`. The seeded
+      // ui_status_and_action_buttons rows store these columns as NULL when
+      // not applicable (e.g. payment_type for a claim with no payments yet).
+      // Without this coercion, Xero-imported claims (which arrive with
+      // status='Confirmed' and no payments) miss the matching row and end
+      // up with empty claim_overview_buttons / claim_list_buttons.
       whereConditions = {
-        claim_type: claim_type,
-        payment_type: payment_type,
-        current_status: current_status,
+        claim_type: claim_type === '' || claim_type == null ? IsNull() : claim_type,
+        payment_type: payment_type === '' || payment_type == null ? IsNull() : payment_type,
+        current_status: current_status === '' || current_status == null ? IsNull() : current_status,
       };
       // this.logger.log(`whereConditions: : ${JSON.stringify(whereConditions)}`);
       let statusDetails = await this.statusRepo.findOne({
