@@ -71,6 +71,13 @@ export class GetContractsListRes {
   @Field({ nullable: true, description: 'Type of contract.' })
   contract_type: string;
 
+  @Field({
+    nullable: true,
+    description:
+      "Billing type of the contract: 'Fixed' (default) or 'Hourly'.",
+  })
+  contract_billing_type?: string;
+
   @Field({ nullable: true, description: 'Current status of the contract.' })
   contract_status: ContractStatus;
 

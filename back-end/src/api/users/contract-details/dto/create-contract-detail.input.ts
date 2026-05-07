@@ -1,4 +1,5 @@
 import { InputType, Int, Field } from '@nestjs/graphql';
+import { IsIn, IsOptional } from 'class-validator';
 import {
   ClientSupplierType,
   RelatedEntity,
@@ -32,6 +33,17 @@ export class CreateContractDetailInput {
 
   @Field({ nullable: true, description: 'Type of the contract (optional).' })
   contract_type: string;
+
+  @Field({
+    nullable: true,
+    description:
+      "Billing type of the contract: 'Fixed' (default — warning shown when claim exceeds pending) or 'Hourly' (auto-create variation for shortfall when claim exceeds pending).",
+  })
+  @IsOptional()
+  @IsIn(['Fixed', 'Hourly'], {
+    message: "contract_billing_type must be either 'Fixed' or 'Hourly'",
+  })
+  contract_billing_type?: 'Fixed' | 'Hourly';
 
   @Field({
     nullable: true,

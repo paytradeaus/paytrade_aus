@@ -162,6 +162,7 @@ export const getContractListsForCompany = async (
                 contract_start_date
                 contract_status
                 contract_type
+                contract_billing_type
                 defect_liability_end_date
                 formatted_initial_contract_sum
                 formatted_variation_amount
@@ -341,6 +342,7 @@ export const viewContractDetailsById = async (
               contract_start_date
               contract_status
               contract_type
+              contract_billing_type
               defect_liability_end_date
               file
               file_name
@@ -413,6 +415,7 @@ export interface UpdateContractDetailInput {
   retention_type?: any;
   client_supplier_role?: any;
   contract_type?: any;
+  contract_billing_type?: string;
   buyer_name?: any;
   client_supplier_name?: any;
   client_supplier_type?: any;
@@ -453,6 +456,7 @@ export const editContractDetailsById = async (
               contract_start_date
               contract_status
               contract_type
+              contract_billing_type
               defect_liability_end_date
               file
               file_name

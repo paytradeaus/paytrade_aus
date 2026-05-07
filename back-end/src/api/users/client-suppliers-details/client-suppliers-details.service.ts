@@ -1795,6 +1795,7 @@ export class ClientSuppliersDetailsService {
         .addSelect('contract.contract_name', 'contract_name')
         .addSelect('contract.client_supplier_role', 'client_supplier_role')
         .addSelect('contract.contract_type', 'contract_type')
+        .addSelect('contract.contract_billing_type', 'contract_billing_type')
         .addSelect('contract.contract_status', 'contract_status')
         .addSelect('contract.contract_date', 'contract_date')
         .addSelect('contract.project_id', 'project_id')

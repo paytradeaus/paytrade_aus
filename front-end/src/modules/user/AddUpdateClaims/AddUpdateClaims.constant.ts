@@ -75,6 +75,7 @@ export interface ContractOption {
   label: string;
   contract_id: number;
   payment_terms: any;
+  contract_billing_type?: string;
 }
 
 const SubscriptionPlanTypes = {

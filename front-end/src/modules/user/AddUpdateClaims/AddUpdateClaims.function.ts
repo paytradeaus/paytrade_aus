@@ -127,6 +127,7 @@ async function getContractsListByClientSupplierId(
               contract_name
               contract_status
               contract_type
+              contract_billing_type
               defect_liability_end_date
               id
               initial_contract_sum
@@ -195,6 +196,7 @@ async function getContractListsForCompany(data: any): Promise<any> {
                 contract_start_date
                 contract_status
                 contract_type
+                contract_billing_type
                 defect_liability_end_date
                 formatted_initial_contract_sum
                 formatted_variation_amount

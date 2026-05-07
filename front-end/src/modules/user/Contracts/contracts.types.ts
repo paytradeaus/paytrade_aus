@@ -17,6 +17,7 @@ export interface IContractListDetail {
   variation_amount?: string;
   client_supplier_role?: string;
   contract_type?: string;
+  contract_billing_type?: string;
   buyer_name?: string;
   client_supplier_name?: string;
   client_supplier_type?: string;

@@ -414,10 +414,19 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         }
       }
 
+      const selectedContractForExceed = contractOptions?.find(
+        (c: any) =>
+          c?.contract_id === values?.contract_id ||
+          c?.value === values?.contract_id
+      );
+      const isHourlyContract =
+        (selectedContractForExceed as any)?.contract_billing_type === "Hourly";
+
       if (
         values?.cash_retention_type !== "Retention claim" &&
         values?.subTotal > values?.contractTotal &&
-        !proceedWithExceedingAmount
+        !proceedWithExceedingAmount &&
+        !isHourlyContract
       ) {
         setDisplayContractValueExceedModal(true);
         setDisableDraftButton(false);

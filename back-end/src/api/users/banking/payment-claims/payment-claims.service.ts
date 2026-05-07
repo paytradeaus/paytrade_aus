@@ -329,6 +329,21 @@ export class PaymentClaimsService {
             );
           }
 
+          await this.maybeAutoUpliftForHourlyContract(
+            transactionalEntityManager,
+            decoded,
+            {
+              contract_id: data.contract_id,
+              project_id: data.project_id,
+              company_id: data.company_id,
+              claim_type: data.claim_type,
+              status: data.status,
+              claim_amount: Number(data.claim_amount),
+            },
+            payment_claim_id,
+            created_by,
+          );
+
           let noticeResult = null;
           if (data?.claim_type === 'Receivable' && data?.status !== 'Draft') {
             noticeResult =
@@ -923,6 +938,21 @@ export class PaymentClaimsService {
               transactionalEntityManager,
             );
           }
+
+          await this.maybeAutoUpliftForHourlyContract(
+            transactionalEntityManager,
+            decoded,
+            {
+              contract_id: data.contract_id,
+              project_id: data.project_id,
+              company_id: data.company_id,
+              claim_type: claimDetails.claim_type,
+              status: data.status,
+              claim_amount: Number(data.claim_amount),
+            },
+            updatedClaimDetails.payment_claim_id,
+            updated_by,
+          );
 
           let noticesResult = null;
 
@@ -4746,6 +4776,188 @@ export class PaymentClaimsService {
     } catch (error) {
       this.logger.error(error);
       throw new Error(error);
+    }
+  }
+
+  /**
+   * Hourly contract auto-uplift.
+   * For supplier contracts marked as `Hourly`, when a Billable claim
+   * (Confirmed or Draft) is saved/edited and the new claim amount exceeds
+   * the contract's pending amount, automatically create one Agreed
+   * variation for the shortfall instead of showing the exceed warning modal.
+   * Best-effort: any failure is logged but does not block the claim save.
+   */
+  private async maybeAutoUpliftForHourlyContract(
+    txEm: EntityManager,
+    decoded: any,
+    data: {
+      contract_id?: number;
+      project_id?: number;
+      company_id: number;
+      claim_type?: string;
+      status?: string;
+      claim_amount?: number;
+    },
+    payment_claim_id: number,
+    userId?: number,
+  ) {
+    try {
+      if (!data?.contract_id || !data?.claim_amount) return;
+      if (data.claim_type !== 'Billable') return;
+      if (data.status !== 'Confirmed' && data.status !== 'Draft') return;
+
+      const contract = await txEm.findOne(ContractDetails, {
+        where: { contract_id: data.contract_id },
+      });
+      if (!contract) return;
+      if ((contract.contract_billing_type || 'Fixed') !== 'Hourly') return;
+
+      const variationsRow = await txEm
+        .createQueryBuilder(VariationDetails, 'v')
+        .select('COALESCE(SUM(v.variation_amount), 0)', 'sum')
+        .where("v.variation_status = 'Agreed'")
+        .andWhere('v.contract_id = :cid', { cid: data.contract_id })
+        .getRawOne<{ sum: string }>();
+      const variationsSum = Number(variationsRow?.sum || 0);
+
+      const claimsRow = await txEm
+        .createQueryBuilder(PaymentClaims, 'pc')
+        .select('COALESCE(SUM(pc.claim_amount), 0)', 'sum')
+        .where('pc.contract_id = :cid', { cid: data.contract_id })
+        .andWhere('pc.payment_claim_id <> :pid', { pid: payment_claim_id })
+        .andWhere("pc.claim_type = 'Billable'")
+        .andWhere("pc.status NOT IN ('Draft', 'Deleted')")
+        .getRawOne<{ sum: string }>();
+      const priorClaimsSum = Number(claimsRow?.sum || 0);
+
+      const initial = Number(contract.initial_contract_sum || 0);
+      const newClaim = Number(data.claim_amount);
+      const variationName = `Auto uplift — Claim #${payment_claim_id}`;
+
+      // Look up any existing auto-uplift variation for this claim. We need to
+      // exclude its amount from the variations sum so the pending calc
+      // doesn't double-count the previous uplift.
+      const existingAutoVariation = await txEm.findOne(VariationDetails, {
+        where: {
+          company_id: data.company_id,
+          contract_id: data.contract_id,
+          variation_name: variationName,
+        },
+      });
+      const existingAutoAmount =
+        existingAutoVariation &&
+        existingAutoVariation.variation_status === 'Agreed' &&
+        !existingAutoVariation.is_archived
+          ? Number(existingAutoVariation.variation_amount || 0)
+          : 0;
+
+      const pending =
+        initial + (variationsSum - existingAutoAmount) - priorClaimsSum;
+
+      if (newClaim <= pending) {
+        // No shortfall on this claim. If a prior auto-uplift variation
+        // exists, archive it so contract headroom isn't permanently
+        // overstated.
+        if (existingAutoVariation && !existingAutoVariation.is_archived) {
+          existingAutoVariation.variation_amount = 0;
+          existingAutoVariation.is_archived = true;
+          existingAutoVariation.variation_status = 'Archived';
+          existingAutoVariation.updated_by =
+            userId ?? decoded?.userId ?? existingAutoVariation.updated_by;
+          existingAutoVariation.updated_group = 'USER';
+          await txEm.save(existingAutoVariation);
+          this.logger.log(
+            `Hourly auto-uplift archived (no shortfall): contract ${data.contract_id}, claim ${payment_claim_id}`,
+          );
+        }
+        return;
+      }
+
+      const shortfall = Number((newClaim - pending).toFixed(2));
+      if (shortfall <= 0) return;
+
+      // Enforce exactly one auto-uplift variation per claim: reuse the one
+      // looked up above if present; otherwise insert a new Agreed variation.
+      let savedVariation: VariationDetails;
+      if (existingAutoVariation) {
+        existingAutoVariation.variation_amount = shortfall;
+        existingAutoVariation.variation_status = 'Agreed';
+        existingAutoVariation.is_archived = false;
+        existingAutoVariation.updated_by =
+          userId ?? decoded?.userId ?? existingAutoVariation.updated_by;
+        existingAutoVariation.updated_group = 'USER';
+        savedVariation = await txEm.save(existingAutoVariation);
+      } else {
+        // VariationDetailsSubscriber.afterInsert applies the +100000 display
+        // ID transform — do not rewrite variation_id here.
+        const variation = txEm.create(VariationDetails, {
+          company_id: data.company_id,
+          contract_id: data.contract_id,
+          project_id: data.project_id || contract.project_id,
+          variation_name: variationName,
+          variation_status: 'Agreed',
+          variation_amount: shortfall,
+          is_archived: false,
+          created_by: userId ?? decoded?.userId ?? null,
+          created_group: 'USER',
+          created_on: moment().tz('UTC'),
+        });
+        savedVariation = await txEm.save(variation);
+      }
+
+      const project = await txEm.findOne(ProjectDetails, {
+        where: { project_id: savedVariation.project_id },
+      });
+
+      const variationLink =
+        `${process.env.LOG_BASE_URL}` +
+        `${linkExtensions[7]}` +
+        savedVariation.id +
+        `?from=log`;
+      const projectLink = project
+        ? `${process.env.LOG_BASE_URL}` +
+          `${linkExtensions[4]}` +
+          project.id +
+          `?from=log`
+        : '';
+
+      const activity: CreateActivityLogInput = {
+        event_template_id: 63,
+        admin_id:
+          decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+            ? decoded?.admin_id
+            : null,
+        to_user:
+          decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+            ? decoded?.userId
+            : null,
+        from_user:
+          decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+            ? null
+            : decoded?.userId,
+        company_id: data.company_id,
+        dynamic_values: {
+          variationName,
+          variationLink,
+          variationAmount: formatCurrency(shortfall),
+          projectName: project?.project_name || '',
+          projectLink,
+        },
+        is_admin: false,
+        created_by: userId ?? decoded?.userId ?? null,
+      };
+      await this.activityLogService.insertActivityLog(activity);
+
+      this.logger.log(
+        `Hourly auto-uplift: contract ${data.contract_id}, claim ${payment_claim_id}, shortfall ${shortfall}, variation_id ${savedVariation.variation_id}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Hourly auto-uplift failed for claim ${payment_claim_id}: ${
+          err?.message || err
+        }`,
+      );
+      throw err instanceof Error ? err : new Error(String(err));
     }
   }
 }

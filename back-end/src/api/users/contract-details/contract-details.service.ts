@@ -125,6 +125,10 @@ export class ContractDetailsService {
 
       createContractDetailInput.contract_type =
         contractTypeDetails.contract_type;
+      createContractDetailInput.contract_billing_type =
+        createContractDetailInput.contract_billing_type === 'Hourly'
+          ? 'Hourly'
+          : 'Fixed';
       createContractDetailInput.contract_name =
         await startCasePreserveUnicode(
           createContractDetailInput.contract_name,
@@ -318,6 +322,7 @@ export class ContractDetailsService {
       .addSelect('company.company_name', 'company_name')
       .addSelect('contract.contract_name', 'contract_name')
       .addSelect('contract.contract_type', 'contract_type')
+      .addSelect('contract.contract_billing_type', 'contract_billing_type')
       .addSelect('contract.client_supplier_role', 'client_supplier_role')
       .addSelect('contract.contract_date', 'contract_date')
       .addSelect('contract.contract_status', 'contract_status')
@@ -774,6 +779,7 @@ export class ContractDetailsService {
       company_name: result?.companyDetails?.company_name,
       contract_name: result.contract_name,
       contract_type: result.contract_type,
+      contract_billing_type: result.contract_billing_type,
       client_supplier_role: result.client_supplier_role,
       contract_date: result.contract_date,
       contract_status: result.contract_status,
@@ -846,6 +852,7 @@ export class ContractDetailsService {
       company_id: result.company_id,
       contract_name: result.contract_name,
       contract_type: result.contract_type,
+      contract_billing_type: result.contract_billing_type,
       client_supplier_role: result.client_supplier_role,
       contract_date: result.contract_date,
       contract_status: result.contract_status,
@@ -1065,6 +1072,14 @@ export class ContractDetailsService {
                       updateContractDetailInput.client_supplier_role;
                     contract.contract_type =
                       updateContractDetailInput.contract_type;
+                    if (
+                      updateContractDetailInput.contract_billing_type !==
+                      undefined
+                    ) {
+                      contract.contract_billing_type =
+                        updateContractDetailInput.contract_billing_type ||
+                        'Fixed';
+                    }
                     contract.contract_date =
                       updateContractDetailInput.contract_date;
                     contract.retention_type =
@@ -1580,6 +1595,7 @@ export class ContractDetailsService {
       .addSelect('company.company_name', 'company_name')
       .addSelect('contract.contract_name', 'contract_name')
       .addSelect('contract.contract_type', 'contract_type')
+      .addSelect('contract.contract_billing_type', 'contract_billing_type')
       .addSelect('contract.client_supplier_role', 'client_supplier_role')
       .addSelect('contract.contract_date', 'contract_date')
       .addSelect('contract.contract_status', 'contract_status')

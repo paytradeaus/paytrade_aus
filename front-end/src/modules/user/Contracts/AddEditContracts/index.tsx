@@ -482,6 +482,7 @@ export default function AddEditContracts(props: any) {
         ClientSupplierRole: formValues?.ClientSupplierRole || "",
         ProjectName: formValues?.ProjectName || "",
         RetentionType: formValues?.RetentionType || "",
+        ContractBillingType: formValues?.ContractBillingType || "Fixed",
         PaymentTerms: formValues?.PaymentTerms || "",
         InitialContractSum: formValues?.InitialContractSum || "",
         modifiedInitialContractSum:
@@ -731,6 +732,7 @@ export default function AddEditContracts(props: any) {
         ClientSupplier: contractData?.client_supplier_name || "",
         ClientSupplierRole: contractData?.client_supplier_role || "",
         RetentionType: contractData?.retention_type || "",
+        ContractBillingType: contractData?.contract_billing_type || "Fixed",
         ProjectName: contractData?.project_name,
       });
       dropdownData(
@@ -831,6 +833,9 @@ export default function AddEditContracts(props: any) {
       ProjectName: "",
 
       RetentionType: isEdit ? contractData?.retention_type || "" : "",
+      ContractBillingType: isEdit
+        ? contractData?.contract_billing_type || "Fixed"
+        : "Fixed",
       PaymentDetails: null,
       PaymentTerms: isEdit ? contractData?.payment_terms || "" : "",
       InitialContractSum: isEdit
@@ -901,6 +906,7 @@ export default function AddEditContracts(props: any) {
             ? "In Progress"
             : "Draft",
         retention_type: formik?.values?.RetentionType,
+        contract_billing_type: formik?.values?.ContractBillingType || "Fixed",
         payment_terms: Number(values?.PaymentTerms),
         project_id: selectedProjectID,
         client_supplier_id: selectedClientSuplierID,
@@ -1091,6 +1097,7 @@ export default function AddEditContracts(props: any) {
 
         contract_status: "In Progress",
         retention_type: formik?.values?.RetentionType,
+        contract_billing_type: formik?.values?.ContractBillingType || "Fixed",
         payment_terms: Number(formik?.values?.PaymentTerms),
         project_id: selectedProjectID,
         client_supplier_id: selectedClientSuplierID,
@@ -1889,6 +1896,28 @@ export default function AddEditContracts(props: any) {
                     formik.setFieldValue("RetentionType", selectedOption);
                     setRetentionSelectedData(selectedOption);
                   }}
+                />
+
+                <FormikControl
+                  label="Contract type"
+                  placeholder="Select contract type"
+                  options={[
+                    { label: "Fixed", value: "Fixed" },
+                    { label: "Hourly", value: "Hourly" },
+                  ]}
+                  required
+                  disabled={disableCondition}
+                  control={InputType.SELECT}
+                  value={formik.values.ContractBillingType || "Fixed"}
+                  renderKey="value"
+                  valueKey="label"
+                  onChange={(selectedOption: any) => {
+                    formik.setFieldValue(
+                      "ContractBillingType",
+                      selectedOption || "Fixed"
+                    );
+                  }}
+                  onBlur={formik.handleBlur("ContractBillingType")}
                 />
 
                 <label>

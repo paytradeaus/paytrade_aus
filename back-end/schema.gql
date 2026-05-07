@@ -3032,6 +3032,11 @@ input CreateContractDetailInput {
   """ID of the business associated with the contract."""
   company_id: Int!
 
+  """
+  Billing type of the contract: 'Fixed' (default — warning shown when claim exceeds pending) or 'Hourly' (auto-create variation for shortfall when claim exceeds pending).
+  """
+  contract_billing_type: String
+
   """Date when the contract was created or signed."""
   contract_date: DateTime!
 
@@ -9864,6 +9869,9 @@ type GetContractListResp {
   """business name associated with the contract."""
   company_name: String
 
+  """Billing type of the contract: 'Fixed' or 'Hourly'."""
+  contract_billing_type: String
+
   """Date the contract was signed."""
   contract_date: DateTime
 
@@ -10032,6 +10040,9 @@ type GetContractsListRes {
 
   """Role of the client or supplier associated with the contract."""
   client_supplier_role: String
+
+  """Billing type of the contract: 'Fixed' (default) or 'Hourly'."""
+  contract_billing_type: String
 
   """Date the contract was created or signed."""
   contract_date: DateTime
@@ -20475,6 +20486,11 @@ input UpdateContractDetailInput {
   """ID of the business associated with the contract."""
   company_id: Int
 
+  """
+  Billing type of the contract: 'Fixed' (default — warning shown when claim exceeds pending) or 'Hourly' (auto-create variation for shortfall when claim exceeds pending).
+  """
+  contract_billing_type: String
+
   """Date when the contract was created or signed."""
   contract_date: DateTime
 
@@ -21875,6 +21891,9 @@ type ViewContractRes {
 
   """Name of the business associated with the contract."""
   company_name: String
+
+  """Billing type of the contract: 'Fixed' or 'Hourly'."""
+  contract_billing_type: String
 
   """Date when the contract was signed."""
   contract_date: DateTime

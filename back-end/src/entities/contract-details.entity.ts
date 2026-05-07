@@ -69,6 +69,14 @@ export class ContractDetails {
   contract_type: string;
 
   @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    default: 'Fixed',
+  })
+  contract_billing_type: string;
+
+  @Column({
     type: 'enum',
     enum: ['Draft', 'In Progress', 'Completed', 'Archived', 'Deleted'],
     default: 'Draft',

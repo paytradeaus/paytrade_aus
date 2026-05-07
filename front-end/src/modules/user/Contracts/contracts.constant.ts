@@ -7,6 +7,7 @@ const contractListPDFHeaders = [
   "Seller Name",
   "Contract Sum",
   "Agreed Variations",
+  "Contract Type",
 ];
 
 const contractListHeaders = [
@@ -20,6 +21,7 @@ const contractListHeaders = [
     title: "Contract Sum",
   },
   { dataKey: "variation_amount", title: "Agreed Variations" },
+  { dataKey: "contract_billing_type", title: "Contract Type" },
   { dataKey: "missing_data_warnings", title: "Data Status", restrictSorting: true },
   { title: "Actions", dataKey: "status", restrictSorting: true },
 ];
@@ -32,6 +34,7 @@ const contractsRenderData = [
   { key: "seller_name" },
   { key: "initial_contract_sum" },
   { key: "variation_amount" },
+  { key: "contract_billing_type" },
   { key: "missing_data_warnings", enableMissingDataWarning: true },
 ];
 
@@ -43,6 +46,7 @@ const excelColumnNames = [
   { value: "seller_name", label: "Seller Name" },
   { value: "initial_contract_sum", label: "Contract Sum" },
   { value: "variation_amount", label: "Agreed Variations" },
+  { value: "contract_billing_type", label: "Contract Type" },
 ];
 
 const pdfDataRow = [
@@ -53,6 +57,7 @@ const pdfDataRow = [
   "seller_name",
   "initial_contract_sum",
   "variation_amount",
+  "contract_billing_type",
 ];
 
 export {

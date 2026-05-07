@@ -134,6 +134,12 @@ export default function BankAccountDetailsTab() {
                       <h6>Retention Type</h6>
                       <span>{contractData?.retention_type}</span>
                     </div>
+                    <div className="pt_infolistdata alignBox">
+                      <h6>Contract Type</h6>
+                      <span>
+                        {contractData?.contract_billing_type || "Fixed"}
+                      </span>
+                    </div>
                   </td>
                   <td className="data2 setPro">
                     {" "}
