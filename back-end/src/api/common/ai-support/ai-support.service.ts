@@ -249,13 +249,19 @@ export class AiSupportService {
 
     const relevanceCheck = await this.checkRelevance(sanitised);
     if (!relevanceCheck.relevant) {
-      this.logger.log(`Question rejected as off-topic: "${sanitised.substring(0, 80)}"`);
+      this.logger.log(
+        `Question rejected as off-topic: "${sanitised.substring(0, 80)}" ` +
+          `[category=${relevanceCheck.category || 'unknown'}, ` +
+          `suggestions=${relevanceCheck.suggestions?.length || 0}]`,
+      );
       return {
         status: 'OFF_TOPIC',
         answer: null,
         message: relevanceCheck.reason,
         remainingQuota: rateCheck.limit - rateCheck.used,
         communityPostId: null,
+        category: relevanceCheck.category || null,
+        suggestions: relevanceCheck.suggestions || [],
       };
     }
 
@@ -410,28 +416,71 @@ export class AiSupportService {
     return { allowed: true, message: '', companyId: null, limit: FREE_LIMIT, used: actualUsed };
   }
 
-  private async checkRelevance(question: string): Promise<{ relevant: boolean; reason: string; needsWebSearch: boolean }> {
+  private async checkRelevance(question: string): Promise<{
+    relevant: boolean;
+    reason: string;
+    needsWebSearch: boolean;
+    category: 'off_topic' | 'too_vague' | 'missing_context' | null;
+    confidence: 'high' | 'low' | null;
+    suggestions: string[];
+  }> {
     try {
       const response = await this.openai.responses.create({
         model: 'gpt-4o-mini',
         instructions: `You are a relevance classifier for PayTrade, an Australian construction industry platform.
 
+PayTrade vocabulary you should recognise (non-exhaustive):
+- Delegation / Delegated Authority (DOA), authorised signatories
+- Claims (progress claims, payment claims), payment schedules, payment certificates
+- Retention, retention trust accounts (RTA), project trust accounts (PTA)
+- BIF Act (Building Industry Fairness (Security of Payment) Act 2017 - QLD)
+- QBCC (Queensland Building and Construction Commission), QBCC notices
+- Xero sync / Xero integration, contacts, tracking categories, invoices, bills
+- Subcontractor statements, supporting statements
+- ABA files (bank batch payment files), reconciliation, bank feeds
+- Contracts, contract budgets, bill codes, variations
+- Trust accounting, security of payment
+
 Determine if the user's question is relevant to ANY of these topics:
 - PayTrade platform usage and features
 - Construction industry payments, invoicing, contracts
 - Project trust accounts, retention trust accounts
-- BIF Act (Building Industry Fairness Act), QBCC compliance
+- BIF Act, QBCC compliance, security of payment
 - Trust accounting, construction finance
-- Security of payment, subcontractor payments
+- Subcontractor payments
 - Australian construction regulations and compliance
 - General accounting or business questions in a construction context
+
+Classify each rejected question into one of these categories:
+- "off_topic": clearly unrelated to PayTrade or Australian construction (e.g. recipes, sports, weather, jokes, generic coding help). DO NOT suggest rephrasings.
+- "too_vague": the question is so short or generic it could mean anything (e.g. "how do I do this?", "help"). Suggest rephrasings only if there is at least a hint pointing to PayTrade/construction.
+- "missing_context": the question uses ambiguous wording but contains a term that MIGHT match PayTrade vocabulary (e.g. "delegated authority", "trust account", "retention", "claim"). ALWAYS suggest 2-3 concrete rephrasings drawn from PayTrade's vocabulary above, anchored to the user's original wording.
 
 Also determine if the question involves recent legal updates, regulation changes, court decisions, or specific legislative details that may benefit from a web search for the latest information.
 
 Respond with ONLY a JSON object (no markdown, no code fences):
-{"relevant": true/false, "reason": "brief explanation if not relevant", "needs_web_search": true/false}
+{"relevant": true|false, "confidence": "high"|"low", "category": "off_topic"|"too_vague"|"missing_context"|null, "reason": "short friendly explanation if not relevant", "suggestions": ["...", "..."], "needs_web_search": true|false}
 
-If relevant, set reason to empty string. If not relevant, provide a brief, friendly reason.
+Rules:
+- If relevant=true, set category=null, reason="", suggestions=[].
+- If category="off_topic", suggestions MUST be [].
+- If category="missing_context" or "too_vague" with a construction/PayTrade hint, suggestions MUST contain 2-3 specific rephrasings (full questions, each <= 140 chars) using PayTrade vocabulary.
+- "reason" should be one short, friendly sentence (no scolding, no apology spam).
+
+Few-shot examples:
+
+User: "best pizza recipe"
+{"relevant": false, "confidence": "high", "category": "off_topic", "reason": "That doesn't look like a PayTrade or Australian construction question.", "suggestions": [], "needs_web_search": false}
+
+User: "How to set up delegated authority"
+{"relevant": false, "confidence": "low", "category": "missing_context", "reason": "Your question is a bit short for me to be sure it's about PayTrade or Australian construction.", "suggestions": ["How do I set up a Delegated Authority (DOA) in PayTrade for trust account notices?", "How do delegated authority powers work for QBCC trust account notices?", "Which PayTrade user role do I need to act as a delegated authority on a trust account?"], "needs_web_search": false}
+
+User: "how do I do this"
+{"relevant": false, "confidence": "low", "category": "too_vague", "reason": "That's a bit too general - could you tell me which PayTrade feature you're trying to use?", "suggestions": [], "needs_web_search": false}
+
+User: "retention rules"
+{"relevant": false, "confidence": "low", "category": "missing_context", "reason": "Your question is a bit short - here are some ways to ask it.", "suggestions": ["What are the BIF Act retention trust account rules in Queensland?", "How does PayTrade calculate retention on a progress claim?", "When do I have to release retention to a subcontractor under the BIF Act?"], "needs_web_search": false}
+
 Set needs_web_search to true ONLY if the question asks about recent legal updates, specific regulation amendments, court rulings, or legislative changes where current web data would significantly improve the answer.`,
         input: question,
       });
@@ -440,19 +489,42 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
+        const validCategories = ['off_topic', 'too_vague', 'missing_context'];
+        const category = validCategories.includes(parsed.category)
+          ? parsed.category
+          : null;
+        const confidence = ['high', 'low'].includes(parsed.confidence)
+          ? parsed.confidence
+          : null;
+
+        let suggestions: string[] = [];
+        if (
+          !parsed.relevant &&
+          category !== 'off_topic' &&
+          Array.isArray(parsed.suggestions)
+        ) {
+          suggestions = parsed.suggestions
+            .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+            .map((s: string) => s.trim().substring(0, 200))
+            .slice(0, 3);
+        }
+
         return {
           relevant: !!parsed.relevant,
           reason: parsed.relevant
             ? ''
             : (parsed.reason || "We don't think this is a topic we can help with. Please contact support for further assistance."),
           needsWebSearch: !!parsed.needs_web_search,
+          category: parsed.relevant ? null : category,
+          confidence,
+          suggestions,
         };
       }
 
-      return { relevant: true, reason: '', needsWebSearch: false };
+      return { relevant: true, reason: '', needsWebSearch: false, category: null, confidence: null, suggestions: [] };
     } catch (error) {
       this.logger.error(`Relevance check error: ${error.message}`);
-      return { relevant: true, reason: '', needsWebSearch: false };
+      return { relevant: true, reason: '', needsWebSearch: false, category: null, confidence: null, suggestions: [] };
     }
   }
 

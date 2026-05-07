@@ -43,6 +43,7 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
   const [isAskingAi, setIsAskingAi] = useState(false);
   const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
   const [aiError, setAiError] = useState("");
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [communityPostId, setCommunityPostId] = useState<string | null>(null);
   const [showAiSection, setShowAiSection] = useState(false);
 
@@ -159,6 +160,7 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
     setIsAskingAi(true);
     setAiError("");
     setAiAnswer("");
+    setAiSuggestions([]);
     setCommunityPostId(null);
 
     try {
@@ -172,6 +174,9 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
         setAiError(
           result.message ||
             "We don't think this is a topic we can help with. Please contact support for further assistance."
+        );
+        setAiSuggestions(
+          Array.isArray(result.suggestions) ? result.suggestions : []
         );
       } else if (result.status === "RATE_LIMITED") {
         setAiError(result.message || "Rate limit reached.");
@@ -200,6 +205,7 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
     setAiAnswer("");
     setIsAskingAi(false);
     setAiError("");
+    setAiSuggestions([]);
     setCommunityPostId(null);
     setShowAiSection(false);
   }
@@ -401,6 +407,52 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                         <div className={styles.aiError}>
                           <i className="fa-light fa-triangle-exclamation" />{" "}
                           {aiError}
+                          {aiSuggestions.length > 0 && (
+                            <div style={{ marginTop: "0.75rem" }}>
+                              <div
+                                style={{
+                                  fontSize: "0.85rem",
+                                  fontWeight: 600,
+                                  marginBottom: "0.5rem",
+                                }}
+                              >
+                                Try one of these:
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                {aiSuggestions.map((s, i) => (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => {
+                                      setAiQuestion(s);
+                                      setAiError("");
+                                      setAiSuggestions([]);
+                                    }}
+                                    style={{
+                                      padding: "0.4rem 0.75rem",
+                                      borderRadius: "999px",
+                                      border:
+                                        "1px solid var(--muted-border-color)",
+                                      background:
+                                        "var(--card-background-color)",
+                                      color: "inherit",
+                                      cursor: "pointer",
+                                      fontSize: "0.85rem",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

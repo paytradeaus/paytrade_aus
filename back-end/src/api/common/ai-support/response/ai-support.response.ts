@@ -16,6 +16,12 @@ export class AiAnswerResponse {
 
   @Field({ nullable: true })
   communityPostId: string;
+
+  @Field({ nullable: true })
+  category?: string;
+
+  @Field(() => [String], { nullable: true })
+  suggestions?: string[];
 }
 
 @ObjectType()

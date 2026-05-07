@@ -48,6 +48,8 @@ export async function askAiSupport(question: string) {
             message
             remainingQuota
             communityPostId
+            category
+            suggestions
           }
         }
       `,
