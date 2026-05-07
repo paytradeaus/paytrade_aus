@@ -95,11 +95,13 @@ export default function AddClientsAndSuppliers() {
   const { id: slugData } = params;
 
   // Task #41 — Project picker options for the override editor. Loaded
-  // lazily only when in edit/view mode so the add-supplier flow does
-  // not pay the round-trip cost.
+  // for Add/Edit/View — the save flow in the context grabs the newly
+  // created client_supplier_id from the create response and writes any
+  // override rows the user filled in here against it, so Add mode is
+  // fully supported end-to-end.
   const [projectOptions, setProjectOptions] = useState<any[]>([]);
   useEffect(() => {
-    if (slugData?.length && slugData[0]?.toLowerCase() !== ADD) {
+    if (slugData?.length) {
       const companyId = Number(localStorage.getItem("companyId"));
       if (companyId) {
         getProjectsLists(companyId, false)
@@ -940,12 +942,11 @@ export default function AddClientsAndSuppliers() {
                 />
 
                 {/* Task #41 — Per-project Xero account code overrides.
-                    Only shown in edit/view of an existing supplier so we
-                    have a real client_supplier_id to write against. */}
-                {slugData?.length &&
-                  slugData[0]?.toLowerCase() !== ADD &&
-                  formik?.values?.client_supplier_type?.value ===
-                    "Supplier" && (
+                    Available in Add/Edit/View — in Add mode the save
+                    flow writes these rows against the newly created
+                    client_supplier_id returned by the create mutation. */}
+                {formik?.values?.client_supplier_type?.value ===
+                  "Supplier" && (
                     <div style={{ marginTop: 12 }}>
                       <label>
                         <small>
@@ -1073,19 +1074,6 @@ export default function AddClientsAndSuppliers() {
                     </div>
                   )}
 
-                {slugData?.length &&
-                  slugData[0]?.toLowerCase() === ADD &&
-                  formik?.values?.client_supplier_type?.value ===
-                    "Supplier" && (
-                    <p style={{ marginTop: 8 }}>
-                      <small>
-                        Per-project Xero account code overrides can be
-                        added once the supplier has been saved — open
-                        the supplier in edit mode to assign per-project
-                        codes.
-                      </small>
-                    </p>
-                  )}
                   </div>
                 </details>
                 )}
