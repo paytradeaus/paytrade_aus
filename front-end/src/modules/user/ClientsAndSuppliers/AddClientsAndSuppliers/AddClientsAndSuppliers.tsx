@@ -856,19 +856,20 @@ export default function AddClientsAndSuppliers() {
                 {/* All Xero-specific per-contact overrides live in this
                     collapsible. Hidden entirely when no Xero integration
                     is connected for this company so non-Xero users never
-                    see Xero terminology on the form. */}
+                    see Xero terminology on the form. Uses the same
+                    `pt_expandtable` rollup styling as the Claim summary
+                    and Payments rollups for visual consistency. */}
                 {xeroIntegrationActive && (
-                <details style={{ marginTop: 12 }}>
-                  <summary role="button" className="outline contrast">
-                    Xero integration settings (optional)
-                  </summary>
-                  <div style={{ marginTop: 12 }}>
+                <div className="pt_expandtable" style={{ marginTop: 12 }}>
+                  <details>
+                    <summary>Xero integration settings (optional)</summary>
+                    <div style={{ padding: "12px 16px" }}>
                     <p>
                       <small>
-                        These three fields override the org-wide Xero
-                        defaults for this contact only. Leave them blank
-                        / on the default option to inherit from your
-                        Xero Settings page.
+                        These fields override the org-wide Xero defaults
+                        for this contact only. Leave them blank / on the
+                        default option to inherit from your Xero Settings
+                        page.
                       </small>
                     </p>
                 {/* Phase 2 — per-contact Xero GST overrides. Optional;
@@ -1074,8 +1075,9 @@ export default function AddClientsAndSuppliers() {
                     </div>
                   )}
 
-                  </div>
-                </details>
+                    </div>
+                  </details>
+                </div>
                 )}
 
                 <FormikControl
