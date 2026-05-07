@@ -43,6 +43,8 @@ import { ClientSuppliersDetailsService } from 'src/api/users/client-suppliers-de
 import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import { XeroInvoicesService } from '../integrations/xero/invoicesAndBills/xero-invoices.service';
 import { XeroManualJournalService } from '../integrations/xero/manualJournals/xero-manual-journal.service';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
+import { resolveSupplierBillCode } from '../integrations/xero/invoicesAndBills/supplier-bill-code-resolver';
 import { UpdateClientSuppliersDetailInput } from 'src/api/users/client-suppliers-details/dto/update-client-suppliers-detail.input';
 import { XeroWaitQueueService } from './waitQueue/webhookWait.service';
 import { TransactionDetails } from 'src/entities/transaction-details.entity';
@@ -93,6 +95,8 @@ export class XeroWebhookService {
     private readonly companyUserRolesRepo: Repository<CompanyUserRoles>,
     @InjectRepository(UserDetails)
     private userDetails: Repository<UserDetails>,
+    @InjectRepository(ClientSupplierProjectXeroAccountCodes)
+    private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
     private readonly xeroResolver: XeroResolver,
     private readonly xeroService: XeroService,
     private readonly xeroContactsService: XeroContactsService,
@@ -233,6 +237,235 @@ export class XeroWebhookService {
 
   private log(message: string) {
     this.logger.log(`${message}`);
+  }
+
+  /**
+   * Task #41 — Resolve the inbound bill_code for the given supplier (and
+   * optional project) on a Xero ACCPAY webhook. When variable mode is OFF
+   * this returns `xeroDetails.bill_code` unchanged so legacy behaviour is
+   * preserved. When variable mode is ON:
+   *   - load the supplier's per-project overrides
+   *   - if no per-supplier match AND a naming convention is configured,
+   *     fetch the Xero chart of accounts and try to auto-discover by
+   *     matching the candidate `accountCode` of a non-retention/liability
+   *     line against the CoA name
+   *   - persist auto-learned codes to the override table (or supplier
+   *     default when projectId is null) and write sync log 608
+   *   - fall back to xeroDetails.bill_code only when allow_fallback is on
+   *
+   * Returns null when fully unresolved (variable mode + no fallback).
+   */
+  async resolveInboundBillCode(
+    decoded: any,
+    xeroDetails: XeroIntegrationDetails | any,
+    supplier: ClientSuppliersDetails | null | undefined,
+    projectId: number | null,
+    invoice: any,
+    syncId: string | null = null,
+  ): Promise<string | null> {
+    const isAccPay = invoice?.type === Invoice.TypeEnum.ACCPAY;
+    if (!isAccPay) {
+      return xeroDetails?.invoice_code || null;
+    }
+    if (!xeroDetails?.bill_code_is_variable) {
+      return xeroDetails?.bill_code || null;
+    }
+    let projectOverrides: { project_id: number; account_code: string }[] = [];
+    if (supplier?.client_supplier_id) {
+      const rows = await this.supplierProjectAccountCodes.find({
+        where: { client_supplier_id: supplier.client_supplier_id },
+      });
+      projectOverrides = rows.map((r) => ({
+        project_id: r.project_id,
+        account_code: r.account_code,
+      }));
+    }
+    // Try without CoA first to avoid the API hit when supplier already
+    // has an override.
+    const cheap = resolveSupplierBillCode({
+      supplier: supplier
+        ? {
+            client_supplier_id: supplier.client_supplier_id,
+            xero_default_account_code: (supplier as any)
+              ?.xero_default_account_code,
+          }
+        : null,
+      projectId,
+      xeroDetails: {
+        bill_code: xeroDetails?.bill_code,
+        bill_code_is_variable: xeroDetails?.bill_code_is_variable,
+        bill_code_naming_convention: xeroDetails?.bill_code_naming_convention,
+        bill_code_allow_fallback: xeroDetails?.bill_code_allow_fallback,
+      },
+      projectOverrides,
+      direction: 'inbound',
+    });
+    if (cheap.source === 'project' || cheap.source === 'supplier_default') {
+      return cheap.accountCode;
+    }
+    // Naming-convention discovery — fetch CoA and the candidate code
+    // from non-retention/liability lines.
+    const knownCodes = new Set(
+      [
+        xeroDetails?.retention_payable_retained_code,
+        xeroDetails?.retention_payable_release_code,
+        xeroDetails?.liability_payable_code,
+        xeroDetails?.retention_receivable_retained_code,
+        xeroDetails?.retention_receivable_release_code,
+        xeroDetails?.liability_receivable_code,
+      ].filter(Boolean),
+    );
+    const candidateLine = (invoice?.lineItems || []).find(
+      (li: any) => li?.accountCode && !knownCodes.has(li.accountCode),
+    );
+    const candidateAccountCode = candidateLine?.accountCode || null;
+    let chartOfAccounts: any[] = [];
+    if (xeroDetails?.bill_code_naming_convention && xeroDetails?.tenant_id) {
+      try {
+        await this.xeroService.refreshTokenSet(
+          xeroDetails.company_id,
+          this.xero,
+        );
+        const resp = await this.xero.accountingApi.getAccounts(
+          xeroDetails.tenant_id,
+        );
+        chartOfAccounts = resp?.body?.accounts || [];
+      } catch (e: any) {
+        this.logger.error(
+          `[VARIABLE_BILL_CODE_INBOUND] CoA fetch failed: ${e?.message || e}`,
+        );
+      }
+    }
+    const result = resolveSupplierBillCode({
+      supplier: supplier
+        ? {
+            client_supplier_id: supplier.client_supplier_id,
+            xero_default_account_code: (supplier as any)
+              ?.xero_default_account_code,
+          }
+        : null,
+      projectId,
+      xeroDetails: {
+        bill_code: xeroDetails?.bill_code,
+        bill_code_is_variable: xeroDetails?.bill_code_is_variable,
+        bill_code_naming_convention: xeroDetails?.bill_code_naming_convention,
+        bill_code_allow_fallback: xeroDetails?.bill_code_allow_fallback,
+      },
+      projectOverrides,
+      xeroChartOfAccounts: chartOfAccounts,
+      candidateAccountCode,
+      direction: 'inbound',
+    });
+    if (result.autoLearned && supplier?.client_supplier_id) {
+      try {
+        if (result.autoLearned.projectId) {
+          await this.supplierProjectAccountCodes.save({
+            company_id: xeroDetails?.company_id,
+            client_supplier_id: supplier.client_supplier_id,
+            project_id: result.autoLearned.projectId,
+            account_code: result.autoLearned.accountCode,
+            created_by: decoded?.userId || null,
+            updated_by: decoded?.userId || null,
+          } as any);
+        } else if (!supplier?.xero_default_account_code) {
+          await this.clientSuppliersDetails.update(
+            { client_supplier_id: supplier.client_supplier_id },
+            { xero_default_account_code: result.autoLearned.accountCode },
+          );
+        }
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: syncId,
+          api_name: 'resolveInboundBillCode',
+          api_payload: {
+            invoice_id: invoice?.invoiceID,
+            client_supplier_id: supplier.client_supplier_id,
+            project_id: result.autoLearned.projectId,
+          },
+          integration_id: xeroDetails?.integration_id,
+          log_template_id: 608,
+          dynamic_values: {
+            account_code: result.autoLearned.accountCode,
+            supplier_name: supplier?.client_supplier_name || '',
+            project_id:
+              result.autoLearned.projectId == null
+                ? ''
+                : String(result.autoLearned.projectId),
+            naming_convention: xeroDetails?.bill_code_naming_convention || '',
+          },
+          project_id: result.autoLearned.projectId == null
+            ? null
+            : (String(result.autoLearned.projectId) as any),
+          contract_id: null,
+          reference: { xeroId: invoice?.invoiceID, paytradeId: null },
+          reference_id: null,
+          history: [
+            `Auto-learned account code ${result.autoLearned.accountCode} for supplier ${supplier?.client_supplier_name}`,
+            'Override saved',
+          ],
+          important_checks: {
+            'Variable bill code resolution': 'Auto-learned',
+          },
+          error_message: '',
+          xero_records: [invoice],
+          paytrade_records: [supplier],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (e: any) {
+        this.logger.error(
+          `[VARIABLE_BILL_CODE_608] auto-learn persist failed: ${e?.message || e}`,
+        );
+      }
+    }
+    if (result.source === 'unresolved') {
+      this.logger.error(
+        `[VARIABLE_BILL_CODE_INBOUND_UNRESOLVED] supplier=${supplier?.client_supplier_id} project=${projectId} invoice=${invoice?.invoiceID}`,
+      );
+      try {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: syncId,
+          api_name: 'resolveInboundBillCode',
+          api_payload: {
+            invoice_id: invoice?.invoiceID,
+            invoice_number: invoice?.invoiceNumber,
+            client_supplier_id: supplier?.client_supplier_id,
+            project_id: projectId,
+          },
+          integration_id: xeroDetails?.integration_id,
+          log_template_id: 609,
+          dynamic_values: {
+            invoice_number: invoice?.invoiceNumber || invoice?.invoiceID || '',
+            supplier_name: supplier?.client_supplier_name || '',
+            project_id: projectId == null ? '' : String(projectId),
+          },
+          project_id: projectId == null ? null : (String(projectId) as any),
+          contract_id: null,
+          reference: { xeroId: invoice?.invoiceID, paytradeId: null },
+          reference_id: null,
+          history: [
+            `Variable bill code unresolved for supplier ${supplier?.client_supplier_name || supplier?.client_supplier_id}`,
+            'Import blocked',
+          ],
+          important_checks: {
+            'Variable bill code resolution': 'Failed',
+          },
+          error_message:
+            'Variable bill code unresolved — supplier has no default account code, no project override, no naming-convention match, and company-level fallback is disabled.',
+          xero_records: [invoice],
+          paytrade_records: supplier ? [supplier] : [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (e: any) {
+        this.logger.error(
+          `[VARIABLE_BILL_CODE_609] failure log persist failed: ${e?.message || e}`,
+        );
+      }
+      return null;
+    }
+    return result.accountCode;
   }
 
   private logError(message: string) {
@@ -1827,7 +2060,17 @@ export class XeroWebhookService {
 
       const accountCodes = codes?.filter((code) => code !== null);
       this.logger.log(`[BILL_TRACE] V-Step 9: Configured account codes=${JSON.stringify(accountCodes)}, line item codes=${JSON.stringify(invoice?.lineItems?.map(li => li.accountCode))}`);
+      // Task #41 — In variable bill code mode the per-supplier override
+      // (or auto-discovered code) may be ANY active expense account, so
+      // we relax the strict company-level allow-list here. Lines are
+      // re-filtered downstream against the resolved per-supplier code.
+      const isVariableBillCodeMode =
+        !!xeroDetails?.bill_code_is_variable &&
+        invoice?.type === Invoice.TypeEnum.ACCPAY;
       for (let item of invoice?.lineItems) {
+        if (isVariableBillCodeMode && !accountCodes.includes(item.accountCode)) {
+          continue;
+        }
         if (!accountCodes.includes(item.accountCode)) {
           this.logger.error(`[BILL_TRACE] V-Step 9 FAILED: accountCode=${item.accountCode} not in configured codes. Writing sync log 261/421.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -3059,12 +3302,33 @@ export class XeroWebhookService {
             retentionPercentage = 0,
             retainedAmountExcludingGST = 0;
           if (invoice.lineItems && invoice.lineItems.length > 0) {
+            // Task #41 — variable bill code per supplier (V-Step path).
+            const vResolvedBillCode = await this.resolveInboundBillCode(
+              decoded,
+              xeroDetails,
+              clientSuppliersDetails,
+              projectDetails?.project_id ?? null,
+              invoice,
+              data?.sync_id || null,
+            );
+            // Variable mode: unresolved → hard-fail (resolveInboundBillCode
+            // already wrote sync log 609). Non-variable: keep legacy fallback.
+            if (
+              invoice.type === Invoice.TypeEnum.ACCPAY &&
+              xeroDetails?.bill_code_is_variable &&
+              vResolvedBillCode == null
+            ) {
+              this.logger.error(
+                `[BILL_TRACE] V-Step: variable bill code unresolved → aborting import for invoice ${invoice?.invoiceID}`,
+              );
+              return false;
+            }
+            const vBaseAccountCode =
+              invoice.type === Invoice.TypeEnum.ACCPAY
+                ? vResolvedBillCode || xeroDetails.bill_code
+                : xeroDetails.invoice_code;
             filteredInvoices = invoice.lineItems?.filter(
-              (item) =>
-                item.accountCode ===
-                (invoice.type === Invoice.TypeEnum.ACCPAY
-                  ? xeroDetails.bill_code
-                  : xeroDetails.invoice_code),
+              (item) => item.accountCode === vBaseAccountCode,
             );
             if (cashRetention && webhookSimplifiedRetention) {
               invoices = this.xeroInvoicesService.mapItemsDirectly(
@@ -3906,12 +4170,31 @@ export class XeroWebhookService {
                 retentionPercentage = 0,
                 retainedAmountExcludingGST = 0;
               if (invoice.lineItems && invoice.lineItems.length > 0) {
+                // Task #41 — variable bill code per supplier (D-Step path).
+                const dResolvedBillCode = await this.resolveInboundBillCode(
+                  decoded,
+                  xeroDetails,
+                  clientSuppliersDetails,
+                  projectDetails?.project_id ?? null,
+                  invoice,
+                  data?.sync_id || null,
+                );
+                if (
+                  invoice.type === Invoice.TypeEnum.ACCPAY &&
+                  xeroDetails?.bill_code_is_variable &&
+                  dResolvedBillCode == null
+                ) {
+                  this.logger.error(
+                    `[BILL_TRACE] D-Step: variable bill code unresolved → aborting import for invoice ${invoice?.invoiceID}`,
+                  );
+                  return false;
+                }
+                const dBaseAccountCode =
+                  invoice.type === Invoice.TypeEnum.ACCPAY
+                    ? dResolvedBillCode || xeroDetails.bill_code
+                    : xeroDetails.invoice_code;
                 filteredInvoices = invoice.lineItems?.filter(
-                  (item) =>
-                    item.accountCode ===
-                    (invoice.type === Invoice.TypeEnum.ACCPAY
-                      ? xeroDetails.bill_code
-                      : xeroDetails.invoice_code),
+                  (item) => item.accountCode === dBaseAccountCode,
                 );
                 if (cashRetention && draftSimplifiedRetention) {
                   invoices = this.xeroInvoicesService.mapItemsDirectly(
@@ -11056,6 +11339,28 @@ export class XeroWebhookService {
     invoice: any,
     xeroDetails: XeroIntegrationDetails,
   ): boolean {
+    // Task #41 — variable bill code mode: the supplier's bill_code may be
+    // ANY active expense account, so we cannot enforce the strict
+    // company-level allow-list. Lines must still all carry an
+    // accountCode (truthy), and at least one line on the bill side must
+    // be a non-retention/liability code (the prospective bill_code).
+    if (
+      xeroDetails?.bill_code_is_variable &&
+      invoice?.type === Invoice.TypeEnum.ACCPAY
+    ) {
+      const restricted = new Set(
+        [
+          xeroDetails.retention_payable_retained_code,
+          xeroDetails.liability_payable_code,
+          xeroDetails.retention_payable_release_code,
+        ].filter(Boolean),
+      );
+      const hasBaseLine = invoice?.lineItems?.some(
+        (li: any) => li?.accountCode && !restricted.has(li.accountCode),
+      );
+      const allHaveCode = invoice?.lineItems?.every((li: any) => !!li?.accountCode);
+      return !!(hasBaseLine && allHaveCode);
+    }
     const requiredCodes =
       invoice.type === Invoice.TypeEnum.ACCPAY
         ? [

@@ -25,6 +25,7 @@ import { NoticeDetails } from 'src/entities/notices-details.entity';
 import { XeroContractsService } from 'src/api/common/integrations/xero/contracts/xero-contracts.service';
 import { XeroService } from 'src/api/common/integrations/xero/xero.service';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroBankAccountDetails } from 'src/entities/xero-bank-account-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
@@ -112,6 +113,7 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
       BankAccounts,
       NoticeDetails,
       XeroIntegrationDetails,
+      ClientSupplierProjectXeroAccountCodes,
       XeroContactDetails,
       XeroBankAccountDetails,
       XeroProjectDetails,

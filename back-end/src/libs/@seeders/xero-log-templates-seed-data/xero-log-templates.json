@@ -5215,5 +5215,35 @@
     "from_xero": true,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 607,
+    "sync_type": "Variable bill code",
+    "description": "<p>Variable bill code unresolved for supplier {{supplier_name}} on claim {{payment_claim_id}} (project {{project_id}}). Configure a default Xero account code on the supplier or enable company-level fallback in Xero settings.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "VARIABLE_BILL_CODE_UNRESOLVED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 608,
+    "sync_type": "Variable bill code",
+    "description": "<p>Auto-learned Xero account code {{account_code}} for supplier {{supplier_name}} (project {{project_id}}) from naming convention \"{{naming_convention}}\".</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 609,
+    "sync_type": "Variable bill code",
+    "description": "<p>Variable bill code unresolved on inbound bill {{invoice_number}} for supplier {{supplier_name}} (project {{project_id}}). Import was blocked. Configure a default Xero account code on the supplier, add a project override, set a naming convention, or enable company-level fallback in Xero settings.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "VARIABLE_BILL_CODE_UNRESOLVED_INBOUND",
+    "associated_log_ids": null
   }
 ]

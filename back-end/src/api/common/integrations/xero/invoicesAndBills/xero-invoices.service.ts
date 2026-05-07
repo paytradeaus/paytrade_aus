@@ -45,6 +45,11 @@ import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-q
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { XeroManualJournalService } from '../manualJournals/xero-manual-journal.service';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
+import {
+  resolveSupplierBillCode,
+  ResolveSupplierBillCodeResult,
+} from './supplier-bill-code-resolver';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -82,6 +87,8 @@ export class XeroInvoicesService {
     private contractDetails: Repository<ContractDetails>,
     @InjectRepository(ProjectDetails)
     private projectDetails: Repository<ProjectDetails>,
+    @InjectRepository(ClientSupplierProjectXeroAccountCodes)
+    private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
     private readonly paymentClaimsService: PaymentClaimsService,
     private readonly xeroService: XeroService,
     private readonly dataSource: DataSource,
@@ -185,6 +192,98 @@ export class XeroInvoicesService {
       netRetainedSigned,
       codesShared,
     };
+  }
+
+  /**
+   * Task #41 — Resolves the Xero account code to use on the base "service"
+   * line of an outbound bill for a given supplier (and optional project).
+   * On unresolved (variable mode + no fallback), writes a FAIL sync log
+   * (template 607) and returns null so the caller can short-circuit.
+   * For Receivable claims (invoices), variable mode is out of scope and
+   * the company-level invoice_code is returned unchanged.
+   */
+  async resolveOutboundBillCode(
+    decoded: any,
+    xeroDetails: XeroIntegrationDetails | any,
+    supplier: ClientSuppliersDetails | null | undefined,
+    claimDetails: PaymentClaims | any,
+    syncId: string | null = null,
+  ): Promise<{ accountCode: string | null; source: string }> {
+    if (claimDetails?.claim_type !== 'Billable') {
+      return { accountCode: xeroDetails?.invoice_code || null, source: 'fallback' };
+    }
+    const projectId = claimDetails?.project_id ?? null;
+    let projectOverrides: { project_id: number; account_code: string }[] = [];
+    if (xeroDetails?.bill_code_is_variable && supplier?.client_supplier_id) {
+      const rows = await this.supplierProjectAccountCodes.find({
+        where: { client_supplier_id: supplier.client_supplier_id },
+      });
+      projectOverrides = rows.map((r) => ({
+        project_id: r.project_id,
+        account_code: r.account_code,
+      }));
+    }
+    const result: ResolveSupplierBillCodeResult = resolveSupplierBillCode({
+      supplier: supplier
+        ? {
+            client_supplier_id: supplier.client_supplier_id,
+            xero_default_account_code: (supplier as any).xero_default_account_code,
+          }
+        : null,
+      projectId,
+      xeroDetails: {
+        bill_code: xeroDetails?.bill_code,
+        bill_code_is_variable: xeroDetails?.bill_code_is_variable,
+        bill_code_naming_convention: xeroDetails?.bill_code_naming_convention,
+        bill_code_allow_fallback: xeroDetails?.bill_code_allow_fallback,
+      },
+      projectOverrides,
+      direction: 'outbound',
+    });
+    if (result.source === 'unresolved') {
+      try {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: syncId,
+          api_name: 'resolveOutboundBillCode',
+          api_payload: {
+            payment_claim_id: claimDetails?.payment_claim_id,
+            client_supplier_id: supplier?.client_supplier_id || null,
+            project_id: projectId,
+          },
+          integration_id: xeroDetails?.integration_id,
+          log_template_id: 607,
+          dynamic_values: {
+            supplier_name: supplier?.client_supplier_name || '',
+            payment_claim_id: claimDetails?.payment_claim_id || '',
+            project_id: projectId == null ? '' : String(projectId),
+          },
+          project_id: projectId == null ? null : (String(projectId) as any),
+          contract_id: claimDetails?.contract_id || null,
+          reference: { xeroId: null, paytradeId: claimDetails?.id },
+          reference_id: claimDetails?.id,
+          history: [
+            `Variable bill code unresolved for supplier ${supplier?.client_supplier_name}`,
+            'Export blocked',
+          ],
+          important_checks: {
+            'Variable bill code resolution': 'Failed',
+          },
+          error_message: 'Variable bill code unresolved (no supplier override and fallback disabled).',
+          xero_records: [],
+          paytrade_records: [claimDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (e) {
+        this.logger.error(`[VARIABLE_BILL_CODE_607] sync log write failed: ${e?.message || e}`);
+      }
+      return { accountCode: null, source: 'unresolved' };
+    }
+    this.logger.log(
+      `[VARIABLE_BILL_CODE] outbound resolved code=${result.accountCode} source=${result.source} supplier=${supplier?.client_supplier_id} project=${projectId}`,
+    );
+    return { accountCode: result.accountCode, source: result.source };
   }
 
   async getClaimsDetails(payment_claim_id) {
@@ -864,6 +963,25 @@ export class XeroInvoicesService {
           claimDetails.claim_type === 'Billable'
             ? xeroDetails.bill_tax_code
             : xeroDetails.invoice_tax_code;
+        // Task #41 — variable bill code per supplier. Resolves to either a
+        // per-(supplier × project) override, supplier default, or the
+        // company-level bill_code (with optional fallback). For Receivable
+        // claims this returns invoice_code unchanged.
+        const resolvedBillCodeOutcome = await this.resolveOutboundBillCode(
+          decoded,
+          xeroDetails,
+          clientSuppliersDetails,
+          claimDetails,
+          data?.sync_id || null,
+        );
+        if (resolvedBillCodeOutcome.source === 'unresolved') {
+          return false;
+        }
+        const resolvedBaseAccountCode =
+          resolvedBillCodeOutcome.accountCode ||
+          (claimDetails.claim_type === 'Billable'
+            ? xeroDetails.bill_code
+            : xeroDetails.invoice_code);
         for (const element of invoices) {
           // Protect against division by zero to prevent Infinity/NaN values.
           // `retention_amount` is stored ex-GST in PayTrade. The share to
@@ -890,9 +1008,7 @@ export class XeroInvoicesService {
                 : Number(element.unit_price)) - retentionShare,
             accountCode:
               claimDetails.cash_retention_type === 'Claim'
-                ? claimDetails.claim_type === 'Billable'
-                  ? xeroDetails.bill_code
-                  : xeroDetails.invoice_code
+                ? resolvedBaseAccountCode
                 : claimDetails.claim_type === 'Billable'
                   ? xeroDetails.retention_payable_release_code
                   : xeroDetails.retention_receivable_release_code,
@@ -4157,6 +4273,22 @@ export class XeroInvoicesService {
             claimDetails.claim_type === 'Billable'
               ? xeroDetails.bill_tax_code
               : xeroDetails.invoice_tax_code;
+          // Task #41 — variable bill code per supplier (edit path).
+          const resolvedBillCodeOutcomeEdit = await this.resolveOutboundBillCode(
+            decoded,
+            xeroDetails,
+            clientSuppliersDetails,
+            claimDetails,
+            data?.sync_id || null,
+          );
+          if (resolvedBillCodeOutcomeEdit.source === 'unresolved') {
+            return false;
+          }
+          const resolvedBaseAccountCodeEdit =
+            resolvedBillCodeOutcomeEdit.accountCode ||
+            (claimDetails.claim_type === 'Billable'
+              ? xeroDetails.bill_code
+              : xeroDetails.invoice_code);
           for (const element of invoices) {
             // See createInvoiceOrBillInXero for explanation: retention_amount
             // is ex-GST and the share to deduct from each bill_code line is
@@ -4177,9 +4309,7 @@ export class XeroInvoicesService {
                   : Number(element.unit_price)) - retentionShare,
               accountCode:
                 claimDetails.cash_retention_type === 'Claim'
-                  ? claimDetails.claim_type === 'Billable'
-                    ? xeroDetails.bill_code
-                    : xeroDetails.invoice_code
+                  ? resolvedBaseAccountCodeEdit
                   : claimDetails.claim_type === 'Billable'
                     ? xeroDetails.retention_payable_release_code
                     : xeroDetails.retention_receivable_release_code,

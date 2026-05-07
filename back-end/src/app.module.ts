@@ -115,6 +115,7 @@ import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retent
 import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-gst-schema-seeder.module';
 import { XeroRetentionJournalsSchemaSeederModule } from './libs/@seeders/xero-retention-journals-schema-seeder.module';
 import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-billing-type-schema-seeder.module';
+import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
 
 @Module({
   imports: [
@@ -305,6 +306,7 @@ import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-
     XeroContactGstSchemaSeederModule,
     XeroRetentionJournalsSchemaSeederModule,
     ContractBillingTypeSchemaSeederModule,
+    XeroVariableBillCodeSchemaSeederModule,
   ],
   providers: [
     AppService,

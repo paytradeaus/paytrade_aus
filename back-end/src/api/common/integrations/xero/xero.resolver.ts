@@ -1064,6 +1064,34 @@ export class XeroResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {
+    name: 'setSupplierXeroAccountCode',
+    description:
+      'Task #41 — Set or clear the Xero account code override for a supplier (project_id null) or supplier × project pair.',
+  })
+  async setSupplierXeroAccountCode(
+    @Context() context,
+    @Args('client_supplier_id', { type: () => Number })
+    client_supplier_id: number,
+    @Args('account_code', { nullable: true }) account_code: string,
+    @Args('project_id', { nullable: true, type: () => Number })
+    project_id: number,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      await this.xeroService.setSupplierXeroAccountCode(decoded, {
+        client_supplier_id,
+        project_id: project_id ?? null,
+        account_code: account_code ?? null,
+      });
+      return framedResponse('SUCCESS', 'Supplier Xero account code updated');
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
     name: 'updateTrackingCategory',
     description:
       'Updates a tracking category mapping for a project or contract in Xero.',

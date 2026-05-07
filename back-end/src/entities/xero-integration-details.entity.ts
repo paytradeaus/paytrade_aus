@@ -77,6 +77,30 @@ export class XeroIntegrationDetails {
   @Column({ type: 'text', nullable: true })
   bill_code: string;
 
+  // Task #41 — Variable bill code per supplier.
+  // When ON, outbound bill creation looks up the per-supplier (and
+  // optionally per-supplier×project) override before falling back to
+  // `bill_code`. Inbound webhook validation also accepts any account code
+  // currently mapped on a supplier and can auto-learn from the
+  // `bill_code_naming_convention` substring against the Xero CoA.
+  @Column({ type: 'boolean', nullable: true, default: false })
+  bill_code_is_variable: boolean;
+
+  // Naming convention used for inbound auto-discovery — when an inbound
+  // bill arrives with no PT-side mapping for the supplier, the resolver
+  // scans the active Xero chart of accounts for an account whose name
+  // contains this substring (case-insensitive). On a hit the matched
+  // account code is persisted as the supplier default (or per-project
+  // override if a project is in scope) and a warning sync log is written.
+  @Column({ type: 'text', nullable: true })
+  bill_code_naming_convention: string;
+
+  // When variable mode is ON and this flag is OFF, outbound pushes for
+  // suppliers without a resolved override fail up-front (no Xero call,
+  // no fallback to `bill_code`) and a FAIL sync log is written.
+  @Column({ type: 'boolean', nullable: true, default: true })
+  bill_code_allow_fallback: boolean;
+
   @Column({ type: 'text', nullable: true })
   retention_payable_retained_code: string;
 

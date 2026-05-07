@@ -127,6 +127,12 @@ export class ClientSuppliersDetails {
   @Column({ type: 'text', nullable: true })
   xero_purchases_gst_setting: string;
 
+  // Task #41 — Per-supplier default Xero expense account override used by
+  // the variable bill code resolver. NULL means "no override; use the
+  // company-level fallback bill_code (when allowed) or fail up-front".
+  @Column({ type: 'text', nullable: true })
+  xero_default_account_code: string;
+
   @Column({ default: false })
   is_deleted: Boolean;
 

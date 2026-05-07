@@ -15013,6 +15013,11 @@ type Mutation {
   ): SmartMatchPreferenceResponse!
 
   """
+  Task #41 — Set or clear the Xero account code override for a supplier (project_id null) or supplier × project pair.
+  """
+  setSupplierXeroAccountCode(account_code: String, client_supplier_id: Float!, project_id: Float): StringResponse!
+
+  """
   Silence compliance notifications and rules for a project to stop email alerts temporarily.
   """
   silenceComplianceMail(
@@ -20862,6 +20867,21 @@ input UpdateSettingsInput {
 
   """Bill code"""
   bill_code: String!
+
+  """
+  Task #41 — When variable mode is on AND this is true, the company-level bill_code is used as a fallback when no supplier/project override matches. When false, outbound pushes fail with a sync log.
+  """
+  bill_code_allow_fallback: Boolean
+
+  """
+  Task #41 — When true, the bill_code on outbound bills is resolved per-supplier (and per-project) instead of using the company-level default. Inbound webhooks may auto-discover the supplier code via naming convention.
+  """
+  bill_code_is_variable: Boolean
+
+  """
+  Task #41 — Substring matched (case-insensitive) against the Xero account name during inbound auto-discovery (e.g. "BUILD-" or "Subcontractor").
+  """
+  bill_code_naming_convention: String
 
   """Bill tax code"""
   bill_tax_code: String

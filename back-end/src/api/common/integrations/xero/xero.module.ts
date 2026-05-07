@@ -46,6 +46,7 @@ import { XeroInvoicesService } from './invoicesAndBills/xero-invoices.service';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { XeroManualJournalService } from './manualJournals/xero-manual-journal.service';
 import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { XeroPaymentsService } from './payments/xero-payments.service';
 import { XeroPaymentsResolver } from './payments/xero-payments.resolver';
 import { XeroPayments } from 'src/entities/xero-payments.entity';
@@ -149,6 +150,7 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
       XeroContractDetails,
       XeroInvoicesBills,
       XeroRetentionJournals,
+      ClientSupplierProjectXeroAccountCodes,
       XeroPayments,
       ProjectDetails,
       ClientSuppliersDetails,

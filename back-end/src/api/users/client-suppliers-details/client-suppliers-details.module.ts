@@ -23,6 +23,7 @@ import { XeroService } from 'src/api/common/integrations/xero/xero.service';
 import { XeroBankAccountDetails } from 'src/entities/xero-bank-account-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { XeroContactsService } from 'src/api/common/integrations/xero/contacts/xero-contacts.service';
@@ -58,6 +59,7 @@ import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
       XeroBankAccountDetails,
       XeroProjectDetails,
       XeroIntegrationDetails,
+      ClientSupplierProjectXeroAccountCodes,
       XeroContactDetails,
       XeroContractDetails,
       IntegrationDetails,

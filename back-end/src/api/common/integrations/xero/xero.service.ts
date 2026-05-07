@@ -33,6 +33,8 @@ import { XeroRefreshTokenService } from './refreshToken/xeroRefreshToken.service
 import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
+import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 
 dotenv.config();
 
@@ -58,6 +60,10 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     private readonly companyUserRolesRepo: Repository<CompanyUserRoles>,
     @InjectRepository(UserDetails)
     private userDetails: Repository<UserDetails>,
+    @InjectRepository(ClientSupplierProjectXeroAccountCodes)
+    private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
+    @InjectRepository(ClientSuppliersDetails)
+    private clientSuppliersDetails: Repository<ClientSuppliersDetails>,
     private readonly dataSource: DataSource,
     private xeroRefreshTokenService: XeroRefreshTokenService,
   ) {
@@ -484,6 +490,9 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.action_buttons AS action_buttons',
           'x.invoice_code AS invoice_code',
           'x.bill_code AS bill_code',
+          'x.bill_code_is_variable AS bill_code_is_variable',
+          'x.bill_code_naming_convention AS bill_code_naming_convention',
+          'x.bill_code_allow_fallback AS bill_code_allow_fallback',
           'x.retention_payable_retained_code AS retention_payable_retained_code',
           'x.retention_payable_release_code AS retention_payable_release_code',
           'x.retention_receivable_retained_code AS retention_receivable_retained_code',
@@ -2075,6 +2084,19 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       xeroDetails.contract_category_id = data.contract_category_id;
       xeroDetails.invoice_code = data.invoice_code;
       xeroDetails.bill_code = data.bill_code;
+      // Task #41 — variable bill code per supplier
+      if (data.bill_code_is_variable !== undefined) {
+        xeroDetails.bill_code_is_variable = !!data.bill_code_is_variable;
+      }
+      if (data.bill_code_naming_convention !== undefined) {
+        const nc = data.bill_code_naming_convention
+          ? String(data.bill_code_naming_convention).trim()
+          : '';
+        xeroDetails.bill_code_naming_convention = nc.length ? nc : null;
+      }
+      if (data.bill_code_allow_fallback !== undefined) {
+        xeroDetails.bill_code_allow_fallback = !!data.bill_code_allow_fallback;
+      }
       xeroDetails.retention_payable_retained_code =
         data.retention_payable_retained_code;
       xeroDetails.retention_receivable_retained_code =
@@ -2372,6 +2394,86 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       const errMsg = await handleAxiosError(error);
       throw errMsg;
     }
+  }
+
+  /**
+   * Task #41 — Set or clear the Xero account code override for a supplier
+   * (project_id == null) or a supplier × project pair. Pass account_code
+   * as null/empty string to remove the override.
+   */
+  async setSupplierXeroAccountCode(
+    decoded: any,
+    args: {
+      client_supplier_id: number;
+      project_id?: number | null;
+      account_code?: string | null;
+    },
+  ): Promise<{ ok: true }> {
+    const callerCompanyId = decoded?.companyId ?? decoded?.company_id ?? null;
+    if (!callerCompanyId) {
+      throw new Error('Unauthorized: missing company context');
+    }
+    const supplier = await this.clientSuppliersDetails.findOne({
+      where: { client_supplier_id: args.client_supplier_id },
+    });
+    if (!supplier) {
+      throw new Error(`Supplier ${args.client_supplier_id} not found`);
+    }
+    if (Number(supplier.company_id) !== Number(callerCompanyId)) {
+      // IDOR guard — caller must own the supplier.
+      throw new Error('Unauthorized: supplier does not belong to your company');
+    }
+    if (args.project_id != null) {
+      const projectRow = await this.dataSource.query(
+        `SELECT 1 FROM project_details WHERE project_id = $1 AND company_id = $2 LIMIT 1`,
+        [args.project_id, callerCompanyId],
+      );
+      if (!projectRow || projectRow.length === 0) {
+        throw new Error(
+          'Unauthorized: project does not belong to your company',
+        );
+      }
+    }
+    const trimmed = args.account_code ? String(args.account_code).trim() : '';
+    const code = trimmed.length ? trimmed : null;
+    if (args.project_id == null) {
+      await this.clientSuppliersDetails.update(
+        { client_supplier_id: args.client_supplier_id },
+        { xero_default_account_code: code },
+      );
+      return { ok: true };
+    }
+    const existing = await this.supplierProjectAccountCodes.findOne({
+      where: {
+        client_supplier_id: args.client_supplier_id,
+        project_id: args.project_id,
+      },
+    });
+    if (code == null) {
+      if (existing) {
+        await this.supplierProjectAccountCodes.delete({
+          client_supplier_id: args.client_supplier_id,
+          project_id: args.project_id,
+        });
+      }
+      return { ok: true };
+    }
+    if (existing) {
+      await this.supplierProjectAccountCodes.update(
+        { id: existing.id },
+        { account_code: code, updated_by: decoded?.userId || null },
+      );
+    } else {
+      await this.supplierProjectAccountCodes.save({
+        company_id: supplier.company_id,
+        client_supplier_id: args.client_supplier_id,
+        project_id: args.project_id,
+        account_code: code,
+        created_by: decoded?.userId || null,
+        updated_by: decoded?.userId || null,
+      } as any);
+    }
+    return { ok: true };
   }
 
   async refreshAccessTokenManually(refreshToken: string) {

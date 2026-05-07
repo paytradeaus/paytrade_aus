@@ -73,6 +73,7 @@ import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAn
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { XeroManualJournalService } from 'src/api/common/integrations/xero/manualJournals/xero-manual-journal.service';
 import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { CompliancesService } from '../compliances/compliances.service';
 import {
   ComplianceChecks,
@@ -157,6 +158,7 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
       XeroContractDetails,
       XeroInvoicesBills,
       XeroRetentionJournals,
+      ClientSupplierProjectXeroAccountCodes,
       XeroPayments,
       IntegrationDetails,
       XeroSyncLogs,

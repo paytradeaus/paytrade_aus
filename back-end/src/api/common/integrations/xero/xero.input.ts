@@ -211,6 +211,15 @@ export class UpdateSettingsInput {
   @Field({ description: 'Bill code' })
   bill_code: string;
 
+  @Field({ nullable: true, description: 'Task #41 — When true, the bill_code on outbound bills is resolved per-supplier (and per-project) instead of using the company-level default. Inbound webhooks may auto-discover the supplier code via naming convention.' })
+  bill_code_is_variable: boolean;
+
+  @Field({ nullable: true, description: 'Task #41 — Substring matched (case-insensitive) against the Xero account name during inbound auto-discovery (e.g. "BUILD-" or "Subcontractor").' })
+  bill_code_naming_convention: string;
+
+  @Field({ nullable: true, description: 'Task #41 — When variable mode is on AND this is true, the company-level bill_code is used as a fallback when no supplier/project override matches. When false, outbound pushes fail with a sync log.' })
+  bill_code_allow_fallback: boolean;
+
   @Field({
     nullable: true,
     description: 'Retention payable retained account code',

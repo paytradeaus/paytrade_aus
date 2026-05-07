@@ -268,6 +268,9 @@ export const getXeroDetailsForCompany = async (
             data {
               action_buttons
               bill_code
+              bill_code_is_variable
+              bill_code_naming_convention
+              bill_code_allow_fallback
               company_id
               contract_category_id
               contract_category_name
