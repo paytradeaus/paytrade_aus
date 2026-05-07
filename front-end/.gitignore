@@ -20,6 +20,7 @@
 *.es.js
 *.es.js.map
 *lock.json
+!package-lock.json
 
 # misc
 .DS_Store
