@@ -245,6 +245,35 @@ import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-
             host: '127.0.0.1',
             port: 6379,
           },
+      // Per-environment prefix for ALL BullMQ queues (xero-wait-queue,
+      // xero-refresh-token, mailQueue, …). Without this, every backend
+      // instance pointed at the shared Redis (Replit dev, Replit deploy
+      // staging, Railway prod) joins the SAME BullMQ queues by name and
+      // races for jobs. When dev's worker grabs a prod-only job (e.g. a
+      // wait-queue retry for Demo company_id=1005, tenant 1d38001d in
+      // the Railway prod DB) the dev DB lookup returns null, the worker
+      // throws 'No integration found', and the job either silently fails
+      // or stalls. The raw-Redis-list consumer (xero_webhook_queue:env)
+      // was namespaced in commits 23e8c1e/b2eb18a but BullMQ queues were
+      // missed — that's the regression that took out Demo realtime
+      // ingestion.
+      //
+      // Production keeps the default `bull` prefix so existing in-flight
+      // jobs (delayed retries, scheduled wait jobs) are inherited by
+      // Railway prod and not orphaned. Non-production envs get their own
+      // namespace and stop interfering. Override via APP_ENVIRONMENT or
+      // BULLMQ_PREFIX if a different topology is needed.
+      prefix: ((): string => {
+        if (process.env.BULLMQ_PREFIX) return process.env.BULLMQ_PREFIX;
+        const env =
+          process.env.APP_ENVIRONMENT ||
+          (process.env.REPL_ID
+            ? process.env.REPLIT_DEPLOYMENT
+              ? 'staging'
+              : 'development'
+            : 'production');
+        return env === 'production' ? 'bull' : `bull:${env}`;
+      })(),
     }),
     BullModule.registerQueue({
       name: 'xero-refresh-token',
