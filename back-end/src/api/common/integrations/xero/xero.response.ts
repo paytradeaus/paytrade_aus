@@ -118,6 +118,15 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Bill code' })
   bill_code: string;
 
+  @Field({ nullable: true, description: 'When true, the backend resolves a per-supplier/per-project bill account code at claim time instead of using the org-wide bill_code' })
+  bill_code_is_variable: boolean;
+
+  @Field({ nullable: true, description: 'Substring/naming convention used to match supplier-specific bill codes against the Xero chart of accounts' })
+  bill_code_naming_convention: string;
+
+  @Field({ nullable: true, description: 'When variable bill code resolution finds no match, fall back to the org-wide bill_code instead of erroring' })
+  bill_code_allow_fallback: boolean;
+
   @Field({ nullable: true, description: 'Retention payable retained code' })
   retention_payable_retained_code: string;
 

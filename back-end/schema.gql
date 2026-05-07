@@ -22406,6 +22406,21 @@ type XeroResponse {
   """Bill code"""
   bill_code: String
 
+  """
+  When variable bill code resolution finds no match, fall back to the org-wide bill_code instead of erroring
+  """
+  bill_code_allow_fallback: Boolean
+
+  """
+  When true, the backend resolves a per-supplier/per-project bill account code at claim time instead of using the org-wide bill_code
+  """
+  bill_code_is_variable: Boolean
+
+  """
+  Substring/naming convention used to match supplier-specific bill codes against the Xero chart of accounts
+  """
+  bill_code_naming_convention: String
+
   """Bill tax code"""
   bill_tax_code: String
 
