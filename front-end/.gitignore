@@ -21,6 +21,8 @@
 *.es.js.map
 *lock.json
 !package-lock.json
+!next.config.js
+!jest.config.js
 
 # misc
 .DS_Store
