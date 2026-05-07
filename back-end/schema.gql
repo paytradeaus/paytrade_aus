@@ -48,6 +48,60 @@ type ABAGeneratedFileHistoryObj {
 }
 
 """
+A sender bank account that was skipped entirely from ABA generation (e.g. missing APCA number).
+"""
+type AbaSkippedAccount {
+  """Display name of the bank account."""
+  account_name: String
+
+  """Account number of the sender."""
+  account_number: String
+
+  """Sender bank account ID."""
+  bank_account_id: Float
+
+  """Company ID owning the bank account."""
+  company_id: Float
+
+  """Human-readable reason this account was skipped."""
+  reason: String
+
+  """Number of payments that were skipped because of this account."""
+  skipped_payment_count: Float
+}
+
+"""
+A single sub-payment that was excluded from a generated ABA file, with the reason and missing fields.
+"""
+type AbaSkippedPayment {
+  """Amount that would have been included."""
+  amount: Float
+
+  """
+  Machine-readable list of missing fields (e.g. recipient_bsb, recipient_account_number, sender_apca_number, sender_account_number).
+  """
+  missing_fields: [String!]
+
+  """Parent payment ID."""
+  payment_id: Float
+
+  """Payment type (e.g. Full, Part)."""
+  payment_type: String
+
+  """Human-readable reason this sub-payment was skipped."""
+  reason: String
+
+  """Display name of the recipient."""
+  recipient_name: String
+
+  """Display name of the sender bank account."""
+  sender_account_name: String
+
+  """Sub-payment ID that was skipped."""
+  sub_payment_id: Float
+}
+
+"""
 Represents an account entry within a journal, including debit and credit values.
 """
 type Account {
@@ -8802,8 +8856,24 @@ type FileAttachmenResponse {
   """Unique identifier of the attachment."""
   id: String
 
+  """Count of sub-payments that were included in the ABA file."""
+  included_count: Float
+
   """List of triggered notice IDs related to this attachment."""
   notice_trigger: [Float!]
+
+  """
+  Sender bank accounts that were skipped entirely (e.g. missing APCA number).
+  """
+  skipped_accounts: [AbaSkippedAccount!]
+
+  """Count of sub-payments that were silently dropped from the ABA file."""
+  skipped_count: Float
+
+  """
+  Sub-payments that were dropped from the ABA file (e.g. missing recipient BSB, account number, or sender APCA).
+  """
+  skipped_payments: [AbaSkippedPayment!]
 }
 
 """Represents a single file attachment for a system email"""
