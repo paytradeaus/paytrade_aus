@@ -25,6 +25,79 @@ import PaymentHistory from "./PaymentHistory";
 import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import { fetchViewPayments } from "../AddUpdatePayments/Payment.functions";
 
+/**
+ * Redistribute backend per-line GST so the line-item rows reconcile with the
+ * claim totals card and with the source bill in Xero.
+ *
+ * The backend stores `payment_claim_invoices.gst` as the raw 10% × unit_price
+ * (gross of retention), but `claim_amount` and `gst_summary` reflect the
+ * **actual** taxable GST after BAS-Excluded retention is stripped out (see
+ * payment-claims.service.ts ~L2078). For a claim like 100022 that means the
+ * raw line GST is $1,572.50 while the real GST is $1,493.88 — and the totals
+ * card shows the latter while the line shows the former, breaking
+ * reconciliation.
+ *
+ * This helper scales every line's stored GST by the ratio
+ * `gst_summary / Σ(raw line gst)` so the per-line GST values sum to
+ * `gst_summary` exactly. Last line absorbs the rounding remainder. Lines with
+ * zero raw GST stay at zero.
+ */
+function redistributeLineGst(
+  items: Array<{
+    description: any;
+    rawGst: number;
+    quantity: number;
+    unit_price_num: number;
+    unit_price: string;
+  }>,
+  targetTotalGst: number
+): any[] {
+  if (!items || items.length === 0) return items as any;
+
+  const sumRawGst = items.reduce((s, it) => s + (Number(it.rawGst) || 0), 0);
+  const canRedistribute = targetTotalGst > 0 && sumRawGst > 0;
+
+  // Assign rounding remainder to the LAST line that actually has GST so we
+  // never inflate a zero-GST line. Falls back to -1 (no remainder line) when
+  // no line has GST or no redistribution is happening.
+  let remainderIdx = -1;
+  if (canRedistribute) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if ((Number(items[i].rawGst) || 0) > 0) {
+        remainderIdx = i;
+        break;
+      }
+    }
+  }
+
+  let allocated = 0;
+  return items.map((it, i) => {
+    const lineSubtotal = (it.unit_price_num || 0) * (it.quantity || 0);
+    let lineGst: number;
+
+    if (!canRedistribute) {
+      lineGst = targetTotalGst <= 0 ? 0 : Number(it.rawGst) || 0;
+    } else if ((Number(it.rawGst) || 0) === 0) {
+      // Preserve zero-GST lines exactly.
+      lineGst = 0;
+    } else if (i === remainderIdx) {
+      // Last taxable line absorbs the rounding remainder.
+      lineGst = Number((targetTotalGst - allocated).toFixed(2));
+    } else {
+      lineGst = Number(((it.rawGst / sumRawGst) * targetTotalGst).toFixed(2));
+    }
+    allocated += lineGst;
+
+    return {
+      description: it.description,
+      gst: lineGst.toFixed(2),
+      quantity: it.quantity,
+      total_amount_including_gst: (lineSubtotal + lineGst).toFixed(2),
+      unit_price: it.unit_price,
+    };
+  });
+}
+
 export default function AddUpdateClaims({ editMode, viewMode }: any) {
   const {
     formik,
@@ -165,7 +238,21 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
         apiResponse?.cash_retention_type
       );
       formik?.setFieldValue("isGstChecked", apiResponse?.isGstChecked);
-      formik?.setFieldValue("claimItems", apiResponse?.invoice_list);
+      formik?.setFieldValue(
+        "claimItems",
+        apiResponse?.invoice_list?.length
+          ? redistributeLineGst(
+              apiResponse.invoice_list.map((item: any) => ({
+                description: item.description,
+                rawGst: Number(item?.gst) || 0,
+                quantity: Number(item.quantity),
+                unit_price_num: Number(item?.unit_price) || 0,
+                unit_price: `${formatRupees(Number(item?.unit_price))}`,
+              })),
+              Number(apiResponse?.gst_summary) || 0
+            )
+          : apiResponse?.invoice_list
+      );
 
       formik?.setFieldValue("totalAmount", apiResponse?.claim_amount);
       formik?.setFieldValue("projectId", apiResponse?.project_id);
@@ -272,18 +359,16 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
               cash_retention_type: responseData?.cash_retention_type,
               claimItems:
                 responseData?.invoices?.length > 0
-                  ? responseData?.invoices?.map((item: any) => {
-                      return {
+                  ? redistributeLineGst(
+                      responseData.invoices.map((item: any) => ({
                         description: item.description,
-                        gst: Number(item?.gst) || "0.00",
+                        rawGst: Number(item?.gst) || 0,
                         quantity: Number(item.quantity),
-                        total_amount_including_gst:
-                          item.total_amount_including_gst
-                            ? Number(item.total_amount_including_gst).toFixed(2)
-                            : item.total_amount_including_gst,
+                        unit_price_num: Number(item?.unit_price) || 0,
                         unit_price: `${formatRupees(Number(item?.unit_price))}`,
-                      };
-                    })
+                      })),
+                      Number(responseData?.gst_summary) || 0
+                    )
                   : formik?.initialValues?.claimItems,
               subTotal: responseData?.sub_total_summary,
               gstAmount: responseData?.gst_summary,

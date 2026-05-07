@@ -11,6 +11,8 @@ import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
 import { isWebhookProcessableStatus } from './integration-status.constants';
 
+const LEGACY_QUEUE_KEY = 'xero_webhook_queue';
+
 function resolveEnvironment(): string {
   if (process.env.APP_ENVIRONMENT) {
     return process.env.APP_ENVIRONMENT;
@@ -97,12 +99,12 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     }
   }
 
-  private async popEvent(): Promise<string | null> {
+  private async popEvent(key: string): Promise<string | null> {
     try {
-      return await (this.redis as any).atomicPop(this.queueKey) as string | null;
+      return await (this.redis as any).atomicPop(key) as string | null;
     } catch (luaErr) {
-      this.logger.warn(`[ATOMIC_POP] Lua failed (${luaErr.message}), using rpop`);
-      return await this.redis.rpop(this.queueKey);
+      this.logger.warn(`[ATOMIC_POP] Lua failed for ${key} (${luaErr.message}), using rpop`);
+      return await this.redis.rpop(key);
     }
   }
 
@@ -119,7 +121,21 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
       const maxBatch = 10;
 
       while (processed < maxBatch) {
-        const eventJson = await this.popEvent();
+        let eventJson = await this.popEvent(this.queueKey);
+
+        // Defensive read of the legacy unsuffixed key (`xero_webhook_queue`).
+        // Production-only — the Cloudflare relay sample in this repo still
+        // LPUSHes there (attached_assets/Pasted--Welcome-to-Cloudflare-Workers...
+        // line 84). If the deployed relay was incompletely upgraded, events on
+        // the legacy key would otherwise be silently dropped (no consumer).
+        if (!eventJson && this.environment === 'production') {
+          eventJson = await this.popEvent(LEGACY_QUEUE_KEY);
+          if (eventJson) {
+            this.logger.warn(
+              `[LEGACY_QUEUE] Drained event from unsuffixed key '${LEGACY_QUEUE_KEY}' — relay still pushing to legacy key`,
+            );
+          }
+        }
 
         if (!eventJson) {
           break;
