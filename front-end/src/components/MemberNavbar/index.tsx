@@ -66,19 +66,20 @@ export default function MemberNavbar() {
   }
 
   return (
-    <div className="pt_nav">
-      <nav>
-        <ul>
-          <li>
-            <div
-              className="menuopen mobile"
-              onClick={() => dispatch(setDisplayResponsiveSidebar(true))}
-            >
-              <i className="fa-light fa-bars"></i>
-            </div>
-            <Link href={AppRoutes.HOME} className="logo"></Link>
-          </li>
-        </ul>
+    <header>
+      <div className="pt_nav">
+        <nav>
+          <ul>
+            <li>
+              <div
+                className="menuopen mobile"
+                onClick={() => dispatch(setDisplayResponsiveSidebar(true))}
+              >
+                <i className="fa-light fa-bars"></i>
+              </div>
+              <Link href={AppRoutes.HOME} className="logo"></Link>
+            </li>
+          </ul>
 
         <ul>
           <li className="desktop">
@@ -149,8 +150,9 @@ export default function MemberNavbar() {
             </details>
           </li>
         </ul>
-        {accessTokenId && authTokenVerification && <NavbarAccessProfile />}
-      </nav>
-    </div>
+          {accessTokenId && authTokenVerification && <NavbarAccessProfile />}
+        </nav>
+      </div>
+    </header>
   );
 }
