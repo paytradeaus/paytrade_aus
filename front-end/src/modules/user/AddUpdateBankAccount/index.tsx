@@ -257,14 +257,13 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       ),
       DelegateStatus: Yup.string().required("Delegate Power is required"),
     }),
-    ...(isEditable
-      ? {
-          apca_number: Yup.string().matches(
-            /^\d{6}$/,
-            "APCA number must be exactly 6 digits"
-          ),
-        }
-      : { apca_number: Yup.string().notRequired() }),
+    apca_number: Yup.string()
+      .notRequired()
+      .test(
+        "apca-format",
+        "APCA number must be exactly 6 digits",
+        (value) => !value || /^\d{6}$/.test(value)
+      ),
   });
 
   const formik: any = useFormik({
@@ -284,6 +283,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       OpeningDate: "",
       associated_cash_account_id: "",
       isAccountNumberExist: false,
+      apca_number: "",
     },
     validationSchema,
     // onSubmit: async (values, { setSubmitting }) => {
@@ -1176,6 +1176,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         associated_cash_account_id:
           +formik?.values?.associated_cash_account_id || null,
         delegate_powers: DelegateStatus,
+        ...(formik?.values?.apca_number
+          ? { apca_number: +formik.values.apca_number }
+          : {}),
       };
 
       if (BankAccountType === "Project Trust Account") {
@@ -2357,28 +2360,26 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     value={formik.values?.BsbNumber}
                   />
 
-                  {isEditable && (
-                    <FormikControl
-                      control={InputType.TEXT_FIELD}
-                      label={"APCA number"}
-                      name={"apca_number"}
-                      placeholder="APCA number"
-                      value={formik.values?.apca_number}
-                      maxLength={6}
-                      onChange={(e: any) => {
-                        let number = e?.target?.value.trim();
+                  <FormikControl
+                    control={InputType.TEXT_FIELD}
+                    label={"APCA number"}
+                    name={"apca_number"}
+                    placeholder="APCA number"
+                    value={formik.values?.apca_number}
+                    maxLength={6}
+                    onChange={(e: any) => {
+                      let number = e?.target?.value.trim();
 
-                        if (NUMBER_REGEX.test(number) || number === "") {
-                          formik.setFieldValue("apca_number", number);
-                        }
-                      }}
-                      onBlur={formik.handleBlur("apca_number")}
-                      showError={
-                        formik.touched.apca_number && formik.errors.apca_number
+                      if (NUMBER_REGEX.test(number) || number === "") {
+                        formik.setFieldValue("apca_number", number);
                       }
-                      error={formik.errors?.apca_number}
-                    />
-                  )}
+                    }}
+                    onBlur={formik.handleBlur("apca_number")}
+                    showError={
+                      formik.touched.apca_number && formik.errors.apca_number
+                    }
+                    error={formik.errors?.apca_number}
+                  />
 
                   {selectedBankType && selectedBankType !== "Cash Account" && (
                     <FormikControl
