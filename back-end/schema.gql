@@ -11272,6 +11272,18 @@ type GetProjectsListResponse {
   status: String!
 }
 
+"""Phase 3 — list of retention gross-up journals for a claim"""
+type GetRetentionJournalsResponse {
+  """Retention journals linked to this claim, newest first"""
+  data: [RetentionJournalEntry!]
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
 """Detailed information about a subscription"""
 type GetSubscriptionDetails {
   """Subscription amount"""
@@ -18291,6 +18303,14 @@ type Query {
     payload: GetXeroProjectListsInput!
   ): GetXeroProjectsListResponse!
 
+  """
+  Phase 3 — returns the retention gross-up Manual Journals PayTrade has posted to Xero for a given claim (newest first).
+  """
+  getXeroRetentionJournalsForClaim(
+    """Paytrade payment_claim_id to look up retention journals for."""
+    payment_claim_id: Float!
+  ): GetRetentionJournalsResponse!
+
   """Fetches Xero sync logs with filtering and pagination support."""
   getXeroSyncLogs(
     """
@@ -18675,6 +18695,46 @@ type RegenerateNoticeResponse {
 
   """Response status."""
   status: String!
+}
+
+"""
+Phase 3 — single retention gross-up Manual Journal posted by PayTrade for a claim
+"""
+type RetentionJournalEntry {
+  """Created timestamp (ISO)"""
+  created_on: String
+
+  """Last error text if status=FAILED"""
+  error_text: String
+
+  """GST component grossed up in $"""
+  gst_amount: Float
+
+  """Internal PT row id (uuid)"""
+  id: String
+
+  """"gross_up" on bill creation, "gross_up_reversal" on retention release"""
+  kind: String
+
+  """Xero ManualJournalID (uuid)"""
+  manual_journal_id: String
+
+  """Narration written to Xero"""
+  narration: String
+
+  """
+  Where the GST decision came from: bill_line | contact_helper | company | unknown
+  """
+  resolution_source: String
+
+  """Resolved Xero tax type used on the journal lines"""
+  resolved_tax_type: String
+
+  """Retention amount ex-GST in $"""
+  retention_ex_gst: Float
+
+  """POSTED | DELETED | VOIDED | FAILED"""
+  status: String
 }
 
 """Represents routing metadata associated with a journal transaction."""

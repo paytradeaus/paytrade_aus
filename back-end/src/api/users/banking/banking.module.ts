@@ -71,6 +71,8 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { HolidayDetails } from 'src/entities/holiday-details.entity';
 import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAndBills/xero-invoices.service';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
+import { XeroManualJournalService } from 'src/api/common/integrations/xero/manualJournals/xero-manual-journal.service';
+import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
 import { CompliancesService } from '../compliances/compliances.service';
 import {
   ComplianceChecks,
@@ -154,6 +156,7 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
       XeroContactDetails,
       XeroContractDetails,
       XeroInvoicesBills,
+      XeroRetentionJournals,
       XeroPayments,
       IntegrationDetails,
       XeroSyncLogs,
@@ -218,6 +221,7 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
     FileUploadService,
     XeroAccountsService,
     XeroInvoicesService,
+    XeroManualJournalService,
     XeroPaymentsService,
     CompliancesService,
     CompliancePTAFunctions,

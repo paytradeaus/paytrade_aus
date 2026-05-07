@@ -42,6 +42,7 @@ import { PaymentGatewayService } from '../payment-gateway/payment-gateway.servic
 import { ClientSuppliersDetailsService } from 'src/api/users/client-suppliers-details/client-suppliers-details.service';
 import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import { XeroInvoicesService } from '../integrations/xero/invoicesAndBills/xero-invoices.service';
+import { XeroManualJournalService } from '../integrations/xero/manualJournals/xero-manual-journal.service';
 import { UpdateClientSuppliersDetailInput } from 'src/api/users/client-suppliers-details/dto/update-client-suppliers-detail.input';
 import { XeroWaitQueueService } from './waitQueue/webhookWait.service';
 import { TransactionDetails } from 'src/entities/transaction-details.entity';
@@ -100,6 +101,7 @@ export class XeroWebhookService {
     private readonly paymentGatewayService: PaymentGatewayService,
     private readonly clientSuppliersDetailsService: ClientSuppliersDetailsService,
     private readonly xeroInvoicesService: XeroInvoicesService,
+    private readonly xeroManualJournalService: XeroManualJournalService,
     private readonly xeroWaitQueueService: XeroWaitQueueService,
     private readonly dataSource: DataSource,
   ) {
@@ -850,6 +852,73 @@ export class XeroWebhookService {
           return false;
         }
       }
+    }
+  }
+
+  /**
+   * Phase 3 — MANUALJOURNAL.* webhook handler. The only role is anti-echo:
+   * if PayTrade posted this MJ itself (matching row in
+   * `xero_retention_journals.manual_journal_id`), drop it with a log entry.
+   * For any other manual journal we currently no-op — full inbound MJ
+   * processing is a future enhancement and explicitly out of scope for
+   * Task #26.
+   */
+  async handleManualJournalUpdate(data: any, decoded?: any) {
+    const { resource_id, tenant_id, eventType } = data || {};
+    if (!resource_id) return false;
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { tenant_id, status: 'ACTIVE' },
+      });
+      if (!xeroDetails?.integration_id) {
+        this.logger.log(
+          `[MJ_WEBHOOK] no integration for tenant ${tenant_id}; ignoring ${eventType}`,
+        );
+        return false;
+      }
+      const link = await this.xeroManualJournalService.findByManualJournalId(
+        resource_id,
+        xeroDetails.integration_id,
+      );
+      if (link) {
+        this.logger.log(
+          `[MJ_WEBHOOK] dropping self-echo for manual_journal_id=${resource_id} (claim ${link.pt_claim_id}, kind ${link.kind})`,
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: null,
+          api_name: 'handleManualJournalUpdate',
+          api_payload: { resource_id, tenant_id, eventType },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 606,
+          dynamic_values: { manual_journal_id: resource_id },
+          project_id: null,
+          contract_id: null,
+          reference: { xeroId: resource_id, paytradeId: link.pt_claim_id },
+          reference_id:
+            link.pt_claim_id != null ? String(link.pt_claim_id) : null,
+          history: [
+            `MJ webhook ${eventType} for ${resource_id}`,
+            'Self-echo of PayTrade-posted gross-up — ignored',
+          ],
+          important_checks: { 'Anti-echo lookup': 'Ok' },
+          error_message: null,
+          xero_records: [],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return true;
+      }
+      this.logger.log(
+        `[MJ_WEBHOOK] external manual journal ${resource_id} (${eventType}) — no PT-side action`,
+      );
+      return false;
+    } catch (err: any) {
+      this.logger.error(
+        `[MJ_WEBHOOK] error handling manual journal ${resource_id}: ${err?.message || err}`,
+      );
+      return false;
     }
   }
 
@@ -3353,6 +3422,48 @@ export class XeroWebhookService {
             const claimDetails = await this.paymentClaims.findOne({
               where: { id: response?.id },
             });
+
+            // Phase 3 — auto gross-up retention via Manual Journals on
+            // inbound (Xero → PT) Claim creation. Best-effort: failures
+            // are written to sync logs and never block the webhook.
+            try {
+              if (
+                this.xeroManualJournalService.isAutoGrossUpEnabled(xeroDetails) &&
+                Number(claimDetails?.retention_amount) > 0
+              ) {
+                const baseCode =
+                  invoice?.type === Invoice.TypeEnum.ACCPAY
+                    ? xeroDetails?.bill_code
+                    : xeroDetails?.invoice_code;
+                const baseLine =
+                  Array.isArray(invoice?.lineItems) && baseCode
+                    ? invoice.lineItems.find(
+                        (li: any) => li?.accountCode === baseCode,
+                      )
+                    : null;
+                const kind: 'gross_up' | 'gross_up_reversal' =
+                  claimDetails?.cash_retention_type === 'Retention claim'
+                    ? 'gross_up_reversal'
+                    : 'gross_up';
+                await this.xeroManualJournalService.postGrossUpJournal(
+                  decoded,
+                  {
+                    claim: claimDetails,
+                    xeroDetails,
+                    contact: clientSuppliersDetails,
+                    retentionExGst: Number(claimDetails?.retention_amount) || 0,
+                    baseLineTaxType: baseLine?.taxType || null,
+                    invoice_id: invoice?.invoiceID || null,
+                  },
+                  kind,
+                  this.xero,
+                );
+              }
+            } catch (mjErr: any) {
+              this.logger.error(
+                `[MJ_INBOUND_CREATE] gross-up post failed for claim ${claimDetails?.payment_claim_id}: ${mjErr?.message || mjErr}`,
+              );
+            }
 
             this.logger.log(JSON.stringify({ response: response?.id }));
             // if (isS75eligible) {

@@ -44,6 +44,7 @@ import { NoticesService } from 'src/api/users/notices/notices.service';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+import { XeroManualJournalService } from '../manualJournals/xero-manual-journal.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -87,6 +88,7 @@ export class XeroInvoicesService {
     private readonly noticesService: NoticesService,
     private readonly emailQueueProducer: EmailQueueProducer,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly xeroManualJournalService: XeroManualJournalService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -1142,6 +1144,23 @@ export class XeroInvoicesService {
           const xeroResponse: any =
             await this.insertInvoiceDetails(requestData);
           if (xeroResponse) {
+            // Phase 3 — auto gross-up retention via Manual Journals.
+            // Best-effort: failures are logged via sync log and never block
+            // the main create flow.
+            try {
+              await this.maybePostRetentionGrossUpJournal(
+                decoded,
+                claimDetails,
+                xeroDetails,
+                invoice,
+                xeroResponse?.invoice_id || invoice?.invoiceID,
+              );
+            } catch (mjErr) {
+              this.logger.error(
+                `[MJ_OUTBOUND_CREATE] gross-up post failed for claim ${claimDetails?.payment_claim_id}: ${mjErr?.message || mjErr}`,
+              );
+            }
+
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: data?.sync_id,
               integration_id: xeroDetails.integration_id,
@@ -3170,6 +3189,64 @@ export class XeroInvoicesService {
     };
   }
 
+  /**
+   * Phase 3 helper — picks the retention amount + base-line tax type off
+   * the freshly-created/updated Xero invoice, looks up the PT contact, and
+   * delegates to XeroManualJournalService to post a gross-up (or reversal,
+   * for Retention claims) MJ. No-op when Phase 3 is disabled or retention
+   * is zero. Wrap the call in try/catch — sync logs are written by the MJ
+   * service.
+   */
+  async maybePostRetentionGrossUpJournal(
+    decoded: any,
+    claimDetails: any,
+    xeroDetails: XeroIntegrationDetails,
+    invoice: any,
+    invoice_id: string | null | undefined,
+  ): Promise<void> {
+    if (!this.xeroManualJournalService.isAutoGrossUpEnabled(xeroDetails)) {
+      return;
+    }
+    const retentionExGst = Number(claimDetails?.retention_amount) || 0;
+    if (retentionExGst <= 0) return;
+
+    const baseCode =
+      claimDetails?.claim_type === 'Billable'
+        ? xeroDetails?.bill_code
+        : xeroDetails?.invoice_code;
+    const baseLine =
+      Array.isArray(invoice?.lineItems) && baseCode
+        ? invoice.lineItems.find((li: any) => li?.accountCode === baseCode)
+        : null;
+    const baseLineTaxType: string | null = baseLine?.taxType || null;
+
+    let contact: ClientSuppliersDetails | null = null;
+    if (claimDetails?.client_supplier_id) {
+      contact = await this.clientSuppliersDetails.findOne({
+        where: { client_supplier_id: claimDetails.client_supplier_id },
+      });
+    }
+
+    const kind: 'gross_up' | 'gross_up_reversal' =
+      claimDetails?.cash_retention_type === 'Retention claim'
+        ? 'gross_up_reversal'
+        : 'gross_up';
+
+    await this.xeroManualJournalService.postGrossUpJournal(
+      decoded,
+      {
+        claim: claimDetails,
+        xeroDetails,
+        contact,
+        retentionExGst,
+        baseLineTaxType,
+        invoice_id: invoice_id || null,
+      },
+      kind,
+      this.xero,
+    );
+  }
+
   async adjustItemsWithRetention(
     invoice,
     items,
@@ -4288,6 +4365,31 @@ export class XeroInvoicesService {
             const xeroResponse: any =
               await this.updateInvoiceDetails(requestData);
             if (xeroResponse) {
+              // Phase 3 — void any existing gross-up MJ for this claim and
+              // re-post against the updated retention amount. Best-effort:
+              // never blocks the edit response.
+              try {
+                await this.xeroManualJournalService.voidAllForClaim(
+                  decoded,
+                  xeroDetails.integration_id,
+                  claimDetails.payment_claim_id,
+                  this.xero,
+                  claimDetails.company_id,
+                  'Claim edited — recreating gross-up MJ',
+                );
+                await this.maybePostRetentionGrossUpJournal(
+                  decoded,
+                  claimDetails,
+                  xeroDetails,
+                  invoice,
+                  invoiceBillDetails?.invoice_id,
+                );
+              } catch (mjErr) {
+                this.logger.error(
+                  `[MJ_OUTBOUND_EDIT] gross-up recreate failed for claim ${claimDetails?.payment_claim_id}: ${mjErr?.message || mjErr}`,
+                );
+              }
+
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: data?.sync_id,
                 integration_id: xeroDetails.integration_id,
@@ -4567,6 +4669,21 @@ export class XeroInvoicesService {
             const xeroResponse =
               await this.xeroInvoicesBills.save(invoiceBillDetails);
             if (xeroResponse) {
+              // Phase 3 — void any gross-up MJ for the deleted claim.
+              try {
+                await this.xeroManualJournalService.voidAllForClaim(
+                  decoded,
+                  xeroDetails.integration_id,
+                  claimDetails.payment_claim_id,
+                  this.xero,
+                  claimDetails.company_id,
+                  'Claim deleted/voided in Xero',
+                );
+              } catch (mjErr) {
+                this.logger.error(
+                  `[MJ_OUTBOUND_DELETE] gross-up void failed for claim ${claimDetails?.payment_claim_id}: ${mjErr?.message || mjErr}`,
+                );
+              }
               const addSyncLogResponse =
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: data?.sync_id,

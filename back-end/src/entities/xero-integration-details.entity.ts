@@ -120,6 +120,20 @@ export class XeroIntegrationDetails {
   @Column({ type: 'text', nullable: true })
   retention_tax_type: string;
 
+  // Phase 3 — Auto gross-up retention journals. When ON, the producer/
+  // consumer pipelines post a 2-line POSTED Manual Journal to Xero whenever
+  // a Claim is created (DR Retention Payable / CR Retention Held for the
+  // GST portion of the retention) and a reversal MJ when the Retention
+  // claim is created. Only meaningful when
+  // `simplified_retention_accounting=false` AND
+  // `retention_recording_mode='ex_gst'` — for inc_gst the gross figure is
+  // already on the retention line so an MJ would double-count, and the
+  // simplified 2-line shape doesn't carry a separate liability leg to
+  // gross up. See `XeroManualJournalService` for the smart tax-type
+  // resolution order.
+  @Column({ type: 'boolean', nullable: true, default: false })
+  auto_gross_up_retention_journals: boolean;
+
   // Phase 2: cached Xero organisation GST defaults. Refreshed on connect
   // and via daily scheduler. `xero_org_default_sales_tax` /
   // `xero_org_default_purchases_tax` are the org-level fallback tax types

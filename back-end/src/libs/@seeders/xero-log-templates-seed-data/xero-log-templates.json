@@ -5145,5 +5145,75 @@
     "from_xero": true,
     "error_code": "SMART_CONTRACT_CONTACT_INCOMPLETE",
     "associated_log_ids": null
+  },
+  {
+    "id": 600,
+    "sync_type": "Retention journals",
+    "description": "<p>Posted GST gross-up Manual Journal {{manual_journal_id}} for retention on claim {{payment_claim_id}} (GST {{gst_amount}}, source {{source}}).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 601,
+    "sync_type": "Retention journals",
+    "description": "<p>Posted GST gross-up reversal Manual Journal {{manual_journal_id}} for retention claim {{payment_claim_id}} (GST {{gst_amount}}, source {{source}}).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 602,
+    "sync_type": "Retention journals",
+    "description": "<p>Voided gross-up Manual Journal {{manual_journal_id}} for claim {{payment_claim_id}} ({{reason}}).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 603,
+    "sync_type": "Retention journals",
+    "description": "<p>Skipped GST gross-up for claim {{payment_claim_id}} — {{reason}}.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "RETENTION_MJ_SKIPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 604,
+    "sync_type": "Retention journals",
+    "description": "<p>Failed to post GST gross-up Manual Journal for claim {{payment_claim_id}}: {{error}}.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "RETENTION_MJ_POST_FAILED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 605,
+    "sync_type": "Retention journals",
+    "description": "<p>Failed to void GST gross-up Manual Journal {{manual_journal_id}} for claim {{payment_claim_id}}: {{error}}.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "RETENTION_MJ_VOID_FAILED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 606,
+    "sync_type": "Retention journals",
+    "description": "<p>Ignored Manual Journal {{manual_journal_id}} webhook — self-echo of PayTrade-posted gross-up.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
   }
 ]

@@ -553,6 +553,75 @@ export class ViewSyncLogResponse {
 }
 
 @ObjectType({
+  description:
+    'Phase 3 — single retention gross-up Manual Journal posted by PayTrade for a claim',
+})
+export class RetentionJournalEntry {
+  @Field({ nullable: true, description: 'Internal PT row id (uuid)' })
+  id: string;
+
+  @Field({ nullable: true, description: 'Xero ManualJournalID (uuid)' })
+  manual_journal_id: string;
+
+  @Field({
+    nullable: true,
+    description: '"gross_up" on bill creation, "gross_up_reversal" on retention release',
+  })
+  kind: string;
+
+  @Field({
+    nullable: true,
+    description: 'POSTED | DELETED | VOIDED | FAILED',
+  })
+  status: string;
+
+  @Field({ nullable: true, description: 'Retention amount ex-GST in $' })
+  retention_ex_gst: number;
+
+  @Field({ nullable: true, description: 'GST component grossed up in $' })
+  gst_amount: number;
+
+  @Field({
+    nullable: true,
+    description: 'Resolved Xero tax type used on the journal lines',
+  })
+  resolved_tax_type: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Where the GST decision came from: bill_line | contact_helper | company | unknown',
+  })
+  resolution_source: string;
+
+  @Field({ nullable: true, description: 'Narration written to Xero' })
+  narration: string;
+
+  @Field({ nullable: true, description: 'Last error text if status=FAILED' })
+  error_text: string;
+
+  @Field({ nullable: true, description: 'Created timestamp (ISO)' })
+  created_on: string;
+}
+
+@ObjectType({
+  description: 'Phase 3 — list of retention gross-up journals for a claim',
+})
+export class GetRetentionJournalsResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field(() => [RetentionJournalEntry], {
+    nullable: true,
+    description: 'Retention journals linked to this claim, newest first',
+  })
+  data?: RetentionJournalEntry[];
+}
+
+@ObjectType({
   description: 'Represents a chart of accounts code in Xero/Paytrade',
 })
 export class AccountCodes {

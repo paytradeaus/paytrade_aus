@@ -18,6 +18,8 @@ import {
   GetXeroInvoicesListResponse,
   GetXeroInvoicesResponse,
 } from './response/xero.response';
+import { GetRetentionJournalsResponse } from '../xero.response';
+import { XeroManualJournalService } from '../manualJournals/xero-manual-journal.service';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
 import { RolesGuard } from 'src/api/auth/role-guard/roles.guard';
@@ -37,6 +39,7 @@ export class XeroInvoicesResolver {
   constructor(
     private readonly jwtInternalService: JwtInternalService,
     private readonly xeroInvoicesService: XeroInvoicesService,
+    private readonly xeroManualJournalService: XeroManualJournalService,
     private readonly xeroWebhookService: XeroWebhookService,
     private readonly xeroService: XeroService,
     private readonly xeroResolver: XeroResolver,
@@ -381,6 +384,38 @@ export class XeroInvoicesResolver {
         return framedResponse('SUCCESS', 'No Xero invoice mapped for this claim', null);
       }
       return framedResponse('SUCCESS', 'Xero invoice metadata fetched', data);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetRetentionJournalsResponse, {
+    name: 'getXeroRetentionJournalsForClaim',
+    description:
+      'Phase 3 — returns the retention gross-up Manual Journals PayTrade has posted to Xero for a given claim (newest first).',
+  })
+  async getXeroRetentionJournalsForClaim(
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id to look up retention journals for.',
+    })
+    payment_claim_id: number,
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const { headers } = context.req;
+      const companyId = Number(headers?.companyid);
+      const data =
+        await this.xeroManualJournalService.listJournalsForClaim(
+          payment_claim_id,
+          companyId,
+        );
+      return framedResponse(
+        'SUCCESS',
+        'Retention journals fetched',
+        data || [],
+      );
     } catch (error) {
       return framedResponse('ERROR', error?.message ? error.message : error);
     }

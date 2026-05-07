@@ -228,6 +228,26 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
         this.logger.log(`[EVENT] handleInvoiceCreateUpdate completed`);
         break;
 
+      // Phase 3 — Anti-echo handling for Manual Journals. PayTrade posts
+      // gross-up MJs on its own and Xero fans the resulting webhook back at
+      // us; without this dispatch any future MANUALJOURNAL processing
+      // would treat our own writes as inbound user activity. The handler
+      // looks up the manual_journal_id in xero_retention_journals and
+      // drops self-echoes.
+      case 'MANUALJOURNAL.CREATE':
+      case 'MANUALJOURNAL.UPDATE':
+        this.logger.log(`[EVENT] Dispatching to handleManualJournalUpdate (type=${eventType})...`);
+        await this.xeroWebhookService.handleManualJournalUpdate(
+          {
+            resource_id: resourceId,
+            tenant_id: tenantId,
+            eventType,
+          },
+          decoded,
+        );
+        this.logger.log(`[EVENT] handleManualJournalUpdate completed`);
+        break;
+
       default:
         this.logger.log(`[EVENT] Unhandled event: ${eventKey}`);
     }

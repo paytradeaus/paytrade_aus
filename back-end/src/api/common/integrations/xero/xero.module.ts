@@ -44,6 +44,8 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { XeroInvoicesResolver } from './invoicesAndBills/xero-invoices.resolver';
 import { XeroInvoicesService } from './invoicesAndBills/xero-invoices.service';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
+import { XeroManualJournalService } from './manualJournals/xero-manual-journal.service';
+import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
 import { XeroPaymentsService } from './payments/xero-payments.service';
 import { XeroPaymentsResolver } from './payments/xero-payments.resolver';
 import { XeroPayments } from 'src/entities/xero-payments.entity';
@@ -146,6 +148,7 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
       XeroProjectDetails,
       XeroContractDetails,
       XeroInvoicesBills,
+      XeroRetentionJournals,
       XeroPayments,
       ProjectDetails,
       ClientSuppliersDetails,
@@ -222,6 +225,7 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
     XeroProjectsService,
     XeroSchedulerService,
     XeroInvoicesService,
+    XeroManualJournalService,
     XeroPaymentsService,
     ActivityLogService,
     XeroResolver,
@@ -259,6 +263,11 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
     XeroWaitQueueWorker,
     XeroWaitQueueEvent,
   ],
-  exports: [XeroRefreshTokenService, XeroInvoicesService, BullModule],
+  exports: [
+    XeroRefreshTokenService,
+    XeroInvoicesService,
+    XeroManualJournalService,
+    BullModule,
+  ],
 })
 export class XeroModule {}
