@@ -1285,10 +1285,12 @@ input AdminUpdateHolidayInput {
 
 type AiAnswerResponse {
   answer: String
+  category: String
   communityPostId: String
   message: String
   remainingQuota: Int
   status: String!
+  suggestions: [String!]
 }
 
 """Access token returned when an admin successfully logs in as a user"""
