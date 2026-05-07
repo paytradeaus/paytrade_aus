@@ -71,6 +71,14 @@ export class XeroIntegrationDetails {
   @Column({ type: 'integer', nullable: true, default: 0 })
   consecutive_missing_tenant_count: number;
 
+  // Task #45 — Timestamp of the most recent "Xero connection inactive"
+  // notification email sent to the company's PRIMARY ADMIN. Used to throttle
+  // these notifications to at most one per integration per 24 hours so the
+  // admin isn't spammed if the demotion branch is re-entered (e.g. a manual
+  // re-trigger of the scheduler) before the integration is reconnected.
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  last_inactive_email_sent_at: Date;
+
   @Column({ type: 'uuid', nullable: true })
   project_category_id: string;
 

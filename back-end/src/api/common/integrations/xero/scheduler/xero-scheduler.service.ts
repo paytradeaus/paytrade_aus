@@ -64,6 +64,8 @@ import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
+import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
+import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 
 dotenv.config();
 
@@ -110,6 +112,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     private readonly xeroProjectsService: XeroProjectsService,
     private readonly xeroContractsService: XeroContractsService,
     private readonly xeroInvoicesService: XeroInvoicesService,
+    private readonly emailQueueProducer: EmailQueueProducer,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -243,11 +246,124 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS current_xero_status varchar(50)`,
       `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS is_stale boolean NOT NULL DEFAULT false`,
       `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS void_date timestamp with time zone`,
+      // Task #45 — throttle column for Inactive-notification email
+      `ALTER TABLE xero_integration_details ADD COLUMN IF NOT EXISTS last_inactive_email_sent_at timestamp with time zone`,
     ];
     for (const sql of stmts) {
       await ds.query(sql);
     }
     this.logger.log('[XERO_PDF_MIGRATION] xero_invoices_bills columns verified');
+  }
+
+  /**
+   * Task #45 — Notify the company's PRIMARY ADMIN by email when the
+   * scheduler genuinely demotes a Xero integration to `Inactive` (after
+   * the 3-strike threshold introduced in Task #42). Throttled to at most
+   * one email per integration per 24 hours via
+   * `xero_integration_details.last_inactive_email_sent_at`.
+   *
+   * Best-effort: any failure is logged and swallowed so the surrounding
+   * demotion flow is never blocked.
+   */
+  private async notifyPrimaryAdminOfXeroInactive(
+    xeroDetailsId: string,
+    company_id: number,
+    tenant_name: string,
+  ): Promise<void> {
+    try {
+      const row = await this.xeroIntegrationDetails.findOne({
+        where: { id: xeroDetailsId },
+      });
+      if (!row) {
+        this.logger.warn(
+          `[Task #45] notifyPrimaryAdminOfXeroInactive: xero row ${xeroDetailsId} not found; skipping`,
+        );
+        return;
+      }
+
+      // 24h throttle
+      const lastSent = row.last_inactive_email_sent_at
+        ? new Date(row.last_inactive_email_sent_at).getTime()
+        : 0;
+      const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+      if (lastSent && Date.now() - lastSent < TWENTY_FOUR_HOURS_MS) {
+        this.logger.log(
+          `[Task #45] Inactive-notification email throttled for company_id=${company_id} (last sent ${row.last_inactive_email_sent_at})`,
+        );
+        return;
+      }
+
+      const primaryAdmin = await this.userRoles.findOne({
+        where: {
+          company_id: company_id,
+          company_role: In(['PRIMARY ADMIN']),
+          status: 'Active',
+        },
+        relations: ['userDetails'],
+      });
+      const toEmail = primaryAdmin?.userDetails?.email_id;
+      if (!toEmail) {
+        this.logger.warn(
+          `[Task #45] No active PRIMARY ADMIN with email found for company_id=${company_id}; skipping notification`,
+        );
+        return;
+      }
+
+      const adminName =
+        [
+          primaryAdmin?.userDetails?.first_name,
+          primaryAdmin?.userDetails?.last_name,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || 'there';
+
+      const orgLabel = tenant_name && tenant_name.trim() ? tenant_name : 'your Xero organisation';
+      const baseUrl = (process.env.LOG_BASE_URL || '').replace(/\/+$/, '');
+      const settingsLink = `${baseUrl}/user/integrations/xero/settings`;
+
+      const mailBody = `
+        <p>Hi ${adminName},</p>
+        <p>We tried to reach <strong>${orgLabel}</strong> in Xero from PayTrade several times in a row and the connection is no longer responding.</p>
+        <p>To keep your invoices, bills and contacts in sync, please reconnect this Xero organisation in PayTrade:</p>
+        <p>
+          <a href="${settingsLink}" style="background-color:#1A73E8;color:#ffffff;padding:10px 18px;text-decoration:none;border-radius:4px;display:inline-block;">
+            Reconnect Xero in PayTrade
+          </a>
+        </p>
+        <p>If the button above doesn't work, copy and paste this link into your browser:<br/>
+          <a href="${settingsLink}">${settingsLink}</a>
+        </p>
+        <p>You'll be asked to sign in to Xero and re-authorise PayTrade. Once you do, syncing will resume automatically.</p>
+        <p>If you've already reconnected, you can ignore this email.</p>
+        <p>Thanks,<br/>The PayTrade team</p>
+      `;
+
+      const mailDetails = {
+        toEmail,
+        subject: `Action required: your Xero connection for ${orgLabel} has gone inactive`,
+        template: 'header-footer-email',
+        mailBody,
+        mail_type: EmailTypeEnum.failedCompliance,
+      };
+
+      await this.emailQueueProducer.emailQueueProducer(mailDetails);
+
+      await this.xeroIntegrationDetails
+        .createQueryBuilder()
+        .update(XeroIntegrationDetails)
+        .set({ last_inactive_email_sent_at: moment.tz('UTC').toDate() })
+        .where(`id = :id`, { id: xeroDetailsId })
+        .execute();
+
+      this.logger.log(
+        `[Task #45] Inactive-notification email queued for company_id=${company_id} primary_admin=${toEmail}`,
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `[Task #45] notifyPrimaryAdminOfXeroInactive failed for company_id=${company_id}: ${err?.message || err}`,
+      );
+    }
   }
 
   private async backfillCachedXeroPdfs(): Promise<void> {
@@ -555,6 +671,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                       this.logger.log(
                         `updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`,
                       );
+
+                      // Task #45 — notify PRIMARY ADMIN that the Xero
+                      // connection has truly gone Inactive.
+                      await this.notifyPrimaryAdminOfXeroInactive(
+                        xeroDetails?.id,
+                        element.company_id,
+                        xeroDetails?.tenant_name,
+                      );
                     }
                   } else {
                     // Tenant present — reset counter and continue normal sync flow.
@@ -698,6 +822,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
 
                       this.logger.log(
                         `updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`,
+                      );
+
+                      // Task #45 — notify PRIMARY ADMIN that the Xero
+                      // connection has truly gone Inactive (non-active branch).
+                      await this.notifyPrimaryAdminOfXeroInactive(
+                        xeroDetails?.id,
+                        element.company_id,
+                        xeroDetails?.tenant_name,
                       );
                     }
                   } else if (
