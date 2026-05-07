@@ -3461,25 +3461,33 @@ export class XeroInvoicesService {
       const taxRetention = retentionTaxOnly * itemRatio;
 
       const newUnitAmount = unitAmount + unitRetention;
-      // Per-line GST must equal newUnitAmount × the line's implied GST rate
-      // — not (item.taxAmount + taxRetention). The previous formula left
-      // newTaxAmount equal to the GST on the *post-retention* unit (when
-      // the retention line was BAS-Excluded its taxRetention=0), which
-      // produced a per-line GST that no longer matched newUnitAmount × 10%
-      // (e.g. $1,493.78 instead of $1,572.40 on a $15,724 unit). Derive
-      // the rate from the line's own taxAmount/unitAmount when available
-      // and fall back to the invoice-level rate, then 10%.
+      // Per-line GST = original Xero line tax + this line's proportional
+      // share of retention tax. This MUST NOT be `newUnitAmount × 10%`
+      // because `newUnitAmount` includes the retention add-back which is
+      // BAS-Excluded in the common case (retention account mapped to
+      // BAS Excluded in Xero). Multiplying the post-retention unit by
+      // 10% phantoms GST onto the BAS-Excluded retention portion,
+      // producing a per-line gst that does not reconcile with either
+      // the totals card (`gst_summary`) or the source Xero invoice.
+      //
+      // Worked example — Xero bill 2501-SC-012 (PT claim 100022):
+      //   work line:   unitAmount=14937.80, taxAmount=1493.78
+      //   retention:   unitAmount=-786.20,  taxAmount=0 (BAS-Excluded)
+      //   retentionUnitOnly=786.20, retentionTaxOnly=0
+      //   newUnitAmount = 14937.80 + 786.20 = 15724.00
+      //   newTaxAmount  = 1493.78 + 0       = 1493.78  ✓ matches Xero
+      //   total         = 15724.00 + 1493.78 = 17217.78
+      //
+      // For GST-on-Expenses retention (taxRetention > 0) the per-line
+      // gst correctly picks up its proportional share, and Σ(line.gst)
+      // == invoice.totalTax + retentionTaxOnly == claim.gst_summary.
       const isTaxableLine = [
         LineAmountTypes.Inclusive,
         LineAmountTypes.Exclusive,
       ].includes(lineAmountTypes);
-      const perLineRate =
-        unitAmount !== 0
-          ? (item.taxAmount || 0) / unitAmount
-          : invoice?.subTotal
-          ? (invoice?.totalTax || 0) / invoice.subTotal
-          : 0.1;
-      const newTaxAmount = isTaxableLine ? newUnitAmount * perLineRate : 0;
+      const newTaxAmount = isTaxableLine
+        ? (Number(item.taxAmount) || 0) + taxRetention
+        : 0;
       const newAmountIncludingGST = newUnitAmount + newTaxAmount;
 
       this.logger.log(JSON.stringify({
