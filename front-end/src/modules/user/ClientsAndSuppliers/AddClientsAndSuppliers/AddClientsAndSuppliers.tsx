@@ -41,6 +41,10 @@ import {
   fetchClientSuppliersById,
   verifyClientSuppliersExistence,
 } from "./AddClientsAndSuppliers.functions";
+// Task #41 — variable bill code per supplier: per-project override editor
+// uses the dedicated mutation + the existing "list projects for company"
+// helper so no extra backend query is needed.
+import { getProjectsLists } from "../../AddUpdateClaims/AddUpdateClaims.function";
 import { useCustomDebounce, useIsClient } from "@/hooks";
 import {
   setAccountDetailsData,
@@ -76,12 +80,33 @@ export default function AddClientsAndSuppliers() {
     selectedType,
     setSelectedType,
     syncLogData,
+    // Task #41 — per-supplier Xero account code override editor.
+    projectAccountCodeOverrides,
+    setProjectAccountCodeOverrides,
+    setInitialProjectAccountCodeOverrides,
   } = useAddClientsAndSuppliersContext() as any;
 
   const params: any = useParams();
   const router = useRouter();
 
   const { id: slugData } = params;
+
+  // Task #41 — Project picker options for the override editor. Loaded
+  // lazily only when in edit/view mode so the add-supplier flow does
+  // not pay the round-trip cost.
+  const [projectOptions, setProjectOptions] = useState<any[]>([]);
+  useEffect(() => {
+    if (slugData?.length && slugData[0]?.toLowerCase() !== ADD) {
+      const companyId = Number(localStorage.getItem("companyId"));
+      if (companyId) {
+        getProjectsLists(companyId, false)
+          .then((rows: any) => {
+            if (Array.isArray(rows)) setProjectOptions(rows);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [slugData?.[0]]);
 
   const [patchData, setPatchData] = useState<any>(null);
 
@@ -314,7 +339,23 @@ export default function AddClientsAndSuppliers() {
       // Phase 2 — per-contact Xero GST overrides.
       xero_sales_gst_setting: obj?.xero_sales_gst_setting ?? "",
       xero_purchases_gst_setting: obj?.xero_purchases_gst_setting ?? "",
+      // Task #41 — per-supplier default Xero account code.
+      xero_default_account_code: obj?.xero_default_account_code ?? "",
     });
+    const seededOverrides = Array.isArray(
+      obj?.xero_project_account_code_overrides,
+    )
+      ? obj.xero_project_account_code_overrides.map((row: any) => ({
+          id: row?.id,
+          project_id: row?.project_id,
+          project_name: row?.project_name ?? "",
+          account_code: row?.account_code ?? "",
+        }))
+      : [];
+    setProjectAccountCodeOverrides(seededOverrides);
+    setInitialProjectAccountCodeOverrides(
+      seededOverrides.map((r: any) => ({ ...r })),
+    );
     setSelectedEntityType(obj?.entity_type);
     setSelectedRelatedEntityType(obj?.related_entity);
     setSelectedStatusType(obj?.client_supplier_status);
@@ -830,6 +871,160 @@ export default function AddClientsAndSuppliers() {
                   }
                   onBlur={formik.handleBlur("xero_purchases_gst_setting")}
                 />
+
+                {/* Task #41 — Per-supplier default Xero account code used
+                    when "variable bill code" mode is on (Xero Settings).
+                    Leave blank to fall through to the global Bill code
+                    when the org allows fallback. */}
+                <FormikControl
+                  control={InputType.TEXT_FIELD}
+                  label={"Default Xero account code (optional)"}
+                  placeholder="e.g. 200"
+                  name={"xero_default_account_code"}
+                  disabled={isViewMode}
+                  onChange={(e: any) =>
+                    formik.setFieldValue(
+                      "xero_default_account_code",
+                      (e?.target?.value ?? "").trim(),
+                    )
+                  }
+                  onBlur={formik.handleBlur("xero_default_account_code")}
+                  value={formik.values.xero_default_account_code ?? ""}
+                />
+
+                {/* Task #41 — Per-project Xero account code overrides.
+                    Only shown in edit/view of an existing supplier so we
+                    have a real client_supplier_id to write against. */}
+                {slugData?.length &&
+                  slugData[0]?.toLowerCase() !== ADD &&
+                  formik?.values?.client_supplier_type?.value ===
+                    "Supplier" && (
+                    <div style={{ marginTop: 12 }}>
+                      <label>
+                        <small>
+                          Per-project Xero account code overrides
+                        </small>
+                      </label>
+                      {Array.isArray(projectAccountCodeOverrides) &&
+                        projectAccountCodeOverrides
+                          .map((row: any, idx: number) => ({ row, idx }))
+                          .filter(({ row }) => !row?._deleted)
+                          .map(({ row, idx }) => (
+                            <div
+                              key={`override-${idx}`}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "2fr 1fr auto",
+                                gap: 8,
+                                alignItems: "center",
+                                marginTop: 6,
+                              }}
+                            >
+                              <select
+                                disabled={isViewMode}
+                                value={row?.project_id ?? ""}
+                                onChange={(e) => {
+                                  const pid = Number(e.target.value);
+                                  const matched = projectOptions.find(
+                                    (p: any) =>
+                                      Number(p.project_id) === pid,
+                                  );
+                                  const next = [
+                                    ...projectAccountCodeOverrides,
+                                  ];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    project_id: pid || null,
+                                    project_name:
+                                      matched?.project_name ?? "",
+                                  };
+                                  setProjectAccountCodeOverrides(next);
+                                }}
+                              >
+                                <option value="">Select project…</option>
+                                {projectOptions.map((p: any) => (
+                                  <option
+                                    key={p.project_id}
+                                    value={p.project_id}
+                                    disabled={projectAccountCodeOverrides.some(
+                                      (other: any, oIdx: number) =>
+                                        oIdx !== idx &&
+                                        !other?._deleted &&
+                                        Number(other?.project_id) ===
+                                          Number(p.project_id),
+                                    )}
+                                  >
+                                    {p.project_name}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Account code"
+                                disabled={isViewMode}
+                                value={row?.account_code ?? ""}
+                                onChange={(e) => {
+                                  const next = [
+                                    ...projectAccountCodeOverrides,
+                                  ];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    account_code: (
+                                      e.target.value ?? ""
+                                    ).trim(),
+                                  };
+                                  setProjectAccountCodeOverrides(next);
+                                }}
+                              />
+                              {!isViewMode && (
+                                <button
+                                  type="button"
+                                  className="outline contrast"
+                                  onClick={() => {
+                                    const next = [
+                                      ...projectAccountCodeOverrides,
+                                    ];
+                                    if (next[idx]?.id) {
+                                      // Existing row: mark deleted so we
+                                      // know to send an explicit "clear"
+                                      // mutation on save.
+                                      next[idx] = {
+                                        ...next[idx],
+                                        _deleted: true,
+                                      };
+                                    } else {
+                                      next.splice(idx, 1);
+                                    }
+                                    setProjectAccountCodeOverrides(next);
+                                  }}
+                                  aria-label="Remove override"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                      {!isViewMode && (
+                        <button
+                          type="button"
+                          className="outline secondary"
+                          style={{ marginTop: 8 }}
+                          onClick={() =>
+                            setProjectAccountCodeOverrides([
+                              ...(projectAccountCodeOverrides || []),
+                              {
+                                project_id: null,
+                                project_name: "",
+                                account_code: "",
+                              },
+                            ])
+                          }
+                        >
+                          + Add project override
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                 <FormikControl
                   control={InputType.TEXT_FIELD}

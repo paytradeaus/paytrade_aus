@@ -182,6 +182,25 @@ export class AccountDetailsList {
   bsb_number: number;
 }
 
+// Task #41 — Per-(supplier × project) Xero account code override row.
+@ObjectType({
+  description:
+    'Task #41 — Per-(supplier × project) Xero account code override row.',
+})
+export class SupplierProjectAccountCodeOverride {
+  @Field({ description: 'Internal row id.' })
+  id: string;
+
+  @Field({ description: 'Project id this override applies to.' })
+  project_id: number;
+
+  @Field({ nullable: true, description: 'Display name of the project.' })
+  project_name?: string;
+
+  @Field({ description: 'Xero account code stored on the override row.' })
+  account_code: string;
+}
+
 @ObjectType({
   description:
     'Represents detailed information about a client/supplier including bank accounts.',
@@ -270,6 +289,22 @@ export class ViewClientSuppliers {
     description: 'Payment terms agreed with client/supplier.',
   })
   payment_terms: number;
+
+  // Task #41 — Per-supplier default Xero expense account override.
+  @Field({
+    nullable: true,
+    description:
+      'Task #41 — Per-supplier default Xero expense account code used when "variable bill code" mode is on. NULL/blank means "no supplier override".',
+  })
+  xero_default_account_code?: string;
+
+  // Task #41 — Per-(supplier × project) overrides.
+  @Field(() => [SupplierProjectAccountCodeOverride], {
+    nullable: true,
+    description:
+      'Task #41 — Per-(supplier × project) Xero account code overrides for this supplier.',
+  })
+  xero_project_account_code_overrides?: SupplierProjectAccountCodeOverride[];
 
   @Field(() => [AccountDetailsList], {
     nullable: true,

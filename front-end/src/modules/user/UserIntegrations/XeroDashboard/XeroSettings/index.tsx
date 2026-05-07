@@ -139,6 +139,10 @@ export default function XeroSettings() {
         retention_tax_type: data?.retention_tax_type || "",
         auto_gross_up_retention_journals:
           !!data?.auto_gross_up_retention_journals,
+        // Task #41 — variable bill-code-per-supplier feature flags.
+        bill_code_is_variable: !!data?.bill_code_is_variable,
+        bill_code_naming_convention: data?.bill_code_naming_convention || "",
+        bill_code_allow_fallback: !!data?.bill_code_allow_fallback,
       };
       settingsFormik.setValues(formValue);
       setInitialFormikValue(formValue);
@@ -314,6 +318,10 @@ export default function XeroSettings() {
       retention_recording_mode: "ex_gst" as "ex_gst" | "inc_gst",
       retention_tax_type: "",
       auto_gross_up_retention_journals: false,
+      // Task #41 — variable bill-code-per-supplier feature flags.
+      bill_code_is_variable: false,
+      bill_code_naming_convention: "",
+      bill_code_allow_fallback: false,
     },
     validationSchema: validationSchemaXeroAccountCode,
     onSubmit: async (values) => {
@@ -348,6 +356,9 @@ export default function XeroSettings() {
         retention_recording_mode,
         retention_tax_type,
         auto_gross_up_retention_journals,
+        bill_code_is_variable,
+        bill_code_naming_convention,
+        bill_code_allow_fallback,
       } = values;
       const payload = {
         retention_receivable_retained_code,
@@ -391,6 +402,10 @@ export default function XeroSettings() {
           !!auto_gross_up_retention_journals &&
           !simplifiedRetention &&
           (retention_recording_mode || "ex_gst") === "ex_gst",
+        // Task #41 — variable bill-code-per-supplier feature flags.
+        bill_code_is_variable: !!bill_code_is_variable,
+        bill_code_naming_convention: bill_code_naming_convention || null,
+        bill_code_allow_fallback: !!bill_code_allow_fallback,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1575,6 +1590,82 @@ export default function XeroSettings() {
                       onBlur={settingsFormik.handleBlur("bill_code")}
                       error={settingsFormik?.errors?.bill_code}
                     />
+                    {/* Task #41 — Variable bill-code-per-supplier toggles.
+                        When `bill_code_is_variable` is on, the backend will
+                        choose the per-supplier or per-(supplier × project)
+                        override before falling back to the global Bill code
+                        above (only when `bill_code_allow_fallback` is on). */}
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          !!settingsFormik.values.bill_code_is_variable
+                        }
+                        onChange={(e) =>
+                          settingsFormik.setFieldValue(
+                            "bill_code_is_variable",
+                            e.target.checked,
+                          )
+                        }
+                      />
+                      <small>
+                        Use per-supplier bill code (variable bill code mode)
+                      </small>
+                    </label>
+                    {!!settingsFormik.values.bill_code_is_variable && (
+                      <>
+                        <FormikControl
+                          control={InputType.TEXT_FIELD}
+                          name={"bill_code_naming_convention"}
+                          label={"Bill code naming convention (optional)"}
+                          placeholder="e.g. PT-{supplier}-{project}"
+                          onChange={(e: any) =>
+                            settingsFormik.setFieldValue(
+                              "bill_code_naming_convention",
+                              e?.target?.value ?? "",
+                            )
+                          }
+                          value={
+                            settingsFormik.values.bill_code_naming_convention
+                          }
+                          onBlur={settingsFormik.handleBlur(
+                            "bill_code_naming_convention",
+                          )}
+                        />
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            marginTop: 8,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              !!settingsFormik.values.bill_code_allow_fallback
+                            }
+                            onChange={(e) =>
+                              settingsFormik.setFieldValue(
+                                "bill_code_allow_fallback",
+                                e.target.checked,
+                              )
+                            }
+                          />
+                          <small>
+                            Fall back to the global bill code above when no
+                            per-supplier override is set
+                          </small>
+                        </label>
+                      </>
+                    )}
                   </div>
                   <div>
                     <h5>

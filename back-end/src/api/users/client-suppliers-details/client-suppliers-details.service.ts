@@ -26,6 +26,7 @@ import {
 } from 'src/entities/banking.entity';
 import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-case-convertor';
 import { ProjectDetails } from 'src/entities/project-details.entity';
+import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { VariationDetails } from 'src/entities/variation-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { formatCurrencyWithoutDollars } from 'src/libs/@currency-formattor/currency-formattor';
@@ -58,6 +59,8 @@ export class ClientSuppliersDetailsService {
     private paymentClaimInvoicesRepo: Repository<PaymentClaimInvoices>,
     @InjectRepository(PaymentDetails)
     private paymentsRepo: Repository<PaymentDetails>,
+    @InjectRepository(ClientSupplierProjectXeroAccountCodes)
+    private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
     private readonly activityLogService: ActivityLogService,
   ) {
     this.logger = new PaytradeLogger('CLIENT_SUPPLIERS_SERVICE');
@@ -587,6 +590,45 @@ export class ClientSuppliersDetailsService {
       ? new Date(result.created_on)
       : new Date(0);
 
+    // Task #41 — Pull per-(supplier × project) account-code overrides and
+    // join their project names so the FE can render the override grid
+    // without a second roundtrip.
+    let projectOverrides: Array<{
+      id: string;
+      project_id: number;
+      project_name: string | null;
+      account_code: string;
+    }> = [];
+    try {
+      const overrideRows = await this.supplierProjectAccountCodes.find({
+        where: { client_supplier_id: result.client_supplier_id },
+      });
+      if (overrideRows?.length) {
+        const projectIds = Array.from(
+          new Set(overrideRows.map((r) => r.project_id).filter(Boolean)),
+        );
+        const projects = projectIds.length
+          ? await this.projectDetails.find({
+              where: { project_id: In(projectIds) },
+            })
+          : [];
+        const projectNameById = new Map<number, string>();
+        for (const p of projects) {
+          projectNameById.set(p.project_id, p.project_name || '');
+        }
+        projectOverrides = overrideRows.map((r) => ({
+          id: r.id,
+          project_id: r.project_id,
+          project_name: projectNameById.get(r.project_id) || null,
+          account_code: r.account_code,
+        }));
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to load Xero account code overrides for supplier ${result.client_supplier_id}: ${err?.message || err}`,
+      );
+    }
+
     return {
       id: result.id,
       client_supplier_id: result.client_supplier_id,
@@ -611,6 +653,11 @@ export class ClientSuppliersDetailsService {
       abn_number: result.abn_number,
       tfn_number: result.tfn_number,
       payment_terms: result.payment_terms,
+      // Task #41 — surface the per-supplier default + per-project overrides
+      // so the AddClientsAndSuppliers form can render them in the variable
+      // bill-code editor.
+      xero_default_account_code: result.xero_default_account_code || null,
+      xero_project_account_code_overrides: projectOverrides,
       account_details: result?.accountDetails
         .filter((element) => element.added_by_client_supplier)
         .map((element) => {

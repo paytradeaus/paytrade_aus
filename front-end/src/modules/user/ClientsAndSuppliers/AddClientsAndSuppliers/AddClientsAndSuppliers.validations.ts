@@ -22,6 +22,11 @@ const initialValues = {
   region: "",
   country: "",
   account_details: "",
+  // Phase 2 — per-contact Xero GST overrides.
+  xero_sales_gst_setting: "",
+  xero_purchases_gst_setting: "",
+  // Task #41 — per-supplier default Xero account code (variable bill code mode).
+  xero_default_account_code: "",
 };
 
 const validationSchema = yup.object().shape({

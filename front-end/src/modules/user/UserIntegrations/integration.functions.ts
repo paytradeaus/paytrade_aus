@@ -385,6 +385,53 @@ export const getXeroDetailsForCompany = async (
   }
 };
 
+// Task #41 — Set/clear the per-supplier or per-(supplier × project) Xero
+// account code override. Pass account_code = null/empty to clear an existing
+// override. Pass project_id = null/undefined for the supplier-level default.
+export const setSupplierXeroAccountCode = async (variables: {
+  client_supplier_id: number;
+  account_code?: string | null;
+  project_id?: number | null;
+}): Promise<{ ok: boolean; message?: string }> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation SetSupplierXeroAccountCode(
+          $client_supplier_id: Float!
+          $account_code: String
+          $project_id: Float
+        ) {
+          setSupplierXeroAccountCode(
+            client_supplier_id: $client_supplier_id
+            account_code: $account_code
+            project_id: $project_id
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        client_supplier_id: variables.client_supplier_id,
+        account_code:
+          variables.account_code === undefined ? null : variables.account_code,
+        project_id:
+          variables.project_id === undefined ? null : variables.project_id,
+      },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.setSupplierXeroAccountCode;
+    if (res?.status === ApiResponse.SUCCESS) {
+      return { ok: true, message: res?.message };
+    }
+    if (res?.message) showErrorToast(res.message);
+    return { ok: false, message: res?.message };
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    return { ok: false };
+  }
+};
+
 export const getXeroContactListsForCompany = async (
   data: any,
   setLoading?: Function

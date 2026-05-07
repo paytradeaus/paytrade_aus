@@ -25,7 +25,10 @@ import { clientSupplierTypeOptions } from "./AddClientsAndSuppliers.constant";
 import { useLoaderContext } from "@/context/useLoader";
 import { ADD, EDIT, quickAddRoutes } from "@/shared/constant/general";
 import { quickAddOnRoute } from "../../AddUpdateBankAccount/AddUpdateBankAccount.constant";
-import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
+import {
+  setSupplierXeroAccountCode,
+  viewXeroSyncLog,
+} from "../../UserIntegrations/integration.functions";
 import { CreateClaimInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 const AddClientsAndSuppliersContext: any = createContext(null);
@@ -40,6 +43,14 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
   const [displayStatusInfo, setDisplayStatusInfo] = useState(false);
   const [routedData, setRoutedData] = useState<any>(null);
   const [syncLogData, setSyncLogData] = useState<any>("");
+  // Task #41 — Per-(supplier × project) Xero account code overrides shown
+  // in the AddClientsAndSuppliers form when "variable bill code" mode is on.
+  // Rows shape: { id?: string, project_id: number, project_name?: string,
+  // account_code: string, _dirty?: boolean, _deleted?: boolean }.
+  const [projectAccountCodeOverrides, setProjectAccountCodeOverrides] =
+    useState<any[]>([]);
+  const [initialProjectAccountCodeOverrides, setInitialProjectAccountCodeOverrides] =
+    useState<any[]>([]);
 
   const fileInputRef = useRef<any>(null); // Reference to the file input
   const router = useRouter();
@@ -219,6 +230,77 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
       const clientsResponse: any = await api;
 
       if (clientsResponse?.status) {
+        // Task #41 — After the supplier is created/updated, persist the
+        // per-supplier default Xero account code AND the per-project
+        // overrides via the dedicated mutation. Failures here are logged
+        // but do not block the supplier save flow because each value can
+        // also be edited later from the Xero Settings drawer.
+        try {
+          const supplierIdForOverrides =
+            clientsResponse?.client_supplier_id ||
+            formik?.values?.client_supplier_id;
+          if (supplierIdForOverrides) {
+            const initialDefault =
+              (formik?.initialValues?.xero_default_account_code ?? "") || "";
+            const currentDefault =
+              (formik?.values?.xero_default_account_code ?? "") || "";
+            if (currentDefault !== initialDefault) {
+              await setSupplierXeroAccountCode({
+                client_supplier_id: Number(supplierIdForOverrides),
+                project_id: null,
+                account_code: currentDefault || null,
+              });
+            }
+
+            // Per-project override diffs.
+            const initialByProject = new Map<number, string>();
+            for (const row of initialProjectAccountCodeOverrides || []) {
+              if (row?.project_id != null) {
+                initialByProject.set(
+                  Number(row.project_id),
+                  String(row.account_code ?? ""),
+                );
+              }
+            }
+            const currentByProject = new Map<number, string>();
+            for (const row of projectAccountCodeOverrides || []) {
+              if (row?._deleted) continue;
+              if (row?.project_id != null && row?.account_code) {
+                currentByProject.set(
+                  Number(row.project_id),
+                  String(row.account_code ?? ""),
+                );
+              }
+            }
+            // Upserts: rows added or changed.
+            for (const [pid, code] of currentByProject.entries()) {
+              if (initialByProject.get(pid) !== code) {
+                await setSupplierXeroAccountCode({
+                  client_supplier_id: Number(supplierIdForOverrides),
+                  project_id: pid,
+                  account_code: code || null,
+                });
+              }
+            }
+            // Deletes: rows present initially but missing now (or marked deleted).
+            for (const pid of initialByProject.keys()) {
+              if (!currentByProject.has(pid)) {
+                await setSupplierXeroAccountCode({
+                  client_supplier_id: Number(supplierIdForOverrides),
+                  project_id: pid,
+                  account_code: null,
+                });
+              }
+            }
+          }
+        } catch (overrideErr) {
+          // Non-blocking — supplier save already succeeded.
+          console.error(
+            "Task #41 — failed to persist Xero account code overrides:",
+            overrideErr,
+          );
+        }
+
         showSuccessToast(clientsResponse?.message);
         dispatch(setClientsSuppliersData(""));
         dispatch(setAccountDetailsData(""));
@@ -330,6 +412,11 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
         selectedType,
         setSelectedType,
         syncLogData,
+        // Task #41 — per-supplier Xero account code override editor state.
+        projectAccountCodeOverrides,
+        setProjectAccountCodeOverrides,
+        initialProjectAccountCodeOverrides,
+        setInitialProjectAccountCodeOverrides,
       }}
     >
       {children}

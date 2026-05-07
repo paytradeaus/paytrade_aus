@@ -36,6 +36,10 @@ export async function postAddClientSuppliersFormData(
       return {
         status: true,
         message: response?.data?.insertClientSupplierDetails?.message,
+        // Task #41 — surface supplier_id so the caller can persist the
+        // per-supplier Xero account code override after a fresh insert.
+        client_supplier_id:
+          response?.data?.insertClientSupplierDetails?.data?.client_supplier_id,
       };
     }
     if (response?.data?.insertClientSupplierDetails?.status === ERROR) {
@@ -77,6 +81,11 @@ export async function updateClientSuppliersById(postData: any): Promise<any> {
       return {
         status: true,
         message: response?.data?.editClientSuppliersDetailsById?.message,
+        // Task #41 — surface supplier_id for post-save Xero account code
+        // override calls.
+        client_supplier_id:
+          response?.data?.editClientSuppliersDetailsById?.data
+            ?.client_supplier_id,
       };
     }
     if (response?.data?.editClientSuppliersDetailsById?.status === ERROR) {
@@ -233,6 +242,13 @@ export async function fetchClientSuppliersById(postData: any): Promise<any> {
               region
               related_entity
               tfn_number
+              xero_default_account_code
+              xero_project_account_code_overrides {
+                id
+                project_id
+                project_name
+                account_code
+              }
               account_details {
                 account_name
                 account_number
