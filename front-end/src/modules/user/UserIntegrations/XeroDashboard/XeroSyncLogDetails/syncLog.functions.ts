@@ -2,6 +2,7 @@ import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import apolloClient from "@/network/apolloClient";
 import { ApiResponse } from "@/shared/constant/messages";
 import { gql } from "@apollo/client";
+import { handleXeroReauthRequired } from "../../integration.functions";
 
 export async function CreateBankAccountsInXero(
   postData: any,
@@ -25,7 +26,7 @@ export async function CreateBankAccountsInXero(
     });
     const res = response?.data?.createAccountInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -63,7 +64,7 @@ export async function EditAccountInXero(
     const res = response?.data?.editAccountInXero;
 
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -104,7 +105,7 @@ export async function DeleteAccountInXero(
     });
     const res = response?.data?.deleteAccountInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -149,7 +150,7 @@ export async function CreateContactInXero(
     });
     const res = response?.data?.createContactInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -187,7 +188,7 @@ export async function CreateProjectInXero(
     const res = response?.data?.createProjectInXero;
 
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -225,7 +226,7 @@ export async function CreateContractInXero(
     });
     const res = response?.data?.createContractInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -265,7 +266,7 @@ export async function EditContactInXero(
     });
     const res = response?.data?.editContactInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -308,7 +309,7 @@ export async function DeleteContactInXero(
     });
     const res = response?.data?.deleteContactInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -346,7 +347,7 @@ export async function DeleteProjectInXero(
     const res = response?.data?.deleteProjectInXero;
 
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -385,7 +386,7 @@ export async function DeleteContractInXero(
     });
     const res = response?.data?.deleteContractInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -429,7 +430,7 @@ export async function CreateInvoiceOrBillInXero(
     });
     const res = response?.data?.createInvoiceOrBillInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -473,7 +474,7 @@ export async function EditInvoiceOrBillInXero(
     });
     const res = response?.data?.editInvoiceOrBillInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -517,7 +518,7 @@ export async function DeleteInvoiceOrBillInXero(
     });
     const res = response?.data?.deleteInvoiceOrBillInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
@@ -603,7 +604,7 @@ export async function SyncAllInvoicesOrBillsByCompanyId(
     });
     const res = response?.data?.syncAllInvoicesOrBillsByCompanyId;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -813,7 +814,7 @@ export async function CreatePaymentInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.createPaymentInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -852,7 +853,7 @@ export async function CreateOverPaymentRefundInXero(
     });
     const res = response?.data?.createOverPaymentRefundInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -891,7 +892,7 @@ export async function SyncAllPaymentsByCompanyId(postData: any): Promise<any> {
     const res = response?.data?.syncAllPaymentsByCompanyId;
 
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -926,7 +927,7 @@ export async function CreateOverPaymentInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.createOverPaymentInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -961,7 +962,7 @@ export async function DeletePaymentInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.deletePaymentInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -996,7 +997,7 @@ export async function CreateCreditNotesInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.createCreditNotesInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -1031,7 +1032,7 @@ export async function DeleteCreditNotesInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.deleteCreditNotesInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -1066,7 +1067,7 @@ export async function DeleteOverPaymentInXero(postData: any): Promise<any> {
     });
     const res = response?.data?.deleteOverPaymentInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -1105,7 +1106,7 @@ export async function DeleteOverPaymentRefundInXero(
     });
     const res = response?.data?.deleteOverPaymentRefundInXero;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 
@@ -1312,7 +1313,7 @@ export async function GetOrganisation(): Promise<any> {
     });
     const res = response?.data?.getOrganisation;
     if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
-      window.open(res.message, "_self");
+      handleXeroReauthRequired(res.message);
       return null; // stop further flow
     }
 

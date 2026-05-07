@@ -2062,15 +2062,30 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       });
       if (!integrationDetails) throw `No xero integration found`;
 
-      if (
-        [
-          'Inactive',
-          'Disconnected',
-          'Deleted - archived',
-          'Connected - paused',
-        ].includes(integrationDetails.integration_status)
-      )
+      // Task #42 — `Inactive`/`Disconnected` rows are now allowed to save
+      // **iff** the user has just completed a fresh OAuth (i.e. there is a
+      // matching xero_integration_details row with status='ACTIVE' and a
+      // refresh token). In that case treat the save as a recovery and let
+      // the status-recomputation block below advance the parent status.
+      // `Deleted - archived` and `Connected - paused` are still rejected.
+      const status = integrationDetails.integration_status;
+      if (['Deleted - archived', 'Connected - paused'].includes(status)) {
         throw `Unable to update the pending settings`;
+      }
+      if (['Inactive', 'Disconnected'].includes(status)) {
+        const recoverable = await this.xeroIntegrationDetails.findOne({
+          where: {
+            integration_id: integrationDetails.integration_id,
+            status: 'ACTIVE',
+          },
+        });
+        if (!recoverable || !recoverable.refresh_token) {
+          throw `This Xero connection is no longer active. Please reconnect to Xero before saving settings.`;
+        }
+        this.logger.log(
+          `[Task #42] updateSettings allowed in recovery mode for integration_id=${integrationDetails.integration_id} (was ${status})`,
+        );
+      }
 
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
         where: {
@@ -2278,6 +2293,120 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Task #42 — Pure helper that mirrors the status-recomputation block in
+   * `updateSettings` so the OAuth callback and the scheduler recovery
+   * path can compute the same target status without duplicating logic.
+   * Returns the status that should be written to
+   * `integration_details.integration_status` based on the current
+   * mapping state in `xero_integration_details`.
+   */
+  async recomputeIntegrationStatusForCompany(
+    company_id: number,
+  ): Promise<string> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) return 'Connected - pending settings/mapping';
+    return this.computeIntegrationStatusFromXeroDetails(xeroDetails);
+  }
+
+  computeIntegrationStatusFromXeroDetails(
+    xeroDetails: XeroIntegrationDetails,
+  ): string {
+    const ab: any = xeroDetails?.action_buttons || {};
+    if (!xeroDetails?.project_category_id) {
+      return 'Awaiting project id tracking setup';
+    }
+    if (
+      xeroDetails.project_category_id &&
+      ab.import_bank === false &&
+      ab.import_contact === false &&
+      ab.import_project === false
+    ) {
+      return 'Pending bank account mapping';
+    }
+    if (
+      xeroDetails.project_category_id &&
+      ab.import_bank === true &&
+      ab.import_contact === false &&
+      ab.import_project === false
+    ) {
+      return 'Pending contact mapping';
+    }
+    if (
+      xeroDetails.project_category_id &&
+      ab.import_bank === true &&
+      ab.import_contact === true &&
+      ab.import_project === false
+    ) {
+      return 'Pending project tracking id mapping';
+    }
+    if (
+      xeroDetails.project_category_id &&
+      ab.import_bank === true &&
+      ab.import_contact === true &&
+      ab.import_project === true
+    ) {
+      return 'Connected - active';
+    }
+    return 'Connected - pending settings/mapping';
+  }
+
+  /**
+   * Task #42 — Idempotent one-shot recovery for the "stuck Inactive" loop.
+   * Scans for integrations that the user has already re-OAuthed (i.e.
+   * `xero_integration_details.status='ACTIVE'` with valid tokens) but
+   * whose parent `integration_details.integration_status` is still
+   * `Inactive`/`Disconnected`/null, and advances the parent row to the
+   * status that the current mapping qualifies for. Safe to re-run — only
+   * touches rows that match the precondition.
+   */
+  async recoverStuckInactiveIntegrations(): Promise<{
+    scanned: number;
+    recovered: number;
+  }> {
+    let scanned = 0;
+    let recovered = 0;
+    try {
+      const candidates = await this.xeroIntegrationDetails.find({
+        where: { status: 'ACTIVE' },
+      });
+      for (const xd of candidates) {
+        scanned++;
+        if (!xd.refresh_token) continue;
+        const integ = await this.integrationDetails.findOne({
+          where: { integration_id: xd.integration_id },
+        });
+        if (!integ) continue;
+        const stuckStatuses = ['Inactive', 'Disconnected', null, undefined, ''];
+        if (!stuckStatuses.includes(integ.integration_status as any)) continue;
+        const nextStatus = this.computeIntegrationStatusFromXeroDetails(xd);
+        await this.integrationDetails
+          .createQueryBuilder()
+          .update(IntegrationDetails)
+          .set({
+            previous_status: () =>
+              `(integration_status)::text::integration_details_previous_status_enum`,
+            integration_status: nextStatus as any,
+            updated_on: moment.tz('UTC'),
+            updated_group: 'SYSTEM',
+          })
+          .where(`id = :id`, { id: integ.id })
+          .execute();
+        recovered++;
+        this.logger.log(
+          `[Task #42 recovery] integration_id=${xd.integration_id} company_id=${xd.company_id} ${integ.integration_status} -> ${nextStatus}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `[Task #42 recovery] failed: ${err?.message || err}`,
+      );
+    }
+    return { scanned, recovered };
+  }
+
   async refreshTokenSet(
     company_id: number,
     xero: XeroClient,
@@ -2361,22 +2490,42 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           if (!refreshedTokenSet.access_token) {
             throw new Error('Unable to authorize Xero. Please try again');
           }
-          const tenants = await xero.updateTenants();
-          if (tenants.length === 0) {
-            throw new Error(
-              'No tenants found. Ensure the user is connected to a Xero organization.',
-            );
-          }
 
+          // Task #42 — Persist the rotated tokens IMMEDIATELY after Xero
+          // returns them, BEFORE any further Xero API calls (updateTenants,
+          // etc.) that might throw. Xero invalidates the old refresh_token
+          // the moment the refresh exchange succeeds, so any failure
+          // between that point and the previous DB save would leave PT
+          // holding a dead refresh token forever (the documented "stuck
+          // Inactive" loop). Tenant metadata is refreshed afterwards on a
+          // best-effort basis.
           const detailsToSave = freshDetails || xeroDetails;
-          detailsToSave.status = tenants[0]?.orgData?.organisationStatus;
-          detailsToSave.subscription_status = tenants[0]?.orgData?._class;
           detailsToSave.id_token = refreshedTokenSet.id_token;
           detailsToSave.access_token = refreshedTokenSet.access_token;
           detailsToSave.refresh_token = refreshedTokenSet.refresh_token;
           detailsToSave.expires_at = refreshedTokenSet.expires_at;
           detailsToSave.updated_on = moment.tz('UTC');
-          const saved = await this.xeroIntegrationDetails.save(detailsToSave);
+          let saved = await this.xeroIntegrationDetails.save(detailsToSave);
+
+          try {
+            const tenants = await xero.updateTenants();
+            if (tenants.length === 0) {
+              this.logger.warn(
+                `[Task #42] refreshTokenSet: no tenants returned for company ${company_id} after refresh; tokens persisted, tenant metadata not updated`,
+              );
+            } else {
+              saved.status = tenants[0]?.orgData?.organisationStatus;
+              saved.subscription_status = tenants[0]?.orgData?._class;
+              saved = await this.xeroIntegrationDetails.save(saved);
+            }
+          } catch (tenantsErr) {
+            // Tenant metadata refresh failed — do NOT roll back the
+            // already-persisted tokens. They are valid; only the metadata
+            // refresh failed.
+            this.logger.warn(
+              `[Task #42] refreshTokenSet: updateTenants failed after token refresh for company ${company_id} (tokens persisted): ${tenantsErr?.message || tenantsErr}`,
+            );
+          }
           return saved;
         } finally {
           if (lockValue) {

@@ -116,6 +116,7 @@ import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-g
 import { XeroRetentionJournalsSchemaSeederModule } from './libs/@seeders/xero-retention-journals-schema-seeder.module';
 import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-billing-type-schema-seeder.module';
 import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
+import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-integration-recovery-schema-seeder.module';
 
 @Module({
   imports: [
@@ -307,6 +308,7 @@ import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-var
     XeroRetentionJournalsSchemaSeederModule,
     ContractBillingTypeSchemaSeederModule,
     XeroVariableBillCodeSchemaSeederModule,
+    XeroIntegrationRecoverySchemaSeederModule,
   ],
   providers: [
     AppService,

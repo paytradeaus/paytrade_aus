@@ -1,6 +1,7 @@
 "use client";
 
 import BreadCrumbs from "@/components/BreadCrumbs";
+import XeroReauthBanner from "../XeroReauthBanner";
 import FormikControl from "@/components/FormikControl";
 import GridExportActions from "@/components/GridExportActions";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
@@ -432,6 +433,7 @@ export default function IntegrationList({
 
   return (
     <div className="container-fluid">
+      <XeroReauthBanner />
       <div className="pt_title">
         <div className="pt_breadcrumbs">
           <BreadCrumbs

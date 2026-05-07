@@ -150,6 +150,83 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         this.logger.error(`Xero PDF backfill failed: ${err?.message || err}`),
       );
     }, 60_000);
+
+    // Task #42 — One-shot idempotent recovery for integrations that have a
+    // valid re-OAuthed `xero_integration_details` row but whose parent
+    // `integration_details.integration_status` is still stuck on
+    // `Inactive`/`Disconnected`/null (e.g. integration_id 1007 / company
+    // 1012). Best-effort, never blocks startup.
+    setTimeout(() => {
+      this.xeroService
+        .recoverStuckInactiveIntegrations()
+        .then((res) =>
+          this.logger.log(
+            `[Task #42] recoverStuckInactiveIntegrations: scanned=${res.scanned} recovered=${res.recovered}`,
+          ),
+        )
+        .catch((err) =>
+          this.logger.error(
+            `[Task #42] recoverStuckInactiveIntegrations failed: ${err?.message || err}`,
+          ),
+        );
+    }, 30_000);
+  }
+
+  /**
+   * Task #42 — Threshold of consecutive missing-tenant readings before the
+   * scheduler is allowed to demote a parent integration to `Inactive`.
+   * One transient `/connections` failure or a single stale-cache miss is
+   * never enough on its own.
+   */
+  private readonly MISSING_TENANT_DEMOTE_THRESHOLD = 3;
+
+  /**
+   * Task #42 — Resets the counter when the tenant is observed in the
+   * latest `/connections` response. Best-effort.
+   */
+  private async resetMissingTenantCounter(
+    xeroDetailsId: string,
+  ): Promise<void> {
+    try {
+      await this.xeroIntegrationDetails
+        .createQueryBuilder()
+        .update(XeroIntegrationDetails)
+        .set({ consecutive_missing_tenant_count: 0 })
+        .where(`id = :id`, { id: xeroDetailsId })
+        .execute();
+    } catch (err) {
+      this.logger.warn(
+        `[Task #42] resetMissingTenantCounter failed for id=${xeroDetailsId}: ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Task #42 — Increments the counter and returns the new value. Returns
+   * 0 (and does NOT increment) on failure, so a DB hiccup never tips the
+   * caller into demoting the integration.
+   */
+  private async bumpMissingTenantCounter(
+    xeroDetailsId: string,
+  ): Promise<number> {
+    try {
+      const row = await this.xeroIntegrationDetails.findOne({
+        where: { id: xeroDetailsId },
+      });
+      const next = (row?.consecutive_missing_tenant_count || 0) + 1;
+      await this.xeroIntegrationDetails
+        .createQueryBuilder()
+        .update(XeroIntegrationDetails)
+        .set({ consecutive_missing_tenant_count: next })
+        .where(`id = :id`, { id: xeroDetailsId })
+        .execute();
+      return next;
+    } catch (err) {
+      this.logger.warn(
+        `[Task #42] bumpMissingTenantCounter failed for id=${xeroDetailsId}: ${err?.message || err}`,
+      );
+      return 0;
+    }
   }
 
   /**
@@ -386,61 +463,106 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 where: { company_id: element.company_id, status: 'ACTIVE' },
               });
               if (xeroDetails) {
-                const getConnections = await axios.get(
-                  'https://api.xero.com/connections',
-                  {
-                    headers: {
-                      Authorization: `Bearer ${xeroDetails?.access_token}`,
+                // Task #42 — Wrap the /connections call in its own try/catch
+                // so a transient network/Xero-API failure does NOT demote
+                // the integration to Inactive on its own. Demotion now
+                // requires MISSING_TENANT_DEMOTE_THRESHOLD consecutive
+                // confirmed misses (HTTP 200 with no matching tenant).
+                let connections: any[] | null = null;
+                let connectionsCallFailed = false;
+                try {
+                  const getConnections = await axios.get(
+                    'https://api.xero.com/connections',
+                    {
+                      headers: {
+                        Authorization: `Bearer ${xeroDetails?.access_token}`,
+                      },
                     },
-                  },
-                );
-                this.logger.log(`getConnections: ${getConnections?.status}`);
+                  );
+                  this.logger.log(
+                    `getConnections: ${getConnections?.status}`,
+                  );
+                  connections =
+                    getConnections.status === 200 ? getConnections.data : [];
+                } catch (connErr: any) {
+                  connectionsCallFailed = true;
+                  this.logger.warn(
+                    `[Task #42] /connections call failed for company_id=${element.company_id}; treating as transient (NOT demoting): ${connErr?.message || connErr}`,
+                  );
+                }
 
-                const connections =
-                  getConnections.status === 200 ? getConnections.data : [];
-
-                const connection = connections?.filter(
-                  (connection) =>
-                    connection?.tenantId === xeroDetails?.tenant_id,
-                );
-                this.logger.log(`connection: ${JSON.stringify(connection)}`);
-                if (!connection || connection?.length == 0) {
-                  const updateXeroResult = await this.xeroIntegrationDetails
-                    .createQueryBuilder()
-                    .update(XeroIntegrationDetails)
-                    .set({
-                      status: 'INACTIVE',
-                      access_token: null,
-                      id_token: null,
-                      refresh_token: null,
-                      expires_at: null,
-                      updated_on: moment.tz('UTC'),
-                      updated_group: 'SYSTEM',
-                    })
-                    .where(`id = :id`, { id: xeroDetails?.id })
-                    .execute();
-
-                  this.logger.log(`updateXeroResult: ${JSON.stringify(updateXeroResult)}`);
-
-                  const getIntegrationDetails =
-                    await this.integrationDetails.findOne({
-                      where: { integration_id: xeroDetails?.integration_id },
-                    });
-
-                  const updateIntegrationResult = await this.integrationDetails
-                    .createQueryBuilder()
-                    .update(IntegrationDetails)
-                    .set({
-                      previous_status: getIntegrationDetails.integration_status,
-                      integration_status: 'Inactive',
-                      updated_on: moment.tz('UTC'),
-                      updated_group: 'SYSTEM',
-                    })
-                    .where(`id = :id`, { id: getIntegrationDetails?.id })
-                    .execute();
-
-                  this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+                if (connectionsCallFailed || connections === null) {
+                  // Transient — do not touch status or counter.
                 } else {
+                  const connection = connections?.filter(
+                    (connection) =>
+                      connection?.tenantId === xeroDetails?.tenant_id,
+                  );
+                  this.logger.log(`connection: ${JSON.stringify(connection)}`);
+                  if (!connection || connection?.length == 0) {
+                    const newCount = await this.bumpMissingTenantCounter(
+                      xeroDetails.id,
+                    );
+                    if (newCount < this.MISSING_TENANT_DEMOTE_THRESHOLD) {
+                      this.logger.warn(
+                        `[Task #42] tenant ${xeroDetails?.tenant_id} missing for company_id=${element.company_id} (count=${newCount}/${this.MISSING_TENANT_DEMOTE_THRESHOLD}); NOT demoting yet`,
+                      );
+                    } else {
+                      this.logger.warn(
+                        `[Task #42] tenant ${xeroDetails?.tenant_id} missing for company_id=${element.company_id} (count=${newCount}); demoting to Inactive`,
+                      );
+                      const updateXeroResult = await this.xeroIntegrationDetails
+                        .createQueryBuilder()
+                        .update(XeroIntegrationDetails)
+                        .set({
+                          status: 'INACTIVE',
+                          access_token: null,
+                          id_token: null,
+                          refresh_token: null,
+                          expires_at: null,
+                          consecutive_missing_tenant_count: 0,
+                          updated_on: moment.tz('UTC'),
+                          updated_group: 'SYSTEM',
+                        })
+                        .where(`id = :id`, { id: xeroDetails?.id })
+                        .execute();
+
+                      this.logger.log(
+                        `updateXeroResult: ${JSON.stringify(updateXeroResult)}`,
+                      );
+
+                      const getIntegrationDetails =
+                        await this.integrationDetails.findOne({
+                          where: {
+                            integration_id: xeroDetails?.integration_id,
+                          },
+                        });
+
+                      const updateIntegrationResult =
+                        await this.integrationDetails
+                          .createQueryBuilder()
+                          .update(IntegrationDetails)
+                          .set({
+                            previous_status:
+                              getIntegrationDetails.integration_status,
+                            integration_status: 'Inactive',
+                            updated_on: moment.tz('UTC'),
+                            updated_group: 'SYSTEM',
+                          })
+                          .where(`id = :id`, { id: getIntegrationDetails?.id })
+                          .execute();
+
+                      this.logger.log(
+                        `updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`,
+                      );
+                    }
+                  } else {
+                    // Tenant present — reset counter and continue normal sync flow.
+                    if (
+                      (xeroDetails.consecutive_missing_tenant_count || 0) > 0
+                    ) {
+                      await this.resetMissingTenantCounter(xeroDetails.id);
+                    }
                   const companyAdmin = await this.userRoles.findOne({
                     where: {
                       company_id: element.company_id,
@@ -465,6 +587,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                     element.company_id,
                   );
                   this.logger.log(`isRefreshed: ${JSON.stringify(isRefreshed)}`);
+                  }
                 }
               }
             }
@@ -473,69 +596,116 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               where: { company_id: element.company_id, status: 'ACTIVE' },
             });
             if (getXeroDetails) {
-              await this.xeroService.refreshTokenSet(
-                element.company_id,
-                this.xero,
-              );
+              // Task #42 — refreshTokenSet may legitimately fail (transient
+              // network, dead refresh token). Either way the user must
+              // re-OAuth via the FE banner; the scheduler should never
+              // demote the parent integration from this branch.
+              try {
+                await this.xeroService.refreshTokenSet(
+                  element.company_id,
+                  this.xero,
+                );
+              } catch (refreshErr: any) {
+                this.logger.warn(
+                  `[Task #42] refreshTokenSet failed for company_id=${element.company_id} (non-active branch); skipping: ${refreshErr?.message || refreshErr}`,
+                );
+                continue;
+              }
 
               const xeroDetails = await this.xeroIntegrationDetails.findOne({
                 where: { company_id: element.company_id, status: 'ACTIVE' },
               });
               if (xeroDetails) {
-                const getConnections = await axios.get(
-                  'https://api.xero.com/connections',
-                  {
-                    headers: {
-                      Authorization: `Bearer ${xeroDetails?.access_token}`,
+                // Task #42 — same defensive wrapper as the active-branch above.
+                let connections: any[] | null = null;
+                let connectionsCallFailed = false;
+                try {
+                  const getConnections = await axios.get(
+                    'https://api.xero.com/connections',
+                    {
+                      headers: {
+                        Authorization: `Bearer ${xeroDetails?.access_token}`,
+                      },
                     },
-                  },
-                );
-                this.logger.log(`getConnections: ${getConnections.status}`);
-                const connections =
-                  getConnections.status === 200 ? getConnections.data : [];
+                  );
+                  this.logger.log(`getConnections: ${getConnections.status}`);
+                  connections =
+                    getConnections.status === 200 ? getConnections.data : [];
+                } catch (connErr: any) {
+                  connectionsCallFailed = true;
+                  this.logger.warn(
+                    `[Task #42] /connections call failed for company_id=${element.company_id} (non-active branch); treating as transient: ${connErr?.message || connErr}`,
+                  );
+                }
 
-                const connection = connections?.filter(
-                  (connection) =>
-                    connection?.tenantId === xeroDetails?.tenant_id,
-                );
-                this.logger.log(`connection: ${JSON.stringify(connection)}`);
+                if (!connectionsCallFailed && connections !== null) {
+                  const connection = connections?.filter(
+                    (connection) =>
+                      connection?.tenantId === xeroDetails?.tenant_id,
+                  );
+                  this.logger.log(`connection: ${JSON.stringify(connection)}`);
 
-                if (!connection || connection?.length == 0) {
-                  const updateXeroResult = await this.xeroIntegrationDetails
-                    .createQueryBuilder()
-                    .update(XeroIntegrationDetails)
-                    .set({
-                      status: 'INACTIVE',
-                      access_token: null,
-                      id_token: null,
-                      refresh_token: null,
-                      expires_at: null,
-                      updated_on: moment.tz('UTC'),
-                      updated_group: 'SYSTEM',
-                    })
-                    .where(`id = :id`, { id: xeroDetails?.id })
-                    .execute();
+                  if (!connection || connection?.length == 0) {
+                    const newCount = await this.bumpMissingTenantCounter(
+                      xeroDetails.id,
+                    );
+                    if (newCount < this.MISSING_TENANT_DEMOTE_THRESHOLD) {
+                      this.logger.warn(
+                        `[Task #42] tenant ${xeroDetails?.tenant_id} missing for company_id=${element.company_id} (count=${newCount}/${this.MISSING_TENANT_DEMOTE_THRESHOLD}); NOT demoting yet`,
+                      );
+                    } else {
+                      const updateXeroResult =
+                        await this.xeroIntegrationDetails
+                          .createQueryBuilder()
+                          .update(XeroIntegrationDetails)
+                          .set({
+                            status: 'INACTIVE',
+                            access_token: null,
+                            id_token: null,
+                            refresh_token: null,
+                            expires_at: null,
+                            consecutive_missing_tenant_count: 0,
+                            updated_on: moment.tz('UTC'),
+                            updated_group: 'SYSTEM',
+                          })
+                          .where(`id = :id`, { id: xeroDetails?.id })
+                          .execute();
 
-                  this.logger.log(`updateXeroResult: ${JSON.stringify(updateXeroResult)}`);
+                      this.logger.log(
+                        `updateXeroResult: ${JSON.stringify(updateXeroResult)}`,
+                      );
 
-                  const getIntegrationDetails =
-                    await this.integrationDetails.findOne({
-                      where: { integration_id: xeroDetails?.integration_id },
-                    });
+                      const getIntegrationDetails =
+                        await this.integrationDetails.findOne({
+                          where: {
+                            integration_id: xeroDetails?.integration_id,
+                          },
+                        });
 
-                  const updateIntegrationResult = await this.integrationDetails
-                    .createQueryBuilder()
-                    .update(IntegrationDetails)
-                    .set({
-                      previous_status: getIntegrationDetails.integration_status,
-                      integration_status: 'Inactive',
-                      updated_on: moment.tz('UTC'),
-                      updated_group: 'SYSTEM',
-                    })
-                    .where(`id = :id`, { id: getIntegrationDetails?.id })
-                    .execute();
+                      const updateIntegrationResult =
+                        await this.integrationDetails
+                          .createQueryBuilder()
+                          .update(IntegrationDetails)
+                          .set({
+                            previous_status:
+                              getIntegrationDetails.integration_status,
+                            integration_status: 'Inactive',
+                            updated_on: moment.tz('UTC'),
+                            updated_group: 'SYSTEM',
+                          })
+                          .where(`id = :id`, { id: getIntegrationDetails?.id })
+                          .execute();
 
-                  this.logger.log(`updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`);
+                      this.logger.log(
+                        `updateIntegrationResult: ${JSON.stringify(updateIntegrationResult)}`,
+                      );
+                    }
+                  } else if (
+                    (xeroDetails.consecutive_missing_tenant_count || 0) > 0
+                  ) {
+                    // Task #42 — tenant is back; clear the counter.
+                    await this.resetMissingTenantCounter(xeroDetails.id);
+                  }
                 }
               }
             }

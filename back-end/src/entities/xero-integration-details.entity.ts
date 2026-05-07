@@ -65,6 +65,12 @@ export class XeroIntegrationDetails {
   @Column({ nullable: true })
   expires_at: number;
 
+  // Task #42 — counter used by the hourly Xero scheduler to avoid demoting a
+  // healthy integration to `Inactive` after a single transient failure of
+  // GET /connections. Reset to 0 whenever the tenant is found.
+  @Column({ type: 'integer', nullable: true, default: 0 })
+  consecutive_missing_tenant_count: number;
+
   @Column({ type: 'uuid', nullable: true })
   project_category_id: string;
 

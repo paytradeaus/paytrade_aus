@@ -100,15 +100,36 @@ export class XeroController {
 
       this.logger.log(`tenantDetails: ${JSON.stringify(tenantDetails)}`);
 
+      // Task #42 — re-OAuth must move the parent integration_status off
+      // `Inactive` / `Disconnected` so the user is not stuck (Settings
+      // save refuses to run while Inactive, and the dashboard cannot
+      // recover). Pick the same status `updateSettings` would compute
+      // from the existing xero_integration_details mapping. The genuine
+      // failure case (no tenants returned) still ends up Inactive.
+      let nextStatus: any = null;
+      if (!tenantDetails) {
+        nextStatus = 'Inactive';
+      } else if (
+        updatedIntegratedValue?.integration_status === 'Connected - active'
+      ) {
+        nextStatus = updatedIntegratedValue?.integration_status;
+      } else {
+        try {
+          nextStatus = await this.xeroService.recomputeIntegrationStatusForCompany(
+            tenantDetails?.company_id || updatedIntegratedValue?.company_id,
+          );
+        } catch (recomputeErr) {
+          this.logger.error(
+            `recomputeIntegrationStatusForCompany failed: ${recomputeErr?.message || recomputeErr}`,
+          );
+          nextStatus = 'Connected - pending settings/mapping';
+        }
+      }
+
       let updateIntegrationDetails =
         await this.integrationsService.updateIntegrationDetails(decoded, {
           integration_id,
-          integration_status: !tenantDetails
-            ? 'Inactive'
-            : updatedIntegratedValue?.integration_status ===
-                'Connected - active'
-              ? updatedIntegratedValue?.integration_status
-              : null, // 'Connected - pending settings/mapping',
+          integration_status: nextStatus,
         });
 
       this.logger.log(
