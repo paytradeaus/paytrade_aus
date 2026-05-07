@@ -6741,7 +6741,7 @@ export class XeroWebhookService {
             if (
               (previousPayments[0]?.payment_type === 'Part' &&
                 creditNotes &&
-                creditNotes?.length == 1) ||
+                creditNotes?.length >= 1) ||
               (['Pay Less - Full', 'Pay Less - Part'].includes(
                 previousPayments[0]?.payment_type,
               ) &&
@@ -9307,12 +9307,44 @@ export class XeroWebhookService {
           );
         }, 0.0);
 
-        const creditNoteAmount =
-          creditNotes && creditNotes?.length == 1
-            ? Number(creditNotes[0]?.allocations[0]?.amount)
-            : 0;
+        // Sum allocation amounts across every credit note attached to this invoice.
+        // Previously only the first credit note's first allocation was used, so an
+        // invoice paid down by 2+ credit notes was mis-classified as Part/Full
+        // instead of one of the Pay Less variants. We now cope with any number
+        // of credit notes and any number of allocations per credit note, only
+        // counting allocations that target the current invoice.
+        const creditNotesForClassification = Array.isArray(creditNotes)
+          ? creditNotes
+          : [];
+        let contributingCreditNoteCount = 0;
+        const creditNoteAmount = creditNotesForClassification.reduce(
+          (sum, cn) => {
+            if (!cn || !Array.isArray(cn.allocations)) {
+              return sum;
+            }
+            const cnTotal = cn.allocations.reduce((aSum, alloc) => {
+              // Only sum allocations that explicitly target THIS invoice.
+              // If the allocation has no invoice linkage we skip it rather
+              // than over-counting unrelated credit-note usage.
+              if (alloc?.invoice?.invoiceID !== invoice?.invoiceID) {
+                return aSum;
+              }
+              const amt =
+                alloc?.amount === null || alloc?.amount === undefined
+                  ? 0
+                  : Number(alloc.amount);
+              return aSum + (Number.isFinite(amt) ? amt : 0);
+            }, 0);
+            if (cnTotal > 0) {
+              contributingCreditNoteCount += 1;
+            }
+            return sum + cnTotal;
+          },
+          0,
+        );
+        const summedCreditNoteCount = creditNotesForClassification.length;
 
-        this.logger.log(JSON.stringify({ underPayments, underPaymentAmount, creditNoteAmount }));
+        this.logger.log(JSON.stringify({ underPayments, underPaymentAmount, creditNoteAmount, summedCreditNoteCount, contributingCreditNoteCount }));
 
         if (invoiceAmount == creditNoteAmount) {
           paymentType = 'Pay - Zero';
@@ -9940,6 +9972,11 @@ export class XeroWebhookService {
                     reference_id: xeroPaymentEntity?.id,
                     history: [
                       `API triggered from invoice ${sync_run_type}`,
+                      ...(contributingCreditNoteCount > 1
+                        ? [
+                            `Classification ${paymentType} driven by ${contributingCreditNoteCount} credit notes (summed allocation total ${creditNoteAmount})`,
+                          ]
+                        : []),
                       'Import successful',
                     ],
                     important_checks: {
