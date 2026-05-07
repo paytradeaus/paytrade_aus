@@ -74,6 +74,22 @@ const trustTrainingRenderData = (isViewMode: any) => {
   ];
 };
 
+// Phase 2 — per-contact Xero GST tax-type options for AU. Values are
+// the canonical Xero TaxType *codes* (the same enum the rest of the
+// PayTrade backend stores and forwards to Xero). The first option
+// (empty value) means "use Xero org default", which the backend
+// resolver will fall through to.
+const xeroGstTypeOptions = [
+  { value: "", label: "Use organisation settings (default)" },
+  { value: "BASEXCLUDED", label: "BAS Excluded" },
+  { value: "EXEMPTEXPENSES", label: "GST Free Expenses" },
+  { value: "EXEMPTOUTPUT", label: "GST Free Income" },
+  { value: "INPUT", label: "GST on Expenses" },
+  { value: "GSTONIMPORTS", label: "GST on Imports" },
+  { value: "OUTPUT", label: "GST on Income" },
+  { value: "INPUTTAXED", label: "Input Taxed" },
+];
+
 const queryParamsData = {
   CLIENT: "client",
   SUPPLIER: "supplier",
@@ -89,4 +105,5 @@ export {
   accountTypeOptions,
   queryParamsData,
   OverallTrustTrainingGridHeaders,
+  xeroGstTypeOptions,
 };

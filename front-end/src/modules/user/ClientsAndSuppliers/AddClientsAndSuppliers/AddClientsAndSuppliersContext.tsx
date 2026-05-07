@@ -157,6 +157,12 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
           acn_number: formValues?.acn_number?.toString(),
           tfn_number: formValues?.tfn_number?.toString(),
           account_details: modifiedAccountDetails ?? [],
+          // Phase 2 — persist per-contact Xero GST overrides; empty
+          // string means "use organisation settings".
+          xero_sales_gst_setting:
+            formValues?.xero_sales_gst_setting || null,
+          xero_purchases_gst_setting:
+            formValues?.xero_purchases_gst_setting || null,
         },
       };
 

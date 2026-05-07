@@ -120,6 +120,28 @@ export class XeroIntegrationDetails {
   @Column({ type: 'text', nullable: true })
   retention_tax_type: string;
 
+  // Phase 2: cached Xero organisation GST defaults. Refreshed on connect
+  // and via daily scheduler. `xero_org_default_sales_tax` /
+  // `xero_org_default_purchases_tax` are the org-level fallback tax types
+  // used when a contact's per-contact override is blank.
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  xero_org_country_code: string;
+
+  @Column({ type: 'boolean', nullable: true })
+  xero_org_is_gst_registered: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  xero_org_sales_tax_basis: string;
+
+  @Column({ type: 'text', nullable: true })
+  xero_org_default_sales_tax: string;
+
+  @Column({ type: 'text', nullable: true })
+  xero_org_default_purchases_tax: string;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  xero_org_settings_synced_at: Date;
+
   @Column({ type: 'boolean', nullable: true, default: false })
   pt_to_xero_bank_auto_create: boolean;
 

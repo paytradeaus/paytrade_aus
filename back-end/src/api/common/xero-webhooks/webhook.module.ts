@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { XeroService } from '../integrations/xero/xero.service';
+import { XeroContactsService } from '../integrations/xero/contacts/xero-contacts.service';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
@@ -191,6 +192,7 @@ import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
     XeroWebhookQueueConsumer,
     XeroResolver,
     XeroService,
+    XeroContactsService,
     PaymentClaimsService,
     PaymentsService,
     StatusService,

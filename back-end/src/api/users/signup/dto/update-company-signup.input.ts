@@ -188,4 +188,11 @@ export class UpdateCompanySignupInput {
       'Email notification preferences mapped by event type with boolean values.',
   })
   email_preferences: Record<string, boolean>;
+
+  @Field({
+    nullable: true,
+    description:
+      'Whether the business is registered for GST. NULL = unknown. Surfaces on the Business Profile and feeds the contact GST resolver as the final fallback.',
+  })
+  is_gst_registered?: boolean;
 }

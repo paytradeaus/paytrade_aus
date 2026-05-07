@@ -763,4 +763,61 @@ export class XeroContactsResolver {
       return framedResponse('ERROR', error?.message ? error.message : error);
     }
   }
+
+  /**
+   * Phase 2 — alignment endpoints for the Xero Settings widget.
+   * Backfill PT contact GST defaults from Xero (Xero is source of truth)
+   * for every mapped contact owned by the calling company. Best-effort:
+   * skips contacts the live Xero call cannot resolve.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'backfillContactGstFromXero',
+    description:
+      'Phase 2: copy per-contact Xero GST defaults (sales/purchases) onto every mapped PT contact for the company.',
+  })
+  async backfillContactGstFromXero(
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const companyId = context?.req?.headers?.companyid;
+      const response = await this.xeroContactsService.backfillContactGstFromXero(
+        Number(companyId),
+        decoded,
+      );
+      return framedResponse('SUCCESS', JSON.stringify(response));
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Phase 2 — push every mapped PT contact's GST overrides back into
+   * Xero (PT-as-source-of-truth backfill). Used after a bulk import or
+   * to recover from an over-write.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'backfillContactGstFromPaytrade',
+    description:
+      'Phase 2: push per-contact PT GST overrides (sales/purchases) into Xero for every mapped contact.',
+  })
+  async backfillContactGstFromPaytrade(
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const companyId = context?.req?.headers?.companyid;
+      const response = await this.xeroContactsService.backfillContactGstFromPaytrade(
+        Number(companyId),
+        decoded,
+      );
+      return framedResponse('SUCCESS', JSON.stringify(response));
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
 }

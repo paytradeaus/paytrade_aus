@@ -203,6 +203,20 @@ export class CreateClientSuppliersDetailInput {
   })
   payment_terms: number;
 
+  @Field({
+    nullable: true,
+    description:
+      'Per-contact Xero sales default tax type (e.g. "OUTPUT", "BASEXCLUDED", "GSTONINCOME"). NULL falls back to the organisation default.',
+  })
+  xero_sales_gst_setting?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Per-contact Xero purchases default tax type (e.g. "INPUT", "BASEXCLUDED", "GSTONEXPENSES"). NULL falls back to the organisation default.',
+  })
+  xero_purchases_gst_setting?: string;
+
   @Field(() => [CreateAccountDetailInput], {
     nullable: true,
     description: 'List of bank accounts associated with the client/supplier.',

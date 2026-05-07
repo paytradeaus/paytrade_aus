@@ -131,6 +131,13 @@ export class CompanyDetails {
   @Column({ default: false })
   is_demo: boolean;
 
+  // Phase 2: business-level GST registration flag. NULL = unknown (legacy
+  // rows). True = the business is registered for GST. Surfaces in the
+  // Business Profile and feeds `resolveContactGstStatus()` as the final
+  // fallback before "unknown".
+  @Column({ type: 'boolean', nullable: true, default: null })
+  is_gst_registered: boolean;
+
   @Column({ nullable: true })
   logo_id: string;
 

@@ -23,6 +23,7 @@ import {
   queryParamsData,
   relatedEntityTypeOptions,
   statusTypeOptions,
+  xeroGstTypeOptions,
 } from "./AddClientsAndSuppliers.constant";
 import PhoneInputField from "@/components/phoneNumberInput";
 import GooglePlacesInput from "@/components/GooglePlaces";
@@ -310,6 +311,9 @@ export default function AddClientsAndSuppliers() {
       qbcc_number: obj?.qbcc_number ?? "",
       account_details: obj?.account_details ?? "",
       client_supplier_status: obj?.client_supplier_status ?? null,
+      // Phase 2 — per-contact Xero GST overrides.
+      xero_sales_gst_setting: obj?.xero_sales_gst_setting ?? "",
+      xero_purchases_gst_setting: obj?.xero_purchases_gst_setting ?? "",
     });
     setSelectedEntityType(obj?.entity_type);
     setSelectedRelatedEntityType(obj?.related_entity);
@@ -775,6 +779,56 @@ export default function AddClientsAndSuppliers() {
                   }
                   onBlur={formik.handleBlur("tfn_number")}
                   value={formik.values.tfn_number}
+                />
+
+                {/* Phase 2 — per-contact Xero GST overrides. Optional;
+                    leaving "Use organisation settings" lets the backend
+                    fall through to the cached Xero org default and then
+                    the company is_gst_registered flag. */}
+                <FormikControl
+                  control={InputType.SELECT}
+                  label={"Xero GST — sales / income (optional)"}
+                  name={"xero_sales_gst_setting"}
+                  options={xeroGstTypeOptions}
+                  disabled={isViewMode}
+                  renderKey="label"
+                  valueKey="value"
+                  value={
+                    xeroGstTypeOptions.find(
+                      (o) =>
+                        o.value === (formik.values.xero_sales_gst_setting ?? ""),
+                    ) || xeroGstTypeOptions[0]
+                  }
+                  onChange={(value: any) =>
+                    formik.setFieldValue(
+                      "xero_sales_gst_setting",
+                      value?.value ?? "",
+                    )
+                  }
+                  onBlur={formik.handleBlur("xero_sales_gst_setting")}
+                />
+                <FormikControl
+                  control={InputType.SELECT}
+                  label={"Xero GST — purchases / expenses (optional)"}
+                  name={"xero_purchases_gst_setting"}
+                  options={xeroGstTypeOptions}
+                  disabled={isViewMode}
+                  renderKey="label"
+                  valueKey="value"
+                  value={
+                    xeroGstTypeOptions.find(
+                      (o) =>
+                        o.value ===
+                        (formik.values.xero_purchases_gst_setting ?? ""),
+                    ) || xeroGstTypeOptions[0]
+                  }
+                  onChange={(value: any) =>
+                    formik.setFieldValue(
+                      "xero_purchases_gst_setting",
+                      value?.value ?? "",
+                    )
+                  }
+                  onBlur={formik.handleBlur("xero_purchases_gst_setting")}
                 />
 
                 <FormikControl

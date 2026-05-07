@@ -191,6 +191,12 @@ export const BusinessProfileContextProvider = ({ children }: any) => {
         company_address: companyDetails?.companyDetails?.placeDetails?.Address,
         abn_number: formik?.values?.ABN,
         tfn_number: formik?.values?.TFN,
+        // Phase 2 — null preserves "unknown"; explicit boolean otherwise.
+        is_gst_registered:
+          formik?.values?.is_gst_registered === true ||
+          formik?.values?.is_gst_registered === false
+            ? formik?.values?.is_gst_registered
+            : null,
         acn_number: formik?.values?.ACN,
         legal_company_name: formik?.values?.BusinessName,
         signature: signature || businessDetails?.signature,

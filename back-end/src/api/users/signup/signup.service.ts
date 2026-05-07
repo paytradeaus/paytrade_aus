@@ -1118,6 +1118,11 @@ export class SignupService {
     companyDetails.abn_number = updateCompanySignupInput.abn_number;
     companyDetails.tfn_number = updateCompanySignupInput.tfn_number;
     companyDetails.vat_number = updateCompanySignupInput.vat_number;
+    if (updateCompanySignupInput.is_gst_registered !== undefined) {
+      // null is allowed (= unknown)
+      companyDetails.is_gst_registered =
+        updateCompanySignupInput.is_gst_registered;
+    }
     companyDetails.utr_number = updateCompanySignupInput.utr_number;
     companyDetails.cis_rate = updateCompanySignupInput.cis_rate;
     companyDetails.accounting_system =

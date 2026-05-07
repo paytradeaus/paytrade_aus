@@ -9,7 +9,7 @@ import {
 } from './dto/xero.input';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { XeroService } from '../xero.service';
@@ -69,6 +69,215 @@ export class XeroContactsService {
 
   private isXeroConnectionUsable(integrationStatus: string): boolean {
     return !this.INACTIVE_STATUSES.includes(integrationStatus);
+  }
+
+  /**
+   * Phase 2: copy a PT contact's per-contact GST overrides onto an
+   * outbound Xero contact payload (used by createContact /
+   * insertContactDetailsInPaytrade post-import / editContact). Sends:
+   *   - salesDefaultLineAmountType: NotApplicable (we set tax type, not basis)
+   *   - paymentTermsBillsAreDueIn: untouched
+   *   - salesDefaultTaxType / purchasesDefaultTaxType from the PT contact
+   *
+   * Empty / null values on the PT side leave the corresponding Xero
+   * default untouched (Xero treats absent fields as no-change on update).
+   */
+  applyContactGstToXeroPayload(target: any, ptContact: any) {
+    if (!target || !ptContact) return;
+    const sales = ptContact?.xero_sales_gst_setting;
+    const purchases = ptContact?.xero_purchases_gst_setting;
+    const sentinel = (v: any) =>
+      typeof v === 'string' &&
+      v.trim().toLowerCase() === 'use organisation settings';
+    // Belt-and-braces: if a stored value matches a known human label
+    // (legacy data from a Phase 2 build that used labels), translate
+    // into its canonical Xero code so the API call still succeeds.
+    const labelToCode: Record<string, string> = {
+      'gst on income': 'OUTPUT',
+      'gst on expenses': 'INPUT',
+      'gst free income': 'EXEMPTOUTPUT',
+      'gst free expenses': 'EXEMPTEXPENSES',
+      'gst on imports': 'GSTONIMPORTS',
+      'bas excluded': 'BASEXCLUDED',
+      'input taxed': 'INPUTTAXED',
+    };
+    const toCode = (v: any): string => {
+      const s = String(v).trim();
+      const code = labelToCode[s.toLowerCase()];
+      return code || s;
+    };
+    if (sales && !sentinel(sales)) {
+      target.salesDefaultTaxType = toCode(sales);
+    }
+    if (purchases && !sentinel(purchases)) {
+      target.purchasesDefaultTaxType = toCode(purchases);
+    }
+  }
+
+  /**
+   * Phase 2: write the per-contact GST defaults from an inbound Xero
+   * Contact payload onto the mapped PT `client_suppliers_details` row.
+   * No-ops if the Xero contact has no defaults set or the PT contact
+   * is not found.
+   */
+  async persistContactGstFromXero(
+    pt_contact_id: number | string | null | undefined,
+    xeroContact: any,
+    options: { allowNullClear?: boolean } = {},
+  ): Promise<void> {
+    if (!pt_contact_id || !xeroContact) return;
+    const sales =
+      xeroContact?.salesDefaultTaxType ?? xeroContact?.SalesDefaultTaxType;
+    const purchases =
+      xeroContact?.purchasesDefaultTaxType ??
+      xeroContact?.PurchasesDefaultTaxType;
+    const updates: any = {};
+    if (typeof sales === 'string' && sales.trim()) {
+      updates.xero_sales_gst_setting = sales.trim();
+    } else if (options.allowNullClear && (sales === null || sales === '')) {
+      // Xero explicitly cleared the sales default — mirror the unset.
+      updates.xero_sales_gst_setting = null;
+    }
+    if (typeof purchases === 'string' && purchases.trim()) {
+      updates.xero_purchases_gst_setting = purchases.trim();
+    } else if (options.allowNullClear && (purchases === null || purchases === '')) {
+      updates.xero_purchases_gst_setting = null;
+    }
+    if (Object.keys(updates).length === 0) return;
+    try {
+      const asNum = Number(pt_contact_id);
+      const where: any = !isNaN(asNum) && Number.isInteger(asNum)
+        ? { client_supplier_id: asNum }
+        : { id: String(pt_contact_id) };
+      await this.clientSuppliersDetails.update(where, updates);
+    } catch (error) {
+      this.logger.warn(
+        `[Phase 2] Failed to persist contact GST defaults for pt_contact_id=${pt_contact_id}: ${error?.message || error}`,
+      );
+    }
+  }
+
+  /**
+   * Phase 2 — Pull every mapped contact for `company_id` from Xero
+   * (full Contact record) and persist `salesDefaultTaxType` /
+   * `purchasesDefaultTaxType` onto the matching `client_suppliers_details`
+   * row. Returns a summary suitable for displaying in the alignment widget.
+   */
+  async backfillContactGstFromXero(
+    company_id: number,
+    decoded: any,
+  ): Promise<{ scanned: number; updated: number; skipped: number; errors: number }> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) throw `No active Xero integration for company ${company_id}`;
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const mapped = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE' as any,
+        pt_contact_id: Not(IsNull()),
+      },
+    });
+
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+    for (const row of mapped) {
+      try {
+        const resp = await this.xero.accountingApi.getContact(
+          xeroDetails.tenant_id,
+          row.contact_id,
+        );
+        const contact = resp?.body?.contacts?.[0];
+        if (!contact) { skipped += 1; continue; }
+        const before = await this.clientSuppliersDetails.findOne({
+          where: { client_supplier_id: row.pt_contact_id as any },
+          select: ['client_supplier_id', 'xero_sales_gst_setting', 'xero_purchases_gst_setting'] as any,
+        });
+        // Backfill is the explicit "Xero is source of truth" path, so
+        // honour clears as well as sets.
+        await this.persistContactGstFromXero(row.pt_contact_id, contact, {
+          allowNullClear: true,
+        });
+        const after = await this.clientSuppliersDetails.findOne({
+          where: { client_supplier_id: row.pt_contact_id as any },
+          select: ['client_supplier_id', 'xero_sales_gst_setting', 'xero_purchases_gst_setting'] as any,
+        });
+        if (
+          before?.xero_sales_gst_setting !== after?.xero_sales_gst_setting ||
+          before?.xero_purchases_gst_setting !== after?.xero_purchases_gst_setting
+        ) {
+          updated += 1;
+        } else {
+          skipped += 1;
+        }
+      } catch (err) {
+        errors += 1;
+        this.logger.warn(
+          `[Phase 2] backfillContactGstFromXero failed for contact ${row.contact_id}: ${err?.message || err}`,
+        );
+      }
+    }
+    return { scanned: mapped.length, updated, skipped, errors };
+  }
+
+  /**
+   * Phase 2 — Push every mapped PT contact's per-contact GST overrides
+   * to Xero. Skips contacts with no override set ("Use organisation
+   * settings" / null), since pushing those would clobber Xero's choice.
+   */
+  async backfillContactGstFromPaytrade(
+    company_id: number,
+    decoded: any,
+  ): Promise<{ scanned: number; pushed: number; skipped: number; errors: number }> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) throw `No active Xero integration for company ${company_id}`;
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const mapped = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE' as any,
+        pt_contact_id: Not(IsNull()),
+      },
+    });
+
+    let pushed = 0;
+    let skipped = 0;
+    let errors = 0;
+    for (const row of mapped) {
+      try {
+        const ptContact = await this.clientSuppliersDetails.findOne({
+          where: { client_supplier_id: row.pt_contact_id as any },
+        });
+        if (!ptContact) { skipped += 1; continue; }
+        const payload: any = { name: ptContact.client_supplier_name };
+        this.applyContactGstToXeroPayload(payload, ptContact);
+        if (
+          payload.salesDefaultTaxType === undefined &&
+          payload.purchasesDefaultTaxType === undefined
+        ) {
+          skipped += 1;
+          continue;
+        }
+        await this.xero.accountingApi.updateContact(
+          xeroDetails.tenant_id,
+          row.contact_id,
+          { contacts: [payload] },
+        );
+        pushed += 1;
+      } catch (err) {
+        errors += 1;
+        this.logger.warn(
+          `[Phase 2] backfillContactGstFromPaytrade failed for contact ${row.contact_id}: ${err?.message || err}`,
+        );
+      }
+    }
+    return { scanned: mapped.length, pushed, skipped, errors };
   }
 
   async getClientSuppliersDetails(client_supplier_id) {
@@ -280,17 +489,21 @@ export class XeroContactsService {
         };
         const addresses = [address];
         try {
+          const newContactPayload: any = {
+            name: clientSupplierDetails.client_supplier_name,
+            addresses: addresses,
+            emailAddress: clientSupplierDetails.client_email_id,
+            phones: phones,
+          };
+          // Phase 2 outbound: push per-contact GST overrides to Xero on create.
+          this.applyContactGstToXeroPayload(
+            newContactPayload,
+            clientSupplierDetails,
+          );
           const xeroResponse = await this.xero.accountingApi.createContacts(
             xeroDetails.tenant_id,
             {
-              contacts: [
-                {
-                  name: clientSupplierDetails.client_supplier_name,
-                  addresses: addresses,
-                  emailAddress: clientSupplierDetails.client_email_id,
-                  phones: phones,
-                },
-              ],
+              contacts: [newContactPayload],
             },
           );
           this.logger.log(
@@ -748,12 +961,15 @@ export class XeroContactsService {
             const addresses = [];
             addresses.push(address);
 
-            const contactData = {
+            const contactData: any = {
               name: response.client_supplier_name,
               addresses: addresses,
               emailAddress: response.client_email_id,
               phones: phones,
             };
+
+            // Phase 2 outbound: push per-contact GST overrides to Xero.
+            this.applyContactGstToXeroPayload(contactData, response);
 
             const updateContactResponse =
               await this.xero.accountingApi.updateContact(
@@ -787,6 +1003,13 @@ export class XeroContactsService {
             xeroContactDetails.updated_on = response.created_on;
             xeroContactDetails.updated_group = response.created_group;
             await this.xeroContactDetails.save(xeroContactDetails);
+
+            // Phase 2: capture per-contact Xero GST defaults onto the
+            // PayTrade contact when the contact is mapped.
+            await this.persistContactGstFromXero(
+              response.client_supplier_id,
+              contact,
+            );
 
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: sync_id || null,
@@ -1074,6 +1297,9 @@ export class XeroContactsService {
             emailAddress: clientSupplierDetails.client_email_id,
             phones: phones,
           };
+
+          // Phase 2 outbound: push per-contact GST overrides to Xero.
+          this.applyContactGstToXeroPayload(contactData, clientSupplierDetails);
 
           if (xeroDetails.sync_contact_financial_to_xero) {
             const fullDetails = await this.clientSuppliersDetails.findOne({

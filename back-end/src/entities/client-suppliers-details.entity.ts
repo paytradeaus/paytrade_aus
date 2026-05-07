@@ -115,6 +115,18 @@ export class ClientSuppliersDetails {
   @Column({ type: 'int', nullable: true })
   payment_terms: number;
 
+  // Phase 2 Xero per-contact GST defaults. These mirror Xero's contact-level
+  // `salesDefaultTaxType` and `purchasesDefaultTaxType` (free-form text so
+  // any jurisdiction's tax-type code can be stored). NULL means
+  // "fall through to organisation default". Used by
+  // `resolveContactGstStatus(contact, claimType)` to determine whether GST
+  // applies to a claim line for this contact.
+  @Column({ type: 'text', nullable: true })
+  xero_sales_gst_setting: string;
+
+  @Column({ type: 'text', nullable: true })
+  xero_purchases_gst_setting: string;
+
   @Column({ default: false })
   is_deleted: Boolean;
 

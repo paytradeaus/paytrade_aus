@@ -244,6 +244,18 @@ export class XeroSchedulerService {
                   element.company_id,
                   this.xero,
                 );
+                // Phase 2 — refresh cached Xero org GST defaults so the
+                // resolveContactGstStatus helper has fresh fall-throughs.
+                // Best-effort: never block the rest of the scheduler.
+                try {
+                  await this.xeroService.refreshOrgGstDefaults(
+                    element.company_id,
+                  );
+                } catch (orgErr) {
+                  this.logger.warn(
+                    `[Phase 2] refreshOrgGstDefaults failed for company_id=${element.company_id}: ${orgErr?.message || orgErr}`,
+                  );
+                }
               } catch (err) {
                 const error = await handleAxiosError(err);
                 this.logger.error(`[Xero Scheduler] Failed in scheduler: ${error}`);

@@ -14,6 +14,7 @@ import {
   XeroClient,
 } from 'xero-node';
 import { XeroService } from '../integrations/xero/xero.service';
+import { XeroContactsService } from '../integrations/xero/contacts/xero-contacts.service';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
@@ -93,6 +94,7 @@ export class XeroWebhookService {
     private userDetails: Repository<UserDetails>,
     private readonly xeroResolver: XeroResolver,
     private readonly xeroService: XeroService,
+    private readonly xeroContactsService: XeroContactsService,
     private readonly paymentClaimsService: PaymentClaimsService,
     private readonly paymentsService: PaymentsService,
     private readonly paymentGatewayService: PaymentGatewayService,
@@ -342,6 +344,11 @@ export class XeroWebhookService {
           await this.clientSuppliersDetails.findOne({
             where: { client_supplier_id: xeroContactDetails.pt_contact_id },
           });
+        // Phase 2: capture per-contact Xero GST defaults onto the mapped PT contact.
+        await this.xeroContactsService.persistContactGstFromXero(
+          xeroContactDetails.pt_contact_id,
+          contact,
+        );
         if (xeroContactDetails?.contact_status === 'ACTIVE') {
           const xeroAddress =
             contact.addresses?.find((a: any) => a.addressType === 'POBOX') ||

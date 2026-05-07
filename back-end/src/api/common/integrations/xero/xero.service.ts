@@ -483,6 +483,12 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.simplified_retention_accounting AS simplified_retention_accounting',
           'x.retention_recording_mode AS retention_recording_mode',
           'x.retention_tax_type AS retention_tax_type',
+          'x.xero_org_country_code AS xero_org_country_code',
+          'x.xero_org_is_gst_registered AS xero_org_is_gst_registered',
+          'x.xero_org_sales_tax_basis AS xero_org_sales_tax_basis',
+          'x.xero_org_default_sales_tax AS xero_org_default_sales_tax',
+          'x.xero_org_default_purchases_tax AS xero_org_default_purchases_tax',
+          'x.xero_org_settings_synced_at AS xero_org_settings_synced_at',
           'x.pt_to_xero_bank_auto_create AS pt_to_xero_bank_auto_create',
           'x.xero_to_pt_bank_auto_create AS xero_to_pt_bank_auto_create',
           'x.pt_to_xero_contact_auto_create AS pt_to_xero_contact_auto_create',
@@ -1954,6 +1960,76 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       const errMsg = await handleAxiosError(error);
       throw errMsg;
+    }
+  }
+
+  /**
+   * Phase 2 — Retention/contact GST: cache the connected Xero org's GST
+   * defaults onto `xero_integration_details`. Called from the hourly
+   * Xero scheduler and on-demand from the alignment widget.
+   *
+   * Persists country code, registration flag (derived from `salesTaxBasis`
+   * + presence of GST tax rates), the basis itself, and the org-level
+   * default sales / purchases tax types so PT can resolve a contact's
+   * effective GST without a live Xero round-trip on every claim push.
+   */
+  async refreshOrgGstDefaults(company_id: number): Promise<{
+    refreshed: boolean;
+    country?: string;
+    isGstRegistered?: boolean;
+    salesTaxBasis?: string;
+  }> {
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { company_id, status: 'ACTIVE' },
+      });
+      if (!xeroDetails) return { refreshed: false };
+      await this.refreshTokenSet(company_id, this.xero);
+
+      const response = await this.xero.accountingApi.getOrganisations(
+        xeroDetails.tenant_id,
+      );
+      const org = response?.body?.organisations?.[0];
+      if (!org) return { refreshed: false };
+
+      const country = (org as any).countryCode || (org as any).country || null;
+      const salesTaxBasis = (org as any).salesTaxBasis || null;
+      // Heuristic: AU orgs without GST registration have salesTaxBasis = 'NONE'.
+      // Anything else (CASH/ACCRUALS/PAYMENTS) implies registered.
+      const isGstRegistered =
+        salesTaxBasis && String(salesTaxBasis).toUpperCase() !== 'NONE';
+
+      // Org-level default tax types are not part of the Organisation
+      // payload; leave nulls in place so resolveContactGstStatus falls
+      // through to the company-level flag when the user hasn't picked
+      // an explicit org default. The alignment widget/UI can populate
+      // `xero_org_default_sales_tax` / `..._purchases_tax` later.
+      await this.xeroIntegrationDetails
+        .createQueryBuilder()
+        .update(XeroIntegrationDetails)
+        .set({
+          xero_org_country_code: country,
+          xero_org_is_gst_registered: isGstRegistered,
+          xero_org_sales_tax_basis: salesTaxBasis,
+          xero_org_settings_synced_at: moment.tz('UTC').toDate(),
+          updated_on: moment.tz('UTC'),
+          updated_group: 'SYSTEM',
+        })
+        .where(`id = :id`, { id: xeroDetails.id })
+        .execute();
+
+      return {
+        refreshed: true,
+        country,
+        isGstRegistered,
+        salesTaxBasis,
+      };
+    } catch (error) {
+      const errMsg = await handleAxiosError(error).catch(() => error?.message);
+      this.logger?.warn?.(
+        `[Phase 2] refreshOrgGstDefaults failed for company_id=${company_id}: ${errMsg}`,
+      );
+      return { refreshed: false };
     }
   }
 

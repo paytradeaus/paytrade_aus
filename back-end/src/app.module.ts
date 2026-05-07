@@ -112,6 +112,7 @@ import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-se
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
 import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retention-mode-schema-seeder.module';
+import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-gst-schema-seeder.module';
 
 @Module({
   imports: [
@@ -299,6 +300,7 @@ import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retent
     EmailTemplateUrlCleanupSeederModule,
     AbaGuidesSeederModule,
     XeroRetentionModeSchemaSeederModule,
+    XeroContactGstSchemaSeederModule,
   ],
   providers: [
     AppService,

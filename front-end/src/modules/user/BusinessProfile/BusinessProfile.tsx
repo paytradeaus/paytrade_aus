@@ -208,6 +208,9 @@ export default function BusinessProfile({ isEditable }: any) {
           ACN: businessDetailsResponse?.acn_number,
           ABN: businessDetailsResponse?.abn_number,
           TFN: businessDetailsResponse?.tfn_number,
+          // Phase 2 — company GST registration flag (nullable: null = unknown).
+          is_gst_registered:
+            businessDetailsResponse?.is_gst_registered ?? null,
           Subscription: businessDetailsResponse?.subscription_id,
           SubscriptionType: businessDetailsResponse?.plan_type,
           CookiePreferences: null,
@@ -796,6 +799,32 @@ export default function BusinessProfile({ isEditable }: any) {
                         value={formik.values.compliance}
                       />
                     </div>
+                  </div>
+                </div>
+                {/* Phase 2 — company GST registration flag. Used as the
+                    PT-side fallback in resolveContactGstStatus when
+                    neither the per-contact override nor the cached Xero
+                    org default has a value. */}
+                <label>
+                  <small>GST registration</small>
+                </label>
+                <div style={{ marginBottom: "1rem", display: "block" }}>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <FormikControl
+                      id={"is_gst_registered"}
+                      name={"is_gst_registered"}
+                      label={
+                        "This business is registered for GST (used as a fallback when Xero org settings are not available)."
+                      }
+                      control={InputType.CHECKBOX}
+                      onChange={(e: any) =>
+                        formik.setFieldValue(
+                          "is_gst_registered",
+                          !!e?.target?.checked,
+                        )
+                      }
+                      value={!!formik.values.is_gst_registered}
+                    />
                   </div>
                 </div>
                 <br />

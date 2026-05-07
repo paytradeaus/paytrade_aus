@@ -2904,6 +2904,16 @@ input CreateClientSuppliersDetailInput {
 
   """Tax File Number (TFN) of the client/supplier if applicable."""
   tfn_number: String
+
+  """
+  Per-contact Xero purchases default tax type (e.g. "INPUT", "BASEXCLUDED", "GSTONEXPENSES"). NULL falls back to the organisation default.
+  """
+  xero_purchases_gst_setting: String
+
+  """
+  Per-contact Xero sales default tax type (e.g. "OUTPUT", "BASEXCLUDED", "GSTONINCOME"). NULL falls back to the organisation default.
+  """
+  xero_sales_gst_setting: String
 }
 
 """Input for creating a new common setting entry"""
@@ -13731,6 +13741,16 @@ type Mutation {
   ): AutoMapResponse!
 
   """
+  Phase 2: push per-contact PT GST overrides (sales/purchases) into Xero for every mapped contact.
+  """
+  backfillContactGstFromPaytrade: StringResponse!
+
+  """
+  Phase 2: copy per-contact Xero GST defaults (sales/purchases) onto every mapped PT contact for the company.
+  """
+  backfillContactGstFromXero: StringResponse!
+
+  """
   Creates all unmapped Xero contacts in PayTrade for the specified company.
   """
   batchCreateContactsInPaytrade(
@@ -20068,6 +20088,16 @@ input UpdateClientSuppliersDetailInput {
 
   """Timestamp indicating when the record was last updated."""
   updated_on: DateTime
+
+  """
+  Per-contact Xero purchases default tax type (e.g. "INPUT", "BASEXCLUDED", "GSTONEXPENSES"). NULL falls back to the organisation default.
+  """
+  xero_purchases_gst_setting: String
+
+  """
+  Per-contact Xero sales default tax type (e.g. "OUTPUT", "BASEXCLUDED", "GSTONINCOME"). NULL falls back to the organisation default.
+  """
+  xero_sales_gst_setting: String
 }
 
 """Input for updating an existing common setting"""
@@ -20204,6 +20234,11 @@ input UpdateCompanySignupInput {
 
   """Type of business entity (e.g., Business, Sole Trader, Personal)."""
   entity_type: String!
+
+  """
+  Whether the business is registered for GST. NULL = unknown. Surfaces on the Business Profile and feeds the contact GST resolver as the final fallback.
+  """
+  is_gst_registered: Boolean
 
   """Indicates whether the business signature was updated."""
   is_signature_updated: Boolean
