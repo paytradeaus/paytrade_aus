@@ -435,7 +435,7 @@ function renderRetentionJournals(
                             : "#555",
                     }}
                   >
-                    {j.status || "—"}
+                    {j.status === "DELETED" ? "Voided" : j.status || "—"}
                   </span>
                 </td>
                 <td style={{ padding: "6px 8px" }}>
