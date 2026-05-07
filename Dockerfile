@@ -27,6 +27,12 @@ RUN cd back-end && npm ci --legacy-peer-deps
 
 COPY . .
 
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so they
+# must be present during `next build` — not just at container runtime. Railway
+# injects service variables as build args when they are declared with ARG.
+ARG NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+ENV NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=$NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+
 RUN cd front-end && npm run build
 RUN cd back-end && rm -rf dist && npm run build
 
