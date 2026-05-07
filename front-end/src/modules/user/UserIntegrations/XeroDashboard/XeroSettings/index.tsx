@@ -2198,11 +2198,11 @@ export default function XeroSettings() {
               <details open>
                 <summary>Sync timing</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  When a change is made in Xero, PayTrade waits for this delay before processing it. This allows multiple rapid changes (e.g. editing several invoices in quick succession) to be grouped into a single sync, reducing unnecessary processing. A higher value means fewer syncs but a longer wait before changes appear. The default is 30 seconds (minimum 10).
+                  When a change is made in Xero, PayTrade waits for this delay before processing it. This allows multiple rapid changes (e.g. editing several invoices in quick succession) to be grouped into a single sync, reducing unnecessary processing. A higher value means fewer syncs but a longer wait before changes appear. The default is 30 minutes (allowed range 10–60 minutes).
                 </p>
                 <div className="grid pt_infocol">
                   <div>
-                    <h5>Sync delay (seconds)</h5>
+                    <h5>Sync delay (minutes)</h5>
                     <FormikControl
                       control={InputType.TEXT_FIELD}
                       name={"Executionwaittime"}
@@ -2224,7 +2224,7 @@ export default function XeroSettings() {
                           settingsFormik.setFieldValue("wait_time", Math.max(10, numericVal));
                         }
                       }}
-                      placeholder="Enter delay in seconds (10–60)"
+                      placeholder="Enter delay in minutes (10–60)"
                       value={settingsFormik.values.wait_time}
                       showError={
                         settingsFormik.touched.wait_time &&
