@@ -479,6 +479,24 @@ The project overview page provides a centralized view of:
 - Contract status tracking (Active, Completed, Terminated)
 - Generate S75 Supporting Statements
 
+### Contract Type — Fixed vs Hourly *(Added 2026-05-07)*
+
+When adding or editing a contract, users now select a **Contract Type** (dropdown beneath the Retention Type field):
+
+| Contract Type | What it means | How PayTrade behaves |
+|---|---|---|
+| **Fixed** (default) | Lump-sum / fixed-price contract | Standard behaviour — claims that exceed the contract value (initial sum + approved variations) trigger an "exceeds contract" warning modal that the user must acknowledge before saving. |
+| **Hourly** | Time-and-materials / day-rate contract where the final value is unknown up-front | The exceed-contract warning is suppressed because the headline value is only an estimate. When a claim is saved that would push the running total above the current contract value, PayTrade **automatically creates a single Agreed variation** for the shortfall (named *"Auto uplift — Claim #&lt;id&gt;"*) so the contract value, retention calculations, and reports stay accurate. Re-editing the same claim updates the existing auto-uplift variation rather than adding a new one; reducing the claim back below the threshold archives and zeroes the auto-uplift. The activity log records each auto-uplift event. |
+
+**Where the Contract Type appears:**
+- Add/Edit Contract form
+- Contract Overview tab (alongside Retention Type)
+- Contracts list and Excel/PDF exports
+- The claim drawer (drives the suppression of the exceed warning)
+
+**Use Hourly for:** day-labour subbies, plant hire, time-and-materials trades, consultants billed by the hour.
+**Use Fixed for:** lump-sum subcontracts where the value is contractually capped.
+
 ---
 
 ## 12. Variations
@@ -497,6 +515,7 @@ The project overview page provides a centralized view of:
 
 ### Features
 - Track changes to contract scope and value
+- **Auto-uplift variations (Hourly contracts only):** When a claim on an Hourly contract exceeds the current contract value, PayTrade automatically creates one Agreed variation named *"Auto uplift — Claim #&lt;id&gt;"* covering the shortfall. These appear in the variations list like any other variation; they are managed automatically and should not be edited manually (re-edit the underlying claim instead). See section 11 for full details.
 - Variation approval workflow
 - Link to parent contract
 - Impact on contract totals and payment schedules
@@ -819,7 +838,7 @@ Users map PayTrade financial activities to specific Xero account codes:
 | Setting | Purpose |
 |---------|---------|
 | **Invoice Code** | Revenue account for synced receivable invoices |
-| **Bill Code** | Expense account for synced payable bills |
+| **Bill Code** | Expense account for synced payable bills (default — see *Variable Bill Code per Supplier* in section 19.13 for per-supplier / per-project overrides) |
 | **Retention Payable Retained Code** | Account for retention amounts held (payable) |
 | **Retention Payable Release Code** | Account for retention amounts released (payable) |
 | **Retention Receivable Retained Code** | Account for retention amounts held (receivable) |
@@ -909,6 +928,30 @@ The canonical set checked against Xero:
 | **Xero → PT Contract Auto-Create** | Xero → PayTrade | When enabled, the hourly scheduler automatically creates PayTrade contracts for any unmapped Xero tracking category options |
 
 These toggles are found at the bottom of the Xero Settings page under the auto-creation sections.
+
+#### Variable Bill Code Settings *(Added 2026-05-07)*
+Three toggles directly under the global **Bill Code** dropdown control whether suppliers and projects can override the default bill expense account on a per-record basis. Full behaviour is documented in section 19.13.
+
+| Setting | Description |
+|---|---|
+| **Use variable bill code per supplier** | When ON, each supplier may define a default Xero account code that overrides the global Bill Code. Outbound bills use the supplier default; inbound bills must resolve to a valid code. |
+| **Bill code naming convention** | Optional regex/prefix pattern (e.g. `5xxx`, `EXP-*`). When set, the inbound webhook will auto-learn a matching account code from a Xero bill into the supplier or per-project override and emit sync log 608. |
+| **Allow fallback to global bill code** | When ON, outbound sends and inbound learning fall back to the global Bill Code if no supplier or project override resolves. When OFF, sync hard-fails with sync log 607 (outbound) or 609 (inbound) so the user must complete the per-supplier setup. |
+
+#### Retention Recording Mode *(Added — Phase 1)*
+Two-option toggle for how retention is split across Xero line items:
+
+| Mode | Behaviour |
+|---|---|
+| **Ex-GST** (default) | Retention amounts are kept ex-GST. Recommended for most setups. |
+| **Inc-GST** | When the source invoice is "Inclusive of GST", retention/liability/release lines are grossed up (× 1.1) and use the optional **Retention Tax Type** override. |
+
+#### Auto Gross-Up Retention Journals *(Added — Phase 3)*
+Single toggle that posts a small balanced Xero Manual Journal (DR Retention Payable / CR Retention Held = GST portion) every time a retention claim is created, edited, or released, so the retention ledgers reconcile to the gross figure. See section 19.15 for the full process.
+
+| Setting | Behaviour |
+|---|---|
+| **Auto gross-up retention journals** | Disabled when *Simplified retention accounting* is ON or when *Retention recording mode* is `Inc-GST` (the toggle is greyed out with an explanation). When ON, every retention movement automatically posts/voids a paired Manual Journal in Xero. |
 
 #### Other Settings
 - **Reference Format:** Customise the reference prefix for synced documents
@@ -1221,7 +1264,89 @@ This feature synchronises bank account / payment details between PayTrade and Xe
 - The button only appears when the Xero integration is connected and active.
 - Contact must be mapped (linked between PayTrade and Xero) before financial details can sync.
 
-### 19.12 Contact Information Sync (Address, Phone, Email)
+### 19.13 Variable Bill Code per Supplier *(Added 2026-05-07)*
+
+By default every payable bill PayTrade syncs to Xero is coded to the global **Bill Code** account configured in Xero Settings. For companies that want a different expense account per supplier (e.g. one account per trade) or per project (e.g. one account per cost centre), the variable bill code feature allows overrides without touching the global default.
+
+**Pages it touches:**
+
+| Page | What appears |
+|---|---|
+| **Xero Settings** (`/user/integrations/xero/settings`) | Three new toggles directly under the global Bill Code dropdown — *Use variable bill code per supplier*, *Bill code naming convention*, *Allow fallback to global bill code*. See 19.3. |
+| **Add / Edit Client or Supplier** (`/user/clients-and-suppliers/add` and `/edit/[id]`) | New optional **"Default Xero account code"** input on the supplier form. New per-project overrides grid (visible in Edit/View mode only) lets the user add, edit, or remove a Xero account code per (supplier × project) pair. |
+| **Sync Logs** (`/user/integrations/xero/sync-logs`) | Three new templates surface here when something needs attention: 607 (outbound — no code resolved, fallback OFF), 608 (inbound — naming convention auto-learned a code), 609 (inbound — no code resolved, fallback OFF). Surfaced via the existing Integration Issues dashboard widget. |
+
+**Resolution order** (used by both outbound bill creation and inbound bill import):
+
+1. **Per-(supplier × project) override** — if the supplier has a project-specific override row for the project on the bill, use it.
+2. **Supplier default** (`xero_default_account_code` on the client/supplier record) — if set, use it.
+3. **Global Bill Code** (Xero Settings) — used only when *Allow fallback to global bill code* is ON.
+4. **Fail-up-front** — if all three fail and fallback is OFF, the sync hard-fails and writes sync log 607 (outbound) or 609 (inbound). The user must then add a per-supplier or per-project code before retrying.
+
+**Naming-convention auto-learn (inbound only):**
+When *Bill code naming convention* is set (e.g. `5xxx`) and an inbound bill from Xero references an unmapped account code matching the pattern, PayTrade automatically writes that code as either the per-project override (if a project tracking category is on the bill) or the supplier default, and writes sync log 608 confirming what was learned. Auto-learn is restricted to ACTIVE accounts of type EXPENSE, DIRECTCOSTS, OVERHEADS, or DEPRECIATN — it will never accidentally learn a bank or revenue code.
+
+**How to use it (typical setup):**
+1. In **Xero Settings**, turn ON *Use variable bill code per supplier*. Decide whether to allow fallback (recommended ON during rollout, OFF once every supplier is configured).
+2. Optionally set a *Bill code naming convention* if your chart of accounts follows a pattern.
+3. For each supplier that needs a non-default code, open **Edit Client/Supplier** and set the **Default Xero account code**.
+4. For supplier × project edge cases, use the **per-project override grid** on the same page.
+5. Existing bill syncs work unchanged. New bills resolve through the order above.
+
+### 19.14 Xero Invoice / Bill Linked to the Claim
+
+Every payment claim that has been pushed to or imported from Xero now has a **Xero Integration** expander on the claim drawer (and on the Add/Edit Claim page) showing the live link between the claim and its Xero invoice or bill.
+
+**What the expander shows:**
+
+| Field | Meaning |
+|---|---|
+| **Xero invoice / bill number** | The Xero-side reference number (e.g. `INV-00123`, `BILL-456`). |
+| **Mapped status** | One of *System* (auto-created by PayTrade), *Manual* (user-mapped), or *Auto-imported from Xero*. |
+| **Current Xero status** | Live status read from the cached Xero record — Draft, Submitted, Authorised, Paid, Voided, etc. Marked **"Stale"** if Xero deleted or voided the underlying record (PDF cache is preserved for the audit trail). |
+| **Open in Xero** | Deep link that opens the invoice/bill directly in the Xero web app. |
+| **Download Xero PDF** | Downloads the most recent cached PDF straight from PayTrade (no extra Xero login). The PDF is refreshed automatically every time Xero notifies PayTrade of a change. |
+| **Retention GST gross-up journals** | Sub-table (only visible when section 19.15's auto gross-up setting is enabled) listing every Manual Journal PayTrade has posted for this claim — see 19.15. |
+
+**Behind the scenes:**
+- PDFs are pulled via Xero's `getInvoiceAsPdf` API and stored on Cloudflare R2 under `xero_pdfs/<invoiceId>.pdf`.
+- The 15-minute webhook fallback scheduler refreshes the cache automatically — users never need to manually re-download.
+- **Audit pack ZIPs** include the cached PDF in `<module>/Attachments/Xero-<reference|invoiceId>.pdf` and the per-claim Excel adds three new columns: Xero Invoice #, Xero Status, Xero Link.
+
+### 19.15 Retention GST Gross-Up Manual Journals (Auto Correction) *(Added — Phase 3)*
+
+When PayTrade records retention as ex-GST and Simplified Retention Accounting is OFF, the corresponding GST portion of the retention is **not** automatically reflected in the Xero retention ledger accounts. The result is that "Retention Held" and "Retention Payable" accounts in Xero only show the ex-GST figure, while the head invoice/bill carries the full GST. The **Auto Gross-Up Retention Journals** setting fixes this by automatically posting a small balanced Xero Manual Journal for the GST portion every time a retention movement happens.
+
+**Eligibility (the setting only activates when all three are true):**
+- *Auto gross-up retention journals* toggle is ON in Xero Settings (see 19.3).
+- *Simplified retention accounting* is OFF.
+- *Retention recording mode* is set to **Ex-GST**.
+
+If any of those three change, the toggle becomes disabled in the UI with an inline explanation.
+
+**What gets posted:**
+
+| Trigger | Journal kind | Lines |
+|---|---|---|
+| New retention claim created in Xero (outbound or inbound) | `gross_up` | DR Retention Payable / CR Retention Held = GST portion of the retention amount |
+| Retention release claim (`cash_retention_type = 'Retention claim'`) | `gross_up_reversal` | Same two lines with opposite signs |
+| Claim edited in Xero | Existing journal voided in Xero, then a new one posted against the new retention amount |
+| Claim deleted/voided in Xero | All linked journals voided — retention GST entries are never left dangling |
+| Manual Journal created/updated outside PayTrade with the same ID | Anti-echo: ignored (sync log 606) so PayTrade never reprocesses its own journals |
+
+**Smart tax-type resolution** (PayTrade picks the tax type for each journal line in this order):
+1. The tax type already used on the base invoice/bill line.
+2. The supplier's per-contact GST override (Phase 2) → the cached Xero org default → the company's `is_gst_registered` flag.
+3. If none of those resolve, the journal is **not** posted and a sync log is written explaining why.
+
+**Where you see it:**
+- **Claim drawer / Add-Edit Claim — Xero Integration expander** (see 19.14): a "Retention GST gross-up journals" sub-table shows every journal for that claim — newest first, with kind, status (POSTED / FAILED / Voided), ex-GST amount, GST amount, resolved tax type and source, posted timestamp, narration, DR/CR account codes, and a deep link to the journal in Xero.
+- **FAILED rows** display the error text and a **Retry** button that re-attempts posting without forcing a claim edit.
+- **Sync Logs:** templates 600 (posted), 601 (skipped), 602 (failed), 603 (reversal posted), 604 (voided), 605 (release reversal), 606 (anti-echo).
+
+**Why it matters:** without this correction, finance/audit reconciliations against the retention ledger in Xero are off by the GST portion of every retention movement — usually 10% — until manually adjusted. With the setting on, PayTrade keeps the books reconciled automatically and the audit pack always matches Xero.
+
+### 19.16 Contact Information Sync (Address, Phone, Email)
 
 **Location:** **Xero Dashboard → Contacts → Mapped Contacts tab → "SYNC CONTACT INFO" button**
 
@@ -1479,6 +1604,14 @@ When a near match is found (amber badge), the bank amount and payment amount dif
    - **TA5:** Nil return periods
 5. Notices sent via email with PDF attachments
 
+### Phase 7b: Hourly-Rate Subcontracts (Time & Materials)
+1. When creating the contract, choose **Contract Type = Hourly** (see section 11)
+2. Enter your best estimate of the contract value as the initial sum
+3. Submit claims as work proceeds. PayTrade will not block claims that exceed the estimate
+4. Each over-the-estimate claim automatically creates an *"Auto uplift — Claim #&lt;id&gt;"* Agreed variation (visible in the Variations list)
+5. Reduce or re-edit the claim and the auto-uplift adjusts automatically
+6. The activity log records each auto-uplift event
+
 ### Phase 8: Retention Management
 
 #### 8a: How Retention Works
@@ -1528,3 +1661,5 @@ When contractual conditions for retention release are met (e.g., practical compl
 ---
 
 *This document covers every user-accessible page and feature in the PayTrade platform as of the current codebase. Admin panel documentation is maintained separately in PayTrade-Admin-Guide.md. Plan features and pricing are dynamically managed by admins via the subscription management system and may change over time.*
+
+*Last content additions: 2026-05-07 — Contract Type (Fixed/Hourly) with auto-uplift variations, Variable Bill Code per Supplier, Xero Invoice/Bill linked to claim with PDF cache, Retention GST gross-up Manual Journals.*
