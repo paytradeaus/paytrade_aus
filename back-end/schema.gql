@@ -19677,6 +19677,21 @@ type SuggestedMatchPayment {
   sub_payment_type: String
 }
 
+"""Task #41 — Per-(supplier × project) Xero account code override row."""
+type SupplierProjectAccountCodeOverride {
+  """Xero account code stored on the override row."""
+  account_code: String!
+
+  """Internal row id."""
+  id: String!
+
+  """Project id this override applies to."""
+  project_id: Float!
+
+  """Display name of the project."""
+  project_name: String
+}
+
 """Details of a support ticket including user information and messages."""
 type SupportTicketDetail {
   """Optional business name of the user who submitted the ticket."""
@@ -21730,6 +21745,16 @@ type ViewClientSuppliers {
 
   """TFN number if available."""
   tfn_number: String
+
+  """
+  Task #41 — Per-supplier default Xero expense account code used when "variable bill code" mode is on. NULL/blank means "no supplier override".
+  """
+  xero_default_account_code: String
+
+  """
+  Task #41 — Per-(supplier × project) Xero account code overrides for this supplier.
+  """
+  xero_project_account_code_overrides: [SupplierProjectAccountCodeOverride!]
 }
 
 """
