@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect } from "react";
-import GuestNavbar from "../../../components/GuestNavbar";
+import SiteHeader from "../../../components/SiteHeader";
 import HomeSidebar from "../../../components/HomeSidebar";
 import GuestFooter from "../../../components/GuestFooter";
 
@@ -41,7 +41,7 @@ export default function AuthLayout({ children }: any) {
       <div className="pt_wrap">
         <div className="pt_page">
           <HomeSidebar />
-          <GuestNavbar />
+          <SiteHeader />
           <main>
             <div className="pt_centered">
               <div className="pt_centeredinner">{children}</div>

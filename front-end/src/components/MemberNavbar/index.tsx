@@ -8,6 +8,7 @@ import { getFileByAttachmentType } from "@/app/api/commonApi";
 
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import NavbarAccessProfile from "../NavbarAccessProfile";
 import { Roles } from "@/shared/constant/role";
 import { getCookie } from "cookies-next";
@@ -21,6 +22,11 @@ export default function MemberNavbar() {
   const { accessTokenId, decodeTokenData } = useTokenDetails();
   const authTokenVerification = getCookie("accessVerification");
   const [userProfile, setUserProfile] = useState<any>({});
+  const pathname = usePathname() || "";
+  const onAppPage =
+    pathname.startsWith("/user") || pathname.startsWith("/admin");
+  const homeLabel = onAppPage ? "Home" : "Dashboard";
+  const homeHref = onAppPage ? AppRoutes.HOME : AppRoutes.USER_DASHBOARD;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,8 +82,8 @@ export default function MemberNavbar() {
 
         <ul>
           <li className="desktop">
-            <Link href={AppRoutes.HOME} className="contrast">
-              Home
+            <Link href={homeHref} className="contrast">
+              {homeLabel}
             </Link>
           </li>
           <li className="desktop">
@@ -127,6 +133,7 @@ export default function MemberNavbar() {
                 <div className="megamenuinner" style={{ width: "400px" }}>
                   <div className="grid">
                     <div>
+                      <Link href="/support">Help & AI Search</Link>
                       <Link href="/get-support">Get support</Link>
                       <Link href={"/faq"}>FAQs</Link>
                       <Link href={AppRoutes.COMMUNITY}>Community</Link>

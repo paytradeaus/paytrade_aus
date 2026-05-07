@@ -409,6 +409,12 @@ export default function HomeSidebar() {
               </label>
               <ul className="cd-accordion__sub">
                 <li className="cd-accordion__item">
+                  <Link href="/support">
+                    <i className="fa-light fa-magnifying-glass"></i>
+                    <span>Help & AI Search</span>
+                  </Link>
+                </li>
+                <li className="cd-accordion__item">
                   <Link href="/get-support">
                     <i className="fa-light fa-envelope-open-text"></i>
                     <span>Get support</span>

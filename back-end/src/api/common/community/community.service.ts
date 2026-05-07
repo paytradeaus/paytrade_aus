@@ -599,9 +599,12 @@ export class CommunityService {
       });
     }
     if (listDiscussionIdeasInput.keyword) {
-      queryBuilder.andWhere(`(LOWER(discIdea.title) LIKE :keyword)`, {
-        keyword: `%${listDiscussionIdeasInput.keyword.toLowerCase()}%`,
-      });
+      queryBuilder.andWhere(
+        `(LOWER(discIdea.title) LIKE :keyword OR LOWER(discIdea.content) LIKE :keyword)`,
+        {
+          keyword: `%${listDiscussionIdeasInput.keyword.toLowerCase()}%`,
+        },
+      );
     }
 
     if (listDiscussionIdeasInput.date_filter && timezone) {

@@ -5,7 +5,6 @@ import Subscriptions from "@/modules/user/Subscriptions";
 import { useTokenDetails } from "@/hooks";
 import { getCompanyIdFromStorage } from "@/utils";
 import { SubscriptionPlanType } from "@/shared/constant/general";
-import GuestNavbar from "@/components/GuestNavbar";
 import GuestFooter from "@/components/GuestFooter";
 
 export default function RenderSubscriptionPricing() {

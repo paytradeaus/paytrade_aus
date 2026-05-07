@@ -324,6 +324,12 @@ export default function Sidebar() {
                 </label>
                 <ul className="cd-accordion__sub">
                   <li className="cd-accordion__item">
+                    <Link href="/support" className="link">
+                      <i className="fa-light fa-magnifying-glass"></i>
+                      <span>Help & AI Search</span>
+                    </Link>
+                  </li>
+                  <li className="cd-accordion__item">
                     <Link href="/get-support" className="link">
                       <i className="fa-light fa-envelope-open-text"></i>
                       <span>Get support</span>

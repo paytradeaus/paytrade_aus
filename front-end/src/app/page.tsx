@@ -2,7 +2,7 @@
 import AccountantsPage from "@/modules/general/Accountants";
 import AuditorsPage from "@/components/Auditors";
 import GuestFooter from "@/components/GuestFooter";
-import GuestNavbar from "@/components/GuestNavbar";
+import SiteHeader from "@/components/SiteHeader";
 import HeadContractorsPage from "@/modules/general/HeadContractors";
 import HomeScreenPage from "@/components/HomeScreen";
 import LegalPractitionersPage from "@/modules/general/LegalPractitioners";
@@ -197,7 +197,7 @@ export default function Home(props: any) {
       <div className="pt_wrap">
         <div className="pt_page">
           <HomeMobileSidebar />
-          <GuestNavbar />
+          <SiteHeader />
           {renderPage()}
           {/* Render only if logged in */}
           {isLoggedIn && <InactivityDetector />}
