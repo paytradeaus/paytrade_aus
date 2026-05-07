@@ -320,6 +320,16 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         updatedXero = response;
       }
       await this.xeroRefreshTokenService.addRefreshSafeguardJob(companyId);
+      // Phase 2 — populate the org GST defaults cache immediately on
+      // connect so consumers (resolveContactGstStatus, alignment widget,
+      // claim push) don't have to wait for the hourly cron tick.
+      try {
+        await this.refreshOrgGstDefaults(companyId);
+      } catch (err) {
+        this.logger.error(
+          `handleCallback:: refreshOrgGstDefaults failed (non-blocking): ${err?.message || err}`,
+        );
+      }
       return updatedXero;
     } catch (error) {
       const errMsg = await handleAxiosError(error);
