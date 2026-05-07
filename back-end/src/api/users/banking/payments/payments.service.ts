@@ -4424,6 +4424,26 @@ export class PaymentsService {
   ) {
     this.logger.log(`[ABA] generateAbaFile called with mark_paid="${mark_paid}", ${paymentList?.length || 0} payments`);
     let payments_to_send_notice = [];
+    const skippedPayments: any[] = [];
+    const skippedAccounts: any[] = [];
+    const pushSkippedPayment = (
+      tx: any,
+      reason: string,
+      missingFields: string[],
+      senderAccountName?: string,
+    ) => {
+      skippedPayments.push({
+        sub_payment_id: tx?.sub_payment_id ?? null,
+        payment_id: tx?.payment_id ?? null,
+        payment_type: tx?.payment_type ?? null,
+        recipient_name: tx?.payment_to_account_name ?? null,
+        sender_account_name:
+          senderAccountName ?? tx?.payment_from_account_name ?? null,
+        amount: tx?.amount != null ? Number(tx.amount) : null,
+        reason,
+        missing_fields: missingFields,
+      });
+    };
     const formatField = (
       value: string | null | undefined,
       length: number,
@@ -4449,15 +4469,23 @@ export class PaymentsService {
       } = {};
 
       for (const tx of paymentList) {
-        if (!tx.payment_from_account_number) {
+        const missing: string[] = [];
+        if (!tx.payment_from_account_number) missing.push('sender_account_number');
+        if (!tx.payment_to_account_bsb_number) missing.push('recipient_bsb');
+        if (!tx.payment_to_account_number) missing.push('recipient_account_number');
+        if (missing.length > 0) {
+          const reasonParts: string[] = [];
+          if (missing.includes('sender_account_number'))
+            reasonParts.push('sender account number');
+          if (missing.includes('recipient_bsb'))
+            reasonParts.push('recipient BSB');
+          if (missing.includes('recipient_account_number'))
+            reasonParts.push('recipient account number');
+          const reason = `Missing ${reasonParts.join(', ')}`;
           this.logger.warn(
-            `Skipping transaction for ${tx.payment_type} (Sender account details not found)`,
+            `Skipping transaction for ${tx.payment_type} (${reason})`,
           );
-          continue;
-        } else if (!tx.payment_to_account_bsb_number) {
-          this.logger.warn(
-            `Skipping transaction for ${tx.payment_type} (Reciever bsb details not found)`,
-          );
+          pushSkippedPayment(tx, reason, missing);
           continue;
         }
 
@@ -4481,19 +4509,93 @@ export class PaymentsService {
       }
 
       //separate aba files for each txn groups
+      // First pass: classify sender accounts as eligible (has APCA) or skipped (no APCA).
+      const senderAccountInfo: {
+        fromAccount: string;
+        accountDetails: any;
+      }[] = [];
       for (const fromAccount in groupedTransactions) {
         const accountDetails = fromAccount
           ? await this.bankAccountsRepo.findOne({
-            where: { account_number: fromAccount },
-            select: [
-              'account_name',
-              'apca_number',
-              'bank_account_id',
-              'company_id',
-            ],
-          })
+              where: { account_number: fromAccount },
+              select: [
+                'account_name',
+                'apca_number',
+                'bank_account_id',
+                'company_id',
+              ],
+            })
           : null;
+        senderAccountInfo.push({ fromAccount, accountDetails });
 
+        if (!accountDetails || !accountDetails.apca_number) {
+          const txs = groupedTransactions[fromAccount].transactions;
+          const accountName =
+            accountDetails?.account_name ||
+            txs[0]?.payment_from_account_name ||
+            `Account ending ${String(fromAccount).slice(-4)}`;
+          this.logger.warn(
+            `[ABA] Skipping sender account ${fromAccount} (${accountName}) - missing APCA number, ${txs.length} payment(s) dropped`,
+          );
+          skippedAccounts.push({
+            bank_account_id: accountDetails?.bank_account_id ?? null,
+            company_id: accountDetails?.company_id ?? null,
+            account_name: accountName,
+            account_number: String(fromAccount),
+            reason: 'Sender bank account is missing an APCA number',
+            skipped_payment_count: txs.length,
+          });
+          for (const tx of txs) {
+            pushSkippedPayment(
+              tx,
+              `Sender bank account "${accountName}" has no APCA number`,
+              ['sender_apca_number'],
+              accountName,
+            );
+          }
+        }
+      }
+
+      // Identify eligible sender accounts (with APCA). The current implementation only
+      // generates one ABA file per call, so any additional eligible accounts are also
+      // surfaced as skipped so the user is not left in the dark.
+      const eligibleSenderAccounts = senderAccountInfo.filter(
+        (s) => s.accountDetails?.apca_number,
+      );
+      if (eligibleSenderAccounts.length > 1) {
+        for (const extra of eligibleSenderAccounts.slice(1)) {
+          const txs = groupedTransactions[extra.fromAccount].transactions;
+          const accountName =
+            extra.accountDetails?.account_name ||
+            txs[0]?.payment_from_account_name ||
+            `Account ending ${String(extra.fromAccount).slice(-4)}`;
+          this.logger.warn(
+            `[ABA] Sender account ${extra.fromAccount} (${accountName}) not included - only one sender account per ABA file is supported, ${txs.length} payment(s) dropped`,
+          );
+          skippedAccounts.push({
+            bank_account_id: extra.accountDetails?.bank_account_id ?? null,
+            company_id: extra.accountDetails?.company_id ?? null,
+            account_name: accountName,
+            account_number: String(extra.fromAccount),
+            reason:
+              'Only one sender bank account can be included per ABA file. Filter by sender account and generate again.',
+            skipped_payment_count: txs.length,
+          });
+          for (const tx of txs) {
+            pushSkippedPayment(
+              tx,
+              `Sender account "${accountName}" was not included (one sender account per ABA file)`,
+              ['multiple_sender_accounts'],
+              accountName,
+            );
+          }
+        }
+      }
+
+      for (const { fromAccount, accountDetails } of eligibleSenderAccounts.slice(
+        0,
+        1,
+      )) {
         this.logger.log(`accountDetails: ${JSON.stringify(accountDetails)}`);
 
         if (accountDetails.apca_number) {
@@ -4726,6 +4828,10 @@ export class PaymentsService {
             ...fileData,
             file_path: fileData.file_path?.startsWith('/') ? fileData.file_path : `/${fileData.file_path}`,
             notice_trigger: payments_to_send_notice,
+            included_count: transactionCount,
+            skipped_count: skippedPayments.length,
+            skipped_payments: skippedPayments,
+            skipped_accounts: skippedAccounts,
           };
         } else {
           return {
@@ -4733,6 +4839,10 @@ export class PaymentsService {
             company_id: accountDetails.company_id,
             aba_message:
               'Please update your APCA number along with the account details',
+            included_count: 0,
+            skipped_count: skippedPayments.length,
+            skipped_payments: skippedPayments,
+            skipped_accounts: skippedAccounts,
           };
         }
       }
@@ -4742,6 +4852,28 @@ export class PaymentsService {
         this.logger.warn('No transactions qualified for ABA file generation - all were skipped');
         return {
           aba_message: 'No transactions qualified for ABA file generation. Please check that payment accounts have valid account numbers and BSB numbers.',
+          included_count: 0,
+          skipped_count: skippedPayments.length,
+          skipped_payments: skippedPayments,
+          skipped_accounts: skippedAccounts,
+        };
+      }
+
+      // No eligible sender accounts (all skipped, e.g. all missing APCA).
+      if (eligibleSenderAccounts.length === 0) {
+        this.logger.warn(
+          '[ABA] No eligible sender accounts (all missing APCA) - no file generated',
+        );
+        const firstSkippedAcct = skippedAccounts[0] || {};
+        return {
+          bank_account_id: firstSkippedAcct.bank_account_id ?? null,
+          company_id: firstSkippedAcct.company_id ?? null,
+          aba_message:
+            'No ABA file was generated because every sender bank account is missing an APCA number. Add an APCA number to each account to include its payments.',
+          included_count: 0,
+          skipped_count: skippedPayments.length,
+          skipped_payments: skippedPayments,
+          skipped_accounts: skippedAccounts,
         };
       }
 
@@ -4750,6 +4882,10 @@ export class PaymentsService {
       this.logger.warn('generateAbaFile completed without returning a file - unexpected state');
       return {
         aba_message: 'No ABA file was generated. Please verify that payment details are complete.',
+        included_count: 0,
+        skipped_count: skippedPayments.length,
+        skipped_payments: skippedPayments,
+        skipped_accounts: skippedAccounts,
       };
     } catch (error) {
       this.logger.error(`Error generating ABA file: ${error.message}`);

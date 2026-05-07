@@ -103,6 +103,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [disableAbaFileBtn, setDisableAbaFileBtn] = useState(false);
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [abcaWarning, setAbcaWarning] = useState<any>({});
+  const [skippedSummary, setSkippedSummary] = useState<any>({
+    display: false,
+    data: null,
+    fileGenerated: false,
+  });
   const [abaMarkAsPaid, setAbaMarkAsPaid] = useState<null | boolean>(null);
   const [showMarkPaidConfirmation, setShowMarkPaidConfirmation] = useState(false);
   const [showNoticePopup, setShowNoticePopup] = useState(false);
@@ -673,6 +678,22 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       }
       if (responseFile?.file_path) {
         downloadABAFile(responseFile);
+        const hasSkips =
+          (responseFile?.skipped_count || 0) > 0 ||
+          (responseFile?.skipped_payments?.length || 0) > 0 ||
+          (responseFile?.skipped_accounts?.length || 0) > 0;
+        // Defer showing the skip summary if the notice popup is also about to
+        // open, so the dialogs don't stack. The notice popup close handlers
+        // will surface the pending summary.
+        const willShowNoticePopup = !!responseFile?.notice_trigger?.length;
+        if (hasSkips) {
+          setSkippedSummary({
+            display: !willShowNoticePopup,
+            pending: willShowNoticePopup,
+            data: responseFile,
+            fileGenerated: true,
+          });
+        }
         if (responseFile?.notice_trigger?.length) {
           setLoaderInfo("Generating notice...");
           const noticeResponse = await TriggerPaymentNotices({
@@ -705,6 +726,22 @@ export default function PaymentToDoList({ overViewDetails }: any) {
         }
         getListAllAdminUsers(page, perPage);
       } else if (responseFile?.bank_account_id || responseFile?.aba_message) {
+        const hasDetailedSkips =
+          (responseFile?.skipped_payments?.length || 0) > 0 ||
+          (responseFile?.skipped_accounts?.length || 0) > 0;
+
+        // If we have structured skip details, show the rich summary instead of
+        // the legacy generic message - the user can see exactly what was dropped.
+        if (hasDetailedSkips) {
+          setAbaMarkAsPaid(null);
+          setSkippedSummary({
+            display: true,
+            data: responseFile,
+            fileGenerated: false,
+          });
+          return;
+        }
+
         const isNoValidTransactions = responseFile?.aba_message?.includes('No transactions qualified') || 
                                        responseFile?.aba_message?.includes('No ABA file was generated') ||
                                        responseFile?.aba_message?.includes('No changes to save');
@@ -828,6 +865,12 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     setNoticeMailUuids([]);
     setQbccNoticeFiles([]);
     setQbccNoticeUuids([]);
+    // Surface any deferred ABA skip summary now that the notice popup is gone.
+    setSkippedSummary((prev: any) =>
+      prev?.pending
+        ? { ...prev, display: true, pending: false }
+        : prev,
+    );
   };
 
   return (
@@ -1065,6 +1108,136 @@ export default function PaymentToDoList({ overViewDetails }: any) {
             <p style={{ marginTop: '10px' }}>
               Do you want to mark these payments as paid after generating the ABA file?
             </p>
+          </div>
+        </BaseModal>
+      )}
+      {skippedSummary?.display && (
+        <BaseModal
+          modalId={"aba skipped summary modal"}
+          displayModal={skippedSummary?.display}
+          onHeaderIconClose={() =>
+            setSkippedSummary({ display: false, data: null, fileGenerated: false })
+          }
+          restrictOncloseFunctionInHeader
+          onClose={() => {
+            setSkippedSummary({ display: false, data: null, fileGenerated: false });
+            return true;
+          }}
+          onConfirm={() => {
+            setSkippedSummary({ display: false, data: null, fileGenerated: false });
+            return true;
+          }}
+          firstButtonName=""
+          secondButtonName="OK"
+        >
+          <div>
+            <h4 className="text_center">
+              {skippedSummary?.fileGenerated
+                ? "ABA file generated — some payments were not included"
+                : "No ABA file was generated"}
+            </h4>
+            <p style={{ marginTop: "10px", textAlign: "center" }}>
+              <b className="pt_green">
+                {skippedSummary?.data?.included_count || 0}
+              </b>{" "}
+              payment(s) included,{" "}
+              <b className="pt_red">
+                {skippedSummary?.data?.skipped_count ||
+                  skippedSummary?.data?.skipped_payments?.length ||
+                  0}
+              </b>{" "}
+              payment(s) skipped.
+            </p>
+
+            {skippedSummary?.data?.skipped_accounts?.length > 0 && (
+              <div style={{ marginTop: "15px" }}>
+                <h5>Sender accounts skipped</h5>
+                <ul style={{ marginLeft: "18px", marginTop: "6px" }}>
+                  {skippedSummary?.data?.skipped_accounts?.map(
+                    (acct: any, idx: number) => (
+                      <li key={`acct-${idx}`} style={{ marginBottom: "6px" }}>
+                        <b>{acct?.account_name || "Bank account"}</b>
+                        {acct?.account_number ? ` (${acct.account_number})` : ""}
+                        {" — "}
+                        {acct?.reason}
+                        {acct?.skipped_payment_count
+                          ? ` (${acct.skipped_payment_count} payment(s) dropped)`
+                          : ""}
+                        {acct?.bank_account_id && acct?.company_id ? (
+                          <>
+                            {" "}
+                            <a
+                              href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${acct.company_id}/${acct.bank_account_id}?routedFrom=payments-to-do`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                router.push(
+                                  `${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${acct.company_id}/${acct.bank_account_id}?routedFrom=payments-to-do`
+                                );
+                              }}
+                              style={{ color: "#0070f3", textDecoration: "underline" }}
+                            >
+                              Fix this account
+                            </a>
+                          </>
+                        ) : null}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {skippedSummary?.data?.skipped_payments?.length > 0 && (
+              <div style={{ marginTop: "15px" }}>
+                <h5>Payments not included</h5>
+                <div
+                  style={{
+                    maxHeight: "240px",
+                    overflowY: "auto",
+                    border: "1px solid #eee",
+                    borderRadius: "4px",
+                    padding: "8px",
+                    marginTop: "6px",
+                  }}
+                >
+                  <table style={{ width: "100%", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
+                        <th style={{ padding: "4px" }}>Sub-payment</th>
+                        <th style={{ padding: "4px" }}>Recipient</th>
+                        <th style={{ padding: "4px" }}>Type</th>
+                        <th style={{ padding: "4px" }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {skippedSummary?.data?.skipped_payments?.map(
+                        (sp: any, idx: number) => (
+                          <tr
+                            key={`sp-${idx}`}
+                            style={{ borderBottom: "1px solid #f3f3f3" }}
+                          >
+                            <td style={{ padding: "4px" }}>
+                              {sp?.sub_payment_id ?? "-"}
+                            </td>
+                            <td style={{ padding: "4px" }}>
+                              {sp?.recipient_name || "-"}
+                            </td>
+                            <td style={{ padding: "4px" }}>
+                              {sp?.payment_type || "-"}
+                            </td>
+                            <td style={{ padding: "4px" }}>{sp?.reason}</td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
+                  Update the missing details on the recipient or sender account, then
+                  generate the ABA file again to include these payments.
+                </p>
+              </div>
+            )}
           </div>
         </BaseModal>
       )}

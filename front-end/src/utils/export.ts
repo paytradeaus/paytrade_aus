@@ -201,6 +201,26 @@ export async function GenerateABAfiles(data: any) {
               bank_account_id
               company_id
               notice_trigger
+              included_count
+              skipped_count
+              skipped_payments {
+                sub_payment_id
+                payment_id
+                payment_type
+                recipient_name
+                sender_account_name
+                amount
+                reason
+                missing_fields
+              }
+              skipped_accounts {
+                bank_account_id
+                company_id
+                account_name
+                account_number
+                reason
+                skipped_payment_count
+              }
             }
           }
         }

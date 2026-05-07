@@ -1039,6 +1039,79 @@ export class ListSubPaymentsResponse {
   data: ListSubPaymentsWithCount;
 }
 
+@ObjectType({
+  description:
+    'A single sub-payment that was excluded from a generated ABA file, with the reason and missing fields.',
+})
+export class AbaSkippedPayment {
+  @Field({ nullable: true, description: 'Sub-payment ID that was skipped.' })
+  sub_payment_id: number;
+
+  @Field({ nullable: true, description: 'Parent payment ID.' })
+  payment_id: number;
+
+  @Field({ nullable: true, description: 'Payment type (e.g. Full, Part).' })
+  payment_type: string;
+
+  @Field({ nullable: true, description: 'Display name of the recipient.' })
+  recipient_name: string;
+
+  @Field({
+    nullable: true,
+    description: 'Display name of the sender bank account.',
+  })
+  sender_account_name: string;
+
+  @Field(() => Float, {
+    nullable: true,
+    description: 'Amount that would have been included.',
+  })
+  amount: number;
+
+  @Field({
+    nullable: true,
+    description: 'Human-readable reason this sub-payment was skipped.',
+  })
+  reason: string;
+
+  @Field(() => [String], {
+    nullable: true,
+    description:
+      'Machine-readable list of missing fields (e.g. recipient_bsb, recipient_account_number, sender_apca_number, sender_account_number).',
+  })
+  missing_fields: string[];
+}
+
+@ObjectType({
+  description:
+    'A sender bank account that was skipped entirely from ABA generation (e.g. missing APCA number).',
+})
+export class AbaSkippedAccount {
+  @Field({ nullable: true, description: 'Sender bank account ID.' })
+  bank_account_id: number;
+
+  @Field({ nullable: true, description: 'Company ID owning the bank account.' })
+  company_id: number;
+
+  @Field({ nullable: true, description: 'Display name of the bank account.' })
+  account_name: string;
+
+  @Field({ nullable: true, description: 'Account number of the sender.' })
+  account_number: string;
+
+  @Field({
+    nullable: true,
+    description: 'Human-readable reason this account was skipped.',
+  })
+  reason: string;
+
+  @Field(() => Float, {
+    nullable: true,
+    description: 'Number of payments that were skipped because of this account.',
+  })
+  skipped_payment_count: number;
+}
+
 @ObjectType({ description: 'Response structure for a file attachment.' })
 export class FileAttachmenResponse {
   @Field({
@@ -1085,6 +1158,33 @@ export class FileAttachmenResponse {
     description: 'List of triggered notice IDs related to this attachment.',
   })
   notice_trigger?: number[];
+
+  @Field(() => Float, {
+    nullable: true,
+    description: 'Count of sub-payments that were included in the ABA file.',
+  })
+  included_count?: number;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      'Count of sub-payments that were silently dropped from the ABA file.',
+  })
+  skipped_count?: number;
+
+  @Field(() => [AbaSkippedPayment], {
+    nullable: true,
+    description:
+      'Sub-payments that were dropped from the ABA file (e.g. missing recipient BSB, account number, or sender APCA).',
+  })
+  skipped_payments?: AbaSkippedPayment[];
+
+  @Field(() => [AbaSkippedAccount], {
+    nullable: true,
+    description:
+      'Sender bank accounts that were skipped entirely (e.g. missing APCA number).',
+  })
+  skipped_accounts?: AbaSkippedAccount[];
 }
 
 @ObjectType({ description: 'Response structure for ABA file generation.' })
