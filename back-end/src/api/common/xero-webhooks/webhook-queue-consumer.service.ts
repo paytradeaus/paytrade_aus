@@ -151,13 +151,21 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     this.logger.log(`[EVENT] Processing ${eventCategory}.${eventType} | resource=${resourceId} | tenant=${tenantId}`);
 
     this.logger.log(`[EVENT] Looking up xero integration for tenant ${tenantId}...`);
-    const xeroDetails = await this.xeroIntegrationDetails.findOne({
-      where: {
-        tenant_id: tenantId,
-        status: 'ACTIVE',
-      },
+    // A single Xero tenant can be present in multiple xero_integration_details
+    // rows (e.g. an old "pending settings/mapping" row left over from a prior
+    // OAuth attempt PLUS the current "Connected - active" row created by the
+    // re-auth flow added in Task #42). `findOne` returned whichever the DB
+    // ordered first (typically the orphan), causing every webhook to be
+    // dropped as "Integration not active". Pull all candidates and prefer
+    // the Active one so the live integration always wins.
+    const candidates = await this.xeroIntegrationDetails.find({
+      where: { tenant_id: tenantId, status: 'ACTIVE' },
       relations: ['integrationDetails'],
     });
+    const xeroDetails =
+      candidates.find(
+        (c) => c?.integrationDetails?.integration_status === 'Connected - active',
+      ) ?? candidates[0];
 
     if (!xeroDetails || !xeroDetails.integration_id || !xeroDetails?.integrationDetails) {
       this.logger.error(`[EVENT] No integration found for tenant ${tenantId}`);

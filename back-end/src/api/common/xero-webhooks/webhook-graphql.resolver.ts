@@ -60,13 +60,17 @@ export class XeroWebhookGraphQLResolver {
             this.logger.log(`[GQL_RECV] Processing event ${i + 1}/${events.length}: ${eventCategory}.${eventType}, resourceId=${resourceId}, tenantId=${tenantId}`);
 
             this.logger.log(`[GQL_RECV] Looking up integration for tenant ${tenantId}...`);
-            const xeroDetails = await this.xeroIntegrationDetails.findOne({
-              where: {
-                tenant_id: tenantId,
-                status: 'ACTIVE',
-              },
+            // Multi-row tenant guard: prefer the Active integration row.
+            const candidates = await this.xeroIntegrationDetails.find({
+              where: { tenant_id: tenantId, status: 'ACTIVE' },
               relations: ['integrationDetails'],
             });
+            const xeroDetails =
+              candidates.find(
+                (c) =>
+                  c?.integrationDetails?.integration_status ===
+                  'Connected - active',
+              ) ?? candidates[0];
 
             if (!xeroDetails || !xeroDetails.integration_id || !xeroDetails?.integrationDetails) {
               this.logger.error(`[GQL_RECV] No integration found for tenant ${tenantId}. Skipping.`);

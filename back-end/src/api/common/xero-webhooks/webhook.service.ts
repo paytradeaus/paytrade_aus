@@ -484,13 +484,18 @@ export class XeroWebhookService {
     );
 
     try {
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
-        where: {
-          tenant_id,
-          status: 'ACTIVE',
-        },
+      // Multi-row tenant guard: prefer the Connected - active integration
+      // when more than one xero_integration_details row points at the same
+      // tenant. See webhook-queue-consumer.service.ts for the full backstory.
+      const candidates = await this.xeroIntegrationDetails.find({
+        where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        candidates.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? candidates[0];
 
       if (
         !xeroDetails ||
@@ -766,9 +771,17 @@ export class XeroWebhookService {
 
       if (isRefreshToken) {
         try {
-          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+          // Multi-row tenant guard: prefer the Active integration row.
+          const candidates = await this.xeroIntegrationDetails.find({
             where: { tenant_id, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
           });
+          const xeroDetails =
+            candidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? candidates[0];
 
           const companyId = xeroDetails?.company_id;
 
@@ -1100,9 +1113,16 @@ export class XeroWebhookService {
     const { resource_id, tenant_id, eventType } = data || {};
     if (!resource_id) return false;
     try {
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      // Multi-row tenant guard: prefer the Active integration row.
+      const candidates = await this.xeroIntegrationDetails.find({
         where: { tenant_id, status: 'ACTIVE' },
+        relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        candidates.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? candidates[0];
       if (!xeroDetails?.integration_id) {
         this.logger.log(
           `[MJ_WEBHOOK] no integration for tenant ${tenant_id}; ignoring ${eventType}`,
@@ -1163,10 +1183,18 @@ export class XeroWebhookService {
 
     try {
       this.logger.log(`[BILL_TRACE] Step 1: Looking up xero integration for tenant ${tenant_id}...`);
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      // Multi-row tenant guard: prefer the Active integration row when more
+      // than one xero_integration_details row points at the same tenant
+      // (orphan rows can be left behind by the Task #42 re-OAuth flow).
+      const _candidatesInv = await this.xeroIntegrationDetails.find({
         where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        _candidatesInv.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? _candidatesInv[0];
 
       if (
         !xeroDetails ||
@@ -1361,9 +1389,17 @@ export class XeroWebhookService {
 
       if (isRefreshToken) {
         try {
-          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+          // Multi-row tenant guard: prefer the Active integration row.
+          const candidates = await this.xeroIntegrationDetails.find({
             where: { tenant_id, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
           });
+          const xeroDetails =
+            candidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? candidates[0];
 
           const companyId = xeroDetails?.company_id;
 
@@ -1431,10 +1467,16 @@ export class XeroWebhookService {
     );
 
     try {
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      // Multi-row tenant guard: prefer the Active integration row.
+      const _candidatesClaim = await this.xeroIntegrationDetails.find({
         where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        _candidatesClaim.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? _candidatesClaim[0];
 
       if (
         !xeroDetails ||
@@ -1640,9 +1682,17 @@ export class XeroWebhookService {
 
       if (isRefreshToken) {
         try {
-          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+          // Multi-row tenant guard: prefer the Active integration row.
+          const candidates = await this.xeroIntegrationDetails.find({
             where: { tenant_id, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
           });
+          const xeroDetails =
+            candidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? candidates[0];
 
           const companyId = xeroDetails?.company_id;
 
@@ -5029,10 +5079,16 @@ export class XeroWebhookService {
     try {
       const { tenant_id, resource_id, data, sync_run_type } = payload;
 
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      // Multi-row tenant guard: prefer the Active integration row.
+      const _candidatesPay = await this.xeroIntegrationDetails.find({
         where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        _candidatesPay.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? _candidatesPay[0];
 
       await this.xeroService.refreshTokenSet(
         xeroDetails?.company_id,
@@ -11398,10 +11454,16 @@ export class XeroWebhookService {
         under_payment_amount,
         sync_run_type,
       } = overpaymentPayload;
-      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      // Multi-row tenant guard: prefer the Active integration row.
+      const _candidatesOver = await this.xeroIntegrationDetails.find({
         where: { tenant_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
       });
+      const xeroDetails =
+        _candidatesOver.find(
+          (c) =>
+            c?.integrationDetails?.integration_status === 'Connected - active',
+        ) ?? _candidatesOver[0];
 
       await this.xeroService.refreshTokenSet(
         xeroDetails?.company_id,

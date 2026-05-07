@@ -96,13 +96,17 @@ export class XeroWebhookResolver {
               this.logger.log(`[WEBHOOK_RECV] Processing event ${i + 1}/${eventPayload.events.length}: ${eventCategory}.${eventType}, resourceId=${resourceId}, tenantId=${tenantId}`);
 
               this.logger.log(`[WEBHOOK_RECV] Looking up integration for tenant ${tenantId}...`);
-              const xeroDetails = await this.xeroIntegrationDetails.findOne({
-                where: {
-                  tenant_id: tenantId,
-                  status: 'ACTIVE',
-                },
+              // Multi-row tenant guard: prefer the Active integration row.
+              const candidates = await this.xeroIntegrationDetails.find({
+                where: { tenant_id: tenantId, status: 'ACTIVE' },
                 relations: ['integrationDetails'],
               });
+              const xeroDetails =
+                candidates.find(
+                  (c) =>
+                    c?.integrationDetails?.integration_status ===
+                    'Connected - active',
+                ) ?? candidates[0];
 
               if (
                 !xeroDetails ||
