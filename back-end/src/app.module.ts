@@ -111,6 +111,7 @@ import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
+import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retention-mode-schema-seeder.module';
 
 @Module({
   imports: [
@@ -297,6 +298,7 @@ import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module'
     NoticeTemplatesSeederModule,
     EmailTemplateUrlCleanupSeederModule,
     AbaGuidesSeederModule,
+    XeroRetentionModeSchemaSeederModule,
   ],
   providers: [
     AppService,
