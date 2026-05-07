@@ -1096,6 +1096,10 @@ const AddProjects = (props: any) => {
                     }}
                     onBlur={formik.handleBlur}
                   />
+                  <div className="helpText">
+                    Number of liveable units — e.g. in a block of 50 apartments,
+                    Units = 50.
+                  </div>
                   <div className="DropdownStyles">
                     <FormikControl
                       placeholder={"Is the project eligible for a PTA?"}
