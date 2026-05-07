@@ -9,6 +9,7 @@ import { XeroWebhookService } from '../webhook.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { isWebhookProcessableStatus } from '../integration-status.constants';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 @Processor('xero-wait-queue')
@@ -70,11 +71,12 @@ export class XeroWaitQueueWorker extends WorkerHost {
       }
 
       if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
+        !isWebhookProcessableStatus(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         this.logger.error(
-          `[Xero Webhook] Paytrade is currently not active in Xero`,
+          `[Xero Webhook] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`,
         );
         throw `Paytrade is currently not active in Xero for company id: ${job?.data?.company_id}`;
       }

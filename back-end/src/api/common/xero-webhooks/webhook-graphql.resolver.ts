@@ -7,6 +7,7 @@ import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.en
 import { In, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { isWebhookProcessableStatus } from './integration-status.constants';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 
 @Resolver()
@@ -79,8 +80,8 @@ export class XeroWebhookGraphQLResolver {
 
             this.logger.log(`[GQL_RECV] Integration found: id=${xeroDetails.integration_id}, company=${xeroDetails.company_id}, status=${xeroDetails.integrationDetails.integration_status}`);
 
-            if (xeroDetails.integrationDetails.integration_status !== 'Connected - active') {
-              this.logger.error(`[GQL_RECV] Integration not active (status=${xeroDetails.integrationDetails.integration_status}). Skipping.`);
+            if (!isWebhookProcessableStatus(xeroDetails.integrationDetails.integration_status)) {
+              this.logger.error(`[GQL_RECV] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status}). Skipping.`);
               continue;
             }
 

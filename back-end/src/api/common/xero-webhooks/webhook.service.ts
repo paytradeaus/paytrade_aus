@@ -51,6 +51,7 @@ import { TransactionDetails } from 'src/entities/transaction-details.entity';
 import { XeroResolver } from '../integrations/xero/xero.resolver';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
+import { isWebhookProcessableStatus } from './integration-status.constants';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -509,11 +510,12 @@ export class XeroWebhookService {
       }
 
       if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
+        !isWebhookProcessableStatus(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         this.logger.error(
-          `[Xero Webhook] Paytrade is currently not active in Xero`,
+          `[Xero Webhook] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`,
         );
         return false;
       }
@@ -1210,11 +1212,12 @@ export class XeroWebhookService {
       this.logger.log(`[BILL_TRACE] Step 1 OK: integration_id=${xeroDetails.integration_id}, company_id=${xeroDetails.company_id}, status=${xeroDetails.integrationDetails.integration_status}`);
 
       if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
+        !isWebhookProcessableStatus(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         this.logger.error(
-          `[BILL_TRACE] Step 1 FAILED: Integration not active (status=${xeroDetails.integrationDetails.integration_status})`,
+          `[BILL_TRACE] Step 1 FAILED: Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`,
         );
         return false;
       }
@@ -1490,11 +1493,12 @@ export class XeroWebhookService {
       }
 
       if (
-        xeroDetails.integrationDetails.integration_status !==
-        'Connected - active'
+        !isWebhookProcessableStatus(
+          xeroDetails.integrationDetails.integration_status,
+        )
       ) {
         this.logger.error(
-          `[Xero Webhook] Paytrade is currently not active in Xero`,
+          `[Xero Webhook] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`,
         );
         throw `Paytrade is currently not active in Xero.`;
       }

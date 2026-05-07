@@ -11,6 +11,7 @@ import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.en
 import { In, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { isWebhookProcessableStatus } from './integration-status.constants';
 dotenv.config();
 
 @Controller('xero-webhook')
@@ -120,10 +121,11 @@ export class XeroWebhookResolver {
               this.logger.log(`[WEBHOOK_RECV] Integration found: id=${xeroDetails.integration_id}, company=${xeroDetails.company_id}, status=${xeroDetails.integrationDetails.integration_status}`);
 
               if (
-                xeroDetails.integrationDetails.integration_status !==
-                'Connected - active'
+                !isWebhookProcessableStatus(
+                  xeroDetails.integrationDetails.integration_status,
+                )
               ) {
-                this.logger.error(`[WEBHOOK_RECV] Integration not active (status=${xeroDetails.integrationDetails.integration_status})`);
+                this.logger.error(`[WEBHOOK_RECV] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`);
                 throw `Paytrade is currently not active in Xero for tenant id: ${tenantId}`;
               }
 

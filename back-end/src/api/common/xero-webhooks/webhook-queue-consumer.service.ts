@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
+import { isWebhookProcessableStatus } from './integration-status.constants';
 
 function resolveEnvironment(): string {
   if (process.env.APP_ENVIRONMENT) {
@@ -174,8 +175,8 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
 
     this.logger.log(`[EVENT] Found integration: id=${xeroDetails.integration_id}, company=${xeroDetails.company_id}, status=${xeroDetails.integrationDetails.integration_status}`);
 
-    if (xeroDetails.integrationDetails.integration_status !== 'Connected - active') {
-      this.logger.error(`[EVENT] Integration not active (status=${xeroDetails.integrationDetails.integration_status})`);
+    if (!isWebhookProcessableStatus(xeroDetails.integrationDetails.integration_status)) {
+      this.logger.error(`[EVENT] Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status}); event dropped`);
       return;
     }
 
