@@ -14,6 +14,7 @@ import {
 import {
   GetPaytradeInvoicesListResponse,
   GetPaytradeInvoicesResponse,
+  GetXeroInvoiceForClaimResponse,
   GetXeroInvoicesListResponse,
   GetXeroInvoicesResponse,
 } from './response/xero.response';
@@ -351,6 +352,82 @@ export class XeroInvoicesResolver {
       return framedResponse('ERROR', 'Unable to create claim in paytrade');
     } catch (error) {
       return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetXeroInvoiceForClaimResponse, {
+    name: 'getXeroInvoiceForClaim',
+    description:
+      'Returns cached Xero invoice/bill metadata (invoice number, status, deep link, cached PDF availability) for a Paytrade payment claim.',
+  })
+  async getXeroInvoiceForClaim(
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id to look up cached Xero metadata for.',
+    })
+    payment_claim_id: number,
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const { headers } = context.req;
+      const companyId = Number(headers?.companyid);
+      const data =
+        await this.xeroInvoicesService.getXeroInvoiceForClaim(
+          payment_claim_id,
+          companyId,
+        );
+      if (!data) {
+        return framedResponse('SUCCESS', 'No Xero invoice mapped for this claim', null);
+      }
+      return framedResponse('SUCCESS', 'Xero invoice metadata fetched', data);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'getXeroInvoicePdfDownloadToken',
+    description:
+      'Returns a short-lived JWT-signed download token for the cached Xero PDF of a payment claim. Use as `Bearer` against GET /files/xeroPdf.',
+  })
+  async getXeroInvoicePdfDownloadToken(
+    @Context() context,
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id whose Xero PDF should be downloaded.',
+    })
+    payment_claim_id: number,
+  ): Promise<any> {
+    try {
+      const { headers } = context.req;
+      const companyId = Number(headers?.companyid);
+      if (!companyId) {
+        return framedResponse('ERROR', 'Missing company context');
+      }
+      const meta =
+        await this.xeroInvoicesService.getXeroInvoiceForClaim(
+          payment_claim_id,
+          companyId,
+        );
+      if (!meta) {
+        return framedResponse('ERROR', 'No Xero invoice mapped for this claim');
+      }
+      const jwtMod: any = require('jsonwebtoken');
+      const { jwtConstants } = require('src/api/auth/constants');
+      const token = jwtMod.sign(
+        {
+          payment_claim_id,
+          company_id: companyId,
+          fileName: `Xero-${(meta as any).invoice_number || meta.invoice_id}.pdf`,
+        },
+        jwtConstants.secret,
+        { expiresIn: '5m' },
+      );
+      return framedResponse('SUCCESS', token);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
     }
   }
 

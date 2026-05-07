@@ -92,6 +92,66 @@ export class GetXeroInvoicesResponse {
 }
 
 @ObjectType({
+  description: 'Cached Xero invoice/bill metadata for a Paytrade claim',
+})
+export class GetXeroInvoiceForClaim {
+  @Field({ nullable: true, description: 'Xero invoice ID (UUID)' })
+  invoice_id: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Xero invoice number / reference (mapped from xero_invoices_bills.reference)',
+  })
+  invoice_number: string;
+
+  @Field({ nullable: true, description: 'Document type: ACCREC or ACCPAY' })
+  type: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'How this invoice/bill was mapped to the Paytrade claim: Manual, Auto, or System',
+  })
+  mapped_status: string;
+
+  @Field({
+    nullable: true,
+    description: 'Latest Xero status (DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED, DELETED)',
+  })
+  current_xero_status: string;
+
+  @Field({ nullable: true, description: 'Deep link to the invoice/bill in Xero UI' })
+  deep_link_url: string;
+
+  @Field({ nullable: true, description: 'Whether a cached PDF is available in object storage' })
+  has_cached_pdf: boolean;
+
+  @Field({ nullable: true, description: 'Timestamp when the PDF was last fetched from Xero' })
+  last_fetched_at: Date;
+
+  @Field({ nullable: true, description: 'Whether the cached copy is stale (Xero updated more recently)' })
+  is_stale: boolean;
+
+  @Field({ nullable: true, description: 'Timestamp when the invoice was voided in Xero (if any)' })
+  void_date: Date;
+}
+
+@ObjectType({
+  description: 'Response wrapper for cached Xero invoice metadata',
+})
+export class GetXeroInvoiceForClaimResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field({ nullable: true, description: 'Cached Xero invoice metadata' })
+  data?: GetXeroInvoiceForClaim;
+}
+
+@ObjectType({
   description: 'Represents a single Paytrade invoice or bill record',
 })
 export class GetPaytradeInvoices {

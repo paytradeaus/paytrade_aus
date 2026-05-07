@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import {
   Account,
   AccountType,
@@ -56,6 +56,7 @@ import { EditDetailsOfABankAccountInput } from 'src/api/users/banking/bank-accou
 import { UpdateClientSuppliersDetailInput } from 'src/api/users/client-suppliers-details/dto/update-client-suppliers-detail.input';
 import { XeroProjectsService } from '../projects/xero-projects.service';
 import { XeroContractsService } from '../contracts/xero-contracts.service';
+import { XeroInvoicesService } from '../invoicesAndBills/xero-invoices.service';
 import { UpdateProjectInput } from 'src/api/users/projects/dto/update-project.input';
 import axios from 'axios';
 import { XeroResolver } from '../xero.resolver';
@@ -67,7 +68,7 @@ import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 dotenv.config();
 
 @Injectable()
-export class XeroSchedulerService {
+export class XeroSchedulerService implements OnApplicationBootstrap {
   private logger = new PaytradeLogger('XERO_SCHEDULER_SERVICE');
   private xero: XeroClient;
   constructor(
@@ -108,6 +109,7 @@ export class XeroSchedulerService {
     private readonly xeroContactsService: XeroContactsService,
     private readonly xeroProjectsService: XeroProjectsService,
     private readonly xeroContractsService: XeroContractsService,
+    private readonly xeroInvoicesService: XeroInvoicesService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -128,6 +130,116 @@ export class XeroSchedulerService {
       state: '',
       httpTimeout: 10000, // Set timeout for requests
     });
+  }
+
+  /**
+   * On application bootstrap, backfill cached Xero PDFs for any
+   * xero_invoices_bills rows that don't yet have one. Runs throttled
+   * (~60/min) in the background so it doesn't block startup.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      await this.ensureXeroPdfColumns();
+    } catch (err: any) {
+      this.logger.error(
+        `[XERO_PDF_MIGRATION] Failed to ensure xero_invoices_bills columns: ${err?.message || err}`,
+      );
+    }
+    setTimeout(() => {
+      this.backfillCachedXeroPdfs().catch((err) =>
+        this.logger.error(`Xero PDF backfill failed: ${err?.message || err}`),
+      );
+    }, 60_000);
+  }
+
+  /**
+   * Idempotent online migration for the new xero_invoices_bills columns
+   * introduced by Task #27. Runs `ADD COLUMN IF NOT EXISTS` so production
+   * (synchronize=false) gets the schema without a manual DDL step.
+   */
+  private async ensureXeroPdfColumns(): Promise<void> {
+    const ds = this.xeroInvoicesBillsRepo.manager.connection;
+    const stmts: string[] = [
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS cached_pdf_object_key text`,
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS last_fetched_at timestamp with time zone`,
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS deep_link_url text`,
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS current_xero_status varchar(50)`,
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS is_stale boolean NOT NULL DEFAULT false`,
+      `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS void_date timestamp with time zone`,
+    ];
+    for (const sql of stmts) {
+      await ds.query(sql);
+    }
+    this.logger.log('[XERO_PDF_MIGRATION] xero_invoices_bills columns verified');
+  }
+
+  private async backfillCachedXeroPdfs(): Promise<void> {
+    const PREFIX = '[XERO_PDF_BACKFILL]';
+    const BATCH = 100;
+    const SLEEP_MS = 1100; // ~55/min – well under Xero's 60/min limit
+    let offset = 0;
+    let processed = 0;
+    let cached = 0;
+    let failed = 0;
+
+    this.logger.log(`${PREFIX} starting backfill of cached Xero PDFs`);
+
+    let lastId = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const qb = this.xeroInvoicesBillsRepo
+        .createQueryBuilder('xib')
+        .leftJoin(
+          'xero_integration_details',
+          'xid',
+          'xid.integration_id = xib.integration_id',
+        )
+        .addSelect('xid.company_id', 'xid_company_id')
+        .where('xib.cached_pdf_object_key IS NULL')
+        .andWhere('xib.invoice_id IS NOT NULL')
+        .andWhere(
+          "(xib.current_xero_status IS NULL OR xib.current_xero_status NOT IN ('DELETED','VOIDED'))",
+        )
+        .andWhere('xib.id > :lastId', { lastId })
+        .orderBy('xib.id', 'ASC')
+        .take(BATCH);
+      const rows = await qb.getRawAndEntities();
+
+      const entities = rows.entities;
+      const raws = rows.raw;
+      if (!entities.length) break;
+      lastId = Number(entities[entities.length - 1].id) || lastId;
+
+      for (let i = 0; i < entities.length; i++) {
+        const row = entities[i];
+        const company_id = Number(raws[i]?.xid_company_id);
+        if (!company_id) {
+          processed++;
+          failed++;
+          continue;
+        }
+        processed++;
+        try {
+          const ok = await this.xeroInvoicesService.fetchAndCacheXeroPdf({
+            invoice_id: row.invoice_id,
+            integration_id: row.integration_id,
+            company_id,
+            type: row.type,
+          });
+          if (ok) cached++;
+          else failed++;
+        } catch (err) {
+          failed++;
+          this.logger.error(
+            `${PREFIX} backfill failed for invoice ${row.invoice_id}: ${err?.message || err}`,
+          );
+        }
+        await new Promise((r) => setTimeout(r, SLEEP_MS));
+      }
+    }
+    this.logger.log(
+      `${PREFIX} done. processed=${processed} cached=${cached} failed=${failed}`,
+    );
   }
 
   @Cron('0 13 * * *', { timeZone: 'UTC' })
@@ -5823,12 +5935,26 @@ export class XeroSchedulerService {
                 invoice_id: In(xeroInvoiceIds),
                 integration_id: refreshedXero.integration_id,
               },
-              select: ['invoice_id', 'updated_on'],
+              select: [
+                'invoice_id',
+                'updated_on',
+                'last_fetched_at',
+                'cached_pdf_object_key',
+              ],
             });
 
-            const existingMap = new Map<string, Date>();
+            type FreshnessRow = {
+              updated_on: Date;
+              last_fetched_at: Date | null;
+              has_cached_pdf: boolean;
+            };
+            const existingMap = new Map<string, FreshnessRow>();
             for (const rec of existingRecords) {
-              existingMap.set(rec.invoice_id, rec.updated_on);
+              existingMap.set(rec.invoice_id, {
+                updated_on: rec.updated_on,
+                last_fetched_at: rec.last_fetched_at || null,
+                has_cached_pdf: !!rec.cached_pdf_object_key,
+              });
             }
 
             let processedCount = 0;
@@ -5843,15 +5969,29 @@ export class XeroSchedulerService {
               const ptRecord = existingMap.get(invoiceId);
 
               if (ptRecord && xeroUpdatedDate) {
-                const ptTime = new Date(ptRecord).getTime();
+                const ptTime = new Date(ptRecord.updated_on).getTime();
                 const xeroTime = xeroUpdatedDate.getTime();
-                if (xeroTime <= ptTime + 60000) {
+                const rowFresh = xeroTime <= ptTime + 60000;
+                // PDF freshness: stale if no cached PDF, or Xero has been
+                // modified since we last fetched the PDF (with 60s skew).
+                const lastFetchedTime = ptRecord.last_fetched_at
+                  ? new Date(ptRecord.last_fetched_at).getTime()
+                  : 0;
+                const pdfFresh =
+                  ptRecord.has_cached_pdf &&
+                  lastFetchedTime > 0 &&
+                  xeroTime <= lastFetchedTime + 60000;
+                if (rowFresh && pdfFresh) {
                   skippedCount++;
                   continue;
                 }
               } else if (ptRecord && !xeroUpdatedDate) {
-                skippedCount++;
-                continue;
+                // No Xero update timestamp: only skip if we already have a
+                // cached PDF, otherwise we still need to fetch one.
+                if (ptRecord.has_cached_pdf) {
+                  skippedCount++;
+                  continue;
+                }
               }
 
               const isNew = !ptRecord;

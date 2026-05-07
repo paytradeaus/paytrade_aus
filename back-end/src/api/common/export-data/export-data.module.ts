@@ -72,6 +72,9 @@ import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-q
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
+import { XeroModule } from '../integrations/xero/xero.module';
+import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.module';
+import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 
 @Module({
   imports: [
@@ -126,10 +129,13 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
       StripeCoupons,
       CompanyCouponDetails,
       IntegrationDetails,
+      XeroInvoicesBills,
     ]),
     BullModule.registerQueue({
       name: 'mailQueue',
     }),
+    XeroModule,
+    ObjectStorageModule,
   ],
   controllers: [ExportDataController],
   providers: [

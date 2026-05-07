@@ -18,6 +18,7 @@ import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { ExportDataService } from './export-data.service';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAndBills/xero-invoices.service';
 import * as path from 'path';
 
 @Controller('files')
@@ -27,6 +28,7 @@ export class ExportDataController {
   constructor(
     private readonly exportDataService: ExportDataService,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly xeroInvoicesService: XeroInvoicesService,
   ) {
     this.logger = new PaytradeLogger('EXPORT_DATA');
   }
@@ -171,6 +173,81 @@ export class ExportDataController {
         'ERROR',
         `Invalid or expired token: ${error.message}`,
       );
+    }
+  }
+
+  /**
+   * Download the cached Xero invoice/bill PDF for a payment claim. The token
+   * is obtained from the GraphQL `getXeroInvoicePdfDownloadToken` query and
+   * is short-lived (5 min). Body: { payment_claim_id, company_id, fileName }.
+   */
+  @Get('xeroPdf')
+  async xeroPdf(
+    @Headers('authorization') authHeader: string,
+    @Res() response,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new HttpException(
+        'Authorization Token Required',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded: any = jwt.verify(token, this.jwtSecret);
+      const payment_claim_id = decoded?.payment_claim_id;
+      const company_id = decoded?.company_id;
+      if (!payment_claim_id || !company_id) {
+        throw new HttpException('Invalid token payload', HttpStatus.BAD_REQUEST);
+      }
+      const result = await this.xeroInvoicesService.getCachedXeroPdfForClaim(
+        payment_claim_id,
+        company_id,
+      );
+      if (!result) {
+        throw new HttpException('Xero PDF not available', HttpStatus.NOT_FOUND);
+      }
+      const fileName = decoded?.fileName || result.fileName;
+      response.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      response.setHeader('Content-Type', 'application/pdf');
+      response.send(result.buffer);
+    } catch (error) {
+      this.logger.error(`Error downloading Xero PDF: ${error.message}`);
+      if (response.headersSent) return;
+      // Preserve intended HTTP status on auth/validation/not-found
+      if (error instanceof HttpException) {
+        const status = error.getStatus();
+        const body = error.getResponse();
+        response.status(status).json(
+          typeof body === 'string'
+            ? { status: 'ERROR', message: body }
+            : body,
+        );
+        return;
+      }
+      // Map common JWT verification errors back to 401/403
+      const name = error?.name || '';
+      if (name === 'TokenExpiredError') {
+        response.status(HttpStatus.UNAUTHORIZED).json({
+          status: 'ERROR',
+          message: 'Download token expired',
+        });
+        return;
+      }
+      if (name === 'JsonWebTokenError' || name === 'NotBeforeError') {
+        response.status(HttpStatus.FORBIDDEN).json({
+          status: 'ERROR',
+          message: 'Invalid download token',
+        });
+        return;
+      }
+      response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: 'ERROR',
+        message: `Failed to download Xero PDF: ${error.message}`,
+      });
     }
   }
 }

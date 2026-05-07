@@ -2549,6 +2549,11 @@ export class XeroWebhookService {
 
       this.logger.log(`[BILL_TRACE] V-Step 19: Saving xero invoice record... existingXeroInvoice=${existingXeroInvoice ? `id=${existingXeroInvoice.id}` : 'null (new)'}`);
 
+      const _deepLinkUrl = this.xeroInvoicesService.buildXeroDeepLink(
+        invoice.invoiceID,
+        invoice.type,
+      );
+      const _currentStatus = invoice.status || null;
       let xeroInvoice;
       if (existingXeroInvoice) {
         existingXeroInvoice.tenant_id = xeroDetails.tenant_id;
@@ -2565,6 +2570,8 @@ export class XeroWebhookService {
         existingXeroInvoice.total_amount = invoice.total || null;
         existingXeroInvoice.line_items = invoice.lineItems || [];
         existingXeroInvoice.line_amount_types = invoice.lineAmountTypes;
+        existingXeroInvoice.current_xero_status = _currentStatus;
+        existingXeroInvoice.deep_link_url = _deepLinkUrl;
         existingXeroInvoice.updated_group = 'SYSTEM';
         existingXeroInvoice.updated_on = moment().toISOString();
         xeroInvoice = await this.xeroInvoicesBills.save(existingXeroInvoice);
@@ -2587,12 +2594,38 @@ export class XeroWebhookService {
           total_amount: invoice.total || null,
           line_items: invoice.lineItems || [],
           line_amount_types: invoice.lineAmountTypes,
+          current_xero_status: _currentStatus,
+          deep_link_url: _deepLinkUrl,
+          is_stale: false,
           created_group: 'SYSTEM',
           created_on: moment().toISOString(),
         };
         const newXeroInvoice = await this.xeroInvoicesBills.create(xeroPayload);
         xeroInvoice = await this.xeroInvoicesBills.save(newXeroInvoice);
         this.logger.log(`[BILL_TRACE] V-Step 19: Created new xero invoice — id=${xeroInvoice?.id}`);
+      }
+
+      // Refresh cached PDF for non-void/non-deleted CREATE/UPDATE events.
+      // Fire-and-forget so the webhook handler is not blocked by Xero's
+      // PDF endpoint latency. fetchAndCacheXeroPdf updates
+      // cached_pdf_object_key, last_fetched_at, deep_link_url, and clears
+      // is_stale on success.
+      const _statusUpper = String(_currentStatus || '').toUpperCase();
+      if (_statusUpper !== 'VOIDED' && _statusUpper !== 'DELETED') {
+        this.xeroInvoicesService
+          .fetchAndCacheXeroPdf({
+            company_id,
+            invoice_id: invoice.invoiceID,
+            integration_id: xeroDetails.integration_id,
+            type: invoice.type,
+            status: _currentStatus,
+            skipTokenRefresh: true, // V-Step 2 already refreshed the token
+          })
+          .catch((err: any) => {
+            this.logger.error(
+              `[XERO_PDF] webhook PDF refresh failed for ${invoice.invoiceID}: ${err?.message || err}`,
+            );
+          });
       }
 
       if (xeroInvoice) {
@@ -4317,6 +4350,18 @@ export class XeroWebhookService {
             //   return false;
             // }
           } else if (['DELETED', 'VOIDED'].includes(invoice.status)) {
+            // Mark cached Xero invoice/bill row as voided so the UI &
+            // audit pack reflect the void state. PDF cache is intentionally
+            // retained for the audit trail.
+            try {
+              await this.xeroInvoicesService.markXeroInvoiceVoided({
+                invoice_id: invoice.invoiceID,
+                integration_id: xeroDetails.integration_id,
+                status: invoice.status,
+              });
+            } catch (e: any) {
+              this.logger.error(`[XERO_PDF] markXeroInvoiceVoided failed: ${e?.message || e}`);
+            }
             //delete invoice
             if (['Draft', 'Confirmed'].includes(claimDetails.status)) {
               const response =

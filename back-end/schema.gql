@@ -11961,6 +11961,57 @@ type GetXeroContractsResponse {
   status: String!
 }
 
+"""Cached Xero invoice/bill metadata for a Paytrade claim"""
+type GetXeroInvoiceForClaim {
+  """
+  Latest Xero status (DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED, DELETED)
+  """
+  current_xero_status: String
+
+  """Deep link to the invoice/bill in Xero UI"""
+  deep_link_url: String
+
+  """Whether a cached PDF is available in object storage"""
+  has_cached_pdf: Boolean
+
+  """Xero invoice ID (UUID)"""
+  invoice_id: String
+
+  """
+  Xero invoice number / reference (mapped from xero_invoices_bills.reference)
+  """
+  invoice_number: String
+
+  """Whether the cached copy is stale (Xero updated more recently)"""
+  is_stale: Boolean
+
+  """Timestamp when the PDF was last fetched from Xero"""
+  last_fetched_at: DateTime
+
+  """
+  How this invoice/bill was mapped to the Paytrade claim: Manual, Auto, or System
+  """
+  mapped_status: String
+
+  """Document type: ACCREC or ACCPAY"""
+  type: String
+
+  """Timestamp when the invoice was voided in Xero (if any)"""
+  void_date: DateTime
+}
+
+"""Response wrapper for cached Xero invoice metadata"""
+type GetXeroInvoiceForClaimResponse {
+  """Cached Xero invoice metadata"""
+  data: GetXeroInvoiceForClaim
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
 """Represents a single Xero invoice or bill record"""
 type GetXeroInvoices {
   """Xero contact ID associated with this invoice"""
@@ -18209,6 +18260,22 @@ type Query {
     """
     payload: GetXeroInvoicesListsInput!
   ): GetXeroInvoicesListResponse!
+
+  """
+  Returns cached Xero invoice/bill metadata (invoice number, status, deep link, cached PDF availability) for a Paytrade payment claim.
+  """
+  getXeroInvoiceForClaim(
+    """Paytrade payment_claim_id to look up cached Xero metadata for."""
+    payment_claim_id: Float!
+  ): GetXeroInvoiceForClaimResponse!
+
+  """
+  Returns a short-lived JWT-signed download token for the cached Xero PDF of a payment claim. Use as `Bearer` against GET /files/xeroPdf.
+  """
+  getXeroInvoicePdfDownloadToken(
+    """Paytrade payment_claim_id whose Xero PDF should be downloaded."""
+    payment_claim_id: Float!
+  ): StringResponse!
 
   """Retrieves a list of payments from Xero for a specific company."""
   getXeroPaymentListsForCompany(

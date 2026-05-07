@@ -15,6 +15,7 @@ import {
 import DynamicTable from "@/components/Table";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { getNoticesListServices } from "../AddUpdateClaims/AddUpdateClaims.function";
+import XeroIntegration from "../AddUpdateClaims/XeroIntegration";
 
 interface Attachment {
   attachment_type: string;
@@ -567,6 +568,9 @@ export default function ClaimSummary() {
             />
           </div>
         </div>
+
+        <XeroIntegration paymentClaimId={patchData?.payment_claim_id} />
+
         <br />
         {isViewMode && noticesListData?.length > 0 && (
           <DynamicTable

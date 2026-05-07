@@ -93,6 +93,24 @@ export class XeroInvoicesBills {
   @Column({ type: 'bigint', nullable: true })
   pt_claim_id: number;
 
+  @Column({ type: 'text', nullable: true })
+  cached_pdf_object_key: string;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  last_fetched_at: Date;
+
+  @Column({ type: 'text', nullable: true })
+  deep_link_url: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  current_xero_status: string;
+
+  @Column({ type: 'boolean', default: false })
+  is_stale: boolean;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  void_date: Date;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

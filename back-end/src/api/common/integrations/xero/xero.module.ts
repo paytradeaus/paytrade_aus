@@ -124,9 +124,11 @@ import { XeroWaitQueueEvent } from '../../xero-webhooks/waitQueue/webhookWait.Qu
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
+import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.module';
 
 @Module({
   imports: [
+    ObjectStorageModule,
     BullModule.registerQueue({
       name: 'xero-refresh-token',
     }),
@@ -257,6 +259,6 @@ import { AuthService } from 'src/api/auth/auth-guard/auth.service';
     XeroWaitQueueWorker,
     XeroWaitQueueEvent,
   ],
-  exports: [XeroRefreshTokenService, BullModule],
+  exports: [XeroRefreshTokenService, XeroInvoicesService, BullModule],
 })
 export class XeroModule {}

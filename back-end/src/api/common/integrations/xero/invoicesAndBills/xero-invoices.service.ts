@@ -43,6 +43,7 @@ import { startCasePreserveUnicode } from 'src/libs/@title-case-convertor/title-c
 import { NoticesService } from 'src/api/users/notices/notices.service';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
+import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -85,6 +86,7 @@ export class XeroInvoicesService {
     private readonly dataSource: DataSource,
     private readonly noticesService: NoticesService,
     private readonly emailQueueProducer: EmailQueueProducer,
+    private readonly objectStorageService: ObjectStorageService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -2248,7 +2250,25 @@ export class XeroInvoicesService {
       existingXeroInvoice.line_amount_types = invoiceDetails.lineAmountTypes;
       existingXeroInvoice.updated_group = 'SYSTEM';
       existingXeroInvoice.updated_on = moment().toISOString();
+      existingXeroInvoice.current_xero_status = invoiceDetails.status;
+      existingXeroInvoice.deep_link_url = this.buildXeroDeepLink(
+        invoiceDetails.invoiceID,
+        invoiceDetails.type as any,
+      );
+      existingXeroInvoice.is_stale = true;
       await this.xeroInvoicesBills.save(existingXeroInvoice);
+      // Refresh the cached PDF in the background — failures are logged
+      // and never block the webhook update path.
+      this.fetchAndCacheXeroPdf({
+        company_id: xeroDetails.company_id,
+        invoice_id: invoiceDetails.invoiceID,
+        integration_id: xeroDetails.integration_id,
+        type: invoiceDetails.type as any,
+        status: invoiceDetails.status as any,
+        skipTokenRefresh: true,
+      }).catch((e) =>
+        this.logger.error(`[XERO_PDF] background refresh failed: ${e?.message || e}`),
+      );
     }
 
     const {
@@ -4680,6 +4700,221 @@ export class XeroInvoicesService {
 
       throw errMsg;
     }
+  }
+
+  /**
+   * Build the Xero deep-link URL for an invoice/bill based on its ACCREC/ACCPAY
+   * type. Returns null if the type is unknown.
+   */
+  buildXeroDeepLink(invoiceId: string, type: string): string | null {
+    if (!invoiceId) return null;
+    const t: any = type;
+    if (t === Invoice.TypeEnum.ACCREC || t === 'ACCREC') {
+      return `https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${invoiceId}`;
+    }
+    if (t === Invoice.TypeEnum.ACCPAY || t === 'ACCPAY') {
+      return `https://go.xero.com/AccountsPayable/Edit.aspx?InvoiceID=${invoiceId}`;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch the PDF rendering of a Xero invoice/bill via getInvoiceAsPdf and
+   * cache it in object storage under `xero_pdfs/<invoice_id>.pdf`. Updates
+   * the matching xero_invoices_bills row with cached_pdf_object_key,
+   * last_fetched_at, deep_link_url, current_xero_status and clears is_stale.
+   * Safe to call repeatedly — failures are swallowed and logged.
+   */
+  async fetchAndCacheXeroPdf(params: {
+    company_id: number;
+    invoice_id: string;
+    integration_id?: number;
+    type?: string;
+    status?: string;
+    skipTokenRefresh?: boolean;
+  }): Promise<boolean> {
+    const { company_id, invoice_id } = params;
+    if (!company_id || !invoice_id) return false;
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { company_id, status: 'ACTIVE' },
+      });
+      if (!xeroDetails) {
+        this.logger.warn(`[XERO_PDF] No active Xero integration for company ${company_id}`);
+        return false;
+      }
+      if (!params.skipTokenRefresh) {
+        try {
+          await this.xeroService.refreshTokenSet(company_id, this.xero);
+        } catch (refreshErr: any) {
+          this.logger.error(`[XERO_PDF] Token refresh failed for company ${company_id}: ${refreshErr?.message || refreshErr}`);
+          return false;
+        }
+      }
+      const pdfResp: any = await this.xero.accountingApi.getInvoiceAsPdf(
+        xeroDetails.tenant_id,
+        invoice_id,
+      );
+      const body = pdfResp?.body;
+      let buffer: Buffer | null = null;
+      if (Buffer.isBuffer(body)) {
+        buffer = body;
+      } else if (body && typeof body === 'object' && typeof (body as any).pipe === 'function') {
+        const chunks: Buffer[] = [];
+        await new Promise<void>((resolve, reject) => {
+          (body as any).on('data', (c: Buffer) => chunks.push(c));
+          (body as any).on('end', () => resolve());
+          (body as any).on('error', (e: any) => reject(e));
+        });
+        buffer = Buffer.concat(chunks);
+      } else if (body) {
+        try {
+          buffer = Buffer.from(body as any);
+        } catch (e) {
+          buffer = null;
+        }
+      }
+      if (!buffer || buffer.length === 0) {
+        this.logger.warn(`[XERO_PDF] Empty PDF body for invoice ${invoice_id}`);
+        return false;
+      }
+      const objectKey = `xero_pdfs/${invoice_id}.pdf`;
+      const ok = await this.objectStorageService.uploadFileDirect(
+        objectKey,
+        buffer,
+        'application/pdf',
+      );
+      if (!ok) {
+        this.logger.error(`[XERO_PDF] Failed to upload PDF to storage: ${objectKey}`);
+        return false;
+      }
+      const integrationId = params.integration_id ?? xeroDetails.integration_id;
+      const existing = await this.xeroInvoicesBills.findOne({
+        where: { invoice_id, integration_id: integrationId },
+      });
+      if (existing) {
+        existing.cached_pdf_object_key = objectKey;
+        existing.last_fetched_at = new Date();
+        existing.deep_link_url = this.buildXeroDeepLink(invoice_id, params.type ?? existing.type);
+        if (params.status) existing.current_xero_status = params.status;
+        existing.is_stale = false;
+        await this.xeroInvoicesBills.save(existing);
+      }
+      this.logger.log(`[XERO_PDF] Cached PDF for invoice ${invoice_id} (${buffer.length} bytes)`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`[XERO_PDF] Failed to fetch/cache PDF for ${invoice_id}: ${err?.message || err}`);
+      return false;
+    }
+  }
+
+  /**
+   * Mark a Xero invoice as stale (used when DELETE/VOID arrives — we keep
+   * the cached PDF so the audit trail remains intact but flag it for the UI).
+   */
+  async markXeroInvoiceVoided(params: {
+    invoice_id: string;
+    integration_id: number;
+    status: string;
+  }): Promise<void> {
+    try {
+      const existing = await this.xeroInvoicesBills.findOne({
+        where: {
+          invoice_id: params.invoice_id,
+          integration_id: params.integration_id,
+        },
+      });
+      if (!existing) return;
+      existing.current_xero_status = params.status;
+      existing.is_stale = true;
+      existing.void_date = new Date();
+      await this.xeroInvoicesBills.save(existing);
+    } catch (err: any) {
+      this.logger.error(`[XERO_PDF] Failed to mark invoice voided ${params.invoice_id}: ${err?.message || err}`);
+    }
+  }
+
+  /**
+   * Lookup the cached Xero invoice/bill row for a Paytrade payment claim and
+   * return UI-friendly metadata (no buffer). Used by the claim drawer's
+   * "Xero Integration" expander.
+   */
+  async getXeroInvoiceForClaim(payment_claim_id: number, company_id?: number) {
+    if (!payment_claim_id) return null;
+    const claim = await this.paymentClaims.findOne({
+      where: { payment_claim_id },
+    });
+    if (!claim) return null;
+    if (company_id != null && Number(claim.company_id) !== Number(company_id)) {
+      this.logger.warn(
+        `[XERO_PDF] Company mismatch: claim ${payment_claim_id} belongs to ${claim.company_id}, requester ${company_id}`,
+      );
+      return null;
+    }
+    const row = await this.xeroInvoicesBills.findOne({
+      where: { pt_claim_id: claim.payment_claim_id },
+      order: { updated_on: 'DESC' },
+    });
+    if (!row) return null;
+    return {
+      invoice_id: row.invoice_id,
+      invoice_number: row.reference || null,
+      type: row.type,
+      mapped_status: row.mapped_status || null,
+      current_xero_status: row.current_xero_status || row.status,
+      deep_link_url: row.deep_link_url || this.buildXeroDeepLink(row.invoice_id, row.type),
+      has_cached_pdf: !!row.cached_pdf_object_key,
+      last_fetched_at: row.last_fetched_at,
+      is_stale: !!row.is_stale,
+      void_date: row.void_date,
+    };
+  }
+
+  /**
+   * Download a cached Xero PDF for a payment claim. Used by REST endpoint.
+   * Returns { buffer, fileName } or null if not available. If the PDF is
+   * missing from storage but the row exists, attempts a live re-fetch.
+   */
+  async getCachedXeroPdfForClaim(
+    payment_claim_id: number,
+    company_id: number,
+  ): Promise<{ buffer: Buffer; fileName: string } | null> {
+    const claim = await this.paymentClaims.findOne({
+      where: { payment_claim_id },
+    });
+    if (!claim) return null;
+    if (Number(claim.company_id) !== Number(company_id)) {
+      this.logger.warn(
+        `[XERO_PDF] Company mismatch on download: claim ${payment_claim_id} belongs to ${claim.company_id}, requester ${company_id}`,
+      );
+      return null;
+    }
+    const row = await this.xeroInvoicesBills.findOne({
+      where: { pt_claim_id: claim.payment_claim_id },
+      order: { updated_on: 'DESC' },
+    });
+    if (!row) return null;
+    let objectKey = row.cached_pdf_object_key;
+    if (!objectKey) {
+      const ok = await this.fetchAndCacheXeroPdf({
+        company_id,
+        invoice_id: row.invoice_id,
+        integration_id: row.integration_id,
+        type: row.type,
+        status: row.status,
+      });
+      if (!ok) return null;
+      const refreshed = await this.xeroInvoicesBills.findOne({
+        where: { id: row.id },
+      });
+      objectKey = refreshed?.cached_pdf_object_key;
+      if (!objectKey) return null;
+    }
+    const buffer = await this.objectStorageService.downloadFile(objectKey);
+    if (!buffer) return null;
+    const baseName = row.reference || row.invoice_id;
+    const safeName = String(baseName).replace(/[^a-zA-Z0-9._-]+/g, '_');
+    return { buffer, fileName: `Xero-${safeName}.pdf` };
   }
 
   async getInvoiceByInvoiceId(invoice_id: string, company_id: number) {

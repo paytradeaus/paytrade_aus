@@ -4,6 +4,7 @@ import DropdownFields from "./DropdownFields";
 import PaymentAccounts from "./PaymentAccounts";
 import FormArrayGrid from "./FormArrayGrid";
 import Attachments from "./Attachments";
+import XeroIntegration from "./XeroIntegration";
 import FooterSection from "./FooterSection";
 import { useAddUpdateClaimsContext } from "./AddUpdateClaimsContext";
 import { noticesHeader, noticesRenderData } from "./AddUpdateClaims.constant";
@@ -414,6 +415,10 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
               <FormArrayGrid />
 
               <Attachments />
+
+              <XeroIntegration
+                paymentClaimId={claimData?.payment_claim_id}
+              />
 
               {isViewMode && noticesListData?.length > 0 && (
                 <DynamicTable
