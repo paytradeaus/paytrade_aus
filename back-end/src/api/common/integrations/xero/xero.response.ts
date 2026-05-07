@@ -145,6 +145,9 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Explicit Xero taxType to stamp on retention/liability/release lines (overrides account-derived taxType when set)' })
   retention_tax_type: string;
 
+  @Field({ nullable: true, description: 'Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".' })
+  auto_gross_up_retention_journals: boolean;
+
   @Field({ nullable: true, description: 'Auto-create new PayTrade bank accounts in Xero' })
   pt_to_xero_bank_auto_create: boolean;
 
@@ -596,6 +599,18 @@ export class RetentionJournalEntry {
 
   @Field({ nullable: true, description: 'Narration written to Xero' })
   narration: string;
+
+  @Field({ nullable: true, description: 'Debit-side account code (line 1)' })
+  account_1_code: string;
+
+  @Field({ nullable: true, description: 'Credit-side account code (line 2)' })
+  account_2_code: string;
+
+  @Field({
+    nullable: true,
+    description: 'Click-through deep link to the manual journal in Xero',
+  })
+  deep_link_url: string;
 
   @Field({ nullable: true, description: 'Last error text if status=FAILED' })
   error_text: string;

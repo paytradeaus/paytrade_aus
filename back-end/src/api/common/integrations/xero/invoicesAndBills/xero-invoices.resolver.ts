@@ -423,6 +423,39 @@ export class XeroInvoicesResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'retryRetentionGrossUpJournal',
+    description:
+      'Phase 3 — re-attempt posting a previously-failed retention gross-up Manual Journal for a claim.',
+  })
+  async retryRetentionGrossUpJournal(
+    @Context() context,
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id to retry the gross-up MJ for.',
+    })
+    payment_claim_id: number,
+  ): Promise<any> {
+    try {
+      const { headers } = context.req;
+      const companyId = Number(headers?.companyid);
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result =
+        await this.xeroInvoicesService.retryRetentionGrossUpJournalForClaim(
+          decoded,
+          companyId,
+          payment_claim_id,
+        );
+      return framedResponse(
+        result.status as any,
+        result.message,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Query(() => StringResponse, {
     name: 'getXeroInvoicePdfDownloadToken',
     description:

@@ -14918,6 +14918,14 @@ type Mutation {
     Id: String!
   ): StringResponse!
 
+  """
+  Phase 3 — re-attempt posting a previously-failed retention gross-up Manual Journal for a claim.
+  """
+  retryRetentionGrossUpJournal(
+    """Paytrade payment_claim_id to retry the gross-up MJ for."""
+    payment_claim_id: Float!
+  ): StringResponse!
+
   """Sends a system email to specified clients."""
   sendSystemEmailToTheClients(
     """Input parameters for sending system email to clients"""
@@ -18701,8 +18709,17 @@ type RegenerateNoticeResponse {
 Phase 3 — single retention gross-up Manual Journal posted by PayTrade for a claim
 """
 type RetentionJournalEntry {
+  """Debit-side account code (line 1)"""
+  account_1_code: String
+
+  """Credit-side account code (line 2)"""
+  account_2_code: String
+
   """Created timestamp (ISO)"""
   created_on: String
+
+  """Click-through deep link to the manual journal in Xero"""
+  deep_link_url: String
 
   """Last error text if status=FAILED"""
   error_text: String
@@ -20822,6 +20839,11 @@ input UpdateSeoKeywordInput {
 
 """Input for updating company or project accounting settings"""
 input UpdateSettingsInput {
+  """
+  Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".
+  """
+  auto_gross_up_retention_journals: Boolean
+
   """Bill code"""
   bill_code: String!
 
@@ -22311,6 +22333,11 @@ input VoteLikeFlagInput {
 type XeroResponse {
   """Action buttons available for the integration"""
   action_buttons: JSONObject
+
+  """
+  Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".
+  """
+  auto_gross_up_retention_journals: Boolean
 
   """Bill code"""
   bill_code: String

@@ -250,6 +250,9 @@ export class UpdateSettingsInput {
   @Field({ nullable: true, description: 'Explicit Xero taxType to stamp on retention/liability/release lines (overrides account-derived taxType when set)' })
   retention_tax_type: string;
 
+  @Field({ nullable: true, description: 'Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".' })
+  auto_gross_up_retention_journals: boolean;
+
   @Field({ nullable: true, description: 'Auto-create new PayTrade bank accounts in Xero' })
   pt_to_xero_bank_auto_create: boolean;
 

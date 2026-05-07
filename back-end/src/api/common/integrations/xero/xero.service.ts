@@ -493,6 +493,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.simplified_retention_accounting AS simplified_retention_accounting',
           'x.retention_recording_mode AS retention_recording_mode',
           'x.retention_tax_type AS retention_tax_type',
+          'x.auto_gross_up_retention_journals AS auto_gross_up_retention_journals',
           'x.xero_org_country_code AS xero_org_country_code',
           'x.xero_org_is_gst_registered AS xero_org_is_gst_registered',
           'x.xero_org_sales_tax_basis AS xero_org_sales_tax_basis',
@@ -2097,6 +2098,16 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         xeroDetails.retention_tax_type = data.retention_tax_type
           ? String(data.retention_tax_type).trim() || null
           : null;
+      }
+      if (data.auto_gross_up_retention_journals !== undefined) {
+        // Only enable when the prerequisites are met. Otherwise force OFF
+        // so the FE toggle and backend invariants stay in sync even if a
+        // stale payload arrives.
+        const wantsOn = !!data.auto_gross_up_retention_journals;
+        const eligible =
+          xeroDetails.simplified_retention_accounting === false &&
+          xeroDetails.retention_recording_mode === 'ex_gst';
+        xeroDetails.auto_gross_up_retention_journals = wantsOn && eligible;
       }
       if (data.pt_to_xero_bank_auto_create !== undefined) {
         xeroDetails.pt_to_xero_bank_auto_create = data.pt_to_xero_bank_auto_create;

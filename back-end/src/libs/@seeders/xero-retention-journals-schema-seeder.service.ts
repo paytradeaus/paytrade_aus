@@ -56,6 +56,9 @@ export class XeroRetentionJournalsSchemaSeederService
           resolved_tax_type varchar(64),
           resolution_source varchar(64),
           narration varchar(1024),
+          account_1_code varchar(64),
+          account_2_code varchar(64),
+          deep_link_url varchar(1024),
           error_text text,
           created_on timestamp without time zone DEFAULT now(),
           created_by integer,
@@ -66,6 +69,14 @@ export class XeroRetentionJournalsSchemaSeederService
         );
       `);
 
+      // Backfill columns on existing tables (no-op if they already exist).
+      await this.dataSource.query(`
+        ALTER TABLE xero_retention_journals
+          ADD COLUMN IF NOT EXISTS account_1_code varchar(64),
+          ADD COLUMN IF NOT EXISTS account_2_code varchar(64),
+          ADD COLUMN IF NOT EXISTS deep_link_url varchar(1024);
+      `);
+
       await this.dataSource.query(`
         CREATE INDEX IF NOT EXISTS idx_xero_retention_journals_claim
           ON xero_retention_journals (integration_id, pt_claim_id);
@@ -74,6 +85,24 @@ export class XeroRetentionJournalsSchemaSeederService
         CREATE UNIQUE INDEX IF NOT EXISTS uq_xero_retention_journals_manual_journal_id
           ON xero_retention_journals (manual_journal_id)
           WHERE manual_journal_id IS NOT NULL;
+      `);
+
+      // Lifecycle FK to xero_integration_details. ON DELETE CASCADE so
+      // disconnecting the Xero integration cleans up the journal log.
+      // Wrapped in DO block so re-runs are idempotent.
+      await this.dataSource.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'fk_xero_retention_journals_integration'
+          ) THEN
+            ALTER TABLE xero_retention_journals
+              ADD CONSTRAINT fk_xero_retention_journals_integration
+              FOREIGN KEY (integration_id)
+              REFERENCES xero_integration_details (integration_id)
+              ON DELETE CASCADE;
+          END IF;
+        END$$;
       `);
 
       this.logger.log(

@@ -137,6 +137,8 @@ export default function XeroSettings() {
         retention_recording_mode:
           (data?.retention_recording_mode as "ex_gst" | "inc_gst") || "ex_gst",
         retention_tax_type: data?.retention_tax_type || "",
+        auto_gross_up_retention_journals:
+          !!data?.auto_gross_up_retention_journals,
       };
       settingsFormik.setValues(formValue);
       setInitialFormikValue(formValue);
@@ -311,6 +313,7 @@ export default function XeroSettings() {
       wait_time: null,
       retention_recording_mode: "ex_gst" as "ex_gst" | "inc_gst",
       retention_tax_type: "",
+      auto_gross_up_retention_journals: false,
     },
     validationSchema: validationSchemaXeroAccountCode,
     onSubmit: async (values) => {
@@ -344,6 +347,7 @@ export default function XeroSettings() {
         wait_time,
         retention_recording_mode,
         retention_tax_type,
+        auto_gross_up_retention_journals,
       } = values;
       const payload = {
         retention_receivable_retained_code,
@@ -380,6 +384,13 @@ export default function XeroSettings() {
         smart_contract_auto_create: smartContractAutoCreate,
         retention_recording_mode: retention_recording_mode || "ex_gst",
         retention_tax_type: retention_tax_type || null,
+        // Backend also enforces this invariant; FE mirrors it so the
+        // toggle state cannot be smuggled true while the prerequisites
+        // are off.
+        auto_gross_up_retention_journals:
+          !!auto_gross_up_retention_journals &&
+          !simplifiedRetention &&
+          (retention_recording_mode || "ex_gst") === "ex_gst",
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1782,6 +1793,53 @@ export default function XeroSettings() {
                     </p>
                   </div>
                 </div>
+                {(() => {
+                  const eligible =
+                    !simplifiedRetention &&
+                    (settingsFormik.values.retention_recording_mode ||
+                      "ex_gst") === "ex_gst";
+                  return (
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: eligible ? "pointer" : "not-allowed", opacity: eligible ? 1 : 0.55 }}>
+                        <input
+                          type="checkbox"
+                          disabled={!eligible}
+                          checked={
+                            !!settingsFormik.values
+                              .auto_gross_up_retention_journals && eligible
+                          }
+                          onChange={(e) =>
+                            settingsFormik.setFieldValue(
+                              "auto_gross_up_retention_journals",
+                              e.target.checked,
+                            )
+                          }
+                        />
+                        <span style={{ fontSize: "13px", fontWeight: 500 }}>
+                          Auto-post a balanced GST gross-up Manual Journal in
+                          Xero each time retention is recorded
+                        </span>
+                      </label>
+                      <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0 26px", lineHeight: "1.4" }}>
+                        When enabled, PayTrade posts a balanced 2-line POSTED
+                        Manual Journal in Xero for the GST portion of
+                        retention so your held / release ledger reconciles to
+                        the gross retention figure. A reversal is posted on
+                        retention claims. Voided automatically on edit /
+                        delete.
+                        {!eligible && (
+                          <>
+                            {" "}
+                            <strong>
+                              Disabled because this requires simplified
+                              retention OFF and recording mode = Ex-GST.
+                            </strong>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
                 {!simplifiedRetention && (
                   <div className="grid pt_infocol">
                     <div>

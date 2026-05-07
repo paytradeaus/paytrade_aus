@@ -3247,6 +3247,66 @@ export class XeroInvoicesService {
     );
   }
 
+  /**
+   * Phase 3 — re-attempt the gross-up Manual Journal post for a claim
+   * whose latest attempt failed. Looks up the claim + xero details +
+   * cached invoice and calls the helper. Returns a short status string
+   * for the FE.
+   */
+  async retryRetentionGrossUpJournalForClaim(
+    decoded: any,
+    company_id: number,
+    payment_claim_id: number,
+  ): Promise<{ status: string; message: string }> {
+    if (!payment_claim_id) {
+      return { status: 'ERROR', message: 'payment_claim_id required' };
+    }
+    const claim = await this.paymentClaims.findOne({
+      where: { payment_claim_id },
+    });
+    if (!claim) {
+      return { status: 'ERROR', message: 'Claim not found' };
+    }
+    if (Number(claim.company_id) !== Number(company_id)) {
+      return { status: 'ERROR', message: 'Cross-company access denied' };
+    }
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' as any },
+    });
+    if (!xeroDetails) {
+      return { status: 'ERROR', message: 'No active Xero integration' };
+    }
+    if (!this.xeroManualJournalService.isAutoGrossUpEnabled(xeroDetails)) {
+      return {
+        status: 'ERROR',
+        message:
+          'Auto gross-up is not enabled (requires simplified retention OFF and ex-GST recording mode).',
+      };
+    }
+    // The cached xero_invoices_bills row gives us the invoice_id; pass null
+    // for `invoice` so the helper falls back to the contact GST helper for
+    // tax type resolution.
+    const cached = await this.xeroInvoicesBills.findOne({
+      where: { pt_claim_id: payment_claim_id },
+      order: { updated_on: 'DESC' },
+    });
+    try {
+      await this.maybePostRetentionGrossUpJournal(
+        decoded,
+        claim,
+        xeroDetails,
+        null,
+        cached?.invoice_id || null,
+      );
+      return { status: 'SUCCESS', message: 'Retry triggered' };
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        message: err?.message || 'Retry failed',
+      };
+    }
+  }
+
   async adjustItemsWithRetention(
     invoice,
     items,

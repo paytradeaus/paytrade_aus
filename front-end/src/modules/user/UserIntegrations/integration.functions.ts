@@ -283,6 +283,7 @@ export const getXeroDetailsForCompany = async (
               simplified_retention_accounting
               retention_recording_mode
               retention_tax_type
+              auto_gross_up_retention_journals
               pt_to_xero_bank_auto_create
               xero_to_pt_bank_auto_create
               pt_to_xero_contact_auto_create

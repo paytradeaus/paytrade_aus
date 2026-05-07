@@ -67,6 +67,15 @@ export class XeroRetentionJournals {
   @Column({ type: 'varchar', length: 1024, nullable: true })
   narration: string;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  account_1_code: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  account_2_code: string;
+
+  @Column({ type: 'varchar', length: 1024, nullable: true })
+  deep_link_url: string;
+
   @Column({ type: 'text', nullable: true })
   error_text: string;
 

@@ -190,6 +190,13 @@ export class XeroManualJournalService {
       resolved_tax_type: r.resolved_tax_type,
       resolution_source: r.resolution_source,
       narration: r.narration,
+      account_1_code: r.account_1_code,
+      account_2_code: r.account_2_code,
+      deep_link_url:
+        r.deep_link_url ||
+        (r.manual_journal_id
+          ? `https://go.xero.com/Bank/RestoreManualJournal.aspx?ID=${r.manual_journal_id}`
+          : null),
       error_text: r.error_text,
       created_on: r.created_on ? r.created_on.toISOString() : null,
     }));
@@ -380,6 +387,22 @@ export class XeroManualJournalService {
       return null;
     }
 
+    const journalLines = (payload.journalLines || []) as ManualJournalLine[];
+    const account_1_code =
+      journalLines[0]?.accountCode != null
+        ? String(journalLines[0].accountCode)
+        : null;
+    const account_2_code =
+      journalLines[1]?.accountCode != null
+        ? String(journalLines[1].accountCode)
+        : null;
+
+    // Build a Xero deep-link to the manual journal so users can click
+    // through from the FE table directly to the source ledger entry.
+    const deep_link_url = manualJournalId
+      ? `https://go.xero.com/Bank/RestoreManualJournal.aspx?ID=${manualJournalId}`
+      : null;
+
     const link = this.retentionJournalsRepo.create({
       integration_id,
       tenant_id: xd.tenant_id,
@@ -395,6 +418,9 @@ export class XeroManualJournalService {
       resolved_tax_type: applicability.taxType,
       resolution_source: applicability.source,
       narration: payload.narration,
+      account_1_code,
+      account_2_code,
+      deep_link_url,
       created_by: decoded?.userId ?? null,
       created_group: 'SYSTEM',
     });
