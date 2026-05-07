@@ -273,7 +273,8 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
               }
             }
             // Upserts: rows added or changed.
-            for (const [pid, code] of currentByProject.entries()) {
+            const currentEntries = Array.from(currentByProject.entries());
+            for (const [pid, code] of currentEntries) {
               if (initialByProject.get(pid) !== code) {
                 await setSupplierXeroAccountCode({
                   client_supplier_id: Number(supplierIdForOverrides),
@@ -283,7 +284,8 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
               }
             }
             // Deletes: rows present initially but missing now (or marked deleted).
-            for (const pid of initialByProject.keys()) {
+            const initialKeys = Array.from(initialByProject.keys());
+            for (const pid of initialKeys) {
               if (!currentByProject.has(pid)) {
                 await setSupplierXeroAccountCode({
                   client_supplier_id: Number(supplierIdForOverrides),
