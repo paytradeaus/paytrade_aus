@@ -84,7 +84,6 @@ export class XeroManualJournalService {
     this.logger = new PaytradeLogger('XERO_MANUAL_JOURNAL');
   }
 
-  /** True when Phase 3 auto gross-up is active for this integration. */
   isAutoGrossUpEnabled(xeroDetails: XeroIntegrationDetails | null | undefined): boolean {
     if (!xeroDetails) return false;
     if (!xeroDetails.auto_gross_up_retention_journals) return false;
@@ -93,11 +92,6 @@ export class XeroManualJournalService {
     return true;
   }
 
-  /**
-   * Resolve whether GST grossing-up should be applied for this claim, and
-   * the tax type that drives it. See the smart-order docblock at the top of
-   * the file.
-   */
   async resolveGstApplicability(
     claim: any,
     contact: ClientSuppliersDetails | null | undefined,
@@ -383,6 +377,41 @@ export class XeroManualJournalService {
       this.logger.error(
         `[MJ_${kind.toUpperCase()}] createManualJournals failed for claim ${pt_claim_id}: ${errMsg}`,
       );
+      // Persist a FAILED row so the FE can deterministically expose
+      // a retry button for the latest failed attempt.
+      try {
+        const failedLink = this.retentionJournalsRepo.create({
+          integration_id,
+          tenant_id: xd.tenant_id,
+          pt_claim_id,
+          pt_retention_id: args.pt_retention_id ?? null,
+          pt_sub_payment_id: args.pt_sub_payment_id ?? null,
+          invoice_id: args.invoice_id ?? null,
+          manual_journal_id: null,
+          kind,
+          status: 'FAILED',
+          retention_ex_gst: retentionExGst,
+          gst_amount: gstAmount,
+          resolved_tax_type: applicability.taxType,
+          resolution_source: applicability.source,
+          narration: payload.narration,
+          account_1_code:
+            (payload.journalLines?.[0] as ManualJournalLine | undefined)
+              ?.accountCode ?? null,
+          account_2_code:
+            (payload.journalLines?.[1] as ManualJournalLine | undefined)
+              ?.accountCode ?? null,
+          deep_link_url: null,
+          error_text: errMsg,
+          created_by: decoded?.userId ?? null,
+          created_group: 'SYSTEM',
+        });
+        await this.retentionJournalsRepo.save(failedLink);
+      } catch (persistErr: any) {
+        this.logger.error(
+          `[MJ_${kind.toUpperCase()}] could not persist FAILED row: ${persistErr?.message || persistErr}`,
+        );
+      }
       await this.writeFailureLog(decoded, args, kind, errMsg);
       return null;
     }
@@ -431,10 +460,6 @@ export class XeroManualJournalService {
     return saved;
   }
 
-  /**
-   * Void a previously-posted gross-up journal (used by edit-recreate and
-   * delete flows). Updates Xero to status DELETED and marks the link row.
-   */
   async voidGrossUpJournal(
     decoded: any,
     link: XeroRetentionJournals,
@@ -540,11 +565,6 @@ export class XeroManualJournalService {
     }
   }
 
-  /**
-   * Convenience: void all active links for a claim (used on delete and on
-   * edit before re-posting). Both 'gross_up' and 'gross_up_reversal' kinds
-   * are handled.
-   */
   async voidAllForClaim(
     decoded: any,
     integration_id: number,

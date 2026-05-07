@@ -4357,6 +4357,29 @@ export class XeroWebhookService {
               }
 
               if (needsEdit) {
+                // Phase 3 — void any existing gross-up MJs before the
+                // edit so we can re-post against the new retention amount.
+                try {
+                  if (
+                    this.xeroManualJournalService.isAutoGrossUpEnabled(
+                      xeroDetails,
+                    )
+                  ) {
+                    await this.xeroManualJournalService.voidAllForClaim(
+                      decoded,
+                      xeroDetails.integration_id,
+                      claimDetails?.payment_claim_id,
+                      this.xero,
+                      xeroDetails.company_id,
+                      'Inbound Xero invoice edit — voiding before re-post',
+                    );
+                  }
+                } catch (mjVoidErr: any) {
+                  this.logger.error(
+                    `[MJ_INBOUND_EDIT] void failed for claim ${claimDetails?.payment_claim_id}: ${mjVoidErr?.message || mjVoidErr}`,
+                  );
+                }
+
                 const response =
                   await this.paymentClaimsService.editDetailsOfAPaymentClaim(
                     decoded,
@@ -4367,6 +4390,50 @@ export class XeroWebhookService {
                   const paymentClaimDetails = await this.paymentClaims.findOne({
                     where: { id: response?.id },
                   });
+
+                  // Phase 3 — re-post the gross-up MJ for the edited claim.
+                  try {
+                    if (
+                      this.xeroManualJournalService.isAutoGrossUpEnabled(
+                        xeroDetails,
+                      ) &&
+                      Number(paymentClaimDetails?.retention_amount) > 0
+                    ) {
+                      const baseCode =
+                        invoice?.type === Invoice.TypeEnum.ACCPAY
+                          ? xeroDetails?.bill_code
+                          : xeroDetails?.invoice_code;
+                      const baseLine =
+                        Array.isArray(invoice?.lineItems) && baseCode
+                          ? invoice.lineItems.find(
+                              (li: any) => li?.accountCode === baseCode,
+                            )
+                          : null;
+                      const kind: 'gross_up' | 'gross_up_reversal' =
+                        paymentClaimDetails?.cash_retention_type ===
+                        'Retention claim'
+                          ? 'gross_up_reversal'
+                          : 'gross_up';
+                      await this.xeroManualJournalService.postGrossUpJournal(
+                        decoded,
+                        {
+                          claim: paymentClaimDetails,
+                          xeroDetails,
+                          contact: clientSuppliersDetails,
+                          retentionExGst:
+                            Number(paymentClaimDetails?.retention_amount) || 0,
+                          baseLineTaxType: baseLine?.taxType || null,
+                          invoice_id: invoice?.invoiceID || null,
+                        },
+                        kind,
+                        this.xero,
+                      );
+                    }
+                  } catch (mjErr: any) {
+                    this.logger.error(
+                      `[MJ_INBOUND_EDIT] re-post failed for claim ${paymentClaimDetails?.payment_claim_id}: ${mjErr?.message || mjErr}`,
+                    );
+                  }
                   const addSyncLogResponse =
                     await this.xeroService.insertXeroSyncLogs(decoded, {
                       id: data?.sync_id || null,
@@ -4475,6 +4542,29 @@ export class XeroWebhookService {
             }
             //delete invoice
             if (['Draft', 'Confirmed'].includes(claimDetails.status)) {
+              // Phase 3 — void any retention gross-up MJs before deleting
+              // the claim so the GST entries don't dangle in Xero.
+              try {
+                if (
+                  this.xeroManualJournalService.isAutoGrossUpEnabled(
+                    xeroDetails,
+                  )
+                ) {
+                  await this.xeroManualJournalService.voidAllForClaim(
+                    decoded,
+                    xeroDetails.integration_id,
+                    claimDetails?.payment_claim_id,
+                    this.xero,
+                    xeroDetails.company_id,
+                    `Inbound Xero invoice ${invoice.status} — voiding gross-up MJs`,
+                  );
+                }
+              } catch (mjVoidErr: any) {
+                this.logger.error(
+                  `[MJ_INBOUND_DELETE] void failed for claim ${claimDetails?.payment_claim_id}: ${mjVoidErr?.message || mjVoidErr}`,
+                );
+              }
+
               const response =
                 await this.paymentClaimsService.changeStatusOfAPaymentClaim(
                   decoded,
