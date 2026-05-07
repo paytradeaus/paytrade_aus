@@ -615,8 +615,51 @@ When a user saves a new bank account and the Xero integration is connected and a
 | **Edit** | `/user/bank-accounts/overview/interest-charges/edit/[...id]` | Update charge details |
 
 ### ABA File Generation
-- **Available:** Standard, Advanced, Pro Audit plans
-- Generates Australian Bankers Association (ABA) payment files for bulk payments
+
+#### What an ABA file is
+An **ABA (Australian Bankers' Association) file** is a fixed-width text file (`.aba`) used by every major Australian bank — **CBA, Westpac, NAB, ANZ, Bendigo, Macquarie, Suncorp, ING, BOQ, St George** and most credit unions — to upload **batches of payments** in a single transaction. Instead of paying each supplier or sub-contractor one-by-one through internet banking, the user generates one ABA file in PayTrade, uploads it once to their bank's portal, authorises it, and the bank disburses every payment in the file.
+
+#### Subscription gating
+ABA generation is **not available on the Basic (Free) plan**. It is included on **Standard, Advanced, and Pro Audit** (matches the plan-comparison table above).
+
+The backend enforces this in `payments.resolver.ts → generateABAfiles`: the resolver loads the company's subscription, looks for the plan item named `"ABA Generation"`, and only allows generation if `limit_value === 'true'` **or** the company is `is_free_plan_eligible` (special complimentary access). Otherwise it returns the warning *"ABA files cannot be generated. Please upgrade your subscription plan."* The frontend (`PaymnetsToDo/index.tsx`) mirrors this by greying-out the **Generate ABA** button when the plan does not include the feature.
+
+#### Required sender bank-account settings
+Generation runs per *sending* bank account. PayTrade groups the selected sub-payments by `payment_from_account_number` and produces **one ABA file per sender account**. For each sender account the following fields on the `BankAccounts` row are required:
+
+| Field | Where it's entered | Why it matters |
+|-------|--------------------|----------------|
+| `account_name` | Bank Accounts → Add/Edit Bank Account | Used as the ABA "User Name" (truncated to 26 chars) and "Remitter Name" (16 chars) |
+| `bsb_number` | Add/Edit Bank Account | Formatted as `XXX-XXX` in the trace record |
+| `account_number` | Add/Edit Bank Account | Used as the ABA trace account |
+| `financial_institution` | Add/Edit Bank Account | Resolved to the 3-letter institution code (e.g. `CBA`, `WBC`) used in the header record |
+| **`apca_number`** | **Add/Edit Bank Account (existing accounts only — the field appears on edit, not create)** | **Mandatory.** This is the **APCA / Direct Entry User ID** issued by your bank (typically a 6-digit number). Without it, `payments.service.ts → generateAbaFile` skips the entire account silently and no file is produced for it. |
+
+These are entered on **`/user/bank-accounts/add`** (create) and **`/user/bank-accounts/edit/[...id]`** (edit). The APCA number is *only* exposed on the edit form — users must save the account first, then edit it to add the APCA ID once their bank issues it.
+
+#### Required recipient details on each sub-payment
+For each selected sub-payment the recipient's `payment_to_account_bsb_number`, `payment_to_account_number`, and `payment_to_account_name` must all be present. Any sub-payment missing the recipient BSB or recipient account number is **silently skipped** with a server-side warning log — it will not appear in the generated ABA file.
+
+#### "Mark payments as paid?" prompt
+When the user clicks **Generate ABA** on the Payments To Do page, PayTrade asks: *"Do you want to mark these payments as paid?"*. The choice (`mark_paid: "yes" | "no"`) is sent with the GraphQL `generateABAfiles` query and controls **only** the post-generation status update — the ABA file itself is always produced either way:
+
+- **`mark_paid: "yes"`** — After the file is written, every transaction in the file is updated:
+  - Regular sub-payments (`Full`, `Part`, `Pay Less - Full`, `Pay Less - Part`, `Withdrawal`, `Interest Withdrawal`, `Bank Charge Applied`, `Overpayment to supplier`, `Underpayment to supplier`) → `is_paid_confirmed = true`.
+  - `Retention Out` sub-payments → `is_retention_confirmed = true`.
+  - **Payment notices are automatically triggered** for every affected sub-payment (the resolver returns a `notice_trigger` array of payment IDs which the frontend uses to fire the notice flow).
+  - Already-confirmed payments and payments blocked by retention constraints are logged and skipped without aborting the batch.
+- **`mark_paid: "no"`** — The `.aba` file still downloads, but **no payment statuses change** and **no notices are triggered**. Marking each payment as paid afterwards is a separate manual step on each individual payment in Payments To Do.
+
+The success message reflects the choice: *"ABA file generated and payments marked as paid"* vs *"ABA file generated successfully"*.
+
+#### ABA file history
+Every generated file is recorded in `GenerateABAFileHistory` (linked to the file in `FileAttachments` and to the sender `bank_account_id`, with the `mark_paid` flag stored as a boolean). Users can re-download or audit past files from **Payments To Do → ABA history** tab.
+
+#### Common reasons generation fails or produces an empty file
+1. **Subscription plan is Basic** → resolver returns the upgrade warning.
+2. **Sender bank account has no `apca_number`** → that account is skipped entirely (no file produced for it).
+3. **Recipient is missing BSB or account number** → that line is silently skipped (file may be generated for the other rows).
+4. **No selected sub-payments belong to a valid sender account** → no file is produced.
 
 ### Bank Feeds
 - **Available:** Standard, Advanced, Pro Audit plans

@@ -110,6 +110,7 @@ import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module
 import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
+import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
 
 @Module({
   imports: [
@@ -295,6 +296,7 @@ import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-templ
     XeroLogTemplatesSeederModule,
     NoticeTemplatesSeederModule,
     EmailTemplateUrlCleanupSeederModule,
+    AbaGuidesSeederModule,
   ],
   providers: [
     AppService,
