@@ -3,8 +3,9 @@ export interface MailOptions {
   to: string;
   cc?: string[];
   subject: string;
-  template: string;
-  context: {
+  html?: string;
+  template?: string;
+  context?: {
     data: any;
     mailBody: any;
     faqLink: string;

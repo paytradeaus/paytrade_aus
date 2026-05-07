@@ -17,6 +17,7 @@ import * as Handlebars from 'handlebars';
 import * as fileSystem from 'fs';
 const FormData = require('form-data');
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+import { sanitizeOutgoingEmailHtml } from './email-url-sanitizer';
 
 const OBJECT_STORAGE_FOLDERS = [
   'notices-generated',
@@ -190,16 +191,6 @@ export class EmailService {
       // }
 
       const mailTransporter = this.createTransporter();
-      const handlebarOptions = {
-        viewEngine: {
-          extName: '.handlebars',
-          partialsDir: path.resolve(`./src/libs/@email-services/handlers/`),
-          defaultLayout: false,
-        },
-        viewPath: path.resolve(`./src/libs/@email-services/handlers/`),
-        extName: '.handlebars',
-      };
-      mailTransporter.use('compile', handlebars(handlebarOptions));
       const fromEmail = process.env.EMAIL_USER;
       // const logo = await readFileAsync(join('assets/PAY-TRADE-LOGO-BT.png'), {
       //   encoding: 'base64',
@@ -229,26 +220,32 @@ export class EmailService {
       // );
       // const twitterCid = 'twitterCid';
 
+      const templatePath = path.resolve(
+        `./src/libs/@email-services/handlers/${mailDetails.template}.handlebars`,
+      );
+      const compiledTemplate = Handlebars.compile(
+        fileSystem.readFileSync(templatePath, 'utf8'),
+      );
+      const renderedHtml = compiledTemplate({
+        data: mailDetails,
+        mailBody: mailDetails.mailBody,
+        faqLink: process.env.LOG_BASE_URL + 'faq',
+        contactTo: process.env.EMAIL_USER,
+        link: 'mailto:' + process.env.EMAIL_USER,
+        footerCid: footerCid,
+        headerCid: headerCid,
+      });
+      const finalHtml = sanitizeOutgoingEmailHtml(renderedHtml, {
+        mailType: mailDetails?.mail_type,
+        template: mailDetails?.template,
+      });
+
       let mailOptions: MailOptions = {
         from: fromEmail,
         to: mailDetails.toEmail,
         cc: mailDetails?.ccMail,
         subject: mailDetails.subject,
-        template: mailDetails.template,
-        // template: 'header-footer-email',
-        context: {
-          data: mailDetails,
-          mailBody: mailDetails.mailBody,
-          faqLink: process.env.LOG_BASE_URL + 'faq',
-          contactTo: process.env.EMAIL_USER,
-          link: 'mailto:' + process.env.EMAIL_USER,
-          // logoCid: logoCid,
-          footerCid: footerCid,
-          headerCid: headerCid,
-          // fbCid: fbCid,
-          // gpCid: gpCid,
-          // twitterCid: twitterCid,
-        },
+        html: finalHtml,
         attachments: [
           // {
           //   filename: 'logo.png',
@@ -374,7 +371,7 @@ export class EmailService {
         ),
       );
 
-      const htmlContent = template({
+      const renderedSupportHtml = template({
         data: mailDetails,
         mailBody: mailDetails.mailBody,
         faqLink: process.env.LOG_BASE_URL + 'faq',
@@ -385,6 +382,10 @@ export class EmailService {
         fbCid: 'icon-fb.png',
         gpCid: 'icon-gp.png',
         twitterCid: 'icon-twitter-x.png',
+      });
+      const htmlContent = sanitizeOutgoingEmailHtml(renderedSupportHtml, {
+        mailType: mailDetails?.mail_type,
+        template: mailDetails?.template,
       });
 
       // helper to load inline images

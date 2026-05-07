@@ -109,6 +109,7 @@ import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module'
 import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
 import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
+import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 
 @Module({
   imports: [
@@ -293,6 +294,7 @@ import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-se
     ComplianceSeederModule,
     XeroLogTemplatesSeederModule,
     NoticeTemplatesSeederModule,
+    EmailTemplateUrlCleanupSeederModule,
   ],
   providers: [
     AppService,
