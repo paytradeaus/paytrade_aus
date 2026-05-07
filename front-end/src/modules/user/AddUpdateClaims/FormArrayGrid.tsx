@@ -538,7 +538,26 @@ export default function FormArrayGrid() {
             </div>
             <div>
               <h5>GST</h5>
-              <h4>{formatRupees(formik?.values?.gstAmount)}</h4>
+              <h4>
+                {(() => {
+                  // When the claim has retention recorded BAS-Excluded
+                  // (e.g. Xero bills using ex_gst retention mode), the
+                  // backend's `claim_amount` already nets the GST against
+                  // the retention share. In that case derive the GST line
+                  // from `totalAmount - subTotal` so Sub Total + GST = Total
+                  // reconciles. For all other cases the value is identical
+                  // to the locally-summed `gstAmount`.
+                  const sub = Number(formik?.values?.subTotal) || 0;
+                  const total = Number(formik?.values?.totalAmount) || 0;
+                  const localGst = Number(formik?.values?.gstAmount) || 0;
+                  const derived = total - sub;
+                  const useDerived =
+                    sub > 0 &&
+                    total > 0 &&
+                    Math.abs(derived - localGst) > 0.01;
+                  return formatRupees(useDerived ? derived : localGst);
+                })()}
+              </h4>
             </div>
             <div>
               <h5>Total</h5>

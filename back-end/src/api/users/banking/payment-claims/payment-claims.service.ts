@@ -151,10 +151,16 @@ export class PaymentClaimsService {
           } = data;
 
           let showJournalMessage = false;
+          // Honor a caller-provided `retention_amount_with_gst` (e.g. Xero
+          // webhook passing the BAS-Excluded retention figure where the
+          // inc-GST and ex-GST values are identical). Otherwise fall back
+          // to the legacy `* 1.1` gross-up for GST-registered claims.
           data.retention_amount_with_gst = data.retention_amount
-            ? is_gst_optional
-              ? data.retention_amount * 1.1
-              : data.retention_amount
+            ? data.retention_amount_with_gst != null
+              ? data.retention_amount_with_gst
+              : is_gst_optional
+                ? data.retention_amount * 1.1
+                : data.retention_amount
             : null;
 
           delete data.client_supplier_type;
@@ -697,10 +703,16 @@ export class PaymentClaimsService {
           data.previous_status =
             data.status === 'Draft' ? null : claimDetails.status;
 
+          // Honor a caller-provided `retention_amount_with_gst` (e.g. Xero
+          // webhook passing the BAS-Excluded retention figure where the
+          // inc-GST and ex-GST values are identical). Otherwise fall back
+          // to the legacy `* 1.1` gross-up for GST-registered claims.
           data.retention_amount_with_gst = data.retention_amount
-            ? is_gst_optional
-              ? data.retention_amount * 1.1
-              : data.retention_amount
+            ? data.retention_amount_with_gst != null
+              ? data.retention_amount_with_gst
+              : is_gst_optional
+                ? data.retention_amount * 1.1
+                : data.retention_amount
             : null;
 
           if (data.invoices) {
