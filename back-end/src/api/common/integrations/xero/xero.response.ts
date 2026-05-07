@@ -139,6 +139,12 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Whether simplified retention accounting is enabled (no liability accounts)' })
   simplified_retention_accounting: boolean;
 
+  @Field({ nullable: true, description: 'How retention amounts are recorded on Xero retention/liability/release lines: "ex_gst" (default, legacy) or "inc_gst" (force gross-up on Inclusive invoices)' })
+  retention_recording_mode: string;
+
+  @Field({ nullable: true, description: 'Explicit Xero taxType to stamp on retention/liability/release lines (overrides account-derived taxType when set)' })
+  retention_tax_type: string;
+
   @Field({ nullable: true, description: 'Auto-create new PayTrade bank accounts in Xero' })
   pt_to_xero_bank_auto_create: boolean;
 

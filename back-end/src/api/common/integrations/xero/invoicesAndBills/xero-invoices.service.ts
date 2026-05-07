@@ -922,6 +922,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const retentionLine: LineItem = {
               description: 'Retention Held',
@@ -948,6 +950,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const liabSpec = await this.getRetentionLineSpec(
               Number(claimDetails.retention_amount),
@@ -955,6 +959,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const lineItem1: LineItem = {
               description: 'Retention Held',
@@ -995,6 +1001,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const retentionReleaseLine: LineItem = {
               description: 'Retention Release',
@@ -1021,6 +1029,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const releaseSpec = await this.getRetentionLineSpec(
               Number(claimDetails.retention_amount),
@@ -1028,6 +1038,8 @@ export class XeroInvoicesService {
               xeroDetails.tenant_id,
               resolvedLineAmountTypes,
               fallbackTaxCode,
+              xeroDetails.retention_recording_mode,
+              xeroDetails.retention_tax_type,
             );
             const lineItem1: LineItem = {
               description: 'Liability for defects',
@@ -2575,19 +2587,28 @@ export class XeroInvoicesService {
     // separately so we don't lose the BAS-Excluded vs GST-on-Expenses
     // signal carried by each retention line. `unitExGst` normalises the
     // unitAmount to an ex-GST figure whatever `lineAmountTypes` is.
+    // When retention_recording_mode === 'inc_gst' on Inclusive invoices
+    // the unitAmount is the gross figure (regardless of the destination
+    // account's taxAmount being 0 for BAS-Excluded), so derive the
+    // ex/GST split as u/1.1 + (u - u/1.1).
+    const useIncGstSplit =
+      xeroDetails.retention_recording_mode === 'inc_gst' &&
+      invoiceDetails.lineAmountTypes === LineAmountTypes.Inclusive;
     const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
       const u = Math.abs(Number(item?.unitAmount || 0));
       const t = Math.abs(Number(item?.taxAmount || 0));
+      if (useIncGstSplit) return sum + u / 1.1;
       const unitExGst =
         invoiceDetails.lineAmountTypes === LineAmountTypes.Inclusive
           ? u - t
           : u;
       return sum + unitExGst;
     }, 0.0);
-    const retentionTaxOnly = retentionLineItems.reduce(
-      (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
-      0.0,
-    );
+    const retentionTaxOnly = retentionLineItems.reduce((sum, item) => {
+      const u = Math.abs(Number(item?.unitAmount || 0));
+      if (useIncGstSplit) return sum + (u - u / 1.1);
+      return sum + Math.abs(Number(item?.taxAmount || 0));
+    }, 0.0);
     const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
     const cashRetention =
@@ -3101,18 +3122,31 @@ export class XeroInvoicesService {
     tenantId: string,
     lineAmountTypes: LineAmountTypes,
     fallbackTaxCode: string | undefined,
+    recordingMode?: 'ex_gst' | 'inc_gst' | string,
+    configuredTaxType?: string | null,
   ): Promise<{ unitAmount: number; taxType: string | undefined }> {
     const amount = Number(retentionAmount) || 0;
     if (lineAmountTypes === LineAmountTypes.NoTax) {
       return { unitAmount: amount, taxType: undefined };
     }
     const accountTaxType = await this.getAccountTaxType(tenantId, accountCode);
+    const explicitTaxType =
+      configuredTaxType && String(configuredTaxType).trim()
+        ? String(configuredTaxType).trim()
+        : undefined;
+    // inc_gst recording mode: on Inclusive invoices the retention line must
+    // carry the gross figure regardless of the destination account's tax
+    // type (e.g. BAS-Excluded retention accounts where the user still wants
+    // the inc-GST amount on the line). On Exclusive invoices the unitAmount
+    // is always ex-GST whatever the recording mode says.
+    const isInc = lineAmountTypes === LineAmountTypes.Inclusive;
+    const forceGrossUp = isInc && recordingMode === 'inc_gst';
     const grossUp =
-      lineAmountTypes === LineAmountTypes.Inclusive &&
-      this.isGstApplicableTaxType(accountTaxType);
+      forceGrossUp ||
+      (isInc && this.isGstApplicableTaxType(explicitTaxType || accountTaxType));
     return {
       unitAmount: grossUp ? amount * 1.1 : amount,
-      taxType: accountTaxType || fallbackTaxCode,
+      taxType: explicitTaxType || accountTaxType || fallbackTaxCode,
     };
   }
 
@@ -3154,8 +3188,26 @@ export class XeroInvoicesService {
       const taxRetention = retentionTaxOnly * itemRatio;
 
       const newUnitAmount = unitAmount + unitRetention;
-      const newTaxAmount = (item.taxAmount || 0) + taxRetention;
-      const newAmountIncludingGST = lineAmount + unitRetention + taxRetention;
+      // Per-line GST must equal newUnitAmount × the line's implied GST rate
+      // — not (item.taxAmount + taxRetention). The previous formula left
+      // newTaxAmount equal to the GST on the *post-retention* unit (when
+      // the retention line was BAS-Excluded its taxRetention=0), which
+      // produced a per-line GST that no longer matched newUnitAmount × 10%
+      // (e.g. $1,493.78 instead of $1,572.40 on a $15,724 unit). Derive
+      // the rate from the line's own taxAmount/unitAmount when available
+      // and fall back to the invoice-level rate, then 10%.
+      const isTaxableLine = [
+        LineAmountTypes.Inclusive,
+        LineAmountTypes.Exclusive,
+      ].includes(lineAmountTypes);
+      const perLineRate =
+        unitAmount !== 0
+          ? (item.taxAmount || 0) / unitAmount
+          : invoice?.subTotal
+          ? (invoice?.totalTax || 0) / invoice.subTotal
+          : 0.1;
+      const newTaxAmount = isTaxableLine ? newUnitAmount * perLineRate : 0;
+      const newAmountIncludingGST = newUnitAmount + newTaxAmount;
 
       this.logger.log(JSON.stringify({
         newUnitAmount,
@@ -4003,6 +4055,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const retentionLine: LineItem = {
                 description: 'Retention Held',
@@ -4028,6 +4082,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const liabSpec = await this.getRetentionLineSpec(
                 Number(claimDetails.retention_amount),
@@ -4035,6 +4091,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const lineItem1: LineItem = {
                 description: 'Retention Held',
@@ -4075,6 +4133,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const retentionReleaseLine: LineItem = {
                 description: 'Retention Release',
@@ -4100,6 +4160,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const releaseSpec = await this.getRetentionLineSpec(
                 Number(claimDetails.retention_amount),
@@ -4107,6 +4169,8 @@ export class XeroInvoicesService {
                 xeroDetails.tenant_id,
                 resolvedLineAmountTypes,
                 fallbackTaxCode,
+                xeroDetails.retention_recording_mode,
+                xeroDetails.retention_tax_type,
               );
               const lineItem1: LineItem = {
                 description: 'Liability for defects',

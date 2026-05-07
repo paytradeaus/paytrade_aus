@@ -99,6 +99,27 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   simplified_retention_accounting: boolean;
 
+  // Phase 1 retention controls. `retention_recording_mode` decides whether
+  // retention amounts are stored on the Xero retention line ex-GST (default,
+  // legacy behaviour) or inc-GST (some BAS-Excluded → GST-on-Expenses
+  // configurations want the gross figure on the line). When `inc_gst`, the
+  // producer must gross up retention/liability/release lines on Inclusive
+  // invoices regardless of the destination account tax type, and the
+  // consumer must derive the ex-GST/GST split from the line's unitAmount
+  // (unit/1.1, unit - unit/1.1) instead of trusting the per-line taxAmount.
+  // `retention_tax_type` is the explicit Xero taxType to stamp on retention
+  // lines (overrides the account-derived taxType when set).
+  @Column({
+    type: 'enum',
+    enum: ['ex_gst', 'inc_gst'],
+    nullable: true,
+    default: 'ex_gst',
+  })
+  retention_recording_mode: 'ex_gst' | 'inc_gst';
+
+  @Column({ type: 'text', nullable: true })
+  retention_tax_type: string;
+
   @Column({ type: 'boolean', nullable: true, default: false })
   pt_to_xero_bank_auto_create: boolean;
 

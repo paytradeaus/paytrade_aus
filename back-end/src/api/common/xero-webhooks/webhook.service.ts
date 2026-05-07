@@ -2915,18 +2915,26 @@ export class XeroWebhookService {
           // See xero-invoices.service.ts adjustItemsWithRetention for
           // the full rationale: track ex-GST (unit) and GST (tax)
           // retention portions separately so BAS-Excluded retention
-          // lines aren't double-deducted for phantom GST.
+          // lines aren't double-deducted for phantom GST. When the
+          // company's retention_recording_mode is 'inc_gst' on Inclusive
+          // invoices the unitAmount on the retention line is the gross
+          // figure regardless of taxAmount, so derive the split from u.
+          const vUseIncGstSplit =
+            xeroDetails.retention_recording_mode === 'inc_gst' &&
+            invoice.lineAmountTypes === LineAmountTypes.Inclusive;
           const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
             const u = Math.abs(Number(item?.unitAmount || 0));
             const t = Math.abs(Number(item?.taxAmount || 0));
+            if (vUseIncGstSplit) return sum + u / 1.1;
             const unitExGst =
               invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
             return sum + unitExGst;
           }, 0.0);
-          const retentionTaxOnly = retentionLineItems.reduce(
-            (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
-            0.0,
-          );
+          const retentionTaxOnly = retentionLineItems.reduce((sum, item) => {
+            const u = Math.abs(Number(item?.unitAmount || 0));
+            if (vUseIncGstSplit) return sum + (u - u / 1.1);
+            return sum + Math.abs(Number(item?.taxAmount || 0));
+          }, 0.0);
           const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
           const cashRetention =
@@ -3711,17 +3719,27 @@ export class XeroWebhookService {
                   ].includes(item?.accountCode),
                 ) || [];
 
+              // Honour retention_recording_mode = 'inc_gst' on Inclusive
+              // invoices: unitAmount is the gross figure (BAS-Excluded
+              // retention accounts have taxAmount=0 but the user still
+              // wants the inc-GST amount on the line). Derive the split
+              // from u rather than (u - taxAmount).
+              const dUseIncGstSplit =
+                xeroDetails.retention_recording_mode === 'inc_gst' &&
+                invoice.lineAmountTypes === LineAmountTypes.Inclusive;
               const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
                 const u = Math.abs(Number(item?.unitAmount || 0));
                 const t = Math.abs(Number(item?.taxAmount || 0));
+                if (dUseIncGstSplit) return sum + u / 1.1;
                 const unitExGst =
                   invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
                 return sum + unitExGst;
               }, 0.0);
-              const retentionTaxOnly = retentionLineItems.reduce(
-                (sum, item) => sum + Math.abs(Number(item?.taxAmount || 0)),
-                0.0,
-              );
+              const retentionTaxOnly = retentionLineItems.reduce((sum, item) => {
+                const u = Math.abs(Number(item?.unitAmount || 0));
+                if (dUseIncGstSplit) return sum + (u - u / 1.1);
+                return sum + Math.abs(Number(item?.taxAmount || 0));
+              }, 0.0);
               const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
               const cashRetention =

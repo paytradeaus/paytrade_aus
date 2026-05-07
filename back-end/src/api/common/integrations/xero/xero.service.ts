@@ -481,6 +481,8 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.liability_payable_code AS liability_payable_code',
           'x.liability_receivable_code AS liability_receivable_code',
           'x.simplified_retention_accounting AS simplified_retention_accounting',
+          'x.retention_recording_mode AS retention_recording_mode',
+          'x.retention_tax_type AS retention_tax_type',
           'x.pt_to_xero_bank_auto_create AS pt_to_xero_bank_auto_create',
           'x.xero_to_pt_bank_auto_create AS xero_to_pt_bank_auto_create',
           'x.pt_to_xero_contact_auto_create AS pt_to_xero_contact_auto_create',
@@ -1998,6 +2000,17 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       xeroDetails.liability_receivable_code = data.liability_receivable_code;
       if (data.simplified_retention_accounting !== undefined) {
         xeroDetails.simplified_retention_accounting = data.simplified_retention_accounting;
+      }
+      if (data.retention_recording_mode !== undefined && data.retention_recording_mode !== null) {
+        const mode = String(data.retention_recording_mode);
+        if (mode === 'ex_gst' || mode === 'inc_gst') {
+          xeroDetails.retention_recording_mode = mode;
+        }
+      }
+      if (data.retention_tax_type !== undefined) {
+        xeroDetails.retention_tax_type = data.retention_tax_type
+          ? String(data.retention_tax_type).trim() || null
+          : null;
       }
       if (data.pt_to_xero_bank_auto_create !== undefined) {
         xeroDetails.pt_to_xero_bank_auto_create = data.pt_to_xero_bank_auto_create;

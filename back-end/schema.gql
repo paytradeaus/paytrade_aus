@@ -20724,6 +20724,16 @@ input UpdateSettingsInput {
   retention_receivable_retained_code: String
 
   """
+  How retention amounts are recorded on Xero retention/liability/release lines: "ex_gst" (default, legacy) or "inc_gst" (force gross-up on Inclusive invoices)
+  """
+  retention_recording_mode: String
+
+  """
+  Explicit Xero taxType to stamp on retention/liability/release lines (overrides account-derived taxType when set)
+  """
+  retention_tax_type: String
+
+  """
   Whether simplified retention accounting is enabled (no liability accounts)
   """
   simplified_retention_accounting: Boolean
@@ -22226,6 +22236,16 @@ type XeroResponse {
 
   """Retention receivable retained code"""
   retention_receivable_retained_code: String
+
+  """
+  How retention amounts are recorded on Xero retention/liability/release lines: "ex_gst" (default, legacy) or "inc_gst" (force gross-up on Inclusive invoices)
+  """
+  retention_recording_mode: String
+
+  """
+  Explicit Xero taxType to stamp on retention/liability/release lines (overrides account-derived taxType when set)
+  """
+  retention_tax_type: String
 
   """
   Whether simplified retention accounting is enabled (no liability accounts)

@@ -134,6 +134,9 @@ export default function XeroSettings() {
         invoice_tax_code: data?.invoice_tax_code || "",
         bill_tax_code: data?.bill_tax_code || "",
         wait_time: data?.wait_time || "",
+        retention_recording_mode:
+          (data?.retention_recording_mode as "ex_gst" | "inc_gst") || "ex_gst",
+        retention_tax_type: data?.retention_tax_type || "",
       };
       settingsFormik.setValues(formValue);
       setInitialFormikValue(formValue);
@@ -306,6 +309,8 @@ export default function XeroSettings() {
       invoice_tax_code: "",
       bill_tax_code: "",
       wait_time: null,
+      retention_recording_mode: "ex_gst" as "ex_gst" | "inc_gst",
+      retention_tax_type: "",
     },
     validationSchema: validationSchemaXeroAccountCode,
     onSubmit: async (values) => {
@@ -337,6 +342,8 @@ export default function XeroSettings() {
         invoice_tax_code,
         bill_tax_code,
         wait_time,
+        retention_recording_mode,
+        retention_tax_type,
       } = values;
       const payload = {
         retention_receivable_retained_code,
@@ -371,6 +378,8 @@ export default function XeroSettings() {
         sync_contact_financial_to_xero: syncContactFinancialToXero,
         sync_contact_financial_to_pt: syncContactFinancialToPt,
         smart_contract_auto_create: smartContractAutoCreate,
+        retention_recording_mode: retention_recording_mode || "ex_gst",
+        retention_tax_type: retention_tax_type || null,
       };
       await updateSettings({ updateSettingsInput: payload }, setDisableSave);
       setInitialFormikValue(values);
@@ -1705,6 +1714,73 @@ export default function XeroSettings() {
                     When enabled, retention claims sync to Xero with 2 line items instead of 3.
                     The liability for defects accounts are not required and will not be used during sync.
                   </p>
+                </div>
+                <div className="grid pt_infocol" style={{ marginBottom: "12px" }}>
+                  <div>
+                    <h5>Retention recording mode</h5>
+                    <select
+                      value={
+                        settingsFormik.values.retention_recording_mode ||
+                        "ex_gst"
+                      }
+                      onChange={(e) =>
+                        settingsFormik.setFieldValue(
+                          "retention_recording_mode",
+                          e.target.value,
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "8px 10px",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                        fontSize: "13px",
+                        background: "#fff",
+                      }}
+                    >
+                      <option value="ex_gst">
+                        Ex-GST on retention line (default)
+                      </option>
+                      <option value="inc_gst">
+                        Inc-GST on retention line (force gross-up on Inclusive
+                        invoices)
+                      </option>
+                    </select>
+                    <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0", lineHeight: "1.4" }}>
+                      Controls how retention/liability/release lines are
+                      recorded when the invoice line amounts are GST Inclusive.
+                      Use Inc-GST when the destination retention account is
+                      BAS-Excluded but you still want the gross retention on
+                      the line.
+                    </p>
+                  </div>
+                  <div>
+                    <h5>Retention line tax type (optional)</h5>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"retention_tax_type"}
+                      renderKey={"name"}
+                      valueKey={"type"}
+                      placeholder="Use account default"
+                      onChange={(e: any) =>
+                        settingsFormik.setFieldValue(
+                          "retention_tax_type",
+                          e || "",
+                        )
+                      }
+                      value={settingsFormik.values.retention_tax_type}
+                      options={[
+                        { type: "", name: "Use account default" },
+                        ...taxCodeOptions,
+                      ]}
+                    />
+                    <p style={{ color: "#666", fontSize: "12px", margin: "4px 0 0", lineHeight: "1.4" }}>
+                      Stamp this Xero taxType on retention/liability/release
+                      lines instead of the destination account&apos;s default.
+                      Leave on &quot;Use account default&quot; for legacy
+                      behaviour.
+                    </p>
+                  </div>
                 </div>
                 {!simplifiedRetention && (
                   <div className="grid pt_infocol">

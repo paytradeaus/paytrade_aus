@@ -302,14 +302,18 @@ export default function FormArrayGrid() {
               <th>
                 Quantity<span className="required">*</span>
               </th>
-              <th>
-                Unit price<span className="required">*</span>
+              <th
+                data-tooltip="Enter the unit price excluding GST. Tick the GST column to add 10% on top."
+                data-placement="top"
+              >
+                Unit price (ex-GST)<span className="required">*</span>{" "}
+                <i className="fa-light fa-circle-info thicon"></i>
               </th>
               <th
                 data-tooltip={
                   formik?.values?.isGstChecked
-                    ? "DISABLE THIS OPTION IF THIS BUSINESS IS NOT REGISTERED FOR GST "
-                    : "ENABLE THIS OPTION IF THIS BUSINESS IS REGISTERED FOR GST"
+                    ? "DISABLE THIS OPTION IF THIS BUSINESS IS NOT REGISTERED FOR GST. Unit price stays ex-GST."
+                    : "ENABLE THIS OPTION IF THIS BUSINESS IS REGISTERED FOR GST. 10% will be added on top of the ex-GST unit price."
                 }
                 data-placement="left"
               >
