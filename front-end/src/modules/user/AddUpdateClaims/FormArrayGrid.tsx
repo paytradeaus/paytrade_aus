@@ -538,30 +538,26 @@ export default function FormArrayGrid() {
             </div>
             <div>
               <h5>GST</h5>
-              <h4>
-                {(() => {
-                  // When the claim has retention recorded BAS-Excluded
-                  // (e.g. Xero bills using ex_gst retention mode), the
-                  // backend's `claim_amount` already nets the GST against
-                  // the retention share. In that case derive the GST line
-                  // from `totalAmount - subTotal` so Sub Total + GST = Total
-                  // reconciles. For all other cases the value is identical
-                  // to the locally-summed `gstAmount`.
-                  const sub = Number(formik?.values?.subTotal) || 0;
-                  const total = Number(formik?.values?.totalAmount) || 0;
-                  const localGst = Number(formik?.values?.gstAmount) || 0;
-                  const derived = total - sub;
-                  const useDerived =
-                    sub > 0 &&
-                    total > 0 &&
-                    Math.abs(derived - localGst) > 0.01;
-                  return formatRupees(useDerived ? derived : localGst);
-                })()}
-              </h4>
+              <h4>{formatRupees(Number(formik?.values?.gstAmount) || 0)}</h4>
             </div>
             <div>
               <h5>Total</h5>
-              <h3>{formatRupees(formik?.values?.totalAmount)}</h3>
+              <h3>
+                {/*
+                  Sub Total + GST must always match the line items above.
+                  `formik.values.totalAmount` is overloaded — on a fresh
+                  claim it holds Sub Total + GST (set by the input handlers
+                  in this file), but after a view/edit load it holds the
+                  backend `claim_amount` which is net of GST-on-retention.
+                  Render the locally-summed gross here so the totals panel
+                  reconciles with the line items; the net Claim Amount is
+                  shown separately in the header card.
+                */}
+                {formatRupees(
+                  (Number(formik?.values?.subTotal) || 0) +
+                    (Number(formik?.values?.gstAmount) || 0)
+                )}
+              </h3>
             </div>
           </div>
         </div>
