@@ -45,6 +45,9 @@ import {
 // uses the dedicated mutation + the existing "list projects for company"
 // helper so no extra backend query is needed.
 import { getProjectsLists } from "../../AddUpdateClaims/AddUpdateClaims.function";
+// Used to hide the Xero-specific fields on this form when no Xero
+// integration is connected (or it's archived/disconnected).
+import { getIntegrationListsForCompany } from "../../UserIntegrations/integration.functions";
 import { useCustomDebounce, useIsClient } from "@/hooks";
 import {
   setAccountDetailsData,
@@ -107,6 +110,32 @@ export default function AddClientsAndSuppliers() {
       }
     }
   }, [slugData?.[0]]);
+
+  // Hide the entire "Xero integration" rollup when no Xero integration
+  // exists for the company OR the integration is disconnected/archived.
+  // We treat any of "Connected - active" / "Connected - paused" /
+  // "Inactive" as "Xero is in play" — Inactive still has historical
+  // mappings the user may want to manage. Disconnected/Archived hides.
+  const [xeroIntegrationActive, setXeroIntegrationActive] = useState(false);
+  useEffect(() => {
+    const companyId = Number(localStorage.getItem("companyId"));
+    if (!companyId) return;
+    getIntegrationListsForCompany({
+      getIntegrationListsInput: { company_id: companyId },
+    })
+      .then((res: any) => {
+        const xero = (res?.integration_list || []).find(
+          (val: any) => val?.integration_name === "Xero",
+        );
+        const status = xero?.integration_status;
+        setXeroIntegrationActive(
+          status === "Connected - active" ||
+            status === "Connected - paused" ||
+            status === "Inactive",
+        );
+      })
+      .catch(() => setXeroIntegrationActive(false));
+  }, []);
 
   const [patchData, setPatchData] = useState<any>(null);
 
@@ -822,6 +851,24 @@ export default function AddClientsAndSuppliers() {
                   value={formik.values.tfn_number}
                 />
 
+                {/* All Xero-specific per-contact overrides live in this
+                    collapsible. Hidden entirely when no Xero integration
+                    is connected for this company so non-Xero users never
+                    see Xero terminology on the form. */}
+                {xeroIntegrationActive && (
+                <details style={{ marginTop: 12 }}>
+                  <summary role="button" className="outline contrast">
+                    Xero integration settings (optional)
+                  </summary>
+                  <div style={{ marginTop: 12 }}>
+                    <p>
+                      <small>
+                        These three fields override the org-wide Xero
+                        defaults for this contact only. Leave them blank
+                        / on the default option to inherit from your
+                        Xero Settings page.
+                      </small>
+                    </p>
                 {/* Phase 2 — per-contact Xero GST overrides. Optional;
                     leaving "Use organisation settings" lets the backend
                     fall through to the cached Xero org default and then
@@ -1025,6 +1072,23 @@ export default function AddClientsAndSuppliers() {
                       )}
                     </div>
                   )}
+
+                {slugData?.length &&
+                  slugData[0]?.toLowerCase() === ADD &&
+                  formik?.values?.client_supplier_type?.value ===
+                    "Supplier" && (
+                    <p style={{ marginTop: 8 }}>
+                      <small>
+                        Per-project Xero account code overrides can be
+                        added once the supplier has been saved — open
+                        the supplier in edit mode to assign per-project
+                        codes.
+                      </small>
+                    </p>
+                  )}
+                  </div>
+                </details>
+                )}
 
                 <FormikControl
                   control={InputType.TEXT_FIELD}
