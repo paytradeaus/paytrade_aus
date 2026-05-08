@@ -1,0 +1,3 @@
+# UI Status Lookup (NULL vs empty string)
+
+`ui_status_and_action_buttons` rows store `claim_type`/`payment_type`/`current_status` as SQL `NULL` for "not applicable" states (e.g. a Xero-imported claim that has no payments yet has `payment_type=NULL`). All four `whereConditions` builders in `back-end/src/api/users/banking/ui-status.service.ts` (lines ~205, ~459, ~740, ~1102) coerce empty-string/null inputs to TypeORM's `IsNull()` so the emitted SQL is `IS NULL` rather than `= ''`. Without this coercion, lookups for Xero-imported `Confirmed` claims with no payments missed the matching seed row and persisted `claim_overview_buttons={}`, causing the claim drawer footer to render only Close (no Edit, no Add Payment).

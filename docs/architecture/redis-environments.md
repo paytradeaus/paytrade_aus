@@ -1,0 +1,3 @@
+# Redis Environments & Webhook Queue Namespacing
+
+Redis is shared across all environments (dev/staging/production). Used for BullMQ job queuing and Xero webhook event queue. The webhook queue is namespaced per environment (`xero_webhook_queue:{environment}`) — each backend consumes only its own queue. Auto-detection: `REPL_ID` without `REPLIT_DEPLOYMENT` → `development`, `REPL_ID` with `REPLIT_DEPLOYMENT` → `staging`, neither → `production`. Override with `APP_ENVIRONMENT` env var. The Cloudflare webhook relay worker fans out to all three queues (`xero_webhook_queue:production`, `xero_webhook_queue:staging`, `xero_webhook_queue:development`).
