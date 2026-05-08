@@ -5305,5 +5305,25 @@
     "from_xero": false,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 493,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the payment as 'exceeds amount outstanding' but invoice {{invoice_number}} is already fully paid in Xero (matched payment {{matched_payment_id}}). PayTrade has been auto-marked as already-synced — no further action required.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "PAYMENT_ALREADY_SETTLED_IN_XERO",
+    "associated_log_ids": null
+  },
+  {
+    "id": 494,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the payment for invoice {{invoice_number}} because the requested amount {{requested_amount}} exceeds the outstanding balance {{amount_due}}. Reduce the PayTrade payment amount to {{amount_due}} (or less) and re-sync.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PAYMENT_EXCEEDS_OUTSTANDING",
+    "associated_log_ids": null
   }
 ]

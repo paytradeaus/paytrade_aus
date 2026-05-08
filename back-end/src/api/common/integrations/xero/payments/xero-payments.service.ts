@@ -982,6 +982,247 @@ export class XeroPaymentsService {
         }
       } catch (error) {
         const errMsg = await handleAxiosError(error);
+
+        // -----------------------------------------------------------------
+        // Task #51 — Auto-recover when Xero rejects the Payment leg with
+        // "exceeds amount outstanding". The invoice is already (partially)
+        // paid in Xero. We refresh the invoice and either short-circuit
+        // (mark already-synced if AmountDue == 0) or surface a clear
+        // remediation log carrying the AmountDue figure.
+        // -----------------------------------------------------------------
+        const isExceedsOutstanding =
+          !skipPayment &&
+          typeof errMsg === 'string' &&
+          /exceeds?.*(amount\s+)?outstanding/i.test(errMsg);
+        if (isExceedsOutstanding) {
+          try {
+            const invResp = await this.xero.accountingApi.getInvoice(
+              xeroDetails.tenant_id,
+              xeroInvoicesBills.invoice_id,
+            );
+            const freshInvoice = invResp?.body?.invoices?.[0];
+            const amountDue = Number(freshInvoice?.amountDue ?? 0);
+            const invoiceNumber =
+              freshInvoice?.invoiceNumber ||
+              xeroInvoicesBills.invoice_id ||
+              '';
+            this.logger.log(
+              `[Task#51 exceeds-outstanding] payment_id=${payment_id} invoice=${invoiceNumber} amountDue=${amountDue}`,
+            );
+
+            if (Math.abs(amountDue) < 0.005) {
+              // (a) Invoice fully paid in Xero — short-circuit by
+              // recording an existing Xero payment against the PT row
+              // so the resolver gate won't keep retrying.
+              const xeroPayments: any[] = Array.isArray(freshInvoice?.payments)
+                ? freshInvoice.payments
+                : [];
+              const wantAmount = Number(amount);
+              const matched =
+                xeroPayments.find(
+                  (p: any) =>
+                    (p?.account?.accountID ===
+                      xeroBankAccountDetails.account_id ||
+                      !p?.account?.accountID) &&
+                    Math.abs(Number(p?.amount ?? 0) - wantAmount) < 0.005,
+                ) ||
+                xeroPayments
+                  .slice()
+                  .sort(
+                    (a: any, b: any) =>
+                      new Date(b?.date || 0).getTime() -
+                      new Date(a?.date || 0).getTime(),
+                  )[0];
+
+              let bank_transfer_id: string | null =
+                existingXp?.bank_transfer_id || null;
+              let bank_transfer_reference: string | null =
+                (existingXp as any)?.bank_transfer_reference || null;
+
+              // Best-effort: if the transfer leg was also requested and
+              // not yet pushed, attempt it now that the payment leg is
+              // resolved. Failures here should not break recovery.
+              if (!skipTransfer) {
+                try {
+                  const ptRef = `PT-RET-${payment_id}`;
+                  const bankTransfer: BankTransfer = {
+                    fromBankAccount: {
+                      accountID: xeroBankAccountDetails.account_id,
+                    },
+                    toBankAccount: {
+                      accountID: xeroRetentionBankAccountDetails.account_id,
+                    },
+                    amount: retention_amount,
+                    date: dateValue,
+                    reference: ptRef,
+                  };
+                  const retentionTransfer =
+                    await this.xero.accountingApi.createBankTransfer(
+                      xeroDetails.tenant_id,
+                      { bankTransfers: [bankTransfer] },
+                    );
+                  if (retentionTransfer?.body?.bankTransfers) {
+                    bank_transfer_id =
+                      retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
+                    bank_transfer_reference = ptRef;
+                  }
+                } catch (transferErr) {
+                  this.logger.log(
+                    `[Task#51 exceeds-outstanding] transfer leg failed during recovery: ${await handleAxiosError(transferErr)}`,
+                  );
+                }
+              }
+
+              const requestData: any = {
+                tenant_id: xeroDetails.tenant_id,
+                integration_id: xeroDetails.integration_id,
+                contact_id: xeroContactDetails.id,
+                invoice_id: xeroInvoicesBills.id,
+                pt_payment_id: payment_id,
+                mapped_status: 'System',
+              };
+              if (matched) {
+                requestData.payment_id = matched.paymentID;
+                requestData.account_id = xeroBankAccountDetails.id;
+                requestData.payment_type = matched.paymentType;
+                requestData.status = matched.status || 'AUTHORISED';
+                requestData.payment_date = matched.date;
+                requestData.reference = matched.reference;
+                requestData.payment_amount = matched.amount;
+                requestData.bank_amount = matched.bankAmount;
+                requestData.is_reconciled = matched.isReconciled;
+              }
+              if (bank_transfer_id) {
+                requestData.bank_transfer_id = bank_transfer_id;
+                requestData.bank_transfer_reference = bank_transfer_reference;
+              }
+
+              // Always persist (or update) a xero_payments row so the
+              // recovery is durable, even when no Xero payment record
+              // matched (e.g. invoice settled via credit note or
+              // adjustment with no payments[] entry returned).
+              if (!requestData.reference) {
+                requestData.reference = `RECOVERED-EXCEEDS-OUTSTANDING:${invoiceNumber}`;
+              }
+              if (!requestData.status) {
+                requestData.status = 'AUTHORISED';
+              }
+              let xeroResponse: any;
+              if (existingXp) {
+                await this.xeroPayments.update(
+                  { id: existingXp.id },
+                  requestData,
+                );
+                xeroResponse = await this.xeroPayments.findOne({
+                  where: { id: existingXp.id },
+                });
+              } else {
+                requestData.created_on =
+                  matched?.updatedDateUTC || moment.tz('UTC').toDate();
+                requestData.created_by = decoded?.userId;
+                requestData.created_group = decoded?.isAdmin
+                  ? 'ADMIN'
+                  : 'USER';
+                const row = await this.xeroPayments.create(requestData);
+                xeroResponse = await this.xeroPayments.save(row);
+              }
+
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id,
+                api_name: 'createPaymentInXero',
+                api_payload: {
+                  ...data,
+                  mapping_project_id: xeroInvoicesBills?.project_id,
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 493,
+                dynamic_values: {
+                  invoice_number: invoiceNumber,
+                  matched_payment_id: matched?.paymentID || 'none',
+                },
+                project_id: xeroInvoicesBills?.project_id,
+                contract_id: xeroInvoicesBills?.contract_id,
+                reference: {
+                  xeroId: xeroResponse?.id || null,
+                  paytradeId: paymentDetails?.id,
+                },
+                reference_id: paymentDetails?.id,
+                history: [
+                  `API triggered from payment ${paymentDetails?.payment_id}`,
+                  'Recovered: invoice already fully paid in Xero',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                },
+                error_message: null,
+                xero_records: matched ? [matched] : [],
+                paytrade_records: [paymentDetails],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+              return xeroResponse || true;
+            }
+
+            // (b) Invoice still has an outstanding balance smaller than
+            // the requested payment amount — surface a dedicated Failed
+            // log explaining the gap so the user can adjust.
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: data?.sync_id,
+              api_name: 'createPaymentInXero',
+              api_payload: {
+                ...data,
+                mapping_project_id: xeroInvoicesBills?.project_id,
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 494,
+              dynamic_values: {
+                invoice_number: invoiceNumber,
+                amount_due: amountDue.toFixed(2),
+                requested_amount: Number(amount).toFixed(2),
+              },
+              project_id: xeroInvoicesBills?.project_id,
+              contract_id: xeroInvoicesBills?.contract_id,
+              reference: {
+                xeroId: null,
+                paytradeId: paymentDetails?.id,
+              },
+              reference_id: paymentDetails?.id,
+              history: [
+                `API triggered from payment ${paymentDetails?.payment_id}`,
+                `Xero rejected: payment ${Number(amount).toFixed(2)} exceeds amount outstanding ${amountDue.toFixed(2)}`,
+              ],
+              important_checks: {
+                'Import data format validation': 'Ok',
+                'Import tracking id validation': 'Ok',
+                'Import account type validation': 'Ok',
+                'Import tax type validation': 'Ok',
+                'Client/Supplier mapping validation': 'Ok',
+                'Contract mapping validation': 'Ok',
+                'Project mapping validation': 'Ok',
+              },
+              error_message: errMsg,
+              xero_records: freshInvoice ? [freshInvoice] : [],
+              paytrade_records: [paymentDetails],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return false;
+          } catch (recoverErr) {
+            // Fall through to the generic failed log below.
+            this.logger.log(
+              `[Task#51 exceeds-outstanding] recovery path failed: ${await handleAxiosError(recoverErr)}`,
+            );
+          }
+        }
+
         const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
           decoded,
           {
