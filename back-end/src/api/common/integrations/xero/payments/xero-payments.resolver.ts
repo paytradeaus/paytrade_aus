@@ -881,6 +881,73 @@ export class XeroPaymentsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => GetXeroPaymentsResponse, {
+    name: 'retryRetentionTransferFromSyncLog',
+    description:
+      'Task #61 — Re-fires the BankTransfer leg of a payment from a Failed retention-transfer sync log (templates 496/497/498).',
+  })
+  async retryRetentionTransferFromSyncLog(
+    @Context() context,
+    @Args('sync_log_id', {
+      description:
+        'The id of the Failed retention-transfer sync log to retry.',
+    })
+    sync_log_id: string,
+  ): Promise<any> {
+    var companyId: any;
+    var decoded: any;
+    try {
+      const { headers } = context.req;
+      companyId = headers?.companyid;
+      decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const response: any =
+        await this.xeroPaymentsService.retryRetentionTransferFromSyncLog(
+          decoded,
+          sync_log_id,
+          Number(companyId),
+        );
+
+      if (response) {
+        return framedResponse(
+          'SUCCESS',
+          `Retention transfer retry triggered — see new sync log entry for the outcome`,
+          response,
+        );
+      }
+      return framedResponse(
+        'ERROR',
+        'Retention transfer retry failed — see the new sync log entry for details',
+      );
+    } catch (error) {
+      const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
+        error,
+      });
+
+      if (isRefreshToken) {
+        try {
+          const response = await this.xeroService.getAuthUrl(
+            companyId,
+            decoded?.userId,
+            decoded?.isAdmin,
+            decoded?.timezone,
+          );
+
+          return framedResponse('XERO_REFRESH', response);
+        } catch (error) {
+          return framedResponse(
+            'ERROR',
+            error?.message ? error.message : error,
+          );
+        }
+      }
+
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {
     name: 'unMappingPayment',
     description: 'Removes mapping for a specific payment.',

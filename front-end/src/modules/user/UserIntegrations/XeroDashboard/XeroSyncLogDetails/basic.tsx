@@ -30,6 +30,7 @@ import {
   CreateClaimInPaytradeForTable,
   CreateClaimInPaytradeReason,
   createInvoiceOrBillInPaytradeTable,
+  RetryRetentionTransferFromSyncLog,
 } from "./syncLog.functions";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { useTokenDetails } from "@/hooks";
@@ -50,6 +51,7 @@ export default function SyncLogDetailsBasic() {
   const [viewLogData, setViewLogData] = useState<any>();
   const [resolveInprogress, setResolveInprogress] = useState(false);
   const [retryInprogress, setRetryInprogress] = useState(false);
+  const [retentionRetryInprogress, setRetentionRetryInprogress] = useState(false);
   const statusColors = {
     Ok: "#22bb33",
     Failed: "#FF2C2C",
@@ -611,6 +613,32 @@ export default function SyncLogDetailsBasic() {
     viewLogData?.api_payload?.invoice_id &&
     viewLogData?.api_payload?.tenant_id &&
     retryableApiNames.includes(viewLogData?.api_name);
+
+  // Task #61 — Retry retention transfer button. Shown for the three Failed
+  // BankTransfer-leg sync logs surfaced by Task #54 (templates 496/497/498).
+  const retentionTransferRetryableErrorCodes = [
+    "RETENTION_TRANSFER_DUPLICATE_REFERENCE",
+    "RETENTION_TRANSFER_ACCOUNT_INVALID",
+    "RETENTION_TRANSFER_REJECTED",
+  ];
+  const isRetentionTransferRetryable =
+    viewLogData?.sync_status === "Failed" &&
+    viewLogData?.api_name === "createPaymentInXero" &&
+    retentionTransferRetryableErrorCodes.includes(viewLogData?.error_code) &&
+    !!viewLogData?.api_payload?.payment_id;
+
+  async function retryRetentionTransferHandle() {
+    if (!viewLogData?.id) return;
+    setRetentionRetryInprogress(true);
+    setLoading(true);
+    try {
+      await RetryRetentionTransferFromSyncLog(viewLogData.id);
+    } finally {
+      setLoading(false);
+      setRetentionRetryInprogress(false);
+      getViewSyncLogDetails();
+    }
+  }
 
   async function retryHandle() {
     setRetryInprogress(true);
@@ -1471,6 +1499,38 @@ export default function SyncLogDetailsBasic() {
                               }}
                             ></i>
                             {retryInprogress ? "Retrying..." : "Retry"}
+                          </button>
+                        )}
+                        {isRetentionTransferRetryable && (
+                          <button
+                            style={{
+                              whiteSpace: "nowrap",
+                              padding: "6px 14px",
+                              backgroundColor: "#2563EB",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              height: "fit-content",
+                              margin: 0,
+                            }}
+                            onClick={() => retryRetentionTransferHandle()}
+                            disabled={retentionRetryInprogress}
+                            title="Re-fires the retention BankTransfer leg in Xero. Use this after fixing the underlying Xero issue (e.g. funding the bank account)."
+                          >
+                            <i
+                              className="fa-light fa-rotate-right"
+                              style={{
+                                marginRight: "10px",
+                                marginLeft: "10px",
+                              }}
+                            ></i>
+                            {retentionRetryInprogress
+                              ? "Retrying..."
+                              : "Retry retention transfer"}
                           </button>
                         )}
                       </div>

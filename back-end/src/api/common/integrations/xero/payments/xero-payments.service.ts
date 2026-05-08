@@ -61,6 +61,7 @@ import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -96,6 +97,8 @@ export class XeroPaymentsService {
     private paymentDetails: Repository<PaymentDetails>,
     @InjectRepository(SubPayments)
     private subPaymentsRepo: Repository<SubPayments>,
+    @InjectRepository(XeroSyncLogs)
+    private xeroSyncLogs: Repository<XeroSyncLogs>,
     private readonly xeroService: XeroService,
   ) {
     this.xero = new XeroClient({
@@ -7408,6 +7411,86 @@ export class XeroPaymentsService {
     } catch (error) {
       throw error;
     }
+  }
+
+  // Task #61 — One-click "Retry retention transfer" from a failed sync log.
+  // Re-invokes createPayment with sync_payment=false / sync_transfer=true so
+  // only the BankTransfer leg fires. Used after the user has fixed whatever
+  // Xero rejected (duplicate ref, account mismatch, insufficient balance).
+  async retryRetentionTransferFromSyncLog(
+    decoded: any,
+    sync_log_id: string,
+    company_id: number,
+  ) {
+    const RETRYABLE_CODES = [
+      'RETENTION_TRANSFER_DUPLICATE_REFERENCE',
+      'RETENTION_TRANSFER_ACCOUNT_INVALID',
+      'RETENTION_TRANSFER_REJECTED',
+    ];
+
+    if (!company_id) {
+      throw `Company context missing — cannot authorize retry`;
+    }
+
+    const syncLog = await this.xeroSyncLogs.findOne({
+      where: { id: sync_log_id },
+    });
+    if (!syncLog) {
+      throw `Sync log not found`;
+    }
+    if (syncLog.api_name !== 'createPaymentInXero') {
+      throw `Sync log is not a payment sync — cannot retry retention transfer`;
+    }
+    if (!RETRYABLE_CODES.includes(syncLog.error_code)) {
+      throw `Sync log is not a retryable retention transfer failure`;
+    }
+    const payload = (syncLog.api_payload || {}) as any;
+    const payment_id = Number(payload.payment_id);
+    if (!payment_id) {
+      throw `Sync log is missing payment_id — cannot retry`;
+    }
+
+    // Ownership / tenant scoping (Task #61 follow-up to code review):
+    // Verify the sync log's integration AND the underlying payment both
+    // belong to the caller's active company. Without this, a user could
+    // POST any sync_log_id and trigger a retention transfer in another
+    // tenant's Xero org (IDOR).
+    const callerXeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: Number(company_id), status: 'ACTIVE' },
+    });
+    if (
+      !callerXeroDetails ||
+      !callerXeroDetails.integration_id ||
+      callerXeroDetails.integration_id !== syncLog.integration_id
+    ) {
+      throw `Sync log does not belong to the current company`;
+    }
+    const paymentRow = await this.paymentDetails.findOne({
+      where: { payment_id },
+    });
+    if (!paymentRow || Number(paymentRow.company_id) !== Number(company_id)) {
+      throw `Payment does not belong to the current company`;
+    }
+
+    this.logger.log(
+      `[Task#61 retry-retention-transfer] sync_log_id=${sync_log_id} payment_id=${payment_id} error_code=${syncLog.error_code} company_id=${company_id}`,
+    );
+
+    const retryInput: CreatePaymentInput = {
+      payment_id,
+      bank_account_id: payload.bank_account_id,
+      retention_account: payload.retention_account,
+      amount: payload.amount,
+      retention_amount: payload.retention_amount,
+      payment_date: payload.payment_date,
+      cash_retention: true,
+      sync_payment: false,
+      sync_transfer: true,
+      // Omit sync_id so a fresh sync log run is created instead of
+      // overwriting the historical failure entry.
+    };
+
+    return await this.createPayment(decoded, retryInput);
   }
 
   async unMappingPayment(payment_id: string, company_id: number, decoded: any) {

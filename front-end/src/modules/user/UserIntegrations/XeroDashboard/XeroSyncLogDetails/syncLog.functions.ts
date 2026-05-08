@@ -833,6 +833,41 @@ export async function CreatePaymentInXero(postData: any): Promise<any> {
   }
 }
 
+// Task #61 — Re-fires the BankTransfer leg of a payment from a Failed
+// retention-transfer sync log (templates 496/497/498).
+export async function RetryRetentionTransferFromSyncLog(
+  syncLogId: string
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation RetryRetentionTransferFromSyncLog($syncLogId: String!) {
+          retryRetentionTransferFromSyncLog(sync_log_id: $syncLogId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { syncLogId },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.retryRetentionTransferFromSyncLog;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return null;
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
+      return true;
+    }
+    showErrorToast(res?.message);
+    return false;
+  } catch (error: any) {
+    showErrorToast(error);
+    return false;
+  }
+}
+
 export async function CreateOverPaymentRefundInXero(
   postData: any
 ): Promise<any> {
