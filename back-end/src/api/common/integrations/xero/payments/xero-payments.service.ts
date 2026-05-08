@@ -828,6 +828,12 @@ export class XeroPaymentsService {
             existingXp?.bank_transfer_id || null;
           let bank_transfer_reference: string | null =
             (existingXp as any)?.bank_transfer_reference || null;
+          // Task #54 — set when the transfer leg fails AND we could not
+          // recover by linking an existing PT-RET-{payment_id} transfer.
+          // Used downstream to suppress the contradictory "success" log
+          // (template 168) so operators don't see a Failed + Succeeded
+          // pair for the same run.
+          let transferFailedWithoutRecovery = false;
           if (!skipTransfer) {
             const ptRef = `PT-RET-${payment_id}`;
             const bankTransfer: BankTransfer = {
@@ -840,18 +846,195 @@ export class XeroPaymentsService {
               reference: ptRef,
             };
             this.logger.log(`bankTransfer: ${JSON.stringify(bankTransfer)}`);
-            const retentionTransfer =
-              await this.xero.accountingApi.createBankTransfer(
-                xeroDetails.tenant_id,
-                { bankTransfers: [bankTransfer] },
-              );
-            if (retentionTransfer?.body?.bankTransfers) {
+            try {
+              const retentionTransfer =
+                await this.xero.accountingApi.createBankTransfer(
+                  xeroDetails.tenant_id,
+                  { bankTransfers: [bankTransfer] },
+                );
+              if (retentionTransfer?.body?.bankTransfers) {
+                this.logger.log(
+                  `retention: ${JSON.stringify(retentionTransfer?.body?.bankTransfers)}`,
+                );
+                bank_transfer_id =
+                  retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
+                bank_transfer_reference = ptRef;
+              }
+            } catch (transferErr) {
+              // ---------------------------------------------------------
+              // Task #54 — Auto-recover when Xero rejects the BankTransfer
+              // leg. Mirrors Task #51 for the Payment leg. Detect known
+              // rejection patterns (duplicate reference, account mismatch,
+              // insufficient balance), look up any pre-existing transfer
+              // that already carries our PT-RET-{payment_id} reference,
+              // and either short-circuit (link it) or surface a dedicated
+              // Failed sync log explaining the cause. The Payment leg's
+              // success is preserved either way.
+              // ---------------------------------------------------------
+              const transferErrMsg = await handleAxiosError(transferErr);
               this.logger.log(
-                `retention: ${JSON.stringify(retentionTransfer?.body?.bankTransfers)}`,
+                `[Task#54 transfer-recovery] payment_id=${payment_id} transfer leg failed: ${transferErrMsg}`,
               );
-              bank_transfer_id =
-                retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
-              bank_transfer_reference = ptRef;
+              const lower =
+                typeof transferErrMsg === 'string'
+                  ? transferErrMsg.toLowerCase()
+                  : '';
+              const isDuplicateRef =
+                /duplicate|already\s+exists|reference.*(unique|exists)|unique.*reference/.test(
+                  lower,
+                );
+              const isAccountMismatch =
+                /from.*bank.*account|to.*bank.*account|same\s+account|invalid\s+account|account.*not.*valid|account.*does\s*not\s*exist|bankaccount/.test(
+                  lower,
+                );
+              const isInsufficientBalance =
+                /insufficient|not\s+enough|balance|funds/.test(lower);
+              const isKnownPattern =
+                isDuplicateRef ||
+                isAccountMismatch ||
+                isInsufficientBalance;
+
+              // Step 1: Try to recover by finding an existing Xero
+              // BankTransfer that carries our PT reference. Gated to
+              // known rejection patterns to avoid an extra Xero API
+              // call on transient/unrelated errors (network blips,
+              // 500s, etc.) which fall through to the generic Failed
+              // log below.
+              let recovered: any = null;
+              if (isKnownPattern) {
+                try {
+                  const lookbackDate = moment(dateValue)
+                    .subtract(60, 'days')
+                    .toDate();
+                  const existingResp =
+                    await this.xero.accountingApi.getBankTransfers(
+                      xeroDetails.tenant_id,
+                      lookbackDate,
+                      null,
+                      'Date DESC',
+                    );
+                  const candidates =
+                    existingResp?.body?.bankTransfers || [];
+                  recovered =
+                    candidates.find(
+                      (t: any) =>
+                        typeof t?.reference === 'string' &&
+                        t.reference === ptRef,
+                    ) || null;
+                  this.logger.log(
+                    `[Task#54 transfer-recovery] candidate count=${candidates.length} matched_by_ref=${!!recovered}`,
+                  );
+                } catch (lookupErr) {
+                  this.logger.log(
+                    `[Task#54 transfer-recovery] getBankTransfers failed: ${await handleAxiosError(lookupErr)}`,
+                  );
+                }
+              }
+
+              if (recovered?.bankTransferID) {
+                bank_transfer_id = recovered.bankTransferID;
+                bank_transfer_reference = ptRef;
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: data?.sync_id,
+                  api_name: 'createPaymentInXero',
+                  api_payload: {
+                    ...data,
+                    mapping_project_id: xeroInvoicesBills?.project_id,
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 495,
+                  dynamic_values: {
+                    reference: ptRef,
+                    bank_transfer_id: recovered.bankTransferID,
+                  },
+                  project_id: xeroInvoicesBills?.project_id,
+                  contract_id: xeroInvoicesBills?.contract_id,
+                  reference: {
+                    xeroId: null,
+                    paytradeId: paymentDetails?.id,
+                  },
+                  reference_id: paymentDetails?.id,
+                  history: [
+                    `API triggered from payment ${paymentDetails?.payment_id}`,
+                    `Recovered: linked existing Xero BankTransfer ${recovered.bankTransferID} via reference ${ptRef}`,
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Ok',
+                    'Import tracking id validation': 'Ok',
+                    'Import account type validation': 'Ok',
+                    'Import tax type validation': 'Ok',
+                    'Client/Supplier mapping validation': 'Ok',
+                    'Contract mapping validation': 'Ok',
+                    'Project mapping validation': 'Ok',
+                  },
+                  error_message: null,
+                  xero_records: [recovered],
+                  paytrade_records: [paymentDetails],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } else {
+                // Step 2: No existing transfer found — surface a dedicated
+                // Failed log keyed off the detected pattern. The payment
+                // leg (if it fired) still gets persisted below; the user
+                // can re-tick Confirm Retention once they fix the cause.
+                transferFailedWithoutRecovery = true;
+                let log_template_id = 498;
+                let history_tail =
+                  `Xero rejected the BankTransfer and no existing transfer with reference ${ptRef} was found: ${transferErrMsg}`;
+                if (isDuplicateRef) {
+                  log_template_id = 496;
+                  history_tail = `Xero rejected the BankTransfer as a duplicate reference, but no existing transfer with reference ${ptRef} was found in Xero — manual reconciliation may be required: ${transferErrMsg}`;
+                } else if (isAccountMismatch) {
+                  log_template_id = 497;
+                  history_tail = `Xero rejected the BankTransfer due to an account problem (from/to accounts equal or invalid): ${transferErrMsg}`;
+                } else if (isInsufficientBalance) {
+                  log_template_id = 498;
+                  history_tail = `Xero rejected the BankTransfer (insufficient balance or similar): ${transferErrMsg}`;
+                }
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: data?.sync_id,
+                  api_name: 'createPaymentInXero',
+                  api_payload: {
+                    ...data,
+                    mapping_project_id: xeroInvoicesBills?.project_id,
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id,
+                  dynamic_values: {
+                    reference: ptRef,
+                    retention_amount: Number(retention_amount).toFixed(2),
+                    error: transferErrMsg,
+                  },
+                  project_id: xeroInvoicesBills?.project_id,
+                  contract_id: xeroInvoicesBills?.contract_id,
+                  reference: {
+                    xeroId: null,
+                    paytradeId: paymentDetails?.id,
+                  },
+                  reference_id: paymentDetails?.id,
+                  history: [
+                    `API triggered from payment ${paymentDetails?.payment_id}`,
+                    history_tail,
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Ok',
+                    'Import tracking id validation': 'Ok',
+                    'Import account type validation': 'Ok',
+                    'Import tax type validation': 'Ok',
+                    'Client/Supplier mapping validation': 'Ok',
+                    'Contract mapping validation': 'Ok',
+                    'Project mapping validation': 'Ok',
+                  },
+                  error_message: transferErrMsg,
+                  xero_records: [],
+                  paytrade_records: [paymentDetails],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              }
             }
           }
 
@@ -880,6 +1063,20 @@ export class XeroPaymentsService {
             requestData.bank_transfer_reference = bank_transfer_reference;
           }
 
+          // Task #54 — if the transfer leg failed without recovery AND
+          // the payment leg didn't fire (or also produced nothing), there
+          // is no new Xero state to persist. The dedicated Failed log
+          // (496/497/498) was already emitted; short-circuit before
+          // writing an empty/duplicate xero_payments row or the
+          // contradictory success log (168).
+          const haveNewXeroState = !!freshPayment || !!bank_transfer_id;
+          if (transferFailedWithoutRecovery && !haveNewXeroState) {
+            this.logger.log(
+              `[Task#54 transfer-recovery] Suppressing success log/persist for payment_id=${payment_id} — transfer leg failed and no payment leg state to persist.`,
+            );
+            return false;
+          }
+
           let xeroResponse: any;
           if (existingXp) {
             this.logger.log(
@@ -901,6 +1098,19 @@ export class XeroPaymentsService {
             this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
             const xeroPaymentsRow = await this.xeroPayments.create(requestData);
             xeroResponse = await this.xeroPayments.save(xeroPaymentsRow);
+          }
+
+          // Task #54 — when the payment leg succeeded but the transfer
+          // leg failed without recovery, skip the generic success log
+          // (template 168) so operators don't see a Failed + Succeeded
+          // pair for the same run. The persist above still runs so the
+          // payment leg's progress isn't lost; the dedicated Failed log
+          // (496/497/498) tells the user what to fix.
+          if (transferFailedWithoutRecovery) {
+            this.logger.log(
+              `[Task#54 transfer-recovery] payment_id=${payment_id} payment leg persisted; success log 168 suppressed because transfer leg failed.`,
+            );
+            return xeroResponse;
           }
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id,

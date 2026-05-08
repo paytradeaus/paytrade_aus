@@ -5325,5 +5325,45 @@
     "from_xero": false,
     "error_code": "PAYMENT_EXCEEDS_OUTSTANDING",
     "associated_log_ids": null
+  },
+  {
+    "id": 495,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the new BankTransfer but an existing transfer with reference {{reference}} was found in Xero (BankTransfer {{bank_transfer_id}}). PayTrade has been auto-linked to it — no further action required.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_RECOVERED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 496,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the retention BankTransfer (reference {{reference}}, amount {{retention_amount}}) as a duplicate, but no matching transfer was found in Xero. Manual reconciliation may be required. Xero error: {{error}}</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_DUPLICATE_REFERENCE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 497,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the retention BankTransfer (reference {{reference}}) due to an account problem — the from/to accounts may be the same, missing, or not enabled for transfers. Check the payment and retention bank account settings, then re-tick Confirm Retention. Xero error: {{error}}</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_ACCOUNT_INVALID",
+    "associated_log_ids": null
+  },
+  {
+    "id": 498,
+    "sync_type": "Payments",
+    "description": "<p>Xero rejected the retention BankTransfer (reference {{reference}}, amount {{retention_amount}}). Common causes include insufficient balance or other Xero validation rules. Resolve the underlying issue in Xero and re-tick Confirm Retention to retry. Xero error: {{error}}</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_REJECTED",
+    "associated_log_ids": null
   }
 ]
