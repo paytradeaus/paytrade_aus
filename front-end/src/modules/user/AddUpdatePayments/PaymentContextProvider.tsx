@@ -52,6 +52,7 @@ import { CreateClaimInPaytrade } from "../UserIntegrations/XeroDashboard/XeroSyn
 const PaymentsContext: any = createContext(null);
 
 const AUTO_CLOSE_TIME = 30;
+const PAUSE_DURATION_SECONDS = 5 * 60; // 5 minutes
 
 export const PaymentsProvider = ({ children }: any) => {
   const previousPage = getCookie("from_page");
@@ -90,8 +91,21 @@ export const PaymentsProvider = ({ children }: any) => {
   >(null);
   const [noticesAutomated, setNoticesAutomated] = useState(false);
   const [timeLeft, setTimeLeft] = useState(AUTO_CLOSE_TIME);
+  const [isNoticePopupPaused, setIsNoticePopupPaused] = useState(false);
+  const [pauseSecondsLeft, setPauseSecondsLeft] = useState(0);
   const progressPercent =
     ((AUTO_CLOSE_TIME - timeLeft) / AUTO_CLOSE_TIME) * 100;
+
+  const pauseNoticePopup = () => {
+    if (isNoticePopupPaused) return;
+    setIsNoticePopupPaused(true);
+    setPauseSecondsLeft(PAUSE_DURATION_SECONDS);
+  };
+
+  const resetNoticePauseState = () => {
+    setIsNoticePopupPaused(false);
+    setPauseSecondsLeft(0);
+  };
 
   const queryParams = useSearchParams();
   const claimId: any = queryParams.get("claim");
@@ -161,6 +175,10 @@ export const PaymentsProvider = ({ children }: any) => {
       (noticeFiles?.length > 0 || qbccNoticeFiles?.length > 0)
     ) {
       setTimeLeft(AUTO_CLOSE_TIME);
+      resetNoticePauseState();
+    }
+    if (!showNoticePopup) {
+      resetNoticePauseState();
     }
   }, [showNoticePopup]);
 
@@ -177,6 +195,7 @@ export const PaymentsProvider = ({ children }: any) => {
   // Countdown effect
   useEffect(() => {
     if (!showNoticePopup) return;
+    if (isNoticePopupPaused) return;
 
     // 👉 Simulate confirm (same as clicking "Send Mail")
     if (timeLeft === 0) {
@@ -197,7 +216,25 @@ export const PaymentsProvider = ({ children }: any) => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, showNoticePopup]);
+  }, [timeLeft, showNoticePopup, isNoticePopupPaused]);
+
+  // Pause countdown effect — counts down the 5-minute pause window,
+  // then auto-resumes the original auto-send countdown from where it was frozen.
+  useEffect(() => {
+    if (!showNoticePopup) return;
+    if (!isNoticePopupPaused) return;
+
+    if (pauseSecondsLeft <= 0) {
+      setIsNoticePopupPaused(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setPauseSecondsLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [pauseSecondsLeft, showNoticePopup, isNoticePopupPaused]);
 
   useEffect(() => {
     if (ImportScreen != "import") {
@@ -1059,6 +1096,10 @@ export const PaymentsProvider = ({ children }: any) => {
         setNoticeMailUuids,
         timeLeft,
         setTimeLeft,
+        isNoticePopupPaused,
+        pauseSecondsLeft,
+        pauseNoticePopup,
+        resetNoticePauseState,
         setLoaderInfo,
         qbccNoticeFiles,
         setQbccNoticeFiles,

@@ -78,6 +78,10 @@ export default function PaymentFooterSection() {
     setNoticeMailUuids,
     timeLeft,
     setTimeLeft,
+    isNoticePopupPaused,
+    pauseSecondsLeft,
+    pauseNoticePopup,
+    resetNoticePauseState,
     setLoaderInfo,
     qbccNoticeFiles,
     setQbccNoticeFiles,
@@ -594,6 +598,15 @@ export default function PaymentFooterSection() {
     setNoticeMailUuids([]);
     setQbccNoticeFiles([]);
     setQbccNoticeUuids([]);
+    resetNoticePauseState?.();
+  };
+
+  // Format remaining pause seconds as M:SS
+  const formatPauseRemaining = (totalSeconds: number) => {
+    const safe = Math.max(0, totalSeconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -989,9 +1002,21 @@ export default function PaymentFooterSection() {
         >
           <p className="">
             <span className="pt_yellow">Note:</span> We have generated the
-            documents below, and they are available to view. The system will
-            send an email with these documents attached in{" "}
-            <b className="pt_green">{timeLeft}</b> seconds.
+            documents below, and they are available to view.{" "}
+            {isNoticePopupPaused ? (
+              <>
+                Auto-send paused — resuming in{" "}
+                <b className="pt_green">
+                  {formatPauseRemaining(pauseSecondsLeft)}
+                </b>
+                .
+              </>
+            ) : (
+              <>
+                The system will send an email with these documents attached in{" "}
+                <b className="pt_green">{timeLeft}</b> seconds.
+              </>
+            )}
             {qbccNoticeFiles?.length > 0 && (
               <>
                 <br />
@@ -1002,6 +1027,27 @@ export default function PaymentFooterSection() {
               </>
             )}
           </p>
+          <div
+            className="text_center"
+            style={{ marginTop: "var(--space-s, 1rem)" }}
+          >
+            <CustomButton
+              buttonName={
+                isNoticePopupPaused
+                  ? `Paused (${formatPauseRemaining(pauseSecondsLeft)})`
+                  : "Pause"
+              }
+              iconClassName={
+                isNoticePopupPaused
+                  ? "fa-light fa-circle-pause"
+                  : "fa-light fa-pause"
+              }
+              buttonType={buttonType.SECONDARY}
+              actionType="button"
+              disabled={isNoticePopupPaused}
+              onClick={() => pauseNoticePopup?.()}
+            />
+          </div>
           <br></br>
           {noticeFiles.map((file: any, idx: number) => (
             <div key={idx} className="pt_itemwithremove">
