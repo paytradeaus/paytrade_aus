@@ -483,7 +483,7 @@ export class XeroInvoicesResolver {
         return framedResponse('ERROR', 'No Xero invoice mapped for this claim');
       }
       const jwtMod: any = require('jsonwebtoken');
-      const { jwtConstants } = require('src/api/auth/constants');
+      const { jwtConstants } = require('../../../../auth/constants');
       const token = jwtMod.sign(
         {
           payment_claim_id,
