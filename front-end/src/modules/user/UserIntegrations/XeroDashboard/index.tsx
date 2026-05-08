@@ -1192,6 +1192,16 @@ function ManualXeroSyncDialog({
   >([]);
   const [pickedLabel, setPickedLabel] = useState<string | null>(null);
 
+  // Task #73 — optional date-range / pagination so admins can recover
+  // older records (e.g. a stale claim from a previous financial year).
+  // The "Search archive" expander is collapsed by default so the common
+  // case (recent-window lookup) stays one-field simple.
+  const [showArchive, setShowArchive] = useState<boolean>(false);
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+
   // Reset form/result whenever the dialog re-opens so previous output
   // doesn't leak across sessions.
   useEffect(() => {
@@ -1204,6 +1214,11 @@ function ManualXeroSyncDialog({
       setCandidates([]);
       setLookupError(null);
       setPickedLabel(null);
+      setShowArchive(false);
+      setFromDate("");
+      setToDate("");
+      setPage(1);
+      setHasMore(false);
     }
   }, [open]);
 
@@ -1214,15 +1229,25 @@ function ManualXeroSyncDialog({
     setCandidates([]);
     setLookupError(null);
     setPickedLabel(null);
+    setPage(1);
+    setHasMore(false);
   }, [type]);
 
-  // Debounced lookup — 350 ms after the user stops typing.
+  // Reset to page 1 whenever the hint or date-range changes — the
+  // current page number is meaningful only against the previous query.
+  useEffect(() => {
+    setPage(1);
+  }, [hint, fromDate, toDate]);
+
+  // Debounced lookup — 350 ms after the user stops typing or any
+  // archive filter changes.
   useEffect(() => {
     const trimmed = hint.trim();
     if (trimmed.length < 2) {
       setCandidates([]);
       setLookupError(null);
       setLookupBusy(false);
+      setHasMore(false);
       return;
     }
     let cancelled = false;
@@ -1233,15 +1258,23 @@ function ManualXeroSyncDialog({
         company_id: companyId,
         type,
         hint: trimmed,
+        from_date: fromDate || null,
+        to_date: toDate || null,
+        page,
       });
       if (cancelled) return;
       setLookupBusy(false);
       setCandidates(res.candidates || []);
+      setHasMore(!!res.has_more);
       setLookupError(
         res.success
           ? res.candidates?.length
             ? null
-            : "No matches in the recent window. Try a different hint or paste the GUID directly."
+            : page > 1
+            ? "No more matches on this page. Go back to page 1 or widen the date range."
+            : showArchive
+            ? "No matches in the selected window. Try a wider date range or paste the GUID directly."
+            : "No matches in the recent window. Try \"Search archive\" to widen the date range, or paste the GUID directly."
           : res.message || "Lookup failed."
       );
     }, 350);
@@ -1249,7 +1282,7 @@ function ManualXeroSyncDialog({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [hint, type, companyId]);
+  }, [hint, type, companyId, fromDate, toDate, page, showArchive]);
 
   const handleClose = () => {
     if (busy) return;
@@ -1385,6 +1418,128 @@ function ManualXeroSyncDialog({
             ))}
           </ul>
         )}
+        {/* Task #73 — pagination + "more results available" hint. Only
+            shown when the lookup actually returned candidates so the
+            controls don't crowd the empty state. */}
+        {!lookupBusy && (candidates.length > 0 || page > 1) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginTop: "6px",
+              fontSize: "12px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={busy || page <= 1}
+              style={{ padding: "4px 8px" }}
+            >
+              ‹ Prev
+            </button>
+            <span style={{ opacity: 0.7 }}>Page {page}</span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={busy || !hasMore}
+              style={{ padding: "4px 8px" }}
+            >
+              Next ›
+            </button>
+            {hasMore && (
+              <span style={{ opacity: 0.7 }}>
+                More results available — narrow the hint or date range to
+                refine.
+              </span>
+            )}
+          </div>
+        )}
+        {/* Task #73 — collapsible archive search. Defaults closed so the
+            common (recent-window) flow stays one-field simple. */}
+        <div style={{ marginTop: "8px" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowArchive((v) => {
+                // Collapsing the expander clears any active date range so
+                // hidden filters can't silently constrain a fresh search.
+                if (v) {
+                  setFromDate("");
+                  setToDate("");
+                }
+                return !v;
+              });
+            }}
+            disabled={busy}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: "#1a73e8",
+              cursor: busy ? "not-allowed" : "pointer",
+              fontSize: "12px",
+            }}
+          >
+            {showArchive ? "− Hide archive search" : "+ Search archive (older records)"}
+            {!showArchive && (fromDate || toDate) && (
+              <span style={{ marginLeft: "6px", opacity: 0.7 }}>
+                (date filter active)
+              </span>
+            )}
+          </button>
+          {showArchive && (
+            <div
+              style={{
+                marginTop: "6px",
+                padding: "8px 10px",
+                border: "1px solid #eee",
+                borderRadius: "4px",
+                background: "#fafafa",
+              }}
+            >
+              <small style={{ display: "block", opacity: 0.75, marginBottom: "6px" }}>
+                Widens the slice we pull from Xero by{" "}
+                <em>last modified date</em>. Leave blank to use the
+                default rolling window
+                {type === "payment" || type === "bank_transfer"
+                  ? " (180 days)."
+                  : type === "contact"
+                  ? " (all contacts)."
+                  : " (365 days)."}
+              </small>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <label style={{ flex: "1 1 120px", fontSize: "12px" }}>
+                  Modified from
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    disabled={busy}
+                    style={{ width: "100%", padding: "6px 8px" }}
+                  />
+                </label>
+                <label style={{ flex: "1 1 120px", fontSize: "12px" }}>
+                  Modified to
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    disabled={busy}
+                    style={{ width: "100%", padding: "6px 8px" }}
+                  />
+                </label>
+              </div>
+              {type === "bank_transfer" && (
+                <small style={{ display: "block", opacity: 0.7, marginTop: "4px" }}>
+                  Note: Xero's BankTransfers endpoint doesn't paginate —
+                  use a tighter date range for very busy windows.
+                </small>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <div style={{ marginBottom: "12px" }}>
         <h5 style={{ margin: "0 0 4px 0" }}>

@@ -13788,7 +13788,14 @@ export class XeroWebhookService {
    */
   async manualXeroResyncLookup(
     decoded: any,
-    input: { company_id: number; type: string; hint: string },
+    input: {
+      company_id: number;
+      type: string;
+      hint: string;
+      from_date?: string | null;
+      to_date?: string | null;
+      page?: number | null;
+    },
   ): Promise<{
     success: boolean;
     message?: string;
@@ -13797,10 +13804,37 @@ export class XeroWebhookService {
       label: string;
       sublabel?: string;
     }>;
+    has_more?: boolean;
+    page?: number;
+    window?: { from?: string; to?: string };
   }> {
     const company_id = Number(input?.company_id);
     const rawType = String(input?.type || '').trim().toLowerCase();
     const hint = String(input?.hint || '').trim();
+
+    // Task #73 — optional date-range / pagination so admins can recover
+    // records older than the default rolling window. `from_date` widens
+    // `ifModifiedSince`; `to_date` is applied client-side as an
+    // UpdatedDateUTC upper bound; `page` walks Xero's own pagination
+    // for endpoints that support it.
+    const parseDate = (v: any, endOfDay = false): Date | null => {
+      if (!v) return null;
+      const m = moment(v);
+      if (!m.isValid()) return null;
+      // HTML <input type="date"> emits YYYY-MM-DD which moment parses to
+      // midnight. For an inclusive upper bound we want the very end of
+      // the chosen day so records updated later that day still match.
+      // Detect "date-only" strings and snap to 23:59:59.999 in that case.
+      const isDateOnly =
+        typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
+      if (endOfDay && isDateOnly) {
+        return m.endOf('day').toDate();
+      }
+      return m.toDate();
+    };
+    const fromDate = parseDate(input?.from_date);
+    const toDate = parseDate(input?.to_date, true);
+    const page = Math.max(1, Number(input?.page) || 1);
 
     const allowedTypes = new Set([
       'invoice_bill',
@@ -13877,9 +13911,11 @@ export class XeroWebhookService {
     try {
       // ─── INVOICE / BILL ────────────────────────────────────────────────
       if (rawType === 'invoice_bill') {
-        // Pull modified-in-last-365-days slice and filter client-side so
-        // we never have to hand-craft a brittle Xero where clause.
-        const since = moment().subtract(365, 'days').toDate();
+        // Default 365-day rolling window; widened by the caller via
+        // `from_date` for archive lookups. Page-size capped at 200 to
+        // stay well under Xero's per-call throttle.
+        const since = fromDate || moment().subtract(365, 'days').toDate();
+        const pageSize = 200;
         // Signature (xero-node): tenantId, ifModifiedSince, where, order,
         // iDs, invoiceNumbers, contactIDs, statuses, page, includeArchived,
         // createdByMyApp, unitdp, summaryOnly, pageSize, searchTerm.
@@ -13892,49 +13928,66 @@ export class XeroWebhookService {
           undefined,
           undefined,
           undefined,
-          1,
+          page,
           undefined,
           undefined,
           undefined,
           true,
-          200,
+          pageSize,
         );
         const list = resp?.body?.invoices || [];
-        const out = list
-          .filter((inv: any) => {
-            const num = String(inv?.invoiceNumber || '').toLowerCase();
-            const ref = String(inv?.reference || '').toLowerCase();
-            const name = String(inv?.contact?.name || '').toLowerCase();
-            return (
-              num.includes(lower) ||
-              ref.includes(lower) ||
-              name.includes(lower)
-            );
-          })
-          .slice(0, 10)
-          .map((inv: any) => ({
-            id: String(inv?.invoiceID || ''),
-            label: `${inv?.invoiceNumber || '(no number)'} — ${
-              inv?.contact?.name || '(no contact)'
-            }`,
-            sublabel: `${inv?.type || ''} • ${fmtDate(inv?.date)} • ${
-              inv?.status || ''
-            } • Total ${num(inv?.total).toFixed(2)}`,
-          }));
-        return { success: true, candidates: out };
+        const bounded = toDate
+          ? list.filter((inv: any) => {
+              const u = inv?.updatedDateUTC ? moment(inv.updatedDateUTC) : null;
+              return !u || !u.isValid() || u.toDate() <= toDate;
+            })
+          : list;
+        const matched = bounded.filter((inv: any) => {
+          const n = String(inv?.invoiceNumber || '').toLowerCase();
+          const ref = String(inv?.reference || '').toLowerCase();
+          const name = String(inv?.contact?.name || '').toLowerCase();
+          return (
+            n.includes(lower) || ref.includes(lower) || name.includes(lower)
+          );
+        });
+        const out = matched.slice(0, 10).map((inv: any) => ({
+          id: String(inv?.invoiceID || ''),
+          label: `${inv?.invoiceNumber || '(no number)'} — ${
+            inv?.contact?.name || '(no contact)'
+          }`,
+          sublabel: `${inv?.type || ''} • ${fmtDate(inv?.date)} • ${
+            inv?.status || ''
+          } • Total ${num(inv?.total).toFixed(2)}`,
+        }));
+        return {
+          success: true,
+          candidates: out,
+          has_more: list.length >= pageSize || matched.length > out.length,
+          page,
+          window: {
+            from: since.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
+        };
       }
 
       // ─── PAYMENT ──────────────────────────────────────────────────────
       if (rawType === 'payment') {
-        const since = moment().subtract(180, 'days').toDate();
+        const since = fromDate || moment().subtract(180, 'days').toDate();
         const resp = await this.xero.accountingApi.getPayments(
           tenant_id,
           since,
           undefined,
           'Date DESC',
-          1,
+          page,
         );
-        const list = resp?.body?.payments || [];
+        const rawList = resp?.body?.payments || [];
+        const list = toDate
+          ? rawList.filter((p: any) => {
+              const u = p?.updatedDateUTC ? moment(p.updatedDateUTC) : null;
+              return !u || !u.isValid() || u.toDate() <= toDate;
+            })
+          : rawList;
         const out = list
           .filter((p: any) => {
             const invNum = String(
@@ -13962,7 +14015,17 @@ export class XeroWebhookService {
               p?.status || ''
             }`,
           }));
-        return { success: true, candidates: out };
+        // getPayments returns up to 100 rows per page (Xero default).
+        return {
+          success: true,
+          candidates: out,
+          has_more: rawList.length >= 100 || list.length > out.length,
+          page,
+          window: {
+            from: since.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
+        };
       }
 
       // ─── BANK TRANSFER ────────────────────────────────────────────────
@@ -13972,6 +14035,10 @@ export class XeroWebhookService {
       //   (b) Recent Xero BankTransfers filtered by reference Contains.
       if (rawType === 'bank_transfer') {
         const collected = new Map<string, { id: string; label: string; sublabel?: string }>();
+        // Bank transfers don't paginate; `from_date`/`to_date` widen
+        // and bound the slice instead.
+        const btSince = fromDate || moment().subtract(180, 'days').toDate();
+        let btRawCount = 0;
 
         // (a) PT-side: numeric hint = pt_payment_id; otherwise treat as
         // reference substring.
@@ -14008,17 +14075,19 @@ export class XeroWebhookService {
 
         // (b) Xero-side: recent transfers filtered by reference substring.
         try {
-          const since = moment().subtract(180, 'days').toDate();
           const resp = await this.xero.accountingApi.getBankTransfers(
             tenant_id,
-            since,
+            btSince,
             undefined,
             'Date DESC',
           );
           const list = resp?.body?.bankTransfers || [];
+          btRawCount = list.length;
           for (const bt of list) {
             const id = String((bt as any)?.bankTransferID || '');
             if (!id || collected.has(id)) continue;
+            const dt = (bt as any)?.date ? moment((bt as any).date) : null;
+            if (toDate && dt?.isValid() && dt.toDate() > toDate) continue;
             const ref = String((bt as any)?.reference || '');
             const amt = String((bt as any)?.amount ?? '');
             if (
@@ -14039,9 +14108,20 @@ export class XeroWebhookService {
           );
         }
 
+        const all = Array.from(collected.values());
         return {
           success: true,
-          candidates: Array.from(collected.values()).slice(0, 10),
+          candidates: all.slice(0, 10),
+          // BankTransfers endpoint has no pagination; flag "more" only
+          // when we trimmed the collected set OR the raw Xero list looks
+          // suspiciously large (>= 100 implies a busy window worth
+          // narrowing).
+          has_more: all.length > 10 || btRawCount >= 100,
+          page,
+          window: {
+            from: btSince.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
         };
       }
 
@@ -14049,20 +14129,24 @@ export class XeroWebhookService {
       if (rawType === 'contact') {
         const safe = hint.replace(/"/g, '\\"');
         let list: any[] = [];
+        let rawCount = 0;
+        const contactPageSize = 50;
+        const contactSince = fromDate || new Date('1900-01-01T00:00:00.000+00:00');
         try {
           const resp = await this.xero.accountingApi.getContacts(
             tenant_id,
-            new Date('1900-01-01T00:00:00.000+00:00'),
+            contactSince,
             `Name!=null&&Name.Contains("${safe}")`,
             'Name ASC',
             [],
-            1,
+            page,
             true,
             true,
             '',
-            50,
+            contactPageSize,
           );
           list = resp?.body?.contacts || [];
+          rawCount = list.length;
         } catch (err: any) {
           // Fall back to unfiltered first page if the where clause is
           // rejected by Xero (e.g. special characters).
@@ -14071,19 +14155,27 @@ export class XeroWebhookService {
           );
           const resp = await this.xero.accountingApi.getContacts(
             tenant_id,
-            undefined,
+            fromDate || undefined,
             undefined,
             'Name ASC',
             [],
-            1,
+            page,
             true,
             true,
             '',
             500,
           );
-          list = (resp?.body?.contacts || []).filter((c: any) =>
+          const all = resp?.body?.contacts || [];
+          rawCount = all.length;
+          list = all.filter((c: any) =>
             String(c?.name || '').toLowerCase().includes(lower),
           );
+        }
+        if (toDate) {
+          list = list.filter((c: any) => {
+            const u = c?.updatedDateUTC ? moment(c.updatedDateUTC) : null;
+            return !u || !u.isValid() || u.toDate() <= toDate;
+          });
         }
         const out = list.slice(0, 10).map((c: any) => ({
           id: String(c?.contactID || ''),
@@ -14097,34 +14189,60 @@ export class XeroWebhookService {
             .filter(Boolean)
             .join(' • '),
         }));
-        return { success: true, candidates: out };
+        return {
+          success: true,
+          candidates: out,
+          has_more: rawCount >= contactPageSize || list.length > out.length,
+          page,
+          window: {
+            from: contactSince.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
+        };
       }
 
       // ─── MANUAL JOURNAL ───────────────────────────────────────────────
       if (rawType === 'manual_journal') {
-        const since = moment().subtract(365, 'days').toDate();
+        const since = fromDate || moment().subtract(365, 'days').toDate();
+        // Signature: tenantId, ifModifiedSince, where, order, page, pageSize.
+        const mjPageSize = 100;
         const resp = await this.xero.accountingApi.getManualJournals(
           tenant_id,
           since,
           undefined,
           'UpdatedDateUTC DESC',
+          page,
+          mjPageSize,
         );
-        const list = resp?.body?.manualJournals || [];
-        const out = list
-          .filter((mj: any) => {
-            const narration = String(mj?.narration || '').toLowerCase();
-            const ref = String(mj?.reference || '').toLowerCase();
-            return narration.includes(lower) || ref.includes(lower);
-          })
-          .slice(0, 10)
-          .map((mj: any) => ({
-            id: String(mj?.manualJournalID || ''),
-            label: mj?.narration || '(no narration)',
-            sublabel: `${fmtDate(mj?.date)} • ${mj?.status || ''}${
-              mj?.reference ? ` • Ref ${mj.reference}` : ''
-            }`,
-          }));
-        return { success: true, candidates: out };
+        const rawList = resp?.body?.manualJournals || [];
+        const list = toDate
+          ? rawList.filter((mj: any) => {
+              const u = mj?.updatedDateUTC ? moment(mj.updatedDateUTC) : null;
+              return !u || !u.isValid() || u.toDate() <= toDate;
+            })
+          : rawList;
+        const matched = list.filter((mj: any) => {
+          const narration = String(mj?.narration || '').toLowerCase();
+          const ref = String(mj?.reference || '').toLowerCase();
+          return narration.includes(lower) || ref.includes(lower);
+        });
+        const out = matched.slice(0, 10).map((mj: any) => ({
+          id: String(mj?.manualJournalID || ''),
+          label: mj?.narration || '(no narration)',
+          sublabel: `${fmtDate(mj?.date)} • ${mj?.status || ''}${
+            mj?.reference ? ` • Ref ${mj.reference}` : ''
+          }`,
+        }));
+        return {
+          success: true,
+          candidates: out,
+          has_more: rawList.length >= mjPageSize || matched.length > out.length,
+          page,
+          window: {
+            from: since.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
+        };
       }
 
       return {

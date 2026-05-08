@@ -4028,10 +4028,16 @@ export const manualXeroResyncLookup = async (variables: {
   company_id: number;
   type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
   hint: string;
+  from_date?: string | null;
+  to_date?: string | null;
+  page?: number | null;
 }): Promise<{
   success: boolean;
   message?: string;
   candidates: Array<{ id: string; label: string; sublabel?: string }>;
+  has_more?: boolean;
+  page?: number;
+  window?: { from?: string; to?: string };
 }> => {
   try {
     const response = await apolloClient.query({
@@ -4040,11 +4046,17 @@ export const manualXeroResyncLookup = async (variables: {
           $company_id: Float!
           $type: String!
           $hint: String!
+          $from_date: String
+          $to_date: String
+          $page: Int
         ) {
           manualXeroResyncLookup(
             company_id: $company_id
             type: $type
             hint: $hint
+            from_date: $from_date
+            to_date: $to_date
+            page: $page
           ) {
             message
             status
@@ -4073,6 +4085,9 @@ export const manualXeroResyncLookup = async (variables: {
       success: !!parsed?.success,
       message: parsed?.message,
       candidates: Array.isArray(parsed?.candidates) ? parsed.candidates : [],
+      has_more: !!parsed?.has_more,
+      page: parsed?.page,
+      window: parsed?.window,
     };
   } catch (error: any) {
     return {

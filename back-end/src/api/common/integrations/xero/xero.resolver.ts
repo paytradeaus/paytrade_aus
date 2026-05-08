@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Context, Int } from '@nestjs/graphql';
 import { XeroService } from './xero.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
@@ -1244,6 +1244,25 @@ export class XeroResolver {
         'Free-text hint: invoice number, contact name, reference, narration, amount, or PT-side payment id.',
     })
     hint: string,
+    @Args('from_date', {
+      nullable: true,
+      description:
+        'Optional ISO date — widen the "modified since" window for archive lookups (Task #73).',
+    })
+    from_date?: string,
+    @Args('to_date', {
+      nullable: true,
+      description:
+        'Optional ISO date — upper bound on UpdatedDateUTC, applied client-side after fetch.',
+    })
+    to_date?: string,
+    @Args('page', {
+      type: () => Int,
+      nullable: true,
+      description:
+        'Optional 1-based page number for paginated record types (invoice_bill, payment, contact, manual_journal).',
+    })
+    page?: number,
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
@@ -1265,7 +1284,7 @@ export class XeroResolver {
       }
       const result = await this.xeroWebhookService.manualXeroResyncLookup(
         decoded,
-        { company_id, type, hint },
+        { company_id, type, hint, from_date, to_date, page },
       );
       return framedResponse(
         result.success ? 'SUCCESS' : 'ERROR',
