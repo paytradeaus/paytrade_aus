@@ -1054,12 +1054,13 @@ export default function AddPaymentSection({ props }: any) {
                                   minDate={
                                     userMode === "Onboarding"
                                       ? minDate
+                                      : formik?.values?.payment_date
+                                      ? formik.values.payment_date
                                       : formatDate(
                                           new Date(),
                                           DateFormat.YYYY_MM_DD
                                         )
                                   }
-                                  maxDate={paymentMinimumDate()}
                                   maxYear={new Date().getFullYear() + 50}
                                   disabled={isViewMode}
                                 />

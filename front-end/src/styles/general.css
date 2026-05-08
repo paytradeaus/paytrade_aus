@@ -772,6 +772,11 @@ html {
 }
 .paymentsErrorFont {
   font-size: clamp(8px, 2vw, 10px) !important;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: block;
+  line-height: 1.25;
 }
 .claimsErrorFont {
   font-size: clamp(10px, 2vw, 12px) !important;

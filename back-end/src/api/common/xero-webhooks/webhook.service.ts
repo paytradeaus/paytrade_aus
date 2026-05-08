@@ -10494,6 +10494,78 @@ export class XeroWebhookService {
                   }
                 }
 
+                // ── Retention release date guard ──────────────────────────────
+                // When this Xero payment carries cash retention, PayTrade must
+                // record a retention release date. We default it to the
+                // contract's defect_liability_end_date — if that is missing on
+                // the contract we cannot sync the payment, so emit a sync log
+                // error asking the user to set it on the contract and resync.
+                if (
+                  cashRetention &&
+                  !isPreviousPartPaymentExist &&
+                  !contractDetails?.defect_liability_end_date
+                ) {
+                  const checkExistenceInSync =
+                    await this.xeroSyncLogs.findOne({
+                      where: {
+                        log_template_id: 487,
+                        reference_id: xeroPaymentEntity?.id,
+                      },
+                    });
+
+                  if (!checkExistenceInSync) {
+                    await this.xeroService.insertXeroSyncLogs(decoded, {
+                      id: data?.sync_id || null,
+                      api_name: 'createClaimInPaytrade',
+                      api_payload: {
+                        sync_run_type,
+                        invoice_id: invoice?.invoiceID,
+                        tenant_id,
+                        type:
+                          invoice?.type === Invoice.TypeEnum.ACCPAY
+                            ? 'bill'
+                            : 'invoice',
+                      },
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 487,
+                      dynamic_values: {
+                        contract_name:
+                          contractDetails?.contract_name || '',
+                        contract_id:
+                          contractDetails?.contract_id || '',
+                      },
+                      project_id: xeroProjectDetails?.id,
+                      contract_id: xeroContractDetails?.id,
+                      reference: {
+                        xeroId: xeroPaymentEntity?.id,
+                        paytradeId: null,
+                      },
+                      reference_id: xeroPaymentEntity?.id,
+                      history: [
+                        `API triggered from invoice ${sync_run_type}`,
+                        'Import failed',
+                      ],
+                      important_checks: {
+                        'Import data format validation': 'Failed',
+                        'Import tracking id validation': 'Ok',
+                        'Import account type validation': 'Ok',
+                        'Import tax type validation': 'Ok',
+                        'Client/Supplier mapping validation': 'Ok',
+                        'Contract mapping validation': 'Ok',
+                        'Project mapping validation': 'Ok',
+                      },
+                      error_message:
+                        'Defect liability end date is missing on the contract — required as the retention release date for this payment. Please add it to the contract and re-sync.',
+                      xero_records: [invoice],
+                      paytrade_records: [],
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                    });
+                  }
+                  return false;
+                }
+
                 const paytradePayload: AddPaymentInput = {
                   company_id,
                   payment_claim_id: paymentClaimDetails?.payment_claim_id,

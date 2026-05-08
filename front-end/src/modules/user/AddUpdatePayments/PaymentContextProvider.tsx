@@ -411,6 +411,8 @@ export const PaymentsProvider = ({ children }: any) => {
         : "",
       retention_release_date: values?.retention_release_date
         ? getDatePickerFormat(values?.retention_release_date)
+        : values?.defect_liability_end_date
+        ? getDatePickerFormat(values?.defect_liability_end_date)
         : "",
       payment_type: values?.payment_type,
       memo: values?.memo ?? "",
