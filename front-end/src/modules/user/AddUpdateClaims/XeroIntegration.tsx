@@ -233,7 +233,7 @@ export default function XeroIntegration({
     journals.length > 0 && journals[0]?.status === "FAILED" ? journals[0] : null;
 
   return (
-    <div className="pt_expandtable pt_xero_card">
+    <div className="pt_expandtable pt_payment">
       <details>
         <summary>Xero Integration</summary>
         <div style={{ padding: "12px 16px" }}>
@@ -326,14 +326,15 @@ export default function XeroIntegration({
                     href={meta.deep_link_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="pt_btn_xero"
+                    role="button"
+                    className="secondary"
                   >
                     Open in Xero
                   </a>
                 )}
                 <button
                   type="button"
-                  className="pt_btn_xero"
+                  className="secondary"
                   onClick={handleDownload}
                   disabled={downloading}
                   title={
@@ -375,7 +376,7 @@ function renderRetentionJournals(
         {latestFailed && (
           <button
             type="button"
-            className="pt_btn"
+            className="secondary"
             onClick={onRetry}
             disabled={retrying}
             title="Re-attempt posting the gross-up Manual Journal in Xero"

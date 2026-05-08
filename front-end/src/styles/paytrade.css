@@ -1713,56 +1713,6 @@ table a {
   color: var(--river) !important;
 }
 
-/* Xero-branded card variant — used on claim view/edit drawers.
-   Uses the darker payment-card blue gradient for visual consistency
-   with the "Add payment" header. */
-.pt_expandtable.pt_xero_card {
-  background: linear-gradient(90deg, #1565c0 0%, #0d47a1 100%);
-  padding: 0 var(--space-s);
-}
-.pt_expandtable.pt_xero_card summary {
-  color: #ffffff !important;
-}
-.pt_expandtable.pt_xero_card:hover summary,
-.pt_expandtable.pt_xero_card:hover details[open] summary {
-  color: #ffffff !important;
-  opacity: 0.92;
-}
-.pt_expandtable.pt_xero_card details[open] {
-  background-color: #ffffff;
-  border-radius: var(--radius);
-  margin: 0 calc(var(--space-s) * -1) 0 calc(var(--space-s) * -1);
-  padding: 0 var(--space-s) var(--space-s) var(--space-s);
-}
-.pt_expandtable.pt_xero_card details[open] summary {
-  background: linear-gradient(90deg, #1565c0 0%, #0d47a1 100%);
-  color: #ffffff !important;
-  margin: 0 calc(var(--space-s) * -1);
-  padding: var(--space-s);
-  border-bottom: 1px solid #0d47a1;
-}
-.pt_expandtable.pt_xero_card .pt_btn_xero {
-  background: linear-gradient(90deg, #1565c0 0%, #0d47a1 100%);
-  color: #ffffff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: var(--radius);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.2s ease-in-out;
-}
-.pt_expandtable.pt_xero_card .pt_btn_xero:hover {
-  opacity: 0.9;
-}
-.pt_expandtable.pt_xero_card .pt_btn_xero:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .pt_ql {
   padding: var(--space-2xs);
   margin: 0;
