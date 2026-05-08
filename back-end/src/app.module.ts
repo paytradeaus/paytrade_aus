@@ -119,6 +119,7 @@ import { XeroRetentionRecheckSchemaSeederModule } from './libs/@seeders/xero-ret
 import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-billing-type-schema-seeder.module';
 import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
 import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-integration-recovery-schema-seeder.module';
+import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sync-logs-error-code-schema-seeder.module';
 
 @Module({
   imports: [
@@ -342,6 +343,7 @@ import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-
     ContractBillingTypeSchemaSeederModule,
     XeroVariableBillCodeSchemaSeederModule,
     XeroIntegrationRecoverySchemaSeederModule,
+    XeroSyncLogsErrorCodeSchemaSeederModule,
   ],
   providers: [
     AppService,
