@@ -17,9 +17,11 @@ import { AppRoutes } from "@/shared/constant/appRoutes";
 import { getCookie } from "cookies-next";
 import { getNoticesListServices } from "./AddUpdateClaims.function";
 import { useRouter } from "next/navigation";
+import JournalEntries from "../AddUpdatePayments/JournalEntries";
 
 export default function PaymentHistory() {
-  const { paymentId, paymentsPatchData }: any = useAddUpdateClaimsContext();
+  const { paymentId, paymentsPatchData, claimData }: any =
+    useAddUpdateClaimsContext();
 
   const [noticesList, setNoticesList] = useState([]);
   const router = useRouter();
@@ -263,6 +265,11 @@ export default function PaymentHistory() {
             </table>
           </div>
         </div>
+        <JournalEntries
+          paymentClaimId={
+            claimData?.payment_claim_id ?? paymentsPatchData?.payment_claim_id
+          }
+        />
       </details>
     </div>
   );

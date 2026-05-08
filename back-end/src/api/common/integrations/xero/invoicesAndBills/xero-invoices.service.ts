@@ -5242,6 +5242,7 @@ export class XeroInvoicesService {
               t.sync_status::text AS sync_status,
               t.description      AS description,
               t.process::text    AS process,
+              l.reference_id     AS reference,
               l.dynamic_values   AS dynamic_values,
               l.created_on       AS created_on
          FROM xero_sync_logs l
@@ -5267,6 +5268,7 @@ export class XeroInvoicesService {
         sync_status: r.sync_status,
         description: desc,
         process: r.process,
+        reference: r.reference || null,
         created_on: r.created_on
           ? new Date(r.created_on).toISOString()
           : null,

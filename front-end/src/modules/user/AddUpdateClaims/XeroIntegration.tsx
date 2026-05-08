@@ -70,6 +70,7 @@ const GET_CLAIM_SYNC_LOGS = gql`
         sync_status
         description
         process
+        reference
         created_on
       }
     }
@@ -83,6 +84,7 @@ interface SyncLogRow {
   sync_status: string | null;
   description: string | null;
   process: string | null;
+  reference: string | null;
   created_on: string | null;
 }
 
@@ -420,6 +422,7 @@ function renderSyncHistory(rows: SyncLogRow[]) {
               <th style={{ padding: "6px 8px" }}>Type</th>
               <th style={{ padding: "6px 8px" }}>Status</th>
               <th style={{ padding: "6px 8px" }}>Direction</th>
+              <th style={{ padding: "6px 8px" }}>Reference</th>
               <th style={{ padding: "6px 8px" }}>Message</th>
               <th style={{ padding: "6px 8px" }}>&nbsp;</th>
             </tr>
@@ -475,6 +478,24 @@ function renderSyncHistory(rows: SyncLogRow[]) {
                     >
                       {isXeroToPt ? "Xero ➤ Pay Trade" : "Pay Trade ➤ Xero"}
                     </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      fontFamily: "monospace",
+                      fontSize: 11,
+                      maxWidth: 140,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={r.reference || ""}
+                  >
+                    {r.reference
+                      ? r.reference.length > 12
+                        ? `${r.reference.slice(0, 8)}…`
+                        : r.reference
+                      : "—"}
                   </td>
                   <td
                     style={{

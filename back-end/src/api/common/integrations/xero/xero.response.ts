@@ -689,6 +689,13 @@ export class ClaimSyncLogEntry {
   @Field({ nullable: true, description: 'Process direction (Xero > PT etc)' })
   process: string;
 
+  @Field({
+    nullable: true,
+    description:
+      'Reference id (claim or payment uuid this log row was tagged against — useful as a "paste into Manual Sync" handle)',
+  })
+  reference: string;
+
   @Field({ nullable: true, description: 'Created timestamp (ISO)' })
   created_on: string;
 }

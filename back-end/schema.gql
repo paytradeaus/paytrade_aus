@@ -2147,6 +2147,11 @@ type ClaimSyncLogEntry {
   """Process direction (Xero > PT etc)"""
   process: String
 
+  """
+  Reference id (claim or payment uuid this log row was tagged against — useful as a "paste into Manual Sync" handle)
+  """
+  reference: String
+
   """Human sync_id"""
   sync_id: String
 
