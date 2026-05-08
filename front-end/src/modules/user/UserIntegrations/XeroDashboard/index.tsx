@@ -71,6 +71,7 @@ export default function XeroDashboard() {
   const [trackingCategoriesLoading, setTrackingCategoriesLoading] =
     useState(false);
   const [sortValues, setSortValues] = useState<any>("");
+  const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
   const [syncLogData, setSyncLogData] = useState<any>({
     succeeded: 0,
     warning: 0,
@@ -415,7 +416,42 @@ export default function XeroDashboard() {
 
   useEffect(() => {
     fetchXeroSyncLogs();
-  }, [currentPage, entriesPerPage, sortValues]);
+  }, [currentPage, entriesPerPage, sortValues, recoveredOnly]);
+
+  const RECOVERED_TEMPLATE_IDS = [493, 495];
+  const RECOVERED_ERROR_CODES = [
+    "RETENTION_TRANSFER_RECOVERED",
+    "PAYMENT_ALREADY_SETTLED_IN_XERO",
+  ];
+  const isRecoveredRow = (val: any): boolean => {
+    if (!val) return false;
+    if (
+      val.log_template_id != null &&
+      RECOVERED_TEMPLATE_IDS.includes(Number(val.log_template_id))
+    ) {
+      return true;
+    }
+    if (val.error_code && RECOVERED_ERROR_CODES.includes(val.error_code)) {
+      return true;
+    }
+    return false;
+  };
+  const recoveredBadgeStyle: React.CSSProperties = {
+    display: "inline-block",
+    marginLeft: "6px",
+    padding: "1px 6px",
+    fontSize: "10px",
+    fontWeight: 600,
+    lineHeight: "14px",
+    color: "#0b5394",
+    backgroundColor: "#e0f0ff",
+    border: "1px solid #b3d4f5",
+    borderRadius: "10px",
+    cursor: "help",
+    verticalAlign: "middle",
+  };
+  const recoveredTooltip =
+    "Auto-recovered: PayTrade detected a Xero record that already matched this payment (or settlement) and re-linked it automatically instead of creating a duplicate or failing the sync.";
 
   async function fetchXeroSyncLogs() {
     setTableLoader(true);
@@ -429,6 +465,7 @@ export default function XeroDashboard() {
         sorting_order: sortValues?.direction || "",
         sorting_field: sortValues?.sortKey || "",
         start_date: null,
+        recovered_only: recoveredOnly,
       },
     });
     const sync_status_style: any = {
@@ -465,7 +502,20 @@ export default function XeroDashboard() {
             ) : (
               <span style={{ color: "#f04e43" }}>Pay Trade ➤ Xero</span>
             ),
-          sync_status: sync_status_style[val.sync_status] || val.sync_status,
+          sync_status: (
+            <span>
+              {sync_status_style[val.sync_status] || val.sync_status}
+              {isRecoveredRow(val) && (
+                <span
+                  style={recoveredBadgeStyle}
+                  title={recoveredTooltip}
+                  aria-label="Auto-recovered sync"
+                >
+                  Recovered
+                </span>
+              )}
+            </span>
+          ),
           reference: isXeroToPaytrade
             ? val.reference?.xeroId || ""
             : val.reference?.paytradeId || "",
@@ -870,6 +920,41 @@ export default function XeroDashboard() {
                   >
                     {syncLogData?.failed}
                   </p>
+                </div>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    marginRight: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(1);
+                      setRecoveredOnly((prev) => !prev);
+                    }}
+                    title={recoveredTooltip}
+                    aria-pressed={recoveredOnly}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      lineHeight: "16px",
+                      borderRadius: "12px",
+                      cursor: "pointer",
+                      color: recoveredOnly ? "#fff" : "#0b5394",
+                      backgroundColor: recoveredOnly ? "#0b5394" : "#e0f0ff",
+                      border: "1px solid #b3d4f5",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {recoveredOnly
+                      ? "Showing recovered only ✕"
+                      : "Show auto-recovered only"}
+                  </button>
                 </div>
               </div>
               <DynamicTable

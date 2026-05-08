@@ -1210,6 +1210,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       .addSelect('template.process', 'process')
       .addSelect('template.from_xero', 'from_xero')
       .addSelect('template.sync_status', 'sync_status')
+      .addSelect('template.error_code', 'error_code')
       .addSelect('log.created_on', 'created_on')
       .addSelect('xero.company_id', 'company_id')
       .addSelect('company.company_name', 'company_name')
@@ -1232,6 +1233,12 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     if (id) {
       queryBuilder.andWhere(`integration.id = :id`, {
         id: id,
+      });
+    }
+
+    if (getXeroSyncLogsInput.recovered_only) {
+      queryBuilder.andWhere('log.log_template_id IN (:...recoveredIds)', {
+        recoveredIds: [493, 495],
       });
     }
 

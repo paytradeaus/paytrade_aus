@@ -3620,6 +3620,7 @@ export const xeroSyncLogs = async (
                 sync_id
                 sync_status
                 sync_type
+                error_code
               }
               total_count
               count

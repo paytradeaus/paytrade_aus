@@ -125,6 +125,13 @@ export class GetXeroSyncLogsInput {
 
   @Field({ nullable: true, description: 'Sorting order ASC or DESC' })
   sorting_order?: 'ASC' | 'DESC';
+
+  @Field({
+    nullable: true,
+    description:
+      'When true, return only auto-recovered sync logs (templates 493 / 495)',
+  })
+  recovered_only?: boolean;
 }
 
 @InputType({ description: 'Input to retrieve account codes for a company' })

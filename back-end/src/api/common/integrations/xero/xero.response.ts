@@ -332,6 +332,13 @@ export class SyncLog {
   @Field({ nullable: true, description: 'Log template ID used for sync' })
   log_template_id: number;
 
+  @Field({
+    nullable: true,
+    description:
+      'Stable machine-readable error/recovery code from the log template (e.g. RETENTION_TRANSFER_RECOVERED)',
+  })
+  error_code?: string;
+
   @Field(() => GraphQLJSONObject, {
     nullable: true,
     description: 'Dynamic values in sync',
