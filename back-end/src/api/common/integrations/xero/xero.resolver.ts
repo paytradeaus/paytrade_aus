@@ -1263,6 +1263,18 @@ export class XeroResolver {
         'Optional 1-based page number for paginated record types (invoice_bill, payment, contact, manual_journal).',
     })
     page?: number,
+    @Args('account_hint', {
+      nullable: true,
+      description:
+        'Task #74 — optional bank-account name or code substring used to match Xero-side BankTransfers (from or to side). Only honoured for type=bank_transfer.',
+    })
+    account_hint?: string,
+    @Args('date', {
+      nullable: true,
+      description:
+        'Task #74 — optional ISO date (YYYY-MM-DD). For type=bank_transfer, returns transfers within ±7 days of this date.',
+    })
+    date?: string,
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
@@ -1284,7 +1296,7 @@ export class XeroResolver {
       }
       const result = await this.xeroWebhookService.manualXeroResyncLookup(
         decoded,
-        { company_id, type, hint, from_date, to_date, page },
+        { company_id, type, hint, from_date, to_date, page, account_hint, date },
       );
       return framedResponse(
         result.success ? 'SUCCESS' : 'ERROR',

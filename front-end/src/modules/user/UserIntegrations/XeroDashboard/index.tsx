@@ -1185,6 +1185,10 @@ function ManualXeroSyncDialog({
   // Task #72 — inline lookup widget state. The hint is debounced so we
   // don't hammer Xero on every keystroke.
   const [hint, setHint] = useState<string>("");
+  // Task #74 — extra bank-transfer filters so admins can find transfers
+  // that were created directly in Xero (no PT-RET-… reference).
+  const [accountHint, setAccountHint] = useState<string>("");
+  const [dateHint, setDateHint] = useState<string>("");
   const [lookupBusy, setLookupBusy] = useState<boolean>(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<
@@ -1211,6 +1215,8 @@ function ManualXeroSyncDialog({
       setBusy(false);
       setType("invoice_bill");
       setHint("");
+      setAccountHint("");
+      setDateHint("");
       setCandidates([]);
       setLookupError(null);
       setPickedLabel(null);
@@ -1226,6 +1232,8 @@ function ManualXeroSyncDialog({
   // are meaningless for another.
   useEffect(() => {
     setHint("");
+    setAccountHint("");
+    setDateHint("");
     setCandidates([]);
     setLookupError(null);
     setPickedLabel(null);
@@ -1243,7 +1251,14 @@ function ManualXeroSyncDialog({
   // archive filter changes.
   useEffect(() => {
     const trimmed = hint.trim();
-    if (trimmed.length < 2) {
+    const acct = accountHint.trim();
+    const dt = dateHint.trim();
+    // Task #74 — for bank_transfer, account/date filters can stand on
+    // their own (no text hint required). All other types still need ≥2
+    // characters of text hint.
+    const bankTransferFiltersValid =
+      type === "bank_transfer" && (acct.length >= 2 || dt.length > 0);
+    if (trimmed.length < 2 && !bankTransferFiltersValid) {
       setCandidates([]);
       setLookupError(null);
       setLookupBusy(false);
@@ -1261,6 +1276,8 @@ function ManualXeroSyncDialog({
         from_date: fromDate || null,
         to_date: toDate || null,
         page,
+        account_hint: type === "bank_transfer" && acct ? acct : undefined,
+        date: type === "bank_transfer" && dt ? dt : undefined,
       });
       if (cancelled) return;
       setLookupBusy(false);
@@ -1282,7 +1299,7 @@ function ManualXeroSyncDialog({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [hint, type, companyId, fromDate, toDate, page, showArchive]);
+  }, [hint, accountHint, dateHint, type, companyId, fromDate, toDate, page, showArchive]);
 
   const handleClose = () => {
     if (busy) return;
@@ -1361,7 +1378,7 @@ function ManualXeroSyncDialog({
             : type === "payment"
             ? "invoice number, contact name, reference or amount"
             : type === "bank_transfer"
-            ? "reference, PT payment id or amount"
+            ? "reference, PT payment id, amount, bank account or date"
             : type === "contact"
             ? "contact name"
             : "narration or reference"}
@@ -1369,12 +1386,47 @@ function ManualXeroSyncDialog({
         </h5>
         <input
           type="text"
-          placeholder="Type at least 2 characters…"
+          placeholder={
+            type === "bank_transfer"
+              ? "Type at least 2 characters, or use the filters below…"
+              : "Type at least 2 characters…"
+          }
           value={hint}
           onChange={(e) => setHint(e.target.value)}
           disabled={busy}
           style={{ width: "100%", padding: "8px 10px" }}
         />
+        {/* Task #74 — bank-account / date filters for bank_transfer.
+            Lets admins find transfers that were created directly in
+            Xero (no PT-RET-… reference) by their from/to bank account
+            or by amount + date. */}
+        {type === "bank_transfer" && (
+          <div style={{ marginTop: "8px", display: "flex", gap: "8px" }}>
+            <input
+              type="text"
+              placeholder="From / to bank account name or code"
+              value={accountHint}
+              onChange={(e) => setAccountHint(e.target.value)}
+              disabled={busy}
+              style={{ flex: 2, padding: "8px 10px" }}
+            />
+            <input
+              type="date"
+              placeholder="Date"
+              value={dateHint}
+              onChange={(e) => setDateHint(e.target.value)}
+              disabled={busy}
+              style={{ flex: 1, padding: "8px 10px" }}
+            />
+          </div>
+        )}
+        {type === "bank_transfer" && (
+          <small style={{ opacity: 0.7, display: "block", marginTop: "4px" }}>
+            Tip: combine an amount in the field above with a date to find a
+            specific transfer. Date matches within ±7 days. Results are
+            tagged <code>[PayTrade]</code> or <code>[Xero]</code> by origin.
+          </small>
+        )}
         {lookupBusy && (
           <small style={{ opacity: 0.7 }}>Searching Xero…</small>
         )}
@@ -1569,7 +1621,7 @@ function ManualXeroSyncDialog({
         {!pickedLabel && (
           <small style={{ opacity: 0.7 }}>
             {type === "bank_transfer"
-              ? "Tip: only PayTrade-originated retention transfers (reference PT-RET-…) can be resolved back to a claim."
+              ? "Tip: PayTrade-originated retention transfers (reference PT-RET-…) link straight back to a claim. Xero-only transfers can still be re-pulled but won't auto-link."
               : type === "manual_journal"
               ? "Tip: PayTrade-posted journals are skipped by anti-echo so we don't double-process them."
               : "Tip: paste the value straight from the Xero URL or the sync log entry."}

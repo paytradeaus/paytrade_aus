@@ -4031,6 +4031,8 @@ export const manualXeroResyncLookup = async (variables: {
   from_date?: string | null;
   to_date?: string | null;
   page?: number | null;
+  account_hint?: string;
+  date?: string;
 }): Promise<{
   success: boolean;
   message?: string;
@@ -4049,6 +4051,8 @@ export const manualXeroResyncLookup = async (variables: {
           $from_date: String
           $to_date: String
           $page: Int
+          $account_hint: String
+          $date: String
         ) {
           manualXeroResyncLookup(
             company_id: $company_id
@@ -4057,13 +4061,20 @@ export const manualXeroResyncLookup = async (variables: {
             from_date: $from_date
             to_date: $to_date
             page: $page
+            account_hint: $account_hint
+            date: $date
           ) {
             message
             status
           }
         }
       `,
-      variables,
+      variables: {
+        ...variables,
+        hint: variables.hint ?? "",
+        account_hint: variables.account_hint ?? null,
+        date: variables.date ?? null,
+      },
       fetchPolicy: "no-cache",
     });
     const res = response?.data?.manualXeroResyncLookup;

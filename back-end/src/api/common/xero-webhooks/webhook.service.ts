@@ -13795,6 +13795,8 @@ export class XeroWebhookService {
       from_date?: string | null;
       to_date?: string | null;
       page?: number | null;
+      account_hint?: string;
+      date?: string;
     },
   ): Promise<{
     success: boolean;
@@ -13811,6 +13813,8 @@ export class XeroWebhookService {
     const company_id = Number(input?.company_id);
     const rawType = String(input?.type || '').trim().toLowerCase();
     const hint = String(input?.hint || '').trim();
+    const accountHint = String(input?.account_hint || '').trim();
+    const dateHint = String(input?.date || '').trim();
 
     // Task #73 — optional date-range / pagination so admins can recover
     // records older than the default rolling window. `from_date` widens
@@ -13858,10 +13862,19 @@ export class XeroWebhookService {
         candidates: [],
       };
     }
-    if (!hint || hint.length < 2) {
+    // Task #74 — bank_transfer can be searched by account_hint and/or
+    // date alone (e.g. for transfers created directly in Xero with no
+    // PT-RET-… reference). All other types still require a text hint.
+    const hasBankTransferFilters =
+      rawType === 'bank_transfer' &&
+      (accountHint.length >= 2 || (!!dateHint && moment(dateHint).isValid()));
+    if ((!hint || hint.length < 2) && !hasBankTransferFilters) {
       return {
         success: false,
-        message: 'Enter at least 2 characters to search.',
+        message:
+          rawType === 'bank_transfer'
+            ? 'Enter at least 2 characters, or pick a bank account / date.'
+            : 'Enter at least 2 characters to search.',
         candidates: [],
       };
     }
@@ -14035,45 +14048,74 @@ export class XeroWebhookService {
       //   (b) Recent Xero BankTransfers filtered by reference Contains.
       if (rawType === 'bank_transfer') {
         const collected = new Map<string, { id: string; label: string; sublabel?: string }>();
+        const accountLower = accountHint.toLowerCase();
+        const parsedDate = dateHint && moment(dateHint).isValid()
+          ? moment(dateHint).startOf('day')
+          : null;
+        const dateWindowDays = 7; // ± window when matching by date
+        const hasHint = hint.length >= 2;
         // Bank transfers don't paginate; `from_date`/`to_date` widen
-        // and bound the slice instead.
-        const btSince = fromDate || moment().subtract(180, 'days').toDate();
+        // and bound the slice instead. Task #74 also widens when the
+        // user supplied a `date` filter older than the default window.
+        const defaultSince = moment().subtract(180, 'days');
+        const widenedByDateHint = parsedDate
+          ? moment.min(defaultSince, parsedDate.clone().subtract(dateWindowDays + 1, 'days'))
+          : defaultSince;
+        const btSince = fromDate || widenedByDateHint.toDate();
         let btRawCount = 0;
+        // Task #74 — robust amount matching. The hint may contain
+        // currency formatting like "1,234.50" or "$1234". Parse it once
+        // and compare numerically with a 1c tolerance so "100" matches
+        // both "100" and "100.00".
+        const hintAmountNumeric = (() => {
+          const stripped = hint.replace(/[^0-9.-]/g, '');
+          if (!stripped) return null;
+          const n = Number(stripped);
+          return Number.isFinite(n) ? n : null;
+        })();
 
         // (a) PT-side: numeric hint = pt_payment_id; otherwise treat as
-        // reference substring.
+        // reference substring. Only run when the user typed a text hint —
+        // account/date-only searches are about Xero-side transfers we
+        // don't already track.
         const ptHintNumeric = /^\d+$/.test(hint) ? Number(hint) : null;
-        try {
-          const qb = this.xeroPayments
-            .createQueryBuilder('xp')
-            .where('xp.integration_id = :integration_id', { integration_id })
-            .andWhere('xp.bank_transfer_id IS NOT NULL');
-          if (ptHintNumeric != null) {
-            qb.andWhere(
-              '(xp.pt_payment_id = :pt OR xp.bank_transfer_reference ILIKE :ref)',
-              { pt: ptHintNumeric, ref: `%${hint}%` },
+        if (hasHint) {
+          try {
+            const qb = this.xeroPayments
+              .createQueryBuilder('xp')
+              .where('xp.integration_id = :integration_id', { integration_id })
+              .andWhere('xp.bank_transfer_id IS NOT NULL');
+            if (ptHintNumeric != null) {
+              qb.andWhere(
+                '(xp.pt_payment_id = :pt OR xp.bank_transfer_reference ILIKE :ref)',
+                { pt: ptHintNumeric, ref: `%${hint}%` },
+              );
+            } else {
+              qb.andWhere('xp.bank_transfer_reference ILIKE :ref', {
+                ref: `%${hint}%`,
+              });
+            }
+            const ptRows = await qb.orderBy('xp.id', 'DESC').limit(10).getMany();
+            for (const r of ptRows) {
+              if (!r.bank_transfer_id || collected.has(r.bank_transfer_id)) continue;
+              collected.set(r.bank_transfer_id, {
+                id: r.bank_transfer_id,
+                label: `[PayTrade] ${r.bank_transfer_reference || `BankTransfer ${r.bank_transfer_id.slice(0, 8)}…`}`,
+                sublabel: `PT payment #${r.pt_payment_id} • ${fmtDate(r.payment_date)} • ${num(r.payment_amount).toFixed(2)}`,
+              });
+            }
+          } catch (err: any) {
+            this.logger.log(
+              `[MANUAL_RESYNC_LOOKUP] PT-side bank_transfer search failed: ${err?.message || err}`,
             );
-          } else {
-            qb.andWhere('xp.bank_transfer_reference ILIKE :ref', {
-              ref: `%${hint}%`,
-            });
           }
-          const ptRows = await qb.orderBy('xp.id', 'DESC').limit(10).getMany();
-          for (const r of ptRows) {
-            if (!r.bank_transfer_id || collected.has(r.bank_transfer_id)) continue;
-            collected.set(r.bank_transfer_id, {
-              id: r.bank_transfer_id,
-              label: r.bank_transfer_reference || `BankTransfer ${r.bank_transfer_id.slice(0, 8)}…`,
-              sublabel: `PT payment #${r.pt_payment_id} • ${fmtDate(r.payment_date)} • ${num(r.payment_amount).toFixed(2)}`,
-            });
-          }
-        } catch (err: any) {
-          this.logger.log(
-            `[MANUAL_RESYNC_LOOKUP] PT-side bank_transfer search failed: ${err?.message || err}`,
-          );
         }
 
-        // (b) Xero-side: recent transfers filtered by reference substring.
+        // (b) Xero-side: recent transfers. Match by ANY supplied filter
+        // (reference/amount text, from/to bank account name or code,
+        // date within ±dateWindowDays). Surfaces transfers created
+        // directly in Xero (no PT-RET-… reference) so admins can
+        // reconcile them against PT retention payments.
         try {
           const resp = await this.xero.accountingApi.getBankTransfers(
             tenant_id,
@@ -14089,18 +14131,60 @@ export class XeroWebhookService {
             const dt = (bt as any)?.date ? moment((bt as any).date) : null;
             if (toDate && dt?.isValid() && dt.toDate() > toDate) continue;
             const ref = String((bt as any)?.reference || '');
-            const amt = String((bt as any)?.amount ?? '');
-            if (
-              ref.toLowerCase().includes(lower) ||
-              amt === hint
-            ) {
-              collected.set(id, {
-                id,
-                label: ref || `BankTransfer ${id.slice(0, 8)}…`,
-                sublabel: `${fmtDate((bt as any)?.date)} • ${num((bt as any)?.amount).toFixed(2)}`,
-              });
-              if (collected.size >= 10) break;
-            }
+            const amtNum = Number((bt as any)?.amount);
+            const fromAcc = (bt as any)?.fromBankAccount || {};
+            const toAcc = (bt as any)?.toBankAccount || {};
+            const fromName = String(fromAcc?.name || '');
+            const fromCode = String(fromAcc?.code || '');
+            const toName = String(toAcc?.name || '');
+            const toCode = String(toAcc?.code || '');
+            const btDate = (bt as any)?.date
+              ? moment((bt as any).date)
+              : null;
+
+            const hintMatches =
+              hasHint &&
+              (ref.toLowerCase().includes(lower) ||
+                (hintAmountNumeric != null &&
+                  Number.isFinite(amtNum) &&
+                  Math.abs(amtNum - hintAmountNumeric) < 0.01));
+            const accountMatches =
+              accountLower.length >= 2 &&
+              (fromName.toLowerCase().includes(accountLower) ||
+                fromCode.toLowerCase().includes(accountLower) ||
+                toName.toLowerCase().includes(accountLower) ||
+                toCode.toLowerCase().includes(accountLower));
+            const dateMatches =
+              !!parsedDate &&
+              !!btDate &&
+              btDate.isValid() &&
+              Math.abs(btDate.diff(parsedDate, 'days')) <= dateWindowDays;
+
+            // Require AT LEAST ONE filter to match (and ALL provided
+            // filters that are restrictive — i.e. when both account and
+            // date are supplied, both must match — so the candidate list
+            // doesn't explode).
+            const filtersProvided = [hasHint, accountLower.length >= 2, !!parsedDate].filter(Boolean).length;
+            const filtersMatched = [hintMatches, accountMatches, dateMatches].filter(Boolean).length;
+            if (filtersProvided === 0 || filtersMatched < filtersProvided) continue;
+
+            const isPtOriginated = /^PT-RET-\d+/i.test(ref);
+            const originTag = isPtOriginated ? '[PayTrade]' : '[Xero]';
+            const accountSummary = (fromName || toName)
+              ? `${fromName || '(?)'} → ${toName || '(?)'}`
+              : '';
+            collected.set(id, {
+              id,
+              label: `${originTag} ${ref || `BankTransfer ${id.slice(0, 8)}…`}`,
+              sublabel: [
+                fmtDate((bt as any)?.date),
+                num((bt as any)?.amount).toFixed(2),
+                accountSummary,
+              ]
+                .filter(Boolean)
+                .join(' • '),
+            });
+            if (collected.size >= 10) break;
           }
         } catch (err: any) {
           this.logger.log(
