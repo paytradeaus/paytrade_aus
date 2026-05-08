@@ -9223,20 +9223,288 @@ export class XeroWebhookService {
           this.logger.log(`[Retention Transfer Debug] Transfer ${i}: ID=${t?.bankTransferID}, fromAccount=${t?.fromBankAccount?.accountID}, toAccount=${t?.toBankAccount?.accountID}, amount=${t?.amount}, fromMatches=${fromMatches}, toMatches=${toMatches}, amountMatches=${amountMatches}`);
         });
 
-        // Match retention transfers - check BOTH from and to account since transfer direction can vary
-        let retentionTransfers = !data?.bank_transfer_id
-          ? bankTransferResponse?.body?.bankTransfers?.filter(
-              (transfer) => {
-                const accountMatches = 
-                  transfer?.fromBankAccount?.accountID === xeroBankAccountDetails.account_id ||
-                  transfer?.toBankAccount?.accountID === xeroBankAccountDetails.account_id;
-                const amountMatches = Math.abs(Number(transfer?.amount)) === Math.abs(Number(retention_amount));
-                return accountMatches && amountMatches;
+        // -----------------------------------------------------------------
+        // Task #50 — Tightened inbound matcher.
+        //   1. Reference round-trip: prefer transfers stamped with our
+        //      own `PT-RET-{pt_payment_id}` reference (covers webhook
+        //      echo of an outbound transfer we just pushed).
+        //   2. AND on accounts: at least one side must equal the
+        //      payment account AND the *other* side must be a different
+        //      account — the legacy OR rule was matching same-account
+        //      transfers and inflating the candidate list.
+        //   3. ±14 day window vs the Xero payment date — anything
+        //      outside is logged with template 489 and ignored.
+        //   4. Uniqueness check (bank_transfer_id not already mapped to
+        //      another PT payment) is preserved further down (existing
+        //      `checkBankTransferIdExistence` query at L9261+) and
+        //      reinforced by the new unique partial DB index from the
+        //      XeroPaymentSplitSchemaSeeder.
+        // -----------------------------------------------------------------
+        const allCandidateTransfers =
+          bankTransferResponse?.body?.bankTransfers || [];
+
+        const TASK50_WINDOW_DAYS = 14;
+        const paymentDateMs = payment?.date
+          ? new Date(payment.date as any).getTime()
+          : null;
+        const isInWindow = (t: any): boolean => {
+          // Task #50 — Treat missing/invalid dates as a hard *non-match*
+          // (per architect feedback): otherwise the ±14d constraint is
+          // silently bypassed for transfers Xero returned without a
+          // date, which is exactly the ambiguous edge case we're trying
+          // to reject.
+          if (!paymentDateMs || Number.isNaN(paymentDateMs)) return false;
+          if (!t?.date) return false;
+          const tMs = new Date(t.date as any).getTime();
+          if (Number.isNaN(tMs)) return false;
+          const diffDays =
+            Math.abs(tMs - paymentDateMs) / (24 * 60 * 60 * 1000);
+          return diffDays <= TASK50_WINDOW_DAYS;
+        };
+
+        // Resolve the PT-side reference we may have stamped on the way out.
+        const ptPaymentIdForRef =
+          existingPayment?.pt_payment_id ||
+          previousPartPayments?.pt_payment_id ||
+          null;
+        const ptRefForRoundTrip = ptPaymentIdForRef
+          ? `PT-RET-${ptPaymentIdForRef}`
+          : null;
+
+        let retentionTransfers: any[] = [];
+        let matchedByReference = false;
+
+        if (data?.bank_transfer_id) {
+          // Caller already knows which transfer to use (legacy fast path).
+          retentionTransfers = allCandidateTransfers.filter(
+            (t: any) => t?.bankTransferID === data.bank_transfer_id,
+          );
+        } else {
+          // (1) Reference round-trip shortcut.
+          if (ptRefForRoundTrip) {
+            retentionTransfers = allCandidateTransfers.filter((t: any) => {
+              const refMatches =
+                (t?.reference || '').trim() === ptRefForRoundTrip;
+              const amountMatches =
+                Math.abs(Number(t?.amount)) ===
+                Math.abs(Number(retention_amount));
+              return refMatches && amountMatches && isInWindow(t);
+            });
+            if (retentionTransfers.length > 0) {
+              matchedByReference = true;
+              this.logger.log(
+                `[Task#50 matcher] Matched ${retentionTransfers.length} transfer(s) via reference ${ptRefForRoundTrip}`,
+              );
+            }
+          }
+
+          // (2) Account AND-pair + amount + window.
+          if (retentionTransfers.length === 0) {
+            retentionTransfers = allCandidateTransfers.filter((t: any) => {
+              const fromAcc = t?.fromBankAccount?.accountID;
+              const toAcc = t?.toBankAccount?.accountID;
+              const fromMatches =
+                fromAcc === xeroBankAccountDetails.account_id;
+              const toMatches = toAcc === xeroBankAccountDetails.account_id;
+              if (!fromMatches && !toMatches) return false;
+              const otherSide = fromMatches ? toAcc : fromAcc;
+              if (!otherSide || otherSide === xeroBankAccountDetails.account_id)
+                return false;
+              const amountMatches =
+                Math.abs(Number(t?.amount)) ===
+                Math.abs(Number(retention_amount));
+              if (!amountMatches) return false;
+              return isInWindow(t);
+            });
+          }
+
+          // (3) Surface out-of-window rejections with template 489 — but
+          // only when no in-window candidate was found (otherwise the
+          // sync log would be noisy on every match).
+          if (retentionTransfers.length === 0) {
+            const outOfWindowOnly = allCandidateTransfers.filter((t: any) => {
+              const fromAcc = t?.fromBankAccount?.accountID;
+              const toAcc = t?.toBankAccount?.accountID;
+              const fromMatches =
+                fromAcc === xeroBankAccountDetails.account_id;
+              const toMatches = toAcc === xeroBankAccountDetails.account_id;
+              if (!fromMatches && !toMatches) return false;
+              const amountMatches =
+                Math.abs(Number(t?.amount)) ===
+                Math.abs(Number(retention_amount));
+              return amountMatches && !isInWindow(t);
+            });
+            if (outOfWindowOnly.length > 0) {
+              try {
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: data?.sync_id || null,
+                  api_name: 'createClaimInPaytrade',
+                  api_payload: {
+                    sync_run_type,
+                    invoice_id: invoice?.invoiceID,
+                    tenant_id,
+                    candidate_transfer_ids: outOfWindowOnly.map(
+                      (t: any) => t?.bankTransferID,
+                    ),
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 489,
+                  dynamic_values: {
+                    invoice_number: invoice?.invoiceNumber || invoice?.invoiceID,
+                    transfer_date:
+                      outOfWindowOnly[0]?.date?.toString?.() ||
+                      String(outOfWindowOnly[0]?.date || ''),
+                    payment_date: payment?.date
+                      ? new Date(payment.date as any)
+                          .toISOString()
+                          .substring(0, 10)
+                      : '',
+                  },
+                  project_id: xeroProjectDetails?.id,
+                  contract_id: xeroContractDetails?.id,
+                  reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                  reference_id: xeroInvoice?.id,
+                  history: [
+                    `API triggered from invoice ${sync_run_type}`,
+                    'Out-of-window retention transfer rejected',
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Ok',
+                    'Import tracking id validation': 'Ok',
+                    'Import account type validation': 'Ok',
+                    'Import tax type validation': 'Ok',
+                    'Client/Supplier mapping validation': 'Ok',
+                    'Contract mapping validation': 'Ok',
+                    'Project mapping validation': 'Ok',
+                  },
+                  error_message: `Retention transfer outside ±${TASK50_WINDOW_DAYS} day window`,
+                  xero_records: outOfWindowOnly,
+                  paytrade_records: [],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } catch (e: any) {
+                this.logger.error(
+                  `[Task#50 matcher] failed to write template 489 log: ${e?.message || e}`,
+                );
               }
-            ) || []
-          : bankTransferResponse?.body?.bankTransfers?.filter(
-              (transfer) => transfer?.bankTransferID === data?.bank_transfer_id,
-            ) || [];
+            }
+          }
+
+          // (4) Multi-match after tightening — log template 490 and
+          // surface as a Failed sync so users can resolve manually.
+          // Per architect review: this MUST be a hard stop (return
+          // false), not a "log and continue", otherwise the downstream
+          // legacy disambiguation can still pick a transfer.
+          if (retentionTransfers.length > 1) {
+            try {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id || null,
+                api_name: 'createClaimInPaytrade',
+                api_payload: {
+                  sync_run_type,
+                  invoice_id: invoice?.invoiceID,
+                  tenant_id,
+                  candidate_transfer_ids: retentionTransfers.map(
+                    (t: any) => t?.bankTransferID,
+                  ),
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 490,
+                dynamic_values: {
+                  invoice_number:
+                    invoice?.invoiceNumber || invoice?.invoiceID,
+                  candidate_ids: retentionTransfers
+                    .map((t: any) => t?.bankTransferID)
+                    .join(', '),
+                },
+                project_id: xeroProjectDetails?.id,
+                contract_id: xeroContractDetails?.id,
+                reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                reference_id: xeroInvoice?.id,
+                history: [
+                  `API triggered from invoice ${sync_run_type}`,
+                  'Multiple retention transfers after tightened filter',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                },
+                error_message: 'Multiple retention transfers matched',
+                xero_records: retentionTransfers,
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            } catch (e: any) {
+              this.logger.error(
+                `[Task#50 matcher] failed to write template 490 log: ${e?.message || e}`,
+              );
+            }
+            // Hard stop — multi-match is not recoverable automatically.
+            return false;
+          }
+
+          // (5) Reference shortcut win — surface a Succeeded log entry
+          // so the audit trail shows we matched via reference rather
+          // than the heuristic.
+          if (matchedByReference && retentionTransfers.length === 1) {
+            try {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id || null,
+                api_name: 'createClaimInPaytrade',
+                api_payload: {
+                  sync_run_type,
+                  invoice_id: invoice?.invoiceID,
+                  tenant_id,
+                  bank_transfer_id: retentionTransfers[0]?.bankTransferID,
+                  reference: ptRefForRoundTrip,
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 488,
+                dynamic_values: {
+                  invoice_number:
+                    invoice?.invoiceNumber || invoice?.invoiceID,
+                  reference: ptRefForRoundTrip,
+                },
+                project_id: xeroProjectDetails?.id,
+                contract_id: xeroContractDetails?.id,
+                reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                reference_id: xeroInvoice?.id,
+                history: [
+                  `API triggered from invoice ${sync_run_type}`,
+                  'Matched retention transfer via PayTrade reference',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                },
+                error_message: null,
+                xero_records: retentionTransfers,
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            } catch (e: any) {
+              this.logger.error(
+                `[Task#50 matcher] failed to write template 488 log: ${e?.message || e}`,
+              );
+            }
+          }
+        }
         
         this.logger.log('[Retention Transfer Debug] After matching with fromAccount OR toAccount, retentionTransfers count:' + " " + JSON.stringify(retentionTransfers?.length));
 
@@ -10626,9 +10894,14 @@ export class XeroWebhookService {
                       ? data?.retention_id || null
                       : paymentClaimDetails?.retention_id,
                   third_party_payment_reason: '',
+                  // Task #50 — ACCREC parity. The legacy code only
+                  // auto-confirmed retention on ACCPAY (bills). With the
+                  // outbound gate split, ACCREC (invoices) can also push
+                  // a BankTransfer leg, so the inbound webhook must
+                  // mirror that and auto-confirm retention regardless of
+                  // invoice type.
                   is_retention_confirmed:
                     cash_retention_type === 'Claim' &&
-                    invoice.type === Invoice.TypeEnum.ACCPAY &&
                     cashRetention &&
                     !isPreviousPartPaymentExist
                       ? true

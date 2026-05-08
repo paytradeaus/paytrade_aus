@@ -38,6 +38,27 @@ export class CreatePaymentInput {
     description: 'Optional sync identifier for tracking purposes',
   })
   sync_id?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #50 — When false, skip pushing the Xero Payment leg (only the BankTransfer leg fires). Default true.',
+  })
+  sync_payment?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #50 — When false, skip pushing the Xero BankTransfer leg (only the Payment leg fires). Default true (when cash_retention=true).',
+  })
+  sync_transfer?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #50 — Existing Xero BankTransferID, if a previous webhook already attached one (used to bypass re-creation).',
+  })
+  bank_transfer_id?: string;
 }
 
 @InputType({ description: 'Input for creating an overpayment record' })

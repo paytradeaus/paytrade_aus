@@ -766,6 +766,35 @@ export class XeroPaymentsService {
       try {
         const dateValue = moment(payment_date).toDate();
 
+        // ---------------------------------------------------------------
+        // Task #50 — Independent gates for the Payment leg vs the
+        // BankTransfer leg. Either or both may fire on a given call.
+        // We look up any prior xero_payments row for this PT payment so
+        // we can (a) skip API calls for already-synced halves and
+        // (b) UPDATE the existing row when adding the missing half.
+        // ---------------------------------------------------------------
+        const existingXp = await this.xeroPayments.findOne({
+          where: {
+            integration_id: xeroDetails.integration_id,
+            pt_payment_id: payment_id,
+          },
+        });
+        const wantPayment = (data as any)?.sync_payment !== false;
+        const wantTransfer =
+          !!cash_retention && (data as any)?.sync_transfer !== false;
+        const skipPayment = !wantPayment || !!existingXp?.payment_id;
+        const skipTransfer = !wantTransfer || !!existingXp?.bank_transfer_id;
+        this.logger.log(
+          `[Task#50 gate-split] payment_id=${payment_id} wantPayment=${wantPayment} wantTransfer=${wantTransfer} skipPayment=${skipPayment} skipTransfer=${skipTransfer} existingXp.payment_id=${existingXp?.payment_id || null} existingXp.bank_transfer_id=${existingXp?.bank_transfer_id || null}`,
+        );
+
+        if (skipPayment && skipTransfer) {
+          this.logger.log(
+            `[Task#50 gate-split] Nothing to push for payment_id=${payment_id} — both legs already synced or both gates closed.`,
+          );
+          return existingXp || true;
+        }
+
         const invoice: Invoice = {
           invoiceID: xeroInvoicesBills.invoice_id,
         };
@@ -782,22 +811,33 @@ export class XeroPaymentsService {
           status: Payment.StatusEnum.AUTHORISED,
         };
 
-        const response = await this.xero.accountingApi.createPayment(
-          xeroDetails.tenant_id,
-          payment,
-        );
+        let response: any = null;
+        if (!skipPayment) {
+          response = await this.xero.accountingApi.createPayment(
+            xeroDetails.tenant_id,
+            payment,
+          );
+          this.logger.log(
+            `Payment created: ${JSON.stringify(response?.body?.payments?.[0])}`,
+          );
+        }
 
-        this.logger.log(`Payment created: ${JSON.stringify(response.body.payments[0])}`);
-        if (response.body.payments) {
-          let bank_transfer_id = null;
-          if (cash_retention) {
+        const paymentLegOk = skipPayment ? true : !!response?.body?.payments;
+        if (paymentLegOk) {
+          let bank_transfer_id: string | null =
+            existingXp?.bank_transfer_id || null;
+          let bank_transfer_reference: string | null =
+            (existingXp as any)?.bank_transfer_reference || null;
+          if (!skipTransfer) {
+            const ptRef = `PT-RET-${payment_id}`;
             const bankTransfer: BankTransfer = {
-              fromBankAccount: { accountID: xeroBankAccountDetails.account_id }, // main account
+              fromBankAccount: { accountID: xeroBankAccountDetails.account_id },
               toBankAccount: {
                 accountID: xeroRetentionBankAccountDetails.account_id,
-              }, // trust account
+              },
               amount: retention_amount,
               date: dateValue,
+              reference: ptRef,
             };
             this.logger.log(`bankTransfer: ${JSON.stringify(bankTransfer)}`);
             const retentionTransfer =
@@ -811,39 +851,57 @@ export class XeroPaymentsService {
               );
               bank_transfer_id =
                 retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
+              bank_transfer_reference = ptRef;
             }
           }
-          const payment = response.body.payments[0];
-          let requestData: any = {
-            payment_id: payment.paymentID,
+
+          const freshPayment = response?.body?.payments?.[0];
+          const requestData: any = {
             tenant_id: xeroDetails.tenant_id,
             integration_id: xeroDetails.integration_id,
             contact_id: xeroContactDetails.id,
             invoice_id: xeroInvoicesBills.id,
-            account_id: xeroBankAccountDetails.id,
-            payment_type: payment.paymentType,
-            status: payment.status,
-            payment_date: payment.date,
-            reference: payment.reference,
-            payment_amount: payment.amount,
-            bank_amount: payment.bankAmount,
-            is_reconciled: payment.isReconciled,
-            bank_transfer_id: bank_transfer_id,
-            // credit_note_id: creditNote.creditNoteID,
-            // credit_note_allocation_id: allocation.allocationID,
-            // credit_note_type: creditNote.type,
-            // credit_note_status: creditNote.status,
-            // credit_amount: creditNote.total,
-            // credit_note_date: creditNote.date,
             pt_payment_id: payment_id,
             mapped_status: 'System',
-            created_on: payment.updatedDateUTC,
-            created_by: decoded?.userId,
-            created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
           };
-          this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
-          const xeroPayments = await this.xeroPayments.create(requestData);
-          const xeroResponse: any = await this.xeroPayments.save(xeroPayments);
+          if (freshPayment) {
+            requestData.payment_id = freshPayment.paymentID;
+            requestData.account_id = xeroBankAccountDetails.id;
+            requestData.payment_type = freshPayment.paymentType;
+            requestData.status = freshPayment.status;
+            requestData.payment_date = freshPayment.date;
+            requestData.reference = freshPayment.reference;
+            requestData.payment_amount = freshPayment.amount;
+            requestData.bank_amount = freshPayment.bankAmount;
+            requestData.is_reconciled = freshPayment.isReconciled;
+          }
+          if (bank_transfer_id) {
+            requestData.bank_transfer_id = bank_transfer_id;
+            requestData.bank_transfer_reference = bank_transfer_reference;
+          }
+
+          let xeroResponse: any;
+          if (existingXp) {
+            this.logger.log(
+              `[Task#50 gate-split] Updating xero_payments id=${existingXp.id} with new leg(s): ${JSON.stringify(requestData)}`,
+            );
+            await this.xeroPayments.update({ id: existingXp.id }, requestData);
+            xeroResponse = await this.xeroPayments.findOne({
+              where: { id: existingXp.id },
+            });
+          } else {
+            requestData.created_on =
+              freshPayment?.updatedDateUTC || moment.tz('UTC').toDate();
+            requestData.created_by = decoded?.userId;
+            requestData.created_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
+            // Status fallback when only the transfer leg fired (no Payment in Xero yet).
+            if (!requestData.status) {
+              requestData.status = 'AUTHORISED';
+            }
+            this.logger.log(`requestData: ${JSON.stringify(requestData)}`);
+            const xeroPaymentsRow = await this.xeroPayments.create(requestData);
+            xeroResponse = await this.xeroPayments.save(xeroPaymentsRow);
+          }
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id,
             integration_id: xeroDetails.integration_id,

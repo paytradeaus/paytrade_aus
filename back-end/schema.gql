@@ -3437,6 +3437,11 @@ input CreatePaymentInput {
   """Bank account ID associated with the payment"""
   bank_account_id: Float
 
+  """
+  Task #50 — Existing Xero BankTransferID, if a previous webhook already attached one (used to bypass re-creation).
+  """
+  bank_transfer_id: String
+
   """Flag indicating if this is a cash retention payment"""
   cash_retention: Boolean
 
@@ -3454,6 +3459,16 @@ input CreatePaymentInput {
 
   """Optional sync identifier for tracking purposes"""
   sync_id: String
+
+  """
+  Task #50 — When false, skip pushing the Xero Payment leg (only the BankTransfer leg fires). Default true.
+  """
+  sync_payment: Boolean
+
+  """
+  Task #50 — When false, skip pushing the Xero BankTransfer leg (only the Payment leg fires). Default true (when cash_retention=true).
+  """
+  sync_transfer: Boolean
 }
 
 """Input type for creating a new project under a specific business."""

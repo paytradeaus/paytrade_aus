@@ -5255,5 +5255,35 @@
     "from_xero": true,
     "error_code": "VARIABLE_BILL_CODE_UNRESOLVED_INBOUND",
     "associated_log_ids": null
+  },
+  {
+    "id": 488,
+    "sync_type": "Payments",
+    "description": "<p>Retention bank transfer matched via PayTrade reference {{reference}} for invoice {{invoice_number}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 489,
+    "sync_type": "Payments",
+    "description": "<p>Retention bank transfer rejected for invoice {{invoice_number}} — candidate transfer dated {{transfer_date}} is outside the &plusmn;14 day matching window from payment date {{payment_date}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "RETENTION_TRANSFER_OUT_OF_WINDOW",
+    "associated_log_ids": null
+  },
+  {
+    "id": 490,
+    "sync_type": "Payments",
+    "description": "<p>Multiple retention bank transfers matched after tightening (account AND on from/to + &plusmn;14 day window) for invoice {{invoice_number}}. Manual reconciliation required — candidate IDs: {{candidate_ids}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "RETENTION_TRANSFER_MULTIPLE_MATCH",
+    "associated_log_ids": null
   }
 ]

@@ -201,17 +201,25 @@ export class PaymentsResolver {
               }),
             );
             if (xeroPayload && xeroPayload.bank_account_id) {
-              if (
-                (!paymentDetails.cash_retention && isPaymentChecked) ||
-                (paymentDetails.cash_retention &&
-                  isPaymentChecked &&
-                  isRetentionChecked)
-              ) {
+              // ---------------------------------------------------------
+              // Task #50 — Independent gates. Each ticked checkbox fires
+              // its own Xero leg (Payment vs BankTransfer). The service
+              // is idempotent: if both are ticked at once, both legs are
+              // created in one call; if only one is ticked now and the
+              // other is ticked later (in editDetails), the second call
+              // will only push the missing half and UPDATE the existing
+              // xero_payments row.
+              // ---------------------------------------------------------
+              const wantPayment = !!isPaymentChecked;
+              const wantTransfer =
+                !!paymentDetails.cash_retention && !!isRetentionChecked;
+              if (wantPayment || wantTransfer) {
                 const createPaymentDetails: any =
-                  await this.xeroPaymentsService.createPayment(
-                    decoded,
-                    xeroPayload,
-                  );
+                  await this.xeroPaymentsService.createPayment(decoded, {
+                    ...xeroPayload,
+                    sync_payment: wantPayment,
+                    sync_transfer: wantTransfer,
+                  });
                 // console.log('createPaymentDetails: ', createPaymentDetails);
                 if (
                   createPaymentDetails &&
@@ -827,18 +835,27 @@ export class PaymentsResolver {
               }),
             );
             if (xeroPayload && xeroPayload.bank_account_id) {
-              if (
-                !isExisted &&
-                ((!paymentDetails.cash_retention && isPaymentChecked) ||
-                  (paymentDetails.cash_retention &&
-                    isPaymentChecked &&
-                    isRetentionChecked))
-              ) {
+              // ---------------------------------------------------------
+              // Task #50 — Same independent-gate logic as addPayment.
+              // We compute which legs are still missing (either the row
+              // does not exist, or the corresponding column is null) and
+              // pass sync_payment/sync_transfer accordingly. The service
+              // upserts so callers can safely re-fire on every save.
+              // ---------------------------------------------------------
+              const paymentLegSynced = !!isExisted?.payment_id;
+              const transferLegSynced = !!isExisted?.bank_transfer_id;
+              const wantPayment = !!isPaymentChecked && !paymentLegSynced;
+              const wantTransfer =
+                !!paymentDetails.cash_retention &&
+                !!isRetentionChecked &&
+                !transferLegSynced;
+              if (wantPayment || wantTransfer) {
                 const createPaymentDetails =
-                  await this.xeroPaymentsService.createPayment(
-                    decoded,
-                    xeroPayload,
-                  );
+                  await this.xeroPaymentsService.createPayment(decoded, {
+                    ...xeroPayload,
+                    sync_payment: wantPayment,
+                    sync_transfer: wantTransfer,
+                  });
                 this.logger.log(`createPaymentDetails: ${JSON.stringify(createPaymentDetails)}`);
               } else if (
                 isExisted &&

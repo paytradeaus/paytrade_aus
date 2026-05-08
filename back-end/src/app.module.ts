@@ -114,6 +114,7 @@ import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module'
 import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retention-mode-schema-seeder.module';
 import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-gst-schema-seeder.module';
 import { XeroRetentionJournalsSchemaSeederModule } from './libs/@seeders/xero-retention-journals-schema-seeder.module';
+import { XeroPaymentSplitSchemaSeederModule } from './libs/@seeders/xero-payment-split-schema-seeder.module';
 import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-billing-type-schema-seeder.module';
 import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
 import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-integration-recovery-schema-seeder.module';
@@ -335,6 +336,7 @@ import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-
     XeroRetentionModeSchemaSeederModule,
     XeroContactGstSchemaSeederModule,
     XeroRetentionJournalsSchemaSeederModule,
+    XeroPaymentSplitSchemaSeederModule,
     ContractBillingTypeSchemaSeederModule,
     XeroVariableBillCodeSchemaSeederModule,
     XeroIntegrationRecoverySchemaSeederModule,

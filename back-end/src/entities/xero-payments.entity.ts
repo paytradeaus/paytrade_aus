@@ -63,6 +63,12 @@ export class XeroPayments {
   @Column({ type: 'uuid', nullable: true })
   bank_transfer_id: string;
 
+  // Task #50 — Reference stamped on the Xero BankTransfer when PT
+  // pushed it (`PT-RET-{pt_payment_id}`). Used by the inbound matcher
+  // for a fast reference round-trip shortcut.
+  @Column({ type: 'text', nullable: true })
+  bank_transfer_reference: string;
+
   @Column({ type: 'uuid', nullable: true })
   overpayment_id: string;
 
