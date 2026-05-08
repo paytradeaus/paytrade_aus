@@ -3433,14 +3433,20 @@ export class XeroInvoicesService {
     // Why two scalars instead of one inc-GST total: when the user has
     // their retention accounts mapped as `BAS Excluded` in Xero (a very
     // common configuration), the retention line(s) carry the full
-    // retention as `unitAmount` with `taxAmount = 0`. The previous
-    // signature collapsed both into a single inc-GST scalar and then
-    // re-split it using the bill-code line's own GST ratio, which
-    // wrongly attributed phantom GST to the retention. Tracking the
+    // retention as `unitAmount` with `taxAmount = 0`. Tracking the
     // ex-GST and GST portions separately (computed by the caller from
     // each retention line's true unitAmount/taxAmount with respect to
-    // the invoice's lineAmountTypes) preserves the source-of-truth
-    // split and produces the correct gross unit price and percentage.
+    // the invoice's lineAmountTypes AND the company's
+    // `retention_recording_mode`) preserves the source-of-truth split
+    // for retention TOTAL while letting the per-line GST be recomputed
+    // cleanly from the work line's own rate (see below).
+    //
+    // NOTE: `retentionUnitOnly` arriving here is ALREADY net (ex-GST).
+    // The consumer (webhook.service.ts V-Step ~L3328 and D-Step ~L3730)
+    // checks `retention_recording_mode === 'inc_gst'` + Inclusive and
+    // strips the gross-up to `unitAmount/1.1` before calling us, so we
+    // do NOT re-check the recording mode here — the input is already
+    // the correct net retention unit per supplier setup.
     const totalOriginal = (invoice?.subTotal ?? 0) + (invoice?.totalTax ?? 0);
 
     return items.map((item) => {
@@ -3461,33 +3467,59 @@ export class XeroInvoicesService {
       const taxRetention = retentionTaxOnly * itemRatio;
 
       const newUnitAmount = unitAmount + unitRetention;
-      // Per-line GST = original Xero line tax + this line's proportional
-      // share of retention tax. This MUST NOT be `newUnitAmount × 10%`
-      // because `newUnitAmount` includes the retention add-back which is
-      // BAS-Excluded in the common case (retention account mapped to
-      // BAS Excluded in Xero). Multiplying the post-retention unit by
-      // 10% phantoms GST onto the BAS-Excluded retention portion,
-      // producing a per-line gst that does not reconcile with either
-      // the totals card (`gst_summary`) or the source Xero invoice.
+
+      // -----------------------------------------------------------------
+      // Per-line GST = (this work line's effective tax rate) × merged unit.
       //
-      // Worked example — Xero bill 2501-SC-012 (PT claim 100022):
-      //   work line:   unitAmount=14937.80, taxAmount=1493.78
-      //   retention:   unitAmount=-786.20,  taxAmount=0 (BAS-Excluded)
+      // Rationale (per user spec, replaces commit 80662b2):
+      // 1. Reconstruct the original total claim by adding the net
+      //    retention back to the work line — `newUnitAmount` above.
+      // 2. Decide if GST is applicable from the WORK LINE's own
+      //    taxability — `workLineRate = item.taxAmount / unitAmount`.
+      //    If the work line was BAS-Excluded / NoTax in Xero, rate = 0
+      //    → merged GST = 0. If it was 10% GST on Income/Expense, the
+      //    merged unit gets 10% applied uniformly, giving a clean
+      //    consumer-facing GST figure that doesn't depend on how the
+      //    supplier mapped their retention account in Xero.
+      // 3. We deliberately ignore `retentionTaxOnly` for the per-line
+      //    GST: when the retention account is BAS-Excluded the previous
+      //    "preserve Xero" formula (`item.taxAmount + taxRetention`)
+      //    produced an effective rate < 10% on the merged unit (e.g.
+      //    $15,724 × 9.50% = $1,493.78 instead of $1,572.40), which
+      //    confuses end users reading the claim drawer. The retention
+      //    account being BAS-Excluded in Xero is a Xero-side booking
+      //    convention; PT must still display the consumer's view of
+      //    the claim with GST on the genuinely-taxable supply.
+      //
+      // Worked example — claim 100024 (Xero bill with BAS-Excl retention):
+      //   work line:   unitAmount=14937.80, taxAmount=1493.78  (rate=0.10)
+      //   retention:   unitAmount=-786.20,  taxAmount=0        (BAS-Excl)
       //   retentionUnitOnly=786.20, retentionTaxOnly=0
-      //   newUnitAmount = 14937.80 + 786.20 = 15724.00
-      //   newTaxAmount  = 1493.78 + 0       = 1493.78  ✓ matches Xero
-      //   total         = 15724.00 + 1493.78 = 17217.78
+      //   newUnitAmount  = 14937.80 + 786.20 = 15724.00
+      //   workLineRate   = 1493.78 / 14937.80 = 0.10
+      //   newTaxAmount   = 15724.00 × 0.10 = 1572.40           ✓ clean 10%
+      //   total          = 15724.00 + 1572.40 = 17296.40
       //
-      // For GST-on-Expenses retention (taxRetention > 0) the per-line
-      // gst correctly picks up its proportional share, and Σ(line.gst)
-      // == invoice.totalTax + retentionTaxOnly == claim.gst_summary.
-      const isTaxableLine = [
+      // Worked example — claim 100022 (GST-applicable retention account):
+      //   work line:   unitAmount=14937.80, taxAmount=1493.78  (rate=0.10)
+      //   retention:   unitAmount=-786.20,  taxAmount=-78.62   (10% GST)
+      //   retentionUnitOnly=786.20, retentionTaxOnly=78.62
+      //   newUnitAmount  = 15724.00, workLineRate = 0.10
+      //   newTaxAmount   = 1572.40                              ✓ same answer
+      //
+      // Worked example — fully NoTax/BAS-Excl supply:
+      //   work line:   unitAmount=10000, taxAmount=0           (rate=0)
+      //   newTaxAmount = 0                                      ✓ zero
+      // -----------------------------------------------------------------
+      const isInvoiceTaxable = [
         LineAmountTypes.Inclusive,
         LineAmountTypes.Exclusive,
       ].includes(lineAmountTypes);
-      const newTaxAmount = isTaxableLine
-        ? (Number(item.taxAmount) || 0) + taxRetention
-        : 0;
+      const workLineRate =
+        isInvoiceTaxable && unitAmount > 0
+          ? (Number(item.taxAmount) || 0) / unitAmount
+          : 0;
+      const newTaxAmount = workLineRate > 0 ? newUnitAmount * workLineRate : 0;
       const newAmountIncludingGST = newUnitAmount + newTaxAmount;
 
       this.logger.log(JSON.stringify({
@@ -3498,19 +3530,12 @@ export class XeroInvoicesService {
         taxRetention,
         retentionUnitOnly,
         retentionTaxOnly,
+        workLineRate,
+        lineAmountTypes,
       }));
       return {
-        unit_price: [
-          LineAmountTypes.Inclusive,
-          LineAmountTypes.Exclusive,
-        ].includes(lineAmountTypes)
-          ? parseFloat(newUnitAmount.toFixed(2))
-          : parseFloat(newUnitAmount.toFixed(2)),
-        gst: [LineAmountTypes.Inclusive, LineAmountTypes.Exclusive].includes(
-          lineAmountTypes,
-        )
-          ? parseFloat(newTaxAmount.toFixed(2))
-          : 0.0,
+        unit_price: parseFloat(newUnitAmount.toFixed(2)),
+        gst: parseFloat(newTaxAmount.toFixed(2)),
         total_amount_including_gst: parseFloat(
           newAmountIncludingGST.toFixed(2),
         ),

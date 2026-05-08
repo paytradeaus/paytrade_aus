@@ -3705,7 +3705,30 @@ export class XeroWebhookService {
             invoices,
             associated_retention_sub_payment_id,
             retention_id,
-            claim_amount: Number(invoice.total || 0) + retentionAmount,
+            // Sum of recomputed per-line totals so SUB TOTAL + GST = TOTAL
+            // on the claim drawer. The previous `invoice.total +
+            // retentionAmount` mirrored Xero's raw figures, but
+            // `adjustItemsWithRetention` now recomputes per-line GST as
+            // `workLineRate × merged_unit` (clean 10% on the merged
+            // ex-GST unit when the work line is taxable, 0 otherwise).
+            // For BAS-Excluded retention setups, that recomputed GST
+            // diverges from `invoice.totalTax + retentionTaxOnly` by
+            // exactly the missing GST on the retention portion, so we
+            // must derive `claim_amount` from the SAME numbers we just
+            // wrote into `invoices` (otherwise SUB TOTAL $15,724 + GST
+            // $1,572.40 = $17,296.40 but TOTAL would still show
+            // $17,217.78 from the old formula).
+            claim_amount: Array.isArray(invoices)
+              ? parseFloat(
+                  invoices
+                    .reduce(
+                      (sum, i) =>
+                        sum + Number(i?.total_amount_including_gst || 0),
+                      0,
+                    )
+                    .toFixed(2),
+                )
+              : Number(invoice.total || 0) + retentionAmount,
             cash_retention: cashRetention,
             retention_percentage: retentionPercentage,
             // Use the already-computed ex-GST retention (which is just
@@ -4580,7 +4603,30 @@ export class XeroWebhookService {
                 invoices,
                 associated_retention_sub_payment_id,
                 retention_id,
-                claim_amount: Number(invoice.total || 0) + retentionAmount,
+                // Sum of recomputed per-line totals so SUB TOTAL + GST = TOTAL
+            // on the claim drawer. The previous `invoice.total +
+            // retentionAmount` mirrored Xero's raw figures, but
+            // `adjustItemsWithRetention` now recomputes per-line GST as
+            // `workLineRate × merged_unit` (clean 10% on the merged
+            // ex-GST unit when the work line is taxable, 0 otherwise).
+            // For BAS-Excluded retention setups, that recomputed GST
+            // diverges from `invoice.totalTax + retentionTaxOnly` by
+            // exactly the missing GST on the retention portion, so we
+            // must derive `claim_amount` from the SAME numbers we just
+            // wrote into `invoices` (otherwise SUB TOTAL $15,724 + GST
+            // $1,572.40 = $17,296.40 but TOTAL would still show
+            // $17,217.78 from the old formula).
+            claim_amount: Array.isArray(invoices)
+              ? parseFloat(
+                  invoices
+                    .reduce(
+                      (sum, i) =>
+                        sum + Number(i?.total_amount_including_gst || 0),
+                      0,
+                    )
+                    .toFixed(2),
+                )
+              : Number(invoice.total || 0) + retentionAmount,
                 cash_retention: cashRetention,
                 retention_percentage: retentionPercentage,
                 // See V-Step site above and adjustItemsWithRetention
