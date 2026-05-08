@@ -4016,3 +4016,69 @@ export const manualXeroResync = async (variables: {
     return { success: false, message: msg };
   }
 };
+
+/**
+ * Task #72 — Lookup helper for the Manual Xero Re-sync widget.
+ *
+ * Returns up to 10 candidate Xero records for the chosen type filtered
+ * by a free-text hint. Silent on error (no toast) — the dialog renders
+ * the error message inline so it doesn't compete with the user's typing.
+ */
+export const manualXeroResyncLookup = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  hint: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  candidates: Array<{ id: string; label: string; sublabel?: string }>;
+}> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query ManualXeroResyncLookup(
+          $company_id: Float!
+          $type: String!
+          $hint: String!
+        ) {
+          manualXeroResyncLookup(
+            company_id: $company_id
+            type: $type
+            hint: $hint
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroResyncLookup;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return {
+        success: false,
+        message: "Xero re-authentication required.",
+        candidates: [],
+      };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: false, message: res?.message, candidates: [] };
+    }
+    return {
+      success: !!parsed?.success,
+      message: parsed?.message,
+      candidates: Array.isArray(parsed?.candidates) ? parsed.candidates : [],
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || ApiResponse.ERROR,
+      candidates: [],
+    };
+  }
+};

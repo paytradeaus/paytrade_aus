@@ -24,6 +24,7 @@ import {
   getXeroDashboardCountForCompany,
   getXeroDetailsForCompany,
   manualXeroResync,
+  manualXeroResyncLookup,
   SkipContractMapping,
   syncAllBankAccountsByCompanyId,
   syncAllContactsByCompanyId,
@@ -1181,6 +1182,16 @@ function ManualXeroSyncDialog({
     resolvedXeroId?: string | null;
   } | null>(null);
 
+  // Task #72 — inline lookup widget state. The hint is debounced so we
+  // don't hammer Xero on every keystroke.
+  const [hint, setHint] = useState<string>("");
+  const [lookupBusy, setLookupBusy] = useState<boolean>(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<
+    Array<{ id: string; label: string; sublabel?: string }>
+  >([]);
+  const [pickedLabel, setPickedLabel] = useState<string | null>(null);
+
   // Reset form/result whenever the dialog re-opens so previous output
   // doesn't leak across sessions.
   useEffect(() => {
@@ -1189,8 +1200,56 @@ function ManualXeroSyncDialog({
       setResult(null);
       setBusy(false);
       setType("invoice_bill");
+      setHint("");
+      setCandidates([]);
+      setLookupError(null);
+      setPickedLabel(null);
     }
   }, [open]);
+
+  // Reset lookup state when the type changes — candidates from one type
+  // are meaningless for another.
+  useEffect(() => {
+    setHint("");
+    setCandidates([]);
+    setLookupError(null);
+    setPickedLabel(null);
+  }, [type]);
+
+  // Debounced lookup — 350 ms after the user stops typing.
+  useEffect(() => {
+    const trimmed = hint.trim();
+    if (trimmed.length < 2) {
+      setCandidates([]);
+      setLookupError(null);
+      setLookupBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setLookupBusy(true);
+    setLookupError(null);
+    const handle = setTimeout(async () => {
+      const res = await manualXeroResyncLookup({
+        company_id: companyId,
+        type,
+        hint: trimmed,
+      });
+      if (cancelled) return;
+      setLookupBusy(false);
+      setCandidates(res.candidates || []);
+      setLookupError(
+        res.success
+          ? res.candidates?.length
+            ? null
+            : "No matches in the recent window. Try a different hint or paste the GUID directly."
+          : res.message || "Lookup failed."
+      );
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [hint, type, companyId]);
 
   const handleClose = () => {
     if (busy) return;
@@ -1259,6 +1318,74 @@ function ManualXeroSyncDialog({
           <option value="manual_journal">Manual journal</option>
         </select>
       </div>
+      {/* Task #72 — inline lookup widget. Optional shortcut so the admin
+          doesn't have to open Xero in another tab to copy a GUID. */}
+      <div style={{ marginBottom: "12px" }}>
+        <h5 style={{ margin: "0 0 4px 0" }}>
+          Find by{" "}
+          {type === "invoice_bill"
+            ? "invoice number, contact name or reference"
+            : type === "payment"
+            ? "invoice number, contact name, reference or amount"
+            : type === "bank_transfer"
+            ? "reference, PT payment id or amount"
+            : type === "contact"
+            ? "contact name"
+            : "narration or reference"}
+          <span style={{ opacity: 0.6, fontWeight: 400 }}> (optional)</span>
+        </h5>
+        <input
+          type="text"
+          placeholder="Type at least 2 characters…"
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
+          disabled={busy}
+          style={{ width: "100%", padding: "8px 10px" }}
+        />
+        {lookupBusy && (
+          <small style={{ opacity: 0.7 }}>Searching Xero…</small>
+        )}
+        {!lookupBusy && lookupError && (
+          <small style={{ color: "#a50e0e" }}>{lookupError}</small>
+        )}
+        {!lookupBusy && candidates.length > 0 && (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: "6px 0 0 0",
+              padding: 0,
+              maxHeight: "220px",
+              overflowY: "auto",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+            }}
+          >
+            {candidates.map((c) => (
+              <li
+                key={c.id}
+                onClick={() => {
+                  if (busy) return;
+                  setId(c.id);
+                  setPickedLabel(c.label);
+                }}
+                style={{
+                  padding: "8px 10px",
+                  borderBottom: "1px solid #eee",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  background: id === c.id ? "#eaf3ff" : "transparent",
+                  fontSize: "13px",
+                }}
+              >
+                <div style={{ fontWeight: 500 }}>{c.label}</div>
+                {c.sublabel && (
+                  <div style={{ opacity: 0.7 }}>{c.sublabel}</div>
+                )}
+                <code style={{ opacity: 0.6, fontSize: "11px" }}>{c.id}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div style={{ marginBottom: "12px" }}>
         <h5 style={{ margin: "0 0 4px 0" }}>
           Xero ID
@@ -1272,17 +1399,27 @@ function ManualXeroSyncDialog({
               : "Xero record GUID"
           }
           value={id}
-          onChange={(e) => setId(e.target.value)}
+          onChange={(e) => {
+            setId(e.target.value);
+            setPickedLabel(null);
+          }}
           disabled={busy}
           style={{ width: "100%", padding: "8px 10px" }}
         />
-        <small style={{ opacity: 0.7 }}>
-          {type === "bank_transfer"
-            ? "Tip: only PayTrade-originated retention transfers (reference PT-RET-…) can be resolved back to a claim."
-            : type === "manual_journal"
-            ? "Tip: PayTrade-posted journals are skipped by anti-echo so we don't double-process them."
-            : "Tip: paste the value straight from the Xero URL or the sync log entry."}
-        </small>
+        {pickedLabel && (
+          <small style={{ color: "#137333" }}>
+            Selected: {pickedLabel} — <code>{id}</code>
+          </small>
+        )}
+        {!pickedLabel && (
+          <small style={{ opacity: 0.7 }}>
+            {type === "bank_transfer"
+              ? "Tip: only PayTrade-originated retention transfers (reference PT-RET-…) can be resolved back to a claim."
+              : type === "manual_journal"
+              ? "Tip: PayTrade-posted journals are skipped by anti-echo so we don't double-process them."
+              : "Tip: paste the value straight from the Xero URL or the sync log entry."}
+          </small>
+        )}
       </div>
       {result && (
         <div

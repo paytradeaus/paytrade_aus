@@ -13768,4 +13768,378 @@ export class XeroWebhookService {
       return { success: false, message: errMsg, syncLogId };
     }
   }
+
+  /**
+   * Task #72 — Lookup helper for Manual Xero re-sync.
+   *
+   * Lets admins find the correct Xero GUID without leaving PayTrade. For
+   * each supported type we fetch a recent slice of records from Xero
+   * (and/or PT-side mappings for bank_transfer) and filter by a
+   * human-readable hint (invoice number, contact name, reference,
+   * narration, amount, or PT-side payment id). Returns up to 10 candidates
+   * with `{ id, label, sublabel }` so the frontend can render a short
+   * autocomplete list. The user picks one → `id` populates the resync
+   * input → they click Run sync against the existing `manualXeroResync`
+   * mutation.
+   *
+   * Read-only: no writes, no sync log rows, no token refresh side-effects
+   * other than the standard Redis-locked refresh that every Xero call
+   * already performs.
+   */
+  async manualXeroResyncLookup(
+    decoded: any,
+    input: { company_id: number; type: string; hint: string },
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    candidates: Array<{
+      id: string;
+      label: string;
+      sublabel?: string;
+    }>;
+  }> {
+    const company_id = Number(input?.company_id);
+    const rawType = String(input?.type || '').trim().toLowerCase();
+    const hint = String(input?.hint || '').trim();
+
+    const allowedTypes = new Set([
+      'invoice_bill',
+      'payment',
+      'bank_transfer',
+      'contact',
+      'manual_journal',
+    ]);
+
+    if (!company_id || !rawType) {
+      return {
+        success: false,
+        message: 'company_id and type are required.',
+        candidates: [],
+      };
+    }
+    if (!allowedTypes.has(rawType)) {
+      return {
+        success: false,
+        message: `Unsupported type "${rawType}".`,
+        candidates: [],
+      };
+    }
+    if (!hint || hint.length < 2) {
+      return {
+        success: false,
+        message: 'Enter at least 2 characters to search.',
+        candidates: [],
+      };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return {
+        success: false,
+        message: 'No active Xero integration found for this company.',
+        candidates: [],
+      };
+    }
+    if (
+      xeroDetails.integrationDetails?.integration_status !==
+      'Connected - active'
+    ) {
+      return {
+        success: false,
+        message: 'Xero integration is not in Connected - active state.',
+        candidates: [],
+      };
+    }
+
+    const tenant_id = xeroDetails.tenant_id;
+    const integration_id = xeroDetails.integration_id;
+
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const lower = hint.toLowerCase();
+    const fmtDate = (d: any): string => {
+      try {
+        if (!d) return '';
+        const m = moment(d);
+        return m.isValid() ? m.format('DD MMM YYYY') : '';
+      } catch {
+        return '';
+      }
+    };
+    const num = (v: any): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    try {
+      // ─── INVOICE / BILL ────────────────────────────────────────────────
+      if (rawType === 'invoice_bill') {
+        // Pull modified-in-last-365-days slice and filter client-side so
+        // we never have to hand-craft a brittle Xero where clause.
+        const since = moment().subtract(365, 'days').toDate();
+        // Signature (xero-node): tenantId, ifModifiedSince, where, order,
+        // iDs, invoiceNumbers, contactIDs, statuses, page, includeArchived,
+        // createdByMyApp, unitdp, summaryOnly, pageSize, searchTerm.
+        const resp = await this.xero.accountingApi.getInvoices(
+          tenant_id,
+          since,
+          undefined,
+          'UpdatedDateUTC DESC',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          1,
+          undefined,
+          undefined,
+          undefined,
+          true,
+          200,
+        );
+        const list = resp?.body?.invoices || [];
+        const out = list
+          .filter((inv: any) => {
+            const num = String(inv?.invoiceNumber || '').toLowerCase();
+            const ref = String(inv?.reference || '').toLowerCase();
+            const name = String(inv?.contact?.name || '').toLowerCase();
+            return (
+              num.includes(lower) ||
+              ref.includes(lower) ||
+              name.includes(lower)
+            );
+          })
+          .slice(0, 10)
+          .map((inv: any) => ({
+            id: String(inv?.invoiceID || ''),
+            label: `${inv?.invoiceNumber || '(no number)'} — ${
+              inv?.contact?.name || '(no contact)'
+            }`,
+            sublabel: `${inv?.type || ''} • ${fmtDate(inv?.date)} • ${
+              inv?.status || ''
+            } • Total ${num(inv?.total).toFixed(2)}`,
+          }));
+        return { success: true, candidates: out };
+      }
+
+      // ─── PAYMENT ──────────────────────────────────────────────────────
+      if (rawType === 'payment') {
+        const since = moment().subtract(180, 'days').toDate();
+        const resp = await this.xero.accountingApi.getPayments(
+          tenant_id,
+          since,
+          undefined,
+          'Date DESC',
+          1,
+        );
+        const list = resp?.body?.payments || [];
+        const out = list
+          .filter((p: any) => {
+            const invNum = String(
+              p?.invoice?.invoiceNumber || '',
+            ).toLowerCase();
+            const name = String(
+              p?.invoice?.contact?.name || '',
+            ).toLowerCase();
+            const ref = String(p?.reference || '').toLowerCase();
+            const amt = String(p?.amount ?? '');
+            return (
+              invNum.includes(lower) ||
+              name.includes(lower) ||
+              ref.includes(lower) ||
+              amt === hint
+            );
+          })
+          .slice(0, 10)
+          .map((p: any) => ({
+            id: String(p?.paymentID || ''),
+            label: `${p?.invoice?.invoiceNumber || '(no invoice)'} — ${
+              p?.invoice?.contact?.name || ''
+            }`,
+            sublabel: `${fmtDate(p?.date)} • ${num(p?.amount).toFixed(2)} • ${
+              p?.status || ''
+            }`,
+          }));
+        return { success: true, candidates: out };
+      }
+
+      // ─── BANK TRANSFER ────────────────────────────────────────────────
+      // Two paths — both deduped by transfer id:
+      //   (a) PT-side mappings: search xero_payments for matches on
+      //       PT payment id, bank_transfer_reference, or PT-RET-{id}.
+      //   (b) Recent Xero BankTransfers filtered by reference Contains.
+      if (rawType === 'bank_transfer') {
+        const collected = new Map<string, { id: string; label: string; sublabel?: string }>();
+
+        // (a) PT-side: numeric hint = pt_payment_id; otherwise treat as
+        // reference substring.
+        const ptHintNumeric = /^\d+$/.test(hint) ? Number(hint) : null;
+        try {
+          const qb = this.xeroPayments
+            .createQueryBuilder('xp')
+            .where('xp.integration_id = :integration_id', { integration_id })
+            .andWhere('xp.bank_transfer_id IS NOT NULL');
+          if (ptHintNumeric != null) {
+            qb.andWhere(
+              '(xp.pt_payment_id = :pt OR xp.bank_transfer_reference ILIKE :ref)',
+              { pt: ptHintNumeric, ref: `%${hint}%` },
+            );
+          } else {
+            qb.andWhere('xp.bank_transfer_reference ILIKE :ref', {
+              ref: `%${hint}%`,
+            });
+          }
+          const ptRows = await qb.orderBy('xp.id', 'DESC').limit(10).getMany();
+          for (const r of ptRows) {
+            if (!r.bank_transfer_id || collected.has(r.bank_transfer_id)) continue;
+            collected.set(r.bank_transfer_id, {
+              id: r.bank_transfer_id,
+              label: r.bank_transfer_reference || `BankTransfer ${r.bank_transfer_id.slice(0, 8)}…`,
+              sublabel: `PT payment #${r.pt_payment_id} • ${fmtDate(r.payment_date)} • ${num(r.payment_amount).toFixed(2)}`,
+            });
+          }
+        } catch (err: any) {
+          this.logger.log(
+            `[MANUAL_RESYNC_LOOKUP] PT-side bank_transfer search failed: ${err?.message || err}`,
+          );
+        }
+
+        // (b) Xero-side: recent transfers filtered by reference substring.
+        try {
+          const since = moment().subtract(180, 'days').toDate();
+          const resp = await this.xero.accountingApi.getBankTransfers(
+            tenant_id,
+            since,
+            undefined,
+            'Date DESC',
+          );
+          const list = resp?.body?.bankTransfers || [];
+          for (const bt of list) {
+            const id = String((bt as any)?.bankTransferID || '');
+            if (!id || collected.has(id)) continue;
+            const ref = String((bt as any)?.reference || '');
+            const amt = String((bt as any)?.amount ?? '');
+            if (
+              ref.toLowerCase().includes(lower) ||
+              amt === hint
+            ) {
+              collected.set(id, {
+                id,
+                label: ref || `BankTransfer ${id.slice(0, 8)}…`,
+                sublabel: `${fmtDate((bt as any)?.date)} • ${num((bt as any)?.amount).toFixed(2)}`,
+              });
+              if (collected.size >= 10) break;
+            }
+          }
+        } catch (err: any) {
+          this.logger.log(
+            `[MANUAL_RESYNC_LOOKUP] Xero-side bank_transfer search failed: ${err?.message || err}`,
+          );
+        }
+
+        return {
+          success: true,
+          candidates: Array.from(collected.values()).slice(0, 10),
+        };
+      }
+
+      // ─── CONTACT ──────────────────────────────────────────────────────
+      if (rawType === 'contact') {
+        const safe = hint.replace(/"/g, '\\"');
+        let list: any[] = [];
+        try {
+          const resp = await this.xero.accountingApi.getContacts(
+            tenant_id,
+            new Date('1900-01-01T00:00:00.000+00:00'),
+            `Name!=null&&Name.Contains("${safe}")`,
+            'Name ASC',
+            [],
+            1,
+            true,
+            true,
+            '',
+            50,
+          );
+          list = resp?.body?.contacts || [];
+        } catch (err: any) {
+          // Fall back to unfiltered first page if the where clause is
+          // rejected by Xero (e.g. special characters).
+          this.logger.log(
+            `[MANUAL_RESYNC_LOOKUP] contact where clause failed, falling back: ${err?.message || err}`,
+          );
+          const resp = await this.xero.accountingApi.getContacts(
+            tenant_id,
+            undefined,
+            undefined,
+            'Name ASC',
+            [],
+            1,
+            true,
+            true,
+            '',
+            500,
+          );
+          list = (resp?.body?.contacts || []).filter((c: any) =>
+            String(c?.name || '').toLowerCase().includes(lower),
+          );
+        }
+        const out = list.slice(0, 10).map((c: any) => ({
+          id: String(c?.contactID || ''),
+          label: c?.name || '(no name)',
+          sublabel: [
+            c?.emailAddress || null,
+            c?.isCustomer ? 'Customer' : null,
+            c?.isSupplier ? 'Supplier' : null,
+            c?.contactStatus || null,
+          ]
+            .filter(Boolean)
+            .join(' • '),
+        }));
+        return { success: true, candidates: out };
+      }
+
+      // ─── MANUAL JOURNAL ───────────────────────────────────────────────
+      if (rawType === 'manual_journal') {
+        const since = moment().subtract(365, 'days').toDate();
+        const resp = await this.xero.accountingApi.getManualJournals(
+          tenant_id,
+          since,
+          undefined,
+          'UpdatedDateUTC DESC',
+        );
+        const list = resp?.body?.manualJournals || [];
+        const out = list
+          .filter((mj: any) => {
+            const narration = String(mj?.narration || '').toLowerCase();
+            const ref = String(mj?.reference || '').toLowerCase();
+            return narration.includes(lower) || ref.includes(lower);
+          })
+          .slice(0, 10)
+          .map((mj: any) => ({
+            id: String(mj?.manualJournalID || ''),
+            label: mj?.narration || '(no narration)',
+            sublabel: `${fmtDate(mj?.date)} • ${mj?.status || ''}${
+              mj?.reference ? ` • Ref ${mj.reference}` : ''
+            }`,
+          }));
+        return { success: true, candidates: out };
+      }
+
+      return {
+        success: false,
+        message: `Unsupported type "${rawType}".`,
+        candidates: [],
+      };
+    } catch (err: any) {
+      const errMsg = await handleAxiosError(err).catch(
+        () => err?.message || String(err),
+      );
+      this.logger.error(
+        `[MANUAL_RESYNC_LOOKUP] unhandled error: ${errMsg}`,
+      );
+      return { success: false, message: errMsg, candidates: [] };
+    }
+  }
 }

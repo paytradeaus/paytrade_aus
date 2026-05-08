@@ -1211,4 +1211,85 @@ export class XeroResolver {
       );
     }
   }
+
+  /**
+   * Task #72 — Lookup helper for the Manual Xero Re-sync widget.
+   *
+   * Returns up to 10 candidate Xero records for the chosen type filtered
+   * by a free-text hint (invoice number, contact name, reference,
+   * narration, amount, or PT-side payment id). Read-only; does not write
+   * a sync log entry.
+   *
+   * Response is a `StringResponse` whose `message` is JSON-stringified
+   * `{ success, message?, candidates: [{id, label, sublabel?}] }`.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'manualXeroResyncLookup',
+    description:
+      'Find candidate Xero records for the Manual Xero Re-sync widget by a human-readable hint (invoice number, contact name, reference, etc.). Returns up to 10 candidates with their GUIDs.',
+  })
+  async manualXeroResyncLookup(
+    @Context() context,
+    @Args('company_id', { description: 'Company id of the calling user.' })
+    company_id: number,
+    @Args('type', {
+      description:
+        'One of: invoice_bill, payment, bank_transfer, contact, manual_journal',
+    })
+    type: string,
+    @Args('hint', {
+      description:
+        'Free-text hint: invoice number, contact name, reference, narration, amount, or PT-side payment id.',
+    })
+    hint: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+            candidates: [],
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroResyncLookup(
+        decoded,
+        { company_id, type, hint },
+      );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      if (this.refreshTokenReAuthenticate({ error })) {
+        const decoded = await this.jwtInternalService.decodeJwtToken(context);
+        const response = await this.xeroService.getAuthUrl(
+          company_id,
+          decoded?.userId,
+          false,
+          decoded?.timezone,
+        );
+        return framedResponse('XERO_REFRESH', response);
+      }
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+          candidates: [],
+        }),
+      );
+    }
+  }
 }
