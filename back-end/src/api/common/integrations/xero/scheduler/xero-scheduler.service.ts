@@ -60,6 +60,7 @@ import { UpdateClientSuppliersDetailInput } from 'src/api/users/client-suppliers
 import { XeroProjectsService } from '../projects/xero-projects.service';
 import { XeroContractsService } from '../contracts/xero-contracts.service';
 import { XeroInvoicesService } from '../invoicesAndBills/xero-invoices.service';
+import { XeroPaymentsService } from '../payments/xero-payments.service';
 import { UpdateProjectInput } from 'src/api/users/projects/dto/update-project.input';
 import axios from 'axios';
 import { XeroResolver } from '../xero.resolver';
@@ -117,6 +118,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     private readonly xeroProjectsService: XeroProjectsService,
     private readonly xeroContractsService: XeroContractsService,
     private readonly xeroInvoicesService: XeroInvoicesService,
+    private readonly xeroPaymentsService: XeroPaymentsService,
     private readonly emailQueueProducer: EmailQueueProducer,
   ) {
     this.xero = new XeroClient({
@@ -164,6 +166,29 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     // `integration_details.integration_status` is still stuck on
     // `Inactive`/`Disconnected`/null (e.g. integration_id 1007 / company
     // 1012). Best-effort, never blocks startup.
+    // Task #55 — One-shot best-effort retry of legacy "exceeds amount
+    // outstanding" payment sync failures so historical Failed logs heal
+    // themselves now that the Task #51 inline recovery exists. Runs ~120s
+    // after boot so it never competes with startup work, scoped to the
+    // last 90 days, all integrations.
+    setTimeout(() => {
+      this.xeroPaymentsService
+        .recoverFailedExceedsOutstandingPaymentSyncs(
+          { userId: null, isAdmin: true },
+          { lookback_days: 90, limit: 500 },
+        )
+        .then((res) =>
+          this.logger.log(
+            `[Task #55] recoverFailedExceedsOutstandingPaymentSyncs: scanned=${res.scanned} recovered=${res.recovered} classified=${res.classified} skipped=${res.skipped} failed=${res.failed}`,
+          ),
+        )
+        .catch((err) =>
+          this.logger.error(
+            `[Task #55] recoverFailedExceedsOutstandingPaymentSyncs failed: ${err?.message || err}`,
+          ),
+        );
+    }, 120_000);
+
     setTimeout(() => {
       this.xeroService
         .recoverStuckInactiveIntegrations()

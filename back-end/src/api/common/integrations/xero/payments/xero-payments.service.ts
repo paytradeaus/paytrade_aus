@@ -38,6 +38,7 @@ import { PaymentClaimTypes } from 'src/libs/@paytrade-types/paytrade-types';
 import { XeroPayments } from 'src/entities/xero-payments.entity';
 import { XeroBankAccountDetails } from 'src/entities/xero-bank-account-details.entity';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
+import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import {
   CreateCreditNotesInput,
   CreateOverPaymentInput,
@@ -1480,6 +1481,191 @@ export class XeroPaymentsService {
       const errMsg = await handleAxiosError(error);
 
       throw errMsg;
+    }
+  }
+
+  /**
+   * Task #55 — One-shot / on-demand healer for legacy "exceeds amount
+   * outstanding" payment sync failures that were logged BEFORE the
+   * Task #51 inline recovery path existed.
+   *
+   * Scans recent Failed payment sync logs (template 332) whose
+   * `error_message` contains "exceeds outstanding", deduplicates by
+   * `reference_id` (PT payment row id), then re-invokes
+   * `createPayment(...)` for each with `sync_id` pointing at the
+   * original 332 row — `insertXeroSyncLogs` treats a non-empty `id`
+   * as an UPDATE, so the legacy Failed row is healed in place to:
+   *  - template 493 (recovered) when AmountDue == 0 — the existing
+   *    Xero payment is recorded against the PT row,
+   *  - template 168 (synced) when the recovery actually pushed a
+   *    fresh payment that succeeded,
+   *  - template 494 (PAYMENT_EXCEEDS_OUTSTANDING) when AmountDue > 0
+   *    — the row carries the outstanding figure so the user can
+   *    adjust and re-sync.
+   *
+   * NOTE on the task spec wording: the task description references
+   * "template 492" for the AmountDue > 0 case, but template 492 is the
+   * BankTransfer-reversal log added in Task #52 and is unrelated to
+   * payment-exceeds-outstanding. Template 494 is the correct semantic
+   * match (it was added alongside 493 in Task #51 specifically to
+   * carry `amount_due` / `requested_amount` for this exact case).
+   *
+   * Idempotent — re-runs are safe because the latest-332-per-reference
+   * loop only sees rows that are still Failed, and any row already
+   * healed to 168 / 493 / 494 by a previous run is filtered out by
+   * the `latestByRef` dedup + the post-update guard below.
+   *
+   * Best-effort: per-row failures are caught and counted; a single bad
+   * row never aborts the scan.
+   */
+  async recoverFailedExceedsOutstandingPaymentSyncs(
+    decoded: any,
+    options: {
+      integration_id?: number;
+      lookback_days?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    scanned: number;
+    recovered: number;
+    classified: number;
+    skipped: number;
+    failed: number;
+    errors: string[];
+  }> {
+    const PREFIX = '[Task#55 retry-exceeds-outstanding]';
+    const lookbackDays = Math.max(1, Math.min(365, options.lookback_days || 90));
+    const limit = Math.max(1, Math.min(1000, options.limit || 500));
+    const summary = {
+      scanned: 0,
+      recovered: 0,
+      classified: 0,
+      skipped: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    try {
+      // Find candidate failed logs.
+      const candidatesQb = this.xeroPayments.manager
+        .getRepository(XeroSyncLogs)
+        .createQueryBuilder('log')
+        .where('log.log_template_id = :tpl', { tpl: 332 })
+        .andWhere('log.error_message ILIKE :pat', {
+          pat: '%exceeds%outstanding%',
+        })
+        .andWhere('log.reference_id IS NOT NULL')
+        .andWhere(
+          `log.created_on >= (now() - (:days || ' days')::interval)`,
+          { days: lookbackDays },
+        )
+        .orderBy('log.created_on', 'DESC')
+        .take(limit);
+      if (options.integration_id) {
+        candidatesQb.andWhere('log.integration_id = :iid', {
+          iid: options.integration_id,
+        });
+      }
+      const candidates = await candidatesQb.getMany();
+
+      // Deduplicate to the latest 332 per reference_id (PT payment id).
+      const latestByRef = new Map<string, XeroSyncLogs>();
+      for (const row of candidates) {
+        if (!latestByRef.has(row.reference_id)) {
+          latestByRef.set(row.reference_id, row);
+        }
+      }
+      summary.scanned = latestByRef.size;
+      this.logger.log(
+        `${PREFIX} scanning ${summary.scanned} unique failed payment(s) (lookback=${lookbackDays}d, integration_id=${options.integration_id || 'ALL'})`,
+      );
+
+      for (const [refId, failedLog] of latestByRef.entries()) {
+        try {
+          // Reconstruct CreatePaymentInput from the failed log's api_payload.
+          const payload: any = { ...(failedLog.api_payload || {}) };
+          // Strip log-only / server-side fields so they don't pollute
+          // the createPayment validation surface.
+          delete payload.mapping_project_id;
+          delete payload.mapping_payment_claim_id;
+          delete payload.mapping_bank_account_id;
+          delete payload.unmapping_invoice_id;
+
+          // Route the in-place update back to the original 332 row.
+          // `insertXeroSyncLogs` treats a non-empty `id` as UPDATE, so
+          // every log write inside `createPayment` will mutate the
+          // legacy Failed row instead of inserting a new one — the
+          // user's "Failed" view heals itself.
+          payload.sync_id = failedLog.id;
+
+          const ptPaymentId = Number(payload.payment_id);
+          if (!ptPaymentId || Number.isNaN(ptPaymentId)) {
+            summary.skipped++;
+            this.logger.log(
+              `${PREFIX} skipping log id=${failedLog.id}: missing payment_id in api_payload`,
+            );
+            continue;
+          }
+
+          // Re-invoke createPayment — the inline Task #51 recovery
+          // path will classify the result and (via insertXeroSyncLogs
+          // UPDATE) flip the legacy 332 row to the correct template.
+          const result = await this.createPayment(
+            decoded,
+            payload as CreatePaymentInput,
+          );
+
+          // Re-read the now-updated original row to classify outcome.
+          const updated = await this.xeroPayments.manager
+            .getRepository(XeroSyncLogs)
+            .findOne({ where: { id: failedLog.id } });
+          const tpl = updated?.log_template_id;
+
+          if (tpl === 493 || tpl === 168) {
+            summary.recovered++;
+          } else if (tpl === 494) {
+            summary.classified++;
+          } else if (tpl === 332) {
+            summary.failed++;
+          } else {
+            // Validation gate (171/177/180/190/etc.) caught the row;
+            // the legacy Failed log has been healed to a more accurate
+            // failure reason. Count as classified so users know the
+            // row was acted on.
+            summary.classified++;
+          }
+
+          // result is unused for classification but logged for trace.
+          if (result === false) {
+            this.logger.log(
+              `${PREFIX} reference_id=${refId} createPayment returned false; final template=${tpl}`,
+            );
+          }
+        } catch (err: any) {
+          summary.failed++;
+          const msg = await handleAxiosError(err);
+          summary.errors.push(
+            `reference_id=${refId}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`,
+          );
+          this.logger.log(
+            `${PREFIX} retry failed for reference_id=${refId}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `${PREFIX} done. scanned=${summary.scanned} recovered=${summary.recovered} classified=${summary.classified} skipped=${summary.skipped} failed=${summary.failed}`,
+      );
+      return summary;
+    } catch (err: any) {
+      const msg = await handleAxiosError(err);
+      this.logger.error(
+        `${PREFIX} top-level failure: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`,
+      );
+      summary.errors.push(
+        `top-level: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`,
+      );
+      return summary;
     }
   }
 

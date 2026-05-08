@@ -115,6 +115,55 @@ export class XeroPaymentsResolver {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'retryFailedExceedsOutstandingPaymentSyncs',
+    description:
+      'Task #55 — Re-runs the inline "exceeds amount outstanding" recovery against legacy Failed payment sync logs (template 332). Idempotent. Returns a JSON-stringified summary of the scan.',
+  })
+  async retryFailedExceedsOutstandingPaymentSyncs(
+    @Context() context,
+    @Args('integration_id', {
+      nullable: true,
+      description:
+        'Optional Xero integration_id to scope the scan to a single integration. When omitted, scans all integrations.',
+    })
+    integration_id?: number,
+    @Args('lookback_days', {
+      nullable: true,
+      description:
+        'How many days of history to scan (default 90, max 365).',
+    })
+    lookback_days?: number,
+    @Args('limit', {
+      nullable: true,
+      description: 'Maximum failed logs to consider (default 500, max 1000).',
+    })
+    limit?: number,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for retryFailedExceedsOutstandingPaymentSyncs integration_id=${integration_id} lookback_days=${lookback_days} limit=${limit}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const summary =
+        await this.xeroPaymentsService.recoverFailedExceedsOutstandingPaymentSyncs(
+          decoded,
+          { integration_id, lookback_days, limit },
+        );
+
+      return framedResponse(
+        'SUCCESS',
+        `Retry complete: scanned=${summary.scanned} recovered=${summary.recovered} classified=${summary.classified} skipped=${summary.skipped} failed=${summary.failed}`,
+        JSON.stringify(summary),
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => GetXeroPaymentsResponse, {
     name: 'createOverPaymentInXero',
