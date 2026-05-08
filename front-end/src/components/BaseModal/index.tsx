@@ -45,6 +45,14 @@ interface BaseModalProps {
   hideHeaderCloseIcon?: boolean;
   childrenClicked?: (data: any) => void;
   disableHeaderCloseIcon?: boolean;
+  // Optional extra button rendered between the first (close) and second
+  // (confirm) footer buttons. Kept between them so existing
+  // `footer button:last-child` selectors continue to target confirm.
+  middleButtonName?: string;
+  hideMiddleButton?: boolean;
+  disableMiddleButton?: boolean;
+  middleBtnClassTypes?: string;
+  onMiddleButtonClick?: () => void;
 }
 
 // BaseModal component definition
@@ -72,6 +80,11 @@ export default function BaseModal({
   hideHeaderCloseIcon = false,
   childrenClicked = (data) => {},
   disableHeaderCloseIcon,
+  middleButtonName,
+  hideMiddleButton = false,
+  disableMiddleButton = false,
+  middleBtnClassTypes = "secondary",
+  onMiddleButtonClick,
 }: Readonly<BaseModalProps>) {
   const router = useRouter();
 
@@ -281,6 +294,19 @@ export default function BaseModal({
                 disabled={disableFirstButton || isSubmitting}
               >
                 {firstButtonName}
+              </button>
+            )}
+            {!hideMiddleButton && middleButtonName && (
+              <button
+                className={middleBtnClassTypes}
+                type="button"
+                onClick={(e: any) => {
+                  e?.preventDefault?.();
+                  onMiddleButtonClick?.();
+                }}
+                disabled={disableMiddleButton || isSubmitting}
+              >
+                {middleButtonName}
               </button>
             )}
             {!hideSecondButton && (

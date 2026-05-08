@@ -999,6 +999,14 @@ export default function PaymentFooterSection() {
           // onCancel={handleCancelSendMail}
           firstButtonName="Close"
           secondButtonName="Send Mail"
+          middleButtonName={
+            isNoticePopupPaused
+              ? `Paused (${formatPauseRemaining(pauseSecondsLeft)})`
+              : "Pause"
+          }
+          disableMiddleButton={isNoticePopupPaused}
+          middleBtnClassTypes="secondary"
+          onMiddleButtonClick={() => pauseNoticePopup?.()}
         >
           <p className="">
             <span className="pt_yellow">Note:</span> We have generated the
@@ -1027,27 +1035,6 @@ export default function PaymentFooterSection() {
               </>
             )}
           </p>
-          <div
-            className="text_center"
-            style={{ marginTop: "var(--space-s, 1rem)" }}
-          >
-            <CustomButton
-              buttonName={
-                isNoticePopupPaused
-                  ? `Paused (${formatPauseRemaining(pauseSecondsLeft)})`
-                  : "Pause"
-              }
-              iconClassName={
-                isNoticePopupPaused
-                  ? "fa-light fa-circle-pause"
-                  : "fa-light fa-pause"
-              }
-              buttonType={buttonType.SECONDARY}
-              actionType="button"
-              disabled={isNoticePopupPaused}
-              onClick={() => pauseNoticePopup?.()}
-            />
-          </div>
           <br></br>
           {noticeFiles.map((file: any, idx: number) => (
             <div key={idx} className="pt_itemwithremove">
