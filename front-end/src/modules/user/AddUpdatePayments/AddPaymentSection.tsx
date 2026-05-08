@@ -80,13 +80,10 @@ export default function AddPaymentSection({ props }: any) {
     useState(false);
   const [displayRTACheckboxConfirmation, setDisplayRTACheckboxConfirmation] =
     useState(false);
-  // Task #52 — un-tick warning modals fire when the user is removing a
-  // confirmation that has already been pushed to Xero. Confirming the modal
-  // un-ticks the box AND the resolver subsequently deletes the corresponding
-  // Xero record (Payment / BankTransfer reversal).
-  const [displayUnconfirmCheckbox, setDisplayUnconfirmCheckbox] =
+  // Task #52 — un-tick (delete-in-Xero) confirmation modals.
+  const [displayUntickPaidConfirmation, setDisplayUntickPaidConfirmation] =
     useState(false);
-  const [displayUnconfirmRTACheckbox, setDisplayUnconfirmRTACheckbox] =
+  const [displayUntickRtaConfirmation, setDisplayUntickRtaConfirmation] =
     useState(false);
 
   // Get userMode from Redux
@@ -659,9 +656,16 @@ export default function AddPaymentSection({ props }: any) {
   function onConfirmPaidChange(value: boolean) {
     if (value) {
       setDisplayCheckboxConfirmation(true);
-    } else if (formik.initialValues?.is_paid_confirmed === true) {
-      // Task #52 — was synced; warn before un-ticking (will delete in Xero).
-      setDisplayUnconfirmCheckbox(true);
+    } else if (
+      patchData?.is_paid_confirmed === true &&
+      patchData?.xero_payment_synced === true
+    ) {
+      // Task #52 — un-ticking a previously-synced confirmation will
+      // delete the matching Xero Payment record. Only warn when an
+      // actual Xero record is mapped (xero_payment_synced) — for
+      // legacy payments confirmed before Xero was connected we just
+      // un-tick silently.
+      setDisplayUntickPaidConfirmation(true);
     } else {
       formik.setFieldValue("is_paid_confirmed", value);
     }
@@ -670,9 +674,16 @@ export default function AddPaymentSection({ props }: any) {
   function onConfirmRTAPaidChange(value: boolean) {
     if (value) {
       setDisplayRTACheckboxConfirmation(true);
-    } else if (formik.initialValues?.is_retention_confirmed === true) {
-      // Task #52 — was synced; warn before un-ticking (will reverse in Xero).
-      setDisplayUnconfirmRTACheckbox(true);
+    } else if (
+      patchData?.is_retention_confirmed === true &&
+      patchData?.xero_transfer_synced === true
+    ) {
+      // Task #52 — un-ticking the retention confirmation will reverse
+      // the matching Xero BankTransfer. Only warn when an actual
+      // BankTransfer is mapped (xero_transfer_synced) — for legacy
+      // retention payments confirmed before Xero was connected we
+      // just un-tick silently.
+      setDisplayUntickRtaConfirmation(true);
     } else {
       formik.setFieldValue("is_retention_confirmed", value);
     }
@@ -691,14 +702,14 @@ export default function AddPaymentSection({ props }: any) {
     setDisplayRTACheckboxConfirmation(false);
   }
 
-  function handleUnconfirmCheck() {
+  function handleUntickPaidConfirm() {
     formik.setFieldValue("is_paid_confirmed", false);
-    setDisplayUnconfirmCheckbox(false);
+    setDisplayUntickPaidConfirmation(false);
   }
 
-  function handleUnconfirmRTACheck() {
+  function handleUntickRtaConfirm() {
     formik.setFieldValue("is_retention_confirmed", false);
-    setDisplayUnconfirmRTACheckbox(false);
+    setDisplayUntickRtaConfirmation(false);
   }
 
   function whetherToDisplayRetentionWarningMessage() {
@@ -1468,33 +1479,37 @@ export default function AddPaymentSection({ props }: any) {
           </article>
         </dialog>
       )}
-      {displayUnconfirmCheckbox && (
-        <dialog id="checkbox-unconfirmation" open>
+      {displayUntickPaidConfirmation && (
+        <dialog id="untick-paid-confirmation" open>
           <article>
             <header>
               <div className="mb_1">
                 <button
                   rel="prev"
                   aria-label="Close"
-                  onClick={() => setDisplayUnconfirmCheckbox(false)}
+                  onClick={() => setDisplayUntickPaidConfirmation(false)}
                 ></button>
               </div>
             </header>
             <h4 className="text_center">
-              {`Un-ticking will delete the matching Payment in Xero. Continue?`}
+              Un-ticking Confirm{" "}
+              {formik?.values?.claim_type === tabTypes.BILLABLES
+                ? "Paid"
+                : "Received"}{" "}
+              will delete the matching Payment in Xero on save. Continue?
             </h4>
             <footer>
               <button
                 className="secondary"
                 type="button"
-                onClick={() => setDisplayUnconfirmCheckbox(false)}
+                onClick={() => setDisplayUntickPaidConfirmation(false)}
               >
                 No
               </button>
               <button
                 className="primary"
                 type="button"
-                onClick={() => handleUnconfirmCheck()}
+                onClick={() => handleUntickPaidConfirm()}
               >
                 Yes
               </button>
@@ -1502,33 +1517,35 @@ export default function AddPaymentSection({ props }: any) {
           </article>
         </dialog>
       )}
-      {displayUnconfirmRTACheckbox && (
-        <dialog id="checkbox-unconfirmation" open>
+      {displayUntickRtaConfirmation && (
+        <dialog id="untick-rta-confirmation" open>
           <article>
             <header>
               <div className="mb_1">
                 <button
                   rel="prev"
                   aria-label="Close"
-                  onClick={() => setDisplayUnconfirmRTACheckbox(false)}
+                  onClick={() => setDisplayUntickRtaConfirmation(false)}
                 ></button>
               </div>
             </header>
             <h4 className="text_center">
-              {`Un-ticking will reverse the matching Bank Transfer in Xero (a new transfer is posted from the retention account back to the operating account). Continue?`}
+              Un-ticking Confirm Retention will reverse the matching Bank
+              Transfer in Xero (a new opposite transfer will be posted) on
+              save. Continue?
             </h4>
             <footer>
               <button
                 className="secondary"
                 type="button"
-                onClick={() => setDisplayUnconfirmRTACheckbox(false)}
+                onClick={() => setDisplayUntickRtaConfirmation(false)}
               >
                 No
               </button>
               <button
                 className="primary"
                 type="button"
-                onClick={() => handleUnconfirmRTACheck()}
+                onClick={() => handleUntickRtaConfirm()}
               >
                 Yes
               </button>

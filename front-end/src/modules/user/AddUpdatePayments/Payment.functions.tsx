@@ -300,6 +300,8 @@ export async function fetchViewPayments(postData: any): Promise<any> {
                 third_party_payment_reason
                 total_amount
                 withhold_payment_reason
+                xero_payment_synced
+                xero_transfer_synced
               }
               associated_overpayment_id
               associated_payment_details {
@@ -475,6 +477,8 @@ export async function fetchViewPayments(postData: any): Promise<any> {
               third_party_payment_reason
               total_amount
               withhold_payment_reason
+              xero_payment_synced
+              xero_transfer_synced
             }
             message
             status

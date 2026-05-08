@@ -3126,6 +3126,42 @@ export class PaymentsService {
       if (!fetchedPaymentDetails)
         throw `Details of a payment with id: ${data.payment_id} has not found. Please provide a valid payment_id`;
 
+      // -----------------------------------------------------------
+      // Task #52 — Surface whether each Xero leg (Payment vs
+      // BankTransfer) is currently mapped, so the UI can gate its
+      // un-tick warning modal on actual Xero record presence
+      // (instead of just is_*_confirmed === true). We read from
+      // xero_payments via raw SQL to avoid a TypeORM relation on
+      // PaymentDetails just for this read.
+      // -----------------------------------------------------------
+      try {
+        const xpRow = await this.paymentsRepo.manager.query(
+          `SELECT
+             CASE WHEN xp.payment_id IS NOT NULL THEN true ELSE false END AS xero_payment_synced,
+             CASE WHEN xp.bank_transfer_id IS NOT NULL THEN true ELSE false END AS xero_transfer_synced
+           FROM xero_payments xp
+           INNER JOIN xero_integration_details xid
+             ON xid.integration_id = xp.integration_id
+            AND xid.status = 'ACTIVE'
+           INNER JOIN payment_details pd
+             ON pd.company_id = xid.company_id
+           WHERE xp.pt_payment_id = $1
+             AND pd.payment_id = $1
+           LIMIT 1`,
+          [payment_id],
+        );
+        fetchedPaymentDetails.xero_payment_synced =
+          xpRow?.[0]?.xero_payment_synced ?? false;
+        fetchedPaymentDetails.xero_transfer_synced =
+          xpRow?.[0]?.xero_transfer_synced ?? false;
+      } catch (xpErr) {
+        this.logger.log(
+          `xero_payments lookup failed for payment_id ${payment_id}: ${xpErr?.message ?? xpErr}`,
+        );
+        fetchedPaymentDetails.xero_payment_synced = false;
+        fetchedPaymentDetails.xero_transfer_synced = false;
+      }
+
       if (
         fetchedPaymentDetails.cash_retention_type &&
         fetchedPaymentDetails.cash_retention_type == 'Retention claim'
@@ -6441,6 +6477,49 @@ export class PaymentsService {
         'associatedOverPayment',
       ],
     });
+  }
+
+  /**
+   * Task #52 — Revert previously-set sub_payment confirmation flags
+   * back to true. Used by the resolver when a Xero leg-delete fails
+   * (e.g. Xero refuses because the Payment is reconciled to a bank
+   * statement line). Without this revert, the PT-side checkbox stays
+   * unchecked while Xero still has the record → state divergence.
+   *
+   * Only the requested flag types are reverted. We match by
+   * sub_payment_type so we touch the correct row regardless of
+   * whether the parent payment has one or multiple sub_payments.
+   */
+  async revertSubPaymentConfirmation(
+    payment_id: number,
+    revert: { paid?: boolean; retention?: boolean },
+  ): Promise<void> {
+    try {
+      if (revert?.paid) {
+        await this.subPaymentsRepo
+          .createQueryBuilder()
+          .update(SubPayments)
+          .set({ is_paid_confirmed: true })
+          .where('payment_id = :payment_id', { payment_id })
+          .andWhere(`sub_payment_type = 'Payment'`)
+          .andWhere('is_paid_confirmed IS NOT NULL')
+          .execute();
+      }
+      if (revert?.retention) {
+        await this.subPaymentsRepo
+          .createQueryBuilder()
+          .update(SubPayments)
+          .set({ is_retention_confirmed: true })
+          .where('payment_id = :payment_id', { payment_id })
+          .andWhere(`sub_payment_type IN ('Retention Out', 'Retention')`)
+          .andWhere('is_retention_confirmed IS NOT NULL')
+          .execute();
+      }
+    } catch (err) {
+      this.logger.log(
+        `revertSubPaymentConfirmation failed for payment_id ${payment_id}: ${err?.message ?? err}`,
+      );
+    }
   }
 
   async fetchOverPaymentDetails(payment_id: number) {

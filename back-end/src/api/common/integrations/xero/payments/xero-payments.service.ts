@@ -2795,6 +2795,35 @@ export class XeroPaymentsService {
         },
       });
 
+      // ---------------------------------------------------------
+      // Task #52 — Per-leg delete path. When the caller explicitly
+      // passes either delete_payment or delete_transfer (true OR
+      // false), we route through the per-leg helper so that:
+      //   • single-leg un-tick deletes only the requested leg, and
+      //   • both-leg un-tick (both flags === true) still runs each
+      //     leg back-to-back via the per-leg helper, producing the
+      //     correct 491 / 492 sync log entries.
+      // The legacy combined path below stays unchanged for the
+      // existing "Unconfirmed - Unmatched" call site (which omits
+      // the flags entirely → both undefined → legacy behaviour).
+      // ---------------------------------------------------------
+      const flagsExplicit =
+        data.delete_payment !== undefined ||
+        data.delete_transfer !== undefined;
+      const wantDelPayment = data.delete_payment !== false;
+      const wantDelTransfer = data.delete_transfer !== false;
+      const isPerLegMode = flagsExplicit;
+      if (isPerLegMode && xeroPayments) {
+        return await this.deletePaymentPerLeg(decoded, data, {
+          paymentDetails,
+          xeroDetails,
+          xeroInvoicesBills,
+          xeroPayments,
+          wantDelPayment,
+          wantDelTransfer,
+        });
+      }
+
       if (!xeroPayments) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id,
@@ -3330,6 +3359,407 @@ export class XeroPaymentsService {
 
       throw errMsg;
     }
+  }
+
+  // ---------------------------------------------------------------
+  // Task #52 — Per-leg delete helper.
+  // Runs the Payment delete leg and/or the BankTransfer reversal
+  // leg independently. Caller (resolver edit-path) decides which
+  // legs to fire based on per-checkbox un-tick detection.
+  // ---------------------------------------------------------------
+  private async deletePaymentPerLeg(
+    decoded: any,
+    data: DeletePaymentInput,
+    ctx: {
+      paymentDetails: any;
+      xeroDetails: any;
+      xeroInvoicesBills: any;
+      xeroPayments: any;
+      wantDelPayment: boolean;
+      wantDelTransfer: boolean;
+    },
+  ) {
+    const {
+      paymentDetails,
+      xeroDetails,
+      xeroInvoicesBills,
+      xeroPayments,
+      wantDelPayment,
+      wantDelTransfer,
+    } = ctx;
+    const { bank_account_id, retention_account, cash_retention } = data;
+
+    const doPaymentLeg = wantDelPayment && !!xeroPayments.payment_id;
+    const doTransferLeg =
+      wantDelTransfer && !!cash_retention && !!xeroPayments.bank_transfer_id;
+
+    if (!doPaymentLeg && !doTransferLeg) {
+      // Nothing to do — either flag was off or the leg was never synced.
+      return xeroPayments;
+    }
+
+    // -----------------------------------------------------------
+    // Task #52 — per-leg result tracking. Each leg is run inside
+    // its own try/catch so that a transfer failure cannot reverse
+    // a successful payment-leg delete (Xero `accountingApi.deletePayment`
+    // is irreversible — once `status: DELETED` the row is gone).
+    // We collect per-leg outcomes and, if any leg failed, throw a
+    // single Error with `legResults` attached so the resolver can
+    // revert ONLY the un-tick(s) that did not actually persist in
+    // Xero, keeping PT and Xero strictly in sync.
+    //
+    // In dual-leg mode we additionally pre-validate the transfer
+    // leg's prerequisites (bank-account mappings) BEFORE running
+    // the irreversible payment-leg delete, to minimise the chance
+    // of a partial-success outcome.
+    // -----------------------------------------------------------
+    const legResults: {
+      paymentRequested: boolean;
+      paymentDeleted: boolean;
+      transferRequested: boolean;
+      transferReversed: boolean;
+      errors: string[];
+    } = {
+      paymentRequested: doPaymentLeg,
+      paymentDeleted: false,
+      transferRequested: doTransferLeg,
+      transferReversed: false,
+      errors: [],
+    };
+
+    let preResolvedFromAccount: any = null;
+    let preResolvedRetentionAccount: any = null;
+    if (doPaymentLeg && doTransferLeg) {
+      preResolvedFromAccount = bank_account_id
+        ? await this.xeroBankAccountDetails.findOne({
+            where: {
+              pt_bank_account_id: bank_account_id,
+              integration_id: xeroDetails.integration_id,
+            },
+          })
+        : null;
+      preResolvedRetentionAccount = retention_account
+        ? await this.xeroBankAccountDetails.findOne({
+            where: {
+              pt_bank_account_id: retention_account,
+              integration_id: xeroDetails.integration_id,
+            },
+          })
+        : null;
+
+      if (!preResolvedFromAccount || !preResolvedRetentionAccount) {
+        // Pre-validation failure — bail BEFORE the irreversible
+        // payment-leg delete. Log under template 173/192/194 with
+        // a clear message, and throw so the resolver reverts both
+        // un-ticks (nothing was deleted in Xero).
+        const errMsg = !preResolvedFromAccount
+          ? `Account is not mapped`
+          : `Retention account is not mapped`;
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, leg: 'transfer-prevalidate' },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: !preResolvedFromAccount ? 192 : 194,
+          dynamic_values: {},
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: { xeroId: null, paytradeId: paymentDetails?.id },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Dual-leg un-tick — transfer prerequisites missing, aborting before payment delete',
+          ],
+          important_checks: { 'Import data format validation': 'Failed' },
+          error_message: errMsg,
+          xero_records: [],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        const err: any = new Error(errMsg);
+        err.legResults = legResults;
+        throw err;
+      }
+    }
+
+    // -------- Payment delete leg ----------
+    if (doPaymentLeg) {
+      try {
+        const paymentDelete: PaymentDelete = { status: 'DELETED' };
+        const response = await this.xero.accountingApi.deletePayment(
+          xeroDetails.tenant_id,
+          xeroPayments.payment_id,
+          paymentDelete,
+        );
+        if (response.response.data?.Payments[0]?.Status === 'DELETED') {
+          legResults.paymentDeleted = true;
+          const deletedPaymentId = xeroPayments.payment_id;
+          xeroPayments.status = 'DELETED';
+          xeroPayments.payment_id = null;
+          await this.xeroPayments.save(xeroPayments);
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id,
+            api_name: 'deletePaymentInXero',
+            api_payload: { ...data, leg: 'payment' },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 491,
+            dynamic_values: {
+              payment_id: deletedPaymentId,
+              invoice_number: xeroInvoicesBills?.invoice_number || '',
+            },
+            project_id: xeroInvoicesBills?.project_id,
+            contract_id: xeroInvoicesBills?.contract_id,
+            reference: {
+              xeroId: deletedPaymentId,
+              paytradeId: paymentDetails?.id,
+            },
+            reference_id: paymentDetails?.id,
+            history: [
+              `API triggered from payment ${paymentDetails?.payment_id}`,
+              'Confirm Paid un-ticked — payment deleted in Xero',
+            ],
+            important_checks: { 'Import data format validation': 'Ok' },
+            error_message: null,
+            xero_records: [response?.response?.data?.Payments?.[0]],
+            paytrade_records: [paymentDetails],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+        } else {
+          const errMsg = await handleAxiosError(response);
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id,
+            api_name: 'deletePaymentInXero',
+            api_payload: { ...data, leg: 'payment' },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 173,
+            dynamic_values: {},
+            project_id: xeroInvoicesBills?.project_id,
+            contract_id: xeroInvoicesBills?.contract_id,
+            reference: {
+              xeroId: null,
+              paytradeId: paymentDetails?.id,
+            },
+            reference_id: paymentDetails?.id,
+            history: [
+              `API triggered from payment ${paymentDetails?.payment_id}`,
+              'Confirm Paid un-tick — payment delete failed',
+            ],
+            important_checks: { 'Import data format validation': 'Ok' },
+            error_message: errMsg,
+            xero_records: [],
+            paytrade_records: [paymentDetails],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          // Task #52 — capture per-leg failure instead of throwing
+          // straight away so a transfer leg can still run (or, when
+          // only the payment leg was requested, surface a clear
+          // error message at the end of the helper).
+          legResults.errors.push(`payment: ${errMsg}`);
+        }
+      } catch (error) {
+        const errMsg = await handleAxiosError(error);
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, leg: 'payment' },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 173,
+          dynamic_values: {},
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: { xeroId: null, paytradeId: paymentDetails?.id },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Confirm Paid un-tick — payment delete failed',
+          ],
+          important_checks: { 'Import data format validation': 'Ok' },
+          error_message: errMsg,
+          xero_records: [],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        // Task #52 — capture and continue (see note above).
+        legResults.errors.push(`payment: ${errMsg}`);
+      }
+    }
+
+    // -------- BankTransfer reversal leg ----------
+    if (doTransferLeg) {
+      // Need account mappings for the reversal. Reuse the pre-
+      // validated lookups from dual-leg mode when available so we
+      // do not double-query.
+      const xeroBankAccountDetails =
+        preResolvedFromAccount ??
+        (bank_account_id
+          ? await this.xeroBankAccountDetails.findOne({
+              where: {
+                pt_bank_account_id: bank_account_id,
+                integration_id: xeroDetails.integration_id,
+              },
+            })
+          : null);
+      const xeroRetentionBankAccountDetails =
+        preResolvedRetentionAccount ??
+        (retention_account
+          ? await this.xeroBankAccountDetails.findOne({
+              where: {
+                pt_bank_account_id: retention_account,
+                integration_id: xeroDetails.integration_id,
+              },
+            })
+          : null);
+
+      if (!xeroBankAccountDetails || !xeroRetentionBankAccountDetails) {
+        const errMsg = !xeroBankAccountDetails
+          ? `Account is not mapped`
+          : `Retention account is not mapped`;
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, leg: 'transfer' },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: !xeroBankAccountDetails ? 192 : 194,
+          dynamic_values: {},
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: { xeroId: null, paytradeId: paymentDetails?.id },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Confirm Retention un-tick — account is not mapped',
+          ],
+          important_checks: { 'Import data format validation': 'Failed' },
+          error_message: errMsg,
+          xero_records: [],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        legResults.errors.push(`transfer: ${errMsg}`);
+      } else {
+        try {
+        const reversalAmount = Math.abs(Number(data.retention_amount || 0));
+        const dateValue = moment.utc().toDate();
+        // Reversal: original was operating → retention. Reversal swaps:
+        // retention → operating (returns the held funds).
+        const reversal: BankTransfer = {
+          fromBankAccount: {
+            accountID: xeroRetentionBankAccountDetails.account_id,
+          },
+          toBankAccount: {
+            accountID: xeroBankAccountDetails.account_id,
+          },
+          amount: reversalAmount,
+          date: dateValue,
+        };
+        const reversalResp = await this.xero.accountingApi.createBankTransfer(
+          xeroDetails.tenant_id,
+          { bankTransfers: [reversal] },
+        );
+        const reversalId =
+          reversalResp?.body?.bankTransfers?.[0]?.bankTransferID || null;
+
+        const originalTransferId = xeroPayments.bank_transfer_id;
+        xeroPayments.bank_transfer_id = reversalId;
+        xeroPayments.bank_transfer_reference = null;
+        if (!xeroPayments.payment_id) {
+          // Only mark fully DELETED if the payment leg is also gone.
+          xeroPayments.status = 'DELETED';
+        }
+        await this.xeroPayments.save(xeroPayments);
+        legResults.transferReversed = true;
+
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, leg: 'transfer' },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 492,
+          dynamic_values: {
+            bank_transfer_id: originalTransferId,
+            reversal_id: reversalId,
+          },
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: {
+            xeroId: reversalId,
+            paytradeId: paymentDetails?.id,
+          },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Confirm Retention un-ticked — reversing transfer posted in Xero',
+          ],
+          important_checks: { 'Import data format validation': 'Ok' },
+          error_message: null,
+          xero_records: reversalResp?.body?.bankTransfers || [],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (error) {
+        const errMsg = await handleAxiosError(error);
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, leg: 'transfer' },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 173,
+          dynamic_values: {},
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: { xeroId: null, paytradeId: paymentDetails?.id },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Confirm Retention un-tick — reversing transfer failed',
+          ],
+          important_checks: { 'Import data format validation': 'Ok' },
+          error_message: errMsg,
+          xero_records: [],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        // Task #52 — capture and continue; aggregator below decides
+        // whether to throw based on overall per-leg outcome.
+        legResults.errors.push(`transfer: ${errMsg}`);
+      }
+      } // end else (mappings present)
+    }
+
+    // -----------------------------------------------------------
+    // Task #52 — final aggregator. If any requested leg failed,
+    // throw a single Error with `legResults` attached so the
+    // resolver can revert ONLY the un-tick(s) whose Xero side did
+    // not persist — payment-leg success + transfer-leg failure
+    // must NOT re-tick is_paid_confirmed (Xero record is gone).
+    // -----------------------------------------------------------
+    const paymentLegFailed =
+      legResults.paymentRequested && !legResults.paymentDeleted;
+    const transferLegFailed =
+      legResults.transferRequested && !legResults.transferReversed;
+    if (paymentLegFailed || transferLegFailed) {
+      const err: any = new Error(
+        legResults.errors.join('; ') || 'Xero delete failed',
+      );
+      err.legResults = legResults;
+      throw err;
+    }
+
+    return xeroPayments;
   }
 
   async deleteOverPayment(decoded: any, data: DeleteOverPaymentInput) {

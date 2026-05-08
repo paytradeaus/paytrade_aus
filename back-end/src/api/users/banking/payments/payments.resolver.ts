@@ -849,15 +849,19 @@ export class PaymentsResolver {
                 !!paymentDetails.cash_retention &&
                 !!isRetentionChecked &&
                 !transferLegSynced;
-              // Task #52 — Symmetric un-tick: if a leg was previously synced
-              // and the user has now un-ticked the matching checkbox, delete
-              // that leg in Xero (Payment status=DELETED, BankTransfer
-              // reversal). Each leg is handled independently so the user can
-              // un-tick one without disturbing the other.
+              // ---------------------------------------------------------
+              // Task #52 — Per-leg un-tick detection. When a previously
+              // synced checkbox is now explicitly unchecked, delete the
+              // matching Xero record so PT and Xero stay in sync. We
+              // only treat `=== false` as un-tick (null = no matching
+              // subPayment row → no-op).
+              // ---------------------------------------------------------
               const wantDeletePayment =
-                paymentLegSynced && isPaymentChecked === false;
+                isPaymentChecked === false && paymentLegSynced;
               const wantDeleteTransfer =
-                transferLegSynced && isRetentionChecked === false;
+                !!paymentDetails.cash_retention &&
+                isRetentionChecked === false &&
+                transferLegSynced;
               if (wantPayment || wantTransfer) {
                 const createPaymentDetails =
                   await this.xeroPaymentsService.createPayment(decoded, {
@@ -866,44 +870,55 @@ export class PaymentsResolver {
                     sync_transfer: wantTransfer,
                   });
                 this.logger.log(`createPaymentDetails: ${JSON.stringify(createPaymentDetails)}`);
-              }
-              if (wantDeletePayment) {
+              } else if (wantDeletePayment || wantDeleteTransfer) {
                 try {
-                  const r =
-                    await this.xeroPaymentsService.deletePaymentLeg(decoded, {
+                  const deletePerLegDetails =
+                    await this.xeroPaymentsService.deletePayment(decoded, {
                       ...xeroPayload,
-                      leg: 'payment',
+                      delete_payment: wantDeletePayment,
+                      delete_transfer: wantDeleteTransfer,
                     });
                   this.logger.log(
-                    `deletePaymentLeg(payment): ${JSON.stringify(r)}`,
+                    `deletePerLegDetails: ${JSON.stringify(deletePerLegDetails)}`,
                   );
-                } catch (e) {
-                  this.logger.error(
-                    `deletePaymentLeg(payment) failed: ${JSON.stringify(e)}`,
-                  );
-                }
-              }
-              if (wantDeleteTransfer) {
-                try {
-                  const r =
-                    await this.xeroPaymentsService.deletePaymentLeg(decoded, {
-                      ...xeroPayload,
-                      leg: 'transfer',
-                    });
+                } catch (err: any) {
+                  // Xero refused one or both legs. The service
+                  // attaches `legResults` describing per-leg outcome
+                  // — we revert ONLY the un-tick(s) whose Xero side
+                  // did NOT persist, so PT and Xero stay strictly in
+                  // sync (e.g. payment-leg succeeded + transfer-leg
+                  // failed ⇒ keep is_paid_confirmed false, but
+                  // re-tick is_retention_confirmed because the
+                  // BankTransfer is still live in Xero).
                   this.logger.log(
-                    `deletePaymentLeg(transfer): ${JSON.stringify(r)}`,
+                    `deletePerLeg failed, reverting failed-leg un-ticks only: ${JSON.stringify(err?.message ?? err)}`,
                   );
-                } catch (e) {
-                  this.logger.error(
-                    `deletePaymentLeg(transfer) failed: ${JSON.stringify(e)}`,
+                  const legResults = err?.legResults as
+                    | {
+                        paymentRequested: boolean;
+                        paymentDeleted: boolean;
+                        transferRequested: boolean;
+                        transferReversed: boolean;
+                      }
+                    | undefined;
+                  // Defensive fallback: if the inner helper threw
+                  // before recording per-leg results (shouldn't
+                  // happen post-refactor, but defensive), revert
+                  // everything that was requested.
+                  const revertPaid = legResults
+                    ? legResults.paymentRequested && !legResults.paymentDeleted
+                    : wantDeletePayment;
+                  const revertRetention = legResults
+                    ? legResults.transferRequested &&
+                      !legResults.transferReversed
+                    : wantDeleteTransfer;
+                  await this.paymentsService.revertSubPaymentConfirmation(
+                    payload.payment_id,
+                    { paid: revertPaid, retention: revertRetention },
                   );
+                  throw err;
                 }
-              }
-              if (
-                !wantPayment &&
-                !wantTransfer &&
-                !wantDeletePayment &&
-                !wantDeleteTransfer &&
+              } else if (
                 isExisted &&
                 ['Unconfirmed - Unmatched'].includes(
                   paymentDetails.current_status,
@@ -1028,10 +1043,17 @@ export class PaymentsResolver {
 
       return response;
     } catch (error) {
+      // Task #52 — defense-in-depth: some inner Xero call sites
+      // historically `throw` raw strings, where `error.message` is
+      // undefined. Coerce so the GraphQL response always carries a
+      // user-actionable string (e.g. "Payment is already reconciled").
+      const errMsg =
+        error?.message ??
+        (typeof error === 'string' ? error : JSON.stringify(error));
       this.logger.error(
-        `Errored while editing the details of a payment with message: ${error.message}`,
+        `Errored while editing the details of a payment with message: ${errMsg}`,
       );
-      return framedResponse(`ERROR`, `${error.message}`);
+      return framedResponse(`ERROR`, `${errMsg}`);
     }
   }
 

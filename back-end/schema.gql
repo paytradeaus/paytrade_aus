@@ -3926,6 +3926,16 @@ input DeletePaymentInput {
   """Flag indicating if this is a cash retention payment"""
   cash_retention: Boolean
 
+  """
+  Task #52 — When false, skip deleting the Xero Payment leg (only the BankTransfer reversal fires). Default true.
+  """
+  delete_payment: Boolean
+
+  """
+  Task #52 — When false, skip reversing the Xero BankTransfer leg (only the Payment delete fires). Default true (when cash_retention=true).
+  """
+  delete_transfer: Boolean
+
   """Identifier of the payment to delete"""
   payment_id: Float!
 

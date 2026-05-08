@@ -571,6 +571,20 @@ export class FetchDetailsOfAPayment {
   })
   is_retention_confirmed: Boolean;
 
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — true when a Xero Payment record is currently mapped to this PT payment (xero_payments.payment_id IS NOT NULL). Used by the UI to decide whether un-ticking Confirm Paid should warn the user about deleting the Xero record.',
+  })
+  xero_payment_synced: Boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — true when a Xero BankTransfer record is currently mapped to this PT payment (xero_payments.bank_transfer_id IS NOT NULL). Used by the UI to decide whether un-ticking Confirm Retention should warn the user about reversing the Xero transfer.',
+  })
+  xero_transfer_synced: Boolean;
+
   @Field(() => Float, {
     nullable: true,
     description: 'Payment amount excluding retention.',

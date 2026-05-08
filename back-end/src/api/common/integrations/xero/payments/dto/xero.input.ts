@@ -134,6 +134,20 @@ export class DeletePaymentInput {
     description: 'Optional sync identifier for tracking purposes',
   })
   sync_id?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — When false, skip deleting the Xero Payment leg (only the BankTransfer reversal fires). Default true.',
+  })
+  delete_payment?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — When false, skip reversing the Xero BankTransfer leg (only the Payment delete fires). Default true (when cash_retention=true).',
+  })
+  delete_transfer?: boolean;
 }
 
 @InputType({ description: 'Input for deleting an overpayment record' })
