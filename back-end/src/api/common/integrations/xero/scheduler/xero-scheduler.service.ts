@@ -6157,13 +6157,33 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       for (const integration of activeIntegrations) {
         const companyId = integration.company_id;
         try {
-          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+          // Multi-row tenant guard. The Task #42 re-OAuth flow can leave
+          // an orphan xero_integration_details row alongside the live one
+          // (both with status='ACTIVE'). A bare findOne returns whichever
+          // the DB orders first — typically the orphan — and any
+          // subsequent getInvoice call uses the orphan's stale tenant
+          // binding, producing a phantom 403 even though the live
+          // integration is healthy. Pull all candidates and prefer the
+          // one whose parent integration is 'Connected - active'.
+          const _xeroCandidates = await this.xeroIntegrationDetails.find({
             where: { company_id: companyId, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
           });
+          const xeroDetails =
+            _xeroCandidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? _xeroCandidates[0];
 
           if (!xeroDetails) {
             this.logger.log(`${PREFIX} No active Xero details for company ${companyId}, skipping.`);
             continue;
+          }
+          if (_xeroCandidates.length > 1) {
+            this.logger.warn(
+              `${PREFIX} Company ${companyId}: ${_xeroCandidates.length} ACTIVE xero_integration_details rows found — selected integration_id=${xeroDetails.integration_id} (Connected - active preferred). Orphan rows should be cleaned up.`,
+            );
           }
 
           try {
@@ -6173,9 +6193,24 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             continue;
           }
 
-          const refreshedXero = await this.xeroIntegrationDetails.findOne({
+          // Re-read using the same multi-row guard so we get the freshly
+          // refreshed token from the *correct* row, not an orphan that
+          // refreshTokenSet didn't touch.
+          const _refreshedCandidates = await this.xeroIntegrationDetails.find({
             where: { company_id: companyId, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
           });
+          const refreshedXero =
+            _refreshedCandidates.find(
+              (c) =>
+                c?.integration_id === xeroDetails.integration_id,
+            ) ??
+            _refreshedCandidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ??
+            _refreshedCandidates[0];
           if (!refreshedXero?.access_token) {
             this.logger.error(`${PREFIX} No access token after refresh for company ${companyId}`);
             continue;
