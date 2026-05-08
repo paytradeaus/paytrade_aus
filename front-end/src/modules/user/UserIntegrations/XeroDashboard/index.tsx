@@ -32,6 +32,7 @@ import {
   syncAllProjectsByCompanyId,
   updateTrackingCategory,
   xeroSyncLogs,
+  xeroSyncLogsForClaim,
 } from "../integration.functions";
 import BaseModal, { baseModalConstants } from "@/components/BaseModal";
 import FormikControl from "@/components/FormikControl";
@@ -73,6 +74,8 @@ export default function XeroDashboard() {
     useState(false);
   const [sortValues, setSortValues] = useState<any>("");
   const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
+  const [claimFilterInput, setClaimFilterInput] = useState<string>("");
+  const [claimFilterId, setClaimFilterId] = useState<number | null>(null);
   const [syncLogData, setSyncLogData] = useState<any>({
     succeeded: 0,
     warning: 0,
@@ -418,7 +421,7 @@ export default function XeroDashboard() {
 
   useEffect(() => {
     fetchXeroSyncLogs();
-  }, [currentPage, entriesPerPage, sortValues, recoveredOnly]);
+  }, [currentPage, entriesPerPage, sortValues, recoveredOnly, claimFilterId]);
 
   const RECOVERED_TEMPLATE_IDS = [493, 495];
   const RECOVERED_ERROR_CODES = [
@@ -455,8 +458,79 @@ export default function XeroDashboard() {
   const recoveredTooltip =
     "Auto-recovered: PayTrade detected a Xero record that already matched this payment (or settlement) and re-linked it automatically instead of creating a duplicate or failing the sync.";
 
+  const sync_status_style: any = {
+    Succeeded: <span style={{ color: "green" }}>Succeeded</span>,
+    Failed: <span style={{ color: "red" }}>Failed</span>,
+  };
+
+  function mapClaimSyncRows(rows: any[]) {
+    return (rows || []).map((val: any) => {
+      const distanceAgo = val.created_on
+        ? formatDistanceToNow(new Date(val.created_on), { addSuffix: true })
+        : "";
+      const createdDate = val.created_on
+        ? format(new Date(val.created_on), "EEE dd MMM yyyy hh:mm a")
+        : "";
+      const isXeroToPaytrade =
+        (val.process || "").split(">")[0].trim() === "Xero";
+      const fullDescription = val.description ? stripHtml(val.description) : "";
+      const truncatedDescription =
+        fullDescription.length > 80
+          ? `${fullDescription.slice(0, 80)}…`
+          : fullDescription;
+      return {
+        ...val,
+        created_on: val.created_on ? formatDate(val.created_on) : "",
+        description: fullDescription ? (
+          <span title={fullDescription}>{truncatedDescription}</span>
+        ) : (
+          ""
+        ),
+        process: isXeroToPaytrade ? (
+          <span style={{ color: "#12afe4" }}>Xero ➤ Pay Trade</span>
+        ) : (
+          <span style={{ color: "#f04e43" }}>Pay Trade ➤ Xero</span>
+        ),
+        sync_status: (
+          <span>
+            {sync_status_style[val.sync_status] || val.sync_status}
+          </span>
+        ),
+        reference: val.reference || "",
+        project_name: "",
+        started: (
+          <>
+            <span>{createdDate}</span>
+            <span
+              style={{ color: "gray", display: "block", marginTop: "-22px" }}
+            >
+              {distanceAgo}
+            </span>
+          </>
+        ),
+      };
+    });
+  }
+
   async function fetchXeroSyncLogs() {
     setTableLoader(true);
+    if (claimFilterId != null) {
+      const rows = await xeroSyncLogsForClaim(claimFilterId);
+      const safeRows = Array.isArray(rows) ? rows : [];
+      const countBy = (status: string) =>
+        safeRows.filter((r: any) => r.sync_status === status).length;
+      const start = (currentPage - 1) * entriesPerPage;
+      const pageRows = safeRows.slice(start, start + entriesPerPage);
+      setSyncLogData({
+        succeeded: countBy("Succeeded"),
+        warning: countBy("Warning"),
+        failed: countBy("Failed"),
+        tableData: mapClaimSyncRows(pageRows),
+      });
+      setTotalRows(safeRows.length);
+      setTableLoader(false);
+      return;
+    }
     const logs = await xeroSyncLogs({
       getXeroSyncLogsInput: {
         id: localStorage.getItem("xeroIntegrationId"),
@@ -470,10 +544,6 @@ export default function XeroDashboard() {
         recovered_only: recoveredOnly,
       },
     });
-    const sync_status_style: any = {
-      Succeeded: <span style={{ color: "green" }}>Succeeded</span>,
-      Failed: <span style={{ color: "red" }}>Failed</span>,
-    };
     setSyncLogData({
       succeeded: logs.count.find(
         (val: { sync_status: string }) => val.sync_status == "Succeeded"
@@ -872,7 +942,7 @@ export default function XeroDashboard() {
           <div className="grid">
             <div className="pt_box">
               <h4>Sync Log</h4>
-              <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", flexWrap: "wrap" }}>
                 <CustomButton
                   buttonName="Refresh"
                   iconClassName="fa-light fa-refresh"
@@ -891,6 +961,95 @@ export default function XeroDashboard() {
                   onClick={() => setManualSyncOpen(true)}
                   styles={{ margin: "0 10px 10px 0" }}
                 />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    margin: "0 10px 10px 0",
+                    gap: "6px",
+                  }}
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Filter by claim id…"
+                    value={claimFilterInput}
+                    onChange={(e) =>
+                      setClaimFilterInput(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const n = parseInt(claimFilterInput, 10);
+                        if (!Number.isFinite(n) || n <= 0) {
+                          showErrorToast("Enter a numeric claim id");
+                          return;
+                        }
+                        setCurrentPage(1);
+                        setClaimFilterId(n);
+                      }
+                    }}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      width: "150px",
+                    }}
+                    title="Show only sync log entries for this claim and its payments"
+                  />
+                  <CustomButton
+                    buttonName={claimFilterId != null ? "Update" : "Apply"}
+                    iconClassName="fa-light fa-filter"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    onClick={() => {
+                      const n = parseInt(claimFilterInput, 10);
+                      if (!Number.isFinite(n) || n <= 0) {
+                        showErrorToast("Enter a numeric claim id");
+                        return;
+                      }
+                      setCurrentPage(1);
+                      setRecoveredOnly(false);
+                      setClaimFilterId(n);
+                    }}
+                    styles={{ margin: 0 }}
+                    disabled={!claimFilterInput.trim()}
+                  />
+                  {claimFilterId != null && (
+                    <CustomButton
+                      buttonName="Clear"
+                      iconClassName="fa-light fa-close"
+                      buttonType={buttonType.CONTRAST_SMALL}
+                      actionType="button"
+                      onClick={() => {
+                        setClaimFilterInput("");
+                        setClaimFilterId(null);
+                        setCurrentPage(1);
+                      }}
+                      styles={{ margin: 0 }}
+                    />
+                  )}
+                </div>
+                {claimFilterId != null && (
+                  <span
+                    style={{
+                      alignSelf: "center",
+                      margin: "0 10px 10px 0",
+                      fontSize: "11px",
+                      color: "#0b5394",
+                      backgroundColor: "#e0f0ff",
+                      border: "1px solid #b3d4f5",
+                      borderRadius: "10px",
+                      padding: "2px 8px",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                    title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
+                  >
+                    Filtered: claim #{claimFilterId}
+                  </span>
+                )}
                 <div
                   style={{
                     marginRight: "10px",
@@ -950,18 +1109,29 @@ export default function XeroDashboard() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (claimFilterId != null) return;
                       setCurrentPage(1);
-                      setRecoveredOnly((prev) => !prev);
+                      setRecoveredOnly((prev) => {
+                        const next = !prev;
+                        if (next) setClaimFilterId(null);
+                        return next;
+                      });
                     }}
-                    title={recoveredTooltip}
+                    title={
+                      claimFilterId != null
+                        ? "Clear the claim filter to use this toggle"
+                        : recoveredTooltip
+                    }
                     aria-pressed={recoveredOnly}
+                    disabled={claimFilterId != null}
                     style={{
                       padding: "4px 10px",
                       fontSize: "11px",
                       fontWeight: 600,
                       lineHeight: "16px",
                       borderRadius: "12px",
-                      cursor: "pointer",
+                      cursor: claimFilterId != null ? "not-allowed" : "pointer",
+                      opacity: claimFilterId != null ? 0.5 : 1,
                       color: recoveredOnly ? "#fff" : "#0b5394",
                       backgroundColor: recoveredOnly ? "#0b5394" : "#e0f0ff",
                       border: "1px solid #b3d4f5",
@@ -990,6 +1160,7 @@ export default function XeroDashboard() {
                 onPageChange={setCurrentPage}
                 totalEntries={totalRows}
                 onSortChange={(sortConfig) => {
+                  if (claimFilterId != null) return;
                   if (syncLogData?.tableData?.length > 0) {
                     setSortValues(sortConfig);
                   }

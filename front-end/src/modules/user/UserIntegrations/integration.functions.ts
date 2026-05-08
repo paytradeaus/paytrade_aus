@@ -3649,6 +3649,57 @@ export const xeroSyncLogs = async (
   }
 };
 
+/**
+ * Task #84 — claim-scoped sync log fetcher used as a "Filter by claim id"
+ * shortcut on the standalone Sync Logs dashboard. Reuses the same query
+ * that powers the per-claim Sync history table inside the Xero drawer.
+ * Returns the raw row array (newest first, capped at 50) or [].
+ */
+export const xeroSyncLogsForClaim = async (
+  payment_claim_id: number,
+  setLoading?: Function
+): Promise<any[]> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetXeroSyncLogsForClaim($payment_claim_id: Float!) {
+          getXeroSyncLogsForClaim(payment_claim_id: $payment_claim_id) {
+            status
+            message
+            data {
+              id
+              sync_id
+              sync_type
+              sync_status
+              description
+              process
+              reference
+              created_on
+            }
+          }
+        }
+      `,
+      variables: { payment_claim_id },
+      fetchPolicy: "no-cache",
+    });
+    const payload = response?.data?.getXeroSyncLogsForClaim;
+    if (payload?.status === ApiResponse.SUCCESS) {
+      return Array.isArray(payload?.data) ? payload.data : [];
+    }
+    if (payload?.status === ApiResponse.ERROR) {
+      showErrorToast(payload?.message);
+      return [];
+    }
+    return [];
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return [];
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
 export const viewXeroSyncLog = async (
   data: any,
   setLoading?: Function
