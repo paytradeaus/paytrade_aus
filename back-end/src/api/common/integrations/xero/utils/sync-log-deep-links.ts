@@ -28,9 +28,58 @@ function firstRecord(arr: any): any | null {
   return null;
 }
 
+/**
+ * Normalise the raw `sync_type` string into one of a small set of
+ * category buckets the resolvers below switch on.
+ *
+ * The seed data for `xero_log_templates` ships variants like
+ * "Invoice schedulers", "Invoice webhook", "Contact schedulers",
+ * "Project schedulers", "Account schedulers", "Retention journals" —
+ * these all describe the same underlying record type from a deep-link
+ * perspective ("Invoice webhook" still resolves to a single Xero
+ * invoice, etc.). Without this normalisation the switch would only
+ * match "Invoices"/"Bills"/etc and the buttons would silently disappear
+ * on the majority of real-world sync log rows.
+ */
+function normaliseSyncType(syncType: string | undefined | null): string | null {
+  if (!syncType) return null;
+  const t = syncType.trim();
+
+  // Direct hits first (preserve casing for back-compat with existing rows).
+  const direct = new Set([
+    'Invoices',
+    'Bills',
+    'Contacts',
+    'Payments',
+    'Bank accounts',
+    'Projects',
+    'Contracts',
+    'ManualJournal',
+    'ManualJournals',
+    'Manual Journals',
+  ]);
+  if (direct.has(t)) return t;
+
+  const lower = t.toLowerCase();
+
+  // Suffix-stripped variants: "Invoice schedulers" / "Invoice webhook" → Invoices, etc.
+  if (lower.startsWith('invoice')) return 'Invoices';
+  if (lower.startsWith('bill')) return 'Bills';
+  if (lower.startsWith('contact')) return 'Contacts';
+  if (lower.startsWith('payment')) return 'Payments';
+  if (lower.startsWith('project')) return 'Projects';
+  if (lower.startsWith('contract')) return 'Contracts';
+  if (lower.startsWith('account schedulers') || lower.startsWith('bank'))
+    return 'Bank accounts';
+  if (lower.startsWith('retention journals') || lower.startsWith('manualjournal') || lower.startsWith('manual journal'))
+    return 'ManualJournals';
+
+  return t; // fall through — unknown type, switch will hit default and return null
+}
+
 export function buildXeroDeepLink(row: LooseRow): string | null {
   if (!row) return null;
-  const syncType = row.sync_type as string | undefined;
+  const syncType = normaliseSyncType(row.sync_type as string | undefined);
   const xeroId = (row.xero_id as string | undefined) || null;
   const xeroRecord = firstRecord(row.xero_records);
   const xeroDetails = (row.xero_details as Record<string, any>) || {};
@@ -93,7 +142,7 @@ export function buildXeroDeepLink(row: LooseRow): string | null {
 
 export function buildPaytradeDeepLink(row: LooseRow): string | null {
   if (!row) return null;
-  const syncType = row.sync_type as string | undefined;
+  const syncType = normaliseSyncType(row.sync_type as string | undefined);
   const ptDetails = (row.paytrade_details as Record<string, any>) || {};
   const ptRecord = firstRecord(row.paytrade_records);
 
