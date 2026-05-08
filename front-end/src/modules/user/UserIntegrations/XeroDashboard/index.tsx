@@ -494,10 +494,19 @@ export default function XeroDashboard() {
         );
         // Decide process direction
         const isXeroToPaytrade = val.process?.split(">")[0].trim() === "Xero";
+        const fullDescription = val.description ? stripHtml(val.description) : "";
+        const truncatedDescription =
+          fullDescription.length > 80
+            ? `${fullDescription.slice(0, 80)}…`
+            : fullDescription;
         return {
           ...val,
           created_on: val.created_on ? formatDate(val.created_on) : "",
-          description: val.description ? stripHtml(val.description) : "",
+          description: fullDescription ? (
+            <span title={fullDescription}>{truncatedDescription}</span>
+          ) : (
+            ""
+          ),
           process:
             val.process?.split(">")[0].trim() == "Xero" ? (
               <span style={{ color: "#12afe4" }}>Xero ➤ Pay Trade</span>

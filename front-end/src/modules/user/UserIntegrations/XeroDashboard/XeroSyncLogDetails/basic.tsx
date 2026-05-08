@@ -266,69 +266,180 @@ export default function SyncLogDetailsBasic() {
       } else if (data.sync_type == "Payments") {
         const paytrade = data?.paytrade_records?.[0];
         const xero = data?.xero_records?.[0];
-        const contact =
-          xero?.invoice?.contact?.name || xero?.contact?.name || "-";
-        data["ClaimDetails"] = [
-          {
-            tracking: "Invoice Id",
-            paytrade: paytrade?.payment_claim_id || "-",
-            xero: xero?.invoice?.invoiceID || "-",
-          },
-          {
-            tracking: "Payment Type",
-            paytrade: paytrade?.payment_type || "-",
-            xero: xero?.paymentType || "-",
-          },
-          {
-            tracking: "Status",
-            paytrade: paytrade?.current_status || "-",
-            xero: xero?.status || "-",
-          },
-          {
-            tracking: "Client/Supplier",
-            paytrade:
-              paytrade?.clientSupplierDetails?.client_supplier_name || "-",
-            xero: contact || "-",
-            status:
-              paytrade?.clientSupplierDetails?.client_supplier_name == contact
-                ? "Ok"
-                : "Failed",
-          },
-          {
-            tracking: "Date",
-            paytrade: formatDate(paytrade?.payment_date?.split("T")[0]) || "-",
-            xero: formatDate(xero?.date?.split("T")[0]) || "-",
-            status:
-              formatDate(paytrade?.payment_date?.split("T")[0]) ==
-              formatDate(xero?.date?.split("T")[0])
-                ? "Ok"
-                : "Failed",
-          },
-          {
-            tracking: "Due Date",
-            paytrade:
-              formatDate(paytrade?.paymentClaims?.due_date?.split("T")[0]) ||
-              "-",
-            xero: formatDate(xero?.invoice?.dueDate?.split("T")[0]) || "-",
-            status:
-              formatDate(paytrade?.paymentClaims?.due_date?.split("T")[0]) ==
-              formatDate(xero?.invoice?.dueDate?.split("T")[0])
-                ? "Ok"
-                : "Failed",
-          },
-          {
-            tracking: "Payment Amount ",
-            paytrade:
-              formatDollars(formatDisplayAmount(paytrade?.total_amount)) || "-",
-            xero:
-              formatDollars(formatDisplayAmount(xero?.invoice?.total)) || "-",
-            status:
-              formatDollars(formatDisplayAmount(paytrade?.total_amount)) ==
-              formatDollars(formatDisplayAmount(xero?.invoice?.total))
-                ? "Ok"
-                : "Failed",
-          },
-        ];
+        // Detect which leg this sync log represents. The Payment leg
+        // (templates 168/332) stores a Xero Payment object — has
+        // paymentID + invoice. The BankTransfer leg (templates
+        // 500/496/497/498) stores a Xero BankTransfer object — has
+        // bankTransferID, fromBankAccount, toBankAccount, no contact,
+        // no due date. Suppressed logs (502) have no xero record at
+        // all. Render only the rows that make sense for each shape so
+        // the user doesn't see spurious "Failed" badges on fields the
+        // leg never carried.
+        const isBankTransferLeg = !!(
+          xero?.bankTransferID ||
+          xero?.BankTransferID ||
+          xero?.fromBankAccount ||
+          xero?.FromBankAccount
+        );
+        const isPaymentLeg = !!(
+          xero?.paymentID ||
+          xero?.PaymentID ||
+          xero?.invoice ||
+          xero?.Invoice
+        );
+
+        const cmp = (a: any, b: any) => (a == b ? "Ok" : "Failed");
+        const ptTotal = Number(paytrade?.total_amount || 0);
+        const ptRetention = Number(paytrade?.retention_amount || 0);
+        const ptPaymentLegAmount = Math.max(ptTotal - ptRetention, 0);
+
+        if (isBankTransferLeg) {
+          const xeroAmount = xero?.amount ?? xero?.Amount;
+          const xeroDate =
+            xero?.date || xero?.DateString || xero?.Date || null;
+          const xeroRef = xero?.reference || xero?.Reference || "-";
+          data["ClaimDetails"] = [
+            {
+              tracking: "Invoice Id",
+              paytrade: paytrade?.payment_claim_id || "-",
+              xero: "-",
+            },
+            {
+              tracking: "Leg",
+              paytrade: "Retention BankTransfer",
+              xero: "BankTransfer",
+            },
+            {
+              tracking: "Reference",
+              paytrade: `PT-RET-${paytrade?.payment_id || ""}`,
+              xero: xeroRef,
+            },
+            {
+              tracking: "Date",
+              paytrade:
+                formatDate(paytrade?.payment_date?.split("T")[0]) || "-",
+              xero: formatDate(xeroDate?.split?.("T")?.[0] || xeroDate) || "-",
+              status: cmp(
+                formatDate(paytrade?.payment_date?.split("T")[0]),
+                formatDate(xeroDate?.split?.("T")?.[0] || xeroDate)
+              ),
+            },
+            {
+              tracking: "Transfer Amount",
+              paytrade:
+                formatDollars(formatDisplayAmount(ptRetention)) || "-",
+              xero: formatDollars(formatDisplayAmount(xeroAmount)) || "-",
+              status: cmp(
+                formatDollars(formatDisplayAmount(ptRetention)),
+                formatDollars(formatDisplayAmount(xeroAmount))
+              ),
+            },
+          ];
+        } else if (isPaymentLeg) {
+          const xeroAmount = xero?.amount ?? xero?.Amount;
+          const xeroDate =
+            xero?.date || xero?.DateString || xero?.Date || null;
+          const xeroInvoiceId =
+            xero?.invoice?.invoiceID ||
+            xero?.Invoice?.InvoiceID ||
+            xero?.invoice?.invoiceNumber ||
+            xero?.Invoice?.InvoiceNumber ||
+            "-";
+          const xeroStatus = xero?.status || xero?.Status || "-";
+          data["ClaimDetails"] = [
+            {
+              tracking: "Invoice Id",
+              paytrade: paytrade?.payment_claim_id || "-",
+              xero: xeroInvoiceId,
+            },
+            {
+              tracking: "Payment Type",
+              paytrade: paytrade?.payment_type || "-",
+              xero: "Payment",
+            },
+            {
+              tracking: "Status",
+              paytrade: paytrade?.current_status || "-",
+              xero: xeroStatus,
+            },
+            {
+              tracking: "Client/Supplier",
+              paytrade:
+                paytrade?.clientSupplierDetails?.client_supplier_name || "-",
+              xero: "—",
+            },
+            {
+              tracking: "Date",
+              paytrade:
+                formatDate(paytrade?.payment_date?.split("T")[0]) || "-",
+              xero: formatDate(xeroDate?.split?.("T")?.[0] || xeroDate) || "-",
+              status: cmp(
+                formatDate(paytrade?.payment_date?.split("T")[0]),
+                formatDate(xeroDate?.split?.("T")?.[0] || xeroDate)
+              ),
+            },
+            {
+              tracking: "Payment Amount",
+              paytrade:
+                formatDollars(formatDisplayAmount(ptPaymentLegAmount)) || "-",
+              xero: formatDollars(formatDisplayAmount(xeroAmount)) || "-",
+              status: cmp(
+                formatDollars(formatDisplayAmount(ptPaymentLegAmount)),
+                formatDollars(formatDisplayAmount(xeroAmount))
+              ),
+            },
+          ];
+        } else {
+          // No xero_records — template 502 (transfer suppressed) or
+          // any other no-record case. For template 502 the relevant
+          // PT amount is the retention leg, not the full claim. Show
+          // only the PT side so the comparison table doesn't render a
+          // wall of "Failed" badges against nothing.
+          const isTransferSuppressed = data?.log_template_id === 502;
+          const ptAmountForRow = isTransferSuppressed
+            ? ptRetention
+            : ptTotal;
+          const amountLabel = isTransferSuppressed
+            ? "Transfer Amount"
+            : "Payment Amount";
+          data["ClaimDetails"] = [
+            {
+              tracking: "Invoice Id",
+              paytrade: paytrade?.payment_claim_id || "-",
+              xero: "-",
+            },
+            {
+              tracking: "Leg",
+              paytrade: isTransferSuppressed
+                ? "Retention BankTransfer (suppressed)"
+                : paytrade?.payment_type || "-",
+              xero: "-",
+            },
+            {
+              tracking: "Status",
+              paytrade: paytrade?.current_status || "-",
+              xero: "-",
+            },
+            {
+              tracking: "Client/Supplier",
+              paytrade:
+                paytrade?.clientSupplierDetails?.client_supplier_name || "-",
+              xero: "-",
+            },
+            {
+              tracking: "Date",
+              paytrade:
+                formatDate(paytrade?.payment_date?.split("T")[0]) || "-",
+              xero: "-",
+            },
+            {
+              tracking: amountLabel,
+              paytrade:
+                formatDollars(formatDisplayAmount(ptAmountForRow)) || "-",
+              xero: "-",
+            },
+          ];
+        }
       }
       setSyncLogDetailsData({
         ...data,
