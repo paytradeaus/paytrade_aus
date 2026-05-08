@@ -5375,5 +5375,35 @@
     "from_xero": true,
     "error_code": "MANUAL_XERO_SYNC_TRIGGERED",
     "associated_log_ids": null
+  },
+  {
+    "id": 500,
+    "sync_type": "Payments",
+    "description": "<p>Retention BankTransfer (reference {{reference}}, amount {{retention_amount}}) created in Xero successfully — BankTransfer {{bank_transfer_id}} from payment account to retention trust account.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_CREATED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 501,
+    "sync_type": "Payments",
+    "description": "<p>Retention BankTransfer leg skipped for PT payment {{payment_id}} — an existing Xero BankTransfer ({{bank_transfer_id}}) is already mapped. No duplicate transfer was created. Un-tick Confirm Retention first if you need to re-push.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_ALREADY_MAPPED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 502,
+    "sync_type": "Payments",
+    "description": "<p>Retention BankTransfer leg was NOT pushed for PT payment {{payment_id}}. Reason: {{reason}}. Diagnostic state: cash_retention={{cash_retention}}, sync_transfer={{sync_transfer}}, isRetentionChecked={{is_retention_checked}}, existing_bank_transfer_id={{existing_bank_transfer_id}}, retention_amount={{retention_amount}}. If you ticked Confirm Retention and expected a transfer, this log explains why the call was suppressed.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Warning",
+    "from_xero": false,
+    "error_code": "RETENTION_TRANSFER_NOT_REQUESTED",
+    "associated_log_ids": null
   }
 ]

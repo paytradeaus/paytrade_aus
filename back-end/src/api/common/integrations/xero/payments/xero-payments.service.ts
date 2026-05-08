@@ -788,8 +788,117 @@ export class XeroPaymentsService {
       const skipTransfer = !wantTransfer || !!existingXp?.bank_transfer_id;
       try {
         this.logger.log(
-          `[Task#50 gate-split] payment_id=${payment_id} wantPayment=${wantPayment} wantTransfer=${wantTransfer} skipPayment=${skipPayment} skipTransfer=${skipTransfer} existingXp.payment_id=${existingXp?.payment_id || null} existingXp.bank_transfer_id=${existingXp?.bank_transfer_id || null}`,
+          `[Task#50 gate-split] payment_id=${payment_id} wantPayment=${wantPayment} wantTransfer=${wantTransfer} skipPayment=${skipPayment} skipTransfer=${skipTransfer} cash_retention=${cash_retention} sync_payment_flag=${data?.sync_payment} sync_transfer_flag=${data?.sync_transfer} retention_amount=${retention_amount} existingXp.payment_id=${existingXp?.payment_id || null} existingXp.bank_transfer_id=${existingXp?.bank_transfer_id || null}`,
         );
+
+        // Task #54.1 — Diagnostic sync log when the transfer leg is
+        // suppressed despite cash_retention being requested. Without
+        // this, callers see only the Payment-leg sync log and have no
+        // way to tell why no BankTransfer was created. Three distinct
+        // suppression reasons are surfaced below.
+        if (!wantTransfer && !!cash_retention) {
+          let reason = 'Unknown';
+          if (data?.sync_transfer === false) {
+            reason =
+              'sync_transfer flag was explicitly false (resolver did not request the transfer leg — Confirm Retention was probably not ticked, or it was already synced previously)';
+          }
+          this.logger.log(
+            `[Task#54.1 transfer-not-requested] payment_id=${payment_id} reason="${reason}"`,
+          );
+          try {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            api_name: 'createPaymentInXero',
+            api_payload: {
+              ...data,
+              mapping_project_id: xeroInvoicesBills?.project_id,
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 502,
+            dynamic_values: {
+              payment_id: paymentDetails?.payment_id,
+              reason,
+              cash_retention: String(!!cash_retention),
+              sync_transfer: String(data?.sync_transfer),
+              is_retention_checked: 'see resolver wantTransfer compute',
+              existing_bank_transfer_id:
+                existingXp?.bank_transfer_id || 'none',
+              retention_amount: Number(retention_amount || 0).toFixed(2),
+            },
+            project_id: xeroInvoicesBills?.project_id,
+            contract_id: xeroInvoicesBills?.contract_id,
+            reference: { xeroId: null, paytradeId: paymentDetails?.id },
+            reference_id: paymentDetails?.id,
+            history: [
+              `API triggered from payment ${paymentDetails?.payment_id}`,
+              `Transfer leg suppressed: ${reason}`,
+            ],
+            important_checks: {
+              'Import data format validation': 'Ok',
+            },
+            error_message: null,
+            xero_records: [],
+            paytrade_records: [paymentDetails],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          } catch (logErr) {
+            this.logger.error(
+              `[Task#54.1] Failed to write transfer-suppressed sync log (template 502): ${logErr?.message ?? logErr}`,
+            );
+          }
+        } else if (
+          wantTransfer &&
+          skipTransfer &&
+          !!existingXp?.bank_transfer_id
+        ) {
+          // Transfer was requested AND a previous BankTransfer is
+          // already mapped — write a Succeeded "already mapped" log
+          // so the user sees the transfer leg's outcome instead of
+          // silence next to the Payment-leg log.
+          this.logger.log(
+            `[Task#54.1 transfer-already-mapped] payment_id=${payment_id} bank_transfer_id=${existingXp.bank_transfer_id}`,
+          );
+          try {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            api_name: 'createPaymentInXero',
+            api_payload: {
+              ...data,
+              mapping_project_id: xeroInvoicesBills?.project_id,
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 501,
+            dynamic_values: {
+              payment_id: paymentDetails?.payment_id,
+              bank_transfer_id: existingXp.bank_transfer_id,
+            },
+            project_id: xeroInvoicesBills?.project_id,
+            contract_id: xeroInvoicesBills?.contract_id,
+            reference: {
+              xeroId: existingXp.bank_transfer_id,
+              paytradeId: paymentDetails?.id,
+            },
+            reference_id: paymentDetails?.id,
+            history: [
+              `API triggered from payment ${paymentDetails?.payment_id}`,
+              `Transfer leg short-circuited — existing BankTransfer ${existingXp.bank_transfer_id} already mapped`,
+            ],
+            important_checks: {
+              'Import data format validation': 'Ok',
+            },
+            error_message: null,
+            xero_records: [],
+            paytrade_records: [paymentDetails],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          } catch (logErr) {
+            this.logger.error(
+              `[Task#54.1] Failed to write transfer-already-mapped sync log (template 501): ${logErr?.message ?? logErr}`,
+            );
+          }
+        }
 
         if (skipPayment && skipTransfer) {
           this.logger.log(
@@ -862,6 +971,67 @@ export class XeroPaymentsService {
                 bank_transfer_id =
                   retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
                 bank_transfer_reference = ptRef;
+
+                // Task #54.1 — Dedicated success log for the transfer
+                // leg so the sync log list shows TWO rows (one for the
+                // Payment, one for the BankTransfer) when both fire in
+                // the same call. Previously only the combined success
+                // log (template 168) was written and users could not
+                // tell whether the retention BankTransfer had actually
+                // posted.
+                try {
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    api_name: 'createPaymentInXero',
+                    api_payload: {
+                      ...data,
+                      mapping_project_id: xeroInvoicesBills?.project_id,
+                    },
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: 500,
+                    dynamic_values: {
+                      reference: ptRef,
+                      bank_transfer_id,
+                      retention_amount:
+                        Number(retention_amount).toFixed(2),
+                    },
+                    project_id: xeroInvoicesBills?.project_id,
+                    contract_id: xeroInvoicesBills?.contract_id,
+                    reference: {
+                      xeroId: bank_transfer_id,
+                      paytradeId: paymentDetails?.id,
+                    },
+                    reference_id: paymentDetails?.id,
+                    history: [
+                      `API triggered from payment ${paymentDetails?.payment_id}`,
+                      `Retention BankTransfer ${bank_transfer_id} created in Xero (reference ${ptRef})`,
+                    ],
+                    important_checks: {
+                      'Import data format validation': 'Ok',
+                      'Import tracking id validation': 'Ok',
+                      'Import account type validation': 'Ok',
+                      'Import tax type validation': 'Ok',
+                      'Client/Supplier mapping validation': 'Ok',
+                      'Contract mapping validation': 'Ok',
+                      'Project mapping validation': 'Ok',
+                    },
+                    error_message: null,
+                    xero_records: [
+                      retentionTransfer.body.bankTransfers[0],
+                    ],
+                    paytrade_records: [paymentDetails],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
+                } catch (logErr) {
+                  this.logger.error(
+                    `[Task#54.1] Failed to write transfer-success sync log (template 500): ${logErr?.message ?? logErr}`,
+                  );
+                }
+              } else {
+                this.logger.log(
+                  `[Task#54.1 transfer-leg] Xero returned no bankTransfers in response body for payment_id=${payment_id} — falling through without success log.`,
+                );
               }
             } catch (transferErr) {
               // ---------------------------------------------------------

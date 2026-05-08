@@ -166,6 +166,20 @@ export class FetchDetailsOfAnAssociatedPayment {
   @Field({ nullable: true, description: 'Date when payment was received.' })
   received_date: Date;
 
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — true when a Xero Payment record is currently mapped to this PT (associated) payment. Mirrors the field on FetchDetailsOfAPayment so OtherPayment sub-modules that pass associated_payment_details as patchData can render the same Xero sync indicators.',
+  })
+  xero_payment_synced: Boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #52 — true when a Xero BankTransfer record is currently mapped to this PT (associated) payment. Mirrors the field on FetchDetailsOfAPayment so OtherPayment sub-modules that pass associated_payment_details as patchData can render the same Xero sync indicators.',
+  })
+  xero_transfer_synced: Boolean;
+
   // Retention fields
   @Field(() => Float, {
     nullable: true,
