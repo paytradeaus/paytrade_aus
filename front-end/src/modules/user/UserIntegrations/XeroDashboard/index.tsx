@@ -93,6 +93,7 @@ export default function XeroDashboard() {
     },
   ];
   const companyId = +(localStorage.getItem("companyId") || 0);
+  const [manualSyncOpen, setManualSyncOpen] = useState<boolean>(false);
   const steps = [
     {
       number: "01",
@@ -858,7 +859,6 @@ export default function XeroDashboard() {
               </div>
             </div>
           </div>
-          <ManualXeroSyncCard companyId={companyId} />
           <div className="grid">
             <div className="pt_box">
               <h4>Sync Log</h4>
@@ -872,6 +872,14 @@ export default function XeroDashboard() {
                     fetchXeroSyncLogs();
                   }}
                   styles={{ margin: "0 10px 10px 10px" }}
+                />
+                <CustomButton
+                  buttonName="Manual sync"
+                  iconClassName="fa-light fa-rotate"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() => setManualSyncOpen(true)}
+                  styles={{ margin: "0 10px 10px 0" }}
                 />
                 <div
                   style={{
@@ -1130,19 +1138,37 @@ export default function XeroDashboard() {
           </div>
         </BaseModal>
       )}
+      <ManualXeroSyncDialog
+        companyId={companyId}
+        open={manualSyncOpen}
+        onClose={() => setManualSyncOpen(false)}
+        onSuccess={fetchXeroSyncLogs}
+      />
     </div>
   );
 }
 
 /**
- * Task #65 — Manual Xero re-sync by ID.
+ * Task #65 — Manual Xero re-sync by ID (dialog).
  *
- * Admin recovery card: pick a record type, paste the Xero GUID
- * (or invoice/bill number for invoice_bill), click Run sync. Backend
- * is the source of truth for admin gating; non-admin users will see
- * an error toast from the resolver guard.
+ * Available to any user with access to the company (backend role guard
+ * allows STANDARD_USER, ADMIN, PRIMARY_ADMIN; the in-resolver IDOR check
+ * still rejects company_id tampering). Pick a record type, paste the
+ * Xero GUID (or invoice/bill number for invoice_bill), click Run sync.
+ * Result panel renders inline below the form so the user can run several
+ * IDs without closing the dialog.
  */
-function ManualXeroSyncCard({ companyId }: { companyId: number }) {
+function ManualXeroSyncDialog({
+  companyId,
+  open,
+  onClose,
+  onSuccess,
+}: {
+  companyId: number;
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
   const [type, setType] = useState<
     "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal"
   >("invoice_bill");
@@ -1155,97 +1181,140 @@ function ManualXeroSyncCard({ companyId }: { companyId: number }) {
     resolvedXeroId?: string | null;
   } | null>(null);
 
-  const onRun = async () => {
+  // Reset form/result whenever the dialog re-opens so previous output
+  // doesn't leak across sessions.
+  useEffect(() => {
+    if (open) {
+      setId("");
+      setResult(null);
+      setBusy(false);
+      setType("invoice_bill");
+    }
+  }, [open]);
+
+  const handleClose = () => {
+    if (busy) return;
+    onClose();
+  };
+
+  const handleConfirm = async (): Promise<boolean> => {
     const trimmed = id.trim();
     if (!trimmed) {
       setResult({ success: false, message: "Please enter a Xero ID first." });
-      return;
+      return false;
     }
     setBusy(true);
     setResult(null);
-    const res = await manualXeroResync({ company_id: companyId, type, id: trimmed });
-    setResult(res);
-    setBusy(false);
+    try {
+      const res = await manualXeroResync({
+        company_id: companyId,
+        type,
+        id: trimmed,
+      });
+      setResult(res);
+      if (res?.success && onSuccess) {
+        try {
+          onSuccess();
+        } catch {
+          // best-effort refresh — never block dialog flow
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+    // Returning false keeps the modal open so the user sees the result
+    // panel and can either run another id or close manually.
+    return false;
   };
 
+  if (!open) return null;
   return (
-    <div className="grid">
-      <div className="pt_box">
-        <h4>MANUAL XERO RE-SYNC </h4>
-        <p style={{ fontSize: "12px", margin: "4px 0 10px 0", opacity: 0.75 }}>
-          Admin recovery tool. Re-pulls a single Xero record and re-runs the
-          matching webhook handler. Use when a webhook is missed or a record is
-          out of sync.
-        </p>
+    <BaseModal
+      modalId="manualXeroSync"
+      displayModal={open}
+      onClose={handleClose}
+      title="Manual Xero sync"
+      firstButtonName="Close"
+      secondButtonName={busy ? "Running…" : "Run sync"}
+      disableSecondButton={busy || !id.trim()}
+      onConfirm={handleConfirm}
+    >
+      <p style={{ fontSize: "13px", marginTop: 0, opacity: 0.8 }}>
+        Re-pull a single Xero record and re-run the matching webhook
+        handler. Use when a webhook was missed or a record is out of sync
+        between Xero and PayTrade.
+      </p>
+      <div style={{ marginBottom: "12px" }}>
+        <h5 style={{ margin: "0 0 4px 0" }}>Record type</h5>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as any)}
+          disabled={busy}
+          style={{ width: "100%", padding: "8px 10px" }}
+        >
+          <option value="invoice_bill">Invoice / Bill</option>
+          <option value="payment">Payment</option>
+          <option value="bank_transfer">Bank transfer</option>
+          <option value="contact">Contact</option>
+          <option value="manual_journal">Manual journal</option>
+        </select>
+      </div>
+      <div style={{ marginBottom: "12px" }}>
+        <h5 style={{ margin: "0 0 4px 0" }}>
+          Xero ID
+          {type === "invoice_bill" ? " or invoice / bill number" : ""}
+        </h5>
+        <input
+          type="text"
+          placeholder={
+            type === "invoice_bill"
+              ? "GUID (e.g. 2a1b…) or invoice number (e.g. INV-0123)"
+              : "Xero record GUID"
+          }
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          disabled={busy}
+          style={{ width: "100%", padding: "8px 10px" }}
+        />
+        <small style={{ opacity: 0.7 }}>
+          {type === "bank_transfer"
+            ? "Tip: only PayTrade-originated retention transfers (reference PT-RET-…) can be resolved back to a claim."
+            : type === "manual_journal"
+            ? "Tip: PayTrade-posted journals are skipped by anti-echo so we don't double-process them."
+            : "Tip: paste the value straight from the Xero URL or the sync log entry."}
+        </small>
+      </div>
+      {result && (
         <div
           style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-            alignItems: "center",
+            marginTop: "10px",
+            padding: "10px 12px",
+            borderRadius: "4px",
+            background: result.success ? "#e6f7ec" : "#fdecea",
+            color: result.success ? "#137333" : "#a50e0e",
+            fontSize: "13px",
           }}
         >
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as any)}
-            disabled={busy}
-            style={{ padding: "6px 8px", minWidth: "180px" }}
-          >
-            <option value="invoice_bill">Invoice / Bill</option>
-            <option value="payment">Payment</option>
-            <option value="bank_transfer">Bank transfer</option>
-            <option value="contact">Contact</option>
-            <option value="manual_journal">Manual journal</option>
-          </select>
-          <input
-            type="text"
-            placeholder={
-              type === "invoice_bill"
-                ? "Xero invoice GUID or invoice number (e.g. INV-0123)"
-                : "Xero record GUID"
-            }
-            value={id}
-            onChange={(e) => setId(e.target.value)}
-            disabled={busy}
-            style={{ padding: "6px 8px", flex: "1 1 280px", minWidth: "260px" }}
-          />
-          <CustomButton
-            buttonName={busy ? "Running…" : "Run sync"}
-            buttonType={buttonType.SMALL_BUTTON}
-            actionType="button"
-            onClick={onRun}
-            disabled={busy}
-          />
-        </div>
-        {result && (
-          <div
-            style={{
-              marginTop: "10px",
-              padding: "8px 10px",
-              borderRadius: "4px",
-              background: result.success ? "#e6f7ec" : "#fdecea",
-              color: result.success ? "#137333" : "#a50e0e",
-              fontSize: "12px",
-            }}
-          >
-            <div>{result.message}</div>
-            {result.resolvedXeroId && (
-              <div style={{ marginTop: "4px" }}>
-                Resolved Xero ID: <code>{result.resolvedXeroId}</code>
-              </div>
-            )}
-            {result.syncLogId ? (
-              <div style={{ marginTop: "4px" }}>
-                <Link
-                  href={`/user/integrations/xero/syncLogDetails/${result.syncLogId}`}
-                >
-                  View sync log #{result.syncLogId}
-                </Link>
-              </div>
-            ) : null}
+          <div style={{ fontWeight: 500 }}>
+            {result.success ? "Sync triggered" : "Sync failed"}
           </div>
-        )}
-      </div>
-    </div>
+          <div style={{ marginTop: "4px" }}>{result.message}</div>
+          {result.resolvedXeroId && (
+            <div style={{ marginTop: "4px" }}>
+              Resolved Xero ID: <code>{result.resolvedXeroId}</code>
+            </div>
+          )}
+          {result.syncLogId ? (
+            <div style={{ marginTop: "6px" }}>
+              <Link
+                href={`/user/integrations/xero/syncLogDetails/${result.syncLogId}`}
+              >
+                View sync log #{result.syncLogId}
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </BaseModal>
   );
 }

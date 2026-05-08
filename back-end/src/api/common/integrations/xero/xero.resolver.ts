@@ -1140,11 +1140,11 @@ export class XeroResolver {
    * and a sync log id link.
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {
     name: 'manualXeroResync',
     description:
-      'Admin-only: re-pull a single Xero record by ID (or invoice number) and re-run the matching webhook handler.',
+      'Re-pull a single Xero record by ID (or invoice number) and re-run the matching webhook handler. Available to any user with access to their company; the IDOR guard rejects cross-company tampering.',
   })
   async manualXeroResync(
     @Context() context,
