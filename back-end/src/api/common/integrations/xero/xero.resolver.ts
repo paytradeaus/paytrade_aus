@@ -3,7 +3,7 @@ import { XeroService } from './xero.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { StringResponse } from 'src/api/users/signup/response/auth.response';
-import { UseGuards } from '@nestjs/common';
+import { Inject, UseGuards, forwardRef } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
 import { RolesGuard } from 'src/api/auth/role-guard/roles.guard';
 import { Roles } from 'src/api/auth/role-guard/roles.decorator';
@@ -33,6 +33,7 @@ import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal
 import { jwtConstants } from 'src/api/auth/constants';
 import * as jwt from 'jsonwebtoken';
 import { PaymentGatewayService } from '../../payment-gateway/payment-gateway.service';
+import { XeroWebhookService } from '../../xero-webhooks/webhook.service';
 
 @Resolver('Xero')
 export class XeroResolver {
@@ -42,6 +43,8 @@ export class XeroResolver {
     private readonly jwtInternalService: JwtInternalService,
     private readonly xeroService: XeroService,
     private readonly paymentGatewayService: PaymentGatewayService,
+    @Inject(forwardRef(() => XeroWebhookService))
+    private readonly xeroWebhookService: XeroWebhookService,
   ) {
     this.logger = new PaytradeLogger('XERO_RESOLVER');
   }
@@ -1123,6 +1126,89 @@ export class XeroResolver {
       );
     } catch (error) {
       return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Task #65 — Manual Xero re-sync by ID.
+   *
+   * Admin-driven recovery: pulls the named record fresh from Xero and
+   * re-runs the matching inbound webhook handler stamped with
+   * `sync_run_type: 'manual'`. Returns a JSON-stringified
+   * `{ success, message, syncLogId, resolvedXeroId }` payload via the
+   * standard StringResponse so the frontend can show inline result text
+   * and a sync log id link.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'manualXeroResync',
+    description:
+      'Admin-only: re-pull a single Xero record by ID (or invoice number) and re-run the matching webhook handler.',
+  })
+  async manualXeroResync(
+    @Context() context,
+    @Args('company_id', { description: 'Company id of the calling user.' })
+    company_id: number,
+    @Args('type', {
+      description:
+        'One of: invoice_bill, payment, bank_transfer, contact, manual_journal',
+    })
+    type: string,
+    @Args('id', {
+      description:
+        'Xero GUID of the record (or invoice/bill number for type=invoice_bill).',
+    })
+    id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      // IDOR guard — caller must own the company they're acting on. The
+      // role-guard above only confirms the user is an admin somewhere; the
+      // JWT-bound company id is what proves they're an admin of *this*
+      // company. Reject any cross-company tampering attempt up front.
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroResync(decoded, {
+        company_id,
+        type,
+        id,
+      });
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      if (this.refreshTokenReAuthenticate({ error })) {
+        const decoded = await this.jwtInternalService.decodeJwtToken(context);
+        const response = await this.xeroService.getAuthUrl(
+          company_id,
+          decoded?.userId,
+          false,
+          decoded?.timezone,
+        );
+        return framedResponse('XERO_REFRESH', response);
+      }
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
     }
   }
 }

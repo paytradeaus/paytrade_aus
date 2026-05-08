@@ -5365,5 +5365,15 @@
     "from_xero": false,
     "error_code": "RETENTION_TRANSFER_REJECTED",
     "associated_log_ids": null
+  },
+  {
+    "id": 499,
+    "sync_type": "Manual sync",
+    "description": "<p>Manual Xero re-sync triggered by user {{user_id}} for {{type}} <code>{{id}}</code> (resolved Xero ID: {{resolved_id}}). The matching inbound webhook handler has been re-run with sync_run_type='manual'.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "MANUAL_XERO_SYNC_TRIGGERED",
+    "associated_log_ids": null
   }
 ]

@@ -3959,3 +3959,59 @@ export async function createTaxTypeApi(
     setLoading && setLoading(false);
   }
 }
+
+/**
+ * Task #65 — Manual Xero re-sync by ID.
+ *
+ * Calls the admin-only `manualXeroResync` mutation. Backend returns a
+ * StringResponse whose `message` is JSON-stringified
+ * `{ success, message, syncLogId, resolvedXeroId }`. We parse it here so
+ * the caller can render an inline result panel without re-implementing
+ * the JSON shape in every component.
+ */
+export const manualXeroResync = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  id: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  syncLogId?: number | null;
+  resolvedXeroId?: string | null;
+}> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation ManualXeroResync($company_id: Float!, $type: String!, $id: String!) {
+          manualXeroResync(company_id: $company_id, type: $type, id: $id) {
+            message
+            status
+          }
+        }
+      `,
+      variables,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroResync;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return { success: false, message: "Xero re-authentication required." };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: res?.status === ApiResponse.SUCCESS, message: res?.message };
+    }
+    if (parsed?.success) {
+      showSuccessToast(parsed?.message || "Manual sync triggered");
+    } else {
+      showErrorToast(parsed?.message || "Manual sync failed");
+    }
+    return parsed;
+  } catch (error: any) {
+    const msg = error?.message || ApiResponse.ERROR;
+    showErrorToast(msg);
+    return { success: false, message: msg };
+  }
+};

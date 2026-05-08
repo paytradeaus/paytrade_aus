@@ -23,6 +23,7 @@ import {
   getTrackingCategories,
   getXeroDashboardCountForCompany,
   getXeroDetailsForCompany,
+  manualXeroResync,
   SkipContractMapping,
   syncAllBankAccountsByCompanyId,
   syncAllContactsByCompanyId,
@@ -807,6 +808,7 @@ export default function XeroDashboard() {
               </div>
             </div>
           </div>
+          <ManualXeroSyncCard companyId={companyId} />
           <div className="grid">
             <div className="pt_box">
               <h4>Sync Log</h4>
@@ -1043,6 +1045,122 @@ export default function XeroDashboard() {
           </div>
         </BaseModal>
       )}
+    </div>
+  );
+}
+
+/**
+ * Task #65 — Manual Xero re-sync by ID.
+ *
+ * Admin recovery card: pick a record type, paste the Xero GUID
+ * (or invoice/bill number for invoice_bill), click Run sync. Backend
+ * is the source of truth for admin gating; non-admin users will see
+ * an error toast from the resolver guard.
+ */
+function ManualXeroSyncCard({ companyId }: { companyId: number }) {
+  const [type, setType] = useState<
+    "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal"
+  >("invoice_bill");
+  const [id, setId] = useState<string>("");
+  const [busy, setBusy] = useState<boolean>(false);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+    syncLogId?: number | null;
+    resolvedXeroId?: string | null;
+  } | null>(null);
+
+  const onRun = async () => {
+    const trimmed = id.trim();
+    if (!trimmed) {
+      setResult({ success: false, message: "Please enter a Xero ID first." });
+      return;
+    }
+    setBusy(true);
+    setResult(null);
+    const res = await manualXeroResync({ company_id: companyId, type, id: trimmed });
+    setResult(res);
+    setBusy(false);
+  };
+
+  return (
+    <div className="grid">
+      <div className="pt_box">
+        <h4>MANUAL XERO RE-SYNC </h4>
+        <p style={{ fontSize: "12px", margin: "4px 0 10px 0", opacity: 0.75 }}>
+          Admin recovery tool. Re-pulls a single Xero record and re-runs the
+          matching webhook handler. Use when a webhook is missed or a record is
+          out of sync.
+        </p>
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as any)}
+            disabled={busy}
+            style={{ padding: "6px 8px", minWidth: "180px" }}
+          >
+            <option value="invoice_bill">Invoice / Bill</option>
+            <option value="payment">Payment</option>
+            <option value="bank_transfer">Bank transfer</option>
+            <option value="contact">Contact</option>
+            <option value="manual_journal">Manual journal</option>
+          </select>
+          <input
+            type="text"
+            placeholder={
+              type === "invoice_bill"
+                ? "Xero invoice GUID or invoice number (e.g. INV-0123)"
+                : "Xero record GUID"
+            }
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            disabled={busy}
+            style={{ padding: "6px 8px", flex: "1 1 280px", minWidth: "260px" }}
+          />
+          <CustomButton
+            buttonName={busy ? "Running…" : "Run sync"}
+            buttonType={buttonType.SMALL_BUTTON}
+            actionType="button"
+            onClick={onRun}
+            disabled={busy}
+          />
+        </div>
+        {result && (
+          <div
+            style={{
+              marginTop: "10px",
+              padding: "8px 10px",
+              borderRadius: "4px",
+              background: result.success ? "#e6f7ec" : "#fdecea",
+              color: result.success ? "#137333" : "#a50e0e",
+              fontSize: "12px",
+            }}
+          >
+            <div>{result.message}</div>
+            {result.resolvedXeroId && (
+              <div style={{ marginTop: "4px" }}>
+                Resolved Xero ID: <code>{result.resolvedXeroId}</code>
+              </div>
+            )}
+            {result.syncLogId ? (
+              <div style={{ marginTop: "4px" }}>
+                <Link
+                  href={`/user/integrations/xero/syncLogDetails/${result.syncLogId}`}
+                >
+                  View sync log #{result.syncLogId}
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

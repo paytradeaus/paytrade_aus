@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
@@ -98,6 +98,7 @@ export class XeroWebhookService {
     private userDetails: Repository<UserDetails>,
     @InjectRepository(ClientSupplierProjectXeroAccountCodes)
     private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
+    @Inject(forwardRef(() => XeroResolver))
     private readonly xeroResolver: XeroResolver,
     private readonly xeroService: XeroService,
     private readonly xeroContactsService: XeroContactsService,
@@ -13253,6 +13254,518 @@ export class XeroWebhookService {
           return false;
         }
       }
+    }
+  }
+
+  /**
+   * Task #65 — Manual Xero re-sync by ID.
+   *
+   * Admin-triggered recovery tool: pull the named Xero record fresh from
+   * Xero by its ID (or invoice number for Invoice/Bill) and re-run the
+   * existing inbound webhook handler stamped with `sync_run_type: 'manual'`.
+   *
+   * Reuses every code path the 15-min webhook fallback and the daily retro
+   * re-check already exercise — no new business logic.
+   *
+   *   type:
+   *     - 'invoice_bill'   → handleInvoiceCreateUpdate (also walks payments[])
+   *     - 'payment'        → resolve payment → invoice id → handleInvoiceCreateUpdate
+   *     - 'bank_transfer'  → parse PT-RET-{id} reference → resolve linked
+   *                          PT payment's claim invoice → handleInvoiceCreateUpdate
+   *     - 'contact'        → handleContactCreateUpdate
+   *     - 'manual_journal' → handleManualJournalUpdate (anti-echo aware)
+   *
+   * Returns a structured payload the resolver JSON-stringifies. All paths
+   * are wrapped in try/catch; failures surface a Failed sync log row and
+   * a clear human-readable error message.
+   */
+  async manualXeroResync(
+    decoded: any,
+    input: { company_id: number; type: string; id: string },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    syncLogId?: number | null;
+    resolvedXeroId?: string | null;
+  }> {
+    const company_id = Number(input?.company_id);
+    const rawType = String(input?.type || '').trim().toLowerCase();
+    const rawId = String(input?.id || '').trim();
+
+    const allowedTypes = new Set([
+      'invoice_bill',
+      'payment',
+      'bank_transfer',
+      'contact',
+      'manual_journal',
+    ]);
+
+    if (!company_id || !rawType || !rawId) {
+      return {
+        success: false,
+        message: 'company_id, type and id are all required.',
+      };
+    }
+    if (!allowedTypes.has(rawType)) {
+      return {
+        success: false,
+        message: `Unsupported type "${rawType}". Supported: ${Array.from(
+          allowedTypes,
+        ).join(', ')}.`,
+      };
+    }
+
+    // Look up the active Xero integration for this company.
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return {
+        success: false,
+        message: 'No active Xero integration found for this company.',
+      };
+    }
+    if (
+      xeroDetails.integrationDetails?.integration_status !==
+      'Connected - active'
+    ) {
+      return {
+        success: false,
+        message: 'Xero integration is not in Connected - active state.',
+      };
+    }
+
+    const tenant_id = xeroDetails.tenant_id;
+    const integration_id = xeroDetails.integration_id;
+    const triggeredByUserId = decoded?.userId ?? null;
+
+    // Refresh the token (Redis-locked) before any Xero API call.
+    // Re-throw — the resolver's `refreshTokenReAuthenticate` catch path
+    // detects the dead-refresh-token signature and returns XERO_REFRESH so
+    // the frontend can surface the in-page reauth banner instead of
+    // swallowing the error as a generic failure.
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // Helper to write the trigger log row (template 499).
+    const writeTriggerLog = async (params: {
+      status: 'Succeeded' | 'Failed';
+      resolvedXeroId: string | null;
+      message: string;
+      extraHistory?: string[];
+      reference_id?: string | null;
+    }): Promise<number | null> => {
+      try {
+        const log = await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: null,
+          api_name: 'manualXeroResync',
+          api_payload: {
+            type: rawType,
+            id: rawId,
+            resolvedXeroId: params.resolvedXeroId,
+            sync_run_type: 'manual',
+            triggered_by_user_id: triggeredByUserId,
+          },
+          integration_id,
+          log_template_id: 499,
+          dynamic_values: {
+            type: rawType,
+            id: rawId,
+            resolved_id: params.resolvedXeroId || rawId,
+            user_id: String(triggeredByUserId ?? ''),
+          },
+          project_id: null,
+          contract_id: null,
+          reference: {
+            xeroId: params.resolvedXeroId,
+            paytradeId: null,
+          },
+          reference_id: params.reference_id ?? null,
+          history: [
+            `Manual re-sync triggered by user ${triggeredByUserId ?? 'unknown'}`,
+            `Type=${rawType}, id=${rawId}`,
+            ...(params.extraHistory || []),
+            params.status === 'Succeeded' ? 'Dispatched' : 'Aborted',
+          ],
+          important_checks: {
+            'Manual sync trigger': params.status === 'Succeeded' ? 'Ok' : 'Failed',
+          },
+          error_message: params.status === 'Failed' ? params.message : null,
+          xero_records: [],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        } as any);
+        return (log && (log as any).id) || null;
+      } catch (err: any) {
+        this.logger.error(
+          `[MANUAL_RESYNC] writeTriggerLog failed: ${err?.message || err}`,
+        );
+        return null;
+      }
+    };
+
+    try {
+      // ───────────────────────────── INVOICE / BILL ─────────────────────────────
+      if (rawType === 'invoice_bill') {
+        let resolvedId = rawId;
+
+        // Number → GUID resolution path.
+        if (!uuidRegex.test(rawId)) {
+          try {
+            const where = `InvoiceNumber=="${rawId.replace(/"/g, '\\"')}"`;
+            const lookup = await this.xero.accountingApi.getInvoices(
+              tenant_id,
+              undefined,
+              where,
+            );
+            const matches = lookup?.body?.invoices || [];
+            if (matches.length === 0) {
+              const msg = `No invoice or bill found with number "${rawId}".`;
+              const syncLogId = await writeTriggerLog({
+                status: 'Failed',
+                resolvedXeroId: null,
+                message: msg,
+              });
+              return { success: false, message: msg, syncLogId };
+            }
+            if (matches.length > 1) {
+              const candidateIds = matches
+                .map((m: any) => m?.invoiceID)
+                .filter(Boolean)
+                .slice(0, 5)
+                .join(', ');
+              const msg = `Multiple invoices found for number "${rawId}". Use the Xero GUID instead. Candidates: ${candidateIds}`;
+              const syncLogId = await writeTriggerLog({
+                status: 'Failed',
+                resolvedXeroId: null,
+                message: msg,
+              });
+              return { success: false, message: msg, syncLogId };
+            }
+            resolvedId = matches[0]?.invoiceID;
+          } catch (err: any) {
+            const errMsg = await handleAxiosError(err).catch(() => err?.message || String(err));
+            const msg = `Failed to resolve invoice number to GUID: ${errMsg}`;
+            const syncLogId = await writeTriggerLog({
+              status: 'Failed',
+              resolvedXeroId: null,
+              message: msg,
+            });
+            return { success: false, message: msg, syncLogId };
+          }
+        }
+
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: resolvedId,
+          message: '',
+          extraHistory: [`Resolved invoice GUID: ${resolvedId}`],
+        });
+
+        // Re-run the same handler the webhook would, stamped 'manual'.
+        // Handlers return `false` (without throwing) when the record can't
+        // be processed (missing mappings, contact not yet created, etc.).
+        // Treat that as a real failure so the UI doesn't show a misleading
+        // green tick.
+        const handlerOk = await this.handleInvoiceCreateUpdate(
+          {
+            resource_id: resolvedId,
+            tenant_id,
+            eventType: 'UPDATE',
+            sync_run_type: 'manual',
+          },
+          decoded,
+        );
+        if (handlerOk === false) {
+          return {
+            success: false,
+            message: `Invoice/Bill ${resolvedId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row for details.`,
+            syncLogId,
+            resolvedXeroId: resolvedId,
+          };
+        }
+        return {
+          success: true,
+          message: `Invoice/Bill ${resolvedId} re-pulled and re-processed.`,
+          syncLogId,
+          resolvedXeroId: resolvedId,
+        };
+      }
+
+      // ───────────────────────────── PAYMENT ─────────────────────────────
+      if (rawType === 'payment') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Payment id must be a Xero GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        let invoiceId: string | null = null;
+        try {
+          const resp = await this.xero.accountingApi.getPayment(tenant_id, rawId);
+          const payment = resp?.body?.payments?.[0];
+          invoiceId = payment?.invoice?.invoiceID || null;
+          if (!invoiceId) {
+            const msg = `Payment ${rawId} has no linked invoice in Xero.`;
+            const syncLogId = await writeTriggerLog({
+              status: 'Failed',
+              resolvedXeroId: rawId,
+              message: msg,
+            });
+            return { success: false, message: msg, syncLogId };
+          }
+        } catch (err: any) {
+          const errMsg = await handleAxiosError(err).catch(() => err?.message || String(err));
+          const msg = `Failed to fetch payment ${rawId}: ${errMsg}`;
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: rawId,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+          extraHistory: [
+            `Payment ${rawId} → invoice ${invoiceId} — re-running invoice handler`,
+          ],
+        });
+
+        const paymentHandlerOk = await this.handleInvoiceCreateUpdate(
+          {
+            resource_id: invoiceId,
+            tenant_id,
+            eventType: 'UPDATE',
+            sync_run_type: 'manual',
+          },
+          decoded,
+        );
+        if (paymentHandlerOk === false) {
+          return {
+            success: false,
+            message: `Payment ${rawId} was resolved to invoice ${invoiceId} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        }
+        return {
+          success: true,
+          message: `Payment ${rawId} re-pulled (via invoice ${invoiceId}).`,
+          syncLogId,
+          resolvedXeroId: rawId,
+        };
+      }
+
+      // ───────────────────────────── BANK TRANSFER ─────────────────────────────
+      if (rawType === 'bank_transfer') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Bank transfer id must be a Xero GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+
+        let reference: string | null = null;
+        try {
+          const resp = await this.xero.accountingApi.getBankTransfer(
+            tenant_id,
+            rawId,
+          );
+          const bt = resp?.body?.bankTransfers?.[0];
+          reference = (bt as any)?.reference || null;
+        } catch (err: any) {
+          const errMsg = await handleAxiosError(err).catch(() => err?.message || String(err));
+          const msg = `Failed to fetch bank transfer ${rawId}: ${errMsg}`;
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: rawId,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+
+        // Reference round-trip: PT-RET-{pt_payment_id}
+        const refMatch = reference && /^PT-RET-(\d+)$/.exec(reference.trim());
+        if (!refMatch) {
+          const msg = `Bank transfer ${rawId} has no PT-RET-{id} reference. Re-sync the linked Invoice/Bill GUID instead to refresh retention payments.`;
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: rawId,
+            message: msg,
+            extraHistory: [`Reference="${reference || ''}"`],
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+
+        const ptPaymentId = Number(refMatch[1]);
+        const ptPayment = await this.paymentDetails.findOne({
+          where: { payment_id: ptPaymentId },
+          relations: ['paymentClaims'],
+        });
+        if (!ptPayment) {
+          const msg = `Reference points to PT payment ${ptPaymentId} but no such payment exists.`;
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: rawId,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        const xeroInvoice = await this.xeroInvoicesBills.findOne({
+          where: {
+            pt_claim_id: ptPayment.payment_claim_id,
+            integration_id,
+          },
+        });
+        if (!xeroInvoice?.invoice_id) {
+          const msg = `PT claim ${ptPayment.payment_claim_id} has no mapped Xero invoice. Map the claim first, then re-sync.`;
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: rawId,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+          extraHistory: [
+            `BankTransfer ${rawId} reference=${reference} → PT payment ${ptPaymentId} → invoice ${xeroInvoice.invoice_id}`,
+          ],
+          reference_id: String(ptPayment.id),
+        });
+
+        const transferHandlerOk = await this.handleInvoiceCreateUpdate(
+          {
+            resource_id: xeroInvoice.invoice_id,
+            tenant_id,
+            eventType: 'UPDATE',
+            sync_run_type: 'manual',
+          },
+          decoded,
+        );
+        if (transferHandlerOk === false) {
+          return {
+            success: false,
+            message: `Bank transfer ${rawId} resolved to invoice ${xeroInvoice.invoice_id} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        }
+        return {
+          success: true,
+          message: `Bank transfer ${rawId} re-pulled (via invoice ${xeroInvoice.invoice_id}).`,
+          syncLogId,
+          resolvedXeroId: rawId,
+        };
+      }
+
+      // ───────────────────────────── CONTACT ─────────────────────────────
+      if (rawType === 'contact') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Contact id must be a Xero GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+        });
+        const contactHandlerOk = await this.handleContactCreateUpdate(
+          rawId,
+          tenant_id,
+          '',
+          { sync_run_type: 'manual' },
+          decoded,
+        );
+        if (contactHandlerOk === false) {
+          return {
+            success: false,
+            message: `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        }
+        return {
+          success: true,
+          message: `Contact ${rawId} re-pulled and re-processed.`,
+          syncLogId,
+          resolvedXeroId: rawId,
+        };
+      }
+
+      // ───────────────────────────── MANUAL JOURNAL ─────────────────────────────
+      if (rawType === 'manual_journal') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Manual Journal id must be a Xero GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+        });
+        const mjHandlerOk = await this.handleManualJournalUpdate(
+          {
+            resource_id: rawId,
+            tenant_id,
+            eventType: 'UPDATE',
+            sync_run_type: 'manual',
+          },
+          decoded,
+        );
+        if (mjHandlerOk === false) {
+          return {
+            success: false,
+            message: `Manual Journal ${rawId} was re-pulled from Xero but the handler reported a processing failure (or anti-echo skipped a self-posted journal). Check the sync log entries that follow this trigger row.`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        }
+        return {
+          success: true,
+          message: `Manual Journal ${rawId} re-pulled (anti-echo applied if PayTrade-posted).`,
+          syncLogId,
+          resolvedXeroId: rawId,
+        };
+      }
+
+      // Should be unreachable thanks to the allowedTypes check above.
+      return { success: false, message: `Unsupported type "${rawType}".` };
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      this.logger.error(`[MANUAL_RESYNC] unhandled error: ${errMsg}`);
+      const syncLogId = await writeTriggerLog({
+        status: 'Failed',
+        resolvedXeroId: null,
+        message: errMsg,
+      });
+      return { success: false, message: errMsg, syncLogId };
     }
   }
 }
