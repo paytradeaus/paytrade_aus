@@ -47,3 +47,4 @@ logs/
 *.sql
 backup_*.sql
 dump.rdb
+attached_assets/logs*.json
