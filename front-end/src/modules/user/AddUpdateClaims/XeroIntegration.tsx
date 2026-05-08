@@ -233,8 +233,8 @@ export default function XeroIntegration({
     journals.length > 0 && journals[0]?.status === "FAILED" ? journals[0] : null;
 
   return (
-    <div className="pt_expandtable">
-      <details open>
+    <div className="pt_expandtable pt_xero_card">
+      <details>
         <summary>Xero Integration</summary>
         <div style={{ padding: "12px 16px" }}>
           {meta && meta.is_stale && voidedAtLabel && (
@@ -331,16 +331,19 @@ export default function XeroIntegration({
                     Open in Xero
                   </a>
                 )}
-                {meta.has_cached_pdf && (
-                  <button
-                    type="button"
-                    className="pt_btn"
-                    onClick={handleDownload}
-                    disabled={downloading}
-                  >
-                    {downloading ? "Downloading…" : "Download Xero PDF"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="pt_btn"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  title={
+                    meta.has_cached_pdf
+                      ? "Download the cached Xero PDF"
+                      : "PDF not yet cached — will fetch from Xero on demand"
+                  }
+                >
+                  {downloading ? "Downloading…" : "Download Xero PDF"}
+                </button>
               </div>
             </div>
           )}

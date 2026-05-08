@@ -1713,6 +1713,30 @@ table a {
   color: var(--river) !important;
 }
 
+/* Xero-branded card variant — used on claim view/edit drawers */
+.pt_expandtable.pt_xero_card {
+  background-color: #1ab4e5;
+  padding: 0 var(--space-s);
+}
+.pt_expandtable.pt_xero_card summary {
+  color: #ffffff !important;
+}
+.pt_expandtable.pt_xero_card:hover summary,
+.pt_expandtable.pt_xero_card:hover details[open] summary {
+  color: #ffffff !important;
+  opacity: 0.92;
+}
+.pt_expandtable.pt_xero_card details[open] {
+  background-color: #ffffff;
+  border-radius: var(--radius);
+  margin: 0 calc(var(--space-s) * -1) 0 calc(var(--space-s) * -1);
+  padding: 0 var(--space-s) var(--space-s) var(--space-s);
+}
+.pt_expandtable.pt_xero_card details[open] summary {
+  color: #006b96 !important;
+  border-bottom: 1px solid #e5f4fa;
+}
+
 .pt_ql {
   padding: var(--space-2xs);
   margin: 0;

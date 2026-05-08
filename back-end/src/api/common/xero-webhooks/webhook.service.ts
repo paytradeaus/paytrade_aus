@@ -2930,7 +2930,8 @@ export class XeroWebhookService {
         existingXeroInvoice.status = invoice.status;
         existingXeroInvoice.invoice_date = invoice.date;
         existingXeroInvoice.due_date = invoice.dueDate || null;
-        existingXeroInvoice.reference = invoice.reference || null;
+        existingXeroInvoice.reference =
+          invoice.invoiceNumber || invoice.reference || null;
         existingXeroInvoice.sub_total = invoice.subTotal || null;
         existingXeroInvoice.total_tax = invoice.totalTax || null;
         existingXeroInvoice.total_amount = invoice.total || null;
@@ -2954,7 +2955,7 @@ export class XeroWebhookService {
           status: invoice.status,
           invoice_date: invoice.date,
           due_date: invoice.dueDate || null,
-          reference: invoice.reference || null,
+          reference: invoice.invoiceNumber || invoice.reference || null,
           sub_total: invoice.subTotal || null,
           total_tax: invoice.totalTax || null,
           total_amount: invoice.total || null,
