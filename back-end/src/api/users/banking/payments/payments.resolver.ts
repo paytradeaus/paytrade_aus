@@ -849,6 +849,15 @@ export class PaymentsResolver {
                 !!paymentDetails.cash_retention &&
                 !!isRetentionChecked &&
                 !transferLegSynced;
+              // Task #52 — Symmetric un-tick: if a leg was previously synced
+              // and the user has now un-ticked the matching checkbox, delete
+              // that leg in Xero (Payment status=DELETED, BankTransfer
+              // reversal). Each leg is handled independently so the user can
+              // un-tick one without disturbing the other.
+              const wantDeletePayment =
+                paymentLegSynced && isPaymentChecked === false;
+              const wantDeleteTransfer =
+                transferLegSynced && isRetentionChecked === false;
               if (wantPayment || wantTransfer) {
                 const createPaymentDetails =
                   await this.xeroPaymentsService.createPayment(decoded, {
@@ -857,14 +866,48 @@ export class PaymentsResolver {
                     sync_transfer: wantTransfer,
                   });
                 this.logger.log(`createPaymentDetails: ${JSON.stringify(createPaymentDetails)}`);
-              } else if (
+              }
+              if (wantDeletePayment) {
+                try {
+                  const r =
+                    await this.xeroPaymentsService.deletePaymentLeg(decoded, {
+                      ...xeroPayload,
+                      leg: 'payment',
+                    });
+                  this.logger.log(
+                    `deletePaymentLeg(payment): ${JSON.stringify(r)}`,
+                  );
+                } catch (e) {
+                  this.logger.error(
+                    `deletePaymentLeg(payment) failed: ${JSON.stringify(e)}`,
+                  );
+                }
+              }
+              if (wantDeleteTransfer) {
+                try {
+                  const r =
+                    await this.xeroPaymentsService.deletePaymentLeg(decoded, {
+                      ...xeroPayload,
+                      leg: 'transfer',
+                    });
+                  this.logger.log(
+                    `deletePaymentLeg(transfer): ${JSON.stringify(r)}`,
+                  );
+                } catch (e) {
+                  this.logger.error(
+                    `deletePaymentLeg(transfer) failed: ${JSON.stringify(e)}`,
+                  );
+                }
+              }
+              if (
+                !wantPayment &&
+                !wantTransfer &&
+                !wantDeletePayment &&
+                !wantDeleteTransfer &&
                 isExisted &&
                 ['Unconfirmed - Unmatched'].includes(
                   paymentDetails.current_status,
                 )
-                //  &&   ((!paymentDetails.cash_retention && !isPaymentChecked) ||
-                //       (paymentDetails.cash_retention &&
-                //         (!isPaymentChecked && !isRetentionChecked)))
               ) {
                 const deletePaymentDetails =
                   await this.xeroPaymentsService.deletePayment(

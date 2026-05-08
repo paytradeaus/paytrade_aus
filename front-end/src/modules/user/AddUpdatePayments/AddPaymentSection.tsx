@@ -80,6 +80,14 @@ export default function AddPaymentSection({ props }: any) {
     useState(false);
   const [displayRTACheckboxConfirmation, setDisplayRTACheckboxConfirmation] =
     useState(false);
+  // Task #52 — un-tick warning modals fire when the user is removing a
+  // confirmation that has already been pushed to Xero. Confirming the modal
+  // un-ticks the box AND the resolver subsequently deletes the corresponding
+  // Xero record (Payment / BankTransfer reversal).
+  const [displayUnconfirmCheckbox, setDisplayUnconfirmCheckbox] =
+    useState(false);
+  const [displayUnconfirmRTACheckbox, setDisplayUnconfirmRTACheckbox] =
+    useState(false);
 
   // Get userMode from Redux
   const reduxUserMode = useAppSelector(
@@ -651,6 +659,9 @@ export default function AddPaymentSection({ props }: any) {
   function onConfirmPaidChange(value: boolean) {
     if (value) {
       setDisplayCheckboxConfirmation(true);
+    } else if (formik.initialValues?.is_paid_confirmed === true) {
+      // Task #52 — was synced; warn before un-ticking (will delete in Xero).
+      setDisplayUnconfirmCheckbox(true);
     } else {
       formik.setFieldValue("is_paid_confirmed", value);
     }
@@ -659,6 +670,9 @@ export default function AddPaymentSection({ props }: any) {
   function onConfirmRTAPaidChange(value: boolean) {
     if (value) {
       setDisplayRTACheckboxConfirmation(true);
+    } else if (formik.initialValues?.is_retention_confirmed === true) {
+      // Task #52 — was synced; warn before un-ticking (will reverse in Xero).
+      setDisplayUnconfirmRTACheckbox(true);
     } else {
       formik.setFieldValue("is_retention_confirmed", value);
     }
@@ -675,6 +689,16 @@ export default function AddPaymentSection({ props }: any) {
       displayRTACheckboxConfirmation
     );
     setDisplayRTACheckboxConfirmation(false);
+  }
+
+  function handleUnconfirmCheck() {
+    formik.setFieldValue("is_paid_confirmed", false);
+    setDisplayUnconfirmCheckbox(false);
+  }
+
+  function handleUnconfirmRTACheck() {
+    formik.setFieldValue("is_retention_confirmed", false);
+    setDisplayUnconfirmRTACheckbox(false);
   }
 
   function whetherToDisplayRetentionWarningMessage() {
@@ -1437,6 +1461,74 @@ export default function AddPaymentSection({ props }: any) {
                 className="primary"
                 type="button"
                 onClick={() => handleRtaConfirmCheck()}
+              >
+                Yes
+              </button>
+            </footer>
+          </article>
+        </dialog>
+      )}
+      {displayUnconfirmCheckbox && (
+        <dialog id="checkbox-unconfirmation" open>
+          <article>
+            <header>
+              <div className="mb_1">
+                <button
+                  rel="prev"
+                  aria-label="Close"
+                  onClick={() => setDisplayUnconfirmCheckbox(false)}
+                ></button>
+              </div>
+            </header>
+            <h4 className="text_center">
+              {`Un-ticking will delete the matching Payment in Xero. Continue?`}
+            </h4>
+            <footer>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setDisplayUnconfirmCheckbox(false)}
+              >
+                No
+              </button>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => handleUnconfirmCheck()}
+              >
+                Yes
+              </button>
+            </footer>
+          </article>
+        </dialog>
+      )}
+      {displayUnconfirmRTACheckbox && (
+        <dialog id="checkbox-unconfirmation" open>
+          <article>
+            <header>
+              <div className="mb_1">
+                <button
+                  rel="prev"
+                  aria-label="Close"
+                  onClick={() => setDisplayUnconfirmRTACheckbox(false)}
+                ></button>
+              </div>
+            </header>
+            <h4 className="text_center">
+              {`Un-ticking will reverse the matching Bank Transfer in Xero (a new transfer is posted from the retention account back to the operating account). Continue?`}
+            </h4>
+            <footer>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setDisplayUnconfirmRTACheckbox(false)}
+              >
+                No
+              </button>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => handleUnconfirmRTACheck()}
               >
                 Yes
               </button>

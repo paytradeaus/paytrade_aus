@@ -5285,5 +5285,25 @@
     "from_xero": true,
     "error_code": "RETENTION_TRANSFER_MULTIPLE_MATCH",
     "associated_log_ids": null
+  },
+  {
+    "id": 491,
+    "sync_type": "Payments",
+    "description": "<p>Confirm Paid un-ticked — Xero Payment {{payment_id}} on invoice {{invoice_number}} was deleted (status set to DELETED).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 492,
+    "sync_type": "Payments",
+    "description": "<p>Confirm Retention un-ticked — Xero BankTransfer {{bank_transfer_id}} reversed (new transfer {{reversal_id}} posted from retention account back to operating account).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
   }
 ]
