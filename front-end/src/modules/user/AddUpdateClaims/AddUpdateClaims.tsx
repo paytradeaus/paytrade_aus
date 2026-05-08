@@ -501,10 +501,6 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
 
               <Attachments />
 
-              <XeroIntegration
-                paymentClaimId={claimData?.payment_claim_id}
-              />
-
               {isViewMode && noticesListData?.length > 0 && (
                 <DynamicTable
                   headers={noticesHeader}
@@ -517,6 +513,7 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
               )}
             </details>
           </div>
+          <XeroIntegration paymentClaimId={claimData?.payment_claim_id} />
           {viewMode && paymentsPatchData?.payment_id && (
             <Fragment>
               <PaymentsFormSection />

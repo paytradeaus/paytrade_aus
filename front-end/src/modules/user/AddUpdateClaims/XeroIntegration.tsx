@@ -58,6 +58,34 @@ const RETRY_RETENTION_JOURNAL = gql`
   }
 `;
 
+const GET_CLAIM_SYNC_LOGS = gql`
+  query GetXeroSyncLogsForClaim($payment_claim_id: Float!) {
+    getXeroSyncLogsForClaim(payment_claim_id: $payment_claim_id) {
+      status
+      message
+      data {
+        id
+        sync_id
+        sync_type
+        sync_status
+        description
+        process
+        created_on
+      }
+    }
+  }
+`;
+
+interface SyncLogRow {
+  id: string;
+  sync_id: string | null;
+  sync_type: string | null;
+  sync_status: string | null;
+  description: string | null;
+  process: string | null;
+  created_on: string | null;
+}
+
 interface RetentionJournal {
   id: string;
   manual_journal_id: string | null;
@@ -105,13 +133,14 @@ export default function XeroIntegration({
   const [loaded, setLoaded] = useState(false);
   const [meta, setMeta] = useState<XeroInvoiceMeta | null>(null);
   const [journals, setJournals] = useState<RetentionJournal[]>([]);
+  const [syncLogs, setSyncLogs] = useState<SyncLogRow[]>([]);
   const [downloading, setDownloading] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
   const fetchAll = async () => {
     if (!paymentClaimId) return;
     try {
-      const [invRes, jnlRes] = await Promise.all([
+      const [invRes, jnlRes, logRes] = await Promise.all([
         apolloClient.query({
           query: GET_XERO_INVOICE_FOR_CLAIM,
           variables: { payment_claim_id: paymentClaimId },
@@ -119,6 +148,11 @@ export default function XeroIntegration({
         }),
         apolloClient.query({
           query: GET_RETENTION_JOURNALS,
+          variables: { payment_claim_id: paymentClaimId },
+          fetchPolicy: "no-cache",
+        }),
+        apolloClient.query({
+          query: GET_CLAIM_SYNC_LOGS,
           variables: { payment_claim_id: paymentClaimId },
           fetchPolicy: "no-cache",
         }),
@@ -135,9 +169,16 @@ export default function XeroIntegration({
       } else {
         setJournals([]);
       }
+      const logPayload = logRes.data?.getXeroSyncLogsForClaim;
+      if (logPayload?.status === "SUCCESS" && Array.isArray(logPayload?.data)) {
+        setSyncLogs(logPayload.data);
+      } else {
+        setSyncLogs([]);
+      }
     } catch (e) {
       setMeta(null);
       setJournals([]);
+      setSyncLogs([]);
     } finally {
       setLoaded(true);
     }
@@ -217,7 +258,11 @@ export default function XeroIntegration({
     }
   };
 
-  if (!paymentClaimId || !loaded || (!meta && journals.length === 0))
+  if (
+    !paymentClaimId ||
+    !loaded ||
+    (!meta && journals.length === 0 && syncLogs.length === 0)
+  )
     return null;
 
   const sourceLabel = meta?.mapped_status
@@ -350,8 +395,114 @@ export default function XeroIntegration({
           )}
           {journals.length > 0 &&
             renderRetentionJournals(journals, latestFailed, retrying, handleRetry)}
+          {syncLogs.length > 0 && renderSyncHistory(syncLogs)}
         </div>
       </details>
+    </div>
+  );
+}
+
+function renderSyncHistory(rows: SyncLogRow[]) {
+  return (
+    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+      <div style={{ fontWeight: 600, marginBottom: 8 }}>Sync history</div>
+      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+        Recent Xero sync activity for this claim and its payments
+        (Invoices/Bills/Payments only). Showing the 50 most recent entries.
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+        >
+          <thead>
+            <tr style={{ background: "#f7f7f7", textAlign: "left" }}>
+              <th style={{ padding: "6px 8px" }}>When</th>
+              <th style={{ padding: "6px 8px" }}>Type</th>
+              <th style={{ padding: "6px 8px" }}>Status</th>
+              <th style={{ padding: "6px 8px" }}>Direction</th>
+              <th style={{ padding: "6px 8px" }}>Message</th>
+              <th style={{ padding: "6px 8px" }}>&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const full = r.description || "";
+              const truncated =
+                full.length > 80 ? `${full.slice(0, 80)}…` : full;
+              const isXeroToPt =
+                (r.process || "").split(">")[0]?.trim() === "Xero";
+              return (
+                <tr key={r.id} style={{ borderTop: "1px solid #eee" }}>
+                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                    {r.created_on
+                      ? new Date(r.created_on).toLocaleString()
+                      : "—"}
+                  </td>
+                  <td style={{ padding: "6px 8px" }}>{r.sync_type || "—"}</td>
+                  <td style={{ padding: "6px 8px" }}>
+                    <span
+                      style={{
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        background:
+                          r.sync_status === "Succeeded"
+                            ? "#e0f5e9"
+                            : r.sync_status === "Failed"
+                              ? "#ffe5e5"
+                              : r.sync_status === "Warning"
+                                ? "#fff3cd"
+                                : "#f0f0f0",
+                        color:
+                          r.sync_status === "Succeeded"
+                            ? "#2a7a3a"
+                            : r.sync_status === "Failed"
+                              ? "#a00"
+                              : r.sync_status === "Warning"
+                                ? "#856404"
+                                : "#555",
+                      }}
+                    >
+                      {r.sync_status || "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        color: isXeroToPt ? "#12afe4" : "#f04e43",
+                        fontSize: 12,
+                      }}
+                    >
+                      {isXeroToPt ? "Xero ➤ Pay Trade" : "Pay Trade ➤ Xero"}
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      maxWidth: 360,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={full}
+                  >
+                    {truncated || "—"}
+                  </td>
+                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                    <a
+                      href={`/user/integrations/xero/syncLogDetails/${r.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

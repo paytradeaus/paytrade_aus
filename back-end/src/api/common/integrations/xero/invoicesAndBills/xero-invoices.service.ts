@@ -5211,6 +5211,70 @@ export class XeroInvoicesService {
   }
 
   /**
+   * Task #82 — Returns Xero sync log entries scoped to a single claim and
+   * its payments. Filters sync_type IN (Invoices, Bills, Payments) and
+   * matches log.reference_id against the claim uuid + every payment uuid
+   * under the claim. Newest first, capped at 50 rows. Description is
+   * placeholder-resolved + HTML-stripped (truncation handled client-side).
+   */
+  async getXeroSyncLogsForClaim(payment_claim_id: number, company_id?: number) {
+    if (!payment_claim_id) return [];
+    const claim = await this.paymentClaims.findOne({
+      where: { payment_claim_id },
+    });
+    if (!claim) return [];
+    if (company_id != null && Number(claim.company_id) !== Number(company_id)) {
+      this.logger.warn(
+        `[CLAIM_SYNC_LOGS] Company mismatch: claim ${payment_claim_id} belongs to ${claim.company_id}, requester ${company_id}`,
+      );
+      return [];
+    }
+    const paymentRows: { id: string }[] = await this.dataSource.query(
+      `SELECT id FROM payment_details WHERE payment_claim_id = $1`,
+      [claim.payment_claim_id],
+    );
+    const refIds = [claim.id, ...paymentRows.map((p) => p.id)].filter(Boolean);
+    if (refIds.length === 0) return [];
+    const rows: any[] = await this.dataSource.query(
+      `SELECT l.id::text         AS id,
+              l.sync_id          AS sync_id,
+              t.sync_type        AS sync_type,
+              t.sync_status::text AS sync_status,
+              t.description      AS description,
+              t.process::text    AS process,
+              l.dynamic_values   AS dynamic_values,
+              l.created_on       AS created_on
+         FROM xero_sync_logs l
+         INNER JOIN xero_log_templates t ON l.log_template_id = t.id
+        WHERE l.reference_id::text = ANY($1::text[])
+          AND t.sync_type IN ('Invoices', 'Bills', 'Payments')
+        ORDER BY l.created_on DESC
+        LIMIT 50`,
+      [refIds],
+    );
+    return rows.map((r) => {
+      let desc: string = r.description || '';
+      if (r.dynamic_values && typeof r.dynamic_values === 'object') {
+        for (const [k, v] of Object.entries(r.dynamic_values)) {
+          desc = desc.replace(new RegExp(`{{${k}}}`, 'g'), String(v));
+        }
+      }
+      desc = desc.replace(/<[^>]*>/g, '').trim();
+      return {
+        id: r.id,
+        sync_id: r.sync_id,
+        sync_type: r.sync_type,
+        sync_status: r.sync_status,
+        description: desc,
+        process: r.process,
+        created_on: r.created_on
+          ? new Date(r.created_on).toISOString()
+          : null,
+      };
+    });
+  }
+
+  /**
    * Download a cached Xero PDF for a payment claim. Used by REST endpoint.
    * Returns { buffer, fileName } or null if not available. If the PDF is
    * missing from storage but the row exists, attempts a live re-fetch.

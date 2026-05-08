@@ -18,7 +18,10 @@ import {
   GetXeroInvoicesListResponse,
   GetXeroInvoicesResponse,
 } from './response/xero.response';
-import { GetRetentionJournalsResponse } from '../xero.response';
+import {
+  GetRetentionJournalsResponse,
+  GetClaimSyncLogsResponse,
+} from '../xero.response';
 import { XeroManualJournalService } from '../manualJournals/xero-manual-journal.service';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
@@ -416,6 +419,33 @@ export class XeroInvoicesResolver {
         'Retention journals fetched',
         data || [],
       );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetClaimSyncLogsResponse, {
+    name: 'getXeroSyncLogsForClaim',
+    description:
+      'Task #82 — returns Xero sync log entries (Invoices/Bills/Payments) scoped to a single claim and its payments. Newest first, capped at 50 rows.',
+  })
+  async getXeroSyncLogsForClaim(
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id to scope sync logs to.',
+    })
+    payment_claim_id: number,
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const { headers } = context.req;
+      const companyId = Number(headers?.companyid);
+      const data = await this.xeroInvoicesService.getXeroSyncLogsForClaim(
+        payment_claim_id,
+        companyId,
+      );
+      return framedResponse('SUCCESS', 'Claim sync logs fetched', data || []);
     } catch (error) {
       return framedResponse('ERROR', error?.message ? error.message : error);
     }

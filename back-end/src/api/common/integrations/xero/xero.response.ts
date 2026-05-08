@@ -664,6 +664,53 @@ export class GetRetentionJournalsResponse {
 }
 
 @ObjectType({
+  description:
+    'Task #82 — single Xero sync log entry scoped to a payment claim',
+})
+export class ClaimSyncLogEntry {
+  @Field({ nullable: true, description: 'Sync log row id (uuid)' })
+  id: string;
+
+  @Field({ nullable: true, description: 'Human sync_id' })
+  sync_id: string;
+
+  @Field({ nullable: true, description: 'Sync type (Invoices/Bills/Payments)' })
+  sync_type: string;
+
+  @Field({ nullable: true, description: 'Succeeded | Warning | Failed' })
+  sync_status: string;
+
+  @Field({
+    nullable: true,
+    description: 'Plain-text message (placeholders resolved, HTML stripped)',
+  })
+  description: string;
+
+  @Field({ nullable: true, description: 'Process direction (Xero > PT etc)' })
+  process: string;
+
+  @Field({ nullable: true, description: 'Created timestamp (ISO)' })
+  created_on: string;
+}
+
+@ObjectType({
+  description: 'Task #82 — list of Xero sync logs scoped to a claim',
+})
+export class GetClaimSyncLogsResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field(() => [ClaimSyncLogEntry], {
+    nullable: true,
+    description: 'Sync logs for this claim + its payments, newest first',
+  })
+  data?: ClaimSyncLogEntry[];
+}
+
+@ObjectType({
   description: 'Represents a chart of accounts code in Xero/Paytrade',
 })
 export class AccountCodes {

@@ -2133,6 +2133,30 @@ input ClaimReasonInput {
   reason: String
 }
 
+"""Task #82 — single Xero sync log entry scoped to a payment claim"""
+type ClaimSyncLogEntry {
+  """Created timestamp (ISO)"""
+  created_on: String
+
+  """Plain-text message (placeholders resolved, HTML stripped)"""
+  description: String
+
+  """Sync log row id (uuid)"""
+  id: String
+
+  """Process direction (Xero > PT etc)"""
+  process: String
+
+  """Human sync_id"""
+  sync_id: String
+
+  """Succeeded | Warning | Failed"""
+  sync_status: String
+
+  """Sync type (Invoices/Bills/Payments)"""
+  sync_type: String
+}
+
 """Basic client/supplier details response."""
 type ClientSuppliersDetailsRes {
   """Optional identifier of the client/supplier."""
@@ -9597,6 +9621,18 @@ type GetBankProjectResponse {
 type GetCardDetailsResponse {
   """Card detail payload"""
   data: CardDetailsResponse
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
+"""Task #82 — list of Xero sync logs scoped to a claim"""
+type GetClaimSyncLogsResponse {
+  """Sync logs for this claim + its payments, newest first"""
+  data: [ClaimSyncLogEntry!]
 
   """Response message"""
   message: String!
@@ -18430,6 +18466,14 @@ type Query {
     """
     getXeroSyncLogsInput: GetXeroSyncLogsInput!
   ): GetSyncLogsResponse!
+
+  """
+  Task #82 — returns Xero sync log entries (Invoices/Bills/Payments) scoped to a single claim and its payments. Newest first, capped at 50 rows.
+  """
+  getXeroSyncLogsForClaim(
+    """Paytrade payment_claim_id to scope sync logs to."""
+    payment_claim_id: Float!
+  ): GetClaimSyncLogsResponse!
 
   """Fetches a list of all admins."""
   listAllAdmins(

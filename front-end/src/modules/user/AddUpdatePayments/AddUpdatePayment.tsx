@@ -8,16 +8,23 @@ import PaymentFooterSection from "./PaymentFooterSection";
 import PaymentHistory from "./PaymentHistory";
 import { usePaymentsContext } from "./PaymentContextProvider";
 import { EDIT, VIEW } from "@/shared/constant/general";
+import XeroIntegration from "../AddUpdateClaims/XeroIntegration";
 
 export default function AddUpdatePayments({ props }: any) {
-  const { screenMode }: any = usePaymentsContext();
+  const { screenMode, patchData }: any = usePaymentsContext();
+  const claimId = patchData?.payment_claim_id;
   return (
     <div className="pt_fullpage">
       <div>
         <PaymentHeaderContent />
         <ClaimSummary />
         <AddPaymentSection />
-        {(screenMode === VIEW || screenMode === EDIT) && <PaymentHistory />}
+        {(screenMode === VIEW || screenMode === EDIT) && (
+          <>
+            <XeroIntegration paymentClaimId={claimId} />
+            <PaymentHistory />
+          </>
+        )}
         <PaymentFooterSection />
       </div>
     </div>

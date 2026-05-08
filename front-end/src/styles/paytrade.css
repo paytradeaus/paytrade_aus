@@ -2013,11 +2013,16 @@ table a {
 .pt_payment [type="radio"] ~ label {
   color: var(--wind) !important;
 }
-.pt_payment details:hover > summary {
+.pt_payment details:hover > summary,
+.pt_payment:hover summary,
+.pt_payment:hover details[open] summary,
+.pt_expandtable.pt_payment:hover summary,
+.pt_expandtable.pt_payment:hover details[open] summary {
   color: var(--wind) !important;
 }
-.pt_payment:hover details[open] summary {
-  color: var(--wind-lighter) !important;
+.pt_payment a[role="button"],
+.pt_payment button {
+  color: #fff !important;
 }
 .pt_payment h5,
 .pt_payment h3,
