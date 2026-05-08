@@ -779,9 +779,9 @@ export class XeroPaymentsService {
             pt_payment_id: payment_id,
           },
         });
-        const wantPayment = (data as any)?.sync_payment !== false;
+        const wantPayment = data?.sync_payment !== false;
         const wantTransfer =
-          !!cash_retention && (data as any)?.sync_transfer !== false;
+          !!cash_retention && data?.sync_transfer !== false;
         const skipPayment = !wantPayment || !!existingXp?.payment_id;
         const skipTransfer = !wantTransfer || !!existingXp?.bank_transfer_id;
         this.logger.log(
