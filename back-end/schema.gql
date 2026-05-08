@@ -7148,6 +7148,16 @@ type FetchDetailsOfAPayment {
 
   """Reason for withholding the payment."""
   withhold_payment_reason: String
+
+  """
+  Task #52 — true when a Xero Payment record is currently mapped to this PT payment (xero_payments.payment_id IS NOT NULL). Used by the UI to decide whether un-ticking Confirm Paid should warn the user about deleting the Xero record.
+  """
+  xero_payment_synced: Boolean
+
+  """
+  Task #52 — true when a Xero BankTransfer record is currently mapped to this PT payment (xero_payments.bank_transfer_id IS NOT NULL). Used by the UI to decide whether un-ticking Confirm Retention should warn the user about reversing the Xero transfer.
+  """
+  xero_transfer_synced: Boolean
 }
 
 """
@@ -14952,6 +14962,22 @@ type Mutation {
   resetAdminPassword(
     """The unique ID of the admin whose password will be reset."""
     Id: String!
+  ): StringResponse!
+
+  """
+  Task #55 — Re-runs the inline "exceeds amount outstanding" recovery against legacy Failed payment sync logs (template 332). Idempotent. Returns a JSON-stringified summary of the scan.
+  """
+  retryFailedExceedsOutstandingPaymentSyncs(
+    """
+    Optional Xero integration_id to scope the scan to a single integration. When omitted, scans all integrations.
+    """
+    integration_id: Float
+
+    """Maximum failed logs to consider (default 500, max 1000)."""
+    limit: Float
+
+    """How many days of history to scan (default 90, max 365)."""
+    lookback_days: Float
   ): StringResponse!
 
   """
