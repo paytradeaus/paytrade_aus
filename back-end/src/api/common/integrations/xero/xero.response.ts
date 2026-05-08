@@ -457,6 +457,20 @@ export class SyncLog {
     description: 'API payload sent during sync',
   })
   api_payload: Record<string, any>;
+
+  @Field({
+    nullable: true,
+    description:
+      'Absolute URL to the related record in Xero (invoice, bill, contact, manual journal). Null when no stable URL is available for the sync type (e.g. project/contract tracking categories).',
+  })
+  xero_deep_link?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'In-app relative path to the related record in PayTrade (claim, payment, contact, project, contract, bank account). Null when the underlying PT record is not yet mapped.',
+  })
+  paytrade_deep_link?: string;
 }
 
 @ObjectType({ description: 'Represents a paginated list of sync logs' })

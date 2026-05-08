@@ -1783,6 +1783,23 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       : null;
     const finalResult =
       result && result.length > 0 && result[0] !== null ? result[0] : {};
+    // Compute Xero/PT deep links for the row (returns null when not
+    // resolvable — see sync-log-deep-links.ts). Keep this best-effort:
+    // any failure must not block the rest of the log details.
+    try {
+      const {
+        buildXeroDeepLink,
+        buildPaytradeDeepLink,
+      } = await import('./utils/sync-log-deep-links');
+      finalResult.xero_deep_link = buildXeroDeepLink(finalResult);
+      finalResult.paytrade_deep_link = buildPaytradeDeepLink(finalResult);
+    } catch (err) {
+      this.logger.warn(
+        `viewXeroSyncLog: deep link computation failed: ${err?.message}`,
+      );
+      finalResult.xero_deep_link = null;
+      finalResult.paytrade_deep_link = null;
+    }
     return finalResult;
   }
 

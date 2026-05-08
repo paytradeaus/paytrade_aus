@@ -1188,6 +1188,36 @@ export default function SyncLogDetailsBasic() {
               </h4>
             </div>
             <div className="pt_pageactions">
+              {syncLogDetailsData?.paytrade_deep_link && (
+                <div className="pt_addnewbutton">
+                  <CustomButton
+                    buttonName={"Open in PayTrade"}
+                    buttonType={buttonType.SECONDARY_SMALL}
+                    iconClassName="fa-light fa-arrow-up-right-from-square"
+                    actionType={"button"}
+                    onClick={() => {
+                      router.push(syncLogDetailsData.paytrade_deep_link);
+                    }}
+                  />
+                </div>
+              )}
+              {syncLogDetailsData?.xero_deep_link && (
+                <div className="pt_addnewbutton">
+                  <CustomButton
+                    buttonName={"Open in Xero"}
+                    buttonType={buttonType.SECONDARY_SMALL}
+                    iconClassName="fa-light fa-arrow-up-right-from-square"
+                    actionType={"button"}
+                    onClick={() => {
+                      window.open(
+                        syncLogDetailsData.xero_deep_link,
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
+                    }}
+                  />
+                </div>
+              )}
               <div className="pt_addnewbutton">
                 <CustomButton
                   buttonName={"Back"}

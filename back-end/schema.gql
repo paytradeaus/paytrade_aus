@@ -19899,6 +19899,11 @@ type SyncLog {
   """Notification message"""
   notification: String
 
+  """
+  In-app relative path to the related record in PayTrade (claim, payment, contact, project, contract, bank account). Null when the underlying PT record is not yet mapped.
+  """
+  paytrade_deep_link: String
+
   """Details from Paytrade"""
   paytrade_details: JSONObject
 
@@ -19937,6 +19942,11 @@ type SyncLog {
 
   """Updated records during sync"""
   updated_records: [JSONObject!]
+
+  """
+  Absolute URL to the related record in Xero (invoice, bill, contact, manual journal). Null when no stable URL is available for the sync type (e.g. project/contract tracking categories).
+  """
+  xero_deep_link: String
 
   """Details from Xero"""
   xero_details: JSONObject

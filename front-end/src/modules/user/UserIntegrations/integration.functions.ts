@@ -3695,6 +3695,8 @@ export const viewXeroSyncLog = async (
               xero_records
               api_name
               api_payload
+              xero_deep_link
+              paytrade_deep_link
             }
             message
             status
