@@ -326,14 +326,14 @@ export default function XeroIntegration({
                     href={meta.deep_link_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="pt_btn"
+                    className="pt_btn_xero"
                   >
                     Open in Xero
                   </a>
                 )}
                 <button
                   type="button"
-                  className="pt_btn"
+                  className="pt_btn_xero"
                   onClick={handleDownload}
                   disabled={downloading}
                   title={
