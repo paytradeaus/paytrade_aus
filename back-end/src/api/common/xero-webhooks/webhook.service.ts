@@ -5087,8 +5087,51 @@ export class XeroWebhookService {
         `[BILL_TRACE] CATCH: validateAndProcessWebhookInvoice EXCEPTION — ${err?.message || err}\n${err?.stack || ''}`,
       );
       try {
-        const errMessage = err?.message || err;
+        // Friendly error formatting. Xero SDK errors arrive as huge nested
+        // objects whose stringified `.message` is the entire HTTP response
+        // (headers + cookies + base64 set-cookie payload). Rendered raw in
+        // the sync log UI it becomes an unreadable wall of text. Detect the
+        // common Xero status codes (403 / 404 / 401 / 429 / 5xx) and replace
+        // the body with a one-line, actionable explanation; keep the raw
+        // payload only when we can't classify it.
+        const rawMessage = err?.message || (typeof err === 'string' ? err : '');
+        const statusCode =
+          err?.response?.statusCode ??
+          err?.statusCode ??
+          err?.response?.status ??
+          null;
         const invoiceType = invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice';
+        let errMessage: string;
+        switch (statusCode) {
+          case 403:
+            errMessage =
+              `Xero returned 403 (not permitted) for ${invoiceType} ${invoice?.invoiceID}. ` +
+              `The connected Xero user no longer has access to this record. ` +
+              `Check the user's role in Xero (Settings → Users) and reconnect the integration if it was recently changed.`;
+            break;
+          case 404:
+            errMessage =
+              `Xero returned 404 for ${invoiceType} ${invoice?.invoiceID}. ` +
+              `The record was deleted in Xero or belongs to a different organisation.`;
+            break;
+          case 401:
+            errMessage =
+              `Xero returned 401 (unauthorised) for ${invoiceType} ${invoice?.invoiceID}. ` +
+              `OAuth token may be expired or revoked — reconnect the integration.`;
+            break;
+          case 429:
+            errMessage =
+              `Xero rate-limited the ${invoiceType} fetch (HTTP 429). The 15-minute fallback will retry automatically.`;
+            break;
+          default:
+            if (statusCode && statusCode >= 500) {
+              errMessage = `Xero is returning ${statusCode} (server error) for ${invoiceType} ${invoice?.invoiceID}. Will retry on next fallback run.`;
+            } else {
+              // Fall back to the raw message but cap length so the UI stays readable.
+              const truncated = String(rawMessage).slice(0, 400);
+              errMessage = truncated || 'Unknown error processing invoice';
+            }
+        }
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -5097,6 +5140,7 @@ export class XeroWebhookService {
             invoice_id: invoice?.invoiceID,
             tenant_id,
             type: invoiceType,
+            status_code: statusCode,
           },
           integration_id: xeroDetails.integration_id,
           log_template_id: sync_run_type === 'webhook' ? 252 : 412,

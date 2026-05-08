@@ -1,0 +1,100 @@
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== 'POST') {
+      return new Response('Method not allowed', { status: 405 });
+    }
+
+    try {
+      const body = await request.arrayBuffer();
+      const bodyBuffer = new Uint8Array(body);
+      const bodyString = new TextDecoder().decode(bodyBuffer);
+
+      let xeroSignature = null;
+      for (const [key, value] of request.headers.entries()) {
+        if (key.toLowerCase() === 'x-xero-signature') {
+          xeroSignature = value;
+          break;
+        }
+      }
+
+      const webhookKey = env.XERO_WEBHOOK_KEY;
+      if (!webhookKey) {
+        console.error('XERO_WEBHOOK_KEY not configured');
+        return new Response('', { status: 500 });
+      }
+
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(webhookKey);
+      const key = await crypto.subtle.importKey(
+        'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, bodyBuffer);
+      const computedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+      if (!xeroSignature || xeroSignature !== computedSignature) {
+        console.log('Signature mismatch - returning 401');
+        return new Response('', { status: 401 });
+      }
+
+      console.log('Signature valid');
+
+      let payload;
+      try {
+        payload = JSON.parse(bodyString);
+      } catch (e) {
+        return new Response('', { status: 200 });
+      }
+
+      if (payload.events && payload.events.length > 0) {
+        console.log(`Processing ${payload.events.length} events`);
+
+        const queues = [
+          'xero_webhook_queue:production',
+          'xero_webhook_queue:staging',
+          'xero_webhook_queue:development'
+        ];
+
+        // Build ONE pipeline of LPUSH commands covering every event × every
+        // queue. This collapses N×3 separate Upstash REST calls into a
+        // single HTTP subrequest, staying well under Cloudflare's
+        // 50-subrequest-per-invocation cap on the free plan.
+        const commands = [];
+        for (const event of payload.events) {
+          const eventData = JSON.stringify({
+            ...event,
+            receivedAt: new Date().toISOString()
+          });
+          for (const queue of queues) {
+            commands.push(['LPUSH', queue, eventData]);
+          }
+        }
+
+        try {
+          const resp = await fetch(`${env.UPSTASH_REDIS_REST_URL}/pipeline`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(commands)
+          });
+          const text = await resp.text();
+          if (!resp.ok) {
+            console.error(`Upstash pipeline ${resp.status}: ${text}`);
+            return new Response('', { status: 500 });
+          }
+          console.log(`Pipeline OK (${commands.length} cmds): ${text.substring(0, 300)}`);
+        } catch (upstashErr) {
+          console.error(`Upstash pipeline failed: ${upstashErr.message}`);
+          return new Response('', { status: 500 });
+        }
+      }
+
+      return new Response('', { status: 200 });
+
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      return new Response('', { status: 500 });
+    }
+  },
+};
