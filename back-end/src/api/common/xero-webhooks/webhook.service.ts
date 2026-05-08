@@ -3738,7 +3738,32 @@ export class XeroWebhookService {
             // GST when retention lines were BAS Excluded — see
             // adjustItemsWithRetention rationale.
             retention_amount: cashRetention ? retainedAmountExcludingGST : 0,
-            retention_amount_with_gst: retentionAmount,
+            // retention_amount_with_gst is what the payment page shows
+            // under "Retention amount (including GST)". The user's mental
+            // model is "retention as a slice of the gross claim total",
+            // so we gross up the ex-GST retention by the work-line's GST
+            // rate regardless of whether the retention line itself is
+            // BAS Excluded in Xero. Rate is derived from the invoice
+            // header (totalTax / subTotal), falling back to 10% for
+            // taxable invoices and 0% for NoTax invoices.
+            retention_amount_with_gst: cashRetention
+              ? parseFloat(
+                  (
+                    retainedAmountExcludingGST *
+                    (1 +
+                      (invoice.lineAmountTypes === LineAmountTypes.NoTax
+                        ? 0
+                        : Number(invoice.subTotal) > 0
+                          ? Number(invoice.totalTax || 0) /
+                            Number(invoice.subTotal)
+                          : 0.1))
+                  ).toFixed(2),
+                )
+              : 0,
+            // Pull through the Xero invoice/bill number as the PT claim
+            // reference so users don't have to re-key it.
+            claim_reference:
+              invoice.invoiceNumber || invoice.reference || null,
             compulsory_attachment_ids: data?.compulsory_attachment_ids || [],
             all_subcontracts_paid: claimNotPaidCount > 0 ? false : true,
             is_gst_optional:
@@ -4635,7 +4660,27 @@ export class XeroWebhookService {
                 // (`retentionUnitOnly`) so BAS-Excluded retention lines
                 // aren't double-stripped for phantom GST.
                 retention_amount: cashRetention ? retainedAmountExcludingGST : 0,
-                retention_amount_with_gst: retentionAmount,
+                // See V-Step site for rationale: gross up by the work-line
+                // GST rate so the payment page "Retention amount
+                // (including GST)" is the inc-GST slice of the gross
+                // claim total, even when the Xero retention line itself
+                // is BAS Excluded.
+                retention_amount_with_gst: cashRetention
+                  ? parseFloat(
+                      (
+                        retainedAmountExcludingGST *
+                        (1 +
+                          (invoice.lineAmountTypes === LineAmountTypes.NoTax
+                            ? 0
+                            : Number(invoice.subTotal) > 0
+                              ? Number(invoice.totalTax || 0) /
+                                Number(invoice.subTotal)
+                              : 0.1))
+                      ).toFixed(2),
+                    )
+                  : 0,
+                claim_reference:
+                  invoice.invoiceNumber || invoice.reference || null,
                 compulsory_attachment_ids:
                   data?.compulsory_attachment_ids ||
                   claimDetails?.compulsory_attachment_ids,
