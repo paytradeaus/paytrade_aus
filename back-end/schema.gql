@@ -7691,6 +7691,16 @@ type FetchDetailsOfAnAssociatedPayment {
 
   """Reason for withholding the payment."""
   withhold_payment_reason: String
+
+  """
+  Task #52 — true when a Xero Payment record is currently mapped to this PT (associated) payment. Mirrors the field on FetchDetailsOfAPayment so OtherPayment sub-modules that pass associated_payment_details as patchData can render the same Xero sync indicators.
+  """
+  xero_payment_synced: Boolean
+
+  """
+  Task #52 — true when a Xero BankTransfer record is currently mapped to this PT (associated) payment. Mirrors the field on FetchDetailsOfAPayment so OtherPayment sub-modules that pass associated_payment_details as patchData can render the same Xero sync indicators.
+  """
+  xero_transfer_synced: Boolean
 }
 
 """Details of an import payment claim."""
@@ -18555,6 +18565,47 @@ type Query {
     """Timezone of the user for login timestamp"""
     user_timezone: String!
   ): AuthResponse!
+
+  """
+  Find candidate Xero records for the Manual Xero Re-sync widget by a human-readable hint (invoice number, contact name, reference, etc.). Returns up to 10 candidates with their GUIDs.
+  """
+  manualXeroResyncLookup(
+    """
+    Task #74 — optional bank-account name or code substring used to match Xero-side BankTransfers (from or to side). Only honoured for type=bank_transfer.
+    """
+    account_hint: String
+
+    """Company id of the calling user."""
+    company_id: Float!
+
+    """
+    Task #74 — optional ISO date (YYYY-MM-DD). For type=bank_transfer, returns transfers within ±7 days of this date.
+    """
+    date: String
+
+    """
+    Optional ISO date — widen the "modified since" window for archive lookups (Task #73).
+    """
+    from_date: String
+
+    """
+    Free-text hint: invoice number, contact name, reference, narration, amount, or PT-side payment id.
+    """
+    hint: String!
+
+    """
+    Optional 1-based page number for paginated record types (invoice_bill, payment, contact, manual_journal).
+    """
+    page: Int
+
+    """
+    Optional ISO date — upper bound on UpdatedDateUTC, applied client-side after fetch.
+    """
+    to_date: String
+
+    """One of: invoice_bill, payment, bank_transfer, contact, manual_journal"""
+    type: String!
+  ): StringResponse!
   readFileAttachmentsOrDocuments(payload: ReadFileAttachmentsOrDocumentsInput!): ReadFileAttachmentsOrDocumentsResponse!
 
   """
