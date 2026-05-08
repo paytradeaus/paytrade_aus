@@ -12380,6 +12380,9 @@ input GetXeroSyncLogsInput {
   """Pagination: page size"""
   page_size: Float
 
+  """When true, return only auto-recovered sync logs (templates 493 / 495)"""
+  recovered_only: Boolean
+
   """Field to sort logs by"""
   sorting_field: String
 
@@ -14877,6 +14880,22 @@ type Mutation {
   ): StringResponse!
 
   """
+  Re-pull a single Xero record by ID (or invoice number) and re-run the matching webhook handler. Available to any user with access to their company; the IDOR guard rejects cross-company tampering.
+  """
+  manualXeroResync(
+    """Company id of the calling user."""
+    company_id: Float!
+
+    """
+    Xero GUID of the record (or invoice/bill number for type=invoice_bill).
+    """
+    id: String!
+
+    """One of: invoice_bill, payment, bank_transfer, contact, manual_journal"""
+    type: String!
+  ): StringResponse!
+
+  """
   Match selected bank transactions with payments and synchronize results with Xero and compliance services.
   """
   matchTransactions(
@@ -14987,6 +15006,14 @@ type Mutation {
     """Paytrade payment_claim_id to retry the gross-up MJ for."""
     payment_claim_id: Float!
   ): StringResponse!
+
+  """
+  Task #61 — Re-fires the BankTransfer leg of a payment from a Failed retention-transfer sync log (templates 496/497/498).
+  """
+  retryRetentionTransferFromSyncLog(
+    """The id of the Failed retention-transfer sync log to retry."""
+    sync_log_id: String!
+  ): GetXeroPaymentsResponse!
 
   """Sends a system email to specified clients."""
   sendSystemEmailToTheClients(
@@ -19917,7 +19944,9 @@ type SyncLog {
   """Dynamic values in sync"""
   dynamic_values: JSONObject
 
-  """Error code if sync failed"""
+  """
+  Stable machine-readable error/recovery code from the log template (e.g. RETENTION_TRANSFER_RECOVERED)
+  """
   error_code: String
 
   """Error message if sync failed"""

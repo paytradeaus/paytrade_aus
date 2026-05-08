@@ -61,6 +61,9 @@ export class XeroSyncLogs {
   @Column({ type: 'varchar', nullable: true })
   error_message: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  error_code: string;
+
   @Column({ type: 'jsonb', nullable: true })
   xero_records: Record<string, any>[];
 

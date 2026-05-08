@@ -423,9 +423,6 @@ export class SyncLog {
   @Field({ nullable: true, description: 'Error message if sync failed' })
   error_message: string;
 
-  @Field({ nullable: true, description: 'Error code if sync failed' })
-  error_code: string;
-
   @Field(() => [GraphQLJSONObject], {
     nullable: true,
     description: 'Records fetched from Xero',

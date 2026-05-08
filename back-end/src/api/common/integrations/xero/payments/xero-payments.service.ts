@@ -61,7 +61,6 @@ import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
-import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -767,27 +766,27 @@ export class XeroPaymentsService {
         });
         return false;
       }
-      try {
-        const dateValue = moment(payment_date).toDate();
+      const dateValue = moment(payment_date).toDate();
 
-        // ---------------------------------------------------------------
-        // Task #50 — Independent gates for the Payment leg vs the
-        // BankTransfer leg. Either or both may fire on a given call.
-        // We look up any prior xero_payments row for this PT payment so
-        // we can (a) skip API calls for already-synced halves and
-        // (b) UPDATE the existing row when adding the missing half.
-        // ---------------------------------------------------------------
-        const existingXp = await this.xeroPayments.findOne({
-          where: {
-            integration_id: xeroDetails.integration_id,
-            pt_payment_id: payment_id,
-          },
-        });
-        const wantPayment = data?.sync_payment !== false;
-        const wantTransfer =
-          !!cash_retention && data?.sync_transfer !== false;
-        const skipPayment = !wantPayment || !!existingXp?.payment_id;
-        const skipTransfer = !wantTransfer || !!existingXp?.bank_transfer_id;
+      // ---------------------------------------------------------------
+      // Task #50 — Independent gates for the Payment leg vs the
+      // BankTransfer leg. Either or both may fire on a given call.
+      // We look up any prior xero_payments row for this PT payment so
+      // we can (a) skip API calls for already-synced halves and
+      // (b) UPDATE the existing row when adding the missing half.
+      // ---------------------------------------------------------------
+      const existingXp = await this.xeroPayments.findOne({
+        where: {
+          integration_id: xeroDetails.integration_id,
+          pt_payment_id: payment_id,
+        },
+      });
+      const wantPayment = data?.sync_payment !== false;
+      const wantTransfer =
+        !!cash_retention && data?.sync_transfer !== false;
+      const skipPayment = !wantPayment || !!existingXp?.payment_id;
+      const skipTransfer = !wantTransfer || !!existingXp?.bank_transfer_id;
+      try {
         this.logger.log(
           `[Task#50 gate-split] payment_id=${payment_id} wantPayment=${wantPayment} wantTransfer=${wantTransfer} skipPayment=${skipPayment} skipTransfer=${skipTransfer} existingXp.payment_id=${existingXp?.payment_id || null} existingXp.bank_transfer_id=${existingXp?.bank_transfer_id || null}`,
         );
@@ -2878,7 +2877,7 @@ export class XeroPaymentsService {
       fromAccountId: string;
       toAccountId: string;
       amount: number;
-      date: Date;
+      date: Date | string;
       reference: string;
       paymentDetails: any;
       xeroInvoicesBills: any;
@@ -2904,7 +2903,10 @@ export class XeroPaymentsService {
         fromBankAccount: { accountID: fromAccountId },
         toBankAccount: { accountID: toAccountId },
         amount,
-        date,
+        date:
+          date instanceof Date
+            ? date.toISOString().slice(0, 10)
+            : date,
         reference,
       };
       const resp = await this.xero.accountingApi.createBankTransfer(

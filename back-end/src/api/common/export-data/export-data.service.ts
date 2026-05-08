@@ -62,6 +62,8 @@ import puppeteer from 'puppeteer';
 import { paytradeLogo } from 'src/api/users/notices/doc-images-base64';
 import { ExportDataGateway } from './pdf.gateway';
 import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
+import type { ReadableStream as WebReadableStream } from 'stream/web';
 const { PassThrough } = require('stream');
 import * as path from 'path';
 import { PdfTemplates } from 'src/entities/pdf-template.entity';
@@ -1891,7 +1893,10 @@ export class ExportDataService {
         timeout: 900000,
       });
       const writeStream = fs.createWriteStream(pdfPath);
-      await pipeline(pdfStream, writeStream);
+      await pipeline(
+        Readable.fromWeb(pdfStream as unknown as WebReadableStream<Uint8Array>),
+        writeStream,
+      );
 
       this.logger.log(`PDF batch ${batchIndex + 1} saved: ${pdfPath}`);
       await browser.close();
