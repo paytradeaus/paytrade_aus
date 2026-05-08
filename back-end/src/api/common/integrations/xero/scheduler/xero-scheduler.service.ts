@@ -21,7 +21,10 @@ import {
   Not,
   LessThan,
   LessThanOrEqual,
+  MoreThanOrEqual,
+  IsNull,
 } from 'typeorm';
+import { XeroPayments } from 'src/entities/xero-payments.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -98,6 +101,8 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     private subscriptionDetails: Repository<SubscriptionDetails>,
     @InjectRepository(XeroInvoicesBills)
     private xeroInvoicesBillsRepo: Repository<XeroInvoicesBills>,
+    @InjectRepository(XeroPayments)
+    private xeroPaymentsRepo: Repository<XeroPayments>,
     private readonly jwtService: JwtService,
     private authService: AuthService,
     private readonly xeroService: XeroService,
@@ -6443,6 +6448,212 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       this.logger.log(`${PREFIX} Webhook fallback sync complete.`);
     } catch (err) {
       this.logger.error(`${PREFIX} Fatal error in webhook fallback sync: ${err?.message || err}`);
+    }
+  }
+
+  /**
+   * Task #53 — Daily retro re-check of legacy unmatched retention
+   * transfers. Walks `xero_payments` rows with payment_id IS NOT NULL
+   * AND bank_transfer_id IS NULL created in the last 90 days, and
+   * retriggers the invoice handler so the Task #50 tightened matcher
+   * (extracted into `XeroWebhookService.matchRetentionTransferCandidates`)
+   * gets a chance to link the missing leg against fresh Xero data.
+   *
+   * Successes get template 488 logs (or no log if linked silently);
+   * out-of-window candidates surface template 489; multi-match surfaces
+   * template 490. All re-runs use `sync_run_type='retro_recheck'` so
+   * they're distinguishable from webhook/fallback runs.
+   *
+   * Behind a per-company feature flag
+   * (`xero_integration_details.auto_recheck_unmatched_retention_transfers`,
+   * default true). Set FALSE to opt a company out.
+   */
+  @Cron('0 3 * * *', { timeZone: 'UTC' })
+  async recheckUnmatchedRetentionTransfers() {
+    const PREFIX = '[Task#53 retro_recheck]';
+    try {
+      this.logger.log(`${PREFIX} Starting legacy retention re-check sweep...`);
+
+      const activeIntegrations = await this.integrationDetails.find({
+        where: { integration_status: 'Connected - active' },
+      });
+
+      if (!activeIntegrations || activeIntegrations.length === 0) {
+        this.logger.log(`${PREFIX} No active integrations, skipping.`);
+        return;
+      }
+
+      const cutoff = new Date(
+        Date.now() - 90 * 24 * 60 * 60 * 1000,
+      );
+
+      for (const integration of activeIntegrations) {
+        const companyId = integration.company_id;
+        try {
+          // Multi-row tenant guard (mirrors webhookFallbackSync).
+          const _xeroCandidates = await this.xeroIntegrationDetails.find({
+            where: { company_id: companyId, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
+          });
+          const xeroDetails =
+            _xeroCandidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? _xeroCandidates[0];
+          if (!xeroDetails) {
+            continue;
+          }
+
+          // Per-company feature flag — null/undefined treated as ON
+          // (default), only an explicit FALSE opts the company out.
+          if (xeroDetails.auto_recheck_unmatched_retention_transfers === false) {
+            this.logger.log(
+              `${PREFIX} Company ${companyId}: feature flag OFF, skipping.`,
+            );
+            continue;
+          }
+
+          const candidateRows = await this.xeroPaymentsRepo.find({
+            where: {
+              integration_id: xeroDetails.integration_id,
+              payment_id: Not(IsNull()),
+              bank_transfer_id: IsNull(),
+              status: Not('DELETED'),
+              created_on: MoreThanOrEqual(cutoff),
+            },
+            order: { created_on: 'DESC' },
+          });
+
+          if (candidateRows.length === 0) {
+            continue;
+          }
+
+          this.logger.log(
+            `${PREFIX} Company ${companyId}: ${candidateRows.length} candidate xero_payments rows missing bank_transfer_id`,
+          );
+
+          // Refresh token + decoded JWT once per company.
+          try {
+            await this.xeroService.refreshTokenSet(companyId, this.xero);
+          } catch (refreshErr: any) {
+            this.logger.error(
+              `${PREFIX} Token refresh failed for company ${companyId}: ${refreshErr?.message || refreshErr}`,
+            );
+            continue;
+          }
+
+          const _refreshedCandidates = await this.xeroIntegrationDetails.find({
+            where: { company_id: companyId, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
+          });
+          const refreshedXero =
+            _refreshedCandidates.find(
+              (c) => c?.integration_id === xeroDetails.integration_id,
+            ) ??
+            _refreshedCandidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ??
+            _refreshedCandidates[0];
+          if (!refreshedXero?.access_token) {
+            this.logger.error(
+              `${PREFIX} No access token after refresh for company ${companyId}`,
+            );
+            continue;
+          }
+
+          const companyAdmin = await this.userRoles.findOne({
+            where: {
+              company_id: companyId,
+              company_role: In(['PRIMARY ADMIN']),
+              status: 'Active',
+            },
+            relations: ['userDetails'],
+          });
+          if (!companyAdmin?.userDetails?.email_id) {
+            this.logger.error(
+              `${PREFIX} No PRIMARY ADMIN for company ${companyId}, skipping.`,
+            );
+            continue;
+          }
+
+          const authResponse = await this.authService.getAuthToken(
+            companyAdmin.userDetails.email_id,
+            false,
+          );
+          const decoded = this.jwtService.decode(
+            authResponse.data['access_token'],
+          );
+
+          // Resolve the underlying Xero invoice IDs for the candidate
+          // payments — we retrigger the invoice handler (rather than
+          // calling the matcher directly) so the row gets re-linked
+          // through the same code path the webhook would use.
+          const ptInvoiceRowIds = Array.from(
+            new Set(
+              candidateRows
+                .map((r) => r.invoice_id)
+                .filter((v): v is string => !!v),
+            ),
+          );
+          if (ptInvoiceRowIds.length === 0) {
+            continue;
+          }
+
+          const invoiceRows = await this.xeroInvoicesBillsRepo.find({
+            where: {
+              id: In(ptInvoiceRowIds),
+              integration_id: refreshedXero.integration_id,
+            },
+            select: ['invoice_id'],
+          });
+          const xeroInvoiceIds = Array.from(
+            new Set(
+              invoiceRows
+                .map((r) => r.invoice_id)
+                .filter((v): v is string => !!v),
+            ),
+          );
+
+          let processed = 0;
+          let errors = 0;
+          for (const xeroInvoiceId of xeroInvoiceIds) {
+            try {
+              await this.xeroWebhookService.handleInvoiceCreateUpdate(
+                {
+                  resource_id: xeroInvoiceId,
+                  tenant_id: refreshedXero.tenant_id,
+                  eventType: 'UPDATE',
+                  sync_run_type: 'retro_recheck',
+                },
+                decoded,
+              );
+              processed++;
+            } catch (procErr: any) {
+              errors++;
+              this.logger.error(
+                `${PREFIX} Company ${companyId}: failed to re-process invoice ${xeroInvoiceId}: ${procErr?.message || procErr}`,
+              );
+            }
+          }
+
+          this.logger.log(
+            `${PREFIX} Company ${companyId}: processed=${processed} errors=${errors} (from ${candidateRows.length} candidate xero_payments rows / ${xeroInvoiceIds.length} unique invoices)`,
+          );
+        } catch (companyErr: any) {
+          this.logger.error(
+            `${PREFIX} Error processing company ${companyId}: ${companyErr?.message || companyErr}`,
+          );
+        }
+      }
+
+      this.logger.log(`${PREFIX} Legacy retention re-check sweep complete.`);
+    } catch (err: any) {
+      this.logger.error(
+        `${PREFIX} Fatal error in retro re-check sweep: ${err?.message || err}`,
+      );
     }
   }
 }

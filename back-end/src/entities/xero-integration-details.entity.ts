@@ -172,6 +172,16 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   auto_gross_up_retention_journals: boolean;
 
+  // Task #53 — Daily retro re-check of legacy unmatched retention
+  // transfers. When ON (default), the XeroSchedulerService cron walks
+  // xero_payments rows with payment_id IS NOT NULL AND bank_transfer_id
+  // IS NULL created in the last 90 days and replays the tightened
+  // matcher against fresh Xero BankTransfers data. Successes link the
+  // transfer + write a 488 log; multi-match writes 490; out-of-window
+  // writes 489. Set to FALSE per company to opt out.
+  @Column({ type: 'boolean', nullable: true, default: true })
+  auto_recheck_unmatched_retention_transfers: boolean;
+
   // Phase 2: cached Xero organisation GST defaults. Refreshed on connect
   // and via daily scheduler. `xero_org_default_sales_tax` /
   // `xero_org_default_purchases_tax` are the org-level fallback tax types

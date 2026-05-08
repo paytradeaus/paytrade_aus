@@ -134,6 +134,124 @@ export class XeroWebhookService {
   }
 
   /**
+   * Task #50/#53 — Pure matcher for Xero BankTransfer candidates against a
+   * PT retention payment leg.
+   *
+   * Resolution order:
+   *   0. If `preferKnownBankTransferId` is supplied (legacy fast path), only
+   *      return the matching transfer (no further filtering).
+   *   1. Reference round-trip — prefer transfers whose `reference` equals
+   *      `PT-RET-{pt_payment_id}` and amount matches AND in window.
+   *   2. AND on accounts (one side === paymentAccountId AND the *other*
+   *      side is a different account) + amount + ±windowDays date window.
+   *   3. Surface out-of-window candidates separately so the caller can log
+   *      template 489.
+   *
+   * Pure: no DB, no Xero API, no logging. Caller decides what to do with
+   * the result (link in webhook, skip & log in scheduler).
+   */
+  public matchRetentionTransferCandidates(opts: {
+    allCandidateTransfers: any[];
+    paymentAccountId: string;
+    retentionAmount: number;
+    paymentDate: Date | null;
+    ptRefForRoundTrip: string | null;
+    preferKnownBankTransferId?: string | null;
+    windowDays?: number;
+  }): {
+    matched: any[];
+    outOfWindow: any[];
+    matchedByReference: boolean;
+    windowDays: number;
+  } {
+    const windowDays = opts.windowDays ?? 14;
+    const all = opts.allCandidateTransfers || [];
+    const paymentDateMs =
+      opts.paymentDate && !Number.isNaN(opts.paymentDate.getTime())
+        ? opts.paymentDate.getTime()
+        : null;
+
+    const isInWindow = (t: any): boolean => {
+      // Treat missing/invalid dates as a hard non-match (per architect
+      // feedback): otherwise the ±N-day constraint is silently bypassed.
+      if (!paymentDateMs) return false;
+      if (!t?.date) return false;
+      const tMs = new Date(t.date as any).getTime();
+      if (Number.isNaN(tMs)) return false;
+      const diffDays =
+        Math.abs(tMs - paymentDateMs) / (24 * 60 * 60 * 1000);
+      return diffDays <= windowDays;
+    };
+
+    if (opts.preferKnownBankTransferId) {
+      const known = all.filter(
+        (t: any) => t?.bankTransferID === opts.preferKnownBankTransferId,
+      );
+      return {
+        matched: known,
+        outOfWindow: [],
+        matchedByReference: false,
+        windowDays,
+      };
+    }
+
+    let matched: any[] = [];
+    let matchedByReference = false;
+
+    // (1) Reference round-trip shortcut.
+    if (opts.ptRefForRoundTrip) {
+      matched = all.filter((t: any) => {
+        const refMatches =
+          (t?.reference || '').trim() === opts.ptRefForRoundTrip;
+        const amountMatches =
+          Math.abs(Number(t?.amount)) ===
+          Math.abs(Number(opts.retentionAmount));
+        return refMatches && amountMatches && isInWindow(t);
+      });
+      if (matched.length > 0) {
+        matchedByReference = true;
+      }
+    }
+
+    // (2) Account AND-pair + amount + window.
+    if (matched.length === 0) {
+      matched = all.filter((t: any) => {
+        const fromAcc = t?.fromBankAccount?.accountID;
+        const toAcc = t?.toBankAccount?.accountID;
+        const fromMatches = fromAcc === opts.paymentAccountId;
+        const toMatches = toAcc === opts.paymentAccountId;
+        if (!fromMatches && !toMatches) return false;
+        const otherSide = fromMatches ? toAcc : fromAcc;
+        if (!otherSide || otherSide === opts.paymentAccountId) return false;
+        const amountMatches =
+          Math.abs(Number(t?.amount)) ===
+          Math.abs(Number(opts.retentionAmount));
+        if (!amountMatches) return false;
+        return isInWindow(t);
+      });
+    }
+
+    // (3) Out-of-window companions — surfaced only when nothing in-window
+    // was found, so the caller can write a template-489 log.
+    let outOfWindow: any[] = [];
+    if (matched.length === 0) {
+      outOfWindow = all.filter((t: any) => {
+        const fromAcc = t?.fromBankAccount?.accountID;
+        const toAcc = t?.toBankAccount?.accountID;
+        const fromMatches = fromAcc === opts.paymentAccountId;
+        const toMatches = toAcc === opts.paymentAccountId;
+        if (!fromMatches && !toMatches) return false;
+        const amountMatches =
+          Math.abs(Number(t?.amount)) ===
+          Math.abs(Number(opts.retentionAmount));
+        return amountMatches && !isInWindow(t);
+      });
+    }
+
+    return { matched, outOfWindow, matchedByReference, windowDays };
+  }
+
+  /**
    * Classify a Xero invoice/bill as a regular Claim or a Retention Release
    * (cash_retention_type = 'Claim' | 'Retention claim') in a way that is
    * robust to the common misconfiguration where the user has pointed
@@ -9224,43 +9342,12 @@ export class XeroWebhookService {
         });
 
         // -----------------------------------------------------------------
-        // Task #50 — Tightened inbound matcher.
-        //   1. Reference round-trip: prefer transfers stamped with our
-        //      own `PT-RET-{pt_payment_id}` reference (covers webhook
-        //      echo of an outbound transfer we just pushed).
-        //   2. AND on accounts: at least one side must equal the
-        //      payment account AND the *other* side must be a different
-        //      account — the legacy OR rule was matching same-account
-        //      transfers and inflating the candidate list.
-        //   3. ±14 day window vs the Xero payment date — anything
-        //      outside is logged with template 489 and ignored.
-        //   4. Uniqueness check (bank_transfer_id not already mapped to
-        //      another PT payment) is preserved further down (existing
-        //      `checkBankTransferIdExistence` query at L9261+) and
-        //      reinforced by the new unique partial DB index from the
-        //      XeroPaymentSplitSchemaSeeder.
+        // Task #50 — Tightened inbound matcher (extracted to
+        // `matchRetentionTransferCandidates` for re-use by the Task #53
+        // legacy retro re-check scheduler).
         // -----------------------------------------------------------------
         const allCandidateTransfers =
           bankTransferResponse?.body?.bankTransfers || [];
-
-        const TASK50_WINDOW_DAYS = 14;
-        const paymentDateMs = payment?.date
-          ? new Date(payment.date as any).getTime()
-          : null;
-        const isInWindow = (t: any): boolean => {
-          // Task #50 — Treat missing/invalid dates as a hard *non-match*
-          // (per architect feedback): otherwise the ±14d constraint is
-          // silently bypassed for transfers Xero returned without a
-          // date, which is exactly the ambiguous edge case we're trying
-          // to reject.
-          if (!paymentDateMs || Number.isNaN(paymentDateMs)) return false;
-          if (!t?.date) return false;
-          const tMs = new Date(t.date as any).getTime();
-          if (Number.isNaN(tMs)) return false;
-          const diffDays =
-            Math.abs(tMs - paymentDateMs) / (24 * 60 * 60 * 1000);
-          return diffDays <= TASK50_WINDOW_DAYS;
-        };
 
         // Resolve the PT-side reference we may have stamped on the way out.
         const ptPaymentIdForRef =
@@ -9271,69 +9358,30 @@ export class XeroWebhookService {
           ? `PT-RET-${ptPaymentIdForRef}`
           : null;
 
-        let retentionTransfers: any[] = [];
-        let matchedByReference = false;
+        const matchResult = this.matchRetentionTransferCandidates({
+          allCandidateTransfers,
+          paymentAccountId: xeroBankAccountDetails.account_id,
+          retentionAmount: retention_amount,
+          paymentDate: payment?.date ? new Date(payment.date as any) : null,
+          ptRefForRoundTrip,
+          preferKnownBankTransferId: data?.bank_transfer_id || null,
+        });
+        const TASK50_WINDOW_DAYS = matchResult.windowDays;
+        let retentionTransfers: any[] = matchResult.matched;
+        const matchedByReference = matchResult.matchedByReference;
+        const outOfWindowOnly = matchResult.outOfWindow;
 
-        if (data?.bank_transfer_id) {
-          // Caller already knows which transfer to use (legacy fast path).
-          retentionTransfers = allCandidateTransfers.filter(
-            (t: any) => t?.bankTransferID === data.bank_transfer_id,
-          );
-        } else {
-          // (1) Reference round-trip shortcut.
-          if (ptRefForRoundTrip) {
-            retentionTransfers = allCandidateTransfers.filter((t: any) => {
-              const refMatches =
-                (t?.reference || '').trim() === ptRefForRoundTrip;
-              const amountMatches =
-                Math.abs(Number(t?.amount)) ===
-                Math.abs(Number(retention_amount));
-              return refMatches && amountMatches && isInWindow(t);
-            });
-            if (retentionTransfers.length > 0) {
-              matchedByReference = true;
-              this.logger.log(
-                `[Task#50 matcher] Matched ${retentionTransfers.length} transfer(s) via reference ${ptRefForRoundTrip}`,
-              );
-            }
-          }
-
-          // (2) Account AND-pair + amount + window.
-          if (retentionTransfers.length === 0) {
-            retentionTransfers = allCandidateTransfers.filter((t: any) => {
-              const fromAcc = t?.fromBankAccount?.accountID;
-              const toAcc = t?.toBankAccount?.accountID;
-              const fromMatches =
-                fromAcc === xeroBankAccountDetails.account_id;
-              const toMatches = toAcc === xeroBankAccountDetails.account_id;
-              if (!fromMatches && !toMatches) return false;
-              const otherSide = fromMatches ? toAcc : fromAcc;
-              if (!otherSide || otherSide === xeroBankAccountDetails.account_id)
-                return false;
-              const amountMatches =
-                Math.abs(Number(t?.amount)) ===
-                Math.abs(Number(retention_amount));
-              if (!amountMatches) return false;
-              return isInWindow(t);
-            });
+        if (!data?.bank_transfer_id) {
+          if (matchedByReference) {
+            this.logger.log(
+              `[Task#50 matcher] Matched ${retentionTransfers.length} transfer(s) via reference ${ptRefForRoundTrip}`,
+            );
           }
 
           // (3) Surface out-of-window rejections with template 489 — but
           // only when no in-window candidate was found (otherwise the
           // sync log would be noisy on every match).
           if (retentionTransfers.length === 0) {
-            const outOfWindowOnly = allCandidateTransfers.filter((t: any) => {
-              const fromAcc = t?.fromBankAccount?.accountID;
-              const toAcc = t?.toBankAccount?.accountID;
-              const fromMatches =
-                fromAcc === xeroBankAccountDetails.account_id;
-              const toMatches = toAcc === xeroBankAccountDetails.account_id;
-              if (!fromMatches && !toMatches) return false;
-              const amountMatches =
-                Math.abs(Number(t?.amount)) ===
-                Math.abs(Number(retention_amount));
-              return amountMatches && !isInWindow(t);
-            });
             if (outOfWindowOnly.length > 0) {
               try {
                 await this.xeroService.insertXeroSyncLogs(decoded, {
