@@ -176,8 +176,9 @@ export default function AddEditContracts(props: any) {
     (state: RootState) => state.dashBoard.addContractDetails
   );
 
-  const disableCondition =
-    isEdit && contractData?.contract_status === "In Progress";
+  // Previously: disabled all fields once a contract was "In Progress".
+  // Edit page now allows editing for all statuses.
+  const disableCondition = false;
 
   const isValidUploadValue = (value: unknown): boolean => {
     if (value == null) return false;
@@ -1071,10 +1072,8 @@ export default function AddEditContracts(props: any) {
   //       formik?.values?.RelatedEntity
   //     );
 
-  const PaymentdisableCondition =
-    isEdit && !isDraft // if editing and NOT draft → disable
-      ? true
-      : !isFormValid; // otherwise, disable if form is incomplete
+  // Allow payment-details edits on any contract status; just gate on form validity.
+  const PaymentdisableCondition = !isFormValid;
 
   const isPaymentDataFilled =
     paymentData &&
@@ -2022,20 +2021,19 @@ export default function AddEditContracts(props: any) {
                     value={contractData?.contract_status}
                   />
                 )}
-                {contractData &&
-                  contractData?.contract_status !== "In Progress" && (
-                    <CustomButton
-                      buttonName={isEdit ? "Update" : "Save"}
-                      buttonType={buttonType.SECONDARY}
-                      actionType="submit"
-                      onClick={() => {
-                        setstatus("");
-                        formik?.handleSubmit();
-                      }}
-                      disabled={loader}
-                      inputButton
-                    />
-                  )}
+                {contractData && (
+                  <CustomButton
+                    buttonName={isEdit ? "Update" : "Save"}
+                    buttonType={buttonType.SECONDARY}
+                    actionType="submit"
+                    onClick={() => {
+                      setstatus("");
+                      formik?.handleSubmit();
+                    }}
+                    disabled={loader}
+                    inputButton
+                  />
+                )}
                 {((selectedClientSuplierType !== "Client" &&
                   !isNoticeSent &&
                   !isEdit) ||
