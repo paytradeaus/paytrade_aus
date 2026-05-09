@@ -457,11 +457,17 @@ export default function AbaWizardModal({
       restrictOncloseFunctionInHeader
       onClose={() => {
         footer!.onFirst();
-        return false;
+        // On step 3 the first button ("No, just generate") triggers the
+        // generation flow and the modal must close. Returning true lets
+        // BaseModal run closeModal() which removes the `is-modal-open`
+        // class from <html>; otherwise the page is left with a stuck
+        // overlay that blocks all clicks. Steps 1 & 2 just transition
+        // between steps and must keep the modal open.
+        return step === 3;
       }}
       onConfirm={() => {
         footer!.onSecond();
-        return false;
+        return step === 3;
       }}
       firstButtonName={footer.firstName || "Cancel"}
       secondButtonName={footer.secondName}

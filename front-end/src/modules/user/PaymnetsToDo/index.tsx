@@ -662,7 +662,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     bankAccountId: number | null = null,
     subPaymentIds: number[] | null = null,
   ) {
-    setShowAbaWizard(false);
+    // NOTE: do NOT call setShowAbaWizard(false) here. The wizard's BaseModal
+    // closes itself via onHeaderIconClose AFTER it has run closeModal() to
+    // strip the `is-modal-open` class from <html>. Unmounting the modal
+    // synchronously here used to leave that class behind, producing a
+    // page-blocking overlay after submit.
     setDisableAbaFileBtn(true);
     try {
       let responseFile = await GenerateABAfiles({
@@ -682,6 +686,16 @@ export default function PaymentToDoList({ overViewDetails }: any) {
 
       if (markPaymentsAsPaid) {
         setAbaMarkAsPaid(null);
+      }
+      // Surface silent backend failures: the GenerateABAfiles wrapper returns
+      // "" on status===ERROR with no toast, and the success branch only
+      // downloads when file_path is present. Without this, a no-file response
+      // looks identical to a successful click — exactly the symptom the user
+      // hit (modal closes, nothing happens).
+      if (!responseFile || !responseFile?.file_path) {
+        showErrorToast(
+          "ABA file could not be generated. No eligible payments were processed."
+        );
       }
       if (responseFile?.file_path) {
         downloadABAFile(responseFile);
