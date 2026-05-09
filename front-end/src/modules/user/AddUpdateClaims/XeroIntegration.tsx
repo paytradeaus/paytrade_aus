@@ -280,7 +280,7 @@ export default function XeroIntegration({
     journals.length > 0 && journals[0]?.status === "FAILED" ? journals[0] : null;
 
   return (
-    <div className="pt_expandtable">
+    <div className="pt_expandtable pt_payment">
       <details>
         <summary>Xero Integration</summary>
         <div style={{ padding: "12px 16px" }}>
@@ -408,7 +408,7 @@ function renderSyncHistory(rows: SyncLogRow[]) {
   return (
     <div>
       <h4>Sync history</h4>
-      <div style={{ fontSize: 12, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind-lighter)" }}>
         Recent Xero sync activity for this claim and its payments
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
@@ -502,7 +502,7 @@ function renderRetentionJournals(
           </button>
         )}
       </div>
-      <div style={{ fontSize: 12, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind-lighter)" }}>
         PayTrade posts a balanced 2-line Manual Journal in Xero for the GST
         portion of retention so your books reconcile to the gross retention
         figure.
@@ -579,7 +579,7 @@ function renderRetentionJournals(
         </div>
       </div>
       {journals.some((j) => j.status === "FAILED" && j.error_text) && (
-        <div style={{ marginTop: 8, fontSize: 12 }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: "var(--wind-lighter)" }}>
           {journals
             .filter((j) => j.status === "FAILED" && j.error_text)
             .map((j) => (
