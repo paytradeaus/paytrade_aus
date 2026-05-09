@@ -86,13 +86,22 @@ export default function JournalEntries({
   if (!paymentClaimId || !loaded || journals.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+    <div
+      style={{
+        marginTop: 16,
+        borderTop: "1px solid #eee",
+        paddingTop: 12,
+        maxWidth: "100%",
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
       <div style={{ fontWeight: 600, marginBottom: 8 }}>Journal entries</div>
       <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
         Retention GST gross-up Manual Journals PayTrade has posted to Xero for
         this claim.
       </div>
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
         <table
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
         >

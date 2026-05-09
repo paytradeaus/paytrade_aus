@@ -95,7 +95,16 @@ export default function TrustJournals({
   const showingCapNote = rows.length >= cap;
 
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+    <div
+      style={{
+        marginTop: 16,
+        borderTop: "1px solid #eee",
+        paddingTop: 12,
+        maxWidth: "100%",
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
       <h4>Trust journals</h4>
       <div
         style={{ fontSize: 12, marginBottom: 8 }}
