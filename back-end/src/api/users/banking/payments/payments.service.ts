@@ -7025,13 +7025,26 @@ export class PaymentsService {
     // an ABA file. "Retention In" is the receipt-side booking at the RTA and
     // never produces a bank movement, so it is excluded here.
     const PaymentsToDoTypes = ['Payment', 'Retention Out'];
+    // Mirror getListOfAllPaymentsToDoInDashboard so the wizard count equals
+    // exactly what the user sees in the Payments-to-do table.
+    const pendingStatuses = [
+      'Unconfirmed - Unmatched',
+      'Unconfirmed - Matched',
+      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Unmatched',
+      'Unconfirmed - Payment Unmatched - Retention Out Unmatched - Retention In Matched',
+      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Matched',
+      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Unmatched',
+      'Unconfirmed - Payment Matched - Retention Out Matched - Retention In Unmatched',
+      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Matched',
+    ];
 
     const rows = await this.bankAccountsRepo
       .createQueryBuilder('ba')
       .leftJoin(
         PaymentDetails,
         'p',
-        'p.payment_from_account = ba.bank_account_id',
+        'p.payment_from_account = ba.bank_account_id AND p.current_status IN (:...pendingStatuses)',
+        { pendingStatuses },
       )
       .leftJoin(
         SubPayments,
@@ -7094,6 +7107,17 @@ export class PaymentsService {
     // Mirror getAbaWizardSenderAccounts — Retention In is excluded because it
     // is a receipt at the RTA, not an outgoing bank movement.
     const PaymentsToDoTypes = ['Payment', 'Retention Out'];
+    // Same status filter as the Payments-to-do table so list ↔ count match.
+    const pendingStatuses = [
+      'Unconfirmed - Unmatched',
+      'Unconfirmed - Matched',
+      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Unmatched',
+      'Unconfirmed - Payment Unmatched - Retention Out Unmatched - Retention In Matched',
+      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Matched',
+      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Unmatched',
+      'Unconfirmed - Payment Matched - Retention Out Matched - Retention In Unmatched',
+      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Matched',
+    ];
 
     // Mirror the sender-account query's join structure (raw joins from
     // payment_details → sub_payments) so we surface the same rows the sender
@@ -7152,6 +7176,9 @@ export class PaymentsService {
       .where('p.company_id = :company_id', { company_id })
       .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
+      })
+      .andWhere('p.current_status IN (:...pendingStatuses)', {
+        pendingStatuses,
       })
       .select([
         'sp.sub_payment_id AS sub_payment_id',

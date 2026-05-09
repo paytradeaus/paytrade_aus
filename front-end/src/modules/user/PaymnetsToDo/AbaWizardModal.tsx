@@ -118,7 +118,10 @@ export default function AbaWizardModal({
   }, [step, selectedAccountId, companyId]);
 
   const selectedAccount = useMemo(
-    () => accounts.find((a) => a.bank_account_id === selectedAccountId) || null,
+    () =>
+      accounts.find(
+        (a) => Number(a.bank_account_id) === Number(selectedAccountId),
+      ) || null,
     [accounts, selectedAccountId],
   );
 
@@ -386,7 +389,9 @@ export default function AbaWizardModal({
       hideFirst: true,
       secondName: "Next",
       disableSecond:
-        !selectedAccountId || !selectedAccount?.has_apca,
+        !selectedAccountId ||
+        !selectedAccount ||
+        !selectedAccount.has_apca,
       onFirst: () => {},
       onSecond: () => setStep(2),
     };
