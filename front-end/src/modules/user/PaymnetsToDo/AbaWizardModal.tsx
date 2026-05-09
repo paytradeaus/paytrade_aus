@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import BaseModal from "@/components/BaseModal";
+import FormikControl from "@/components/FormikControl";
+import { InputType } from "@/shared/constant/general";
 import {
   GetAbaWizardSenderAccounts,
   GetAbaWizardOutstandingPayments,
@@ -149,6 +151,23 @@ export default function AbaWizardModal({
   };
 
   // ---------- Step 1 ----------
+  const accountOptions = useMemo(
+    () =>
+      accounts.map((a) => ({
+        label: `${a.account_name} — ${a.eligible_count} outstanding${
+          a.has_apca ? "" : " (no APCA)"
+        }`,
+        value: a.bank_account_id,
+      })),
+    [accounts],
+  );
+
+  const selectedAccountOption = useMemo(
+    () =>
+      accountOptions.find((o) => o.value === selectedAccountId) || null,
+    [accountOptions, selectedAccountId],
+  );
+
   const renderStep1 = () => (
     <div>
       <h4 className="text_center" style={{ marginBottom: 12 }}>
@@ -162,80 +181,63 @@ export default function AbaWizardModal({
           for.
         </p>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {accounts.map((a) => {
-            const disabled = !a.has_apca;
-            const isSelected = selectedAccountId === a.bank_account_id;
-            return (
-              <li
-                key={a.bank_account_id}
+        <>
+          <FormikControl
+            placeholder="Select a sending account"
+            name="abaWizardSenderAccount"
+            options={accountOptions}
+            onChange={(opt: any) =>
+              setSelectedAccountId(opt?.value ?? null)
+            }
+            control={InputType.SELECT}
+            value={selectedAccountOption}
+            renderKey="label"
+            valueKey="value"
+          />
+          {selectedAccount && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                background: "#f7f9fc",
+                border: "1px solid #e3e8ef",
+                borderRadius: 4,
+                fontSize: 12,
+                color: "#444",
+              }}
+            >
+              BSB {selectedAccount.bsb_number || "—"} · Acct{" "}
+              {selectedAccount.account_number || "—"} ·{" "}
+              <b>{selectedAccount.eligible_count}</b> outstanding payment(s)
+            </div>
+          )}
+          {selectedAccount && !selectedAccount.has_apca && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                background: "#fff4e5",
+                border: "1px solid #ffd591",
+                borderRadius: 4,
+                fontSize: 13,
+                color: "#874d00",
+              }}
+            >
+              This account is missing its APCA / Direct Entry user ID, so an
+              ABA file can't be generated for it yet.{" "}
+              <a
+                href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${selectedAccount.company_id}/${selectedAccount.bank_account_id}?routedFrom=payments-to-do`}
+                onClick={() => onClose()}
                 style={{
-                  border: isSelected
-                    ? "2px solid #0070f3"
-                    : "1px solid #ddd",
-                  borderRadius: 6,
-                  padding: 12,
-                  marginBottom: 8,
-                  opacity: disabled ? 0.7 : 1,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  background: disabled ? "#fafafa" : "white",
-                }}
-                onClick={() => {
-                  if (disabled) return;
-                  setSelectedAccountId(a.bank_account_id);
+                  color: "#0070f3",
+                  textDecoration: "underline",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{a.account_name}</div>
-                    <div style={{ fontSize: 12, color: "#666" }}>
-                      BSB {a.bsb_number || "—"} · Acct {a.account_number || "—"}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 13 }}>
-                      <b>{a.eligible_count}</b> outstanding
-                    </div>
-                  </div>
-                </div>
-                {disabled && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      padding: "6px 8px",
-                      background: "#fff4e5",
-                      border: "1px solid #ffd591",
-                      borderRadius: 4,
-                      fontSize: 12,
-                      color: "#874d00",
-                    }}
-                  >
-                    Missing APCA / Direct Entry user ID — cannot generate.{" "}
-                    <a
-                      href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${a.company_id}/${a.bank_account_id}?routedFrom=payments-to-do`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onClose();
-                      }}
-                      style={{
-                        color: "#0070f3",
-                        textDecoration: "underline",
-                      }}
-                    >
-                      Fix this account
-                    </a>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                Fix this account
+              </a>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -369,7 +371,8 @@ export default function AbaWizardModal({
     footer = {
       hideFirst: true,
       secondName: "Next",
-      disableSecond: !selectedAccountId,
+      disableSecond:
+        !selectedAccountId || !selectedAccount?.has_apca,
       onFirst: () => {},
       onSecond: () => setStep(2),
     };

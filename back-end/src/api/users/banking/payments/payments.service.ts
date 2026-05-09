@@ -7036,7 +7036,6 @@ export class PaymentsService {
         `sp.payment_id = p.payment_id
           AND sp.sub_payment_type IN (:...types)
           AND sp.status = :status
-          AND sp.amount < 0
           AND (
             sp.is_paid_confirmed = false
             OR sp.is_received_confirmed = false
@@ -7091,54 +7090,84 @@ export class PaymentsService {
   ) {
     const PaymentsToDoTypes = ['Payment', 'Retention Out', 'Retention In'];
 
-    const rows = await this.subPaymentsRepo
-      .createQueryBuilder('subpayment')
-      .leftJoin('subpayment.paymentDetails', 'payments')
-      .leftJoin('payments.paymentToAccount', 'toAccount')
-      .leftJoin('payments.retentionAccount', 'retentionAcc')
-      .leftJoin('payments.clientSupplierDetails', 'cs')
-      .leftJoin('payments.projectDetails', 'project')
-      .leftJoin('payments.paymentClaims', 'pc')
-      .leftJoin('pc.contractDetails', 'contract')
-      .where('payments.company_id = :company_id', { company_id })
-      .andWhere('payments.payment_from_account = :bank_account_id', {
+    // Mirror the sender-account query's join structure (raw joins from
+    // payment_details → sub_payments) so we surface the same rows the sender
+    // count is built from. Relation joins were silently producing 0 rows in
+    // some environments.
+    const rows = await this.paymentsRepo
+      .createQueryBuilder('p')
+      .innerJoin(
+        SubPayments,
+        'sp',
+        `sp.payment_id = p.payment_id
+          AND sp.sub_payment_type IN (:...types)
+          AND sp.status = :status
+          AND (
+            sp.is_paid_confirmed = false
+            OR sp.is_received_confirmed = false
+            OR sp.is_retention_confirmed = false
+            OR (
+              sp.is_paid_confirmed IS NULL
+              AND sp.is_received_confirmed IS NULL
+              AND sp.is_retention_confirmed IS NULL
+            )
+          )`,
+        { types: PaymentsToDoTypes, status: 'Unmatched' },
+      )
+      .leftJoin(
+        BankAccounts,
+        'toAccount',
+        'toAccount.bank_account_id = p.payment_to_account',
+      )
+      .leftJoin(
+        BankAccounts,
+        'retentionAcc',
+        'retentionAcc.bank_account_id = p.retention_account',
+      )
+      .leftJoin(
+        ClientSuppliersDetails,
+        'cs',
+        'cs.client_supplier_id = p.client_supplier_id',
+      )
+      .leftJoin(
+        ProjectDetails,
+        'project',
+        'project.project_id = p.project_id',
+      )
+      .leftJoin(
+        PaymentClaims,
+        'pc',
+        'pc.payment_claim_id = p.payment_claim_id',
+      )
+      .leftJoin(
+        ContractDetails,
+        'contract',
+        'contract.contract_id = pc.contract_id',
+      )
+      .where('p.company_id = :company_id', { company_id })
+      .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
       })
-      .andWhere('subpayment.sub_payment_type IN (:...types)', {
-        types: PaymentsToDoTypes,
-      })
-      .andWhere('subpayment.status = :status', { status: 'Unmatched' })
-      .andWhere('subpayment.amount < 0')
-      .andWhere(
-        `(subpayment.is_paid_confirmed = false
-          OR subpayment.is_received_confirmed = false
-          OR subpayment.is_retention_confirmed = false
-          OR (
-            subpayment.is_paid_confirmed IS NULL
-            AND subpayment.is_received_confirmed IS NULL
-            AND subpayment.is_retention_confirmed IS NULL
-          ))`,
-      )
       .select([
-        'subpayment.sub_payment_id AS sub_payment_id',
-        'payments.payment_id AS payment_id',
-        'payments.payment_type AS payment_type',
-        'subpayment.sub_payment_type AS sub_payment_type',
-        'subpayment.amount AS amount',
+        'sp.sub_payment_id AS sub_payment_id',
+        'p.payment_id AS payment_id',
+        'p.payment_type AS payment_type',
+        'sp.sub_payment_type AS sub_payment_type',
+        'sp.amount AS amount',
         'pc.due_date AS due_date',
         'project.project_name AS project_name',
         'contract.contract_name AS contract_name',
         `CASE
-          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_name
-          WHEN payments.payment_type IN ('Overpayment to supplier','Underpayment to supplier') THEN cs.client_supplier_name
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_name
+          WHEN p.payment_type IN ('Overpayment to supplier','Underpayment to supplier') THEN cs.client_supplier_name
           ELSE toAccount.account_name
         END AS recipient_name`,
         `CASE
-          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_number
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_number
           ELSE toAccount.account_number
         END AS recipient_account_number`,
         `CASE
-          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.bsb_number
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.bsb_number
           ELSE toAccount.bsb_number
         END AS recipient_bsb`,
       ])
