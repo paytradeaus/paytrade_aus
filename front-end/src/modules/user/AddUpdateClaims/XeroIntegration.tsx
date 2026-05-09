@@ -280,7 +280,7 @@ export default function XeroIntegration({
     journals.length > 0 && journals[0]?.status === "FAILED" ? journals[0] : null;
 
   return (
-    <div className="pt_expandtable pt_payment">
+    <div className="pt_expandtable">
       <details>
         <summary>Xero Integration</summary>
         <div style={{ padding: "12px 16px" }}>
@@ -374,12 +374,14 @@ export default function XeroIntegration({
                     target="_blank"
                     rel="noopener noreferrer"
                     role="button"
+                    className="secondary"
                   >
                     Open in Xero
                   </a>
                 )}
                 <button
                   type="button"
+                  className="secondary"
                   onClick={handleDownload}
                   disabled={downloading}
                   title={
@@ -405,8 +407,8 @@ export default function XeroIntegration({
 function renderSyncHistory(rows: SyncLogRow[]) {
   return (
     <div>
-      <h4 style={{ color: "var(--wind)" }}>Sync history</h4>
-      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}>
+      <h4>Sync history</h4>
+      <div style={{ fontSize: 12, marginBottom: 8 }}>
         Recent Xero sync activity for this claim and its payments
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
@@ -487,10 +489,11 @@ function renderRetentionJournals(
           justifyContent: "space-between",
         }}
       >
-        <h4 style={{ color: "var(--wind)" }}>Retention GST gross-up journals</h4>
+        <h4>Retention GST gross-up journals</h4>
         {latestFailed && (
           <button
             type="button"
+            className="secondary"
             onClick={onRetry}
             disabled={retrying}
             title="Re-attempt posting the gross-up Manual Journal in Xero"
@@ -499,7 +502,7 @@ function renderRetentionJournals(
           </button>
         )}
       </div>
-      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}>
+      <div style={{ fontSize: 12, marginBottom: 8 }}>
         PayTrade posts a balanced 2-line Manual Journal in Xero for the GST
         portion of retention so your books reconcile to the gross retention
         figure.
@@ -576,7 +579,7 @@ function renderRetentionJournals(
         </div>
       </div>
       {journals.some((j) => j.status === "FAILED" && j.error_text) && (
-        <div style={{ marginTop: 8, fontSize: 12, color: "var(--wind)" }}>
+        <div style={{ marginTop: 8, fontSize: 12 }}>
           {journals
             .filter((j) => j.status === "FAILED" && j.error_text)
             .map((j) => (

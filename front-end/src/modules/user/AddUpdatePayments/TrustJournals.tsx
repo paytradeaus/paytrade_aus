@@ -96,9 +96,9 @@ export default function TrustJournals({
 
   return (
     <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-      <h4 style={{ color: "var(--wind)" }}>Trust journals</h4>
+      <h4>Trust journals</h4>
       <div
-        style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}
+        style={{ fontSize: 12, marginBottom: 8 }}
       >
         Trust account journal entries PayTrade has posted for this claim and
         any payments under it.
