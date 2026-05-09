@@ -13,7 +13,13 @@ import {
   xeroSynListRenderData,
 } from "../integration.constant";
 import CustomButton from "@/components/CustomButton/CustomButton";
-import { buttonType, InputType, VIEW } from "@/shared/constant/general";
+import {
+  buttonType,
+  filterByDurationDates,
+  InputType,
+  VIEW,
+} from "@/shared/constant/general";
+import { isValid } from "date-fns";
 import {
   autoMappingBankAccounts,
   autoMappingContact,
@@ -40,22 +46,11 @@ import { formatDate, stripHtml } from "@/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { showErrorToast } from "@/components/Toaster";
 
-// Task #95 — shared style constants for the Sync Log toolbar so every input,
-// select and pill button sits at the same 28px height as `.smallbutton`
-// (used by `CustomButton CONTRAST_SMALL`). Without this the bespoke
-// "Filter by claim id…" input towered over the surrounding buttons and the
-// row looked nothing like the Journals / Variations filter bars.
-const syncLogFilterControl: React.CSSProperties = {
-  height: "28px",
-  lineHeight: "26px",
-  padding: "0 8px",
-  fontSize: "12px",
-  border: "1px solid #ccc",
-  borderRadius: "4px",
-  boxSizing: "border-box",
-  backgroundColor: "#fff",
-};
-
+// Task #95 — pill style retained for the auto-recovered toggle and the
+// "Filtered: claim #N" badge. All other Sync Log toolbar controls now use
+// the system FormikControl SELECT / DATE_PICKER components (matching the
+// Account Ledger / Journals filter bars exactly), so the bespoke
+// `syncLogFilterControl` style was removed.
 const syncLogPillStyle = (active: boolean): React.CSSProperties => ({
   height: "28px",
   lineHeight: "26px",
@@ -107,61 +102,20 @@ export default function XeroDashboard() {
   const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
   const [claimFilterInput, setClaimFilterInput] = useState<string>("");
   const [claimFilterId, setClaimFilterId] = useState<number | null>(null);
-  // Task #85 — toolbar filters for the standalone Sync Logs dashboard.
-  // start/end use plain YYYY-MM-DD strings from <input type="date">; the
-  // server applies them via date_filter='Custom' in the existing handler.
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  // Task #87 — quick date presets (Today / Last 7 days / This month / Last
-  // month). Mutually exclusive with the manual start/end inputs: picking a
-  // preset clears the manual range, and vice-versa, so the two never
-  // silently disagree about which window the server is filtering.
-  const DATE_PRESETS = [
-    "Today",
-    "Last 7 days",
-    "This Month",
-    "Last Month",
-  ] as const;
-  type DatePreset = (typeof DATE_PRESETS)[number];
-  const [datePreset, setDatePreset] = useState<DatePreset | "">("");
-  // Task #95 — track whether the user has explicitly chosen "Custom" from
-  // the date dropdown so the from/to inputs stay visible even before any
-  // date has been entered (mirrors the trust accounting Activity Range
-  // pattern in DepositList / JournalList).
-  const [customDateOpen, setCustomDateOpen] = useState<boolean>(false);
+  // Task #95 — Sync Log date filter mirrors the Account Ledger / Journals
+  // pattern: a single `filterByDurationDates` SELECT (All dates / Custom /
+  // Last month / This month) plus an `isCustomDate` flag that reveals two
+  // FormikControl DATE_PICKER inputs on a row underneath when "Custom" is
+  // chosen. start/end are stored as `Date | null` to match the trust
+  // accounting controls.
+  const [selectedDateRange, setSelectedDateRange] =
+    useState<string>("All dates");
+  const [isCustomDate, setIsCustomDate] = useState<boolean>(false);
+  const [activityStartDate, setActivityStartDate] = useState<Date | null>(null);
+  const [activityEndDate, setActivityEndDate] = useState<Date | null>(null);
   const [syncTypeFilter, setSyncTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  // Compute YYYY-MM-DD range (in browser-local time, matching the manual
-  // date pickers) for the selected preset. Returned dates are inclusive.
-  const computePresetRange = (
-    preset: DatePreset,
-  ): { start: string; end: string } => {
-    const fmt = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
-    const today = new Date();
-    if (preset === "Today") {
-      return { start: fmt(today), end: fmt(today) };
-    }
-    if (preset === "Last 7 days") {
-      const start = new Date(today);
-      start.setDate(start.getDate() - 6);
-      return { start: fmt(start), end: fmt(today) };
-    }
-    if (preset === "This Month") {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    // Last Month
-    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const end = new Date(today.getFullYear(), today.getMonth(), 0);
-    return { start: fmt(start), end: fmt(end) };
-  };
   // Sync types come from xero_log_templates.sync_type (see seed file).
   const SYNC_TYPE_OPTIONS = [
     "Invoices",
@@ -535,9 +489,10 @@ export default function XeroDashboard() {
     sortValues,
     recoveredOnly,
     claimFilterId,
-    startDate,
-    endDate,
-    datePreset,
+    selectedDateRange,
+    isCustomDate,
+    activityStartDate,
+    activityEndDate,
     syncTypeFilter,
     statusFilter,
   ]);
@@ -650,30 +605,23 @@ export default function XeroDashboard() {
       setTableLoader(false);
       return;
     }
-    // Task #85 — only send the Custom date_filter when the user actually
-    // picked dates; otherwise leave it null so the existing default
-    // (no date constraint) still applies.
-    // Task #87 — a quick preset takes precedence: for the two presets the
-    // backend already understands ("This Month" / "Last Month") we forward
-    // the date_filter directly so the server applies its own timezone-aware
-    // boundaries; for "Today" / "Last 7 days" we send a computed Custom
-    // range (browser-local, matching the manual date pickers).
+    // Task #95 — date filter mirrors the Account Ledger pattern. The
+    // server already understands "This Month" / "Last Month" / "Custom",
+    // so we forward `selectedDateRange` directly. For Custom we also
+    // send the picked start/end dates as YYYY-MM-DD.
     let dateFilter: string | null = null;
     let startDateToSend: string | null = null;
     let endDateToSend: string | null = null;
-    if (datePreset) {
-      if (datePreset === "This Month" || datePreset === "Last Month") {
-        dateFilter = datePreset;
-      } else {
-        const range = computePresetRange(datePreset);
-        dateFilter = "Custom";
-        startDateToSend = range.start;
-        endDateToSend = range.end;
-      }
-    } else if (startDate && endDate) {
+    if (isCustomDate && activityStartDate && activityEndDate) {
       dateFilter = "Custom";
-      startDateToSend = startDate;
-      endDateToSend = endDate;
+      startDateToSend = format(new Date(activityStartDate), "yyyy-MM-dd");
+      endDateToSend = format(new Date(activityEndDate), "yyyy-MM-dd");
+    } else if (
+      selectedDateRange &&
+      selectedDateRange !== "All dates" &&
+      selectedDateRange !== "Custom"
+    ) {
+      dateFilter = selectedDateRange;
     }
     const logs = await xeroSyncLogs({
       getXeroSyncLogsInput: {
@@ -1184,19 +1132,20 @@ export default function XeroDashboard() {
                   </button>
                 </div>
               </div>
-              {/* Task #95 — filter row uses the system's standard
-                  `pt_filtergroup` wrapper. All controls share
-                  `syncLogFilterControl` (28px tall, matching `.smallbutton`)
-                  so the claim filter input no longer towers over the
-                  surrounding buttons. */}
+              {/* Task #95 — Action row: refresh, manual sync, claim-id
+                  filter and clear-filters live above the dropdown row so
+                  the buttons aren't competing with the SELECT controls
+                  for vertical space. The dropdowns themselves use
+                  `pt_filtergroup` / `pt_filteroptions` (the system filter
+                  bar) and the FormikControl SELECT / DATE_PICKER inputs
+                  — identical to the Account Ledger / Journals pages. */}
               <div
-                className="pt_filtergroup"
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
                   gap: "8px",
-                  margin: "10px 0",
+                  margin: "8px 0 4px 0",
                 }}
               >
                 <CustomButton
@@ -1217,57 +1166,57 @@ export default function XeroDashboard() {
                   onClick={() => setManualSyncOpen(true)}
                   styles={{ margin: 0 }}
                 />
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
-                >
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Filter by claim id…"
-                    value={claimFilterInput}
-                    onChange={(e) =>
-                      setClaimFilterInput(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const n = parseInt(claimFilterInput, 10);
-                        if (!Number.isFinite(n) || n <= 0) {
-                          showErrorToast("Enter a numeric claim id");
-                          return;
-                        }
-                        setCurrentPage(1);
-                        setClaimFilterId(n);
-                      }
-                    }}
-                    style={{
-                      ...syncLogFilterControl,
-                      width: "150px",
-                    }}
-                    title="Show only sync log entries for this claim and its payments"
-                  />
-                  <CustomButton
-                    buttonName={claimFilterId != null ? "Update" : "Apply"}
-                    iconClassName="fa-light fa-filter"
-                    buttonType={buttonType.CONTRAST_SMALL}
-                    actionType="button"
-                    onClick={() => {
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Filter by claim id…"
+                  value={claimFilterInput}
+                  onChange={(e) =>
+                    setClaimFilterInput(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
                       const n = parseInt(claimFilterInput, 10);
                       if (!Number.isFinite(n) || n <= 0) {
                         showErrorToast("Enter a numeric claim id");
                         return;
                       }
                       setCurrentPage(1);
-                      setRecoveredOnly(false);
                       setClaimFilterId(n);
-                    }}
-                    styles={{ margin: 0 }}
-                    disabled={!claimFilterInput.trim()}
-                  />
-                  {claimFilterId != null && (
+                    }
+                  }}
+                  style={{
+                    height: "28px",
+                    lineHeight: "26px",
+                    padding: "0 8px",
+                    fontSize: "12px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    backgroundColor: "#fff",
+                    width: "150px",
+                  }}
+                  title="Show only sync log entries for this claim and its payments"
+                />
+                <CustomButton
+                  buttonName={claimFilterId != null ? "Update" : "Apply"}
+                  iconClassName="fa-light fa-filter"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() => {
+                    const n = parseInt(claimFilterInput, 10);
+                    if (!Number.isFinite(n) || n <= 0) {
+                      showErrorToast("Enter a numeric claim id");
+                      return;
+                    }
+                    setCurrentPage(1);
+                    setRecoveredOnly(false);
+                    setClaimFilterId(n);
+                  }}
+                  styles={{ margin: 0 }}
+                  disabled={!claimFilterInput.trim()}
+                />
+                {claimFilterId != null && (
+                  <>
                     <CustomButton
                       buttonName="Clear"
                       iconClassName="fa-light fa-close"
@@ -1280,178 +1229,180 @@ export default function XeroDashboard() {
                       }}
                       styles={{ margin: 0 }}
                     />
-                  )}
-                </div>
-                {claimFilterId != null && (
-                  <span
-                    style={{
-                      ...syncLogPillStyle(true),
-                      cursor: "default",
-                    }}
-                    title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
-                  >
-                    Filtered: claim #{claimFilterId}
-                  </span>
+                    <span
+                      style={{ ...syncLogPillStyle(true), cursor: "default" }}
+                      title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
+                    >
+                      Filtered: claim #{claimFilterId}
+                    </span>
+                  </>
                 )}
-                {/* Task #85 — date range + sync type + status filters.
-                    Disabled while a claim-id filter is active to mirror
-                    the existing 'auto-recovered only' toggle behaviour
-                    (the claim view is a separate server endpoint that
-                    doesn't honour these inputs). */}
+                {(selectedDateRange !== "All dates" ||
+                  isCustomDate ||
+                  syncTypeFilter ||
+                  statusFilter) && (
+                  <CustomButton
+                    buttonName="Clear filters"
+                    iconClassName="fa-light fa-close"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    onClick={() => {
+                      setSelectedDateRange("All dates");
+                      setIsCustomDate(false);
+                      setActivityStartDate(null);
+                      setActivityEndDate(null);
+                      setSyncTypeFilter("");
+                      setStatusFilter("");
+                      setCurrentPage(1);
+                    }}
+                    styles={{ margin: 0, marginLeft: "auto" }}
+                  />
+                )}
+              </div>
+              {/* Task #95 — Standard system filter bar (mirrors
+                  TrustAccounting/LedgerList exactly): pt_filtergroup
+                  wrapper containing pt_filteroptions with FormikControl
+                  SELECT components for date range, sync type and
+                  status. Disabled while a claim-id filter is active to
+                  mirror the existing 'auto-recovered only' behaviour. */}
+              <div className="pt_filtergroup">
                 <div
+                  className="pt_filteroptions"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    flexWrap: "wrap",
+                    opacity: claimFilterId != null ? 0.5 : 1,
+                    pointerEvents: claimFilterId != null ? "none" : "auto",
                   }}
                 >
-                  {/* Task #95 — single "All dates" dropdown that includes the
-                      preset windows AND a Custom option, mirroring the trust
-                      accounting Activity Range control. The from/to inputs
-                      below only render when Custom is selected. */}
-                  <select
-                    value={
-                      datePreset ||
-                      (customDateOpen || startDate || endDate ? "Custom" : "")
-                    }
-                    onChange={(e) => {
-                      const v = e.target.value;
+                  <FormikControl
+                    placeholder="All dates"
+                    name="syncLogDateRange"
+                    options={filterByDurationDates}
+                    onChange={(value: any) => {
                       setCurrentPage(1);
-                      if (v === "") {
-                        setDatePreset("");
-                        setStartDate("");
-                        setEndDate("");
-                        setCustomDateOpen(false);
-                      } else if (v === "Custom") {
-                        setDatePreset("");
-                        setCustomDateOpen(true);
+                      if (value === "Custom") {
+                        setIsCustomDate(true);
                       } else {
-                        setDatePreset(v as DatePreset);
-                        setStartDate("");
-                        setEndDate("");
-                        setCustomDateOpen(false);
+                        setIsCustomDate(false);
+                        setActivityStartDate(null);
+                        setActivityEndDate(null);
                       }
+                      setSelectedDateRange(value);
                     }}
-                    disabled={claimFilterId != null}
-                    title="Filter by date range"
-                    style={{
-                      ...syncLogFilterControl,
-                      paddingRight: "24px",
-                      opacity: claimFilterId != null ? 0.5 : 1,
+                    control={InputType.SELECT}
+                    value={selectedDateRange}
+                    renderKey="label"
+                    valueKey="value"
+                  />
+                  <FormikControl
+                    placeholder="All sync types"
+                    name="syncLogType"
+                    options={[
+                      { label: "All sync types", value: "" },
+                      ...SYNC_TYPE_OPTIONS.map((t) => ({
+                        label: t,
+                        value: t,
+                      })),
+                    ]}
+                    onChange={(value: any) => {
+                      setCurrentPage(1);
+                      setSyncTypeFilter(value || "");
                     }}
-                  >
-                    <option value="">All dates</option>
-                    {DATE_PRESETS.map((preset) => (
-                      <option key={preset} value={preset}>
-                        {preset}
-                      </option>
-                    ))}
-                    <option value="Custom">Custom</option>
-                  </select>
-                  {(customDateOpen || startDate || endDate) && !datePreset && (
-                    <>
-                      <input
-                        type="date"
-                        value={startDate}
-                        max={endDate || undefined}
-                        onChange={(e) => {
-                          setCurrentPage(1);
-                          setStartDate(e.target.value);
-                        }}
-                        disabled={claimFilterId != null}
-                        title="Start date"
-                        style={{
-                          ...syncLogFilterControl,
-                          opacity: claimFilterId != null ? 0.5 : 1,
-                        }}
-                      />
-                      <span style={{ fontSize: "11px", color: "#666" }}>
-                        to
-                      </span>
-                      <input
-                        type="date"
-                        value={endDate}
-                        min={startDate || undefined}
-                        onChange={(e) => {
-                          setCurrentPage(1);
-                          setEndDate(e.target.value);
-                        }}
-                        disabled={claimFilterId != null}
-                        title="End date"
-                        style={{
-                          ...syncLogFilterControl,
-                          opacity: claimFilterId != null ? 0.5 : 1,
-                        }}
-                      />
-                    </>
-                  )}
-                  <select
+                    control={InputType.SELECT}
                     value={syncTypeFilter}
-                    onChange={(e) => {
+                    renderKey="label"
+                    valueKey="value"
+                  />
+                  <FormikControl
+                    placeholder="All statuses"
+                    name="syncLogStatus"
+                    options={[
+                      { label: "All statuses", value: "" },
+                      ...STATUS_OPTIONS.map((s) => ({
+                        label: s,
+                        value: s,
+                      })),
+                    ]}
+                    onChange={(value: any) => {
                       setCurrentPage(1);
-                      setSyncTypeFilter(e.target.value);
+                      setStatusFilter(value || "");
                     }}
-                    disabled={claimFilterId != null}
-                    title="Filter by sync type"
-                    style={{
-                      ...syncLogFilterControl,
-                      paddingRight: "24px",
-                      opacity: claimFilterId != null ? 0.5 : 1,
-                    }}
-                  >
-                    <option value="">All sync types</option>
-                    {SYNC_TYPE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <select
+                    control={InputType.SELECT}
                     value={statusFilter}
-                    onChange={(e) => {
-                      setCurrentPage(1);
-                      setStatusFilter(e.target.value);
-                    }}
-                    disabled={claimFilterId != null}
-                    title="Filter by status"
-                    style={{
-                      ...syncLogFilterControl,
-                      paddingRight: "24px",
-                      opacity: claimFilterId != null ? 0.5 : 1,
-                    }}
-                  >
-                    <option value="">All statuses</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  {(startDate ||
-                    endDate ||
-                    datePreset ||
-                    syncTypeFilter ||
-                    statusFilter) && (
-                    <CustomButton
-                      buttonName="Clear filters"
-                      iconClassName="fa-light fa-close"
-                      buttonType={buttonType.CONTRAST_SMALL}
-                      actionType="button"
-                      onClick={() => {
-                        setStartDate("");
-                        setEndDate("");
-                        setDatePreset("");
-                        setCustomDateOpen(false);
-                        setSyncTypeFilter("");
-                        setStatusFilter("");
-                        setCurrentPage(1);
-                      }}
-                      styles={{ margin: 0 }}
-                    />
-                  )}
+                    renderKey="label"
+                    valueKey="value"
+                  />
                 </div>
               </div>
+              {isCustomDate && (
+                <div className="grid">
+                  <div>
+                    <FormikControl
+                      label="From date"
+                      name="syncLogFromDate"
+                      control={InputType.DATE_PICKER}
+                      type="date"
+                      value={
+                        activityStartDate &&
+                        isValid(new Date(activityStartDate))
+                          ? format(new Date(activityStartDate), "yyyy-MM-dd")
+                          : ""
+                      }
+                      onChange={(selectedDate: string) => {
+                        setCurrentPage(1);
+                        if (!selectedDate) {
+                          setActivityStartDate(null);
+                          return;
+                        }
+                        const fromDate = new Date(
+                          new Date(selectedDate).setHours(0, 0, 0, 0),
+                        );
+                        if (
+                          activityEndDate &&
+                          fromDate > new Date(activityEndDate)
+                        ) {
+                          setActivityStartDate(fromDate);
+                          setActivityEndDate(fromDate);
+                        } else {
+                          setActivityStartDate(fromDate);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <FormikControl
+                      label="To date"
+                      name="syncLogToDate"
+                      type="date"
+                      control={InputType.DATE_PICKER}
+                      value={
+                        activityEndDate && isValid(new Date(activityEndDate))
+                          ? format(new Date(activityEndDate), "yyyy-MM-dd")
+                          : ""
+                      }
+                      onChange={(selectedDate: string) => {
+                        setCurrentPage(1);
+                        if (!selectedDate) {
+                          setActivityEndDate(null);
+                          return;
+                        }
+                        const toDate = new Date(selectedDate);
+                        if (
+                          activityStartDate &&
+                          toDate < new Date(activityStartDate)
+                        ) {
+                          return;
+                        }
+                        setActivityEndDate(toDate);
+                      }}
+                      minDate={
+                        activityStartDate
+                          ? format(new Date(activityStartDate), "yyyy-MM-dd")
+                          : ""
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <DynamicTable
                 headers={xeroSyncListHeaders}
                 gridData={syncLogData?.tableData}
