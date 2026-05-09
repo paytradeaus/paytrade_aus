@@ -7183,7 +7183,19 @@ export class PaymentsService {
         'contract',
         'contract.contract_id = pc.contract_id',
       )
-      .where('p.company_id = :company_id', { company_id })
+      // Mirror getAbaWizardSenderAccounts EXACTLY: scope by the sender bank
+      // account's company, NOT by p.company_id. Some payments have a NULL or
+      // mismatched p.company_id (e.g. legacy/seeded data), and filtering by
+      // p.company_id silently drops rows that Step 1 (which scopes via
+      // ba.company_id) still counts — producing the "Step 1 says 2, Step 2
+      // says 0" mismatch.
+      .innerJoin(
+        BankAccounts,
+        'senderBa',
+        'senderBa.bank_account_id = p.payment_from_account',
+      )
+      .where('senderBa.company_id = :company_id', { company_id })
+      .andWhere(`senderBa.status IN ('Active','Open','Draft')`)
       .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
       })
