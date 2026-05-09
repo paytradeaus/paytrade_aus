@@ -393,10 +393,10 @@ export class ListSubPaymentsInput {
   @Field({ nullable: true, description: 'Sorting order: ASC or DESC.' })
   sorting_order?: 'ASC' | 'DESC';
 
-  @Field(() => [Int], {
+  @Field(() => [Float], {
     nullable: true,
     description:
-      'Optional explicit list of sub_payment_id values to restrict results to (used by the per-account ABA wizard).',
+      'Optional explicit list of sub_payment_id values to restrict results to (used by the per-account ABA wizard). Float because sub_payment_id is a bigint exceeding Int32 max (~2.1B).',
   })
   sub_payment_ids?: number[];
 }
