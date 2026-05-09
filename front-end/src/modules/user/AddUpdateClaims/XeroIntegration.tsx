@@ -307,6 +307,7 @@ export default function XeroIntegration({
                 gridTemplateColumns: "180px 1fr",
                 rowGap: 8,
                 columnGap: 12,
+                color: "var(--wind)",
               }}
             >
               <div>
@@ -369,15 +370,19 @@ export default function XeroIntegration({
                 }}
               >
                 {meta.deep_link_url && (
-                  <a
-                    href={meta.deep_link_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    role="button"
+                  <button
+                    type="button"
                     className="secondary"
+                    onClick={() =>
+                      window.open(
+                        meta.deep_link_url,
+                        "_blank",
+                        "noopener,noreferrer",
+                      )
+                    }
                   >
                     Open in Xero
-                  </a>
+                  </button>
                 )}
                 <button
                   type="button"
@@ -406,7 +411,7 @@ export default function XeroIntegration({
 
 function renderSyncHistory(rows: SyncLogRow[]) {
   return (
-    <div>
+    <div style={{ marginTop: 24 }}>
       <h4>Sync history</h4>
       <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind-lighter)" }}>
         Recent Xero sync activity for this claim and its payments
