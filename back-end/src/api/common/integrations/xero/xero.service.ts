@@ -1242,6 +1242,21 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    // Task #85 — sync_type / sync_status dropdown filters from the Sync
+    // Logs dashboard toolbar. Both columns live on `xero_log_templates`,
+    // already joined as `template`.
+    if (getXeroSyncLogsInput.sync_type) {
+      queryBuilder.andWhere('template.sync_type = :sync_type_filter', {
+        sync_type_filter: getXeroSyncLogsInput.sync_type,
+      });
+    }
+    if (getXeroSyncLogsInput.sync_status) {
+      queryBuilder.andWhere(
+        'CAST(template.sync_status AS text) = :sync_status_filter',
+        { sync_status_filter: getXeroSyncLogsInput.sync_status },
+      );
+    }
+
     if (getXeroSyncLogsInput.date_filter && timezone) {
       let startDate, endDate;
       if (

@@ -132,6 +132,20 @@ export class GetXeroSyncLogsInput {
       'When true, return only auto-recovered sync logs (templates 493 / 495)',
   })
   recovered_only?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Optional template.sync_type filter (e.g. Invoices, Bills, Payments, Contacts).',
+  })
+  sync_type?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Optional template.sync_status filter (Succeeded / Warning / Failed).',
+  })
+  sync_status?: string;
 }
 
 @InputType({ description: 'Input to retrieve account codes for a company' })

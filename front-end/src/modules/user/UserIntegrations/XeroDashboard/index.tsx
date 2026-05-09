@@ -76,6 +76,35 @@ export default function XeroDashboard() {
   const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
   const [claimFilterInput, setClaimFilterInput] = useState<string>("");
   const [claimFilterId, setClaimFilterId] = useState<number | null>(null);
+  // Task #85 — toolbar filters for the standalone Sync Logs dashboard.
+  // start/end use plain YYYY-MM-DD strings from <input type="date">; the
+  // server applies them via date_filter='Custom' in the existing handler.
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [syncTypeFilter, setSyncTypeFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  // Sync types come from xero_log_templates.sync_type (see seed file).
+  const SYNC_TYPE_OPTIONS = [
+    "Invoices",
+    "Bills",
+    "Payments",
+    "Contacts",
+    "Bank accounts",
+    "Projects",
+    "Contracts",
+    "Retention journals",
+    "Manual sync",
+    "Invoice schedulers",
+    "Invoice webhook",
+    "Contact schedulers",
+    "Contact webhook",
+    "Project schedulers",
+    "Contract schedulers",
+    "Account schedulers",
+    "Variable bill code",
+    "Claims",
+  ];
+  const STATUS_OPTIONS = ["Succeeded", "Warning", "Failed"];
   const [syncLogData, setSyncLogData] = useState<any>({
     succeeded: 0,
     warning: 0,
@@ -421,7 +450,17 @@ export default function XeroDashboard() {
 
   useEffect(() => {
     fetchXeroSyncLogs();
-  }, [currentPage, entriesPerPage, sortValues, recoveredOnly, claimFilterId]);
+  }, [
+    currentPage,
+    entriesPerPage,
+    sortValues,
+    recoveredOnly,
+    claimFilterId,
+    startDate,
+    endDate,
+    syncTypeFilter,
+    statusFilter,
+  ]);
 
   const RECOVERED_TEMPLATE_IDS = [493, 495];
   const RECOVERED_ERROR_CODES = [
@@ -531,17 +570,23 @@ export default function XeroDashboard() {
       setTableLoader(false);
       return;
     }
+    // Task #85 — only send the Custom date_filter when the user actually
+    // picked dates; otherwise leave it null so the existing default
+    // (no date constraint) still applies.
+    const hasDateRange = !!(startDate && endDate);
     const logs = await xeroSyncLogs({
       getXeroSyncLogsInput: {
         id: localStorage.getItem("xeroIntegrationId"),
-        date_filter: null,
-        end_date: null,
+        date_filter: hasDateRange ? "Custom" : null,
+        start_date: hasDateRange ? startDate : null,
+        end_date: hasDateRange ? endDate : null,
         page_number: currentPage,
         page_size: entriesPerPage,
         sorting_order: sortValues?.direction || "",
         sorting_field: sortValues?.sortKey || "",
-        start_date: null,
         recovered_only: recoveredOnly,
+        sync_type: syncTypeFilter || null,
+        sync_status: statusFilter || null,
       },
     });
     setSyncLogData({
@@ -1050,6 +1095,123 @@ export default function XeroDashboard() {
                     Filtered: claim #{claimFilterId}
                   </span>
                 )}
+                {/* Task #85 — date range + sync type + status filters.
+                    Disabled while a claim-id filter is active to mirror
+                    the existing 'auto-recovered only' toggle behaviour
+                    (the claim view is a separate server endpoint that
+                    doesn't honour these inputs). */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    margin: "0 10px 10px 0",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <input
+                    type="date"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setStartDate(e.target.value);
+                    }}
+                    disabled={claimFilterId != null}
+                    title="Start date"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  />
+                  <span style={{ fontSize: "11px", color: "#666" }}>to</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setEndDate(e.target.value);
+                    }}
+                    disabled={claimFilterId != null}
+                    title="End date"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  />
+                  <select
+                    value={syncTypeFilter}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setSyncTypeFilter(e.target.value);
+                    }}
+                    disabled={claimFilterId != null}
+                    title="Filter by sync type"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  >
+                    <option value="">All sync types</option>
+                    {SYNC_TYPE_OPTIONS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setCurrentPage(1);
+                      setStatusFilter(e.target.value);
+                    }}
+                    disabled={claimFilterId != null}
+                    title="Filter by status"
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  >
+                    <option value="">All statuses</option>
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {(startDate ||
+                    endDate ||
+                    syncTypeFilter ||
+                    statusFilter) && (
+                    <CustomButton
+                      buttonName="Clear filters"
+                      iconClassName="fa-light fa-close"
+                      buttonType={buttonType.CONTRAST_SMALL}
+                      actionType="button"
+                      onClick={() => {
+                        setStartDate("");
+                        setEndDate("");
+                        setSyncTypeFilter("");
+                        setStatusFilter("");
+                        setCurrentPage(1);
+                      }}
+                      styles={{ margin: 0 }}
+                    />
+                  )}
+                </div>
                 <div
                   style={{
                     marginRight: "10px",
