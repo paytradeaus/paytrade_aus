@@ -406,18 +406,50 @@ export default function XeroIntegration({
 
 function renderSyncHistory(rows: SyncLogRow[]) {
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Sync history</div>
-      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+    <div
+      style={{
+        marginTop: 16,
+        borderTop: "1px solid rgba(255,255,255,0.15)",
+        paddingTop: 12,
+        color: "var(--wind)",
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          marginBottom: 8,
+          color: "var(--wind)",
+        }}
+      >
+        Sync history
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--wind-lighter)",
+          marginBottom: 8,
+        }}
+      >
         Recent Xero sync activity for this claim and its payments
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
       <div style={{ overflowX: "auto" }}>
         <table
-          style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 13,
+            color: "var(--wind)",
+          }}
         >
           <thead>
-            <tr style={{ background: "#f7f7f7", textAlign: "left" }}>
+            <tr
+              style={{
+                background: "rgba(0,0,0,0.2)",
+                textAlign: "left",
+                color: "var(--wind)",
+              }}
+            >
               <th style={{ padding: "6px 8px" }}>When</th>
               <th style={{ padding: "6px 8px" }}>Type</th>
               <th style={{ padding: "6px 8px" }}>Status</th>
@@ -435,7 +467,10 @@ function renderSyncHistory(rows: SyncLogRow[]) {
               const isXeroToPt =
                 (r.process || "").split(">")[0]?.trim() === "Xero";
               return (
-                <tr key={r.id} style={{ borderTop: "1px solid #eee" }}>
+                <tr
+                  key={r.id}
+                  style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+                >
                   <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
                     {r.created_on
                       ? new Date(r.created_on).toLocaleString()
@@ -535,7 +570,14 @@ function renderRetentionJournals(
   onRetry: () => void,
 ) {
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+    <div
+      style={{
+        marginTop: 16,
+        borderTop: "1px solid rgba(255,255,255,0.15)",
+        paddingTop: 12,
+        color: "var(--wind)",
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -544,7 +586,9 @@ function renderRetentionJournals(
           marginBottom: 8,
         }}
       >
-        <div style={{ fontWeight: 600 }}>Retention GST gross-up journals</div>
+        <div style={{ fontWeight: 600, color: "var(--wind)" }}>
+          Retention GST gross-up journals
+        </div>
         {latestFailed && (
           <button
             type="button"
@@ -557,17 +601,34 @@ function renderRetentionJournals(
           </button>
         )}
       </div>
-      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--wind-lighter)",
+          marginBottom: 8,
+        }}
+      >
         PayTrade posts a balanced 2-line Manual Journal in Xero for the GST
         portion of retention so your books reconcile to the gross retention
         figure.
       </div>
       <div style={{ overflowX: "auto" }}>
         <table
-          style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 13,
+            color: "var(--wind)",
+          }}
         >
           <thead>
-            <tr style={{ background: "#f7f7f7", textAlign: "left" }}>
+            <tr
+              style={{
+                background: "rgba(0,0,0,0.2)",
+                textAlign: "left",
+                color: "var(--wind)",
+              }}
+            >
               <th style={{ padding: "6px 8px" }}>Type</th>
               <th style={{ padding: "6px 8px" }}>Status</th>
               <th style={{ padding: "6px 8px" }}>Journal</th>
@@ -585,7 +646,10 @@ function renderRetentionJournals(
           </thead>
           <tbody>
             {journals.map((j) => (
-              <tr key={j.id} style={{ borderTop: "1px solid #eee" }}>
+              <tr
+                key={j.id}
+                style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+              >
                 <td style={{ padding: "6px 8px" }}>
                   {j.kind === "gross_up_reversal"
                     ? "Reversal (release)"
@@ -677,7 +741,13 @@ function renderRetentionJournals(
         </table>
       </div>
       {journals.some((j) => j.status === "FAILED" && j.error_text) && (
-        <div style={{ marginTop: 8, color: "#a00", fontSize: 12 }}>
+        <div
+          style={{
+            marginTop: 8,
+            color: "#ff9b95",
+            fontSize: 12,
+          }}
+        >
           {journals
             .filter((j) => j.status === "FAILED" && j.error_text)
             .map((j) => (

@@ -20,6 +20,7 @@ import {
   GetAllAuditReportListResponse,
   GetAllBankAccountsForJournalsResponse,
   GetAllReconciliationReportListResponse,
+  GetClaimTrustJournalsResponse,
   GetFiltersForAdminResponse,
   GetTrustAccountingBalanceResponse,
   ReconciliationReportResponse,
@@ -1529,6 +1530,55 @@ export class JournalsResolver {
       return framedResponse(
         'ERROR',
         `Errored while checking existing report of a bank account with id: ${payload.bank_account_id} with message: ${error.message}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Query(() => GetClaimTrustJournalsResponse, {
+    name: 'getTrustJournalsForClaim',
+    description:
+      'Task #91 — returns PayTrade trust-ledger journal_entries rows tied to a single claim or any payments under it. Newest first, capped at 100 rows. Read-only.',
+  })
+  async getTrustJournalsForClaim(
+    @Context() context,
+    @Args('payment_claim_id', {
+      description: 'Paytrade payment_claim_id to scope trust journals to.',
+    })
+    payment_claim_id: number,
+  ) {
+    try {
+      // decodeJwtToken validates the request's `companyid` header against the
+      // JWT's companySpecificRoles, throwing if the caller is not authorised
+      // for that company. Once it returns, the header is trusted.
+      await this.jwtInternalService.decodeJwtToken(context);
+      const companyId = Number(context?.req?.headers?.companyid);
+      if (!companyId) {
+        return framedResponse('ERROR', 'Missing company context');
+      }
+      const data = await this.journalsService.getTrustJournalsForClaim(
+        payment_claim_id,
+        companyId,
+      );
+      return framedResponse(
+        'SUCCESS',
+        'Trust journals fetched',
+        data || [],
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while fetching trust journals for claim ${payment_claim_id}: ${error?.message || error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        error?.message ? error.message : String(error),
       );
     }
   }

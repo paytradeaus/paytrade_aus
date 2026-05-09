@@ -2235,6 +2235,44 @@ type ClaimSyncLogEntry {
   sync_type: String
 }
 
+"""
+Task #91 — single PayTrade trust-ledger journal row associated with a claim or one of its payments.
+"""
+type ClaimTrustJournalRow {
+  """Bank/trust account name."""
+  account_name: String
+
+  """
+  Whether this row was posted against the claim ("claim") or a payment ("payment") under the claim.
+  """
+  audit_kind: String
+
+  """Credit amount (string-decimal)."""
+  credit_amount: String
+
+  """Debit amount (string-decimal)."""
+  debit_amount: String
+
+  """Journal entry uuid."""
+  id: String!
+
+  """Journal date (ISO)."""
+  journal_date: String
+
+  """PayTrade journal number."""
+  journal_number: Float!
+
+  """
+  When audit_kind = "payment", the bigint payment_id this row was posted against.
+  """
+  payment_id_ref: Float
+
+  """
+  Human-friendly process label resolved from journal_type with dynamic placeholders substituted.
+  """
+  process_label: String
+}
+
 """Basic client/supplier details response."""
 type ClientSuppliersDetailsRes {
   """Optional identifier of the client/supplier."""
@@ -9756,6 +9794,20 @@ type GetClaimSyncLogsResponse {
   message: String!
 
   """Response status"""
+  status: String!
+}
+
+"""
+Task #91 — list of PayTrade trust-ledger journal rows tied to a claim and any payments under it.
+"""
+type GetClaimTrustJournalsResponse {
+  """Trust-ledger journal rows, newest first."""
+  data: [ClaimTrustJournalRow!]
+
+  """Human-readable response message."""
+  message: String!
+
+  """Operation status (SUCCESS / ERROR)."""
   status: String!
 }
 
@@ -18425,6 +18477,14 @@ type Query {
     """
     payload: GetTrustAccountingBalanceInput!
   ): GetTrustAccountingBalanceResponse!
+
+  """
+  Task #91 — returns PayTrade trust-ledger journal_entries rows tied to a single claim or any payments under it. Newest first, capped at 100 rows. Read-only.
+  """
+  getTrustJournalsForClaim(
+    """Paytrade payment_claim_id to scope trust journals to."""
+    payment_claim_id: Float!
+  ): GetClaimTrustJournalsResponse!
 
   """
   Retrieves all trust training records for a given company, returning files in base64 format.

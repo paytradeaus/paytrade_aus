@@ -4,6 +4,7 @@ import { usePaymentsContext } from "./PaymentContextProvider";
 import { EDIT, VIEW } from "@/shared/constant/general";
 import PaymentTransactions from "./PaymentsTransactions";
 import JournalEntries from "./JournalEntries";
+import TrustJournals from "./TrustJournals";
 
 export default function PaymentHistory() {
   const { screenMode, patchData }: any = usePaymentsContext();
@@ -14,6 +15,7 @@ export default function PaymentHistory() {
         <summary>History</summary>
         <PaymentTransactions />
         {(screenMode === VIEW || screenMode === EDIT) && <PaymentNotices />}
+        <TrustJournals paymentClaimId={claimId} />
         <JournalEntries paymentClaimId={claimId} />
       </details>
     </div>

@@ -11,6 +11,69 @@ import {
 import { GetFileRes } from '../../file-upload/response/get-file.response';
 
 @ObjectType({
+  description:
+    'Task #91 — single PayTrade trust-ledger journal row associated with a claim or one of its payments.',
+})
+export class ClaimTrustJournalRow {
+  @Field({ description: 'Journal entry uuid.' })
+  id: string;
+
+  @Field({ description: 'PayTrade journal number.' })
+  journal_number: number;
+
+  @Field({ nullable: true, description: 'Journal date (ISO).' })
+  journal_date: string;
+
+  @Field({ nullable: true, description: 'Bank/trust account name.' })
+  account_name: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Human-friendly process label resolved from journal_type with dynamic placeholders substituted.',
+  })
+  process_label: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Whether this row was posted against the claim ("claim") or a payment ("payment") under the claim.',
+  })
+  audit_kind: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'When audit_kind = "payment", the bigint payment_id this row was posted against.',
+  })
+  payment_id_ref: number;
+
+  @Field({ nullable: true, description: 'Debit amount (string-decimal).' })
+  debit_amount: string;
+
+  @Field({ nullable: true, description: 'Credit amount (string-decimal).' })
+  credit_amount: string;
+}
+
+@ObjectType({
+  description:
+    'Task #91 — list of PayTrade trust-ledger journal rows tied to a claim and any payments under it.',
+})
+export class GetClaimTrustJournalsResponse {
+  @Field({ description: 'Operation status (SUCCESS / ERROR).' })
+  status: string;
+
+  @Field({ description: 'Human-readable response message.' })
+  message: string;
+
+  @Field(() => [ClaimTrustJournalRow], {
+    nullable: true,
+    description: 'Trust-ledger journal rows, newest first.',
+  })
+  data?: ClaimTrustJournalRow[];
+}
+
+@ObjectType({
   description: 'Represents a date range filter used in ledger queries.',
 })
 export class FilterDates {

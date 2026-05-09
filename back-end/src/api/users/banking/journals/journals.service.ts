@@ -4,6 +4,7 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import {
   And,
   Between,
+  DataSource,
   LessThanOrEqual,
   MoreThanOrEqual,
   Repository,
@@ -72,6 +73,7 @@ export class JournalsService {
     @InjectRepository(FileAttachments)
     private readonly fileAttachments: Repository<FileAttachments>,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly dataSource: DataSource,
   ) {
     this.logger = new PaytradeLogger('JOURNALS_SERVICE');
   }
@@ -2677,5 +2679,106 @@ export class JournalsService {
       }
       resolve(result);
     });
+  }
+
+  /**
+   * Task #91 — Returns PayTrade trust-ledger journal_entries rows tied to a
+   * single claim. Mirrors the producer pattern in fetchLedgerJournalsByAccountId:
+   *   - claim-level rows: journal_type.process_type IN (3,22,41,44) and
+   *     journal_entries.audit_id = claim.payment_claim_id
+   *   - payment-level rows: journal_type.process_type NOT IN (3,22,41,44)
+   *     and journal_entries.audit_id IN (payment_details.payment_id under
+   *     this claim)
+   * Newest-first, capped at 100 rows. Read-only.
+   */
+  async getTrustJournalsForClaim(
+    payment_claim_id: number,
+    company_id: number,
+  ): Promise<any[]> {
+    if (!payment_claim_id || !company_id) return [];
+    // Pre-validate that the claim belongs to the caller's company before
+    // selecting any journal_entries — prevents cross-company data exposure
+    // when callers pass another company's payment_claim_id.
+    const claimOwner: { company_id: number }[] = await this.dataSource.query(
+      `SELECT company_id FROM payment_claims WHERE payment_claim_id = $1 LIMIT 1`,
+      [payment_claim_id],
+    );
+    if (
+      !claimOwner.length ||
+      Number(claimOwner[0].company_id) !== Number(company_id)
+    ) {
+      return [];
+    }
+    const rows: any[] = await this.dataSource.query(
+      `SELECT je.id::text                                AS id,
+              je.journal_number                          AS journal_number,
+              je.journal_date                            AS journal_date,
+              je.audit_id                                AS audit_id,
+              je.debit_amount                            AS debit_amount,
+              je.credit_amount                           AS credit_amount,
+              je.dynamic_values                          AS dynamic_values,
+              jt.process_type                            AS process_type,
+              jt.process_name                            AS process_name,
+              jt.process_description                     AS process_description,
+              ba.account_name                            AS account_name,
+              pd.payment_id                              AS payment_id_ref
+         FROM journal_entries je
+         INNER JOIN journal_type jt
+                 ON jt.process_id = je.journal_process_id
+         LEFT JOIN bank_accounts ba
+                ON ba.bank_account_id = je.bank_account_id
+         LEFT JOIN payment_details pd
+                ON jt.process_type NOT IN (3, 22, 41, 44)
+               AND pd.payment_id = je.audit_id
+               AND pd.payment_claim_id = $1
+        WHERE je.company_id = $2
+          AND (
+            (jt.process_type IN (3, 22, 41, 44) AND je.audit_id = $1)
+            OR (jt.process_type NOT IN (3, 22, 41, 44)
+                AND je.audit_id IN (
+                  SELECT payment_id FROM payment_details
+                   WHERE payment_claim_id = $1
+                ))
+          )
+        ORDER BY je.journal_date DESC,
+                 je.journal_number DESC,
+                 je.created_on DESC
+        LIMIT 100`,
+      [payment_claim_id, company_id],
+    );
+
+    const out: any[] = [];
+    for (const r of rows) {
+      const isClaim = [3, 22, 41, 44].includes(Number(r.process_type));
+      let label: string =
+        r.process_description || r.process_name || '';
+      if (label && r.dynamic_values && typeof r.dynamic_values === 'object') {
+        try {
+          label = await this.replaceVariables(label, r.dynamic_values);
+        } catch {
+          /* swallow — fall back to raw template */
+        }
+      }
+      label = (label || '').replace(/<[^>]*>/g, '').trim();
+      out.push({
+        id: r.id,
+        journal_number: Number(r.journal_number) || 0,
+        journal_date: r.journal_date
+          ? new Date(r.journal_date).toISOString()
+          : null,
+        account_name: r.account_name || null,
+        process_label: label || r.process_name || null,
+        audit_kind: isClaim ? 'claim' : 'payment',
+        payment_id_ref:
+          !isClaim && r.payment_id_ref != null
+            ? Number(r.payment_id_ref)
+            : null,
+        debit_amount:
+          r.debit_amount != null ? String(r.debit_amount) : null,
+        credit_amount:
+          r.credit_amount != null ? String(r.credit_amount) : null,
+      });
+    }
+    return out;
   }
 }

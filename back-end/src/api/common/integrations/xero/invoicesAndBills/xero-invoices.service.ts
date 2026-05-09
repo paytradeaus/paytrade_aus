@@ -5229,11 +5229,29 @@ export class XeroInvoicesService {
       );
       return [];
     }
-    const paymentRows: { id: string }[] = await this.dataSource.query(
-      `SELECT id FROM payment_details WHERE payment_claim_id = $1`,
+    const paymentRows: { id: string; payment_id: string | number }[] =
+      await this.dataSource.query(
+        `SELECT id, payment_id FROM payment_details WHERE payment_claim_id = $1`,
+        [claim.payment_claim_id],
+      );
+    const xibRows: { id: string }[] = await this.dataSource.query(
+      `SELECT id FROM xero_invoices_bills WHERE pt_claim_id = $1`,
       [claim.payment_claim_id],
     );
-    const refIds = [claim.id, ...paymentRows.map((p) => p.id)].filter(Boolean);
+    // Task #91 — widen the reference set so the initial claim → Xero
+    // invoice/bill creation row appears regardless of whether the producer
+    // wrote the claim uuid, the bigint payment_claim_id (cast to text), a
+    // payment_details uuid, a payment_details.payment_id bigint, or the
+    // xero_invoices_bills.id uuid.
+    const refIds = [
+      claim.id,
+      String(claim.payment_claim_id),
+      ...paymentRows.map((p) => p.id),
+      ...paymentRows
+        .map((p) => (p.payment_id != null ? String(p.payment_id) : null))
+        .filter((v): v is string => !!v),
+      ...xibRows.map((x) => x.id),
+    ].filter(Boolean);
     if (refIds.length === 0) return [];
     const rows: any[] = await this.dataSource.query(
       `SELECT l.id::text         AS id,

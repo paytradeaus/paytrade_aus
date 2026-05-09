@@ -18,6 +18,7 @@ import { getCookie } from "cookies-next";
 import { getNoticesListServices } from "./AddUpdateClaims.function";
 import { useRouter } from "next/navigation";
 import JournalEntries from "../AddUpdatePayments/JournalEntries";
+import TrustJournals from "../AddUpdatePayments/TrustJournals";
 
 export default function PaymentHistory() {
   const { paymentId, paymentsPatchData, claimData }: any =
@@ -265,6 +266,11 @@ export default function PaymentHistory() {
             </table>
           </div>
         </div>
+        <TrustJournals
+          paymentClaimId={
+            claimData?.payment_claim_id ?? paymentsPatchData?.payment_claim_id
+          }
+        />
         <JournalEntries
           paymentClaimId={
             claimData?.payment_claim_id ?? paymentsPatchData?.payment_claim_id
