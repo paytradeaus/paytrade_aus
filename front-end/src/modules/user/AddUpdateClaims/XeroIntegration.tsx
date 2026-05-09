@@ -413,8 +413,8 @@ function renderSyncHistory(rows: SyncLogRow[]) {
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
       <div className="table-wrapper">
-        <div className="pt_table pt_formtable">
-          <table className="dataTable compact stripe nowrap hover order-column">
+        <div className="pt_table pt_formtable paymentClaims">
+          <table className="dataTable compact stripe nowrap hover order-column payment-table-style TableFontSmall">
             <thead>
               <tr>
                 <th>When</th>
@@ -508,8 +508,8 @@ function renderRetentionJournals(
         figure.
       </div>
       <div className="table-wrapper">
-        <div className="pt_table pt_formtable">
-          <table className="dataTable compact stripe nowrap hover order-column">
+        <div className="pt_table pt_formtable paymentClaims">
+          <table className="dataTable compact stripe nowrap hover order-column payment-table-style TableFontSmall">
             <thead>
               <tr>
                 <th>Type</th>
