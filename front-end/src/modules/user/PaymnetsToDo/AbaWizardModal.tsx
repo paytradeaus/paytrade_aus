@@ -165,12 +165,6 @@ export default function AbaWizardModal({
     [accounts],
   );
 
-  const selectedAccountOption = useMemo(
-    () =>
-      accountOptions.find((o) => o.value === selectedAccountId) || null,
-    [accountOptions, selectedAccountId],
-  );
-
   const renderStep1 = () => (
     <div>
       <h4 className="text_center" style={{ marginBottom: 12 }}>
@@ -189,11 +183,26 @@ export default function AbaWizardModal({
             placeholder="Select a sending account"
             name="abaWizardSenderAccount"
             options={accountOptions}
-            onChange={(opt: any) =>
-              setSelectedAccountId(opt?.value ?? null)
-            }
+            // Shared <Select> is a native <select> and, with the default
+            // returnSelectedObject=false, passes the raw string value from
+            // e.target.value — NOT an option object. Coerce to a number
+            // (or null) so `selectedAccountId` actually gets set when the
+            // user picks an account; otherwise the Next button stays
+            // disabled because selectedAccountId remains null.
+            onChange={(val: any) => {
+              if (val == null || val === "") {
+                setSelectedAccountId(null);
+                return;
+              }
+              const id =
+                typeof val === "object" ? val?.value : Number(val);
+              setSelectedAccountId(
+                id != null && !Number.isNaN(id) ? Number(id) : null,
+              );
+            }}
             control={InputType.SELECT}
-            value={selectedAccountOption}
+            // Native <select> wants a primitive value, not an option object.
+            value={selectedAccountId ?? ""}
             renderKey="label"
             valueKey="value"
           />
