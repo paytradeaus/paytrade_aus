@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import PulseLoader from "react-spinners/PulseLoader";
 import BaseModal from "@/components/BaseModal";
 import FormikControl from "@/components/FormikControl";
 import { InputType } from "@/shared/constant/general";
@@ -437,22 +436,6 @@ export default function AbaWizardModal({
         Do you want to mark these payments as paid after generating the ABA
         file?
       </p>
-      {generating && (
-        <div
-          style={{
-            marginTop: 20,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <PulseLoader color="#1c2475" size={12} />
-          <p style={{ margin: 0, color: "#1c2475", fontWeight: 500 }}>
-            Generating ABA file, please wait…
-          </p>
-        </div>
-      )}
     </div>
   );
 
@@ -492,9 +475,8 @@ export default function AbaWizardModal({
     };
   } else {
     footer = {
-      firstName: generating ? "Generating…" : "No, just generate",
-      secondName: generating ? "Generating…" : "Yes, mark as paid",
-      hideFirst: false,
+      firstName: "No, just generate",
+      secondName: "Yes, mark as paid",
       disableSecond: generating,
       onFirst: async () => {
         if (generating || !selectedAccountId) return;
