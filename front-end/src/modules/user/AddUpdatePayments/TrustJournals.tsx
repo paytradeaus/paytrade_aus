@@ -95,7 +95,7 @@ export default function TrustJournals({
   const showingCapNote = rows.length >= cap;
 
   return (
-    <div>
+    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
       <h4 style={{ color: "var(--wind)" }}>Trust journals</h4>
       <div
         style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}
@@ -106,7 +106,7 @@ export default function TrustJournals({
           ? ` Showing the most recent ${cap} entries — older entries may exist on the account ledger.`
           : ""}
       </div>
-      <div className="table-wrapper">
+      <div className="table-wrapper" style={{ overflowX: "auto", maxWidth: "100%" }}>
         <div className="pt_table pt_formtable">
           <table className="dataTable compact stripe nowrap hover order-column">
             <thead>
