@@ -87,7 +87,7 @@ export class PaymentsResolver {
   ): Promise<void> {
     try {
       const paymentDetails =
-        await this.paymentsService.fetchPaymentDetails(payment_id);
+        await this.paymentsService.fetchPaymentDetails(Number(payment_id));
       if (!paymentDetails) return;
       if (
         !['Full', 'Part', 'Pay Less - Full', 'Pay Less - Part'].includes(
@@ -133,7 +133,7 @@ export class PaymentsResolver {
         ) {
           xeroPayload.bank_account_id = paymentDetails.payment_from_account;
           xeroPayload.amount = Math.abs(element.amount);
-          isPaymentChecked = element.is_paid_confirmed;
+          isPaymentChecked = Boolean(element.is_paid_confirmed);
         } else if (
           element.sub_payment_type === 'Retention Out' &&
           element.is_retention_confirmed !== null &&
@@ -143,7 +143,7 @@ export class PaymentsResolver {
           xeroPayload.bank_account_id = paymentDetails.payment_from_account;
           xeroPayload.retention_account = paymentDetails.retention_account;
           xeroPayload.retention_amount = Math.abs(element.amount);
-          isRetentionChecked = element.is_retention_confirmed;
+          isRetentionChecked = Boolean(element.is_retention_confirmed);
         } else if (
           element.sub_payment_type === 'Payment' &&
           element.is_received_confirmed !== null &&
@@ -152,7 +152,7 @@ export class PaymentsResolver {
         ) {
           xeroPayload.bank_account_id = paymentDetails.payment_to_account;
           xeroPayload.amount = Math.abs(element.amount);
-          isPaymentChecked = element.is_received_confirmed;
+          isPaymentChecked = Boolean(element.is_received_confirmed);
         }
       }
 
@@ -646,10 +646,9 @@ export class PaymentsResolver {
         // resolver's `editDetailsOfAPayment` and is therefore skipped. Re-fire
         // the create-only push here for every payment that the ABA loop
         // touched, mirroring the manual checkbox flow.
-        const triggeredPaymentIds: string[] = Array.isArray(
-          fileDetails?.notice_trigger,
-        )
-          ? Array.from(new Set(fileDetails.notice_trigger.filter(Boolean)))
+        const noticeTrigger = (fileDetails as any)?.notice_trigger;
+        const triggeredPaymentIds: string[] = Array.isArray(noticeTrigger)
+          ? Array.from(new Set(noticeTrigger.filter(Boolean)))
           : [];
         for (const paymentId of triggeredPaymentIds) {
           await this.pushPaymentLegsToXeroAfterMarkPaid(decoded, paymentId);
