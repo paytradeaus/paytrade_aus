@@ -7129,9 +7129,6 @@ export class PaymentsService {
     // payment_details → sub_payments) so we surface the same rows the sender
     // count is built from. Relation joins were silently producing 0 rows in
     // some environments.
-    this.logger.log(
-      `[ABA_WIZARD_STEP2] inputs: company_id=${company_id} (typeof=${typeof company_id}) bank_account_id=${bank_account_id} (typeof=${typeof bank_account_id})`,
-    );
     const qb = this.paymentsRepo
       .createQueryBuilder('p')
       // CRITICAL: must be LEFT JOIN, not INNER JOIN.
@@ -7218,17 +7215,9 @@ export class PaymentsService {
       ])
       .orderBy('pc.due_date', 'ASC', 'NULLS LAST');
 
-    try {
-      this.logger.log(
-        `[ABA_WIZARD_STEP2] sql=${qb.getSql()} params=${JSON.stringify(qb.getParameters())}`,
-      );
-    } catch (e) {
-      this.logger.warn(`[ABA_WIZARD_STEP2] could not stringify sql: ${e}`);
-    }
-
     const rows = await qb.getRawMany();
     this.logger.log(
-      `[ABA_WIZARD_STEP2] returned ${rows.length} row(s) for company_id=${company_id} bank_account_id=${bank_account_id}`,
+      `[ABA_WIZARD_STEP2] company_id=${company_id} bank_account_id=${bank_account_id} -> ${rows.length} row(s); sql=${qb.getSql()} params=${JSON.stringify(qb.getParameters())}`,
     );
 
     return rows.map((r) => {
