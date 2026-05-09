@@ -36,6 +36,7 @@ import { ExportExcelDataInput } from './dto/export-data-excel.input';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { Readable } from 'stream';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
+import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAndBills/xero-invoices.service';
 import { In } from 'typeorm';
 var moment = require('moment-timezone');
 
@@ -71,6 +72,7 @@ export class AuditReportExportDataService {
     private journalsService: JournalsService,
     private exportDataService: ExportDataService,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly xeroInvoicesService: XeroInvoicesService,
   ) {
     this.logger = new PaytradeLogger('AUDIT_REPORT_EXPORT_DATA_SERVICE');
   }
@@ -153,6 +155,7 @@ export class AuditReportExportDataService {
             { key: 'xero_invoice_number', header: 'Xero Invoice #' },
             { key: 'xero_status', header: 'Xero Status' },
             { key: 'xero_deep_link', header: 'Xero Link' },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -198,6 +201,7 @@ export class AuditReportExportDataService {
             { key: 'xero_invoice_number', header: 'Xero Invoice #' },
             { key: 'xero_status', header: 'Xero Status' },
             { key: 'xero_deep_link', header: 'Xero Link' },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -219,6 +223,7 @@ export class AuditReportExportDataService {
               key: 'optional_attachment_names',
               header: 'Optional Attachment Name',
             },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -344,6 +349,7 @@ export class AuditReportExportDataService {
             { key: 'xero_invoice_number', header: 'Xero Invoice #' },
             { key: 'xero_status', header: 'Xero Status' },
             { key: 'xero_deep_link', header: 'Xero Link' },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -398,6 +404,7 @@ export class AuditReportExportDataService {
             { key: 'xero_invoice_number', header: 'Xero Invoice #' },
             { key: 'xero_status', header: 'Xero Status' },
             { key: 'xero_deep_link', header: 'Xero Link' },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -429,6 +436,7 @@ export class AuditReportExportDataService {
               key: 'optional_attachment_names',
               header: 'Optional Attachment Name',
             },
+            { key: 'xero_pdf_path', header: 'Xero PDF File' },
           ];
         }
         break;
@@ -516,6 +524,7 @@ export class AuditReportExportDataService {
           { width: 22 }, // xero_invoice_number
           { width: 18 }, // xero_status
           { width: 50 }, // xero_deep_link
+          { width: 40 }, // xero_pdf_path
         ];
         break;
 
@@ -551,6 +560,7 @@ export class AuditReportExportDataService {
           { width: 22 }, // xero_invoice_number
           { width: 18 }, // xero_status
           { width: 50 }, // xero_deep_link
+          { width: 40 }, // xero_pdf_path
         ];
         break;
 
@@ -565,6 +575,7 @@ export class AuditReportExportDataService {
           { width: 20 }, // status
           { width: 30 }, // compulsory_attachment_names
           { width: 30 }, // optional_attachment_names
+          { width: 40 }, // xero_pdf_path
         ];
         break;
 
@@ -663,6 +674,7 @@ export class AuditReportExportDataService {
             { width: 22 }, // xero_invoice_number
             { width: 18 }, // xero_status
             { width: 50 }, // xero_deep_link
+            { width: 40 }, // xero_pdf_path
           ];
         }
         break;
@@ -705,6 +717,9 @@ export class AuditReportExportDataService {
             { width: 30 }, // for payment_to_account_name
             { width: 20 }, // for payment_amount
             { width: 25 }, // for status
+            { width: 35 }, // compulsory_attachment_names
+            { width: 35 }, // optional_attachment_names
+            { width: 40 }, // xero_pdf_path
           ];
         }
         break;
@@ -1461,7 +1476,8 @@ Each file contains records relevant to that category as part of the audit trail.
   /**
    * Enrich payment-claim records with cached Xero invoice/bill metadata so
    * the audit Excel can show the matching Xero document and the audit ZIP
-   * can include the cached Xero PDF.
+   * can include the cached Xero PDF. Also accepts schedule rows that carry
+   * `payment_claim_id` (resolved upstream from the linked claim).
    */
   private async enrichClaimsWithXeroMeta(records: any[]): Promise<any[]> {
     if (!records?.length) return records;
@@ -1474,6 +1490,7 @@ Each file contains records relevant to that category as part of the audit trail.
       select: [
         'pt_claim_id',
         'invoice_id',
+        'integration_id',
         'reference',
         'type',
         'current_xero_status',
@@ -1482,6 +1499,7 @@ Each file contains records relevant to that category as part of the audit trail.
         'mapped_status',
         'is_stale',
         'void_date',
+        'status',
       ],
     });
     const byClaim = new Map<number, XeroInvoicesBills>();
@@ -1494,7 +1512,11 @@ Each file contains records relevant to that category as part of the audit trail.
         r.xero_invoice_number = x.reference || '';
         r.xero_status = x.current_xero_status || '';
         r.xero_deep_link = x.deep_link_url || '';
+        r.xero_pdf_path = '';
         r._xero_invoice_id = x.invoice_id;
+        r._xero_integration_id = x.integration_id;
+        r._xero_type = x.type || null;
+        r._xero_raw_status = x.status || null;
         r._xero_cached_pdf_object_key = x.cached_pdf_object_key || null;
         r._xero_mapped_status = x.mapped_status || null;
         r._xero_is_stale = !!x.is_stale;
@@ -1503,81 +1525,354 @@ Each file contains records relevant to that category as part of the audit trail.
         r.xero_invoice_number = '';
         r.xero_status = '';
         r.xero_deep_link = '';
+        r.xero_pdf_path = '';
       }
     }
     return records;
   }
 
   /**
+   * Best-effort, throttled, time-boxed pre-flight cache backfill. For each
+   * Xero-linked record without a cached PDF object key, attempts to fetch
+   * and cache the PDF via the Xero invoices service. Failures are logged
+   * but never abort the export. Concurrency-capped so a slow Xero tenant
+   * cannot stall the audit pack generation.
+   */
+  private async prefillXeroPdfCacheForRecords(
+    records: any[],
+    company_id: number | null,
+  ): Promise<void> {
+    if (!records?.length || !company_id) return;
+    const targets = records.filter(
+      (r) => r?._xero_invoice_id && !r?._xero_cached_pdf_object_key,
+    );
+    if (!targets.length) return;
+
+    const PER_CALL_TIMEOUT_MS = 8000;
+    const TOTAL_BUDGET_MS = 90000;
+    const CONCURRENCY = 3;
+    const startedAt = Date.now();
+
+    const withTimeout = <T>(
+      p: Promise<T>,
+      ms: number,
+      onTimeout: () => void,
+      onError: (err: any) => void,
+    ): Promise<T | null> =>
+      new Promise((resolve) => {
+        const t = setTimeout(() => {
+          onTimeout();
+          resolve(null);
+        }, ms);
+        p.then(
+          (v) => {
+            clearTimeout(t);
+            resolve(v);
+          },
+          (err) => {
+            clearTimeout(t);
+            onError(err);
+            resolve(null);
+          },
+        );
+      });
+
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < targets.length) {
+        if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
+          this.logger.warn(
+            `[XERO_AUDIT_PREFILL] Total time budget (${TOTAL_BUDGET_MS}ms) exhausted; ${targets.length - cursor} remaining record(s) skipped.`,
+          );
+          return;
+        }
+        const idx = cursor++;
+        const rec = targets[idx];
+        try {
+          const ok = await withTimeout(
+            this.xeroInvoicesService.fetchAndCacheXeroPdf({
+              company_id,
+              invoice_id: rec._xero_invoice_id,
+              integration_id: rec._xero_integration_id,
+              type: rec._xero_type,
+              status: rec._xero_raw_status,
+            }),
+            PER_CALL_TIMEOUT_MS,
+            () =>
+              this.logger.warn(
+                `[XERO_AUDIT_PREFILL] Timed out after ${PER_CALL_TIMEOUT_MS}ms for claim ${rec?.payment_claim_id} / invoice ${rec?._xero_invoice_id}; will fall back to Missing.`,
+              ),
+            (err) =>
+              this.logger.error(
+                `[XERO_AUDIT_PREFILL] Fetch failed for claim ${rec?.payment_claim_id} / invoice ${rec?._xero_invoice_id}: ${err?.message || err}`,
+              ),
+          );
+          if (ok) {
+            const refreshed = await this.xeroInvoicesBillsRepo.findOne({
+              where: { invoice_id: rec._xero_invoice_id },
+              select: ['cached_pdf_object_key'],
+            });
+            if (refreshed?.cached_pdf_object_key) {
+              rec._xero_cached_pdf_object_key =
+                refreshed.cached_pdf_object_key;
+            }
+          }
+        } catch (err: any) {
+          this.logger.error(
+            `[XERO_AUDIT_PREFILL] Failed for claim ${rec?.payment_claim_id} / invoice ${rec?._xero_invoice_id}: ${err?.message || err}`,
+          );
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker),
+    );
+  }
+
+  private sanitizeXeroRef(v: string): string {
+    return (
+      String(v).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') ||
+      'invoice'
+    );
+  }
+
+  /**
+   * Build a Xero PDF filename for a record (without the Attachments/ prefix).
+   */
+  private xeroPdfFileName(rec: any): string {
+    const rawRef =
+      rec?.xero_invoice_number ||
+      rec?._xero_invoice_id ||
+      `claim-${rec?.payment_claim_id}`;
+    return `Xero-${this.sanitizeXeroRef(rawRef)}.pdf`;
+  }
+
+  /**
+   * Build a small XLSX buffer styled like the rest of the audit pack
+   * (bold header row + auto column widths). Used for the Xero invoices
+   * index file, kept inline so it does not need a new module schema.
+   */
+  private async buildXeroIndexXlsxBuffer(
+    columns: { header: string; width: number }[],
+    rows: (string | number | null)[][],
+  ): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Xero Invoices Index');
+    worksheet.columns = columns.map((c) => ({ width: c.width }));
+    const headerRow = worksheet.addRow(columns.map((c) => c.header));
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+    for (const r of rows) worksheet.addRow(r);
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
+  private csvEscape(v: any): string {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
+
+  /**
    * Append cached Xero invoice/bill PDFs (one per claim that has a cached
    * key) to the audit-pack archive under <folderName>/Attachments/.
+   * Also writes a machine-readable Xero-Invoices-Index.csv/.xlsx so an
+   * auditor can trace each Excel row back to the matching PDF on disk
+   * (or to the deep link when the PDF is missing). Returns a small
+   * summary used by the master Summary.xlsx.
    */
   private async appendXeroPdfsToArchive(
     records: any[],
     archive: archiver.Archiver,
     folderName: string,
-  ): Promise<void> {
-    if (!records?.length) return;
-    const readmeLines: string[] = [];
+    company_id?: number | null,
+  ): Promise<{
+    totalLinked: number;
+    attached: number;
+    missing: number;
+  } | null> {
+    if (!records?.length) return null;
+
+    // Pre-flight cache backfill — best effort, time-boxed, never aborts.
+    if (company_id) {
+      try {
+        await this.prefillXeroPdfCacheForRecords(records, company_id);
+      } catch (err: any) {
+        this.logger.error(
+          `[XERO_AUDIT_PREFILL] Unhandled error: ${err?.message || err}`,
+        );
+      }
+    }
+
     let attachedCount = 0;
-    const sanitize = (v: string) =>
-      String(v).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') ||
-      'invoice';
+    let missingCount = 0;
+    const indexRows: any[] = [];
+
     for (const rec of records) {
+      const isXeroLinked = !!(
+        rec?._xero_invoice_id || rec?.xero_invoice_number
+      );
+      // Reset xero_pdf_path so unlinked rows have a clean blank.
+      if (!isXeroLinked) {
+        rec.xero_pdf_path = '';
+        continue;
+      }
+
+      const fileName = this.xeroPdfFileName(rec);
       const objectKey = rec?._xero_cached_pdf_object_key;
-      const rawRef =
-        rec.xero_invoice_number ||
-        rec._xero_invoice_id ||
-        `claim-${rec.payment_claim_id}`;
-      const safeRef = sanitize(rawRef);
-      const source = rec?._xero_mapped_status
-        ? `${rec._xero_mapped_status}-mapped`
-        : 'mapped';
       const stale = rec?._xero_is_stale;
       const voidedAt = rec?._xero_void_date
         ? new Date(rec._xero_void_date).toISOString()
-        : null;
+        : '';
       const deepLink = rec?.xero_deep_link || '';
+      let attached = false;
+
       if (objectKey) {
         try {
           const buf = await this.objectStorageService.downloadFile(objectKey);
           if (buf) {
+            attached = true;
             attachedCount++;
             archive.append(buf, {
-              name: path.join(folderName, 'Attachments', `Xero-${safeRef}.pdf`),
+              name: path.join(folderName, 'Attachments', fileName),
             });
-            readmeLines.push(
-              `- Xero-${safeRef}.pdf — claim #${rec.payment_claim_id} (${source}; status: ${rec.xero_status || 'unknown'})` +
-                (stale && voidedAt ? ` — STALE: PDF as at ${voidedAt} (voided/deleted in Xero)` : '') +
-                (deepLink ? `\n    View live: ${deepLink}` : ''),
-            );
           }
-        } catch (err) {
+        } catch (err: any) {
           this.logger.error(
             `Failed to append cached Xero PDF for claim ${rec?.payment_claim_id}: ${err?.message || err}`,
           );
         }
-      } else if (rec?.xero_invoice_number || rec?._xero_invoice_id) {
-        readmeLines.push(
-          `- (no cached PDF) claim #${rec.payment_claim_id} — Xero ${rec.xero_invoice_number || rec._xero_invoice_id} (${source}; status: ${rec.xero_status || 'unknown'})` +
-            (deepLink ? `\n    View live: ${deepLink}` : ''),
-        );
       }
-    }
-    if (readmeLines.length) {
-      const readme =
-        `# Xero invoices/bills in this audit pack\n\n` +
-        `Each claim is linked to a Xero invoice or bill. Where a cached PDF exists,\n` +
-        `it is included in this folder's Attachments/ as Xero-<reference>.pdf.\n` +
-        `For voided/deleted invoices the cached PDF is preserved and marked STALE\n` +
-        `with the as-at date. When no cached PDF is available, only the deep link\n` +
-        `to the live Xero record is provided as a fallback.\n\n` +
-        `Attached ${attachedCount} cached PDF(s) of ${records.length} claim record(s).\n\n` +
-        readmeLines.join('\n') + '\n';
-      archive.append(Buffer.from(readme, 'utf-8'), {
-        name: path.join(folderName, 'Attachments', 'Xero-README.txt'),
+
+      if (!attached) missingCount++;
+
+      const inZipPath = attached ? `Attachments/${fileName}` : '';
+      rec.xero_pdf_path = inZipPath;
+
+      indexRows.push({
+        payment_claim_id: rec?.payment_claim_id ?? '',
+        claim_date: rec?.claim_date
+          ? typeof rec.claim_date === 'string'
+            ? rec.claim_date
+            : new Date(rec.claim_date).toISOString()
+          : '',
+        contract_project:
+          [rec?.contract_name, rec?.project_name].filter(Boolean).join(' / ') ||
+          '',
+        xero_invoice_number: rec?.xero_invoice_number || '',
+        xero_type: rec?._xero_type || '',
+        xero_status: rec?.xero_status || '',
+        is_stale: stale ? 'STALE' : '',
+        void_date: voidedAt,
+        deep_link: deepLink,
+        in_zip_pdf_path: inZipPath,
+        attachment_status: attached
+          ? 'Attached'
+          : 'Missing — see deep link',
       });
     }
+
+    if (!indexRows.length) return null;
+
+    // CSV
+    const csvHeaders = [
+      'Claim ID',
+      'Claim Date',
+      'Contract / Project',
+      'Xero Invoice #',
+      'Xero Type',
+      'Xero Status',
+      'Stale',
+      'Void Date',
+      'Deep Link',
+      'PDF File (in ZIP)',
+      'Attachment Status',
+    ];
+    const csvLines: string[] = [csvHeaders.map((h) => this.csvEscape(h)).join(',')];
+    for (const r of indexRows) {
+      csvLines.push(
+        [
+          r.payment_claim_id,
+          r.claim_date,
+          r.contract_project,
+          r.xero_invoice_number,
+          r.xero_type,
+          r.xero_status,
+          r.is_stale,
+          r.void_date,
+          r.deep_link,
+          r.in_zip_pdf_path,
+          r.attachment_status,
+        ]
+          .map((v) => this.csvEscape(v))
+          .join(','),
+      );
+    }
+    archive.append(Buffer.from(csvLines.join('\n') + '\n', 'utf-8'), {
+      name: path.join(folderName, 'Attachments', 'Xero-Invoices-Index.csv'),
+    });
+
+    // XLSX
+    const xlsxColumns = [
+      { header: 'Claim ID', width: 12 },
+      { header: 'Claim Date', width: 22 },
+      { header: 'Contract / Project', width: 35 },
+      { header: 'Xero Invoice #', width: 22 },
+      { header: 'Xero Type', width: 12 },
+      { header: 'Xero Status', width: 18 },
+      { header: 'Stale', width: 10 },
+      { header: 'Void Date', width: 22 },
+      { header: 'Deep Link', width: 50 },
+      { header: 'PDF File (in ZIP)', width: 40 },
+      { header: 'Attachment Status', width: 26 },
+    ];
+    const xlsxRows = indexRows.map((r) => [
+      r.payment_claim_id,
+      r.claim_date,
+      r.contract_project,
+      r.xero_invoice_number,
+      r.xero_type,
+      r.xero_status,
+      r.is_stale,
+      r.void_date,
+      r.deep_link,
+      r.in_zip_pdf_path,
+      r.attachment_status,
+    ]);
+    try {
+      const xlsxBuffer = await this.buildXeroIndexXlsxBuffer(
+        xlsxColumns,
+        xlsxRows,
+      );
+      archive.append(xlsxBuffer, {
+        name: path.join(folderName, 'Attachments', 'Xero-Invoices-Index.xlsx'),
+      });
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to build Xero invoices index xlsx for ${folderName}: ${err?.message || err}`,
+      );
+    }
+
+    // Trim README to a one-paragraph pointer at the new index.
+    const readme =
+      `# Xero invoices/bills in this audit pack\n\n` +
+      `This folder contains cached Xero invoice/bill PDFs as Xero-<reference>.pdf.\n` +
+      `Use Xero-Invoices-Index.csv (or .xlsx) in this folder as the source of truth\n` +
+      `to map each claim to its PDF (or, when the PDF is missing, to the deep link\n` +
+      `to the live Xero record). Voided/deleted invoices keep their cached PDF and\n` +
+      `are flagged STALE in the index.\n\n` +
+      `Attached ${attachedCount} cached PDF(s) of ${indexRows.length} Xero-linked record(s).\n`;
+    archive.append(Buffer.from(readme, 'utf-8'), {
+      name: path.join(folderName, 'Attachments', 'Xero-README.txt'),
+    });
+
+    return {
+      totalLinked: indexRows.length,
+      attached: attachedCount,
+      missing: missingCount,
+    };
   }
 
   public async fetchBatchData({
@@ -1691,6 +1986,7 @@ Each file contains records relevant to that category as part of the audit trail.
             .getRawMany();
           const modifiedDataList = raw_result?.map((res) => ({
             payment_id: res?.payment_id,
+            payment_claim_id: res?.payment_claim_id,
             payment_type: res?.payment_type,
             project_name: res?.project_name || '',
             contract_name: res?.contract_name || '',
@@ -1740,6 +2036,7 @@ Each file contains records relevant to that category as part of the audit trail.
             }
           }
           result = modifiedDataList;
+          await this.enrichClaimsWithXeroMeta(result);
         }
         break;
       case AuditReportModuleEnum.BankStatement:
@@ -1980,6 +2277,40 @@ Each file contains records relevant to that category as part of the audit trail.
                 }));
             }
 
+            // Append cached Xero invoice/bill PDFs FIRST so each record's
+            // `xero_pdf_path` is populated before we generate the Excel sheet
+            // — otherwise the new "Xero PDF File" column would be empty.
+            if (
+              moduleObj?.moduleName ===
+                AuditReportModuleEnum.ClientPaymentClaim ||
+              moduleObj?.moduleName ===
+                AuditReportModuleEnum.SupplierSubConPaymentClaim ||
+              moduleObj?.moduleName ===
+                AuditReportModuleEnum.SupplierSubConPaymentSchedule
+            ) {
+              const xeroStats = await this.appendXeroPdfsToArchive(
+                records,
+                archive,
+                folderName,
+                payload?.decodedToken?.company_id ?? null,
+              );
+              if (xeroStats) {
+                // Per-affected-module marker line in the existing master
+                // Summary sheet so reviewers see at-a-glance which folders
+                // contain a Xero invoices index and how many PDFs were
+                // attached vs missing (matches the AccountingRecords pattern).
+                masterSummary.push({
+                  module_name: moduleObj.moduleName,
+                  records: [
+                    {
+                      file_name: `${folderName}/Attachments/Xero-Invoices-Index.csv`,
+                      description: `Xero PDFs: ${xeroStats.attached} attached / ${xeroStats.missing} missing of ${xeroStats.totalLinked} Xero-linked record(s). See ${folderName}/Attachments/Xero-Invoices-Index.csv (or .xlsx).`,
+                    },
+                  ],
+                });
+              }
+            }
+
             // Add Excel file for this module
             if (records?.length > 0) {
               const excelBuffer = await this.createExcelBuffer({
@@ -2007,16 +2338,6 @@ Each file contains records relevant to that category as part of the audit trail.
                   this.logger.error(`Failed to download attachment: ${attachment.file_path}`);
                 }
               }
-            }
-
-            // Include cached Xero invoice/bill PDFs alongside claim attachments
-            if (
-              moduleObj?.moduleName ===
-                AuditReportModuleEnum.ClientPaymentClaim ||
-              moduleObj?.moduleName ===
-                AuditReportModuleEnum.SupplierSubConPaymentClaim
-            ) {
-              await this.appendXeroPdfsToArchive(records, archive, folderName);
             }
 
             if (moduleObj?.readMeFile?.fileName) {
@@ -2323,14 +2644,35 @@ Each file contains records relevant to that category as part of the audit trail.
               });
             }
 
-            // Include cached Xero invoice/bill PDFs alongside claim attachments
+            // Append cached Xero invoice/bill PDFs FIRST so each record's
+            // `xero_pdf_path` is populated before Excel rendering, and so
+            // SupplierSubConPaymentSchedule rows are also included for parity
+            // with generateZipFileToBuffer.
             if (
               moduleObj?.moduleName ===
                 AuditReportModuleEnum.ClientPaymentClaim ||
               moduleObj?.moduleName ===
-                AuditReportModuleEnum.SupplierSubConPaymentClaim
+                AuditReportModuleEnum.SupplierSubConPaymentClaim ||
+              moduleObj?.moduleName ===
+                AuditReportModuleEnum.SupplierSubConPaymentSchedule
             ) {
-              await this.appendXeroPdfsToArchive(records, archive, folderName);
+              const xeroStats = await this.appendXeroPdfsToArchive(
+                records,
+                archive,
+                folderName,
+                payload?.decodedToken?.company_id ?? null,
+              );
+              if (xeroStats) {
+                masterSummary.push({
+                  module_name: moduleObj.moduleName,
+                  records: [
+                    {
+                      file_name: `${folderName}/Attachments/Xero-Invoices-Index.csv`,
+                      description: `Xero PDFs: ${xeroStats.attached} attached / ${xeroStats.missing} missing of ${xeroStats.totalLinked} Xero-linked record(s). See ${folderName}/Attachments/Xero-Invoices-Index.csv (or .xlsx).`,
+                    },
+                  ],
+                });
+              }
             }
 
             if (records?.length) {
@@ -3198,6 +3540,7 @@ Each file contains records relevant to that category as part of the audit trail.
       .select([
         'pd.id as id',
         'pd.payment_id as payment_id',
+        'pd.payment_claim_id as payment_claim_id',
         'pd.payment_date as payment_date',
         'pd.payment_type as payment_type',
         'pd.payment_type as payment_type',
@@ -3333,7 +3676,7 @@ Each file contains records relevant to that category as part of the audit trail.
     });
 
     queryBuilder.groupBy(
-      `pd.id,p.project_name,payment.amount,payment.is_paid_confirmed,payment.is_received_confirmed,retention.amount,retention.is_retention_confirmed
+      `pd.id,pd.payment_claim_id,p.project_name,payment.amount,payment.is_paid_confirmed,payment.is_received_confirmed,retention.amount,retention.is_retention_confirmed
       ,from_account.bank_account_id,from_account.account_name,from_account.id,
       to_account.bank_account_id,to_account.account_name,to_account.id,
       retention_acc.bank_account_id,retention_acc.account_name,retention_acc.id,
