@@ -7158,15 +7158,22 @@ export class PaymentsService {
           )`,
         { types: PaymentsToDoTypes, status: 'Unmatched' },
       )
+      // NOTE: aliases here are intentionally lowercase. TypeORM double-quotes
+      // join aliases in the generated SQL ("toaccount", "retentionacc",
+      // "senderba"), but unquoted identifiers in the raw SELECT/WHERE strings
+      // are folded to lowercase by Postgres. Mixed-case aliases like
+      // "toAccount" / "retentionAcc" cause "missing FROM-clause entry" errors
+      // because the quoted alias is case-sensitive while the unquoted
+      // reference is folded.
       .leftJoin(
         BankAccounts,
-        'toAccount',
-        'toAccount.bank_account_id = p.payment_to_account',
+        'toaccount',
+        'toaccount.bank_account_id = p.payment_to_account',
       )
       .leftJoin(
         BankAccounts,
-        'retentionAcc',
-        'retentionAcc.bank_account_id = p.retention_account',
+        'retentionacc',
+        'retentionacc.bank_account_id = p.retention_account',
       )
       .leftJoin(
         ClientSuppliersDetails,
@@ -7191,11 +7198,11 @@ export class PaymentsService {
       // says 0" mismatch.
       .innerJoin(
         BankAccounts,
-        'senderBa',
-        'senderBa.bank_account_id = p.payment_from_account',
+        'senderba',
+        'senderba.bank_account_id = p.payment_from_account',
       )
-      .where('senderBa.company_id = :company_id', { company_id })
-      .andWhere(`senderBa.status IN ('Active','Open','Draft')`)
+      .where('senderba.company_id = :company_id', { company_id })
+      .andWhere(`senderba.status IN ('Active','Open','Draft')`)
       .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
       })
@@ -7212,17 +7219,17 @@ export class PaymentsService {
         'project.project_name AS project_name',
         'contract.contract_name AS contract_name',
         `CASE
-          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_name
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionacc.account_name
           WHEN p.payment_type IN ('Overpayment to supplier','Underpayment to supplier') THEN cs.client_supplier_name
-          ELSE toAccount.account_name
+          ELSE toaccount.account_name
         END AS recipient_name`,
         `CASE
-          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_number
-          ELSE toAccount.account_number
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionacc.account_number
+          ELSE toaccount.account_number
         END AS recipient_account_number`,
         `CASE
-          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.bsb_number
-          ELSE toAccount.bsb_number
+          WHEN sp.sub_payment_type IN ('Retention Out','Retention In') THEN retentionacc.bsb_number
+          ELSE toaccount.bsb_number
         END AS recipient_bsb`,
       ])
       .orderBy('pc.due_date', 'ASC', 'NULLS LAST');
