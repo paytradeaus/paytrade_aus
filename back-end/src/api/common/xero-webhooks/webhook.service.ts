@@ -135,6 +135,72 @@ export class XeroWebhookService {
   }
 
   /**
+   * Guarded wrapper around `paymentsService.changeStatusOfAPayment(... 'Deleted')`
+   * for every Xero-webhook-driven soft-delete. Refuses to soft-delete a
+   * PayTrade payment that is BOTH (a) still Unconfirmed (no sub_payment has
+   * is_paid_confirmed / is_received_confirmed / is_retention_confirmed set)
+   * AND (b) has no live `xero_payments` mirror row — i.e. a PT-only draft
+   * that Xero could not legitimately have deleted, because Xero never knew
+   * about it. Without this guard the `webhookFallbackSync` cron
+   * (xero-scheduler.service.ts, runs every 15 min) was deleting freshly
+   * created Unconfirmed payments after every deploy.
+   */
+  private async safeWebhookDeletePayment(
+    decoded: any,
+    paytradePayload: ChangeStatusOfAPaymentInput,
+    marker: string,
+  ) {
+    const payment_id = paytradePayload?.payment_id;
+    try {
+      const pt = payment_id
+        ? await this.paymentDetails.findOne({ where: { payment_id } })
+        : null;
+
+      if (!pt) {
+        this.logger.warn(
+          `[XERO_DELETE_GUARD][${marker}] payment_id=${payment_id} not found; skipping delete`,
+        );
+        return null;
+      }
+      if (pt.current_status === 'Deleted') {
+        return null;
+      }
+
+      const subs = await this.subPaymentsRepo.find({ where: { payment_id } });
+      const isConfirmed = subs.some(
+        (s) =>
+          !!s.is_paid_confirmed ||
+          !!s.is_received_confirmed ||
+          !!s.is_retention_confirmed,
+      );
+
+      const xeroMirror = await this.xeroPayments.findOne({
+        where: { pt_payment_id: payment_id, status: Not('DELETED') },
+      });
+
+      if (!isConfirmed && !xeroMirror) {
+        this.logger.warn(
+          `[XERO_DELETE_GUARD][${marker}] Refusing to soft-delete payment_id=${payment_id} ` +
+            `(payment_type=${pt.payment_type}, current_status=${pt.current_status}): ` +
+            `unconfirmed and no Xero mirror row exists. Xero cannot have legitimately deleted ` +
+            `a payment it never received. Cron/webhook will not auto-delete this row.`,
+        );
+        return null;
+      }
+    } catch (guardErr) {
+      this.logger.error(
+        `[XERO_DELETE_GUARD][${marker}] guard check failed for payment_id=${payment_id}: ${guardErr?.message || guardErr}. Falling through to delete to preserve prior behaviour.`,
+      );
+    }
+
+    return this.paymentsService.changeStatusOfAPayment(
+      decoded,
+      paytradePayload,
+      decoded?.userId,
+    );
+  }
+
+  /**
    * Task #50/#53 — Pure matcher for Xero BankTransfer candidates against a
    * PT retention payment leg.
    *
@@ -5451,10 +5517,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '1',
                     );
 
                   this.logger.log('1:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -5682,10 +5748,10 @@ export class XeroWebhookService {
                     };
                     this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
-                      await this.paymentsService.changeStatusOfAPayment(
+                      await this.safeWebhookDeletePayment(
                         decoded,
                         paytradePayload,
-                        decoded?.userId,
+                        '2',
                       );
 
                     this.logger.log('2:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -5938,10 +6004,10 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '3',
                   );
 
                 this.logger.log('3:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -6415,10 +6481,10 @@ export class XeroWebhookService {
                           };
                           this.logger.log(JSON.stringify({ paytradePayload }));
                           const deletePaymentResponse =
-                            await this.paymentsService.changeStatusOfAPayment(
+                            await this.safeWebhookDeletePayment(
                               decoded,
                               paytradePayload,
-                              decoded?.userId,
+                              '4',
                             );
 
                           this.logger.log('4:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -6743,10 +6809,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '5',
                     );
 
                   this.logger.log('5:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -7317,10 +7383,10 @@ export class XeroWebhookService {
                     };
                     this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
-                      await this.paymentsService.changeStatusOfAPayment(
+                      await this.safeWebhookDeletePayment(
                         decoded,
                         paytradePayload,
-                        decoded?.userId,
+                        '6',
                       );
 
                     this.logger.log('6:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -7582,10 +7648,10 @@ export class XeroWebhookService {
                         };
                         this.logger.log(JSON.stringify({ paytradePayload }));
                         const deletePaymentResponse =
-                          await this.paymentsService.changeStatusOfAPayment(
+                          await this.safeWebhookDeletePayment(
                             decoded,
                             paytradePayload,
-                            decoded?.userId,
+                            '8',
                           );
 
                         this.logger.log('8:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -7799,10 +7865,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '7',
                     );
 
                   this.logger.log('7:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -8111,10 +8177,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '11',
                     );
 
                   this.logger.log('11:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -8361,10 +8427,10 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '12',
                   );
 
                 this.logger.log('12:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -8582,10 +8648,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '9',
                     );
 
                   this.logger.log('9:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -8823,10 +8889,10 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '10',
                   );
 
                 this.logger.log('10:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -10387,10 +10453,10 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '13',
                   );
 
                 this.logger.log('13:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -11232,10 +11298,10 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '14',
                   );
 
                 this.logger.log('14:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -11461,10 +11527,10 @@ export class XeroWebhookService {
                   };
                   this.logger.log(JSON.stringify({ paytradePayload }));
                   const deletePaymentResponse =
-                    await this.paymentsService.changeStatusOfAPayment(
+                    await this.safeWebhookDeletePayment(
                       decoded,
                       paytradePayload,
-                      decoded?.userId,
+                      '17',
                     );
 
                   this.logger.log('17:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -11705,13 +11771,13 @@ export class XeroWebhookService {
                 };
                 this.logger.log(JSON.stringify({ paytradePayload }));
                 const deletePaymentResponse =
-                  await this.paymentsService.changeStatusOfAPayment(
+                  await this.safeWebhookDeletePayment(
                     decoded,
                     paytradePayload,
-                    decoded?.userId,
+                    '18',
                   );
 
-                this.logger.log('17:::' + " " + JSON.stringify({ deletePaymentResponse }));
+                this.logger.log('18:::' + " " + JSON.stringify({ deletePaymentResponse }));
 
                 const existingPaytradePayment =
                   await this.paymentDetails.findOne({
@@ -12649,10 +12715,10 @@ export class XeroWebhookService {
                     };
                     this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
-                      await this.paymentsService.changeStatusOfAPayment(
+                      await this.safeWebhookDeletePayment(
                         decoded,
                         paytradePayload,
-                        decoded?.userId,
+                        '15',
                       );
 
                     this.logger.log('15:::' + " " + JSON.stringify({ deletePaymentResponse }));
@@ -12863,10 +12929,10 @@ export class XeroWebhookService {
                     };
                     this.logger.log(JSON.stringify({ paytradePayload }));
                     const deletePaymentResponse =
-                      await this.paymentsService.changeStatusOfAPayment(
+                      await this.safeWebhookDeletePayment(
                         decoded,
                         paytradePayload,
-                        decoded?.userId,
+                        '16',
                       );
 
                     this.logger.log('16:::' + " " + JSON.stringify({ deletePaymentResponse }));
