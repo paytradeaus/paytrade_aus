@@ -5210,13 +5210,21 @@ export class PaymentsService {
         // - Receivable + Payment: uses is_received_confirmed  
         // - Retention Out: uses is_retention_confirmed
         // - Retention In: uses is_received_confirmed
+        // NOTE: 'Retention In' is intentionally NOT included here. Retention
+        // In has no dedicated UI confirmation checkbox — it pairs with the
+        // Retention Out leg (which is driven by "Confirm Paid RTA" /
+        // is_retention_confirmed). Including it here previously caused rows
+        // to remain in the to-do list forever because the Retention In
+        // sub-payment's is_received_confirmed is never written by any update
+        // path (it is created NULL and stays NULL even after the user ticks
+        // "Confirm Paid RTA"). Filtering at the Retention Out leg is
+        // sufficient to represent the retention movement as a whole.
         queryBuilder.andWhere(
           `(
             (subpayment.sub_payment_type = 'Payment' AND pc.claim_type = 'Billable' AND COALESCE(subpayment.is_paid_confirmed, false) = false) OR
             (subpayment.sub_payment_type = 'Payment' AND pc.claim_type = 'Receivable' AND COALESCE(subpayment.is_received_confirmed, false) = false) OR
             (subpayment.sub_payment_type = 'Payment' AND pc.claim_type IS NULL AND COALESCE(subpayment.is_paid_confirmed, false) = false AND COALESCE(subpayment.is_received_confirmed, false) = false) OR
-            (subpayment.sub_payment_type = 'Retention Out' AND COALESCE(subpayment.is_retention_confirmed, false) = false) OR
-            (subpayment.sub_payment_type = 'Retention In' AND COALESCE(subpayment.is_received_confirmed, false) = false)
+            (subpayment.sub_payment_type = 'Retention Out' AND COALESCE(subpayment.is_retention_confirmed, false) = false)
           )`,
         );
 
@@ -7025,26 +7033,25 @@ export class PaymentsService {
     // an ABA file. "Retention In" is the receipt-side booking at the RTA and
     // never produces a bank movement, so it is excluded here.
     const PaymentsToDoTypes = ['Payment', 'Retention Out'];
-    // Mirror getListOfAllPaymentsToDoInDashboard so the wizard count equals
-    // exactly what the user sees in the Payments-to-do table.
-    const pendingStatuses = [
-      'Unconfirmed - Unmatched',
-      'Unconfirmed - Matched',
-      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Unmatched',
-      'Unconfirmed - Payment Unmatched - Retention Out Unmatched - Retention In Matched',
-      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Matched',
-      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Unmatched',
-      'Unconfirmed - Payment Matched - Retention Out Matched - Retention In Unmatched',
-      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Matched',
-    ];
+    // IMPORTANT: the Payments-to-do table is a SUB_PAYMENTS-level query
+    // (getSubpayments with sub_payment_type='ToDo', is_confirmed=false).
+    // It does NOT filter by payments.current_status when is_confirmed=false —
+    // it filters by subpayment.status='Unmatched' AND a type-specific
+    // confirmation flag. We must mirror that exact logic here, otherwise the
+    // wizard wrongly drops payments whose parent current_status has already
+    // moved to Paid/Received but whose sub-payments are still unconfirmed.
 
     const rows = await this.bankAccountsRepo
       .createQueryBuilder('ba')
       .leftJoin(
         PaymentDetails,
         'p',
-        'p.payment_from_account = ba.bank_account_id AND p.current_status IN (:...pendingStatuses)',
-        { pendingStatuses },
+        'p.payment_from_account = ba.bank_account_id',
+      )
+      .leftJoin(
+        PaymentClaims,
+        'pc',
+        'pc.payment_claim_id = p.payment_claim_id',
       )
       .leftJoin(
         SubPayments,
@@ -7053,14 +7060,10 @@ export class PaymentsService {
           AND sp.sub_payment_type IN (:...types)
           AND sp.status = :status
           AND (
-            sp.is_paid_confirmed = false
-            OR sp.is_received_confirmed = false
-            OR sp.is_retention_confirmed = false
-            OR (
-              sp.is_paid_confirmed IS NULL
-              AND sp.is_received_confirmed IS NULL
-              AND sp.is_retention_confirmed IS NULL
-            )
+            (sp.sub_payment_type = 'Payment' AND pc.claim_type = 'Billable' AND COALESCE(sp.is_paid_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Payment' AND pc.claim_type = 'Receivable' AND COALESCE(sp.is_received_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Payment' AND pc.claim_type IS NULL AND COALESCE(sp.is_paid_confirmed, false) = false AND COALESCE(sp.is_received_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Retention Out' AND COALESCE(sp.is_retention_confirmed, false) = false)
           )`,
         { types: PaymentsToDoTypes, status: 'Unmatched' },
       )
@@ -7072,14 +7075,17 @@ export class PaymentsService {
         'ba.account_number AS account_number',
         'ba.bsb_number AS bsb_number',
         'ba.apca_number AS apca_number',
-        'COUNT(DISTINCT p.payment_id) AS eligible_count',
+        // Count sub-payment rows (NOT distinct payments) so this number
+        // equals exactly what the user sees in the Payments-to-do table,
+        // which is rendered one row per outstanding sub-payment leg.
+        'COUNT(sp.sub_payment_id) AS eligible_count',
       ])
       .groupBy('ba.bank_account_id')
       .addGroupBy('ba.account_name')
       .addGroupBy('ba.account_number')
       .addGroupBy('ba.bsb_number')
       .addGroupBy('ba.apca_number')
-      .having('COUNT(DISTINCT p.payment_id) > 0')
+      .having('COUNT(sp.sub_payment_id) > 0')
       .orderBy('ba.account_name', 'ASC')
       .getRawMany();
 
@@ -7105,19 +7111,11 @@ export class PaymentsService {
     bank_account_id: number,
   ) {
     // Mirror getAbaWizardSenderAccounts — Retention In is excluded because it
-    // is a receipt at the RTA, not an outgoing bank movement.
+    // is a receipt at the RTA, not an outgoing bank movement. We also mirror
+    // the Payments-to-do sub-payment-level confirmation logic exactly so list
+    // ↔ count match. We must NOT filter by payments.current_status — see
+    // getAbaWizardSenderAccounts for the rationale.
     const PaymentsToDoTypes = ['Payment', 'Retention Out'];
-    // Same status filter as the Payments-to-do table so list ↔ count match.
-    const pendingStatuses = [
-      'Unconfirmed - Unmatched',
-      'Unconfirmed - Matched',
-      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Unmatched',
-      'Unconfirmed - Payment Unmatched - Retention Out Unmatched - Retention In Matched',
-      'Unconfirmed - Payment Unmatched - Retention Out Matched - Retention In Matched',
-      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Unmatched',
-      'Unconfirmed - Payment Matched - Retention Out Matched - Retention In Unmatched',
-      'Unconfirmed - Payment Matched - Retention Out Unmatched - Retention In Matched',
-    ];
 
     // Mirror the sender-account query's join structure (raw joins from
     // payment_details → sub_payments) so we surface the same rows the sender
@@ -7126,20 +7124,21 @@ export class PaymentsService {
     const rows = await this.paymentsRepo
       .createQueryBuilder('p')
       .innerJoin(
+        PaymentClaims,
+        'pc',
+        'pc.payment_claim_id = p.payment_claim_id',
+      )
+      .innerJoin(
         SubPayments,
         'sp',
         `sp.payment_id = p.payment_id
           AND sp.sub_payment_type IN (:...types)
           AND sp.status = :status
           AND (
-            sp.is_paid_confirmed = false
-            OR sp.is_received_confirmed = false
-            OR sp.is_retention_confirmed = false
-            OR (
-              sp.is_paid_confirmed IS NULL
-              AND sp.is_received_confirmed IS NULL
-              AND sp.is_retention_confirmed IS NULL
-            )
+            (sp.sub_payment_type = 'Payment' AND pc.claim_type = 'Billable' AND COALESCE(sp.is_paid_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Payment' AND pc.claim_type = 'Receivable' AND COALESCE(sp.is_received_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Payment' AND pc.claim_type IS NULL AND COALESCE(sp.is_paid_confirmed, false) = false AND COALESCE(sp.is_received_confirmed, false) = false)
+            OR (sp.sub_payment_type = 'Retention Out' AND COALESCE(sp.is_retention_confirmed, false) = false)
           )`,
         { types: PaymentsToDoTypes, status: 'Unmatched' },
       )
@@ -7164,11 +7163,6 @@ export class PaymentsService {
         'project.project_id = p.project_id',
       )
       .leftJoin(
-        PaymentClaims,
-        'pc',
-        'pc.payment_claim_id = p.payment_claim_id',
-      )
-      .leftJoin(
         ContractDetails,
         'contract',
         'contract.contract_id = pc.contract_id',
@@ -7176,9 +7170,6 @@ export class PaymentsService {
       .where('p.company_id = :company_id', { company_id })
       .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
-      })
-      .andWhere('p.current_status IN (:...pendingStatuses)', {
-        pendingStatuses,
       })
       .select([
         'sp.sub_payment_id AS sub_payment_id',
