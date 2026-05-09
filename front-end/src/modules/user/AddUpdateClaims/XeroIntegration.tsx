@@ -373,13 +373,15 @@ export default function XeroIntegration({
                   <button
                     type="button"
                     className="secondary"
-                    onClick={() =>
-                      window.open(
-                        meta.deep_link_url,
-                        "_blank",
-                        "noopener,noreferrer",
-                      )
-                    }
+                    onClick={() => {
+                      if (meta.deep_link_url) {
+                        window.open(
+                          meta.deep_link_url,
+                          "_blank",
+                          "noopener,noreferrer",
+                        );
+                      }
+                    }}
                   >
                     Open in Xero
                   </button>
