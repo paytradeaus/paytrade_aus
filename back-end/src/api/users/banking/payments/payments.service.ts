@@ -7131,7 +7131,15 @@ export class PaymentsService {
     // some environments.
     const rows = await this.paymentsRepo
       .createQueryBuilder('p')
-      .innerJoin(
+      // CRITICAL: must be LEFT JOIN, not INNER JOIN.
+      // Some payments (notably standalone retention transfers) have a NULL
+      // `payment_claim_id`. An INNER JOIN here silently drops those rows,
+      // which is exactly why the sender count showed 2 but Step 2 showed 0:
+      // the sender query (line ~7054) uses LEFT JOIN and the to-do query
+      // (line ~4971) also uses LEFT JOIN. The confirmation predicate below
+      // already handles the NULL case via the
+      // `pc.claim_type IS NULL` branch.
+      .leftJoin(
         PaymentClaims,
         'pc',
         'pc.payment_claim_id = p.payment_claim_id',
