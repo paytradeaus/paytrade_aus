@@ -7056,14 +7056,14 @@ export class PaymentsService {
         'ba.account_number AS account_number',
         'ba.bsb_number AS bsb_number',
         'ba.apca_number AS apca_number',
-        'COUNT(sp.id) AS eligible_count',
+        'COUNT(DISTINCT p.payment_id) AS eligible_count',
       ])
       .groupBy('ba.bank_account_id')
       .addGroupBy('ba.account_name')
       .addGroupBy('ba.account_number')
       .addGroupBy('ba.bsb_number')
       .addGroupBy('ba.apca_number')
-      .having('COUNT(sp.id) > 0')
+      .having('COUNT(DISTINCT p.payment_id) > 0')
       .orderBy('ba.account_name', 'ASC')
       .getRawMany();
 

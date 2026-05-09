@@ -213,28 +213,42 @@ export default function AbaWizardModal({
           )}
           {selectedAccount && !selectedAccount.has_apca && (
             <div
+              role="alert"
               style={{
-                marginTop: 10,
-                padding: "8px 10px",
+                marginTop: 12,
+                padding: "12px 14px",
                 background: "#fff4e5",
-                border: "1px solid #ffd591",
-                borderRadius: 4,
-                fontSize: 13,
+                border: "2px solid #f5a623",
+                borderRadius: 6,
+                fontSize: 14,
                 color: "#874d00",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
               }}
             >
-              This account is missing its APCA / Direct Entry user ID, so an
-              ABA file can't be generated for it yet.{" "}
-              <a
-                href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${selectedAccount.company_id}/${selectedAccount.bank_account_id}?routedFrom=payments-to-do`}
-                onClick={() => onClose()}
-                style={{
-                  color: "#0070f3",
-                  textDecoration: "underline",
-                }}
-              >
-                Fix this account
-              </a>
+              <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  APCA / Direct Entry user ID is missing
+                </div>
+                <div style={{ marginBottom: 8, fontWeight: 400 }}>
+                  An ABA file can't be generated for this account until an
+                  APCA number is set.
+                </div>
+                <a
+                  href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${selectedAccount.company_id}/${selectedAccount.bank_account_id}?routedFrom=payments-to-do`}
+                  onClick={() => onClose()}
+                  style={{
+                    color: "#0070f3",
+                    textDecoration: "underline",
+                    fontWeight: 600,
+                  }}
+                >
+                  Fix this account →
+                </a>
+              </div>
             </div>
           )}
         </>
