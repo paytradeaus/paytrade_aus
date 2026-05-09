@@ -1127,7 +1127,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
             setSkippedSummary({ display: false, data: null, fileGenerated: false });
             return true;
           }}
-          firstButtonName=""
+          hideFirstButton
           secondButtonName="OK"
         >
           <div>
@@ -1170,6 +1170,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                               href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${acct.company_id}/${acct.bank_account_id}?routedFrom=payments-to-do`}
                               onClick={(e) => {
                                 e.preventDefault();
+                                setSkippedSummary({
+                                  display: false,
+                                  data: null,
+                                  fileGenerated: false,
+                                });
                                 router.push(
                                   `${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${acct.company_id}/${acct.bank_account_id}?routedFrom=payments-to-do`
                                 );
