@@ -58,6 +58,7 @@ import { getSubscriptionDetailsByCompanyId } from "../Subscriptions/subscription
 import AbaWizardModal from "./AbaWizardModal";
 
 const AUTO_CLOSE_TIME = 30;
+const PAUSE_DURATION_SECONDS = 5 * 60; // 5 minutes
 
 export default function PaymentToDoList({ overViewDetails }: any) {
   const router = useRouter();
@@ -117,6 +118,26 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [timeLeft, setTimeLeft] = useState(AUTO_CLOSE_TIME);
   const [qbccNoticeFiles, setQbccNoticeFiles] = useState<any[]>([]);
   const [qbccNoticeUuids, setQbccNoticeUuids] = useState<string[]>([]);
+  const [isNoticePopupPaused, setIsNoticePopupPaused] = useState(false);
+  const [pauseSecondsLeft, setPauseSecondsLeft] = useState(0);
+
+  const pauseNoticePopup = () => {
+    if (isNoticePopupPaused) return;
+    setIsNoticePopupPaused(true);
+    setPauseSecondsLeft(PAUSE_DURATION_SECONDS);
+  };
+
+  const resetNoticePauseState = () => {
+    setIsNoticePopupPaused(false);
+    setPauseSecondsLeft(0);
+  };
+
+  const formatPauseRemaining = (totalSeconds: number) => {
+    const safe = Math.max(0, totalSeconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const resetFilters = () => {
     setSelectedProject(null);
@@ -184,12 +205,17 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       (noticeFiles?.length > 0 || qbccNoticeFiles?.length > 0)
     ) {
       setTimeLeft(AUTO_CLOSE_TIME);
+      resetNoticePauseState();
+    }
+    if (!showNoticePopup) {
+      resetNoticePauseState();
     }
   }, [showNoticePopup]);
 
   // Countdown effect
   useEffect(() => {
     if (!showNoticePopup) return;
+    if (isNoticePopupPaused) return;
 
     // 👉 Simulate confirm (same as clicking "Send Mail")
     if (timeLeft === 0) {
@@ -210,7 +236,25 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, showNoticePopup]);
+  }, [timeLeft, showNoticePopup, isNoticePopupPaused]);
+
+  // Pause countdown effect — counts down the 5-minute pause window,
+  // then auto-resumes the original auto-send countdown from where it was frozen.
+  useEffect(() => {
+    if (!showNoticePopup) return;
+    if (!isNoticePopupPaused) return;
+
+    if (pauseSecondsLeft <= 0) {
+      setIsNoticePopupPaused(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setPauseSecondsLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [pauseSecondsLeft, showNoticePopup, isNoticePopupPaused]);
 
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -890,6 +934,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     setNoticeMailUuids([]);
     setQbccNoticeFiles([]);
     setQbccNoticeUuids([]);
+    resetNoticePauseState();
     // Surface any deferred ABA skip summary now that the notice popup is gone.
     setSkippedSummary((prev: any) =>
       prev?.pending
@@ -1321,12 +1366,32 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           // onCancel={handleCancelSendMail}
           firstButtonName="Close"
           secondButtonName="Send Mail"
+          middleButtonName={
+            isNoticePopupPaused
+              ? `Paused (${formatPauseRemaining(pauseSecondsLeft)})`
+              : "Pause"
+          }
+          disableMiddleButton={isNoticePopupPaused}
+          middleBtnClassTypes="secondary"
+          onMiddleButtonClick={() => pauseNoticePopup()}
         >
           <p className="">
             <span className="pt_yellow">Note:</span> We have generated the
-            documents below, and they are available to view. The system will
-            send an email with these documents attached in{" "}
-            <b className="pt_green">{timeLeft}</b> seconds.
+            documents below, and they are available to view.{" "}
+            {isNoticePopupPaused ? (
+              <>
+                Auto-send paused — resuming in{" "}
+                <b className="pt_green">
+                  {formatPauseRemaining(pauseSecondsLeft)}
+                </b>
+                .
+              </>
+            ) : (
+              <>
+                The system will send an email with these documents attached in{" "}
+                <b className="pt_green">{timeLeft}</b> seconds.
+              </>
+            )}
             {qbccNoticeFiles?.length > 0 && (
               <>
                 <br />
