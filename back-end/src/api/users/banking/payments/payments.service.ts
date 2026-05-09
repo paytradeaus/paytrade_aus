@@ -2187,8 +2187,12 @@ export class PaymentsService {
                   element.is_retention_confirmed !== true
                 ) {
                   this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} PASSED Billable condition check`);
+                  // Treat null/undefined as "leave alone" — bulk callers (e.g. ABA wizard) pass
+                  // null on the fields they don't intend to touch. Without this guard a Retention-Out
+                  // call with is_paid_confirmed=null would overwrite a previously-confirmed Payment
+                  // row, which is exactly what the ABA double-iteration bug did.
                   if (
-                    data.is_paid_confirmed !== undefined &&
+                    data.is_paid_confirmed != null &&
                     element.is_paid_confirmed !== data.is_paid_confirmed
                   ) {
                     this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} WILL BE UPDATED to is_paid_confirmed=${data.is_paid_confirmed}`);
@@ -2256,8 +2260,9 @@ export class PaymentsService {
                   // Note: is_retention_confirmed can be null, false, or true - we need to handle all cases
                   // We check that is_paid_confirmed and is_received_confirmed are NOT true
                   this.logger.log(`[MARK_PAID_DEBUG] sub_payment_id=${element.sub_payment_id} PASSED Retention Out condition check`);
+                  // See note above: null means "leave alone".
                   if (
-                    data.is_retention_confirmed !== undefined &&
+                    data.is_retention_confirmed != null &&
                     element.is_retention_confirmed !==
                     data.is_retention_confirmed
                   ) {
@@ -2343,8 +2348,9 @@ export class PaymentsService {
                   // Check if this is a "receivable" type sub-payment that uses is_received_confirmed
                   // Note: is_received_confirmed can be null, false, or true - we need to handle all cases
                   // We check that is_paid_confirmed and is_retention_confirmed are NOT true
+                  // See note above: null means "leave alone".
                   if (
-                    data.is_received_confirmed !== undefined &&
+                    data.is_received_confirmed != null &&
                     element.is_received_confirmed !== data.is_received_confirmed
                   ) {
                     changesMade = true;
