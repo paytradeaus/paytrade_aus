@@ -374,14 +374,12 @@ export default function XeroIntegration({
                     target="_blank"
                     rel="noopener noreferrer"
                     role="button"
-                    className="secondary"
                   >
                     Open in Xero
                   </a>
                 )}
                 <button
                   type="button"
-                  className="secondary"
                   onClick={handleDownload}
                   disabled={downloading}
                   title={
@@ -407,8 +405,8 @@ export default function XeroIntegration({
 function renderSyncHistory(rows: SyncLogRow[]) {
   return (
     <div>
-      <h4>Sync history</h4>
-      <div style={{ fontSize: 12, marginBottom: 8 }}>
+      <h4 style={{ color: "var(--wind)" }}>Sync history</h4>
+      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}>
         Recent Xero sync activity for this claim and its payments
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
@@ -489,11 +487,10 @@ function renderRetentionJournals(
           justifyContent: "space-between",
         }}
       >
-        <h4>Retention GST gross-up journals</h4>
+        <h4 style={{ color: "var(--wind)" }}>Retention GST gross-up journals</h4>
         {latestFailed && (
           <button
             type="button"
-            className="secondary"
             onClick={onRetry}
             disabled={retrying}
             title="Re-attempt posting the gross-up Manual Journal in Xero"
@@ -502,7 +499,7 @@ function renderRetentionJournals(
           </button>
         )}
       </div>
-      <div style={{ fontSize: 12, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, marginBottom: 8, color: "var(--wind)" }}>
         PayTrade posts a balanced 2-line Manual Journal in Xero for the GST
         portion of retention so your books reconcile to the gross retention
         figure.
@@ -579,7 +576,7 @@ function renderRetentionJournals(
         </div>
       </div>
       {journals.some((j) => j.status === "FAILED" && j.error_text) && (
-        <div style={{ marginTop: 8, fontSize: 12 }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: "var(--wind)" }}>
           {journals
             .filter((j) => j.status === "FAILED" && j.error_text)
             .map((j) => (
