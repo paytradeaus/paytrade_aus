@@ -406,159 +406,70 @@ export default function XeroIntegration({
 
 function renderSyncHistory(rows: SyncLogRow[]) {
   return (
-    <div
-      style={{
-        marginTop: 16,
-        borderTop: "1px solid rgba(255,255,255,0.15)",
-        paddingTop: 12,
-        color: "var(--wind)",
-      }}
-    >
-      <div
-        style={{
-          fontWeight: 600,
-          marginBottom: 8,
-          color: "var(--wind)",
-        }}
-      >
-        Sync history
-      </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--wind-lighter)",
-          marginBottom: 8,
-        }}
-      >
+    <div>
+      <h4>Sync history</h4>
+      <div style={{ fontSize: 12, marginBottom: 8 }}>
         Recent Xero sync activity for this claim and its payments
         (Invoices/Bills/Payments only). Showing the 50 most recent entries.
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 13,
-            color: "var(--wind)",
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                background: "rgba(0,0,0,0.2)",
-                textAlign: "left",
-                color: "var(--wind)",
-              }}
-            >
-              <th style={{ padding: "6px 8px" }}>When</th>
-              <th style={{ padding: "6px 8px" }}>Type</th>
-              <th style={{ padding: "6px 8px" }}>Status</th>
-              <th style={{ padding: "6px 8px" }}>Direction</th>
-              <th style={{ padding: "6px 8px" }}>Reference</th>
-              <th style={{ padding: "6px 8px" }}>Message</th>
-              <th style={{ padding: "6px 8px" }}>&nbsp;</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const full = r.description || "";
-              const truncated =
-                full.length > 80 ? `${full.slice(0, 80)}…` : full;
-              const isXeroToPt =
-                (r.process || "").split(">")[0]?.trim() === "Xero";
-              return (
-                <tr
-                  key={r.id}
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
-                >
-                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                    {r.created_on
-                      ? new Date(r.created_on).toLocaleString()
-                      : "—"}
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>{r.sync_type || "—"}</td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <span
-                      style={{
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontSize: 12,
-                        background:
-                          r.sync_status === "Succeeded"
-                            ? "#e0f5e9"
-                            : r.sync_status === "Failed"
-                              ? "#ffe5e5"
-                              : r.sync_status === "Warning"
-                                ? "#fff3cd"
-                                : "#f0f0f0",
-                        color:
-                          r.sync_status === "Succeeded"
-                            ? "#2a7a3a"
-                            : r.sync_status === "Failed"
-                              ? "#a00"
-                              : r.sync_status === "Warning"
-                                ? "#856404"
-                                : "#555",
-                      }}
-                    >
-                      {r.sync_status || "—"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                    <span
-                      style={{
-                        color: isXeroToPt ? "#12afe4" : "#f04e43",
-                        fontSize: 12,
-                      }}
-                    >
+      <div className="table-wrapper">
+        <div className="pt_table pt_formtable">
+          <table className="dataTable compact stripe nowrap hover order-column">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Direction</th>
+                <th>Reference</th>
+                <th>Message</th>
+                <th>&nbsp;</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const full = r.description || "";
+                const truncated =
+                  full.length > 80 ? `${full.slice(0, 80)}…` : full;
+                const isXeroToPt =
+                  (r.process || "").split(">")[0]?.trim() === "Xero";
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      {r.created_on
+                        ? new Date(r.created_on).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td>{r.sync_type || "—"}</td>
+                    <td>{r.sync_status || "—"}</td>
+                    <td>
                       {isXeroToPt ? "Xero ➤ Pay Trade" : "Pay Trade ➤ Xero"}
-                    </span>
-                  </td>
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      fontFamily: "monospace",
-                      fontSize: 11,
-                      maxWidth: 140,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={r.reference || ""}
-                  >
-                    {r.reference
-                      ? r.reference.length > 12
-                        ? `${r.reference.slice(0, 8)}…`
-                        : r.reference
-                      : "—"}
-                  </td>
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      maxWidth: 360,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={full}
-                  >
-                    {truncated || "—"}
-                  </td>
-                  <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                    <a
-                      href={`/user/integrations/xero/syncLogDetails/${r.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View
-                    </a>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td title={r.reference || ""}>
+                      {r.reference
+                        ? r.reference.length > 12
+                          ? `${r.reference.slice(0, 8)}…`
+                          : r.reference
+                        : "—"}
+                    </td>
+                    <td title={full}>{truncated || "—"}</td>
+                    <td>
+                      <a
+                        href={`/user/integrations/xero/syncLogDetails/${r.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+      <br />
     </div>
   );
 }
@@ -570,25 +481,15 @@ function renderRetentionJournals(
   onRetry: () => void,
 ) {
   return (
-    <div
-      style={{
-        marginTop: 16,
-        borderTop: "1px solid rgba(255,255,255,0.15)",
-        paddingTop: 12,
-        color: "var(--wind)",
-      }}
-    >
+    <div>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 8,
         }}
       >
-        <div style={{ fontWeight: 600, color: "var(--wind)" }}>
-          Retention GST gross-up journals
-        </div>
+        <h4>Retention GST gross-up journals</h4>
         {latestFailed && (
           <button
             type="button"
@@ -601,153 +502,84 @@ function renderRetentionJournals(
           </button>
         )}
       </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--wind-lighter)",
-          marginBottom: 8,
-        }}
-      >
+      <div style={{ fontSize: 12, marginBottom: 8 }}>
         PayTrade posts a balanced 2-line Manual Journal in Xero for the GST
         portion of retention so your books reconcile to the gross retention
         figure.
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 13,
-            color: "var(--wind)",
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                background: "rgba(0,0,0,0.2)",
-                textAlign: "left",
-                color: "var(--wind)",
-              }}
-            >
-              <th style={{ padding: "6px 8px" }}>Type</th>
-              <th style={{ padding: "6px 8px" }}>Status</th>
-              <th style={{ padding: "6px 8px" }}>Journal</th>
-              <th style={{ padding: "6px 8px" }}>DR account</th>
-              <th style={{ padding: "6px 8px" }}>CR account</th>
-              <th style={{ padding: "6px 8px", textAlign: "right" }}>
-                Retention ex-GST
-              </th>
-              <th style={{ padding: "6px 8px", textAlign: "right" }}>GST</th>
-              <th style={{ padding: "6px 8px" }}>Tax type</th>
-              <th style={{ padding: "6px 8px" }}>Source</th>
-              <th style={{ padding: "6px 8px" }}>Narration</th>
-              <th style={{ padding: "6px 8px" }}>Posted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {journals.map((j) => (
-              <tr
-                key={j.id}
-                style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
-              >
-                <td style={{ padding: "6px 8px" }}>
-                  {j.kind === "gross_up_reversal"
-                    ? "Reversal (release)"
-                    : "Gross-up (claim)"}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  <span
-                    style={{
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      fontSize: 12,
-                      background:
-                        j.status === "POSTED"
-                          ? "#e0f5e9"
-                          : j.status === "FAILED"
-                            ? "#ffe5e5"
-                            : "#f0f0f0",
-                      color:
-                        j.status === "POSTED"
-                          ? "#2a7a3a"
-                          : j.status === "FAILED"
-                            ? "#a00"
-                            : "#555",
-                    }}
-                  >
-                    {j.status === "DELETED" ? "Voided" : j.status || "—"}
-                  </span>
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.deep_link_url && j.manual_journal_id ? (
-                    <a
-                      href={j.deep_link_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={j.manual_journal_id}
-                    >
-                      Open
-                    </a>
-                  ) : j.manual_journal_id ? (
-                    <code style={{ fontSize: 11 }}>
-                      {j.manual_journal_id.slice(0, 8)}…
-                    </code>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.account_1_code || "—"}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.account_2_code || "—"}
-                </td>
-                <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                  {j.retention_ex_gst != null
-                    ? `$${Number(j.retention_ex_gst).toFixed(2)}`
-                    : "—"}
-                </td>
-                <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                  {j.gst_amount != null
-                    ? `$${Number(j.gst_amount).toFixed(2)}`
-                    : "—"}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.resolved_tax_type || "—"}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.resolution_source || "—"}
-                </td>
-                <td
-                  style={{
-                    padding: "6px 8px",
-                    maxWidth: 280,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  title={j.narration || ""}
-                >
-                  {j.narration || "—"}
-                </td>
-                <td style={{ padding: "6px 8px" }}>
-                  {j.created_on
-                    ? new Date(j.created_on).toLocaleString()
-                    : "—"}
-                </td>
+      <div className="table-wrapper">
+        <div className="pt_table pt_formtable">
+          <table className="dataTable compact stripe nowrap hover order-column">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Journal</th>
+                <th>DR account</th>
+                <th>CR account</th>
+                <th style={{ textAlign: "right" }}>Retention ex-GST</th>
+                <th style={{ textAlign: "right" }}>GST</th>
+                <th>Tax type</th>
+                <th>Source</th>
+                <th>Narration</th>
+                <th>Posted</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {journals.map((j) => (
+                <tr key={j.id}>
+                  <td>
+                    {j.kind === "gross_up_reversal"
+                      ? "Reversal (release)"
+                      : "Gross-up (claim)"}
+                  </td>
+                  <td>
+                    {j.status === "DELETED" ? "Voided" : j.status || "—"}
+                  </td>
+                  <td>
+                    {j.deep_link_url && j.manual_journal_id ? (
+                      <a
+                        href={j.deep_link_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={j.manual_journal_id}
+                      >
+                        Open
+                      </a>
+                    ) : j.manual_journal_id ? (
+                      <code>{j.manual_journal_id.slice(0, 8)}…</code>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>{j.account_1_code || "—"}</td>
+                  <td>{j.account_2_code || "—"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {j.retention_ex_gst != null
+                      ? `$${Number(j.retention_ex_gst).toFixed(2)}`
+                      : "—"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {j.gst_amount != null
+                      ? `$${Number(j.gst_amount).toFixed(2)}`
+                      : "—"}
+                  </td>
+                  <td>{j.resolved_tax_type || "—"}</td>
+                  <td>{j.resolution_source || "—"}</td>
+                  <td title={j.narration || ""}>{j.narration || "—"}</td>
+                  <td>
+                    {j.created_on
+                      ? new Date(j.created_on).toLocaleString()
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {journals.some((j) => j.status === "FAILED" && j.error_text) && (
-        <div
-          style={{
-            marginTop: 8,
-            color: "#ff9b95",
-            fontSize: 12,
-          }}
-        >
+        <div style={{ marginTop: 8, fontSize: 12 }}>
           {journals
             .filter((j) => j.status === "FAILED" && j.error_text)
             .map((j) => (
@@ -755,6 +587,7 @@ function renderRetentionJournals(
             ))}
         </div>
       )}
+      <br />
     </div>
   );
 }
