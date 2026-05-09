@@ -55,6 +55,7 @@ import {
 } from "../AddUpdateBankAccount/AddUpdateBankAccount.function";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import { getSubscriptionDetailsByCompanyId } from "../Subscriptions/subscriptions.function";
+import AbaWizardModal from "./AbaWizardModal";
 
 const AUTO_CLOSE_TIME = 30;
 
@@ -109,7 +110,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     fileGenerated: false,
   });
   const [abaMarkAsPaid, setAbaMarkAsPaid] = useState<null | boolean>(null);
-  const [showMarkPaidConfirmation, setShowMarkPaidConfirmation] = useState(false);
+  const [showAbaWizard, setShowAbaWizard] = useState(false);
   const [showNoticePopup, setShowNoticePopup] = useState(false);
   const [noticeFiles, setNoticeFiles] = useState<any[]>([]);
   const [noticeMailUuids, setNoticeMailUuids] = useState<string[]>([]);
@@ -642,7 +643,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     }
   };
 
-  // Step 1: Initial click - show confirmation dialog
+  // Step 1: Initial click - open the per-account ABA wizard
   function handleDownloadAbaFileClick() {
     if (!abaGenerationAllowed) {
       setModalHeading("Upgrade Subscription");
@@ -652,25 +653,31 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       setOpenPlanModal(true);
       return;
     }
-    // Show confirmation dialog asking if user wants to mark payments as paid
-    setShowMarkPaidConfirmation(true);
+    setShowAbaWizard(true);
   }
 
-  // Step 2: Generate ABA file with the chosen option
-  async function handleDownloadAbaFile(markPaymentsAsPaid: any = null) {
-    setShowMarkPaidConfirmation(false);
+  // Step 2: Generate ABA file for a specific account + selected sub-payments
+  async function handleDownloadAbaFile(
+    markPaymentsAsPaid: any = null,
+    bankAccountId: number | null = null,
+    subPaymentIds: number[] | null = null,
+  ) {
+    setShowAbaWizard(false);
     setDisableAbaFileBtn(true);
     try {
       let responseFile = await GenerateABAfiles({
         company_id: selectedCompanyId,
         sub_payment_type: "ToDo",
-        bank_account_id: null,
+        bank_account_id: bankAccountId,
         project_id: null,
         contract_id: null,
         status: "Unmatched",
         is_confirmed: false,
         is_late: null,
         mark_paid: markPaymentsAsPaid,
+        ...(subPaymentIds && subPaymentIds.length > 0
+          ? { sub_payment_ids: subPaymentIds }
+          : {}),
       });
 
       if (markPaymentsAsPaid) {
@@ -1085,31 +1092,15 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           </BaseModal>
         )}
       </div>
-      {showMarkPaidConfirmation && (
-        <BaseModal
-          modalId={"mark paid confirmation modal"}
-          displayModal={showMarkPaidConfirmation}
-          onHeaderIconClose={() => setShowMarkPaidConfirmation(false)}
-          restrictOncloseFunctionInHeader
-          onClose={() => {
-            // "No" button - generate ABA without marking as paid
-            handleDownloadAbaFile(null);
-            return true;
+      {showAbaWizard && (
+        <AbaWizardModal
+          open={showAbaWizard}
+          companyId={selectedCompanyId}
+          onClose={() => setShowAbaWizard(false)}
+          onGenerate={async ({ bankAccountId, subPaymentIds, markPaid }) => {
+            await handleDownloadAbaFile(markPaid, bankAccountId, subPaymentIds);
           }}
-          onConfirm={() => {
-            // "Yes" button - generate ABA and mark as paid
-            handleDownloadAbaFile("yes");
-            return true;
-          }}
-          firstButtonName="No"
-          secondButtonName="Yes"
-        >
-          <div className="text_center">
-            <p style={{ marginTop: '10px' }}>
-              Do you want to mark these payments as paid after generating the ABA file?
-            </p>
-          </div>
-        </BaseModal>
+        />
       )}
       {skippedSummary?.display && (
         <BaseModal

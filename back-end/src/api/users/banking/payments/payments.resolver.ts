@@ -19,6 +19,8 @@ import {
   FetchDetailsOfAPaymentResponse,
   FetchRetentionSummaryResponse,
   generateAbaFilesResponse,
+  GetAbaWizardOutstandingPaymentsResponse,
+  GetAbaWizardSenderAccountsResponse,
   GetListOfAllPaymentsToDoInDashboardResponse,
   ListAllPaymentsResponse,
   ListSubPaymentsResponse,
@@ -34,6 +36,8 @@ import {
   FetchDetailsOfAPaymentInput,
   FetchRetentionSummaryInput,
   GetABAFileHistoryInput,
+  GetAbaWizardOutstandingPaymentsInput,
+  GetAbaWizardSenderAccountsInput,
   GetListOfAllPaymentsToDoInDashboardInput,
   ListAllPaymentsInput,
   ListSubPaymentsInput,
@@ -524,6 +528,63 @@ export class PaymentsResolver {
       return framedResponse(
         'ERROR',
         `Errored while listing all the sub payments with message: ${error}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetAbaWizardSenderAccountsResponse, {
+    name: 'getAbaWizardSenderAccounts',
+    description:
+      'Per-account ABA wizard: list sender bank accounts that currently have outstanding ToDo sub-payments, with APCA presence so the UI can block accounts that are not ready.',
+  })
+  async getAbaWizardSenderAccounts(
+    @Args('payload') payload: GetAbaWizardSenderAccountsInput,
+  ): Promise<any> {
+    try {
+      const data = await this.paymentsService.getAbaWizardSenderAccounts(
+        payload.company_id,
+      );
+      return framedResponse('SUCCESS', 'Sender accounts fetched.', data);
+    } catch (error) {
+      this.logger.error(
+        `getAbaWizardSenderAccounts failed: ${error?.message || error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Failed to fetch ABA wizard sender accounts: ${error?.message || error}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetAbaWizardOutstandingPaymentsResponse, {
+    name: 'getAbaWizardOutstandingPayments',
+    description:
+      'Per-account ABA wizard: list outstanding ToDo sub-payments drawn from one sender account, with per-row ABA eligibility flags.',
+  })
+  async getAbaWizardOutstandingPayments(
+    @Args('payload') payload: GetAbaWizardOutstandingPaymentsInput,
+  ): Promise<any> {
+    try {
+      const data = await this.paymentsService.getAbaWizardOutstandingPayments(
+        payload.company_id,
+        payload.bank_account_id,
+      );
+      return framedResponse(
+        'SUCCESS',
+        'Outstanding sub-payments fetched.',
+        data,
+      );
+    } catch (error) {
+      this.logger.error(
+        `getAbaWizardOutstandingPayments failed: ${error?.message || error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Failed to fetch ABA wizard outstanding payments: ${error?.message || error}`,
       );
     }
   }

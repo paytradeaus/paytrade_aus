@@ -392,6 +392,34 @@ export class ListSubPaymentsInput {
 
   @Field({ nullable: true, description: 'Sorting order: ASC or DESC.' })
   sorting_order?: 'ASC' | 'DESC';
+
+  @Field(() => [Int], {
+    nullable: true,
+    description:
+      'Optional explicit list of sub_payment_id values to restrict results to (used by the per-account ABA wizard).',
+  })
+  sub_payment_ids?: number[];
+}
+
+@InputType({
+  description:
+    'Input for the per-sending-account ABA wizard sender-account picker.',
+})
+export class GetAbaWizardSenderAccountsInput {
+  @Field({ description: 'Company ID to list sender accounts for.' })
+  company_id: number;
+}
+
+@InputType({
+  description:
+    'Input for the per-sending-account ABA wizard outstanding payments list.',
+})
+export class GetAbaWizardOutstandingPaymentsInput {
+  @Field({ description: 'Company ID.' })
+  company_id: number;
+
+  @Field({ description: 'Sender bank account ID.' })
+  bank_account_id: number;
 }
 
 @InputType({

@@ -1215,6 +1215,116 @@ export class FileAttachmenResponse {
   skipped_accounts?: AbaSkippedAccount[];
 }
 
+@ObjectType({
+  description:
+    'Sender bank account row used by the per-account ABA wizard picker.',
+})
+export class AbaWizardSenderAccount {
+  @Field({ description: 'Bank account ID of the sender account.' })
+  bank_account_id: number;
+
+  @Field({ description: 'Company ID owning the account.' })
+  company_id: number;
+
+  @Field({ nullable: true, description: 'Display name of the bank account.' })
+  account_name: string;
+
+  @Field({ nullable: true, description: 'Account number.' })
+  account_number: string;
+
+  @Field({ nullable: true, description: 'BSB number (as string).' })
+  bsb_number: string;
+
+  @Field(() => Float, { nullable: true, description: 'APCA / Direct entry user ID.' })
+  apca_number: number;
+
+  @Field({ description: 'True when the account has a non-null APCA number.' })
+  has_apca: boolean;
+
+  @Field(() => Float, {
+    description: 'Number of outstanding (unconfirmed) ToDo sub-payments drawn from this account.',
+  })
+  eligible_count: number;
+}
+
+@ObjectType({
+  description: 'Response wrapper for the ABA wizard sender-accounts query.',
+})
+export class GetAbaWizardSenderAccountsResponse {
+  @Field({ description: 'API response status.' })
+  status: ApiStatusType;
+
+  @Field({ description: 'Response message.' })
+  message: string;
+
+  @Field(() => [AbaWizardSenderAccount], { nullable: true, description: 'Sender accounts.' })
+  data: AbaWizardSenderAccount[];
+}
+
+@ObjectType({
+  description: 'A single outstanding sub-payment row for the ABA wizard.',
+})
+export class AbaWizardOutstandingPayment {
+  @Field({ description: 'Sub-payment ID.' })
+  sub_payment_id: number;
+
+  @Field({ nullable: true, description: 'Parent payment ID.' })
+  payment_id: number;
+
+  @Field({ nullable: true, description: 'Payment type.' })
+  payment_type: string;
+
+  @Field({ nullable: true, description: 'Sub-payment type.' })
+  sub_payment_type: string;
+
+  @Field({ nullable: true, description: 'Recipient display name.' })
+  recipient_name: string;
+
+  @Field({ nullable: true, description: 'Recipient account number.' })
+  recipient_account_number: string;
+
+  @Field({ nullable: true, description: 'Recipient BSB.' })
+  recipient_bsb: string;
+
+  @Field(() => Float, { nullable: true, description: 'Amount.' })
+  amount: number;
+
+  @Field({ nullable: true, description: 'Project name.' })
+  project_name: string;
+
+  @Field({ nullable: true, description: 'Contract name.' })
+  contract_name: string;
+
+  @Field({ nullable: true, description: 'Due date.' })
+  due_date: Date;
+
+  @Field({
+    description:
+      'True when this row has all required fields to be included in an ABA file.',
+  })
+  is_eligible: boolean;
+
+  @Field(() => [String], {
+    nullable: true,
+    description: 'Missing field codes when is_eligible is false.',
+  })
+  missing_fields: string[];
+}
+
+@ObjectType({
+  description: 'Response wrapper for the ABA wizard outstanding-payments query.',
+})
+export class GetAbaWizardOutstandingPaymentsResponse {
+  @Field({ description: 'API response status.' })
+  status: ApiStatusType;
+
+  @Field({ description: 'Response message.' })
+  message: string;
+
+  @Field(() => [AbaWizardOutstandingPayment], { nullable: true })
+  data: AbaWizardOutstandingPayment[];
+}
+
 @ObjectType({ description: 'Response structure for ABA file generation.' })
 export class generateAbaFilesResponse {
   @Field({ description: 'API response status.' })

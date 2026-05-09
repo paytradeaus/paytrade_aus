@@ -1,0 +1,445 @@
+import React, { useEffect, useMemo, useState } from "react";
+import BaseModal from "@/components/BaseModal";
+import {
+  GetAbaWizardSenderAccounts,
+  GetAbaWizardOutstandingPayments,
+} from "@/utils/export";
+import { AppRoutes } from "@/shared/constant/appRoutes";
+import { convertPositiveDecimalTwoDigit } from "@/utils";
+import { currencySymbol } from "@/shared/constant/general";
+
+type SenderAccount = {
+  bank_account_id: number;
+  company_id: number;
+  account_name: string;
+  account_number: string;
+  bsb_number: string;
+  apca_number: number | null;
+  has_apca: boolean;
+  eligible_count: number;
+};
+
+type OutstandingPayment = {
+  sub_payment_id: number;
+  payment_id: number | null;
+  payment_type: string;
+  sub_payment_type: string;
+  recipient_name: string;
+  recipient_account_number: string;
+  recipient_bsb: string;
+  amount: number;
+  project_name: string;
+  contract_name: string;
+  due_date: string | null;
+  is_eligible: boolean;
+  missing_fields: string[];
+};
+
+type Props = {
+  open: boolean;
+  companyId: number;
+  onClose: () => void;
+  onGenerate: (args: {
+    bankAccountId: number;
+    subPaymentIds: number[];
+    markPaid: "yes" | null;
+  }) => Promise<void> | void;
+};
+
+const formatMoney = (n: number) =>
+  `${currencySymbol} ${convertPositiveDecimalTwoDigit(n || 0, true)}`;
+
+const formatDate = (d: string | null) => {
+  if (!d) return "-";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "-";
+    return dt.toISOString().slice(0, 10);
+  } catch {
+    return "-";
+  }
+};
+
+export default function AbaWizardModal({
+  open,
+  companyId,
+  onClose,
+  onGenerate,
+}: Props) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [accounts, setAccounts] = useState<SenderAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
+    null,
+  );
+  const [payments, setPayments] = useState<OutstandingPayment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [selectedSubIds, setSelectedSubIds] = useState<Set<number>>(new Set());
+  const [generating, setGenerating] = useState(false);
+
+  // Reset on open
+  useEffect(() => {
+    if (!open) return;
+    setStep(1);
+    setSelectedAccountId(null);
+    setPayments([]);
+    setSelectedSubIds(new Set());
+    setGenerating(false);
+    (async () => {
+      setAccountsLoading(true);
+      const data = await GetAbaWizardSenderAccounts(companyId);
+      setAccounts(data || []);
+      setAccountsLoading(false);
+    })();
+  }, [open, companyId]);
+
+  // Load payments when account picked + step 2
+  useEffect(() => {
+    if (step !== 2 || !selectedAccountId) return;
+    (async () => {
+      setPaymentsLoading(true);
+      const data = await GetAbaWizardOutstandingPayments(
+        companyId,
+        selectedAccountId,
+      );
+      setPayments(data || []);
+      // pre-select all eligible
+      setSelectedSubIds(
+        new Set(
+          (data || [])
+            .filter((p: OutstandingPayment) => p.is_eligible)
+            .map((p: OutstandingPayment) => p.sub_payment_id),
+        ),
+      );
+      setPaymentsLoading(false);
+    })();
+  }, [step, selectedAccountId, companyId]);
+
+  const selectedAccount = useMemo(
+    () => accounts.find((a) => a.bank_account_id === selectedAccountId) || null,
+    [accounts, selectedAccountId],
+  );
+
+  const eligiblePayments = useMemo(
+    () => payments.filter((p) => p.is_eligible),
+    [payments],
+  );
+
+  const allEligibleSelected =
+    eligiblePayments.length > 0 &&
+    eligiblePayments.every((p) => selectedSubIds.has(p.sub_payment_id));
+
+  const toggleAll = () => {
+    if (allEligibleSelected) {
+      setSelectedSubIds(new Set());
+    } else {
+      setSelectedSubIds(
+        new Set(eligiblePayments.map((p) => p.sub_payment_id)),
+      );
+    }
+  };
+
+  const togglePayment = (id: number) => {
+    setSelectedSubIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // ---------- Step 1 ----------
+  const renderStep1 = () => (
+    <div>
+      <h4 className="text_center" style={{ marginBottom: 12 }}>
+        Step 1 — Choose sending account
+      </h4>
+      {accountsLoading ? (
+        <p style={{ textAlign: "center" }}>Loading sender accounts…</p>
+      ) : accounts.length === 0 ? (
+        <p style={{ textAlign: "center" }}>
+          No sender accounts have outstanding payments to generate an ABA file
+          for.
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {accounts.map((a) => {
+            const disabled = !a.has_apca;
+            const isSelected = selectedAccountId === a.bank_account_id;
+            return (
+              <li
+                key={a.bank_account_id}
+                style={{
+                  border: isSelected
+                    ? "2px solid #0070f3"
+                    : "1px solid #ddd",
+                  borderRadius: 6,
+                  padding: 12,
+                  marginBottom: 8,
+                  opacity: disabled ? 0.7 : 1,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  background: disabled ? "#fafafa" : "white",
+                }}
+                onClick={() => {
+                  if (disabled) return;
+                  setSelectedAccountId(a.bank_account_id);
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{a.account_name}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>
+                      BSB {a.bsb_number || "—"} · Acct {a.account_number || "—"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13 }}>
+                      <b>{a.eligible_count}</b> outstanding
+                    </div>
+                  </div>
+                </div>
+                {disabled && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "6px 8px",
+                      background: "#fff4e5",
+                      border: "1px solid #ffd591",
+                      borderRadius: 4,
+                      fontSize: 12,
+                      color: "#874d00",
+                    }}
+                  >
+                    Missing APCA / Direct Entry user ID — cannot generate.{" "}
+                    <a
+                      href={`${AppRoutes.USER_EDIT_BANK_ACCOUNTS}/${a.company_id}/${a.bank_account_id}?routedFrom=payments-to-do`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                      }}
+                      style={{
+                        color: "#0070f3",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Fix this account
+                    </a>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  // ---------- Step 2 ----------
+  const renderStep2 = () => (
+    <div>
+      <h4 className="text_center" style={{ marginBottom: 4 }}>
+        Step 2 — Select payments
+      </h4>
+      <p style={{ textAlign: "center", color: "#666", marginBottom: 12 }}>
+        Sender: <b>{selectedAccount?.account_name}</b>
+      </p>
+      {paymentsLoading ? (
+        <p style={{ textAlign: "center" }}>Loading payments…</p>
+      ) : payments.length === 0 ? (
+        <p style={{ textAlign: "center" }}>
+          No outstanding payments for this account.
+        </p>
+      ) : (
+        <div
+          style={{
+            maxHeight: 360,
+            overflowY: "auto",
+            border: "1px solid #eee",
+            borderRadius: 4,
+          }}
+        >
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <thead style={{ position: "sticky", top: 0, background: "#f7f7f7" }}>
+              <tr style={{ textAlign: "left" }}>
+                <th style={{ padding: 8, width: 32 }}>
+                  <input
+                    type="checkbox"
+                    checked={allEligibleSelected}
+                    onChange={toggleAll}
+                    disabled={eligiblePayments.length === 0}
+                    aria-label="Select all eligible payments"
+                  />
+                </th>
+                <th style={{ padding: 8 }}>Recipient</th>
+                <th style={{ padding: 8 }}>Type</th>
+                <th style={{ padding: 8 }}>Project / Contract</th>
+                <th style={{ padding: 8 }}>Due</th>
+                <th style={{ padding: 8, textAlign: "right" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => {
+                const checked = selectedSubIds.has(p.sub_payment_id);
+                return (
+                  <tr
+                    key={p.sub_payment_id}
+                    style={{
+                      borderTop: "1px solid #f3f3f3",
+                      background: !p.is_eligible ? "#fff4e5" : "white",
+                    }}
+                  >
+                    <td style={{ padding: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!p.is_eligible}
+                        onChange={() => togglePayment(p.sub_payment_id)}
+                        aria-label={`Select payment ${p.sub_payment_id}`}
+                      />
+                    </td>
+                    <td style={{ padding: 8 }}>
+                      <div>{p.recipient_name || "-"}</div>
+                      {!p.is_eligible && (
+                        <div style={{ fontSize: 11, color: "#874d00" }}>
+                          Missing: {p.missing_fields.join(", ")}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: 8 }}>{p.sub_payment_type || "-"}</td>
+                    <td style={{ padding: 8 }}>
+                      {p.project_name || "-"}
+                      {p.contract_name ? ` / ${p.contract_name}` : ""}
+                    </td>
+                    <td style={{ padding: 8 }}>{formatDate(p.due_date)}</td>
+                    <td style={{ padding: 8, textAlign: "right" }}>
+                      {formatMoney(p.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+        {selectedSubIds.size} of {eligiblePayments.length} eligible payment(s)
+        selected.
+      </p>
+    </div>
+  );
+
+  // ---------- Step 3 ----------
+  const renderStep3 = () => (
+    <div className="text_center">
+      <h4>Step 3 — Mark as paid?</h4>
+      <p style={{ marginTop: 12 }}>
+        You're about to generate an ABA file for{" "}
+        <b>{selectedSubIds.size}</b> payment(s) from{" "}
+        <b>{selectedAccount?.account_name}</b>.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        Do you want to mark these payments as paid after generating the ABA
+        file?
+      </p>
+    </div>
+  );
+
+  // ---------- Footer wiring ----------
+  // Step 1: secondary = Next (enabled if account chosen)
+  // Step 2: first = Back, second = Next (enabled if at least 1 selected)
+  // Step 3: first = "No, just generate", second = "Yes, mark as paid"
+  let footer:
+    | {
+        firstName?: string;
+        secondName: string;
+        hideFirst?: boolean;
+        disableSecond?: boolean;
+        onFirst: () => void;
+        onSecond: () => void;
+      }
+    | null = null;
+
+  if (step === 1) {
+    footer = {
+      hideFirst: true,
+      secondName: "Next",
+      disableSecond: !selectedAccountId,
+      onFirst: () => {},
+      onSecond: () => setStep(2),
+    };
+  } else if (step === 2) {
+    footer = {
+      firstName: "Back",
+      secondName: "Next",
+      disableSecond: selectedSubIds.size === 0,
+      onFirst: () => setStep(1),
+      onSecond: () => setStep(3),
+    };
+  } else {
+    footer = {
+      firstName: "No, just generate",
+      secondName: "Yes, mark as paid",
+      disableSecond: generating,
+      onFirst: async () => {
+        if (generating || !selectedAccountId) return;
+        setGenerating(true);
+        try {
+          await onGenerate({
+            bankAccountId: selectedAccountId,
+            subPaymentIds: Array.from(selectedSubIds),
+            markPaid: null,
+          });
+        } finally {
+          setGenerating(false);
+        }
+      },
+      onSecond: async () => {
+        if (generating || !selectedAccountId) return;
+        setGenerating(true);
+        try {
+          await onGenerate({
+            bankAccountId: selectedAccountId,
+            subPaymentIds: Array.from(selectedSubIds),
+            markPaid: "yes",
+          });
+        } finally {
+          setGenerating(false);
+        }
+      },
+    };
+  }
+
+  if (!open) return null;
+
+  return (
+    <BaseModal
+      modalId="aba-wizard-modal"
+      displayModal={open}
+      title="Generate ABA file"
+      onHeaderIconClose={onClose}
+      restrictOncloseFunctionInHeader
+      onClose={() => {
+        footer!.onFirst();
+        return false;
+      }}
+      onConfirm={() => {
+        footer!.onSecond();
+        return false;
+      }}
+      firstButtonName={footer.firstName || "Cancel"}
+      secondButtonName={footer.secondName}
+      hideFirstButton={footer.hideFirst}
+      disableSecondButton={footer.disableSecond}
+    >
+      {step === 1 && renderStep1()}
+      {step === 2 && renderStep2()}
+      {step === 3 && renderStep3()}
+    </BaseModal>
+  );
+}

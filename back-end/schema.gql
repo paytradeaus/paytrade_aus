@@ -101,6 +101,79 @@ type AbaSkippedPayment {
   sub_payment_id: Float
 }
 
+"""A single outstanding sub-payment row for the ABA wizard."""
+type AbaWizardOutstandingPayment {
+  """Amount."""
+  amount: Float
+
+  """Contract name."""
+  contract_name: String
+
+  """Due date."""
+  due_date: DateTime
+
+  """
+  True when this row has all required fields to be included in an ABA file.
+  """
+  is_eligible: Boolean!
+
+  """Missing field codes when is_eligible is false."""
+  missing_fields: [String!]
+
+  """Parent payment ID."""
+  payment_id: Float
+
+  """Payment type."""
+  payment_type: String
+
+  """Project name."""
+  project_name: String
+
+  """Recipient account number."""
+  recipient_account_number: String
+
+  """Recipient BSB."""
+  recipient_bsb: String
+
+  """Recipient display name."""
+  recipient_name: String
+
+  """Sub-payment ID."""
+  sub_payment_id: Float!
+
+  """Sub-payment type."""
+  sub_payment_type: String
+}
+
+"""Sender bank account row used by the per-account ABA wizard picker."""
+type AbaWizardSenderAccount {
+  """Display name of the bank account."""
+  account_name: String
+
+  """Account number."""
+  account_number: String
+
+  """APCA / Direct entry user ID."""
+  apca_number: Float
+
+  """Bank account ID of the sender account."""
+  bank_account_id: Float!
+
+  """BSB number (as string)."""
+  bsb_number: String
+
+  """Company ID owning the account."""
+  company_id: Float!
+
+  """
+  Number of outstanding (unconfirmed) ToDo sub-payments drawn from this account.
+  """
+  eligible_count: Float!
+
+  """True when the account has a non-null APCA number."""
+  has_apca: Boolean!
+}
+
 """
 Represents an account entry within a journal, including debit and credit values.
 """
@@ -9175,6 +9248,46 @@ input GetABAFileHistoryInput {
   sorting_order: String
 }
 
+"""
+Input for the per-sending-account ABA wizard outstanding payments list.
+"""
+input GetAbaWizardOutstandingPaymentsInput {
+  """Sender bank account ID."""
+  bank_account_id: Float!
+
+  """Company ID."""
+  company_id: Float!
+}
+
+"""Response wrapper for the ABA wizard outstanding-payments query."""
+type GetAbaWizardOutstandingPaymentsResponse {
+  data: [AbaWizardOutstandingPayment!]
+
+  """Response message."""
+  message: String!
+
+  """API response status."""
+  status: String!
+}
+
+"""Input for the per-sending-account ABA wizard sender-account picker."""
+input GetAbaWizardSenderAccountsInput {
+  """Company ID to list sender accounts for."""
+  company_id: Float!
+}
+
+"""Response wrapper for the ABA wizard sender-accounts query."""
+type GetAbaWizardSenderAccountsResponse {
+  """Sender accounts."""
+  data: [AbaWizardSenderAccount!]
+
+  """Response message."""
+  message: String!
+
+  """API response status."""
+  status: String!
+}
+
 """Input to retrieve account codes for a company"""
 input GetAccountCodesInput {
   """Company ID"""
@@ -13316,6 +13429,11 @@ input ListSubPaymentsInput {
 
   """Status of the sub-payment."""
   status: String
+
+  """
+  Optional explicit list of sub_payment_id values to restrict results to (used by the per-account ABA wizard).
+  """
+  sub_payment_ids: [Int!]
 
   """Type of sub-payment (optional)."""
   sub_payment_type: String
@@ -17688,6 +17806,16 @@ type Query {
     """
     payload: GetABAFileHistoryInput!
   ): FetchAllABAGeneratedFileHistoryResponse!
+
+  """
+  Per-account ABA wizard: list outstanding ToDo sub-payments drawn from one sender account, with per-row ABA eligibility flags.
+  """
+  getAbaWizardOutstandingPayments(payload: GetAbaWizardOutstandingPaymentsInput!): GetAbaWizardOutstandingPaymentsResponse!
+
+  """
+  Per-account ABA wizard: list sender bank accounts that currently have outstanding ToDo sub-payments, with APCA presence so the UI can block accounts that are not ready.
+  """
+  getAbaWizardSenderAccounts(payload: GetAbaWizardSenderAccountsInput!): GetAbaWizardSenderAccountsResponse!
 
   """Fetches Xero account codes for a company."""
   getAccountCodes(

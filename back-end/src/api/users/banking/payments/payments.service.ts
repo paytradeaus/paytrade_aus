@@ -5102,6 +5102,16 @@ export class PaymentsService {
       );
     }
 
+    if (
+      getSubpaymentsInput.sub_payment_ids &&
+      getSubpaymentsInput.sub_payment_ids.length > 0
+    ) {
+      queryBuilder.andWhere(
+        'subpayment.sub_payment_id IN (:...sub_payment_ids)',
+        { sub_payment_ids: getSubpaymentsInput.sub_payment_ids },
+      );
+    }
+
     if (getSubpaymentsInput.sub_payment_type) {
       if (getSubpaymentsInput.sub_payment_type == 'ToDo') {
         const PaymentsToDo = ['Payment', 'Retention Out', 'Retention In'];
@@ -7002,5 +7012,161 @@ export class PaymentsService {
       this.logger.error(error);
       throw new Error(error);
     }
+  }
+
+  /**
+   * Per-account ABA wizard: returns sender bank accounts for a company that
+   * have at least one outstanding (unconfirmed, ToDo) sub-payment drawn from
+   * them, along with APCA presence so the wizard can disable accounts that
+   * cannot generate an ABA file yet.
+   */
+  async getAbaWizardSenderAccounts(company_id: number) {
+    const PaymentsToDoTypes = ['Payment', 'Retention Out', 'Retention In'];
+
+    const rows = await this.bankAccountsRepo
+      .createQueryBuilder('ba')
+      .leftJoin(
+        PaymentDetails,
+        'p',
+        'p.payment_from_account = ba.bank_account_id',
+      )
+      .leftJoin(
+        SubPayments,
+        'sp',
+        `sp.payment_id = p.payment_id
+          AND sp.sub_payment_type IN (:...types)
+          AND sp.status = :status
+          AND sp.amount < 0
+          AND (
+            sp.is_paid_confirmed = false
+            OR sp.is_received_confirmed = false
+            OR sp.is_retention_confirmed = false
+            OR (
+              sp.is_paid_confirmed IS NULL
+              AND sp.is_received_confirmed IS NULL
+              AND sp.is_retention_confirmed IS NULL
+            )
+          )`,
+        { types: PaymentsToDoTypes, status: 'Unmatched' },
+      )
+      .where('ba.company_id = :company_id', { company_id })
+      .andWhere(`ba.status IN ('Active','Open','Draft')`)
+      .select([
+        'ba.bank_account_id AS bank_account_id',
+        'ba.account_name AS account_name',
+        'ba.account_number AS account_number',
+        'ba.bsb_number AS bsb_number',
+        'ba.apca_number AS apca_number',
+        'COUNT(sp.id) AS eligible_count',
+      ])
+      .groupBy('ba.bank_account_id')
+      .addGroupBy('ba.account_name')
+      .addGroupBy('ba.account_number')
+      .addGroupBy('ba.bsb_number')
+      .addGroupBy('ba.apca_number')
+      .having('COUNT(sp.id) > 0')
+      .orderBy('ba.account_name', 'ASC')
+      .getRawMany();
+
+    return rows.map((r) => ({
+      bank_account_id: Number(r.bank_account_id),
+      company_id,
+      account_name: r.account_name || '',
+      account_number: r.account_number || '',
+      bsb_number: r.bsb_number != null ? String(r.bsb_number) : '',
+      apca_number: r.apca_number != null ? Number(r.apca_number) : null,
+      has_apca: r.apca_number != null,
+      eligible_count: Number(r.eligible_count) || 0,
+    }));
+  }
+
+  /**
+   * Per-account ABA wizard: returns the outstanding (unconfirmed ToDo)
+   * sub-payments drawn FROM a single sender bank account, with eligibility
+   * flags so the user can see in advance which rows will be skipped.
+   */
+  async getAbaWizardOutstandingPayments(
+    company_id: number,
+    bank_account_id: number,
+  ) {
+    const PaymentsToDoTypes = ['Payment', 'Retention Out', 'Retention In'];
+
+    const rows = await this.subPaymentsRepo
+      .createQueryBuilder('subpayment')
+      .leftJoin('subpayment.paymentDetails', 'payments')
+      .leftJoin('payments.paymentToAccount', 'toAccount')
+      .leftJoin('payments.retentionAccount', 'retentionAcc')
+      .leftJoin('payments.clientSupplierDetails', 'cs')
+      .leftJoin('payments.projectDetails', 'project')
+      .leftJoin('payments.paymentClaims', 'pc')
+      .leftJoin('pc.contractDetails', 'contract')
+      .where('payments.company_id = :company_id', { company_id })
+      .andWhere('payments.payment_from_account = :bank_account_id', {
+        bank_account_id,
+      })
+      .andWhere('subpayment.sub_payment_type IN (:...types)', {
+        types: PaymentsToDoTypes,
+      })
+      .andWhere('subpayment.status = :status', { status: 'Unmatched' })
+      .andWhere('subpayment.amount < 0')
+      .andWhere(
+        `(subpayment.is_paid_confirmed = false
+          OR subpayment.is_received_confirmed = false
+          OR subpayment.is_retention_confirmed = false
+          OR (
+            subpayment.is_paid_confirmed IS NULL
+            AND subpayment.is_received_confirmed IS NULL
+            AND subpayment.is_retention_confirmed IS NULL
+          ))`,
+      )
+      .select([
+        'subpayment.sub_payment_id AS sub_payment_id',
+        'payments.payment_id AS payment_id',
+        'payments.payment_type AS payment_type',
+        'subpayment.sub_payment_type AS sub_payment_type',
+        'subpayment.amount AS amount',
+        'pc.due_date AS due_date',
+        'project.project_name AS project_name',
+        'contract.contract_name AS contract_name',
+        `CASE
+          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_name
+          WHEN payments.payment_type IN ('Overpayment to supplier','Underpayment to supplier') THEN cs.client_supplier_name
+          ELSE toAccount.account_name
+        END AS recipient_name`,
+        `CASE
+          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.account_number
+          ELSE toAccount.account_number
+        END AS recipient_account_number`,
+        `CASE
+          WHEN subpayment.sub_payment_type IN ('Retention Out','Retention In') THEN retentionAcc.bsb_number
+          ELSE toAccount.bsb_number
+        END AS recipient_bsb`,
+      ])
+      .orderBy('pc.due_date', 'ASC', 'NULLS LAST')
+      .getRawMany();
+
+    return rows.map((r) => {
+      const missing: string[] = [];
+      if (!r.recipient_account_number) missing.push('recipient_account_number');
+      if (r.recipient_bsb == null || r.recipient_bsb === '')
+        missing.push('recipient_bsb');
+      return {
+        sub_payment_id: Number(r.sub_payment_id),
+        payment_id: r.payment_id != null ? Number(r.payment_id) : null,
+        payment_type: r.payment_type || '',
+        sub_payment_type: r.sub_payment_type || '',
+        recipient_name: r.recipient_name || '',
+        recipient_account_number: r.recipient_account_number
+          ? String(r.recipient_account_number)
+          : '',
+        recipient_bsb: r.recipient_bsb != null ? String(r.recipient_bsb) : '',
+        amount: r.amount != null ? Math.abs(Number(r.amount)) : 0,
+        project_name: r.project_name || '',
+        contract_name: r.contract_name || '',
+        due_date: r.due_date || null,
+        is_eligible: missing.length === 0,
+        missing_fields: missing,
+      };
+    });
   }
 }

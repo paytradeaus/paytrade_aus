@@ -183,6 +183,84 @@ export const GenerateSignedUrl = async (data: any) => {
   }
 };
 
+export async function GetAbaWizardSenderAccounts(company_id: number) {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetAbaWizardSenderAccounts(
+          $payload: GetAbaWizardSenderAccountsInput!
+        ) {
+          getAbaWizardSenderAccounts(payload: $payload) {
+            status
+            message
+            data {
+              bank_account_id
+              company_id
+              account_name
+              account_number
+              bsb_number
+              apca_number
+              has_apca
+              eligible_count
+            }
+          }
+        }
+      `,
+      variables: { payload: { company_id } },
+      fetchPolicy: "network-only",
+    });
+    const r = response?.data?.getAbaWizardSenderAccounts;
+    if (r?.status === ApiResponse.SUCCESS) return r?.data || [];
+    return [];
+  } catch {
+    showErrorToast(ApiResponse.SOMETHING_WENT_WRONG);
+    return [];
+  }
+}
+
+export async function GetAbaWizardOutstandingPayments(
+  company_id: number,
+  bank_account_id: number,
+) {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetAbaWizardOutstandingPayments(
+          $payload: GetAbaWizardOutstandingPaymentsInput!
+        ) {
+          getAbaWizardOutstandingPayments(payload: $payload) {
+            status
+            message
+            data {
+              sub_payment_id
+              payment_id
+              payment_type
+              sub_payment_type
+              recipient_name
+              recipient_account_number
+              recipient_bsb
+              amount
+              project_name
+              contract_name
+              due_date
+              is_eligible
+              missing_fields
+            }
+          }
+        }
+      `,
+      variables: { payload: { company_id, bank_account_id } },
+      fetchPolicy: "network-only",
+    });
+    const r = response?.data?.getAbaWizardOutstandingPayments;
+    if (r?.status === ApiResponse.SUCCESS) return r?.data || [];
+    return [];
+  } catch {
+    showErrorToast(ApiResponse.SOMETHING_WENT_WRONG);
+    return [];
+  }
+}
+
 export async function GenerateABAfiles(data: any) {
   try {
     let response = await apolloClient.query({
