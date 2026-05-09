@@ -712,12 +712,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     // synchronously here used to leave that class behind, producing a
     // page-blocking overlay after submit.
     setDisableAbaFileBtn(true);
-    setLoader(true);
-    setLoaderInfo(
-      markPaymentsAsPaid === "yes"
-        ? "Generating ABA file and marking payments as paid..."
-        : "Generating ABA file..."
-    );
+    // NOTE: do NOT use the global FullPageLoader here — the ABA wizard is a
+    // native <dialog> opened via showModal(), which puts it on the browser's
+    // top layer above ALL z-index. The wizard renders its own inline spinner
+    // while `generating` is true. We DO show the global loader below for the
+    // notice-generation step, which runs after the wizard has unmounted.
     try {
       let responseFile = await GenerateABAfiles({
         company_id: selectedCompanyId,
@@ -841,8 +840,6 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     } catch {
     } finally {
       setDisableAbaFileBtn(false);
-      setLoader(false);
-      setLoaderInfo("");
     }
   }
 

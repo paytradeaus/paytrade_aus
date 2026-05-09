@@ -2211,6 +2211,10 @@ export class PaymentsService {
                         sub_payment_id: element.sub_payment_id,
                       })
                       .execute();
+                    // Patch in-memory snapshot so the requestData builder
+                    // below can derive effective confirmed flags from ALL
+                    // sub_payments, not just the one this call touched.
+                    element.is_paid_confirmed = data.is_paid_confirmed;
                     payment_matched =
                       element.status === 'Unmatched' ? false : true;
 
@@ -2281,6 +2285,8 @@ export class PaymentsService {
                         sub_payment_id: element.sub_payment_id,
                       })
                       .execute();
+                    // Patch in-memory snapshot — see note in Payment branch.
+                    element.is_retention_confirmed = data.is_retention_confirmed;
                     retention_out_matched =
                       element.status === 'Unmatched' ? false : true;
 
@@ -2367,6 +2373,8 @@ export class PaymentsService {
                         sub_payment_id: element.sub_payment_id,
                       })
                       .execute();
+                    // Patch in-memory snapshot — see note in Payment branch.
+                    element.is_received_confirmed = data.is_received_confirmed;
                     payment_matched =
                       element.status === 'Unmatched' ? false : true;
 
@@ -2436,20 +2444,50 @@ export class PaymentsService {
                 'Underpayment to supplier',
               ].includes(paymentDetails?.payment_type)
             ) {
+              // Derive the EFFECTIVE confirmed flags from the (now-patched)
+              // in-memory sub_payments rather than the raw input. Bulk callers
+              // (e.g. ABA) only set the flag for the leg they're confirming
+              // and pass null for the other leg; passing those nulls straight
+              // into the status lookup produces "Unconfirmed" even when the
+              // other leg was confirmed in a previous iteration.
+              const paymentSub = paymentDetails?.subPayments?.find(
+                (p: any) => p.sub_payment_type === 'Payment',
+              );
+              const retentionOutSub = paymentDetails?.subPayments?.find(
+                (p: any) => p.sub_payment_type === 'Retention Out',
+              );
+              const effective_is_paid_confirmed =
+                data?.is_paid_confirmed != null
+                  ? data.is_paid_confirmed
+                  : paymentSub?.is_paid_confirmed ?? null;
+              const effective_is_retention_confirmed =
+                data?.is_retention_confirmed != null
+                  ? data.is_retention_confirmed
+                  : retentionOutSub?.is_retention_confirmed ?? null;
+              this.logger.log(
+                `[MARK_PAID_DEBUG] effective flags for status lookup: is_paid_confirmed=${effective_is_paid_confirmed}, is_retention_confirmed=${effective_is_retention_confirmed}`,
+              );
               requestData = {
                 ...requestData,
-                is_paid_confirmed: data?.is_paid_confirmed,
+                is_paid_confirmed: effective_is_paid_confirmed,
                 payment_matched: payment_matched,
                 is_retention_confirmed: paymentDetails?.cash_retention
-                  ? data?.is_retention_confirmed
+                  ? effective_is_retention_confirmed
                   : undefined,
                 retention_out_matched: retention_out_matched,
                 retention_in_matched: retention_in_matched,
               };
             } else {
+              const paymentSub = paymentDetails?.subPayments?.find(
+                (p: any) => p.sub_payment_type === 'Payment',
+              );
+              const effective_is_received_confirmed =
+                data?.is_received_confirmed != null
+                  ? data.is_received_confirmed
+                  : paymentSub?.is_received_confirmed ?? null;
               requestData = {
                 ...requestData,
-                is_received_confirmed: data?.is_received_confirmed,
+                is_received_confirmed: effective_is_received_confirmed,
                 payment_matched: payment_matched,
               };
             }
