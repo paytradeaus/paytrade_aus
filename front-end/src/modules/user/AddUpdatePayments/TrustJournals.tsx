@@ -115,45 +115,102 @@ export default function TrustJournals({
           ? ` Showing the most recent ${cap} entries — older entries may exist on the account ledger.`
           : ""}
       </div>
-      <div className="table-wrapper" style={{ overflowX: "auto", maxWidth: "100%" }}>
-        <div className="pt_table pt_formtable">
-          <table className="dataTable compact stripe nowrap hover order-column">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Journal #</th>
-                <th>Account</th>
-                <th>Process</th>
-                <th>Reference</th>
-                <th style={{ textAlign: "right" }}>Debit</th>
-                <th style={{ textAlign: "right" }}>Credit</th>
+      {/*
+        IMPORTANT: do NOT use the shared `dataTable nowrap` styling here.
+        The `nowrap` class forces cells to a single line, and the long
+        Process descriptions ("To take up the payments of retentions ...
+        Payment claim #100032 ($864.82)") push the table to several
+        thousand pixels wide. In the View Claim drawer's flex/grid layout
+        chain (where flex items default to min-width: auto), that width
+        propagates all the way up and stretches the entire page off the
+        right edge of the viewport — even with overflow:hidden on
+        ancestors, because overflow:hidden does NOT prevent a block from
+        being SIZED to its content.
+
+        Using `table-layout: fixed` + explicit `width: 100%` plus
+        `word-break: break-word` makes the table physically incapable of
+        being wider than its container, regardless of cell content.
+      */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "auto",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            maxWidth: "100%",
+            tableLayout: "fixed",
+            borderCollapse: "collapse",
+            fontSize: 13,
+          }}
+        >
+          <colgroup>
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "30%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+          </colgroup>
+          <thead>
+            <tr style={{ background: "#f7f7f7", textAlign: "left" }}>
+              <th style={{ padding: "6px 8px" }}>Date</th>
+              <th style={{ padding: "6px 8px" }}>Journal #</th>
+              <th style={{ padding: "6px 8px" }}>Account</th>
+              <th style={{ padding: "6px 8px" }}>Process</th>
+              <th style={{ padding: "6px 8px" }}>Reference</th>
+              <th style={{ padding: "6px 8px", textAlign: "right" }}>Debit</th>
+              <th style={{ padding: "6px 8px", textAlign: "right" }}>Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} style={{ borderTop: "1px solid #eee" }}>
+                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                  {fmtDate(r.journal_date)}
+                </td>
+                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                  {r.journal_number || "-"}
+                </td>
+                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                  {r.account_name || "-"}
+                </td>
+                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                  {r.process_label || "-"}
+                </td>
+                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                  {r.audit_kind === "claim"
+                    ? "Claim"
+                    : r.audit_kind === "payment" && r.payment_id_ref
+                    ? `Payment #${r.payment_id_ref}`
+                    : "-"}
+                </td>
+                <td
+                  style={{
+                    padding: "6px 8px",
+                    textAlign: "right",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {fmtAmount(r.debit_amount)}
+                </td>
+                <td
+                  style={{
+                    padding: "6px 8px",
+                    textAlign: "right",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {fmtAmount(r.credit_amount)}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>{fmtDate(r.journal_date)}</td>
-                  <td>{r.journal_number || "-"}</td>
-                  <td>{r.account_name || "-"}</td>
-                  <td>{r.process_label || "-"}</td>
-                  <td>
-                    {r.audit_kind === "claim"
-                      ? "Claim"
-                      : r.audit_kind === "payment" && r.payment_id_ref
-                      ? `Payment #${r.payment_id_ref}`
-                      : "-"}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    {fmtAmount(r.debit_amount)}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    {fmtAmount(r.credit_amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
       <br />
     </div>
