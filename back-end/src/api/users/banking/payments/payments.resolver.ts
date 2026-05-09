@@ -66,6 +66,130 @@ export class PaymentsResolver {
     this.logger = new PaytradeLogger('PAYMENTS_RESOLVER');
   }
 
+  /**
+   * Push the Payment-leg and Retention-Out (BankTransfer) leg of an
+   * already-marked-paid payment to Xero. Mirrors the create-only path
+   * inside `editDetailsOfAPayment` (resolver) so the ABA "mark as paid"
+   * loop — which calls `paymentsService.editDetailsOfAPayment` directly,
+   * bypassing this resolver — produces the same `Pay Trade > Xero` sync
+   * log entries (Payment + BankTransfer/manual journal) as the manual
+   * checkbox flow.
+   *
+   * Idempotent: re-firing on an already-synced leg is a no-op because
+   * `xeroPaymentsService.createPayment` upserts via xero_payments.
+   * Errors are swallowed and logged so a single Xero failure cannot
+   * break the rest of an ABA batch — the standard sync-log row will
+   * still be written by the Xero service for retry/visibility.
+   */
+  private async pushPaymentLegsToXeroAfterMarkPaid(
+    decoded: any,
+    payment_id: string,
+  ): Promise<void> {
+    try {
+      const paymentDetails =
+        await this.paymentsService.fetchPaymentDetails(payment_id);
+      if (!paymentDetails) return;
+      if (
+        !['Full', 'Part', 'Pay Less - Full', 'Pay Less - Part'].includes(
+          paymentDetails?.payment_type,
+        )
+      ) {
+        return;
+      }
+
+      const xeroDetails = await this.xeroService.getIntegrationDetails(
+        paymentDetails.company_id,
+      );
+      if (
+        !xeroDetails?.integration_id ||
+        xeroDetails?.integrationDetails?.integration_status !==
+          'Connected - active'
+      ) {
+        return;
+      }
+
+      const isExisted =
+        await this.xeroPaymentsService.checkExistingXeroPayment(
+          payment_id,
+          xeroDetails.integration_id,
+        );
+
+      const xeroPayload: any = {
+        payment_id,
+        payment_date: paymentDetails.payment_date,
+        bank_account_id: null,
+        amount: 0,
+        retention_amount: 0,
+        cash_retention: paymentDetails?.cash_retention,
+      };
+      let isPaymentChecked: boolean | null = null;
+      let isRetentionChecked: boolean | null = null;
+      for (const element of paymentDetails.subPayments || []) {
+        if (
+          element.sub_payment_type === 'Payment' &&
+          element.is_paid_confirmed !== null &&
+          element.is_received_confirmed === null &&
+          element.is_retention_confirmed === null
+        ) {
+          xeroPayload.bank_account_id = paymentDetails.payment_from_account;
+          xeroPayload.amount = Math.abs(element.amount);
+          isPaymentChecked = element.is_paid_confirmed;
+        } else if (
+          element.sub_payment_type === 'Retention Out' &&
+          element.is_retention_confirmed !== null &&
+          element.is_paid_confirmed === null &&
+          element.is_received_confirmed === null
+        ) {
+          xeroPayload.bank_account_id = paymentDetails.payment_from_account;
+          xeroPayload.retention_account = paymentDetails.retention_account;
+          xeroPayload.retention_amount = Math.abs(element.amount);
+          isRetentionChecked = element.is_retention_confirmed;
+        } else if (
+          element.sub_payment_type === 'Payment' &&
+          element.is_received_confirmed !== null &&
+          element.is_paid_confirmed === null &&
+          element.is_retention_confirmed === null
+        ) {
+          xeroPayload.bank_account_id = paymentDetails.payment_to_account;
+          xeroPayload.amount = Math.abs(element.amount);
+          isPaymentChecked = element.is_received_confirmed;
+        }
+      }
+
+      if (!xeroPayload.bank_account_id) return;
+
+      const paymentLegSynced = !!isExisted?.payment_id;
+      const transferLegSynced = !!isExisted?.bank_transfer_id;
+      const wantPayment = !!isPaymentChecked && !paymentLegSynced;
+      const wantTransfer =
+        !!paymentDetails.cash_retention &&
+        !!isRetentionChecked &&
+        !transferLegSynced;
+
+      if (!wantPayment && !wantTransfer) return;
+
+      this.logger.log(
+        `[ABA_XERO_PUSH] payment_id=${payment_id} wantPayment=${wantPayment} wantTransfer=${wantTransfer}`,
+      );
+      const createPaymentDetails =
+        await this.xeroPaymentsService.createPayment(decoded, {
+          ...xeroPayload,
+          sync_payment: wantPayment,
+          sync_transfer: wantTransfer,
+        });
+      this.logger.log(
+        `[ABA_XERO_PUSH] payment_id=${payment_id} result: ${JSON.stringify(createPaymentDetails)}`,
+      );
+    } catch (err: any) {
+      // Never let a Xero failure abort the rest of the ABA batch — the
+      // Xero service writes its own failed sync-log row for retry, and
+      // the user already sees the ABA file/notices succeed.
+      this.logger.error(
+        `[ABA_XERO_PUSH] payment_id=${payment_id} failed: ${err?.message ?? err}`,
+      );
+    }
+  }
+
   private log(message: string) {
     this.logger.log(`${message}`);
   }
@@ -514,8 +638,24 @@ export class PaymentsResolver {
       let successMessage = 'ABA file generated successfully';
       if (payload.mark_paid && String(payload.mark_paid).toLowerCase() === 'yes') {
         successMessage = 'ABA file generated and payments marked as paid';
+
+        // The ABA mark-paid loop lives inside `paymentsService.generateAbaFile`
+        // and calls `paymentsService.editDetailsOfAPayment` directly, which
+        // only flips DB flags. The matching `Pay Trade > Xero` push (Payment
+        // leg + Retention-Out BankTransfer leg) lives one layer up in this
+        // resolver's `editDetailsOfAPayment` and is therefore skipped. Re-fire
+        // the create-only push here for every payment that the ABA loop
+        // touched, mirroring the manual checkbox flow.
+        const triggeredPaymentIds: string[] = Array.isArray(
+          fileDetails?.notice_trigger,
+        )
+          ? Array.from(new Set(fileDetails.notice_trigger.filter(Boolean)))
+          : [];
+        for (const paymentId of triggeredPaymentIds) {
+          await this.pushPaymentLegsToXeroAfterMarkPaid(decoded, paymentId);
+        }
       }
-      
+
       return framedResponse(
         'SUCCESS',
         successMessage,
