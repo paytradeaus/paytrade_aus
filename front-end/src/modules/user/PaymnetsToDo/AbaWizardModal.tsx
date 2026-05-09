@@ -516,19 +516,31 @@ export default function AbaWizardModal({
       title="Generate ABA file"
       onHeaderIconClose={onClose}
       restrictOncloseFunctionInHeader
-      onClose={() => {
-        footer!.onFirst();
-        // On step 3 the first button ("No, just generate") triggers the
-        // generation flow and the modal must close. Returning true lets
-        // BaseModal run closeModal() which removes the `is-modal-open`
-        // class from <html>; otherwise the page is left with a stuck
-        // overlay that blocks all clicks. Steps 1 & 2 just transition
-        // between steps and must keep the modal open.
-        return step === 3;
+      onClose={async () => {
+        // For step 3, await the generate call BEFORE BaseModal tears the
+        // dialog down. Returning the promise lets BaseModal await it, so
+        // the wizard isn't unmounted mid-flight (which was cancelling the
+        // GraphQL request and producing React #418/#422 hydration errors).
+        // Steps 1 & 2 just transition between steps and must keep the
+        // modal open, so they return false synchronously.
+        if (step !== 3) {
+          footer!.onFirst();
+          return false;
+        }
+        try {
+          await footer!.onFirst();
+        } catch {}
+        return true;
       }}
-      onConfirm={() => {
-        footer!.onSecond();
-        return step === 3;
+      onConfirm={async () => {
+        if (step !== 3) {
+          footer!.onSecond();
+          return false;
+        }
+        try {
+          await footer!.onSecond();
+        } catch {}
+        return true;
       }}
       firstButtonName={footer.firstName || "Cancel"}
       secondButtonName={footer.secondName}
