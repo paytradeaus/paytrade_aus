@@ -687,15 +687,12 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       if (markPaymentsAsPaid) {
         setAbaMarkAsPaid(null);
       }
-      // Surface silent backend failures: the GenerateABAfiles wrapper returns
-      // "" on status===ERROR with no toast, and the success branch only
-      // downloads when file_path is present. Without this, a no-file response
-      // looks identical to a successful click — exactly the symptom the user
-      // hit (modal closes, nothing happens).
-      if (!responseFile || !responseFile?.file_path) {
-        showErrorToast(
-          "ABA file could not be generated. No eligible payments were processed."
-        );
+      // Close the wizard before routing to SkippedSummary / AbcaWarning so
+      // the wizard's <dialog> is fully unmounted before the next BaseModal
+      // mounts. Two native <dialog>s briefly co-existing was hiding the
+      // diagnostics modal and contributing to React render errors on close.
+      if (!responseFile?.file_path) {
+        setShowAbaWizard(false);
       }
       if (responseFile?.file_path) {
         downloadABAFile(responseFile);
@@ -783,6 +780,13 @@ export default function PaymentToDoList({ overViewDetails }: any) {
             isError: false,
           });
         }
+      } else {
+        // Truly silent: GraphQL returned no actionable info (status=ERROR
+        // returns "" from the wrapper, status=WARNING returns undefined).
+        // Surface a generic toast so the click is never a no-op.
+        showErrorToast(
+          "ABA file could not be generated. Please try again or contact support."
+        );
       }
     } catch {
     } finally {
@@ -1141,6 +1145,18 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                 ? "ABA file generated — some payments were not included"
                 : "No ABA file was generated"}
             </h4>
+            {!skippedSummary?.fileGenerated &&
+              skippedSummary?.data?.aba_message && (
+                <p
+                  style={{
+                    marginTop: "8px",
+                    textAlign: "center",
+                    color: "#a13a3a",
+                  }}
+                >
+                  {skippedSummary?.data?.aba_message}
+                </p>
+              )}
             <p style={{ marginTop: "10px", textAlign: "center" }}>
               <b className="pt_green">
                 {skippedSummary?.data?.included_count || 0}
