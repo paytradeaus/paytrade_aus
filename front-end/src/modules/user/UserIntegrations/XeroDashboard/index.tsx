@@ -40,6 +40,37 @@ import { formatDate, stripHtml } from "@/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { showErrorToast } from "@/components/Toaster";
 
+// Task #95 — shared style constants for the Sync Log toolbar so every input,
+// select and pill button sits at the same 28px height as `.smallbutton`
+// (used by `CustomButton CONTRAST_SMALL`). Without this the bespoke
+// "Filter by claim id…" input towered over the surrounding buttons and the
+// row looked nothing like the Journals / Variations filter bars.
+const syncLogFilterControl: React.CSSProperties = {
+  height: "28px",
+  lineHeight: "26px",
+  padding: "0 8px",
+  fontSize: "12px",
+  border: "1px solid #ccc",
+  borderRadius: "4px",
+  boxSizing: "border-box",
+  backgroundColor: "#fff",
+};
+
+const syncLogPillStyle = (active: boolean): React.CSSProperties => ({
+  height: "28px",
+  lineHeight: "26px",
+  padding: "0 12px",
+  fontSize: "11px",
+  fontWeight: 600,
+  borderRadius: "14px",
+  color: active ? "#fff" : "#0b5394",
+  backgroundColor: active ? "#0b5394" : "#e0f0ff",
+  border: "1px solid #b3d4f5",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+  boxSizing: "border-box",
+});
+
 export default function XeroDashboard() {
   const router = useRouter();
 
@@ -93,6 +124,11 @@ export default function XeroDashboard() {
   ] as const;
   type DatePreset = (typeof DATE_PRESETS)[number];
   const [datePreset, setDatePreset] = useState<DatePreset | "">("");
+  // Task #95 — track whether the user has explicitly chosen "Custom" from
+  // the date dropdown so the from/to inputs stay visible even before any
+  // date has been entered (mirrors the trust accounting Activity Range
+  // pattern in DepositList / JournalList).
+  const [customDateOpen, setCustomDateOpen] = useState<boolean>(false);
   const [syncTypeFilter, setSyncTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
 
@@ -1052,7 +1088,117 @@ export default function XeroDashboard() {
           <div className="grid">
             <div className="pt_box">
               <h4>Sync Log</h4>
-              <div style={{ display: "flex", flexWrap: "wrap" }}>
+              {/* Task #95 — counters + the auto-recovered toggle live on
+                  their own header row above the filter controls so the
+                  toolbar reads as two clean tiers (status summary first,
+                  filter controls second) instead of everything competing for
+                  space on a single wrapping row. */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "16px",
+                  margin: "10px 0 4px 0",
+                }}
+              >
+                <div
+                  style={{
+                    textTransform: "uppercase",
+                    lineHeight: "18px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <span>Synced</span>
+                  <p
+                    className="success"
+                    style={{ textAlign: "right", color: "green", margin: 0 }}
+                  >
+                    {syncLogData?.succeeded}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    textTransform: "uppercase",
+                    lineHeight: "18px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <span>Warning</span>
+                  <p
+                    className="warning"
+                    style={{ textAlign: "right", color: "orange", margin: 0 }}
+                  >
+                    {syncLogData?.warning}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    textTransform: "uppercase",
+                    lineHeight: "18px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <span>issues</span>
+                  <p
+                    className="failed"
+                    style={{ textAlign: "right", color: "red", margin: 0 }}
+                  >
+                    {syncLogData?.failed}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (claimFilterId != null) return;
+                      setCurrentPage(1);
+                      setRecoveredOnly((prev) => {
+                        const next = !prev;
+                        if (next) setClaimFilterId(null);
+                        return next;
+                      });
+                    }}
+                    title={
+                      claimFilterId != null
+                        ? "Clear the claim filter to use this toggle"
+                        : recoveredTooltip
+                    }
+                    aria-pressed={recoveredOnly}
+                    disabled={claimFilterId != null}
+                    style={{
+                      ...syncLogPillStyle(recoveredOnly),
+                      cursor: claimFilterId != null ? "not-allowed" : "pointer",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  >
+                    {recoveredOnly
+                      ? "Showing recovered only ✕"
+                      : "Show auto-recovered only"}
+                  </button>
+                </div>
+              </div>
+              {/* Task #95 — filter row uses the system's standard
+                  `pt_filtergroup` wrapper. All controls share
+                  `syncLogFilterControl` (28px tall, matching `.smallbutton`)
+                  so the claim filter input no longer towers over the
+                  surrounding buttons. */}
+              <div
+                className="pt_filtergroup"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "8px",
+                  margin: "10px 0",
+                }}
+              >
                 <CustomButton
                   buttonName="Refresh"
                   iconClassName="fa-light fa-refresh"
@@ -1061,7 +1207,7 @@ export default function XeroDashboard() {
                   onClick={() => {
                     fetchXeroSyncLogs();
                   }}
-                  styles={{ margin: "0 10px 10px 10px" }}
+                  styles={{ margin: 0 }}
                 />
                 <CustomButton
                   buttonName="Manual sync"
@@ -1069,13 +1215,12 @@ export default function XeroDashboard() {
                   buttonType={buttonType.CONTRAST_SMALL}
                   actionType="button"
                   onClick={() => setManualSyncOpen(true)}
-                  styles={{ margin: "0 10px 10px 0" }}
+                  styles={{ margin: 0 }}
                 />
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    margin: "0 10px 10px 0",
                     gap: "6px",
                   }}
                 >
@@ -1099,10 +1244,7 @@ export default function XeroDashboard() {
                       }
                     }}
                     style={{
-                      padding: "4px 8px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
+                      ...syncLogFilterControl,
                       width: "150px",
                     }}
                     title="Show only sync log entries for this claim and its payments"
@@ -1143,17 +1285,8 @@ export default function XeroDashboard() {
                 {claimFilterId != null && (
                   <span
                     style={{
-                      alignSelf: "center",
-                      margin: "0 10px 10px 0",
-                      fontSize: "11px",
-                      color: "#0b5394",
-                      backgroundColor: "#e0f0ff",
-                      border: "1px solid #b3d4f5",
-                      borderRadius: "10px",
-                      padding: "2px 8px",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
+                      ...syncLogPillStyle(true),
+                      cursor: "default",
                     }}
                     title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
                   >
@@ -1170,95 +1303,89 @@ export default function XeroDashboard() {
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                    margin: "0 10px 10px 0",
                     flexWrap: "wrap",
                   }}
                 >
-                  {/* Task #87 — quick date presets. Selecting one clears the
-                      manual start/end inputs (and clicking it again toggles
-                      it off) so the two filters never silently disagree. */}
-                  {DATE_PRESETS.map((preset) => {
-                    const active = datePreset === preset;
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => {
-                          if (claimFilterId != null) return;
+                  {/* Task #95 — single "All dates" dropdown that includes the
+                      preset windows AND a Custom option, mirroring the trust
+                      accounting Activity Range control. The from/to inputs
+                      below only render when Custom is selected. */}
+                  <select
+                    value={
+                      datePreset ||
+                      (customDateOpen || startDate || endDate ? "Custom" : "")
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCurrentPage(1);
+                      if (v === "") {
+                        setDatePreset("");
+                        setStartDate("");
+                        setEndDate("");
+                        setCustomDateOpen(false);
+                      } else if (v === "Custom") {
+                        setDatePreset("");
+                        setCustomDateOpen(true);
+                      } else {
+                        setDatePreset(v as DatePreset);
+                        setStartDate("");
+                        setEndDate("");
+                        setCustomDateOpen(false);
+                      }
+                    }}
+                    disabled={claimFilterId != null}
+                    title="Filter by date range"
+                    style={{
+                      ...syncLogFilterControl,
+                      paddingRight: "24px",
+                      opacity: claimFilterId != null ? 0.5 : 1,
+                    }}
+                  >
+                    <option value="">All dates</option>
+                    {DATE_PRESETS.map((preset) => (
+                      <option key={preset} value={preset}>
+                        {preset}
+                      </option>
+                    ))}
+                    <option value="Custom">Custom</option>
+                  </select>
+                  {(customDateOpen || startDate || endDate) && !datePreset && (
+                    <>
+                      <input
+                        type="date"
+                        value={startDate}
+                        max={endDate || undefined}
+                        onChange={(e) => {
                           setCurrentPage(1);
-                          if (active) {
-                            setDatePreset("");
-                          } else {
-                            setDatePreset(preset);
-                            setStartDate("");
-                            setEndDate("");
-                          }
+                          setStartDate(e.target.value);
                         }}
                         disabled={claimFilterId != null}
-                        title={`Filter sync logs to ${preset}`}
-                        aria-pressed={active}
+                        title="Start date"
                         style={{
-                          padding: "4px 10px",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          lineHeight: "16px",
-                          borderRadius: "12px",
-                          cursor:
-                            claimFilterId != null ? "not-allowed" : "pointer",
+                          ...syncLogFilterControl,
                           opacity: claimFilterId != null ? 0.5 : 1,
-                          color: active ? "#fff" : "#0b5394",
-                          backgroundColor: active ? "#0b5394" : "#e0f0ff",
-                          border: "1px solid #b3d4f5",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
                         }}
-                      >
-                        {preset}
-                      </button>
-                    );
-                  })}
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={endDate || undefined}
-                    onChange={(e) => {
-                      setCurrentPage(1);
-                      setStartDate(e.target.value);
-                      // Task #87 — manual date entry clears any active preset
-                      // so the two never silently disagree.
-                      if (datePreset) setDatePreset("");
-                    }}
-                    disabled={claimFilterId != null}
-                    title="Start date"
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      opacity: claimFilterId != null ? 0.5 : 1,
-                    }}
-                  />
-                  <span style={{ fontSize: "11px", color: "#666" }}>to</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate || undefined}
-                    onChange={(e) => {
-                      setCurrentPage(1);
-                      setEndDate(e.target.value);
-                      // Task #87 — manual date entry clears any active preset.
-                      if (datePreset) setDatePreset("");
-                    }}
-                    disabled={claimFilterId != null}
-                    title="End date"
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      opacity: claimFilterId != null ? 0.5 : 1,
-                    }}
-                  />
+                      />
+                      <span style={{ fontSize: "11px", color: "#666" }}>
+                        to
+                      </span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate || undefined}
+                        onChange={(e) => {
+                          setCurrentPage(1);
+                          setEndDate(e.target.value);
+                        }}
+                        disabled={claimFilterId != null}
+                        title="End date"
+                        style={{
+                          ...syncLogFilterControl,
+                          opacity: claimFilterId != null ? 0.5 : 1,
+                        }}
+                      />
+                    </>
+                  )}
                   <select
                     value={syncTypeFilter}
                     onChange={(e) => {
@@ -1268,10 +1395,8 @@ export default function XeroDashboard() {
                     disabled={claimFilterId != null}
                     title="Filter by sync type"
                     style={{
-                      padding: "4px 8px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
+                      ...syncLogFilterControl,
+                      paddingRight: "24px",
                       opacity: claimFilterId != null ? 0.5 : 1,
                     }}
                   >
@@ -1291,10 +1416,8 @@ export default function XeroDashboard() {
                     disabled={claimFilterId != null}
                     title="Filter by status"
                     style={{
-                      padding: "4px 8px",
-                      fontSize: "12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
+                      ...syncLogFilterControl,
+                      paddingRight: "24px",
                       opacity: claimFilterId != null ? 0.5 : 1,
                     }}
                   >
@@ -1319,6 +1442,7 @@ export default function XeroDashboard() {
                         setStartDate("");
                         setEndDate("");
                         setDatePreset("");
+                        setCustomDateOpen(false);
                         setSyncTypeFilter("");
                         setStatusFilter("");
                         setCurrentPage(1);
@@ -1326,100 +1450,6 @@ export default function XeroDashboard() {
                       styles={{ margin: 0 }}
                     />
                   )}
-                </div>
-                <div
-                  style={{
-                    marginRight: "10px",
-                    textTransform: "uppercase",
-                    lineHeight: "18px",
-                    fontSize: "11px",
-                  }}
-                >
-                  <span>Synced</span>
-                  <p
-                    className="success"
-                    style={{ textAlign: "right", color: "green" }}
-                  >
-                    {syncLogData?.succeeded}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    marginRight: "10px",
-                    textTransform: "uppercase",
-                    lineHeight: "18px",
-                    fontSize: "11px",
-                  }}
-                >
-                  <span>Warning</span>
-                  <p
-                    className="warning"
-                    style={{ textAlign: "right", color: "orange" }}
-                  >
-                    {syncLogData?.warning}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    marginRight: "10px",
-                    textTransform: "uppercase",
-                    lineHeight: "18px",
-                    fontSize: "11px",
-                  }}
-                >
-                  <span>issues</span>
-                  <p
-                    className="failed"
-                    style={{ textAlign: "right", color: "red" }}
-                  >
-                    {syncLogData?.failed}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    marginLeft: "auto",
-                    marginRight: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (claimFilterId != null) return;
-                      setCurrentPage(1);
-                      setRecoveredOnly((prev) => {
-                        const next = !prev;
-                        if (next) setClaimFilterId(null);
-                        return next;
-                      });
-                    }}
-                    title={
-                      claimFilterId != null
-                        ? "Clear the claim filter to use this toggle"
-                        : recoveredTooltip
-                    }
-                    aria-pressed={recoveredOnly}
-                    disabled={claimFilterId != null}
-                    style={{
-                      padding: "4px 10px",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      lineHeight: "16px",
-                      borderRadius: "12px",
-                      cursor: claimFilterId != null ? "not-allowed" : "pointer",
-                      opacity: claimFilterId != null ? 0.5 : 1,
-                      color: recoveredOnly ? "#fff" : "#0b5394",
-                      backgroundColor: recoveredOnly ? "#0b5394" : "#e0f0ff",
-                      border: "1px solid #b3d4f5",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    {recoveredOnly
-                      ? "Showing recovered only ✕"
-                      : "Show auto-recovered only"}
-                  </button>
                 </div>
               </div>
               <DynamicTable
