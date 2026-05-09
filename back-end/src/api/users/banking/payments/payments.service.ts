@@ -7021,7 +7021,10 @@ export class PaymentsService {
    * cannot generate an ABA file yet.
    */
   async getAbaWizardSenderAccounts(company_id: number) {
-    const PaymentsToDoTypes = ['Payment', 'Retention Out', 'Retention In'];
+    // Only sub-payment legs that actually debit the sender account belong in
+    // an ABA file. "Retention In" is the receipt-side booking at the RTA and
+    // never produces a bank movement, so it is excluded here.
+    const PaymentsToDoTypes = ['Payment', 'Retention Out'];
 
     const rows = await this.bankAccountsRepo
       .createQueryBuilder('ba')
@@ -7088,7 +7091,9 @@ export class PaymentsService {
     company_id: number,
     bank_account_id: number,
   ) {
-    const PaymentsToDoTypes = ['Payment', 'Retention Out', 'Retention In'];
+    // Mirror getAbaWizardSenderAccounts — Retention In is excluded because it
+    // is a receipt at the RTA, not an outgoing bank movement.
+    const PaymentsToDoTypes = ['Payment', 'Retention Out'];
 
     // Mirror the sender-account query's join structure (raw joins from
     // payment_details → sub_payments) so we surface the same rows the sender
