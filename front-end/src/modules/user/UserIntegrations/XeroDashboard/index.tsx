@@ -81,8 +81,51 @@ export default function XeroDashboard() {
   // server applies them via date_filter='Custom' in the existing handler.
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  // Task #87 — quick date presets (Today / Last 7 days / This month / Last
+  // month). Mutually exclusive with the manual start/end inputs: picking a
+  // preset clears the manual range, and vice-versa, so the two never
+  // silently disagree about which window the server is filtering.
+  const DATE_PRESETS = [
+    "Today",
+    "Last 7 days",
+    "This Month",
+    "Last Month",
+  ] as const;
+  type DatePreset = (typeof DATE_PRESETS)[number];
+  const [datePreset, setDatePreset] = useState<DatePreset | "">("");
   const [syncTypeFilter, setSyncTypeFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+
+  // Compute YYYY-MM-DD range (in browser-local time, matching the manual
+  // date pickers) for the selected preset. Returned dates are inclusive.
+  const computePresetRange = (
+    preset: DatePreset,
+  ): { start: string; end: string } => {
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const today = new Date();
+    if (preset === "Today") {
+      return { start: fmt(today), end: fmt(today) };
+    }
+    if (preset === "Last 7 days") {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      return { start: fmt(start), end: fmt(today) };
+    }
+    if (preset === "This Month") {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { start: fmt(start), end: fmt(end) };
+    }
+    // Last Month
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { start: fmt(start), end: fmt(end) };
+  };
   // Sync types come from xero_log_templates.sync_type (see seed file).
   const SYNC_TYPE_OPTIONS = [
     "Invoices",
@@ -458,6 +501,7 @@ export default function XeroDashboard() {
     claimFilterId,
     startDate,
     endDate,
+    datePreset,
     syncTypeFilter,
     statusFilter,
   ]);
@@ -573,13 +617,34 @@ export default function XeroDashboard() {
     // Task #85 — only send the Custom date_filter when the user actually
     // picked dates; otherwise leave it null so the existing default
     // (no date constraint) still applies.
-    const hasDateRange = !!(startDate && endDate);
+    // Task #87 — a quick preset takes precedence: for the two presets the
+    // backend already understands ("This Month" / "Last Month") we forward
+    // the date_filter directly so the server applies its own timezone-aware
+    // boundaries; for "Today" / "Last 7 days" we send a computed Custom
+    // range (browser-local, matching the manual date pickers).
+    let dateFilter: string | null = null;
+    let startDateToSend: string | null = null;
+    let endDateToSend: string | null = null;
+    if (datePreset) {
+      if (datePreset === "This Month" || datePreset === "Last Month") {
+        dateFilter = datePreset;
+      } else {
+        const range = computePresetRange(datePreset);
+        dateFilter = "Custom";
+        startDateToSend = range.start;
+        endDateToSend = range.end;
+      }
+    } else if (startDate && endDate) {
+      dateFilter = "Custom";
+      startDateToSend = startDate;
+      endDateToSend = endDate;
+    }
     const logs = await xeroSyncLogs({
       getXeroSyncLogsInput: {
         id: localStorage.getItem("xeroIntegrationId"),
-        date_filter: hasDateRange ? "Custom" : null,
-        start_date: hasDateRange ? startDate : null,
-        end_date: hasDateRange ? endDate : null,
+        date_filter: dateFilter,
+        start_date: startDateToSend,
+        end_date: endDateToSend,
         page_number: currentPage,
         page_size: entriesPerPage,
         sorting_order: sortValues?.direction || "",
@@ -1109,6 +1174,49 @@ export default function XeroDashboard() {
                     flexWrap: "wrap",
                   }}
                 >
+                  {/* Task #87 — quick date presets. Selecting one clears the
+                      manual start/end inputs (and clicking it again toggles
+                      it off) so the two filters never silently disagree. */}
+                  {DATE_PRESETS.map((preset) => {
+                    const active = datePreset === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          if (claimFilterId != null) return;
+                          setCurrentPage(1);
+                          if (active) {
+                            setDatePreset("");
+                          } else {
+                            setDatePreset(preset);
+                            setStartDate("");
+                            setEndDate("");
+                          }
+                        }}
+                        disabled={claimFilterId != null}
+                        title={`Filter sync logs to ${preset}`}
+                        aria-pressed={active}
+                        style={{
+                          padding: "4px 10px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          lineHeight: "16px",
+                          borderRadius: "12px",
+                          cursor:
+                            claimFilterId != null ? "not-allowed" : "pointer",
+                          opacity: claimFilterId != null ? 0.5 : 1,
+                          color: active ? "#fff" : "#0b5394",
+                          backgroundColor: active ? "#0b5394" : "#e0f0ff",
+                          border: "1px solid #b3d4f5",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
                   <input
                     type="date"
                     value={startDate}
@@ -1116,6 +1224,9 @@ export default function XeroDashboard() {
                     onChange={(e) => {
                       setCurrentPage(1);
                       setStartDate(e.target.value);
+                      // Task #87 — manual date entry clears any active preset
+                      // so the two never silently disagree.
+                      if (datePreset) setDatePreset("");
                     }}
                     disabled={claimFilterId != null}
                     title="Start date"
@@ -1135,6 +1246,8 @@ export default function XeroDashboard() {
                     onChange={(e) => {
                       setCurrentPage(1);
                       setEndDate(e.target.value);
+                      // Task #87 — manual date entry clears any active preset.
+                      if (datePreset) setDatePreset("");
                     }}
                     disabled={claimFilterId != null}
                     title="End date"
@@ -1194,6 +1307,7 @@ export default function XeroDashboard() {
                   </select>
                   {(startDate ||
                     endDate ||
+                    datePreset ||
                     syncTypeFilter ||
                     statusFilter) && (
                     <CustomButton
@@ -1204,6 +1318,7 @@ export default function XeroDashboard() {
                       onClick={() => {
                         setStartDate("");
                         setEndDate("");
+                        setDatePreset("");
                         setSyncTypeFilter("");
                         setStatusFilter("");
                         setCurrentPage(1);
