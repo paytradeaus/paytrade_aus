@@ -12442,6 +12442,14 @@ input GetXeroSyncLogsInput {
 
   """Start date for filtering logs"""
   start_date: DateTime
+
+  """Optional template.sync_status filter (Succeeded / Warning / Failed)."""
+  sync_status: String
+
+  """
+  Optional template.sync_type filter (e.g. Invoices, Bills, Payments, Contacts).
+  """
+  sync_type: String
 }
 
 """Response for fetching a gift coupon by ID."""
