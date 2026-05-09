@@ -179,7 +179,16 @@ export default function TrustJournals({
                 <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
                   {r.account_name || "-"}
                 </td>
-                <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
+                <td
+                  style={{
+                    padding: "6px 8px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: 0,
+                  }}
+                  title={r.process_label || ""}
+                >
                   {r.process_label || "-"}
                 </td>
                 <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>
