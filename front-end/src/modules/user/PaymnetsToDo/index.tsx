@@ -712,6 +712,12 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     // synchronously here used to leave that class behind, producing a
     // page-blocking overlay after submit.
     setDisableAbaFileBtn(true);
+    setLoader(true);
+    setLoaderInfo(
+      markPaymentsAsPaid === "yes"
+        ? "Generating ABA file and marking payments as paid..."
+        : "Generating ABA file..."
+    );
     try {
       let responseFile = await GenerateABAfiles({
         company_id: selectedCompanyId,
@@ -835,6 +841,8 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     } catch {
     } finally {
       setDisableAbaFileBtn(false);
+      setLoader(false);
+      setLoaderInfo("");
     }
   }
 
