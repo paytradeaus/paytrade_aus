@@ -242,6 +242,21 @@ export const PaymentsProvider = ({ children }: any) => {
     }
   }, []);
 
+  // Default Payment Date to today when opening Add Payment.
+  // - Only in add mode (not view/edit of an existing payment, not import flow).
+  // - Only when the field is still empty, so we never overwrite a value
+  //   the user has typed or one that arrives later from patch data.
+  // Computed via `new Date()` on mount so it stays current even if the
+  // SPA has been open across midnight.
+  useEffect(() => {
+    if (isViewMode) return;
+    if (paymentId) return; // editing an existing payment
+    if (ImportScreen === "import") return;
+    if (formik?.values?.payment_date) return;
+    formik.setFieldValue("payment_date", getDatePickerFormat());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (selectedClaim) {
       getPayments(); // Call the API only when selectedClaim is available
