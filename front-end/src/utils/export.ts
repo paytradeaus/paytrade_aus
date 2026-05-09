@@ -306,6 +306,16 @@ export async function GenerateABAfiles(data: any) {
       variables: { payload: data },
     });
 
+    if (response?.errors?.length) {
+      const errMsg = response.errors
+        .map((e: any) => e?.message)
+        .filter(Boolean)
+        .join("; ");
+      console.error("[GenerateABAfiles] GraphQL errors:", response.errors);
+      showErrorToast(errMsg || ApiResponse.SOMETHING_WENT_WRONG);
+      return "";
+    }
+
     const abaFileData = response?.data?.generateABAfiles;
 
     if (abaFileData?.status === ApiResponse.SUCCESS) {
@@ -318,9 +328,15 @@ export async function GenerateABAfiles(data: any) {
       return abaFileData?.data;
     }
     if (abaFileData?.status === ApiResponse.ERROR) {
+      if (abaFileData?.message) {
+        showErrorToast(abaFileData.message);
+      }
       return "";
     }
-  } catch {
+    console.warn("[GenerateABAfiles] Unexpected response shape:", response);
+    return "";
+  } catch (err) {
+    console.error("[GenerateABAfiles] Threw:", err);
     showErrorToast(ApiResponse.SOMETHING_WENT_WRONG);
     return "";
   }
