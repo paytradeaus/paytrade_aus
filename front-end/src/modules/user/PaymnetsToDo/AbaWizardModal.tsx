@@ -288,14 +288,40 @@ export default function AbaWizardModal({
           style={{
             maxHeight: 360,
             overflowY: "auto",
+            overflowX: "auto",
             border: "1px solid #eee",
             borderRadius: 4,
           }}
         >
-          <table style={{ width: "100%", fontSize: 13 }}>
-            <thead style={{ position: "sticky", top: 0, background: "#f7f7f7" }}>
+          {/*
+            Fixed table layout + explicit column widths so long Project /
+            Contract / Recipient strings wrap predictably instead of
+            squashing the short columns (Type / Due / Amount) onto two
+            lines. Long lists scroll vertically inside the bounded
+            container.
+          */}
+          <table
+            style={{
+              width: "100%",
+              minWidth: 640,
+              fontSize: 13,
+              tableLayout: "fixed",
+              borderCollapse: "collapse",
+            }}
+          >
+            <colgroup>
+              <col style={{ width: 36 }} />
+              <col style={{ width: "26%" }} />
+              <col style={{ width: 90 }} />
+              <col />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 110 }} />
+            </colgroup>
+            <thead
+              style={{ position: "sticky", top: 0, background: "#f7f7f7", zIndex: 1 }}
+            >
               <tr style={{ textAlign: "left" }}>
-                <th style={{ padding: 8, width: 32 }}>
+                <th style={{ padding: 8 }}>
                   <input
                     type="checkbox"
                     checked={allEligibleSelected}
@@ -307,7 +333,7 @@ export default function AbaWizardModal({
                 <th style={{ padding: 8 }}>Recipient</th>
                 <th style={{ padding: 8 }}>Type</th>
                 <th style={{ padding: 8 }}>Project / Contract</th>
-                <th style={{ padding: 8 }}>Due</th>
+                <th style={{ padding: 8, whiteSpace: "nowrap" }}>Due</th>
                 <th style={{ padding: 8, textAlign: "right" }}>Amount</th>
               </tr>
             </thead>
@@ -322,7 +348,7 @@ export default function AbaWizardModal({
                       background: !p.is_eligible ? "#fff4e5" : "white",
                     }}
                   >
-                    <td style={{ padding: 8 }}>
+                    <td style={{ padding: 8, verticalAlign: "top" }}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -331,7 +357,13 @@ export default function AbaWizardModal({
                         aria-label={`Select payment ${p.sub_payment_id}`}
                       />
                     </td>
-                    <td style={{ padding: 8 }}>
+                    <td
+                      style={{
+                        padding: 8,
+                        verticalAlign: "top",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       <div>{p.recipient_name || "-"}</div>
                       {!p.is_eligible && (
                         <div style={{ fontSize: 11, color: "#874d00" }}>
@@ -339,13 +371,42 @@ export default function AbaWizardModal({
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: 8 }}>{p.sub_payment_type || "-"}</td>
-                    <td style={{ padding: 8 }}>
+                    <td
+                      style={{
+                        padding: 8,
+                        verticalAlign: "top",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {p.sub_payment_type || "-"}
+                    </td>
+                    <td
+                      style={{
+                        padding: 8,
+                        verticalAlign: "top",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {p.project_name || "-"}
                       {p.contract_name ? ` / ${p.contract_name}` : ""}
                     </td>
-                    <td style={{ padding: 8 }}>{formatDate(p.due_date)}</td>
-                    <td style={{ padding: 8, textAlign: "right" }}>
+                    <td
+                      style={{
+                        padding: 8,
+                        verticalAlign: "top",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatDate(p.due_date)}
+                    </td>
+                    <td
+                      style={{
+                        padding: 8,
+                        verticalAlign: "top",
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {formatMoney(p.amount)}
                     </td>
                   </tr>
