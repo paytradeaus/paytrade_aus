@@ -7069,6 +7069,14 @@ export class PaymentsService {
       )
       .where('ba.company_id = :company_id', { company_id })
       .andWhere(`ba.status IN ('Active','Open','Draft')`)
+      // CRITICAL: exclude soft-deleted payments. The Payments-to-do query
+      // filters with `payments.current_status != 'Deleted'` (line ~5028),
+      // but soft-deleted payments often retain their sub_payments rows with
+      // status='Unmatched'. Without this filter the wizard double-counts —
+      // e.g. an old deleted payment + a current payment from the same PTA,
+      // each with Payment + Retention Out legs, yields 4 rows when the
+      // to-do list correctly shows 2.
+      .andWhere(`(p.payment_id IS NULL OR p.current_status != 'Deleted')`)
       .select([
         'ba.bank_account_id AS bank_account_id',
         'ba.account_name AS account_name',
@@ -7171,6 +7179,9 @@ export class PaymentsService {
       .andWhere('p.payment_from_account = :bank_account_id', {
         bank_account_id,
       })
+      // Mirror getAbaWizardSenderAccounts: exclude soft-deleted payments
+      // so the per-account list matches the sender count exactly.
+      .andWhere(`p.current_status != 'Deleted'`)
       .select([
         'sp.sub_payment_id AS sub_payment_id',
         'p.payment_id AS payment_id',
