@@ -215,8 +215,30 @@ export class XeroManualJournalService {
   /**
    * Build a balanced 2-line POSTED Manual Journal for the GST portion of
    * retention. `kind`:
-   *   - 'gross_up'         → Claim creation. DR Retention Payable, CR Retention Held.
-   *   - 'gross_up_reversal'→ Retention claim creation. Opposite signs.
+   *   - 'gross_up'         → Claim creation. Extends the contra direction
+   *     established by the source bill/invoice's retention lines so the
+   *     account that ACCUMULATES the liability/asset grows by the GST.
+   *   - 'gross_up_reversal'→ Retention claim (release) creation. Opposite
+   *     signs — unwinds the GST portion as the retention is paid out.
+   *
+   * Direction (mirrors the polarity of the bill/invoice's two retention
+   * lines so the GST extension lands on the same side):
+   *   - Billable (bill / ACCPAY): the bill DEBITS liability_payable_code
+   *     (clearing/contra) and CREDITS retention_payable_retained_code (the
+   *     liability that builds up retention owed to the subbie). The
+   *     gross-up therefore DR liability_payable_code, CR
+   *     retention_payable_retained_code.
+   *   - Receivable (invoice / ACCREC): mirror image on the asset side.
+   *     Gross-up DR retention_receivable_retained_code, CR
+   *     liability_receivable_code.
+   *
+   * The `kind === 'gross_up_reversal'` branch below swaps DR↔CR so the
+   * release MJ exactly reverses the original gross-up — meaning when
+   * retention is later paid (release claim) the GST adjustment is
+   * removed from the same accounts it was added to. Edit flows void the
+   * old MJ and re-post via this same payload builder, so they pick up
+   * the corrected polarity automatically. Delete flows use Xero's
+   * native DELETED status which is direction-agnostic.
    */
   private buildJournalPayload(
     args: PostJournalArgs,
@@ -227,8 +249,6 @@ export class XeroManualJournalService {
     const xd = args.xeroDetails;
     const claim = args.claim;
     const isBillable = claim?.claim_type === 'Billable';
-    // For Billable (bills/payable side) — DR retention_payable_retained, CR liability_payable.
-    // For Receivable (invoices/receivable side) — DR liability_receivable, CR retention_receivable_retained.
     const retainedCode = isBillable
       ? xd.retention_payable_retained_code
       : xd.retention_receivable_retained_code;
@@ -236,8 +256,8 @@ export class XeroManualJournalService {
       ? xd.liability_payable_code
       : xd.liability_receivable_code;
 
-    const grossUpDR = isBillable ? retainedCode : liabilityCode;
-    const grossUpCR = isBillable ? liabilityCode : retainedCode;
+    const grossUpDR = isBillable ? liabilityCode : retainedCode;
+    const grossUpCR = isBillable ? retainedCode : liabilityCode;
 
     // Reversal swaps debits ↔ credits.
     const drCode = kind === 'gross_up' ? grossUpDR : grossUpCR;
