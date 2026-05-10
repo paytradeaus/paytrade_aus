@@ -2493,6 +2493,9 @@ type CompanySignupRes {
   """Indicates whether the business is blocked by an admin."""
   is_admin_blocked: Boolean
 
+  """Indicates if the business is registered for GST."""
+  is_gst_registered: Boolean
+
   """Indicates whether the business has been verified."""
   is_verified: Boolean
 
@@ -2506,6 +2509,11 @@ type CompanySignupRes {
 
   """Longitude coordinate of the business location."""
   longitude: String!
+
+  """
+  Per-company opt-out for auto-sending compliance notices on the user's behalf (defaults to true).
+  """
+  notices_auto_send: Boolean
 
   """Google Place ID or unique identifier for the business location."""
   place_id: String!
@@ -24802,6 +24810,11 @@ input updateNoticesInput {
 
   """Update delegated QBCC flag."""
   delegated_qbcc: Boolean
+
+  """
+  Internal NOTICE_FLOW correlation id stamped by trigger handlers; used only for logging.
+  """
+  flow_id: String
 
   """ID of the notice to update."""
   notice_id: Float!

@@ -194,6 +194,19 @@ export class CompanySignupRes {
     description: 'Email preference settings for the business.',
   })
   email_preferences: Record<string, boolean>;
+
+  @Field({
+    nullable: true,
+    description: 'Indicates if the business is registered for GST.',
+  })
+  is_gst_registered: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Per-company opt-out for auto-sending compliance notices on the user\'s behalf (defaults to true).',
+  })
+  notices_auto_send: boolean;
 }
 
 @ObjectType({
