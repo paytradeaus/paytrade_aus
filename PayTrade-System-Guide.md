@@ -553,6 +553,20 @@ When adding or editing a contract, users now select a **Contract Type** (dropdow
 - Generated automatically when head contractors make payment claims
 - Required under the BIF Act for trust account compliance
 
+### Claim View Page — Drawers *(Updated 2026-05-09)*
+
+The **View / Edit Claim** page (`/user/claims/view/[...id]`, `/user/claims/edit/[id]`) shows a stack of collapsible *drawers* below the Claim Summary expander. They all share the same dark-blue **`pt_payment`** styling so the page reads as a single coherent panel:
+
+| Drawer | When it appears | What it contains |
+|---|---|---|
+| **Claim Summary** | Always | Read-only header: claim ID, status, amount, retention, GST, dates. |
+| **Add Payment / Payment table** | Always | The claim's sub-payments (Full / Part / Pay Less / Retention In / Retention Out / 3rd Party). Edit / Add buttons here. |
+| **Xero Integration** | When the claim has been pushed to or imported from Xero, **or** when any Xero sync log exists for the claim | Live link to the matched Xero invoice/bill (number, mapped status, current Xero status, *Open in Xero* deep link, *Download Xero PDF*), the **Sync history** sub-table (last 50 Invoices/Bills/Payments log lines for this claim — When / Type / Status badge / Direction / 80-char-truncated Message with full tooltip / *View* link to the sync log detail page), and — when section 19.15 is active — a **Retention GST gross-up journals** sub-table. |
+| **Trust Journals** | When the claim has produced trust-ledger entries | Read-only journal table (newest first, capped at 100 rows): Date / Process / DR / CR / Amount / Audit ID, sourced from `journal_entries + journal_type` joined via the claim's audit chain. |
+| **Payment History** | When sub-payments exist | Per-payment audit history. Inside each Payment row, the **Journal Entries** sub-table lists every Xero retention manual journal posted for that payment (Type / Status / Journal deep-link / DR/CR account / Retention ex-GST / GST / Tax type / Posted timestamp; FAILED rows surface their `error_text`). |
+
+All Sync history and Journal Entries data is read-only and JWT-scoped to the company; admins cannot edit it from the drawer.
+
 ---
 
 ## 14. Payments & Retention
@@ -565,6 +579,22 @@ When adding or editing a contract, users now select a **Contract Type** (dropdow
 - Lists all pending payments that require action
 - Shows upcoming payment deadlines
 - Quick links to process payments
+- **Generate ABA** button launches the **ABA Wizard** (see section 15) — opens a multi-step modal instead of navigating away
+- **ABA history** tab lists every ABA file produced for the company (sender account, recipient count, mark-paid flag, generated timestamp). Long descriptions truncate within the viewport with full text on hover
+
+### Add Payment Page *(Updated 2026-05-10)*
+**URL:** `/user/claims/payments/add` (also `/edit/[id]` and `/view/[id]`)
+
+The Add Payment form is rendered as a stack of drawers inside the Claim view layout:
+
+| Drawer / Section | Notes |
+|---|---|
+| **Add Payment** | The editable form (payment type, retention, payment amount, payment date, accounts, memo, attachments). The **Payment Date** field defaults to today's date when opening the form in *add* mode (it is left blank in view/edit/import to preserve the stored value). The user can still change it before saving. |
+| **Trust Journals** | Read-only — see section 13's Claim drawer table. Same source query, scoped to the parent claim. |
+| **Xero Integration** | Same drawer as on the Claim view (sync history, Xero PDF link, retention gross-up MJ table) — keyed by the parent claim's `payment_claim_id`. |
+| **Payment History** | Per-payment audit log including the **Journal Entries** sub-table (Xero retention MJs for this specific payment). |
+
+When the user marks a Full / Part / Pay Less - Full / Pay Less - Part payment as paid, the resolver pushes both the Payment leg and (if cash retention applies) the Retention-Out BankTransfer leg to Xero — see section 19.7.
 
 ### Payments List
 **URL:** `/user/payments-list`
@@ -633,7 +663,7 @@ When a user saves a new bank account and the Xero integration is connected and a
 | **View** | `/user/bank-accounts/overview/interest-charges/view/[...id]` | View charge details |
 | **Edit** | `/user/bank-accounts/overview/interest-charges/edit/[...id]` | Update charge details |
 
-### ABA File Generation
+### ABA File Generation *(Updated 2026-05-09 — new wizard flow)*
 
 #### What an ABA file is
 An **ABA (Australian Bankers' Association) file** is a fixed-width text file (`.aba`) used by every major Australian bank — **CBA, Westpac, NAB, ANZ, Bendigo, Macquarie, Suncorp, ING, BOQ, St George** and most credit unions — to upload **batches of payments** in a single transaction. Instead of paying each supplier or sub-contractor one-by-one through internet banking, the user generates one ABA file in PayTrade, uploads it once to their bank's portal, authorises it, and the bank disburses every payment in the file.
@@ -643,8 +673,18 @@ ABA generation is **not available on the Basic (Free) plan**. It is included on 
 
 The backend enforces this in `payments.resolver.ts → generateABAfiles`: the resolver loads the company's subscription, looks for the plan item named `"ABA Generation"`, and only allows generation if `limit_value === 'true'` **or** the company is `is_free_plan_eligible` (special complimentary access). Otherwise it returns the warning *"ABA files cannot be generated. Please upgrade your subscription plan."* The frontend (`PaymnetsToDo/index.tsx`) mirrors this by greying-out the **Generate ABA** button when the plan does not include the feature.
 
+#### The ABA Wizard (replaces the old single-confirmation modal)
+
+Clicking **Generate ABA** on Payments To Do now opens a multi-step modal (`AbaWizardModal.tsx`) instead of immediately producing a file. The wizard isolates the user's choices so they can confirm exactly which sender account and which payments will be batched before anything is written. Buttons inside the modal are disabled and an inline spinner appears while the request is in flight (the global page loader is suppressed because it would otherwise be covered by the modal overlay).
+
+| Step | What the user does | Backend |
+|---|---|---|
+| **Step 1 — Select sender account** | A `FormikControl` SELECT dropdown lists every active bank account belonging to the company that is eligible to send (active status filter widened to include all currently-active sender accounts), with per-row APCA presence so accounts not ready for ABA are blocked. One sender per file — change of selection clears Step 2. | `getAbaWizardSenderAccounts` GraphQL query. |
+| **Step 2 — Select payments to include** | A table of *outstanding* sub-payments belonging to that sender account is shown (long memo / supplier text truncates inside the cell with a full-text tooltip so the table never stretches the modal). The user ticks individual rows or "Select all". The Next button is disabled until at least one row is ticked. **Retention In** entries are excluded from Step 2 — only outbound legs eligible for an ABA file are listed. The shown counts always match the count on the Payments To Do list. | `getAbaWizardOutstandingPayments` query — same raw SQL joins as the Step 1 query so visibility is consistent. |
+| **Step 3 — Mark paid? + Generate** | The "Do you want to mark these payments as paid?" prompt (see below). Generate writes the file and downloads it; the modal stays open until the request completes. | `generateABAfiles` mutation with the explicit `sub_payment_ids` from Step 2. |
+
 #### Required sender bank-account settings
-Generation runs per *sending* bank account. PayTrade groups the selected sub-payments by `payment_from_account_number` and produces **one ABA file per sender account**. For each sender account the following fields on the `BankAccounts` row are required:
+Generation runs per *sending* bank account. PayTrade groups the selected sub-payments by `payment_from_account_number` and produces **one ABA file per sender account** (the wizard restricts this to one sender at a time). For each sender account the following fields on the `BankAccounts` row are required:
 
 | Field | Where it's entered | Why it matters |
 |-------|--------------------|----------------|
@@ -660,25 +700,33 @@ These are entered on **`/user/bank-accounts/add`** (create) and **`/user/bank-ac
 For each selected sub-payment the recipient's `payment_to_account_bsb_number`, `payment_to_account_number`, and `payment_to_account_name` must all be present. Any sub-payment missing the recipient BSB or recipient account number is **silently skipped** with a server-side warning log — it will not appear in the generated ABA file.
 
 #### "Mark payments as paid?" prompt
-When the user clicks **Generate ABA** on the Payments To Do page, PayTrade asks: *"Do you want to mark these payments as paid?"*. The choice (`mark_paid: "yes" | "no"`) is sent with the GraphQL `generateABAfiles` query and controls **only** the post-generation status update — the ABA file itself is always produced either way:
+At Step 3 of the wizard, PayTrade asks: *"Do you want to mark these payments as paid?"*. The choice (`mark_paid: "yes" | "no"`) is sent with the GraphQL `generateABAfiles` mutation and controls **only** the post-generation status update — the ABA file itself is always produced either way:
 
 - **`mark_paid: "yes"`** — After the file is written, every transaction in the file is updated:
   - Regular sub-payments (`Full`, `Part`, `Pay Less - Full`, `Pay Less - Part`, `Withdrawal`, `Interest Withdrawal`, `Bank Charge Applied`, `Overpayment to supplier`, `Underpayment to supplier`) → `is_paid_confirmed = true`.
   - `Retention Out` sub-payments → `is_retention_confirmed = true`.
   - **Payment notices are automatically triggered** for every affected sub-payment (the resolver returns a `notice_trigger` array of payment IDs which the frontend uses to fire the notice flow).
+  - **Xero push (added 2026-05-09):** for every `Full | Part | Pay Less - Full | Pay Less - Part` payment in the batch, the resolver immediately calls `pushPaymentLegsToXeroAfterMarkPaid`, which fires the Xero **Payment** leg and (if cash retention applies) the **Retention-Out BankTransfer** leg via `xeroPaymentsService.createPayment`. Legs already mapped in `xero_payments` are skipped, so re-running an ABA never duplicates. A failure on any single leg is swallowed and logged so it cannot abort the rest of the batch — the Xero service still writes a failed sync log row for retry/visibility on the Sync Logs dashboard.
+  - In-memory sub-payments are patched so the response status flags are accurate even before the next refresh.
   - Already-confirmed payments and payments blocked by retention constraints are logged and skipped without aborting the batch.
-- **`mark_paid: "no"`** — The `.aba` file still downloads, but **no payment statuses change** and **no notices are triggered**. Marking each payment as paid afterwards is a separate manual step on each individual payment in Payments To Do.
+- **`mark_paid: "no"`** — The `.aba` file still downloads, but **no payment statuses change**, **no notices are triggered**, and **no Xero push runs**. Marking each payment as paid afterwards is a separate manual step on each individual payment in Payments To Do (which goes through the resolver-level `editDetailsOfAPayment` and *does* push to Xero).
 
 The success message reflects the choice: *"ABA file generated and payments marked as paid"* vs *"ABA file generated successfully"*.
 
+#### "Generated notices" auto-send dialog (with Pause)
+When marking paid triggers payment notices, the **Generated Notices** preview dialog opens with a 5-minute auto-send countdown. The user can:
+- Click **Send Mail** at any time to confirm immediately.
+- Click **Pause (5 min)** to freeze the auto-send countdown for 5 minutes (e.g. while reviewing attachments) — after the pause window expires the original countdown resumes from where it was frozen.
+
 #### ABA file history
-Every generated file is recorded in `GenerateABAFileHistory` (linked to the file in `FileAttachments` and to the sender `bank_account_id`, with the `mark_paid` flag stored as a boolean). Users can re-download or audit past files from **Payments To Do → ABA history** tab.
+Every generated file is recorded in `GenerateABAFileHistory` (linked to the file in `FileAttachments` and to the sender `bank_account_id`, with the `mark_paid` flag stored as a boolean). Users can re-download or audit past files from **Payments To Do → ABA history** tab. The history table truncates long cells inside the viewport with a full-text tooltip so it never stretches the page.
 
 #### Common reasons generation fails or produces an empty file
 1. **Subscription plan is Basic** → resolver returns the upgrade warning.
 2. **Sender bank account has no `apca_number`** → that account is skipped entirely (no file produced for it).
 3. **Recipient is missing BSB or account number** → that line is silently skipped (file may be generated for the other rows).
 4. **No selected sub-payments belong to a valid sender account** → no file is produced.
+5. **Retention In rows selected** → these are filtered out by the wizard before submission; if the wizard is bypassed (legacy path), the resolver also excludes them server-side.
 
 ### Bank Feeds
 - **Available:** Standard, Advanced, Pro Audit plans
@@ -1060,6 +1108,18 @@ Only when a supplier has 2+ contracts under the same project AND the claim amoun
 
 ### 19.7 Payment Synchronisation
 
+#### Push triggers (PayTrade → Xero)
+
+A Payment leg (and, where applicable, its Retention-Out BankTransfer leg) is pushed to Xero in three places:
+
+| Trigger | Code path | Notes |
+|---|---|---|
+| **Edit / mark a single payment as paid** in the UI | `payments.resolver.ts → editDetailsOfAPayment` | Resolver-level — full Xero push runs after the DB flags flip. |
+| **ABA Wizard with `mark_paid: yes`** *(added 2026-05-09)* | `payments.resolver.ts → generateABAfiles → pushPaymentLegsToXeroAfterMarkPaid` | Mirrors the create-only branch above for every `Full / Part / Pay Less - Full / Pay Less - Part` payment in the batch. Per-leg failures are logged and never abort the batch — failed legs still write a sync log row for retry. Legs already mapped in `xero_payments` are skipped, so re-running an ABA never duplicates. |
+| **Daily / hourly schedulers** | `XeroSchedulerService` | Catches anything missed by the real-time pushes above. |
+
+Each push consults `xero_payments` to skip legs already mapped, and per-payment status (`xero_payment_synced`, `xero_transfer_synced`) is exposed on the `FetchDetailsOfAPayment` and `FetchDetailsOfAnAssociatedPayment` GraphQL types so UI badges can show whether the Payment leg and the Transfer leg were each pushed.
+
 #### Payment Types
 
 PayTrade supports several payment types when syncing with Xero:
@@ -1130,14 +1190,34 @@ The **Processing Wait Time** setting is found under **Xero Settings → Other Se
 
 ### 19.9 Sync Logs and Error Resolution
 
-Every sync operation is logged and visible from the **Xero Dashboard**. The Sync Log shows each sync attempt with its status (Succeeded or Failed), the type of record (Contact, Invoice, Bill, Payment), and a timestamp.
+Every sync operation is logged and visible from the **Xero Dashboard** at `/user/integrations/xero` (Sync Log tab). The Sync Log shows each sync attempt with its status (Succeeded / Warning / Failed), the type of record (Contact, Invoice, Bill, Payment, Bank account, Project, Contract, Retention journal, Manual sync, Variable bill code, Claim, etc.), the direction (PayTrade → Xero or Xero → PayTrade), the message, and a timestamp.
+
+#### Sync Log Toolbar *(Updated 2026-05-09)*
+
+The toolbar above the table is laid out in two rows so it visually matches the **Account Ledger** filter pattern:
+
+**Header row** — counters for Succeeded / Warning / Failed in the current filtered view, plus the **"Show recovered only"** toggle pill (independent server-side filter — when on, only entries whose latest retry succeeded are shown).
+
+**Action row** — `Refresh`, `Manual sync`, the **Filter by claim id** numeric input with **Apply / Update / Clear** buttons (Enter submits; while a claim filter is active, a *"Filtered: claim #N"* badge appears and the other dropdowns are disabled because the claim-scoped query already narrows by claim), and a **Clear filters** button that appears whenever any filter is active.
+
+**Filter row** — three `FormikControl` SELECT dropdowns wrapped in the standard `pt_filtergroup > pt_filteroptions` markup:
+
+| Dropdown | Options | Notes |
+|---|---|---|
+| **Date range** | All dates / Custom / Last month / This month | Sourced from the shared `filterByDurationDates` constant — same options as Account Ledger. *Last month* and *This month* are forwarded to the backend as `date_filter`; the backend applies its own timezone-aware boundaries. |
+| **Sync type** | Invoices / Bills / Payments / Contacts / Bank accounts / Projects / Contracts / Retention journals / Manual sync / scheduler & webhook variants / Variable bill code / Claims | Backed by `template.sync_type` on the seeded log templates. |
+| **Status** | Succeeded / Warning / Failed | Backed by `CAST(template.sync_status AS text)`. Coexists with the *Show recovered only* toggle — both are independent server-side filters. |
+
+When **Custom** is selected, a second row appears beneath the filter group with two `FormikControl` DATE_PICKER inputs — **From** and **To**. The server only receives `date_filter='Custom'` + `start_date` / `end_date` once both inputs are set, so partial entries don't surprise users with empty results.
+
+Every filter change resets pagination to page 1 (mirroring the existing claim-id filter behaviour). The legacy quick-preset chips (Today / Last 7 days / This Month / Last Month) and the bespoke `<select>` / `<input type="date">` controls have been removed in favour of this unified pattern — the same effective ranges are still reachable via the *Date range* dropdown plus *Custom*.
 
 #### Viewing Sync Log Details
 
 Click any sync log entry to open the details page, which shows:
-- **Visual Comparison:** Side-by-side table comparing PayTrade fields vs. Xero fields
+- **Visual Comparison:** Side-by-side table comparing PayTrade fields vs. Xero fields. Payment and BankTransfer rows render their own dedicated comparison sections (only the fields relevant to that record type are shown), so a Payment log doesn't pad the table with empty Invoice fields.
 - **Status Indicators:** Each field marked "Ok" (green) or "Failed" (red)
-- **Error Message:** A plain-language description of what went wrong
+- **Error Message:** A plain-language description of what went wrong. Long descriptions are truncated in the dashboard list with a full-text tooltip on hover so the row never wraps the table.
 
 #### Resolving Sync Failures
 
@@ -1663,3 +1743,5 @@ When contractual conditions for retention release are met (e.g., practical compl
 *This document covers every user-accessible page and feature in the PayTrade platform as of the current codebase. Admin panel documentation is maintained separately in PayTrade-Admin-Guide.md. Plan features and pricing are dynamically managed by admins via the subscription management system and may change over time.*
 
 *Last content additions: 2026-05-07 — Contract Type (Fixed/Hourly) with auto-uplift variations, Variable Bill Code per Supplier, Xero Invoice/Bill linked to claim with PDF cache, Retention GST gross-up Manual Journals.*
+
+*2026-05-09 → 2026-05-10 — Claim & Payment view drawers (Sync history, Trust Journals, Journal Entries) under unified `pt_payment` styling; Add Payment defaults Payment Date to today; ABA Wizard (Step 1 sender / Step 2 outstanding payments / Step 3 mark-paid + generate) replacing the single-confirmation modal, with retention-in entries excluded, inline spinner, pause-able notice popup; ABA mark-paid now pushes both Payment and Retention-Out BankTransfer legs to Xero via `pushPaymentLegsToXeroAfterMarkPaid`; Sync Log toolbar refactored to FormikControl SELECT (Date range / Sync type / Status) with conditional From/To DATE_PICKER row, mirroring Account Ledger; Filter by claim id shortcut; per-record-type Sync Log Details rendering for Payment and BankTransfer rows.*
