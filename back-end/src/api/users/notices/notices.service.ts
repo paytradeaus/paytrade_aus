@@ -234,7 +234,15 @@ export class NoticesService {
     decoded: any,
     payload: generateNoticeInput,
     manager?: EntityManager,
+    // NOTICE_FLOW correlation id; minted if absent so direct callers still emit a trace.
+    flowId?: string,
   ) {
+    const _flowId =
+      flowId ??
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    this.logger.log(
+      `[NOTICE_FLOW] flow_id=${_flowId} stage=intent notice_type=${payload?.notice_type} company_id=${payload?.company_id}`,
+    );
     try {
       this.logger.log(
         `Handling request for notice trigger with payload: ${JSON.stringify(payload)}`,
@@ -259,6 +267,9 @@ export class NoticesService {
 
       this.logger.log(
         `New notice generated with details : ${JSON.stringify(newNotice.data.notice_id)}`,
+      );
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=generated notice_id=${newNotice?.data?.notice_id} notice_uuid=${newNotice?.data?.id} notice_type=${validatedNoticeDetails?.notice_type} status=Draft`,
       );
 
       // 4. Trigger compliance check if project-based - uncommment
@@ -321,6 +332,9 @@ export class NoticesService {
     } catch (error) {
       this.logger.error(
         `Errored while handling generate notice with message: ${error.message}`,
+      );
+      this.logger.error(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=error phase=generate notice_type=${payload?.notice_type} error=${error?.message}`,
       );
       return framedResponse('ERROR', error.message);
     }
@@ -452,7 +466,13 @@ export class NoticesService {
     decoded: any,
     payload: updateNoticesInput,
     manager?: EntityManager,
+    // NOTICE_FLOW correlation id; falls back to payload.flow_id stamped by triggers, then minted.
+    flowId?: string,
   ) {
+    const _flowId =
+      flowId ??
+      payload?.flow_id ??
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     try {
       const repo = manager ?? this.entityManager;
 
@@ -464,6 +484,10 @@ export class NoticesService {
       if (!noticeDetails) {
         throw new Error(`Notice not found with id ${payload.notice_id}`);
       }
+
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=status_updated notice_id=${payload?.notice_id} notice_type=${noticeDetails?.notice_type} status=${payload?.status} auto_sent=${payload?.auto_sent ?? false}`,
+      );
 
       // Build link to view master type details
       const noticeLink =
@@ -537,6 +561,10 @@ export class NoticesService {
         manager,
       );
 
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=persisted notice_id=${payload?.notice_id} notice_type=${noticeDetails?.notice_type} status=${payload?.status}`,
+      );
+
       // Trigger compliance re-check if project is present
       if (noticeDetails.project_id && updateNotice) {
         await this.complianceService.fetchComplianceResultsOfAProject({
@@ -556,6 +584,9 @@ export class NoticesService {
     } catch (error) {
       this.logger.error(
         `Errored while handling update notice with message: ${error.message}`,
+      );
+      this.logger.error(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=error phase=status_update notice_id=${payload?.notice_id} status=${payload?.status} error=${error?.message}`,
       );
       return framedResponse('ERROR', error.message);
     }
@@ -1509,6 +1540,7 @@ export class NoticesService {
         decoded,
         generateNoticePayload as generateNoticeInput,
         manager,
+            flowId,
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1547,6 +1579,7 @@ export class NoticesService {
           decoded,
           generateMailNoticePayload,
           manager,
+              flowId,
         );
 
         if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -1566,6 +1599,11 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
           userMode === 'Onboarding'
         ) {
+          if (userMode && userMode == "Normal" && !companyAutoSend) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+            );
+          }
           if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] S23 PTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
@@ -1574,6 +1612,7 @@ export class NoticesService {
               null,
               manager,
             true,
+              flowId,
               )) as {
               status: string;
               message: string;
@@ -1604,6 +1643,8 @@ export class NoticesService {
             toMail: noticeListWithData.clientMail,
           };
 
+          updateNoticePayload.flow_id = flowId;
+
           update_notice_inputs.push(updateNoticePayload);
         } else {
           this.logger.log(
@@ -1630,6 +1671,7 @@ export class NoticesService {
         decoded,
         generateNoticePayload as generateNoticeInput,
         manager,
+            flowId,
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1665,6 +1707,7 @@ export class NoticesService {
           decoded,
           generateMailNoticePayload,
           manager,
+              flowId,
         );
 
         this.logger.log(
@@ -1680,6 +1723,11 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
+          if (userMode && userMode == "Normal" && !companyAutoSend) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+            );
+          }
           if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] S23 RTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
@@ -1688,6 +1736,7 @@ export class NoticesService {
               null,
               manager,
             true,
+              flowId,
               )) as {
               status: string;
               message: string;
@@ -1717,6 +1766,7 @@ export class NoticesService {
             toName: noticeListWithData.clientName,
             toMail: noticeListWithData.clientMail,
           };
+          updateNoticePayload.flow_id = flowId;
           update_notice_inputs.push(updateNoticePayload);
         } else {
           this.logger.log(
@@ -1744,6 +1794,7 @@ export class NoticesService {
         decoded,
         generateNoticePayload as generateNoticeInput,
         manager,
+            flowId,
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1817,6 +1868,8 @@ export class NoticesService {
             reference_link: noticeListWithData.contract_link,
           };
 
+          updateNoticePayload.flow_id = flowId;
+
           update_notice_inputs.push(updateNoticePayload);
         } else {
           this.logger.log(
@@ -1844,6 +1897,7 @@ export class NoticesService {
         decoded,
         generateNoticePayload as generateNoticeInput,
         manager,
+            flowId,
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1920,6 +1974,7 @@ export class NoticesService {
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
           };
+          updateNoticePayload.flow_id = flowId;
           update_notice_inputs.push(updateNoticePayload);
         } else {
           this.logger.log(
@@ -2125,6 +2180,7 @@ export class NoticesService {
           decoded,
           generateNoticePayload as generateNoticeInput,
           manager,
+            flowId,
         )) as generateNoticeResponse;
 
         noticeGen = true;
@@ -2154,6 +2210,7 @@ export class NoticesService {
             decoded,
             generateMailNoticePayload,
             manager,
+              flowId,
           )) as generateNoticeMailResponse;
 
           const sentMailNoticePayload: SentMailForANoticeInput = {
@@ -2165,6 +2222,11 @@ export class NoticesService {
             noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
             (userMode && userMode == 'Onboarding')
           ) {
+            if (userMode && userMode == "Normal" && !companyAutoSend) {
+              this.logger.log(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+              );
+            }
             if (userMode && userMode == 'Normal' && companyAutoSend) {
               const mailSent = (await this.handlesentNoticeMail(
                 decoded,
@@ -2172,6 +2234,7 @@ export class NoticesService {
                 null,
                 manager,
               true,
+              flowId,
               )) as {
                 status: string;
                 message: string;
@@ -2203,6 +2266,8 @@ export class NoticesService {
             };
 
             // const u = await this.handleUpdateNotice(decoded, updateNoticePayload, manager);
+
+            updateNoticePayload.flow_id = flowId;
 
             update_notice_inputs.push(updateNoticePayload);
           }
@@ -2707,6 +2772,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -2745,6 +2811,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             this.logger.log(`newMail: ${JSON.stringify(newMail)}`);
@@ -2762,6 +2829,11 @@ export class NoticesService {
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -2769,6 +2841,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -2800,6 +2873,8 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+
+              updateNoticePayload.flow_id = flowId;
 
               update_notice_inputs.push(updateNoticePayload);
             }
@@ -2818,6 +2893,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -2850,6 +2926,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
               throw new Error(`Mail generation failed: ${newMail?.message}`);
@@ -2865,6 +2942,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -2872,6 +2954,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -2901,6 +2984,7 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+              updateNoticePayload.flow_id = flowId;
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -2918,6 +3002,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -2952,6 +3037,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -2968,6 +3054,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -2975,6 +3066,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -3006,6 +3098,7 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+              updateNoticePayload.flow_id = flowId;
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3024,6 +3117,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3058,6 +3152,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -3074,6 +3169,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -3081,6 +3181,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -3111,6 +3212,8 @@ export class NoticesService {
               //   updateNoticePayload,
               // );
 
+              updateNoticePayload.flow_id = flowId;
+
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3128,6 +3231,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3195,6 +3299,7 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+              updateNoticePayload.flow_id = flowId;
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3212,6 +3317,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3243,6 +3349,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -3259,6 +3366,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -3266,6 +3378,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -3298,6 +3411,8 @@ export class NoticesService {
               //   updateNoticePayload,
               // );
 
+              updateNoticePayload.flow_id = flowId;
+
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3315,6 +3430,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
           noticeGen = true;
 
@@ -3346,6 +3462,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -3362,6 +3479,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -3369,6 +3491,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -3399,6 +3522,7 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+              updateNoticePayload.flow_id = flowId;
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3578,6 +3702,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3605,6 +3730,7 @@ export class NoticesService {
               decoded,
               generateMailNoticePayload,
               manager,
+              flowId,
             );
 
             if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
@@ -3620,6 +3746,11 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
+              if (userMode && userMode == "Normal" && !companyAutoSend) {
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
+                );
+              }
               if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
@@ -3627,6 +3758,7 @@ export class NoticesService {
                   null,
                   manager,
                 true,
+              flowId,
               )) as {
                   status: string;
                   message: string;
@@ -3658,6 +3790,8 @@ export class NoticesService {
               //   updateNoticePayload,
               // );
 
+              updateNoticePayload.flow_id = flowId;
+
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3675,6 +3809,7 @@ export class NoticesService {
             decoded,
             generateNoticePayload as generateNoticeInput,
             manager,
+            flowId,
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3739,6 +3874,7 @@ export class NoticesService {
               //   decoded,
               //   updateNoticePayload,
               // );
+              updateNoticePayload.flow_id = flowId;
               update_notice_inputs.push(updateNoticePayload);
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -3797,6 +3933,7 @@ export class NoticesService {
                   decoded,
                   generateNoticePayload as generateNoticeInput,
                   manager,
+            flowId,
                 )) as generateNoticeResponse;
 
                 noticeGen = true;
@@ -3869,6 +4006,7 @@ export class NoticesService {
                     //   decoded,
                     //   updateNoticePayload,
                     // );
+                    updateNoticePayload.flow_id = flowId;
                     update_notice_inputs.push(updateNoticePayload);
                   }
                 // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
@@ -4552,7 +4690,16 @@ export class NoticesService {
     decoded: any,
     payload: GenerateMailForANoticeInput,
     manager?: EntityManager,
+    // NOTICE_FLOW correlation id; minted if absent.
+    flowId?: string,
+    // Optional notice_type tag for the mail_built log line. Triggers know it
+    // up-front; if not supplied we fall back to fetching it from the notice.
+    noticeTypeForLog?: string,
   ): Promise<generateNoticeMailResponse> {
+    const _flowId =
+      flowId ??
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    let resolvedNoticeType: string | undefined = noticeTypeForLog;
     try {
       // Ensure has_import_button is always present
       this.logger.log(`Handles the generate mail with Payload: ${payload}`);
@@ -4586,10 +4733,24 @@ export class NoticesService {
         mailTemplate,
         manager,
       );
+      if (!resolvedNoticeType && resp?.data?.notice_id) {
+        const repo = manager ?? this.entityManager;
+        const n = await repo.findOne(NoticeDetails, {
+          where: { notice_id: resp.data.notice_id },
+          select: ['notice_type'],
+        });
+        resolvedNoticeType = n?.notice_type;
+      }
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=mail_built notice_id=${resp?.data?.notice_id} notice_type=${resolvedNoticeType} mail_uuid=${resp?.data?.id} status=${resp?.status}`,
+      );
       return resp;
     } catch (error) {
       this.logger.error(
         `Errored in handleGenerateMailForANotice with message: ${error.message}`,
+      );
+      this.logger.error(
+        `[NOTICE_FLOW] flow_id=${_flowId} stage=error phase=mail_built notice_uuid=${payload?.id} notice_type=${resolvedNoticeType} error=${error?.message}`,
       );
       return framedResponse(`ERROR`, error.message);
     }
@@ -6785,6 +6946,8 @@ export class NoticesService {
     // behalf" activity-log row to true auto-sends so manual sends don't
     // produce a misleading auto-sent row.
     isAutoSend: boolean = false,
+    // NOTICE_FLOW correlation id from the trigger; minted if absent.
+    callerFlowId?: string,
   ): Promise<ReturnType<typeof framedResponse>> {
     if (multiPayload) {
       if (!multiPayload.ids?.length) {
@@ -6834,9 +6997,11 @@ export class NoticesService {
     if (payload) {
       // Per-notice flow id stitches the breadcrumbs across stages so a
       // single dispatch can be reconstructed end-to-end from the logs.
-      const flowId = `${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`;
+      const flowId =
+        callerFlowId ??
+        `${Date.now().toString(36)}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
       const flowSummary: Record<string, any> = {
         flow_id: flowId,
         mail_id: payload.id,
@@ -6900,9 +7065,11 @@ export class NoticesService {
       //   updateNoticeData as updateNoticesInput,
       // );
 
-      stage('dispatch_complete', {
+      stage('sent', {
         notice_id: mailDetails?.noticeId,
         notice_type: mailDetails?.notice_type,
+        status: 'Sent',
+        is_auto_send: isAutoSend,
       });
       // Record a "Notice auto-sent on user behalf" activity log only for
       // true auto-send invocations so manual sends don't produce false rows.
@@ -7294,7 +7461,7 @@ export class NoticesService {
           status: userMode == 'Normal' ? 'Sending' : 'Sent - Onboarded',
           qbcc: true,
         };
-        await this.handleUpdateNotice(decoded, updateNoticePayload);
+        await this.handleUpdateNotice(decoded, updateNoticePayload, undefined, flowId);
 
         return framedResponse('SUCCESS', 'QBCC notice regenerated', {
           notice_id: noticeId,
@@ -7317,9 +7484,12 @@ export class NoticesService {
       } else {
         // Non-QBCC notice (e.g. Client S18B, Supplier S23) — these ARE sent
         // directly to the client/supplier via email.
-        const newMail = (await this.handleGenerateMailForANotice(decoded, {
-          id: notice.id,
-        })) as generateNoticeMailResponse;
+        const newMail = (await this.handleGenerateMailForANotice(
+          decoded,
+          { id: notice.id },
+          undefined,
+          flowId,
+        )) as generateNoticeMailResponse;
 
         if (!newMail?.data?.id) {
           throw new Error(`Mail generation failed for notice_id: ${noticeId}`);
@@ -7347,6 +7517,11 @@ export class NoticesService {
               undefined,
               undefined,
               true,
+              flowId,
+            );
+          } else if (userMode && userMode == 'Normal' && !companyAutoSend) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${notice?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent kind=regenerate`,
             );
           }
           const updateNoticePayload: updateNoticesInput = {
@@ -7356,7 +7531,7 @@ export class NoticesService {
             auto_sent: !!(userMode == 'Normal' && companyAutoSend),
           };
 
-          await this.handleUpdateNotice(decoded, updateNoticePayload);
+          await this.handleUpdateNotice(decoded, updateNoticePayload, undefined, flowId);
         }
         return framedResponse(
           'SUCCESS',

@@ -376,6 +376,13 @@ export class updateNoticesInput {
 
   @Field({ nullable: true, description: 'Recipient email for the notice.' })
   toMail?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Internal NOTICE_FLOW correlation id stamped by trigger handlers; used only for logging.',
+  })
+  flow_id?: string;
 }
 
 @InputType({
