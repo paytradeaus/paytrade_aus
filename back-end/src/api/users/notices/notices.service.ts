@@ -1609,6 +1609,31 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Task #97 — durable "Notice generated" activity row.
+        try {
+          const isAdmin = decoded?.logged_in_by === 'ADMIN';
+          await this.activityLogService.insertActivityLog({
+            event_template_id: 203,
+            admin_id: isAdmin ? decoded?.admin_id : null,
+            to_user: isAdmin ? decoded?.userId : null,
+            from_user: isAdmin ? null : decoded?.userId,
+            company_id: noticeListWithData?.company_id ?? null,
+            dynamic_values: {
+              noticeType:
+                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+              paymentName: String(
+                (noticeListWithData as any)?.payment_id ??
+                  (noticeListWithData as any)?.payment_claim_id ??
+                  (noticeListWithData as any)?.contract_id ??
+                  '',
+              ),
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          });
+        } catch (e) {
+          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+        }
       }
     }
     if (noticeListWithData.RetentionAccountNotice === true) {
@@ -1756,6 +1781,31 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Task #97 — durable "Notice generated" activity row.
+        try {
+          const isAdmin = decoded?.logged_in_by === 'ADMIN';
+          await this.activityLogService.insertActivityLog({
+            event_template_id: 203,
+            admin_id: isAdmin ? decoded?.admin_id : null,
+            to_user: isAdmin ? decoded?.userId : null,
+            from_user: isAdmin ? null : decoded?.userId,
+            company_id: noticeListWithData?.company_id ?? null,
+            dynamic_values: {
+              noticeType:
+                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+              paymentName: String(
+                (noticeListWithData as any)?.payment_id ??
+                  (noticeListWithData as any)?.payment_claim_id ??
+                  (noticeListWithData as any)?.contract_id ??
+                  '',
+              ),
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          });
+        } catch (e) {
+          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+        }
       }
     }
     if (noticeListWithData.trustQBCC === true) {
@@ -1891,6 +1941,31 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Task #97 — durable "Notice generated" activity row.
+        try {
+          const isAdmin = decoded?.logged_in_by === 'ADMIN';
+          await this.activityLogService.insertActivityLog({
+            event_template_id: 203,
+            admin_id: isAdmin ? decoded?.admin_id : null,
+            to_user: isAdmin ? decoded?.userId : null,
+            from_user: isAdmin ? null : decoded?.userId,
+            company_id: noticeListWithData?.company_id ?? null,
+            dynamic_values: {
+              noticeType:
+                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+              paymentName: String(
+                (noticeListWithData as any)?.payment_id ??
+                  (noticeListWithData as any)?.payment_claim_id ??
+                  (noticeListWithData as any)?.contract_id ??
+                  '',
+              ),
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          });
+        } catch (e) {
+          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+        }
       }
     }
     if (noticeListWithData.retentionQBCC === true) {
@@ -2029,6 +2104,31 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Task #97 — durable "Notice generated" activity row.
+        try {
+          const isAdmin = decoded?.logged_in_by === 'ADMIN';
+          await this.activityLogService.insertActivityLog({
+            event_template_id: 203,
+            admin_id: isAdmin ? decoded?.admin_id : null,
+            to_user: isAdmin ? decoded?.userId : null,
+            from_user: isAdmin ? null : decoded?.userId,
+            company_id: noticeListWithData?.company_id ?? null,
+            dynamic_values: {
+              noticeType:
+                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+              paymentName: String(
+                (noticeListWithData as any)?.payment_id ??
+                  (noticeListWithData as any)?.payment_claim_id ??
+                  (noticeListWithData as any)?.contract_id ??
+                  '',
+              ),
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          });
+        } catch (e) {
+          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+        }
       }
     }
 
@@ -2341,6 +2441,31 @@ export class NoticesService {
           await this.activityLogService.insertActivityLog(
             createActivityLogInput,
           );
+          // Task #97 — durable "Notice generated" activity row.
+          try {
+            const isAdmin = decoded?.logged_in_by === 'ADMIN';
+            await this.activityLogService.insertActivityLog({
+              event_template_id: 203,
+              admin_id: isAdmin ? decoded?.admin_id : null,
+              to_user: isAdmin ? decoded?.userId : null,
+              from_user: isAdmin ? null : decoded?.userId,
+              company_id: noticeListWithData?.company_id ?? null,
+              dynamic_values: {
+                noticeType:
+                  (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                paymentName: String(
+                  (noticeListWithData as any)?.payment_id ??
+                    (noticeListWithData as any)?.payment_claim_id ??
+                    (noticeListWithData as any)?.contract_id ??
+                    '',
+                ),
+              },
+              is_admin: false,
+              created_by: decoded?.userId,
+            });
+          } catch (e) {
+            this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+          }
         }
 
         // await this.statusService.getUiStatusAndActionButtonsForClaims({
@@ -2972,6 +3097,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3108,6 +3258,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3251,6 +3426,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3395,6 +3595,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3516,6 +3741,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3656,6 +3906,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -3796,6 +4071,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
 
@@ -4092,6 +4392,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
         if (noticeListWithData.trustQBCC === true) {
@@ -4210,6 +4535,31 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
+            // Task #97 — durable "Notice generated" activity row.
+            try {
+              const isAdmin = decoded?.logged_in_by === 'ADMIN';
+              await this.activityLogService.insertActivityLog({
+                event_template_id: 203,
+                admin_id: isAdmin ? decoded?.admin_id : null,
+                to_user: isAdmin ? decoded?.userId : null,
+                from_user: isAdmin ? null : decoded?.userId,
+                company_id: noticeListWithData?.company_id ?? null,
+                dynamic_values: {
+                  noticeType:
+                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                  paymentName: String(
+                    (noticeListWithData as any)?.payment_id ??
+                      (noticeListWithData as any)?.payment_claim_id ??
+                      (noticeListWithData as any)?.contract_id ??
+                      '',
+                  ),
+                },
+                is_admin: false,
+                created_by: decoded?.userId,
+              });
+            } catch (e) {
+              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+            }
           }
         }
         if (noticeListWithData.retentionQBCC === true) {
@@ -4377,6 +4727,31 @@ export class NoticesService {
                   await this.activityLogService.insertActivityLog(
                     createActivityLogInput,
                   );
+                  // Task #97 — durable "Notice generated" activity row.
+                  try {
+                    const isAdmin = decoded?.logged_in_by === 'ADMIN';
+                    await this.activityLogService.insertActivityLog({
+                      event_template_id: 203,
+                      admin_id: isAdmin ? decoded?.admin_id : null,
+                      to_user: isAdmin ? decoded?.userId : null,
+                      from_user: isAdmin ? null : decoded?.userId,
+                      company_id: noticeListWithData?.company_id ?? null,
+                      dynamic_values: {
+                        noticeType:
+                          (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
+                        paymentName: String(
+                          (noticeListWithData as any)?.payment_id ??
+                            (noticeListWithData as any)?.payment_claim_id ??
+                            (noticeListWithData as any)?.contract_id ??
+                            '',
+                        ),
+                      },
+                      is_admin: false,
+                      created_by: decoded?.userId,
+                    });
+                  } catch (e) {
+                    this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
+                  }
                 }
               }
             }
@@ -7337,11 +7712,48 @@ export class NoticesService {
     }
 
     if (payload) {
+      // Per-notice flow id stitches the breadcrumbs across stages so a
+      // single dispatch can be reconstructed end-to-end from the logs.
+      const flowId = `${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      const flowSummary: Record<string, any> = {
+        flow_id: flowId,
+        mail_id: payload.id,
+        is_auto_send: isAutoSend,
+        stages: [] as string[],
+        outcome: 'pending',
+      };
+      const stage = (name: string, extra: Record<string, any> = {}) => {
+        flowSummary.stages.push(name);
+        const tags = Object.entries({ flow_id: flowId, mail_id: payload.id, ...extra })
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' ');
+        this.logger.log(`[NOTICE_FLOW] stage=${name} ${tags}`);
+      };
+      stage('handler_start', { is_auto_send: isAutoSend });
       this.logger.log(
         `Request received for sending mail for a notice with mail_entry_id: ${payload.id}`,
       );
 
-      const mailDetails = await this.sentNoticeMail(payload, manager);
+      let mailDetails;
+      try {
+        stage('mail_fetch_start');
+        mailDetails = await this.sentNoticeMail(payload, manager);
+        stage('mail_fetch_complete', {
+          notice_id: mailDetails?.noticeId,
+          notice_type: mailDetails?.notice_type,
+          attachments: mailDetails?.attachments?.length ?? 0,
+        });
+      } catch (err) {
+        flowSummary.outcome = 'fetch_failed';
+        flowSummary.error = err?.message || String(err);
+        this.logger.error(
+          `[NOTICE_FLOW] stage=mail_fetch_failed flow_id=${flowId} mail_id=${payload.id} error=${flowSummary.error}`,
+        );
+        this.logger.log(`[NOTICE_FLOW_SUMMARY] ${JSON.stringify(flowSummary)}`);
+        throw err;
+      }
 
       if (!manager) {
         await this.emailQueueProducer.emailQueueProducer({
@@ -7368,9 +7780,10 @@ export class NoticesService {
       //   updateNoticeData as updateNoticesInput,
       // );
 
-      this.logger.log(
-        `[NOTICE_FLOW] stage=dispatch_complete payload_id=${payload?.id} is_auto_send=${isAutoSend}`,
-      );
+      stage('dispatch_complete', {
+        notice_id: mailDetails?.noticeId,
+        notice_type: mailDetails?.notice_type,
+      });
       // Record a "Notice auto-sent on user behalf" activity log only for
       // true auto-send invocations so manual sends don't produce false rows.
       if (isAutoSend) {
@@ -7398,6 +7811,8 @@ export class NoticesService {
         }
       }
 
+      flowSummary.outcome = 'success';
+      this.logger.log(`[NOTICE_FLOW_SUMMARY] ${JSON.stringify(flowSummary)}`);
       return framedResponse('SUCCESS', 'Mail Sent', {
         preview: preview_response,
         mails: mailDetails,

@@ -44,6 +44,7 @@ import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import Link from "next/link";
 import { useLoaderContext } from "@/context/useLoader";
 import BaseModal from "@/components/BaseModal";
+import { useTokenDetails } from "@/hooks";
 import { SUBSCRIPTION_UPGRADE } from "@/shared/constant/general";
 import { AppRoutes as RoutesConst } from "@/shared/constant/appRoutes";
 import {
@@ -75,6 +76,17 @@ export default function NoticesList({ overViewDetails = {} }: any) {
   // Basic-plan upgrade dialog (mirrors AddEditAuditDetails pattern).
   const [displaySubscriptionModal, setDisplaySubscriptionModal] =
     useState<boolean>(false);
+  // Visibility gate for the gear icon: only the system-added (primary)
+  // admin role on the active company sees the settings entry point. The
+  // server-side mutation is the source of truth, but hiding the affordance
+  // for non-admin members avoids exposing a control they can't use.
+  const { decodeTokenData } = useTokenDetails();
+  const canManageNoticeSettings = !!(
+    Array.isArray((decodeTokenData as any)?.companySpecificRoles) &&
+    (decodeTokenData as any).companySpecificRoles.find(
+      (x: any) => x?.isSystemAdded,
+    )
+  );
   const [accountList, setAccountList] = useState<any>();
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(10);
@@ -630,14 +642,14 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
-              {/* Gear icon opens per-company auto-send toggle. The
-                  underlying mutation is role-gated server-side (admin /
-                  primary user only); a 4xx is shown via the toast layer
-                  if a non-privileged user reaches it directly. */}
+              {/* Gear icon opens per-company auto-send toggle. Hidden for
+                  non-admin members; server-side mutation is also role-gated
+                  as the source of truth. */}
+              {canManageNoticeSettings && (
               <button
                 type="button"
                 className="secondary"
-                title="Notices settings"
+                title="Notices settings — open auto-send preferences"
                 onClick={async () => {
                   const cid = getCompanyIdFromStorage();
                   if (!cid) return;
@@ -657,6 +669,7 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               >
                 <i className="fa-light fa-gear"></i>
               </button>
+              )}
               <GridExportActions
                 excelFile={{
                   sheetName: "transaction List",
