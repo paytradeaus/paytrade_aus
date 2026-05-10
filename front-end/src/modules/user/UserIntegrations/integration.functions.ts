@@ -43,6 +43,48 @@ export const clearXeroReauthRequired = (): void => {
   } catch {}
 };
 
+/**
+ * Task #109 — Cross-app reauth probe used by `XeroReauthBanner` so the
+ * banner shows on every screen (not only the integrations pages) the
+ * moment the hourly Xero scheduler marks the company's integration as
+ * needing re-auth. Returns `{ needs_reauth, reauth_url? }` and never
+ * throws — a backend hiccup must never block the UI.
+ */
+export const fetchXeroReauthStatus = async (): Promise<{
+  needs_reauth: boolean;
+  reauth_url?: string | null;
+} | null> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetXeroReauthStatus {
+          getXeroReauthStatus {
+            status
+            message
+            data {
+              needs_reauth
+              company_id
+              tenant_name
+              needs_reauth_since
+              reauth_url
+            }
+          }
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    const data = response?.data?.getXeroReauthStatus?.data;
+    if (!data) return { needs_reauth: false };
+    return {
+      needs_reauth: !!data.needs_reauth,
+      reauth_url: data.reauth_url || null,
+    };
+  } catch (err) {
+    // Swallow — the banner stays in its current state on transient failures.
+    return null;
+  }
+};
+
 export const getXeroAuthURL = async (
   data: any,
   setLoading?: Function

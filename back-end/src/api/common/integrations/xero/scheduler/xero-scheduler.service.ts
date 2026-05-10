@@ -278,6 +278,10 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       `ALTER TABLE xero_invoices_bills ADD COLUMN IF NOT EXISTS void_date timestamp with time zone`,
       // Task #45 — throttle column for Inactive-notification email
       `ALTER TABLE xero_integration_details ADD COLUMN IF NOT EXISTS last_inactive_email_sent_at timestamp with time zone`,
+      // Task #109 — sticky reauth flag + daily-email throttle
+      `ALTER TABLE xero_integration_details ADD COLUMN IF NOT EXISTS needs_reauth boolean NOT NULL DEFAULT false`,
+      `ALTER TABLE xero_integration_details ADD COLUMN IF NOT EXISTS needs_reauth_since timestamp with time zone`,
+      `ALTER TABLE xero_integration_details ADD COLUMN IF NOT EXISTS last_reauth_email_sent_at timestamp with time zone`,
     ];
     for (const sql of stmts) {
       await ds.query(sql);
@@ -392,6 +396,137 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     } catch (err: any) {
       this.logger.error(
         `[Task #45] notifyPrimaryAdminOfXeroInactive failed for company_id=${company_id}: ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Task #109 — Mark a Xero integration as needing reauth and (optionally)
+   * send a daily reminder email to the company's PRIMARY ADMIN. Throttled
+   * to at most one reauth email per integration per 24 hours via
+   * `last_reauth_email_sent_at`. The sticky `needs_reauth` flag drives
+   * the cross-app `XeroReauthBanner` until `handleCallback` clears it.
+   *
+   * Best-effort: any failure is logged and swallowed so the surrounding
+   * scheduler tick is never blocked.
+   */
+  private async markIntegrationNeedsReauth(
+    company_id: number,
+  ): Promise<void> {
+    try {
+      const row = await this.xeroIntegrationDetails.findOne({
+        where: { company_id, status: 'ACTIVE' },
+      });
+      if (!row) {
+        this.logger.warn(
+          `[Task #109] markIntegrationNeedsReauth: no ACTIVE xero_integration_details for company_id=${company_id}; skipping`,
+        );
+        return;
+      }
+
+      const wasAlreadyMarked = !!row.needs_reauth;
+      const now = moment.tz('UTC').toDate();
+
+      // Set the sticky flag if it wasn't already on.
+      if (!wasAlreadyMarked) {
+        await this.xeroIntegrationDetails
+          .createQueryBuilder()
+          .update(XeroIntegrationDetails)
+          .set({
+            needs_reauth: true,
+            needs_reauth_since: now,
+          })
+          .where(`id = :id`, { id: row.id })
+          .execute();
+        this.logger.log(
+          `[Task #109] needs_reauth=true set for company_id=${company_id} integration row ${row.id}`,
+        );
+      }
+
+      // 24h throttle on reminder emails.
+      const lastSent = row.last_reauth_email_sent_at
+        ? new Date(row.last_reauth_email_sent_at).getTime()
+        : 0;
+      const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+      if (lastSent && Date.now() - lastSent < TWENTY_FOUR_HOURS_MS) {
+        this.logger.log(
+          `[Task #109] reauth reminder email throttled for company_id=${company_id} (last sent ${row.last_reauth_email_sent_at})`,
+        );
+        return;
+      }
+
+      const primaryAdmin = await this.userRoles.findOne({
+        where: {
+          company_id: company_id,
+          company_role: In(['PRIMARY ADMIN']),
+          status: 'Active',
+        },
+        relations: ['userDetails'],
+      });
+      const toEmail = primaryAdmin?.userDetails?.email_id;
+      if (!toEmail) {
+        this.logger.warn(
+          `[Task #109] No active PRIMARY ADMIN with email found for company_id=${company_id}; skipping reauth email`,
+        );
+        return;
+      }
+
+      const adminName =
+        [
+          primaryAdmin?.userDetails?.first_name,
+          primaryAdmin?.userDetails?.last_name,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim() || 'there';
+
+      const orgLabel =
+        row.tenant_name && row.tenant_name.trim()
+          ? row.tenant_name
+          : 'your Xero organisation';
+      const baseUrl = (process.env.LOG_BASE_URL || '').replace(/\/+$/, '');
+      const settingsLink = `${baseUrl}/user/integrations/xero/settings`;
+
+      const mailBody = `
+        <p>Hi ${adminName},</p>
+        <p>PayTrade can no longer reach <strong>${orgLabel}</strong> in Xero — the connection's refresh token has expired and we need you to sign back in.</p>
+        <p>Until you reconnect, invoices, bills, contacts and payments won't sync between PayTrade and Xero.</p>
+        <p>
+          <a href="${settingsLink}" style="background-color:#1A73E8;color:#ffffff;padding:10px 18px;text-decoration:none;border-radius:4px;display:inline-block;">
+            Reconnect Xero in PayTrade
+          </a>
+        </p>
+        <p>If the button above doesn't work, copy and paste this link into your browser:<br/>
+          <a href="${settingsLink}">${settingsLink}</a>
+        </p>
+        <p>You'll be asked to sign in to Xero and re-authorise PayTrade. Once you do, syncing resumes automatically and these reminders stop.</p>
+        <p>If you've already reconnected, you can ignore this email.</p>
+        <p>Thanks,<br/>The PayTrade team</p>
+      `;
+
+      const mailDetails = {
+        toEmail,
+        subject: `Action required: reconnect ${orgLabel} to Xero in PayTrade`,
+        template: 'header-footer-email',
+        mailBody,
+        mail_type: EmailTypeEnum.failedCompliance,
+      };
+
+      await this.emailQueueProducer.emailQueueProducer(mailDetails);
+
+      await this.xeroIntegrationDetails
+        .createQueryBuilder()
+        .update(XeroIntegrationDetails)
+        .set({ last_reauth_email_sent_at: now })
+        .where(`id = :id`, { id: row.id })
+        .execute();
+
+      this.logger.log(
+        `[Task #109] reauth reminder email queued for company_id=${company_id} primary_admin=${toEmail}`,
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `[Task #109] markIntegrationNeedsReauth failed for company_id=${company_id}: ${err?.message || err}`,
       );
     }
   }
@@ -606,6 +741,10 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   this.logger.warn(
                     `[WEBHOOK_FALLBACK] Skipping company ${element.company_id} — needs reauth (${error})`,
                   );
+                  // Task #109 — Light up the cross-app reauth banner and
+                  // queue a daily reminder email to the PRIMARY ADMIN.
+                  // Best-effort: never blocks the scheduler tick.
+                  await this.markIntegrationNeedsReauth(element.company_id);
                   continue;
                 }
 

@@ -205,6 +205,63 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     // return url.toString();
   }
 
+  /**
+   * Task #109 — Returns the cross-app reauth status for the given company.
+   * If the integration row has `needs_reauth=true` (set by the hourly Xero
+   * scheduler when the refresh token is dead), bundles a fresh consent
+   * URL so the `XeroReauthBanner` can deep-link the admin straight into
+   * the Xero OAuth flow.
+   *
+   * Never throws — all errors are swallowed and surface as
+   * `needs_reauth=false` so the polling banner can never break the UI.
+   */
+  async getXeroReauthStatus(
+    company_id: number,
+    userid: any,
+    isadmin: any,
+    timezone: any,
+  ): Promise<{
+    needs_reauth: boolean;
+    company_id?: number;
+    tenant_name?: string;
+    needs_reauth_since?: Date;
+    reauth_url?: string;
+  }> {
+    try {
+      const row = await this.xeroIntegrationDetails.findOne({
+        where: { company_id, status: 'ACTIVE' },
+      });
+      if (!row || !row.needs_reauth) {
+        return { needs_reauth: false, company_id };
+      }
+      let reauth_url: string | undefined;
+      try {
+        reauth_url = await this.getAuthUrl(
+          company_id,
+          userid,
+          isadmin,
+          timezone,
+        );
+      } catch (urlErr: any) {
+        this.logger.warn(
+          `[Task #109] getXeroReauthStatus: getAuthUrl failed for company_id=${company_id}: ${urlErr?.message || urlErr}`,
+        );
+      }
+      return {
+        needs_reauth: true,
+        company_id,
+        tenant_name: row.tenant_name || undefined,
+        needs_reauth_since: row.needs_reauth_since || undefined,
+        reauth_url,
+      };
+    } catch (err: any) {
+      this.logger.error(
+        `[Task #109] getXeroReauthStatus errored for company_id=${company_id}: ${err?.message || err}`,
+      );
+      return { needs_reauth: false, company_id };
+    }
+  }
+
   async handleCallback(
     decoded: any,
     callbackUrl: string,
@@ -272,6 +329,12 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         xeroDetails.access_token = tokenSet.access_token;
         xeroDetails.refresh_token = tokenSet.refresh_token;
         xeroDetails.expires_at = tokenSet.expires_at;
+        // Task #109 — Successful re-OAuth clears the sticky reauth flag and
+        // its email-throttle timestamps so the cross-app banner disappears
+        // and the daily reminder email loop stops.
+        xeroDetails.needs_reauth = false;
+        xeroDetails.needs_reauth_since = null;
+        xeroDetails.last_reauth_email_sent_at = null;
         xeroDetails.updated_by = decoded?.userId;
         xeroDetails.updated_on = moment.tz('UTC');
         xeroDetails.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';

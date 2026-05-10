@@ -9,13 +9,23 @@
  * blanking forms mid-edit) without telling them why. This banner lets
  * the user choose when to leave PT, and keeps the rest of the page
  * intact in the meantime.
+ *
+ * Task #109 — The banner now also polls a backend reauth-status probe so
+ * it lights up on every screen the moment the hourly Xero scheduler
+ * marks the company as needing reauth, not just after the user happens
+ * to trigger an `XERO_REFRESH` response. Mounted once in the user
+ * `(protected)` layout so it follows the user across the app.
  */
 import React, { useEffect, useState } from "react";
 import {
   XERO_REAUTH_EVENT,
   XERO_REAUTH_URL_KEY,
   clearXeroReauthRequired,
+  fetchXeroReauthStatus,
+  handleXeroReauthRequired,
 } from "../integration.functions";
+
+const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 min
 
 const XeroReauthBanner: React.FC = () => {
   const [reauthUrl, setReauthUrl] = useState<string | null>(null);
@@ -30,10 +40,52 @@ const XeroReauthBanner: React.FC = () => {
     const handler = (e: any) => {
       const url = e?.detail?.url;
       if (url) setReauthUrl(url);
+      else setReauthUrl(null);
     };
     window.addEventListener(XERO_REAUTH_EVENT, handler as EventListener);
     return () => {
       window.removeEventListener(XERO_REAUTH_EVENT, handler as EventListener);
+    };
+  }, []);
+
+  // Task #109 — Poll the backend so the banner appears even when the
+  // user hasn't triggered a Xero call themselves. Clears the local CTA
+  // automatically once the server reports the connection has been
+  // re-OAuthed.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const probe = async () => {
+      const res = await fetchXeroReauthStatus();
+      if (cancelled || !res) return;
+      if (res.needs_reauth) {
+        // Always surface the banner once the backend says reauth is
+        // needed. If consent-URL generation transiently failed on the
+        // server, fall back to the Xero settings deep link so the user
+        // can still get there in one click.
+        const url = res.reauth_url || "/user/integrations/xero/settings";
+        handleXeroReauthRequired(url);
+      } else {
+        try {
+          const stored = localStorage.getItem(XERO_REAUTH_URL_KEY);
+          if (stored) {
+            clearXeroReauthRequired();
+            setReauthUrl(null);
+          }
+        } catch {}
+      }
+    };
+
+    probe();
+    const intervalId = window.setInterval(probe, POLL_INTERVAL_MS);
+    const onFocus = () => probe();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
@@ -59,7 +111,8 @@ const XeroReauthBanner: React.FC = () => {
       <div>
         <strong>Xero reconnection required.</strong>{" "}
         Your Xero session has expired. PayTrade kept the rest of this
-        page intact — please reconnect when you're ready.
+        page intact — please reconnect when you're ready. Until you do,
+        invoices, bills and contacts won't sync.
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button

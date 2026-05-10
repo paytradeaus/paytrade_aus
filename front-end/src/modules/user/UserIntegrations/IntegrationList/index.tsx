@@ -1,7 +1,6 @@
 "use client";
 
 import BreadCrumbs from "@/components/BreadCrumbs";
-import XeroReauthBanner from "../XeroReauthBanner";
 import FormikControl from "@/components/FormikControl";
 import GridExportActions from "@/components/GridExportActions";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
@@ -433,7 +432,8 @@ export default function IntegrationList({
 
   return (
     <div className="container-fluid">
-      <XeroReauthBanner />
+      {/* Task #109 — Cross-app banner now lives in the user (protected)
+          layout, so the inline mount here is redundant. */}
       <div className="pt_title">
         <div className="pt_breadcrumbs">
           <BreadCrumbs

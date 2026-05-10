@@ -802,3 +802,36 @@ export class OrganisationResponse {
   @Field({ nullable: true, description: 'Organisation data' })
   data?: Organisation;
 }
+
+@ObjectType({
+  description:
+    'Task #109 — Reauth status payload for the cross-app XeroReauthBanner. Indicates whether the company\'s Xero integration has a dead refresh token and (if so) bundles a fresh consent URL the UI can deep-link to.',
+})
+export class XeroReauthStatus {
+  @Field({ description: 'True when the company needs to re-authorise Xero.' })
+  needs_reauth: boolean;
+
+  @Field({ nullable: true, description: 'Company id this status refers to.' })
+  company_id?: number;
+
+  @Field({ nullable: true, description: 'Tenant name (org label) for the prompt.' })
+  tenant_name?: string;
+
+  @Field({ nullable: true, description: 'Timestamp the refresh token was first observed dead.' })
+  needs_reauth_since?: Date;
+
+  @Field({ nullable: true, description: 'Fresh Xero consent URL the user should be sent to.' })
+  reauth_url?: string;
+}
+
+@ObjectType({ description: 'Response wrapper for getXeroReauthStatus.' })
+export class XeroReauthStatusResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field(() => XeroReauthStatus, { nullable: true, description: 'Reauth status payload.' })
+  data?: XeroReauthStatus;
+}

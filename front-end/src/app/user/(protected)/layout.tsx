@@ -3,6 +3,7 @@ import { InactivityDetector } from "@/components/InactivityDetector/InactivityDe
 import Footer from "@/components/MemberFooter";
 import Navbar from "@/components/MemberNavbar";
 import Sidebar from "@/components/SideBar";
+import XeroReauthBanner from "@/modules/user/UserIntegrations/XeroReauthBanner";
 import { showErrorToast } from "@/components/Toaster";
 import { useLoaderContext } from "@/context/useLoader";
 import { useIsClient, useTokenDetails } from "@/hooks";
@@ -187,6 +188,7 @@ export default function UserLayout({
             <header>
               <Navbar />
             </header>
+            <XeroReauthBanner />
             <main>{children}</main>
             <Footer />
           </div>

@@ -79,6 +79,20 @@ export class XeroIntegrationDetails {
   @Column({ type: 'timestamp with time zone', nullable: true })
   last_inactive_email_sent_at: Date;
 
+  // Task #109 — Sticky reauth flag set by the hourly Xero scheduler when
+  // the refresh token is dead (`refreshTokenReAuthenticate` true). Drives
+  // the cross-app `XeroReauthBanner` and the daily reminder email to the
+  // company's PRIMARY ADMIN. Cleared automatically when `handleCallback`
+  // successfully re-OAuths the tenant.
+  @Column({ type: 'boolean', nullable: true, default: false })
+  needs_reauth: boolean;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  needs_reauth_since: Date;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  last_reauth_email_sent_at: Date;
+
   @Column({ type: 'uuid', nullable: true })
   project_category_id: string;
 

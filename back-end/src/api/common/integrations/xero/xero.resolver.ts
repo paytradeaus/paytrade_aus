@@ -18,6 +18,7 @@ import {
   IntegrationIssuesResponse,
   OrganisationResponse,
   ViewSyncLogResponse,
+  XeroReauthStatusResponse,
 } from './xero.response';
 import {
   CreateAccountInput,
@@ -226,6 +227,50 @@ export class XeroResolver {
       );
     } catch (error) {
       return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Task #109 — Cross-app reauth status probe used by `XeroReauthBanner`.
+   * Returns `needs_reauth=true` whenever the hourly Xero scheduler has
+   * marked the company's `xero_integration_details.needs_reauth = true`
+   * after a dead-refresh-token short-circuit. Bundles a fresh consent URL
+   * so the banner can deep-link the admin straight into the Xero OAuth
+   * flow without first having to load the integrations page.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => XeroReauthStatusResponse, {
+    name: 'getXeroReauthStatus',
+    description:
+      'Returns whether the current company\'s Xero integration needs a re-auth (drives the cross-app reauth banner) plus a fresh consent URL.',
+  })
+  async getXeroReauthStatus(@Context() context) {
+    try {
+      const { headers } = context.req;
+      const companyIdRaw = headers?.companyid;
+      const companyId = companyIdRaw ? Number(companyIdRaw) : null;
+      if (!companyId || Number.isNaN(companyId)) {
+        return framedResponse('SUCCESS', 'No company in context', {
+          needs_reauth: false,
+        });
+      }
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const data = await this.xeroService.getXeroReauthStatus(
+        companyId,
+        decoded?.userId,
+        decoded?.isAdmin,
+        decoded?.timezone,
+      );
+      return framedResponse('SUCCESS', 'Reauth status fetched', data);
+    } catch (error) {
+      this.logger.error(
+        `getXeroReauthStatus errored: ${error?.message || error}`,
+      );
+      // Never let this probe break the UI — fall back to "no reauth needed".
+      return framedResponse('SUCCESS', 'Reauth status fetch failed', {
+        needs_reauth: false,
+      });
     }
   }
 

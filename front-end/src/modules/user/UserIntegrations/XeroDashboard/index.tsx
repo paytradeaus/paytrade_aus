@@ -1,6 +1,5 @@
 "use client";
 import BreadCrumbs from "@/components/BreadCrumbs";
-import XeroReauthBanner from "../XeroReauthBanner";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -803,7 +802,8 @@ export default function XeroDashboard() {
 
   return (
     <div className="container-fluid">
-      <XeroReauthBanner />
+      {/* Task #109 — Cross-app banner now lives in the user (protected)
+          layout, so the inline mount here is redundant. */}
       <div className="pt_title">
         <div className="pt_breadcrumbs">
           <BreadCrumbs
