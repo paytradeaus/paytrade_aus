@@ -7264,6 +7264,11 @@ export class NoticesService {
         attachments: mail_attachments,
         noticeId: notice_mail.noticeDetails.notice_id,
         notice_file: notice_file ? notice_file : null,
+        // Task #97 — surface fields needed by the auto-send activity log
+        // so the caller doesn't have to refetch noticeDetails just to
+        // populate template tokens.
+        company_id: notice_mail.noticeDetails.company_id,
+        notice_type: notice_mail.noticeDetails.notice_type,
       };
 
       return mailDetails;
@@ -7363,46 +7368,34 @@ export class NoticesService {
       //   updateNoticeData as updateNoticesInput,
       // );
 
-      // Task #97 — record a "Notice auto-sent on user behalf" activity log
-      // ONLY for true auto-send invocations (i.e. when a trigger handler
-      // dispatches the mail with isAutoSend=true). Manual sends from the UI
-      // path skip this so users don't see false "auto-sent" rows.
       this.logger.log(
         `[NOTICE_FLOW] stage=dispatch_complete payload_id=${payload?.id} is_auto_send=${isAutoSend}`,
       );
-      try {
-        if (isAutoSend) {
-        await this.activityLogService.insertActivityLog({
-          event_template_id: 202,
-          admin_id:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.admin_id
-              : null,
-          to_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.userId
-              : null,
-          from_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? null
-              : decoded?.userId,
-          company_id: (mailDetails as any)?.company_id ?? null,
-          dynamic_values: {
-            noticeId: (mailDetails as any)?.noticeId ?? payload?.id,
-            mailUuid: payload?.id,
-            noticeType:
-              (mailDetails as any)?.noticeDetails?.notice_type ??
-              (mailDetails as any)?.notice_type ??
-              null,
-          },
-          is_admin: false,
-          created_by: decoded?.userId,
-        });
+      // Record a "Notice auto-sent on user behalf" activity log only for
+      // true auto-send invocations so manual sends don't produce false rows.
+      if (isAutoSend) {
+        try {
+          const isAdmin = decoded?.logged_in_by === 'ADMIN';
+          await this.activityLogService.insertActivityLog({
+            event_template_id: 202,
+            admin_id: isAdmin ? decoded?.admin_id : null,
+            to_user: isAdmin ? decoded?.userId : null,
+            from_user: isAdmin ? null : decoded?.userId,
+            company_id: mailDetails?.company_id ?? null,
+            dynamic_values: {
+              noticeId: mailDetails?.noticeId ?? payload?.id,
+              mailUuid: payload?.id,
+              noticeType: mailDetails?.notice_type ?? null,
+              paymentName: mailDetails?.subject ?? '',
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          });
+        } catch (e) {
+          this.logger.warn(
+            `[NOTICE_FLOW] auto-sent activity log insert failed: ${e?.message || e}`,
+          );
         }
-      } catch (e) {
-        this.logger.warn(
-          `[NOTICE_FLOW] auto-sent activity log insert failed: ${e?.message || e}`,
-        );
       }
 
       return framedResponse('SUCCESS', 'Mail Sent', {

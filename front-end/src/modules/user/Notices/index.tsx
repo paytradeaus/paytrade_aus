@@ -44,7 +44,6 @@ import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import Link from "next/link";
 import { useLoaderContext } from "@/context/useLoader";
 import BaseModal from "@/components/BaseModal";
-import { useTokenDetails } from "@/hooks";
 import { SUBSCRIPTION_UPGRADE } from "@/shared/constant/general";
 import { AppRoutes as RoutesConst } from "@/shared/constant/appRoutes";
 import {
@@ -73,24 +72,9 @@ export default function NoticesList({ overViewDetails = {} }: any) {
     useState<boolean>(true);
   const [noticeSettingsSaving, setNoticeSettingsSaving] =
     useState<boolean>(false);
-  // Task #97 — Basic-plan upgrade dialog (mirrors AddEditAuditDetails pattern).
+  // Basic-plan upgrade dialog (mirrors AddEditAuditDetails pattern).
   const [displaySubscriptionModal, setDisplaySubscriptionModal] =
     useState<boolean>(false);
-  // Task #97 — gate the gear icon behind admin/manage-company privileges so
-  // members can't change a setting they aren't allowed to manage server-side.
-  const { decodeTokenData } = useTokenDetails();
-  const canManageNoticeSettings = (() => {
-    const roles = (decodeTokenData as any)?.companySpecificRoles;
-    if (!Array.isArray(roles) || !roles.length) return false;
-    const sys = roles.find((x: any) => x?.isSystemAdded);
-    const roleName = String(sys?.role_name || sys?.role || "").toLowerCase();
-    return (
-      sys?.isSystemAdded === true ||
-      roleName.includes("admin") ||
-      roleName.includes("owner") ||
-      roleName.includes("primary")
-    );
-  })();
   const [accountList, setAccountList] = useState<any>();
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(10);
@@ -646,9 +630,10 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
-              {/* Task #97 — gear icon opens per-company auto-send toggle.
-                  Only shown to users who can manage company settings. */}
-              {canManageNoticeSettings && (
+              {/* Gear icon opens per-company auto-send toggle. The
+                  underlying mutation is role-gated server-side (admin /
+                  primary user only); a 4xx is shown via the toast layer
+                  if a non-privileged user reaches it directly. */}
               <button
                 type="button"
                 className="secondary"
@@ -672,7 +657,6 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               >
                 <i className="fa-light fa-gear"></i>
               </button>
-              )}
               <GridExportActions
                 excelFile={{
                   sheetName: "transaction List",

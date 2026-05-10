@@ -850,9 +850,21 @@ export default function BusinessProfile({ isEditable }: any) {
                         fontSize: 13,
                       }}
                     >
-                      Auto-send is a paid-plan feature. Upgrade your
-                      subscription to enable automatic delivery of compliance
-                      notices on your behalf.
+                      <div>
+                        Auto-send is a paid-plan feature. Upgrade your
+                        subscription to enable automatic delivery of
+                        compliance notices on your behalf.
+                      </div>
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{ marginTop: 8 }}
+                        onClick={() => {
+                          router.push(AppRoutes.USER_SUBSCRIPTION_UPGRADE);
+                        }}
+                      >
+                        Upgrade now
+                      </button>
                     </div>
                   ) : (
                     <div style={{ marginBottom: "0.5rem" }}>

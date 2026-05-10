@@ -23,14 +23,8 @@ const ACTIVITY_TEMPLATES = [
     id: 202,
     event_group: 'USER',
     event_type: 'NOTICE',
-    event_text: 'Notice ({{noticeType}}) auto-sent on your behalf',
-    event_by: 'USER',
-  },
-  {
-    id: 203,
-    event_group: 'USER',
-    event_type: 'NOTICE',
-    event_text: 'Notice generated ({{noticeType}})',
+    event_text:
+      'Notice ({{noticeType}}) auto-sent on your behalf for payment ({{paymentName}})',
     event_by: 'USER',
   },
 ];

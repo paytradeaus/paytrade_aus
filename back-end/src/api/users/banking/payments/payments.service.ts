@@ -4904,31 +4904,26 @@ export class PaymentsService {
               this.logger.log(`[ABA] Finished marking ${transactions.length} transactions as paid`);
             }
 
-          // Task #97 — record an activity log entry whenever an ABA file is
-          // generated so users can trace ABA creations from their activity log.
+          // Activity log: ABA file generated.
           try {
+            const isAdmin = decoded?.logged_in_by === 'ADMIN';
+            const abaFile = fileData as unknown as {
+              id?: number | string;
+              file_name?: string;
+              company_id?: number;
+            };
             await this.activityLogService.insertActivityLog({
               event_template_id: 201,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: (fileData as any)?.company_id ?? accountDetails?.company_id ?? null,
+              admin_id: isAdmin ? decoded?.admin_id : null,
+              to_user: isAdmin ? decoded?.userId : null,
+              from_user: isAdmin ? null : decoded?.userId,
+              company_id:
+                abaFile?.company_id ?? accountDetails?.company_id ?? null,
               dynamic_values: {
-                abaFileId: (fileData as any)?.id,
+                abaFileId: abaFile?.id,
                 includedCount: transactionCount,
                 skippedCount: skippedPayments.length,
-                paymentName:
-                  (fileData as any)?.file_name ??
-                  `ABA ${(fileData as any)?.id ?? ''}`.trim(),
+                paymentName: abaFile?.file_name ?? `ABA ${abaFile?.id ?? ''}`.trim(),
               },
               is_admin: false,
               created_by: decoded?.userId,
