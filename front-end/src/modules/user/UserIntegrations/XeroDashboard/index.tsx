@@ -1186,14 +1186,17 @@ export default function XeroDashboard() {
                     }
                   }}
                   style={{
+                    boxSizing: "border-box",
                     height: "28px",
-                    lineHeight: "26px",
+                    lineHeight: "24px",
                     padding: "0 8px",
-                    fontSize: "12px",
+                    fontSize: "var(--step--1)",
                     border: "1px solid #ccc",
                     borderRadius: "4px",
                     backgroundColor: "#fff",
                     width: "150px",
+                    verticalAlign: "middle",
+                    margin: 0,
                   }}
                   title="Show only sync log entries for this claim and its payments"
                 />
