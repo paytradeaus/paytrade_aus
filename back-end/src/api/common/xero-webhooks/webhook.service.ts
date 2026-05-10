@@ -1341,7 +1341,7 @@ export class XeroWebhookService {
 
   async handleInvoiceCreateUpdate(data: any, decoded?: any) {
     const { resource_id, tenant_id, eventType, sync_run_type } = data;
-    this.logger.log(
+    this.logger.debug(
       `[BILL_TRACE] === START handleInvoiceCreateUpdate === resource_id=${resource_id}, tenant=${tenant_id}, eventType=${eventType}, sync_run_type=${sync_run_type}`,
     );
 
@@ -2702,7 +2702,7 @@ export class XeroWebhookService {
         } else if (matchingContracts.length === 0) {
           this.logger.debug(`[BILL_TRACE] V-Step 16: No contracts found. smart_contract_auto_create=${xeroDetails.smart_contract_auto_create}`);
           if (xeroDetails.smart_contract_auto_create && projectDetails && clientSuppliersDetails) {
-            this.logger.log(
+            this.logger.debug(
               `[BILL_TRACE] V-Step 16: Smart contract auto-create ENABLED. Attempting for project ${projectDetails.project_id} and contact ${xeroContactDetails.pt_contact_id}...`
             );
             const smartContract = await this.xeroInvoicesService.smartCreateContract(decoded, {
@@ -2723,11 +2723,11 @@ export class XeroWebhookService {
 
             if (smartContract) {
               contractDetails = smartContract;
-              this.logger.log(
+              this.logger.debug(
                 `[BILL_TRACE] V-Step 16: Smart contract auto-created: contract_id=${smartContract.contract_id}. Continuing claim import.`
               );
             } else {
-              this.logger.log(
+              this.logger.debug(
                 `[BILL_TRACE] V-Step 16: Smart contract auto-creation FAILED or was skipped. Returning false.`
               );
               return false;
