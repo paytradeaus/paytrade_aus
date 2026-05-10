@@ -859,6 +859,7 @@ export default function NoticesList({ overViewDetails = {} }: any) {
       {noticeSettingsOpen && (
         <BaseModal
           modalId={"notice-settings"}
+          title="Notice auto-send"
           displayModal={noticeSettingsOpen}
           onHeaderIconClose={() => setNoticeSettingsOpen(false)}
           restrictOncloseFunctionInHeader
@@ -905,9 +906,8 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           firstButtonName="Cancel"
           secondButtonName={noticeSettingsSaving ? "Saving…" : "Save"}
         >
-          <div style={{ padding: "8px 4px" }}>
-            <h4>Notice auto-send</h4>
-            <p style={{ marginTop: 8, fontSize: 13, color: "#555" }}>
+          <div>
+            <p style={{ fontSize: 13, color: "#555" }}>
               When enabled, PayTrade will automatically email compliance
               notices on your behalf where your subscription supports
               delegated sending. When disabled, notices and mail files are
