@@ -64,17 +64,59 @@ export async function handleError(error): Promise<string> {
   });
 }
 
+// Diagnostic helper: pull just enough context out of an axios error to
+// pinpoint which Xero endpoint / tenant a failure came from, without
+// dumping huge bodies into the log stream.
+function summarizeAxiosError(error: any): {
+  status: number | string | null;
+  method: string | null;
+  url: string | null;
+  tenantId: string | null;
+  bodySnippet: string | null;
+  bodyType: string;
+} {
+  const cfg = error?.config || error?.response?.config || {};
+  const headers = cfg?.headers || {};
+  const tenantId =
+    headers['xero-tenant-id'] ||
+    headers['Xero-tenant-id'] ||
+    headers['Xero-Tenant-Id'] ||
+    null;
+  const rawBody = error?.response?.data ?? error?.response?.body;
+  let bodyType: string = typeof rawBody;
+  let bodySnippet: string | null = null;
+  if (rawBody != null) {
+    try {
+      const asString =
+        typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
+      bodySnippet = asString.length > 500 ? asString.slice(0, 500) + '…' : asString;
+    } catch {
+      bodySnippet = '[unstringifiable body]';
+    }
+  }
+  return {
+    status: error?.response?.status ?? error?.response?.statusCode ?? null,
+    method: cfg?.method ? String(cfg.method).toUpperCase() : null,
+    url: cfg?.url || cfg?.baseURL || null,
+    tenantId: tenantId ? String(tenantId) : null,
+    bodySnippet,
+    bodyType,
+  };
+}
+
 export async function handleAxiosError(axiosError): Promise<any> {
   return new Promise(async (resolve, reject) => {
     // console.log({ axiosError });
     let errorMessage = 'An unexpected error occurred';
+    let usedGenericFallback = false;
 
     // If it's a string, try parsing it
     if (typeof axiosError === 'string') {
       try {
         axiosError = JSON.parse(axiosError);
       } catch (parseErr) {
-        logger.log(`Failed to parse axiosError string: ${axiosError}`);
+        // Tag as WARN — `logger.log` writes [SUCCESS] which was misleading.
+        logger.warn(`Failed to parse axiosError string: ${axiosError}`);
         return reject(axiosError); // return the original string
       }
     }
@@ -110,11 +152,30 @@ export async function handleAxiosError(axiosError): Promise<any> {
         errorMessage = errorBody?.Message;
       } else {
         errorMessage = errorBody?.Detail || 'An error occurred in Xero';
+        usedGenericFallback = true;
       }
     } else if (error?.message) {
       errorMessage = error?.message;
     } else {
       errorMessage = String(error);
+    }
+
+    // When we couldn't decode the Xero response body (the case that
+    // produces the bare "An error occurred in Xero" message), emit a
+    // structured diagnostic so the next occurrence is debuggable
+    // without re-deploying. Resolved errorMessage is unchanged so any
+    // upstream string matching keeps working.
+    if (usedGenericFallback) {
+      try {
+        const ctx = summarizeAxiosError(error);
+        logger.warn(
+          `Unrecognized Xero error body — status=${ctx.status} method=${ctx.method} url=${ctx.url} tenant=${ctx.tenantId} bodyType=${ctx.bodyType} body=${ctx.bodySnippet}`,
+        );
+      } catch (diagErr) {
+        logger.warn(
+          `Unrecognized Xero error body — diagnostic capture failed: ${diagErr?.message || diagErr}`,
+        );
+      }
     }
 
     logger.log(`Handled Axios Error: ${errorMessage}`);
