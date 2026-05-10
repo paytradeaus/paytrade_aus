@@ -1584,7 +1584,7 @@ export class NoticesService {
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 128,
+          event_template_id: 203,
           admin_id:
             decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
               ? decoded?.admin_id
@@ -1601,6 +1601,26 @@ export class NoticesService {
           dynamic_values: {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
+            noticeType: generateNoticePayload.notice_type,
+            paymentName:
+              ((noticeListWithData as unknown) as {
+
+                contract_name?: string;
+
+                project_name?: string;
+
+                account_name?: string;
+
+                clientName?: string;
+
+              })?.contract_name ??
+
+              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+              '',
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -1609,31 +1629,6 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
-        // Task #97 — durable "Notice generated" activity row.
-        try {
-          const isAdmin = decoded?.logged_in_by === 'ADMIN';
-          await this.activityLogService.insertActivityLog({
-            event_template_id: 203,
-            admin_id: isAdmin ? decoded?.admin_id : null,
-            to_user: isAdmin ? decoded?.userId : null,
-            from_user: isAdmin ? null : decoded?.userId,
-            company_id: noticeListWithData?.company_id ?? null,
-            dynamic_values: {
-              noticeType:
-                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-              paymentName: String(
-                (noticeListWithData as any)?.payment_id ??
-                  (noticeListWithData as any)?.payment_claim_id ??
-                  (noticeListWithData as any)?.contract_id ??
-                  '',
-              ),
-            },
-            is_admin: false,
-            created_by: decoded?.userId,
-          });
-        } catch (e) {
-          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-        }
       }
     }
     if (noticeListWithData.RetentionAccountNotice === true) {
@@ -1756,7 +1751,7 @@ export class NoticesService {
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 128,
+          event_template_id: 203,
           admin_id:
             decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
               ? decoded?.admin_id
@@ -1773,6 +1768,26 @@ export class NoticesService {
           dynamic_values: {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
+            noticeType: generateNoticePayload.notice_type,
+            paymentName:
+              ((noticeListWithData as unknown) as {
+
+                contract_name?: string;
+
+                project_name?: string;
+
+                account_name?: string;
+
+                clientName?: string;
+
+              })?.contract_name ??
+
+              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+              '',
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -1781,31 +1796,6 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
-        // Task #97 — durable "Notice generated" activity row.
-        try {
-          const isAdmin = decoded?.logged_in_by === 'ADMIN';
-          await this.activityLogService.insertActivityLog({
-            event_template_id: 203,
-            admin_id: isAdmin ? decoded?.admin_id : null,
-            to_user: isAdmin ? decoded?.userId : null,
-            from_user: isAdmin ? null : decoded?.userId,
-            company_id: noticeListWithData?.company_id ?? null,
-            dynamic_values: {
-              noticeType:
-                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-              paymentName: String(
-                (noticeListWithData as any)?.payment_id ??
-                  (noticeListWithData as any)?.payment_claim_id ??
-                  (noticeListWithData as any)?.contract_id ??
-                  '',
-              ),
-            },
-            is_admin: false,
-            created_by: decoded?.userId,
-          });
-        } catch (e) {
-          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-        }
       }
     }
     if (noticeListWithData.trustQBCC === true) {
@@ -1916,7 +1906,7 @@ export class NoticesService {
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 128,
+          event_template_id: 203,
           admin_id:
             decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
               ? decoded?.admin_id
@@ -1933,6 +1923,26 @@ export class NoticesService {
           dynamic_values: {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
+            noticeType: generateNoticePayload.notice_type,
+            paymentName:
+              ((noticeListWithData as unknown) as {
+
+                contract_name?: string;
+
+                project_name?: string;
+
+                account_name?: string;
+
+                clientName?: string;
+
+              })?.contract_name ??
+
+              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+              '',
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -1941,31 +1951,6 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
-        // Task #97 — durable "Notice generated" activity row.
-        try {
-          const isAdmin = decoded?.logged_in_by === 'ADMIN';
-          await this.activityLogService.insertActivityLog({
-            event_template_id: 203,
-            admin_id: isAdmin ? decoded?.admin_id : null,
-            to_user: isAdmin ? decoded?.userId : null,
-            from_user: isAdmin ? null : decoded?.userId,
-            company_id: noticeListWithData?.company_id ?? null,
-            dynamic_values: {
-              noticeType:
-                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-              paymentName: String(
-                (noticeListWithData as any)?.payment_id ??
-                  (noticeListWithData as any)?.payment_claim_id ??
-                  (noticeListWithData as any)?.contract_id ??
-                  '',
-              ),
-            },
-            is_admin: false,
-            created_by: decoded?.userId,
-          });
-        } catch (e) {
-          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-        }
       }
     }
     if (noticeListWithData.retentionQBCC === true) {
@@ -2079,7 +2064,7 @@ export class NoticesService {
 
         //Create activity log as soon a payment claim is created.
         const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 128,
+          event_template_id: 203,
           admin_id:
             decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
               ? decoded?.admin_id
@@ -2096,6 +2081,26 @@ export class NoticesService {
           dynamic_values: {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
+            noticeType: generateNoticePayload.notice_type,
+            paymentName:
+              ((noticeListWithData as unknown) as {
+
+                contract_name?: string;
+
+                project_name?: string;
+
+                account_name?: string;
+
+                clientName?: string;
+
+              })?.contract_name ??
+
+              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+              '',
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -2104,31 +2109,6 @@ export class NoticesService {
         };
         //console.log('createActivityLogInput', createActivityLogInput);
         await this.activityLogService.insertActivityLog(createActivityLogInput);
-        // Task #97 — durable "Notice generated" activity row.
-        try {
-          const isAdmin = decoded?.logged_in_by === 'ADMIN';
-          await this.activityLogService.insertActivityLog({
-            event_template_id: 203,
-            admin_id: isAdmin ? decoded?.admin_id : null,
-            to_user: isAdmin ? decoded?.userId : null,
-            from_user: isAdmin ? null : decoded?.userId,
-            company_id: noticeListWithData?.company_id ?? null,
-            dynamic_values: {
-              noticeType:
-                (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-              paymentName: String(
-                (noticeListWithData as any)?.payment_id ??
-                  (noticeListWithData as any)?.payment_claim_id ??
-                  (noticeListWithData as any)?.contract_id ??
-                  '',
-              ),
-            },
-            is_admin: false,
-            created_by: decoded?.userId,
-          });
-        } catch (e) {
-          this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-        }
       }
     }
 
@@ -2413,7 +2393,7 @@ export class NoticesService {
             `?from=log`;
 
           const createActivityLogInput: CreateActivityLogInput = {
-            event_template_id: 128,
+            event_template_id: 203,
             admin_id:
               decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                 ? decoded?.admin_id
@@ -2430,6 +2410,26 @@ export class NoticesService {
             dynamic_values: {
               noticeLink,
               noticeSubject: generateNoticePayload.notice_type,
+              noticeType: generateNoticePayload.notice_type,
+              paymentName:
+                ((noticeListWithData as unknown) as {
+
+                  contract_name?: string;
+
+                  project_name?: string;
+
+                  account_name?: string;
+
+                  clientName?: string;
+
+                })?.contract_name ??
+
+                ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                '',
               referenceId: noticeListWithData.payment_claim_id,
               referenceLink: noticeListWithData.payment_claim_link,
               toName: noticeListWithData.clientName,
@@ -2441,31 +2441,6 @@ export class NoticesService {
           await this.activityLogService.insertActivityLog(
             createActivityLogInput,
           );
-          // Task #97 — durable "Notice generated" activity row.
-          try {
-            const isAdmin = decoded?.logged_in_by === 'ADMIN';
-            await this.activityLogService.insertActivityLog({
-              event_template_id: 203,
-              admin_id: isAdmin ? decoded?.admin_id : null,
-              to_user: isAdmin ? decoded?.userId : null,
-              from_user: isAdmin ? null : decoded?.userId,
-              company_id: noticeListWithData?.company_id ?? null,
-              dynamic_values: {
-                noticeType:
-                  (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                paymentName: String(
-                  (noticeListWithData as any)?.payment_id ??
-                    (noticeListWithData as any)?.payment_claim_id ??
-                    (noticeListWithData as any)?.contract_id ??
-                    '',
-                ),
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            });
-          } catch (e) {
-            this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-          }
         }
 
         // await this.statusService.getUiStatusAndActionButtonsForClaims({
@@ -3070,7 +3045,7 @@ export class NoticesService {
               `?from=log`;
             this.logger.log(`noticeLink: ${noticeLink}`);
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3087,6 +3062,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3097,31 +3092,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -3231,7 +3201,7 @@ export class NoticesService {
             this.logger.log(`noticeLink: ${noticeLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3248,6 +3218,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3258,31 +3248,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -3397,7 +3362,7 @@ export class NoticesService {
             this.logger.log(`noticeLink: ${noticeLink}`);
 
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3414,6 +3379,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3426,31 +3411,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -3566,7 +3526,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3583,6 +3543,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3595,31 +3575,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -3714,7 +3669,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3731,6 +3686,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3741,31 +3716,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -3879,7 +3829,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -3896,6 +3846,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3906,31 +3876,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -4042,7 +3987,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -4059,6 +4004,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -4071,31 +4036,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
 
@@ -4365,7 +4305,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -4382,6 +4322,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.bank_account_id,
                 referenceLink: noticeListWithData.bank_accoutn_link,
               },
@@ -4392,31 +4352,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
         if (noticeListWithData.trustQBCC === true) {
@@ -4508,7 +4443,7 @@ export class NoticesService {
 
             //Create activity log as soon a payment claim is created.
             const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 128,
+              event_template_id: 203,
               admin_id:
                 decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                   ? decoded?.admin_id
@@ -4525,6 +4460,26 @@ export class NoticesService {
               dynamic_values: {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
+                noticeType: generateNoticePayload.notice_type,
+                paymentName:
+                  ((noticeListWithData as unknown) as {
+
+                    contract_name?: string;
+
+                    project_name?: string;
+
+                    account_name?: string;
+
+                    clientName?: string;
+
+                  })?.contract_name ??
+
+                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                  '',
                 referenceId: noticeListWithData.bank_account_id,
                 referenceLink: noticeListWithData.bank_accoutn_link,
               },
@@ -4535,31 +4490,6 @@ export class NoticesService {
             await this.activityLogService.insertActivityLog(
               createActivityLogInput,
             );
-            // Task #97 — durable "Notice generated" activity row.
-            try {
-              const isAdmin = decoded?.logged_in_by === 'ADMIN';
-              await this.activityLogService.insertActivityLog({
-                event_template_id: 203,
-                admin_id: isAdmin ? decoded?.admin_id : null,
-                to_user: isAdmin ? decoded?.userId : null,
-                from_user: isAdmin ? null : decoded?.userId,
-                company_id: noticeListWithData?.company_id ?? null,
-                dynamic_values: {
-                  noticeType:
-                    (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                  paymentName: String(
-                    (noticeListWithData as any)?.payment_id ??
-                      (noticeListWithData as any)?.payment_claim_id ??
-                      (noticeListWithData as any)?.contract_id ??
-                      '',
-                  ),
-                },
-                is_admin: false,
-                created_by: decoded?.userId,
-              });
-            } catch (e) {
-              this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-            }
           }
         }
         if (noticeListWithData.retentionQBCC === true) {
@@ -4700,7 +4630,7 @@ export class NoticesService {
 
                   //Create activity log as soon a payment claim is created.
                   const createActivityLogInput: CreateActivityLogInput = {
-                    event_template_id: 128,
+                    event_template_id: 203,
                     admin_id:
                       decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
                         ? decoded?.admin_id
@@ -4717,6 +4647,26 @@ export class NoticesService {
                     dynamic_values: {
                       noticeLink,
                       noticeSubject: generateNoticePayload.notice_type,
+                      noticeType: generateNoticePayload.notice_type,
+                      paymentName:
+                        ((noticeListWithData as unknown) as {
+
+                          contract_name?: string;
+
+                          project_name?: string;
+
+                          account_name?: string;
+
+                          clientName?: string;
+
+                        })?.contract_name ??
+
+                        ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
+
+                        ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
+
+                        ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
+                        '',
                       referenceId: noticeListWithData.bank_account_id,
                       referenceLink: noticeListWithData.bank_accoutn_link,
                     },
@@ -4727,31 +4677,6 @@ export class NoticesService {
                   await this.activityLogService.insertActivityLog(
                     createActivityLogInput,
                   );
-                  // Task #97 — durable "Notice generated" activity row.
-                  try {
-                    const isAdmin = decoded?.logged_in_by === 'ADMIN';
-                    await this.activityLogService.insertActivityLog({
-                      event_template_id: 203,
-                      admin_id: isAdmin ? decoded?.admin_id : null,
-                      to_user: isAdmin ? decoded?.userId : null,
-                      from_user: isAdmin ? null : decoded?.userId,
-                      company_id: noticeListWithData?.company_id ?? null,
-                      dynamic_values: {
-                        noticeType:
-                          (createActivityLogInput as any)?.dynamic_values?.noticeSubject ?? null,
-                        paymentName: String(
-                          (noticeListWithData as any)?.payment_id ??
-                            (noticeListWithData as any)?.payment_claim_id ??
-                            (noticeListWithData as any)?.contract_id ??
-                            '',
-                        ),
-                      },
-                      is_admin: false,
-                      created_by: decoded?.userId,
-                    });
-                  } catch (e) {
-                    this.logger.warn(`[NOTICE_FLOW] notice-generated log insert failed: ${e?.message || e}`);
-                  }
                 }
               }
             }

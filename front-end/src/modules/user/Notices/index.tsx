@@ -76,17 +76,29 @@ export default function NoticesList({ overViewDetails = {} }: any) {
   // Basic-plan upgrade dialog (mirrors AddEditAuditDetails pattern).
   const [displaySubscriptionModal, setDisplaySubscriptionModal] =
     useState<boolean>(false);
-  // Visibility gate for the gear icon: only the system-added (primary)
-  // admin role on the active company sees the settings entry point. The
-  // server-side mutation is the source of truth, but hiding the affordance
-  // for non-admin members avoids exposing a control they can't use.
+  // Visibility gate for the gear icon mirrors the server-side authorisation
+  // in `updateNoticesAutoSend` (signup.resolver.ts): the role on the active
+  // company must be a real (non-system-added) PRIMARY ADMIN / ADMIN, or a
+  // STANDARD USER with `manageCompany === 'Yes'`. The server check remains
+  // the source of truth — this just hides a control the user can't use.
   const { decodeTokenData } = useTokenDetails();
-  const canManageNoticeSettings = !!(
-    Array.isArray((decodeTokenData as any)?.companySpecificRoles) &&
-    (decodeTokenData as any).companySpecificRoles.find(
-      (x: any) => x?.isSystemAdded,
-    )
-  );
+  const canManageNoticeSettings = (() => {
+    const cid = getCompanyIdFromStorage();
+    const roles = (decodeTokenData as { companySpecificRoles?: Array<{
+      companyId?: number;
+      role?: string;
+      manageCompany?: string;
+      isSystemAdded?: boolean;
+    }> })?.companySpecificRoles;
+    if (!Array.isArray(roles) || cid == null) return false;
+    const role = roles.find((r) => r?.companyId === Number(cid));
+    if (!role || role.isSystemAdded) return false;
+    return (
+      role.role === "PRIMARY ADMIN" ||
+      role.role === "ADMIN" ||
+      (role.role === "STANDARD USER" && role.manageCompany === "Yes")
+    );
+  })();
   const [accountList, setAccountList] = useState<any>();
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(10);
