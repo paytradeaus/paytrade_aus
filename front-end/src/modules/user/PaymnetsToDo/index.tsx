@@ -1120,7 +1120,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
                 activeTab === tabOptions[2].label ? ABAactions : actions
               }
               displayAllStaticActions={true}
-              onRowClick={(data: any) => handleRowView(data)}
+              onRowClick={
+                activeTab === tabOptions[2].label
+                  ? undefined
+                  : (data: any) => handleRowView(data)
+              }
               showLoader={loading}
               loaderColSpan={modifiedHeaders?.length}
               renderRowList={
