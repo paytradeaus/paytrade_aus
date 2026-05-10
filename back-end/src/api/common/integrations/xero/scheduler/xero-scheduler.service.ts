@@ -593,7 +593,6 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 }
               } catch (err) {
                 const error = await handleAxiosError(err);
-                this.logger.error(`[Xero Scheduler] Failed in scheduler: ${error}`);
 
                 const isRefreshToken =
                   await this.xeroResolver.refreshTokenReAuthenticate({
@@ -601,8 +600,18 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   });
 
                 if (isRefreshToken) {
+                  // Task #108 — Single WARN per tick per company for dead
+                  // refresh tokens. Skip downstream sub-syncs (which would
+                  // each re-throw the same dead-token ERROR and spam logs).
+                  this.logger.warn(
+                    `[WEBHOOK_FALLBACK] Skipping company ${element.company_id} — needs reauth (${error})`,
+                  );
                   continue;
                 }
+
+                this.logger.error(
+                  `[Xero Scheduler] Failed in scheduler: ${error}`,
+                );
               }
 
               const xeroDetails = await this.xeroIntegrationDetails.findOne({
@@ -1107,15 +1116,87 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
 
           for (const ptAccount of unmappedPtAccounts) {
             try {
+              // Task #108 — Pre-flight idempotency: if a Xero account
+              // already exists with the same name (case-insensitive) or
+              // the same bank account number, just link it and skip the
+              // create call. Eliminates the noisy "ValidationException ...
+              // Please enter a unique Code/Name" failure path that was
+              // firing every tick for legacy accounts.
+              const ptBankAcctNumber =
+                (ptAccount.bsb_number ? String(ptAccount.bsb_number) : '') +
+                (ptAccount.account_number || '');
+              const ptNameLower = (ptAccount.account_name || '')
+                .trim()
+                .toLowerCase();
+              // Task #108 — Skip ARCHIVED Xero accounts so we don't link a
+              // PT bank account to a stale Xero record.
+              const preExisting = accounts.find((a: any) => {
+                if (
+                  String(a?.status || '').toUpperCase() !== 'ACTIVE'
+                ) {
+                  return false;
+                }
+                const xName = String(a?.name || '').trim().toLowerCase();
+                const xBankNo = String(a?.bankAccountNumber || '').replace(
+                  /\D/g,
+                  '',
+                );
+                return (
+                  (ptNameLower && xName && xName === ptNameLower) ||
+                  (ptBankAcctNumber && xBankNo && xBankNo === ptBankAcctNumber)
+                );
+              });
+              if (preExisting) {
+                const linkRecord = this.xeroBankAccountDetails.create({
+                  account_id: preExisting.accountID,
+                  integration_id: xeroDetails.integration_id,
+                  tenant_id: xeroDetails.tenant_id,
+                  account_name: preExisting.name,
+                  account_number: ptAccount.account_number || '',
+                  bsb_number: ptAccount.bsb_number
+                    ? Number(ptAccount.bsb_number)
+                    : null,
+                  account_type: preExisting.type,
+                  account_status: preExisting.status,
+                  description: preExisting.description,
+                  pt_bank_account_id: ptAccount.bank_account_id,
+                  mapped_status: 'System' as any,
+                  created_on: new Date(),
+                } as any);
+                await this.xeroBankAccountDetails.save(linkRecord);
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 503,
+                  dynamic_values: { account_name: ptAccount.account_name },
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    xeroId: preExisting.accountID,
+                    paytradeId: ptAccount.bank_account_id,
+                  },
+                  reference_id: preExisting.accountID,
+                  history: [
+                    `Matched existing Xero account "${preExisting.name}" for PayTrade account "${ptAccount.account_name}"`,
+                    'Linked instead of creating duplicate',
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [preExisting],
+                  paytrade_records: [ptAccount],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+                continue;
+              }
+
               const existingCodes = accounts.map((a) => a.code).filter(Boolean);
               let newCode: string;
               do {
                 newCode = String(Math.floor(10000 + Math.random() * 90000));
               } while (existingCodes.includes(newCode));
 
-              const bankAccountNumber =
-                (ptAccount.bsb_number ? String(ptAccount.bsb_number) : '') +
-                (ptAccount.account_number || '');
+              const bankAccountNumber = ptBankAcctNumber;
 
               const createResponse =
                 await this.xero.accountingApi.createAccount(
@@ -1177,19 +1258,16 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 });
               }
             } catch (autoCreateErr) {
-              this.logger.error(
-                `Failed to auto-create PT account ${ptAccount.account_name} in Xero: ${autoCreateErr}`,
-              );
-
               let friendlyError = String(autoCreateErr);
               let rawError = String(autoCreateErr);
+              let validationMsgs: string[] = [];
               try {
                 const errObj =
                   typeof autoCreateErr === 'object' && autoCreateErr !== null
                     ? autoCreateErr
                     : JSON.parse(String(autoCreateErr));
                 const body = errObj?.response?.body || errObj?.body || errObj;
-                const validationMsgs =
+                validationMsgs =
                   body?.Elements?.flatMap((el: any) =>
                     (el?.ValidationErrors || []).map((ve: any) => ve?.Message),
                   ).filter(Boolean) || [];
@@ -1201,6 +1279,101 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 rawError = JSON.stringify(errObj?.response || errObj);
               } catch {
               }
+
+              // Task #108 — Post-failure idempotency: if Xero rejected the
+              // create with an "already exists" / "unique" validation
+              // message, refetch accounts and link the existing one
+              // instead of writing a recurring ERROR every tick.
+              const looksLikeDuplicate = validationMsgs.some((m) =>
+                /already exists|unique\s+(code|name)|duplicate/i.test(
+                  String(m || ''),
+                ),
+              );
+              if (looksLikeDuplicate) {
+                try {
+                  const refetched =
+                    await this.xero.accountingApi.getAccounts(
+                      xeroDetails.tenant_id,
+                    );
+                  const refetchedAccounts =
+                    refetched?.body?.accounts || [];
+                  const ptNameLower = (ptAccount.account_name || '')
+                    .trim()
+                    .toLowerCase();
+                  const ptBankNo =
+                    (ptAccount.bsb_number ? String(ptAccount.bsb_number) : '') +
+                    (ptAccount.account_number || '');
+                  const match = refetchedAccounts.find((a: any) => {
+                    if (
+                      String(a?.status || '').toUpperCase() !== 'ACTIVE'
+                    ) {
+                      return false;
+                    }
+                    const xName = String(a?.name || '').trim().toLowerCase();
+                    const xBankNo = String(
+                      a?.bankAccountNumber || '',
+                    ).replace(/\D/g, '');
+                    return (
+                      (ptNameLower && xName && xName === ptNameLower) ||
+                      (ptBankNo && xBankNo && xBankNo === ptBankNo)
+                    );
+                  });
+                  if (match) {
+                    const linkRecord = this.xeroBankAccountDetails.create({
+                      account_id: match.accountID,
+                      integration_id: xeroDetails.integration_id,
+                      tenant_id: xeroDetails.tenant_id,
+                      account_name: match.name,
+                      account_number: ptAccount.account_number || '',
+                      bsb_number: ptAccount.bsb_number
+                        ? Number(ptAccount.bsb_number)
+                        : null,
+                      account_type: match.type,
+                      account_status: match.status,
+                      description: match.description,
+                      pt_bank_account_id: ptAccount.bank_account_id,
+                      mapped_status: 'System' as any,
+                      created_on: new Date(),
+                    } as any);
+                    await this.xeroBankAccountDetails.save(linkRecord);
+                    accounts.push(match);
+                    await this.xeroService.insertXeroSyncLogs(decoded, {
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 503,
+                      dynamic_values: {
+                        account_name: ptAccount.account_name,
+                      },
+                      project_id: null,
+                      contract_id: null,
+                      reference: {
+                        xeroId: match.accountID,
+                        paytradeId: ptAccount.bank_account_id,
+                      },
+                      reference_id: match.accountID,
+                      history: [
+                        `Xero rejected create as duplicate; matched existing "${match.name}"`,
+                        'Linked instead of creating duplicate',
+                      ],
+                      important_checks: {},
+                      error_message: null,
+                      xero_records: [match],
+                      paytrade_records: [ptAccount],
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                    });
+                    continue;
+                  }
+                } catch (recoveryErr) {
+                  this.logger.warn(
+                    `[Task #108] Auto-link recovery after duplicate validation failed for PT account ${ptAccount.account_name}: ${recoveryErr?.message || recoveryErr}`,
+                  );
+                }
+              }
+
+              this.logger.error(
+                `Failed to auto-create PT account ${ptAccount.account_name} in Xero: ${friendlyError}`,
+              );
 
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 integration_id: xeroDetails.integration_id,
@@ -1619,6 +1792,96 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               !contract_value)) ||
           (account_type === 'Retention Trust Account' &&
             (!associated_cash_account_id || !trustee_id || !project_ids));
+
+        // Task #108 — Idempotent inbound bank-account auto-create: if a
+        // PT bank account already exists with the same account number
+        // (preferring an exact bsb+number match), link it to this Xero
+        // account instead of creating a noisy "Account number already
+        // exists" failure on every tick.
+        if (xeroDetails.xero_to_pt_bank_auto_create) {
+          try {
+            const xeroBankNo = String(account?.bankAccountNumber || '').replace(
+              /\D/g,
+              '',
+            );
+            const xeroAcctTail = xeroBankNo.length > 6 ? xeroBankNo.slice(6) : xeroBankNo;
+            const xeroBsb = xeroBankNo.length > 6
+              ? parseInt(xeroBankNo.slice(0, 6), 10)
+              : null;
+            if (xeroAcctTail) {
+              const bankAccountsRepoLocal =
+                this.xeroBankAccountDetails.manager.getRepository(BankAccounts);
+              // Task #108 — Skip Deleted/Closed PT bank accounts so we
+              // don't link a Xero account to a stale local record.
+              const ptCandidates = await bankAccountsRepoLocal.find({
+                where: {
+                  company_id,
+                  account_number: xeroAcctTail,
+                  status: In(['Active', 'Open', 'Draft'] as any),
+                },
+              });
+              const exactMatch =
+                ptCandidates.find(
+                  (c) =>
+                    xeroBsb != null &&
+                    c.bsb_number != null &&
+                    Number(c.bsb_number) === xeroBsb,
+                ) || ptCandidates[0];
+              if (exactMatch) {
+                await this.xeroBankAccountDetails
+                  .createQueryBuilder()
+                  .update(XeroBankAccountDetails)
+                  .set({
+                    pt_bank_account_id: exactMatch.bank_account_id,
+                    mapped_status: 'System',
+                    updated_by: decoded?.userId || null,
+                    updated_on: moment.tz('UTC'),
+                    updated_group: decoded ? 'USER' : 'SYSTEM',
+                  })
+                  .where(
+                    'account_id = :account_id AND integration_id = :integration_id',
+                    {
+                      account_id,
+                      integration_id: xeroDetails.integration_id,
+                    },
+                  )
+                  .execute();
+
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: sync_id || null,
+                  api_name: 'createOrUpdateAccountInPaytrade',
+                  api_payload: { account_id, account_name: account.name },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 504,
+                  dynamic_values: { account_name: account.name },
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    xeroId: xeroAccountDetails?.id,
+                    paytradeId: exactMatch.bank_account_id,
+                  },
+                  reference_id: xeroAccountDetails?.id,
+                  history: [
+                    `Matched existing PayTrade bank account "${exactMatch.account_name}" by account number`,
+                    'Linked instead of creating duplicate draft',
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [account],
+                  paytrade_records: [exactMatch],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+                return account;
+              }
+            }
+          } catch (linkErr) {
+            this.logger.warn(
+              `[Task #108] Idempotent inbound bank-account link failed for account_id=${account_id}: ${linkErr?.message || linkErr}`,
+            );
+          }
+        }
 
         if (hasMissingFields && xeroDetails.xero_to_pt_bank_auto_create) {
           try {
@@ -2178,8 +2441,32 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   synced_records: null,
                 });
               } catch (autoCreateErr) {
+                // Task #108 — Widen diagnostic capture to include the full
+                // Elements[].ValidationErrors[] payload from Xero so the
+                // root cause is visible without re-deploying.
+                let friendlyError = String(autoCreateErr);
+                try {
+                  const errObj =
+                    typeof autoCreateErr === 'object' && autoCreateErr !== null
+                      ? autoCreateErr
+                      : JSON.parse(String(autoCreateErr));
+                  const body =
+                    errObj?.response?.body || errObj?.body || errObj;
+                  const validationMsgs =
+                    body?.Elements?.flatMap((el: any) =>
+                      (el?.ValidationErrors || []).map(
+                        (ve: any) => ve?.Message,
+                      ),
+                    ).filter(Boolean) || [];
+                  if (validationMsgs.length > 0) {
+                    friendlyError = `${body?.Type || 'Error'} (${errObj?.response?.statusCode || 'N/A'}): ${validationMsgs.join('; ')}`;
+                  } else if (body?.Message) {
+                    friendlyError = `${body?.Type || 'Error'} (${errObj?.response?.statusCode || 'N/A'}): ${body.Message}`;
+                  }
+                } catch {
+                }
                 this.logger.error(
-                  `Failed to auto-create PT contact ${ptContact.client_supplier_name} in Xero: ${autoCreateErr}`,
+                  `Failed to auto-create PT contact ${ptContact.client_supplier_name} in Xero: ${friendlyError}`,
                 );
               }
             }
@@ -2198,11 +2485,32 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               try {
                 const contactType = xeroContact.is_customer ? 'Client' : 'Supplier';
 
-                const existingContact = await this.clientSuppliersDetailsService
+                // Task #108 — Idempotent inbound match: try name first
+                // (case-/whitespace-insensitive); fall back to ABN via an
+                // on-demand getContact lookup so a renamed PT contact
+                // still links instead of failing with a duplicate-name
+                // insert.
+                let existingContact = await this.clientSuppliersDetailsService
                   .findByNameAndCompany(
                     xeroContact.contact_name,
                     company_id,
                   );
+                if (!existingContact) {
+                  try {
+                    const fullResp = await this.xero.accountingApi.getContact(
+                      xeroDetails.tenant_id,
+                      xeroContact.contact_id,
+                    );
+                    const abnFromXero =
+                      fullResp?.body?.contacts?.[0]?.taxNumber || null;
+                    if (abnFromXero) {
+                      existingContact = await this.clientSuppliersDetailsService
+                        .findByAbnAndCompany(String(abnFromXero), company_id);
+                    }
+                  } catch (abnLookupErr) {
+                    // Non-fatal — fall through to insert path.
+                  }
+                }
 
                 if (existingContact) {
                   await this.xeroContactDetails

@@ -236,7 +236,7 @@ export class PaytradeLogger implements LoggerService {
     this.writeLog('WARN', message);
   }
 
-  debug?(message: string) {
+  debug(message: string) {
     const logLine = `[${this.formatTimestamp()}] [${this.context}] [DEBUG] ${message}`;
     fs.appendFileSync(this.logFilePath, logLine + '\n');
 

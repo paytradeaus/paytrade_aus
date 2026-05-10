@@ -2416,7 +2416,7 @@ export class XeroInvoicesService {
     } = XeroInvoicesService.classifyRetentionShape(invoiceDetails, xeroDetails);
 
     const importSimplifiedRetention = !!xeroDetails.simplified_retention_accounting;
-    this.logger.log(`[BILL_TRACE] I-Step: cash_retention_type check (import path) — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, hasBaseLine=${hasBaseLine}, netRetainedSigned=${netRetainedSigned}, codesShared=${codesShared}, simplifiedRetention=${importSimplifiedRetention}`);
+    this.logger.debug(`[BILL_TRACE] I-Step: cash_retention_type check (import path) — retentionClaimLineItem=${retentionClaimnlineItem}, lineItem1=${lineItem1}, lineItem2=${lineItem2}, hasBaseLine=${hasBaseLine}, netRetainedSigned=${netRetainedSigned}, codesShared=${codesShared}, simplifiedRetention=${importSimplifiedRetention}`);
     if (!importSimplifiedRetention && ((lineItem1 && !lineItem2) || (!lineItem1 && lineItem2))) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: data?.sync_id,

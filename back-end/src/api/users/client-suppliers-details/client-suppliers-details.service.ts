@@ -1206,13 +1206,45 @@ export class ClientSuppliersDetailsService {
   }
 
   async findByNameAndCompany(name: string, company_id: number) {
-    return await this.clientSuppliersDetails.findOne({
-      where: {
-        company_id,
-        client_supplier_name: name,
-        is_deleted: false,
-      },
-    });
+    if (!name) return null;
+    // Task #108 — Make matching case-/whitespace-tolerant so the inbound
+    // Xero contact auto-create path links existing PT records instead of
+    // throwing "Name already exist" via insertClientSupplierDetails (which
+    // does its own ILike check via checkExistenceForClient). Collapses
+    // internal whitespace runs so "Slug and  Lettuce" and "slug and lettuce"
+    // both match.
+    const canonical = name.trim().replace(/\s+/g, ' ');
+    if (!canonical) return null;
+    return await this.clientSuppliersDetails
+      .createQueryBuilder('c')
+      .where('c.company_id = :company_id', { company_id })
+      .andWhere('c.is_deleted = false')
+      .andWhere(
+        "LOWER(REGEXP_REPLACE(TRIM(c.client_supplier_name), '\\s+', ' ', 'g')) = LOWER(:canonical)",
+        { canonical },
+      )
+      .getOne();
+  }
+
+  // Task #108 — Fallback lookup by ABN (Australian Business Number) when
+  // Xero contact name doesn't match an existing PT record. Lets the
+  // inbound auto-create path link to a renamed/moved PT contact rather
+  // than failing with a duplicate-name insert error. Normalises both
+  // sides to digits-only so "12 345 678 901", "12-345-678-901" and
+  // "12345678901" all collide on the same record.
+  async findByAbnAndCompany(abn: string, company_id: number) {
+    if (!abn) return null;
+    const digitsOnly = String(abn).replace(/\D/g, '');
+    if (!digitsOnly) return null;
+    return await this.clientSuppliersDetails
+      .createQueryBuilder('c')
+      .where('c.company_id = :company_id', { company_id })
+      .andWhere('c.is_deleted = false')
+      .andWhere(
+        "REGEXP_REPLACE(COALESCE(c.abn_number, ''), '\\D', '', 'g') = :digitsOnly",
+        { digitsOnly },
+      )
+      .getOne();
   }
 
   async getClientSuppliersListByProjectId(

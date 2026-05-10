@@ -14,7 +14,9 @@ function safeStringify(obj: any): string {
 export async function handleError(error): Promise<string> {
   return new Promise(async (resolve, reject) => {
     var errorMessage = '';
-    logger.log(`error: ${safeStringify(error)}`);
+    // Demoted to WARN — `logger.log` writes [SUCCESS] which was misleading
+    // for raw error payloads being processed by the handler.
+    logger.warn(`error: ${safeStringify(error)}`);
     if (error.detail) {
       const matchUnique = error.detail.match(
         /Key \(([^)]+)\)=\([^)]+\) already exists./,
@@ -59,7 +61,9 @@ export async function handleError(error): Promise<string> {
     } else {
       errorMessage = `${error}`;
     }
-    logger.log(errorMessage);
+    // Demoted to WARN — this is the final processed error message about to
+    // be rejected; emitting it as [SUCCESS] was misleading.
+    logger.warn(errorMessage);
     reject(errorMessage); // Reject the promise with the error message
   });
 }
@@ -178,7 +182,9 @@ export async function handleAxiosError(axiosError): Promise<any> {
       }
     }
 
-    logger.log(`Handled Axios Error: ${errorMessage}`);
+    // Demoted to WARN — this fires on every handled Xero/axios failure;
+    // emitting as [SUCCESS] inflated apparent success counts in log scans.
+    logger.warn(`Handled Axios Error: ${errorMessage}`);
     resolve(errorMessage);
   });
 }

@@ -5405,5 +5405,25 @@
     "from_xero": false,
     "error_code": "RETENTION_TRANSFER_NOT_REQUESTED",
     "associated_log_ids": null
+  },
+  {
+    "id": 503,
+    "sync_type": "Bank accounts",
+    "description": "<p>PayTrade bank account {{account_name}} matched and linked to existing Xero account (no duplicate created).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
+  },
+  {
+    "id": 504,
+    "sync_type": "Bank accounts",
+    "description": "<p>Xero bank account {{account_name}} matched and linked to existing PayTrade bank account (no duplicate draft created).</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": null
   }
 ]
