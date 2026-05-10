@@ -197,6 +197,9 @@ export const BusinessProfileContextProvider = ({ children }: any) => {
           formik?.values?.is_gst_registered === false
             ? formik?.values?.is_gst_registered
             : null,
+        // Task #97 — coerce to explicit boolean so backend stores opt-out as
+        // FALSE (NULL/TRUE both behave as legacy auto-send default).
+        notices_auto_send: formik?.values?.notices_auto_send !== false,
         acn_number: formik?.values?.ACN,
         legal_company_name: formik?.values?.BusinessName,
         signature: signature || businessDetails?.signature,

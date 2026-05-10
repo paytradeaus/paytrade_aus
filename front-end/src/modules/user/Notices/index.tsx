@@ -44,6 +44,11 @@ import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import Link from "next/link";
 import { useLoaderContext } from "@/context/useLoader";
 import BaseModal from "@/components/BaseModal";
+import {
+  fetchBusinessDetails,
+  updateBusinessDetails,
+} from "../BusinessProfile/BusinessProfile.function";
+import { showSuccessToast } from "@/components/Toaster";
 
 export default function NoticesList({ overViewDetails = {} }: any) {
   const { data: overviewData, isArchived = false } = overViewDetails;
@@ -58,6 +63,13 @@ export default function NoticesList({ overViewDetails = {} }: any) {
   const [page, setPage] = useState(1);
   const [projectOpt, setProjectOpt] = useState<any>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  // Task #97 — per-company auto-send settings dialog state.
+  const [noticeSettingsOpen, setNoticeSettingsOpen] = useState(false);
+  const [noticeSettingsCompany, setNoticeSettingsCompany] = useState<any>(null);
+  const [noticeSettingsAutoSend, setNoticeSettingsAutoSend] =
+    useState<boolean>(true);
+  const [noticeSettingsSaving, setNoticeSettingsSaving] =
+    useState<boolean>(false);
   const [accountList, setAccountList] = useState<any>();
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(10);
@@ -613,6 +625,30 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
+              {/* Task #97 — gear icon opens per-company auto-send toggle. */}
+              <button
+                type="button"
+                className="secondary"
+                title="Notices settings"
+                onClick={async () => {
+                  const cid = getCompanyIdFromStorage();
+                  if (!cid) return;
+                  setLoader(true);
+                  try {
+                    const details = await fetchBusinessDetails(+cid);
+                    setNoticeSettingsCompany(details || null);
+                    setNoticeSettingsAutoSend(
+                      details?.notices_auto_send !== false,
+                    );
+                    setNoticeSettingsOpen(true);
+                  } finally {
+                    setLoader(false);
+                  }
+                }}
+                style={{ marginRight: 8 }}
+              >
+                <i className="fa-light fa-gear"></i>
+              </button>
               <GridExportActions
                 excelFile={{
                   sheetName: "transaction List",
@@ -784,6 +820,86 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           <h4 className="text_center">
             Are you sure you want to regenerate the notice document?
           </h4>
+        </BaseModal>
+      )}
+      {/* Task #97 — per-company auto-send settings dialog. Gated by plan_type:
+          Basic plans cannot auto-send (delegated send is paid-only) so the
+          toggle is disabled with an upgrade hint. */}
+      {noticeSettingsOpen && (
+        <BaseModal
+          modalId={"notice-settings"}
+          displayModal={noticeSettingsOpen}
+          onHeaderIconClose={() => setNoticeSettingsOpen(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => setNoticeSettingsOpen(false)}
+          onConfirm={async () => {
+            if (noticeSettingsSaving) return false;
+            const isBasic =
+              (noticeSettingsCompany?.plan_type || "Basic") === "Basic";
+            if (isBasic) {
+              setNoticeSettingsOpen(false);
+              return true;
+            }
+            try {
+              setNoticeSettingsSaving(true);
+              setLoader(true);
+              await updateBusinessDetails({
+                company_id: noticeSettingsCompany?.company_id,
+                notices_auto_send: !!noticeSettingsAutoSend,
+              });
+              showSuccessToast("Notices settings updated.");
+              setNoticeSettingsOpen(false);
+            } finally {
+              setNoticeSettingsSaving(false);
+              setLoader(false);
+            }
+            return true;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName={noticeSettingsSaving ? "Saving…" : "Save"}
+        >
+          <div style={{ padding: "8px 4px" }}>
+            <h4>Notice auto-send</h4>
+            <p style={{ marginTop: 8, fontSize: 13, color: "#555" }}>
+              When enabled, PayTrade will automatically email compliance
+              notices on your behalf where your subscription supports
+              delegated sending. When disabled, notices and mail files are
+              still generated so you can review and send them manually.
+            </p>
+            {(noticeSettingsCompany?.plan_type || "Basic") === "Basic" ? (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: "#fff5f5",
+                  border: "1px solid #f5c6cb",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              >
+                Auto-send is a paid-plan feature. Upgrade your subscription
+                to enable automatic delivery of compliance notices.
+              </div>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={noticeSettingsAutoSend}
+                  onChange={(e) =>
+                    setNoticeSettingsAutoSend(e.target.checked)
+                  }
+                />
+                <span>Automatically send compliance notices</span>
+              </label>
+            )}
+          </div>
         </BaseModal>
       )}
     </div>

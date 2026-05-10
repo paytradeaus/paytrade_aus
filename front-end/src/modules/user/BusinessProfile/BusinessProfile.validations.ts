@@ -27,6 +27,8 @@ const initialValues = {
   isTrainingFieldsRequired: false,
   notices: true,
   compliance: true,
+  // Task #97 — per-company notices auto-send opt-out (default ON).
+  notices_auto_send: true,
 };
 
 const validationSchema = yup.object().shape({

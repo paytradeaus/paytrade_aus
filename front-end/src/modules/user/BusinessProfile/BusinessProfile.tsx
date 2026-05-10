@@ -211,6 +211,9 @@ export default function BusinessProfile({ isEditable }: any) {
           // Phase 2 — company GST registration flag (nullable: null = unknown).
           is_gst_registered:
             businessDetailsResponse?.is_gst_registered ?? null,
+          // Task #97 — per-company notices auto-send opt-out (default true).
+          notices_auto_send:
+            businessDetailsResponse?.notices_auto_send !== false,
           Subscription: businessDetailsResponse?.subscription_id,
           SubscriptionType: businessDetailsResponse?.plan_type,
           CookiePreferences: null,
@@ -824,6 +827,32 @@ export default function BusinessProfile({ isEditable }: any) {
                         )
                       }
                       value={!!formik.values.is_gst_registered}
+                    />
+                  </div>
+                </div>
+                {/* Task #97 — per-company notices auto-send opt-out. When
+                    UNCHECKED, the auto-send pipeline still generates the
+                    notice + mail file but skips the automatic send so the
+                    user can manually review and dispatch. */}
+                <label>
+                  <small>Notices auto-send</small>
+                </label>
+                <div style={{ marginBottom: "1rem", display: "block" }}>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <FormikControl
+                      id={"notices_auto_send"}
+                      name={"notices_auto_send"}
+                      label={
+                        "Automatically send compliance notices on my behalf when my plan supports delegated sending. Untick to generate notices but require a manual send."
+                      }
+                      control={InputType.CHECKBOX}
+                      onChange={(e: any) =>
+                        formik.setFieldValue(
+                          "notices_auto_send",
+                          !!e?.target?.checked,
+                        )
+                      }
+                      value={formik.values.notices_auto_send !== false}
                     />
                   </div>
                 </div>

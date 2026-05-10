@@ -46,6 +46,8 @@ export const fetchBusinessDetails = async (companyId: number): Promise<any> => {
               vat_number
               signature_type
               email_preferences
+              is_gst_registered
+              notices_auto_send
             }
             message
             status
@@ -153,6 +155,8 @@ export async function updateBusinessDetails(inputData: Object) {
               tfn_number
               utr_number
               vat_number
+              is_gst_registered
+              notices_auto_send
             }
             message
             status

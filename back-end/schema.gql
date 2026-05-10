@@ -20816,6 +20816,11 @@ input UpdateCompanySignupInput {
   """Longitude coordinate of the business address."""
   longitude: String!
 
+  """
+  Task #97: per-company toggle for delegated notice auto-send. NULL/TRUE = default (auto-send when subscription allows). FALSE = explicitly opted out — generate notice but do not auto-send mail.
+  """
+  notices_auto_send: Boolean
+
   """Previous business email address before update."""
   old_company_email_id: String
 

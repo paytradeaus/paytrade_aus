@@ -138,6 +138,14 @@ export class CompanyDetails {
   @Column({ type: 'boolean', nullable: true, default: null })
   is_gst_registered: boolean;
 
+  // Task #97: per-company toggle for delegated notice auto-send.
+  // NULL or TRUE = legacy/default behaviour (auto-send when subscription
+  // allows). FALSE = user has explicitly opted out — generate the notice
+  // but do NOT auto-send the mail. Surfaces on Edit Business Profile and
+  // the Notices page gear-icon dialog (with subscription upgrade gating).
+  @Column({ type: 'boolean', nullable: true, default: null })
+  notices_auto_send: boolean;
+
   @Column({ nullable: true })
   logo_id: string;
 

@@ -1123,6 +1123,13 @@ export class SignupService {
       companyDetails.is_gst_registered =
         updateCompanySignupInput.is_gst_registered;
     }
+    // Task #97: per-company notices auto-send toggle. NULL/TRUE = default,
+    // FALSE = explicit opt-out (notice + mail still generated, but the
+    // delegated auto-send step is skipped so the user must manually send).
+    if (updateCompanySignupInput.notices_auto_send !== undefined) {
+      companyDetails.notices_auto_send =
+        updateCompanySignupInput.notices_auto_send;
+    }
     companyDetails.utr_number = updateCompanySignupInput.utr_number;
     companyDetails.cis_rate = updateCompanySignupInput.cis_rate;
     companyDetails.accounting_system =

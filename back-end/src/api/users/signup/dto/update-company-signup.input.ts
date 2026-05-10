@@ -195,4 +195,11 @@ export class UpdateCompanySignupInput {
       'Whether the business is registered for GST. NULL = unknown. Surfaces on the Business Profile and feeds the contact GST resolver as the final fallback.',
   })
   is_gst_registered?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #97: per-company toggle for delegated notice auto-send. NULL/TRUE = default (auto-send when subscription allows). FALSE = explicitly opted out — generate notice but do not auto-send mail.',
+  })
+  notices_auto_send?: boolean;
 }

@@ -1380,6 +1380,36 @@ export class NoticesService {
     }
   }
 
+  /**
+   * Task #97: per-company opt-out for delegated auto-send.
+   * Returns FALSE only when company_details.notices_auto_send === false
+   * (explicit opt-out). NULL / TRUE / unknown company → TRUE (legacy default).
+   * The flag is consulted at every inner auto-send gate so the user still gets
+   * the notice + mail file generated for manual sending — only the automatic
+   * mail dispatch is suppressed.
+   */
+  private async getCompanyAutoSendSetting(
+    companyId: number,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    if (!companyId) return true;
+    try {
+      const repo = manager
+        ? manager.getRepository(CompanyDetails)
+        : this.companyDetails;
+      const c = await repo.findOne({
+        where: { company_id: companyId },
+        select: ['company_id', 'notices_auto_send'] as any,
+      });
+      return c?.notices_auto_send !== false;
+    } catch (e) {
+      this.logger.warn(
+        `[NOTICE_FLOW] getCompanyAutoSendSetting failed company_id=${companyId}: ${e?.message}`,
+      );
+      return true;
+    }
+  }
+
   async handleTriggerContractNotices(
     decoded: any,
     payload: triggerContractNoticesInput,
@@ -1392,6 +1422,19 @@ export class NoticesService {
 
     this.logger.log(
       `[HANDLE_NOTICE] User mode for userId=${decoded?.userId}: '${userMode}' (Normal=send notices, Onboarding=mark as Sent-Onboarded)`
+    );
+
+    // Task #97: per-company auto-send opt-out. Fetched once and threaded
+    // through every inner gate (see getCompanyAutoSendSetting). When FALSE on
+    // a Paid-delegated path, the inner mail-send + status update are skipped;
+    // the notice + doc + mail file are still produced for manual sending.
+    const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const companyAutoSend = await this.getCompanyAutoSendSetting(
+      decoded?.companyId ?? null,
+      manager,
+    );
+    this.logger.log(
+      `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=contract contract_id=${payload?.contract_id} company_auto_send=${companyAutoSend} user_mode=${userMode}`,
     );
 
     let notice_previews = [];
@@ -1484,7 +1527,7 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
           userMode === 'Onboarding'
         ) {
-          if (userMode && userMode == 'Normal') {
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] S23 PTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
               decoded,
@@ -1513,7 +1556,7 @@ export class NoticesService {
           const updateNoticePayload: updateNoticesInput = {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
-            status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+            status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
             auto_sent: true,
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
@@ -1630,7 +1673,7 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          if (userMode && userMode == 'Normal') {
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] S23 RTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
             const mailSent = (await this.handlesentNoticeMail(
               decoded,
@@ -1659,7 +1702,7 @@ export class NoticesService {
           const updateNoticePayload: updateNoticesInput = {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
-            status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+            status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
             auto_sent: true,
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
@@ -1763,7 +1806,7 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          if (userMode && userMode == 'Normal') {
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] QBCC TA3 PTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,
@@ -1900,7 +1943,7 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          if (userMode && userMode == 'Normal') {
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
             this.logger.log(`[HANDLE_NOTICE] QBCC TA3 RTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,
@@ -2153,6 +2196,16 @@ export class NoticesService {
         manager,
       );
 
+      // Task #97: per-company auto-send opt-out (see getCompanyAutoSendSetting).
+      const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const companyAutoSend = await this.getCompanyAutoSendSetting(
+        (noticeListWithData as any)?.company_id ?? decoded?.companyId ?? null,
+        manager,
+      );
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=payment_claim payment_claim_id=${payload?.payment_claim_id} company_auto_send=${companyAutoSend} user_mode=${userMode}`,
+      );
+
       if (noticeListWithData.trustAccountNotice === true) {
         const generateNoticePayload: Partial<generateNoticeInput> = {
           company_id: noticeListWithData.company_id,
@@ -2204,7 +2257,7 @@ export class NoticesService {
             noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
             (userMode && userMode == 'Onboarding')
           ) {
-            if (userMode && userMode == 'Normal') {
+            if (userMode && userMode == 'Normal' && companyAutoSend) {
               const mailSent = (await this.handlesentNoticeMail(
                 decoded,
                 sentMailNoticePayload,
@@ -2232,7 +2285,7 @@ export class NoticesService {
             const updateNoticePayload: updateNoticesInput = {
               notice_id: newNotice.data.notice_id,
               notice_mail_uuid: newMail?.data?.id,
-              status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+              status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
               auto_sent: true,
               reference_id: noticeListWithData.payment_claim_id,
               reference_link: noticeListWithData.payment_claim_link,
@@ -2744,6 +2797,14 @@ export class NoticesService {
       let mails_to_sent = [];
       let update_notice_inputs = [];
 
+      // Task #97: per-company auto-send opt-out resolved per-payment inside the
+      // loop (companyId may differ per payment in admin/multi-company flows).
+      let companyAutoSend = true;
+      const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=payment payment_ids=${JSON.stringify(payload?.payment_ids)} user_mode=${userMode}`,
+      );
+
       for (const payment_id of payload.payment_ids) {
         const noticeListWithData = await this.triggerPaymentNotices(
           payment_id,
@@ -2751,6 +2812,14 @@ export class NoticesService {
         );
 
         this.logger.log(`Payment-notices-list: ${JSON.stringify(noticeListWithData)}`);
+
+        companyAutoSend = await this.getCompanyAutoSendSetting(
+          (noticeListWithData as any)?.company_id ?? null,
+          manager,
+        );
+        this.logger.log(
+          `[NOTICE_FLOW] flow_id=${flowId} stage=gate_decision payment_id=${payment_id} company_auto_send=${companyAutoSend}`,
+        );
 
         if (noticeListWithData.trustAccountPaymentNotice === true) {
           const generateNoticePayload: Partial<generateNoticeInput> = {
@@ -2818,7 +2887,7 @@ export class NoticesService {
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -2844,7 +2913,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -2955,7 +3024,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -2979,7 +3048,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -3093,7 +3162,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -3119,7 +3188,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -3236,7 +3305,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -3262,7 +3331,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -3359,7 +3428,7 @@ export class NoticesService {
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const adminMail = (await this.handleSentAdminMailQbccNotice(
                   decoded,
                   newNotice?.data?.id,
@@ -3494,7 +3563,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -3520,7 +3589,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -3633,7 +3702,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -3658,7 +3727,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
@@ -3857,6 +3926,16 @@ export class NoticesService {
 
       this.logger.log(`notice_list_to_be_generated: ${JSON.stringify(noticeListWithData)}`);
 
+      // Task #97: per-company auto-send opt-out (see getCompanyAutoSendSetting).
+      const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const companyAutoSend = await this.getCompanyAutoSendSetting(
+        (noticeListWithData as any)?.company_id ?? decoded?.companyId ?? null,
+        manager,
+      );
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=account bank_account_id=${payload?.bank_account_id} company_auto_send=${companyAutoSend} user_mode=${userMode}`,
+      );
+
       let noticeGen = false;
 
       let notice_previews = [];
@@ -3919,7 +3998,7 @@ export class NoticesService {
               (userMode && userMode == 'Onboarding')
             ) {
               //Trigger notice emails only if the user mode is Normal.
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const mailSent = (await this.handlesentNoticeMail(
                   decoded,
                   sentMailNoticePayload,
@@ -3944,7 +4023,7 @@ export class NoticesService {
               const updateNoticePayload: updateNoticesInput = {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
-                status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+                status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
                 auto_sent: true,
                 reference_id: noticeListWithData.bank_account_id,
                 reference_link: noticeListWithData.bank_accoutn_link,
@@ -4037,7 +4116,7 @@ export class NoticesService {
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
-              if (userMode && userMode == 'Normal') {
+              if (userMode && userMode == 'Normal' && companyAutoSend) {
                 const adminMail = (await this.handleSentAdminMailQbccNotice(
                   decoded,
                   newNotice?.data?.id,
@@ -4199,7 +4278,7 @@ export class NoticesService {
                       'Paid-delegated' ||
                     (userMode && userMode == 'Onboarding')
                   ) {
-                    if (userMode && userMode == 'Normal') {
+                    if (userMode && userMode == 'Normal' && companyAutoSend) {
                       const adminMail =
                         (await this.handleSentAdminMailQbccNotice(
                           decoded,
@@ -7541,6 +7620,15 @@ export class NoticesService {
           ? await this.fetchModeOfAnUser(decoded?.userId)
           : null;
 
+      // Task #97: per-company auto-send opt-out for the regenerate path.
+      const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const companyAutoSend = await this.getCompanyAutoSendSetting(
+        (notice as any)?.company_id ?? null,
+      );
+      this.logger.log(
+        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=regenerate notice_id=${noticeId} company_auto_send=${companyAutoSend} user_mode=${userMode}`,
+      );
+
       // 2️⃣ Remove existing attachments if any
       if (notice.uploaded_notice || notice.qbcc_uploaded_notice) {
         this.logger.log(`Removing old attachments for notice_id: ${noticeId}`);
@@ -7655,7 +7743,7 @@ export class NoticesService {
             view_preview: true,
           };
 
-          if (userMode && userMode == 'Normal') {
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
             const mailSent = await this.handlesentNoticeMail(
               decoded,
               sentMailNoticePayload,
@@ -7664,7 +7752,7 @@ export class NoticesService {
           const updateNoticePayload: updateNoticesInput = {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
-            status: userMode == 'Normal' ? 'Sent' : 'Sent - Onboarded',
+            status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
             auto_sent: true,
           };
 
