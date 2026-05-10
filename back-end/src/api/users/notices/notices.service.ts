@@ -283,6 +283,40 @@ export class NoticesService {
           ` Compliance calc success after new notice generation with details: ${JSON.stringify(newNotice.data.notice_id)}`,
         );
       }
+
+      // Task #98: record an activity log row for every successful notice
+      // generation so the user-facing Activity Log captures it across all
+      // delegation paths (basic, paid, paid-delegated, onboarding).
+      try {
+        const noticeId = newNotice?.data?.id ?? newNotice?.data?.notice_id;
+        const noticeLink = noticeId
+          ? `${process.env.LOG_BASE_URL}${linkExtensions[14]}${noticeId}?from=log`
+          : null;
+        const isAdmin =
+          decoded?.logged_in_by && decoded?.logged_in_by === 'ADMIN';
+        await this.activityLogService.insertActivityLog({
+          event_template_id: 203,
+          admin_id: isAdmin ? decoded?.admin_id : null,
+          to_user: isAdmin ? decoded?.userId : null,
+          from_user: isAdmin ? null : decoded?.userId,
+          company_id:
+            payload?.company_id ?? validatedNoticeDetails?.company_id ?? null,
+          dynamic_values: {
+            noticeId,
+            noticeRef: newNotice?.data?.notice_id ?? null,
+            noticeLink,
+            noticeType: payload?.notice_type,
+            noticeSubject: payload?.notice_type,
+          },
+          is_admin: false,
+          created_by: decoded?.userId,
+        });
+      } catch (logErr) {
+        this.logger.warn(
+          `[NOTICE_FLOW] generate-notice activity log insert failed: ${logErr?.message || logErr}`,
+        );
+      }
+
       return newNotice;
     } catch (error) {
       this.logger.error(
@@ -1580,42 +1614,7 @@ export class NoticesService {
         this.logger.log(
           `[HANDLE_NOTICE] S23 PTA: Basic plan — notice generated, activity log created, no mail auto-generation`
         );
-        const noticeLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[14]}` +
-          `${newNotice.data.id}` +
-          `?from=log`;
-        this.logger.log(`noticeLink: ${noticeLink}`);
-
-        //Create activity log as soon a payment claim is created.
-        const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 203,
-          admin_id:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.admin_id
-              : null,
-          to_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.userId
-              : null,
-          from_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? null
-              : decoded?.userId,
-          company_id: noticeListWithData.company_id,
-          dynamic_values: {
-            noticeLink,
-            noticeSubject: generateNoticePayload.notice_type,
-            noticeType: generateNoticePayload.notice_type,
-            paymentName: this.resolvePaymentName(noticeListWithData),
-            referenceId: noticeListWithData.contract_id,
-            referenceLink: noticeListWithData.contract_link,
-          },
-          is_admin: false,
-          created_by: decoded?.userId,
-        };
-        //console.log('createActivityLogInput', createActivityLogInput);
-        await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
     if (noticeListWithData.RetentionAccountNotice === true) {
@@ -1727,44 +1726,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] S23 RTA: Basic plan — notice generated, activity log created, no mail auto-generation`
-        );
-        //Generating notice link link to view matched transactions.
-        const noticeLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[14]}` +
-          `${newNotice.data.id}` +
-          `?from=log`;
-        this.logger.log(`noticeLink: ${noticeLink}`);
-
-        //Create activity log as soon a payment claim is created.
-        const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 203,
-          admin_id:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.admin_id
-              : null,
-          to_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.userId
-              : null,
-          from_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? null
-              : decoded?.userId,
-          company_id: noticeListWithData.company_id,
-          dynamic_values: {
-            noticeLink,
-            noticeSubject: generateNoticePayload.notice_type,
-            noticeType: generateNoticePayload.notice_type,
-            paymentName: this.resolvePaymentName(noticeListWithData),
-            referenceId: noticeListWithData.contract_id,
-            referenceLink: noticeListWithData.contract_link,
-          },
-          is_admin: false,
-          created_by: decoded?.userId,
-        };
-        //console.log('createActivityLogInput', createActivityLogInput);
-        await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
     if (noticeListWithData.trustQBCC === true) {
@@ -1864,44 +1826,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] QBCC TA3 PTA: Basic plan — notice generated, activity log only`
-        );
-        //Generating notice link link to view matched transactions.
-        const noticeLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[14]}` +
-          `${newNotice.data.id}` +
-          `?from=log`;
-        this.logger.log(`noticeLink: ${noticeLink}`);
-
-        //Create activity log as soon a payment claim is created.
-        const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 203,
-          admin_id:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.admin_id
-              : null,
-          to_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.userId
-              : null,
-          from_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? null
-              : decoded?.userId,
-          company_id: noticeListWithData.company_id,
-          dynamic_values: {
-            noticeLink,
-            noticeSubject: generateNoticePayload.notice_type,
-            noticeType: generateNoticePayload.notice_type,
-            paymentName: this.resolvePaymentName(noticeListWithData),
-            referenceId: noticeListWithData.contract_id,
-            referenceLink: noticeListWithData.contract_link,
-          },
-          is_admin: false,
-          created_by: decoded?.userId,
-        };
-        //console.log('createActivityLogInput', createActivityLogInput);
-        await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
     if (noticeListWithData.retentionQBCC === true) {
@@ -2004,44 +1929,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] QBCC TA3 RTA: Basic plan — notice generated, activity log only`
-        );
-        //Generating notice link link to view matched transactions.
-        const noticeLink =
-          `${process.env.LOG_BASE_URL}` +
-          `${linkExtensions[14]}` +
-          `${newNotice.data.id}` +
-          `?from=log`;
-        this.logger.log(`noticeLink: ${noticeLink}`);
-
-        //Create activity log as soon a payment claim is created.
-        const createActivityLogInput: CreateActivityLogInput = {
-          event_template_id: 203,
-          admin_id:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.admin_id
-              : null,
-          to_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? decoded?.userId
-              : null,
-          from_user:
-            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-              ? null
-              : decoded?.userId,
-          company_id: noticeListWithData.company_id,
-          dynamic_values: {
-            noticeLink,
-            noticeSubject: generateNoticePayload.notice_type,
-            noticeType: generateNoticePayload.notice_type,
-            paymentName: this.resolvePaymentName(noticeListWithData),
-            referenceId: noticeListWithData.contract_id,
-            referenceLink: noticeListWithData.contract_link,
-          },
-          is_admin: false,
-          created_by: decoded?.userId,
-        };
-        //console.log('createActivityLogInput', createActivityLogInput);
-        await this.activityLogService.insertActivityLog(createActivityLogInput);
+        // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
 
@@ -2319,43 +2207,7 @@ export class NoticesService {
             update_notice_inputs.push(updateNoticePayload);
           }
         } else {
-          const noticeLink =
-            `${process.env.LOG_BASE_URL}` +
-            `${linkExtensions[14]}` +
-            `${newNotice.data.id}` +
-            `?from=log`;
-
-          const createActivityLogInput: CreateActivityLogInput = {
-            event_template_id: 203,
-            admin_id:
-              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                ? decoded?.admin_id
-                : null,
-            to_user:
-              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                ? decoded?.userId
-                : null,
-            from_user:
-              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                ? null
-                : decoded?.userId,
-            company_id: noticeListWithData.company_id,
-            dynamic_values: {
-              noticeLink,
-              noticeSubject: generateNoticePayload.notice_type,
-              noticeType: generateNoticePayload.notice_type,
-              paymentName: this.resolvePaymentName(noticeListWithData),
-              referenceId: noticeListWithData.payment_claim_id,
-              referenceLink: noticeListWithData.payment_claim_link,
-              toName: noticeListWithData.clientName,
-              toMail: noticeListWithData.clientMail,
-            },
-            is_admin: false,
-            created_by: decoded?.userId,
-          };
-          await this.activityLogService.insertActivityLog(
-            createActivityLogInput,
-          );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
         }
 
         // await this.statusService.getUiStatusAndActionButtonsForClaims({
@@ -2951,44 +2803,7 @@ export class NoticesService {
 
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3088,45 +2903,7 @@ export class NoticesService {
               // );
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3231,47 +3008,7 @@ export class NoticesService {
               // );
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-                toName: noticeListWithData.clientName,
-                toMail: noticeListWithData.clientMail,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3376,48 +3113,7 @@ export class NoticesService {
 
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-                toName: noticeListWithData.clientName,
-                toMail: noticeListWithData.clientMail,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3501,46 +3197,7 @@ export class NoticesService {
               // );
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3643,46 +3300,7 @@ export class NoticesService {
 
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -3783,48 +3401,7 @@ export class NoticesService {
               // );
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.payment_id,
-                referenceLink: noticeListWithData.payment_link,
-                toName: noticeListWithData.clientName,
-                toMail: noticeListWithData.clientMail,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
 
@@ -4083,46 +3660,7 @@ export class NoticesService {
 
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.bank_account_id,
-                referenceLink: noticeListWithData.bank_accoutn_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
         if (noticeListWithData.trustQBCC === true) {
@@ -4203,46 +3741,7 @@ export class NoticesService {
               // );
               update_notice_inputs.push(updateNoticePayload);
             }
-          } else {
-            //Generating notice link link to view matched transactions.
-            const noticeLink =
-              `${process.env.LOG_BASE_URL}` +
-              `${linkExtensions[14]}` +
-              `${newNotice.data.id}` +
-              `?from=log`;
-            this.logger.log(`noticeLink: ${noticeLink}`);
-
-            //Create activity log as soon a payment claim is created.
-            const createActivityLogInput: CreateActivityLogInput = {
-              event_template_id: 203,
-              admin_id:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.admin_id
-                  : null,
-              to_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? decoded?.userId
-                  : null,
-              from_user:
-                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                  ? null
-                  : decoded?.userId,
-              company_id: noticeListWithData.company_id,
-              dynamic_values: {
-                noticeLink,
-                noticeSubject: generateNoticePayload.notice_type,
-                noticeType: generateNoticePayload.notice_type,
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.bank_account_id,
-                referenceLink: noticeListWithData.bank_accoutn_link,
-              },
-              is_admin: false,
-              created_by: decoded?.userId,
-            };
-            //console.log('createActivityLogInput', createActivityLogInput);
-            await this.activityLogService.insertActivityLog(
-              createActivityLogInput,
-            );
+          // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
         }
         if (noticeListWithData.retentionQBCC === true) {
@@ -4372,46 +3871,7 @@ export class NoticesService {
                     // );
                     update_notice_inputs.push(updateNoticePayload);
                   }
-                } else {
-                  //Generating notice link link to view matched transactions.
-                  const noticeLink =
-                    `${process.env.LOG_BASE_URL}` +
-                    `${linkExtensions[14]}` +
-                    `${newNotice.data.id}` +
-                    `?from=log`;
-                  this.logger.log(`noticeLink: ${noticeLink}`);
-
-                  //Create activity log as soon a payment claim is created.
-                  const createActivityLogInput: CreateActivityLogInput = {
-                    event_template_id: 203,
-                    admin_id:
-                      decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                        ? decoded?.admin_id
-                        : null,
-                    to_user:
-                      decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                        ? decoded?.userId
-                        : null,
-                    from_user:
-                      decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
-                        ? null
-                        : decoded?.userId,
-                    company_id: noticeListWithData.company_id,
-                    dynamic_values: {
-                      noticeLink,
-                      noticeSubject: generateNoticePayload.notice_type,
-                      noticeType: generateNoticePayload.notice_type,
-                      paymentName: this.resolvePaymentName(noticeListWithData),
-                      referenceId: noticeListWithData.bank_account_id,
-                      referenceLink: noticeListWithData.bank_accoutn_link,
-                    },
-                    is_admin: false,
-                    created_by: decoded?.userId,
-                  };
-                  //console.log('createActivityLogInput', createActivityLogInput);
-                  await this.activityLogService.insertActivityLog(
-                    createActivityLogInput,
-                  );
+                // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
                 }
               }
             }
