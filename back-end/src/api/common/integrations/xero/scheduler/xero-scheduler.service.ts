@@ -2531,6 +2531,35 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                       },
                     )
                     .execute();
+                  // Task #108 — Write a single matched-existing info log
+                  // so ops can see the link decision in the sync history
+                  // (parallels templates 503/504 for bank accounts).
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: 505,
+                    dynamic_values: {
+                      contact_name: xeroContact.contact_name,
+                      contact_type: contactType,
+                    },
+                    project_id: null,
+                    contract_id: null,
+                    reference: {
+                      xeroId: xeroContact.id,
+                      paytradeId: existingContact.client_supplier_id,
+                    },
+                    reference_id: xeroContact.id,
+                    history: [
+                      `Matched existing PayTrade contact "${existingContact.client_supplier_name}" for Xero contact "${xeroContact.contact_name}"`,
+                      'Linked instead of creating duplicate',
+                    ],
+                    important_checks: {},
+                    error_message: null,
+                    xero_records: [xeroContact],
+                    paytrade_records: [existingContact],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
                   continue;
                 }
 
