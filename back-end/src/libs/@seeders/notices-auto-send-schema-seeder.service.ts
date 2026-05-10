@@ -3,19 +3,34 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
+/**
+ * Task #97 — activity log templates for ABA generation, notice generation,
+ * and auto-send-on-user-behalf events. Texts use the canonical `{{token}}`
+ * interpolation format consumed by the activity-log renderer.
+ *
+ * Note: id 200 is reserved by an unrelated "Holiday added" row in the
+ * existing schema, so we use 201/202/203 for this task.
+ */
 const ACTIVITY_TEMPLATES = [
   {
     id: 201,
     event_group: 'USER',
     event_type: 'ABA',
-    event_text: 'ABA file generated',
+    event_text: 'ABA file generated for {{paymentName}}',
     event_by: 'USER',
   },
   {
     id: 202,
     event_group: 'USER',
     event_type: 'NOTICE',
-    event_text: 'Notice auto-sent on user behalf',
+    event_text: 'Notice ({{noticeType}}) auto-sent on your behalf',
+    event_by: 'USER',
+  },
+  {
+    id: 203,
+    event_group: 'USER',
+    event_type: 'NOTICE',
+    event_text: 'Notice generated ({{noticeType}})',
     event_by: 'USER',
   },
 ];
@@ -52,13 +67,27 @@ export class NoticesAutoSendSchemaSeederService
 
   private async ensureActivityTemplates() {
     let inserted = 0;
+    let updated = 0;
     for (const tpl of ACTIVITY_TEMPLATES) {
       try {
         const existing = await this.dataSource.query(
-          'SELECT id FROM activity_log_templates WHERE id = $1',
+          'SELECT id, event_text FROM activity_log_templates WHERE id = $1',
           [tpl.id],
         );
-        if (existing && existing.length) continue;
+        if (existing && existing.length) {
+          // Keep template text in sync if it drifted from the desired
+          // interpolation format (e.g. seeded with the older static text).
+          if (existing[0].event_text !== tpl.event_text) {
+            await this.dataSource.query(
+              `UPDATE activity_log_templates
+                 SET event_text = $2, event_group = $3, event_type = $4, event_by = $5
+                 WHERE id = $1`,
+              [tpl.id, tpl.event_text, tpl.event_group, tpl.event_type, tpl.event_by],
+            );
+            updated++;
+          }
+          continue;
+        }
         await this.dataSource.query(
           `INSERT INTO activity_log_templates (id, event_group, event_type, event_text, event_by)
            VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
@@ -67,7 +96,7 @@ export class NoticesAutoSendSchemaSeederService
         inserted++;
       } catch (error) {
         this.logger.warn(
-          `activity_log_templates: failed to insert id=${tpl.id}: ${error?.message || error}`,
+          `activity_log_templates: failed to upsert id=${tpl.id}: ${error?.message || error}`,
         );
       }
     }
@@ -79,14 +108,10 @@ export class NoticesAutoSendSchemaSeederService
       } catch {
         // sequence may not exist on this schema; harmless
       }
-      this.logger.log(
-        `activity_log_templates: inserted ${inserted} new template(s) for ABA + notice auto-sent`,
-      );
-    } else {
-      this.logger.log(
-        'activity_log_templates: ABA + notice auto-sent templates already present',
-      );
     }
+    this.logger.log(
+      `activity_log_templates: inserted=${inserted}, updated=${updated}, total_templates=${ACTIVITY_TEMPLATES.length}`,
+    );
   }
 
   private async rewriteLegacyTokens() {

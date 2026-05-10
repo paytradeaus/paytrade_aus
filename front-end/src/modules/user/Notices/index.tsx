@@ -44,6 +44,9 @@ import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import Link from "next/link";
 import { useLoaderContext } from "@/context/useLoader";
 import BaseModal from "@/components/BaseModal";
+import { useTokenDetails } from "@/hooks";
+import { SUBSCRIPTION_UPGRADE } from "@/shared/constant/general";
+import { AppRoutes as RoutesConst } from "@/shared/constant/appRoutes";
 import {
   fetchBusinessDetails,
   updateNoticesAutoSend,
@@ -70,6 +73,24 @@ export default function NoticesList({ overViewDetails = {} }: any) {
     useState<boolean>(true);
   const [noticeSettingsSaving, setNoticeSettingsSaving] =
     useState<boolean>(false);
+  // Task #97 — Basic-plan upgrade dialog (mirrors AddEditAuditDetails pattern).
+  const [displaySubscriptionModal, setDisplaySubscriptionModal] =
+    useState<boolean>(false);
+  // Task #97 — gate the gear icon behind admin/manage-company privileges so
+  // members can't change a setting they aren't allowed to manage server-side.
+  const { decodeTokenData } = useTokenDetails();
+  const canManageNoticeSettings = (() => {
+    const roles = (decodeTokenData as any)?.companySpecificRoles;
+    if (!Array.isArray(roles) || !roles.length) return false;
+    const sys = roles.find((x: any) => x?.isSystemAdded);
+    const roleName = String(sys?.role_name || sys?.role || "").toLowerCase();
+    return (
+      sys?.isSystemAdded === true ||
+      roleName.includes("admin") ||
+      roleName.includes("owner") ||
+      roleName.includes("primary")
+    );
+  })();
   const [accountList, setAccountList] = useState<any>();
   const [totalRows, setTotalRows] = useState(0);
   const [perPage, setPerPage] = useState(10);
@@ -625,7 +646,9 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
-              {/* Task #97 — gear icon opens per-company auto-send toggle. */}
+              {/* Task #97 — gear icon opens per-company auto-send toggle.
+                  Only shown to users who can manage company settings. */}
+              {canManageNoticeSettings && (
               <button
                 type="button"
                 className="secondary"
@@ -649,6 +672,7 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               >
                 <i className="fa-light fa-gear"></i>
               </button>
+              )}
               <GridExportActions
                 excelFile={{
                   sheetName: "transaction List",
@@ -837,7 +861,10 @@ export default function NoticesList({ overViewDetails = {} }: any) {
             const isBasic =
               (noticeSettingsCompany?.plan_type || "Basic") === "Basic";
             if (isBasic) {
+              // Task #97 — surface the upgrade dialog instead of silently
+              // closing so the user has a clear path to enable auto-send.
               setNoticeSettingsOpen(false);
+              setDisplaySubscriptionModal(true);
               return true;
             }
             try {
@@ -913,6 +940,32 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               </label>
             )}
           </div>
+        </BaseModal>
+      )}
+      {/* Task #97 — Basic-plan upgrade dialog. Mirrors the pattern used in
+          TrustAccounting/AddEditAuditDetails.tsx so users see a consistent
+          upgrade prompt across the product. */}
+      {displaySubscriptionModal && (
+        <BaseModal
+          modalId={"Upgrade Subscription"}
+          title={"Upgrade Subscription"}
+          displayModal={displaySubscriptionModal}
+          onClose={() => setDisplaySubscriptionModal(false)}
+          onHeaderIconClose={() => setDisplaySubscriptionModal(false)}
+          onConfirm={() => {
+            setDisplaySubscriptionModal(false);
+            try {
+              router.push(RoutesConst.USER_SUBSCRIPTION_UPGRADE);
+            } catch {
+              // ignore routing errors — modal will close
+            }
+            return true;
+          }}
+          firstButtonName="Not now"
+          secondButtonName="Upgrade now"
+          restrictOncloseFunctionInHeader
+        >
+          <h4 className="text_center width_100">{SUBSCRIPTION_UPGRADE}</h4>
         </BaseModal>
       )}
     </div>

@@ -1534,7 +1534,8 @@ export class NoticesService {
               sentMailNoticePayload,
               null,
               manager,
-            )) as {
+            true,
+              )) as {
               status: string;
               message: string;
               data: {
@@ -1680,7 +1681,8 @@ export class NoticesService {
               sentMailNoticePayload,
               null,
               manager,
-            )) as {
+            true,
+              )) as {
               status: string;
               message: string;
               data: {
@@ -2268,6 +2270,7 @@ export class NoticesService {
                 sentMailNoticePayload,
                 null,
                 manager,
+              true,
               )) as {
                 status: string;
                 message: string;
@@ -2898,7 +2901,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -3035,7 +3039,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -3173,7 +3178,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -3316,7 +3322,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -3576,7 +3583,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -3715,7 +3723,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -4011,7 +4020,8 @@ export class NoticesService {
                   sentMailNoticePayload,
                   null,
                   manager,
-                )) as {
+                true,
+              )) as {
                   status: string;
                   message: string;
                   data: {
@@ -7270,6 +7280,11 @@ export class NoticesService {
     payload?: SentMailForANoticeInput,
     multiPayload?: SentMailForMultipleNoticesInput,
     manager?: EntityManager,
+    // Task #97 — TRUE only when invoked from an auto-send branch in a
+    // trigger handler. We use this to scope the "Notice auto-sent on user
+    // behalf" activity-log row to true auto-sends so manual sends don't
+    // produce a misleading auto-sent row.
+    isAutoSend: boolean = false,
   ): Promise<ReturnType<typeof framedResponse>> {
     if (multiPayload) {
       if (!multiPayload.ids?.length) {
@@ -7348,10 +7363,15 @@ export class NoticesService {
       //   updateNoticeData as updateNoticesInput,
       // );
 
-      // Task #97 — record an activity-log entry whenever the system actually
-      // dispatches a notice mail on the user's behalf so users can see in
-      // their activity log that an auto-send happened.
+      // Task #97 — record a "Notice auto-sent on user behalf" activity log
+      // ONLY for true auto-send invocations (i.e. when a trigger handler
+      // dispatches the mail with isAutoSend=true). Manual sends from the UI
+      // path skip this so users don't see false "auto-sent" rows.
+      this.logger.log(
+        `[NOTICE_FLOW] stage=dispatch_complete payload_id=${payload?.id} is_auto_send=${isAutoSend}`,
+      );
       try {
+        if (isAutoSend) {
         await this.activityLogService.insertActivityLog({
           event_template_id: 202,
           admin_id:
@@ -7370,10 +7390,15 @@ export class NoticesService {
           dynamic_values: {
             noticeId: (mailDetails as any)?.noticeId ?? payload?.id,
             mailUuid: payload?.id,
+            noticeType:
+              (mailDetails as any)?.noticeDetails?.notice_type ??
+              (mailDetails as any)?.notice_type ??
+              null,
           },
           is_admin: false,
           created_by: decoded?.userId,
         });
+        }
       } catch (e) {
         this.logger.warn(
           `[NOTICE_FLOW] auto-sent activity log insert failed: ${e?.message || e}`,
@@ -7787,9 +7812,13 @@ export class NoticesService {
           };
 
           if (userMode && userMode == 'Normal' && companyAutoSend) {
+            // Task #97 — regenerate path also counts as auto-send.
             const mailSent = await this.handlesentNoticeMail(
               decoded,
               sentMailNoticePayload,
+              undefined,
+              undefined,
+              true,
             );
           }
           const updateNoticePayload: updateNoticesInput = {

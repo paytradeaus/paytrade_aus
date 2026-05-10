@@ -4926,6 +4926,9 @@ export class PaymentsService {
                 abaFileId: (fileData as any)?.id,
                 includedCount: transactionCount,
                 skippedCount: skippedPayments.length,
+                paymentName:
+                  (fileData as any)?.file_name ??
+                  `ABA ${(fileData as any)?.id ?? ''}`.trim(),
               },
               is_admin: false,
               created_by: decoded?.userId,
