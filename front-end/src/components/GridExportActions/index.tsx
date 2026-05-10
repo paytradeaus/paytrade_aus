@@ -1,5 +1,5 @@
 import { convertJsonToExcel, generateAndPrintPDF } from "@/utils/export";
-import { useRef } from "react";
+import { ReactNode, useRef } from "react";
 
 // TypeScript interfaces for props and data structures
 interface ButtonConfig {
@@ -47,6 +47,7 @@ interface GridExportActionsProps {
   hideAbaFileButton?: boolean;
   abaFileButton?: ButtonConfig;
   disabledAbaFile?: boolean;
+  leadingActions?: ReactNode;
 }
 
 const defaultPdfButton: ButtonConfig = {
@@ -118,6 +119,7 @@ export default function GridExportActions({
   abaFileButton = defaultAbaFileButton,
   handleDownloadAbaFile,
   disabledAbaFile = false,
+  leadingActions,
 }: Readonly<GridExportActionsProps>) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -159,6 +161,7 @@ export default function GridExportActions({
     <div className="pt_pageactions">
       <div className="actionbuttons">
         <div role="group">
+          {leadingActions}
           {!hideResetButton && (
             <button
               className="secondary outline resetlink"

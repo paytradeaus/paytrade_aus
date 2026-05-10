@@ -654,35 +654,33 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
-              {/* Gear icon opens per-company auto-send toggle. Hidden for
-                  non-admin members; server-side mutation is also role-gated
-                  as the source of truth. */}
-              {canManageNoticeSettings && (
-              <button
-                type="button"
-                className="secondary"
-                title="Notices settings — open auto-send preferences"
-                onClick={async () => {
-                  const cid = getCompanyIdFromStorage();
-                  if (!cid) return;
-                  setLoader(true);
-                  try {
-                    const details = await fetchBusinessDetails(+cid);
-                    setNoticeSettingsCompany(details || null);
-                    setNoticeSettingsAutoSend(
-                      details?.notices_auto_send !== false,
-                    );
-                    setNoticeSettingsOpen(true);
-                  } finally {
-                    setLoader(false);
-                  }
-                }}
-                style={{ marginRight: 8 }}
-              >
-                <i className="fa-light fa-gear"></i>
-              </button>
-              )}
               <GridExportActions
+                leadingActions={
+                  canManageNoticeSettings ? (
+                    <button
+                      type="button"
+                      className="secondary outline"
+                      data-tooltip="Notices settings"
+                      onClick={async () => {
+                        const cid = getCompanyIdFromStorage();
+                        if (!cid) return;
+                        setLoader(true);
+                        try {
+                          const details = await fetchBusinessDetails(+cid);
+                          setNoticeSettingsCompany(details || null);
+                          setNoticeSettingsAutoSend(
+                            details?.notices_auto_send !== false,
+                          );
+                          setNoticeSettingsOpen(true);
+                        } finally {
+                          setLoader(false);
+                        }
+                      }}
+                    >
+                      <i className="fa-light fa-gear"></i>
+                    </button>
+                  ) : null
+                }
                 excelFile={{
                   sheetName: "transaction List",
                   tableData: noticesListData,
