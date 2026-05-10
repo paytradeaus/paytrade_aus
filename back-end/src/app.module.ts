@@ -108,6 +108,7 @@ import { AiSupportModule } from './api/common/ai-support/ai-support.module';
 import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
 import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
 import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
+import { NoticesAutoSendSchemaSeederModule } from './libs/@seeders/notices-auto-send-schema-seeder.module';
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
@@ -332,6 +333,7 @@ import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sy
     AdminMenuSeederModule,
     ComplianceSeederModule,
     XeroLogTemplatesSeederModule,
+    NoticesAutoSendSchemaSeederModule,
     NoticeTemplatesSeederModule,
     EmailTemplateUrlCleanupSeederModule,
     AbaGuidesSeederModule,

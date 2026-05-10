@@ -849,6 +849,13 @@ export default function NoticesList({ overViewDetails = {} }: any) {
               });
               showSuccessToast("Notices settings updated.");
               setNoticeSettingsOpen(false);
+              // Task #97 — refresh notices list so any status changes from
+              // toggling auto-send are reflected immediately.
+              try {
+                await fetchData(page, perPage);
+              } catch {
+                // ignore — list will refresh on next interaction
+              }
             } finally {
               setNoticeSettingsSaving(false);
               setLoader(false);

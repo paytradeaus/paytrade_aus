@@ -4904,6 +4904,36 @@ export class PaymentsService {
               this.logger.log(`[ABA] Finished marking ${transactions.length} transactions as paid`);
             }
 
+          // Task #97 — record an activity log entry whenever an ABA file is
+          // generated so users can trace ABA creations from their activity log.
+          try {
+            await this.activityLogService.insertActivityLog({
+              event_template_id: 201,
+              admin_id:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.admin_id
+                  : null,
+              to_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.userId
+                  : null,
+              from_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? null
+                  : decoded?.userId,
+              company_id: (fileData as any)?.company_id ?? accountDetails?.company_id ?? null,
+              dynamic_values: {
+                abaFileId: (fileData as any)?.id,
+                includedCount: transactionCount,
+                skippedCount: skippedPayments.length,
+              },
+              is_admin: false,
+              created_by: decoded?.userId,
+            });
+          } catch (e) {
+            this.logger.warn(`[ABA] activity log insert failed: ${e?.message || e}`);
+          }
+
           return {
             ...fileData,
             file_path: fileData.file_path?.startsWith('/') ? fileData.file_path : `/${fileData.file_path}`,

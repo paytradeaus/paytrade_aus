@@ -838,23 +838,41 @@ export default function BusinessProfile({ isEditable }: any) {
                   <small>Notices auto-send</small>
                 </label>
                 <div style={{ marginBottom: "1rem", display: "block" }}>
-                  <div style={{ marginBottom: "0.5rem" }}>
-                    <FormikControl
-                      id={"notices_auto_send"}
-                      name={"notices_auto_send"}
-                      label={
-                        "Automatically send compliance notices on my behalf when my plan supports delegated sending. Untick to generate notices but require a manual send."
-                      }
-                      control={InputType.CHECKBOX}
-                      onChange={(e: any) =>
-                        formik.setFieldValue(
-                          "notices_auto_send",
-                          !!e?.target?.checked,
-                        )
-                      }
-                      value={formik.values.notices_auto_send !== false}
-                    />
-                  </div>
+                  {(formik.values?.SubscriptionType ||
+                    formik.values?.planType ||
+                    "Basic") === "Basic" ? (
+                    <div
+                      style={{
+                        padding: 12,
+                        background: "#fff5f5",
+                        border: "1px solid #f5c6cb",
+                        borderRadius: 6,
+                        fontSize: 13,
+                      }}
+                    >
+                      Auto-send is a paid-plan feature. Upgrade your
+                      subscription to enable automatic delivery of compliance
+                      notices on your behalf.
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: "0.5rem" }}>
+                      <FormikControl
+                        id={"notices_auto_send"}
+                        name={"notices_auto_send"}
+                        label={
+                          "Automatically send compliance notices on my behalf when my plan supports delegated sending. Untick to generate notices but require a manual send."
+                        }
+                        control={InputType.CHECKBOX}
+                        onChange={(e: any) =>
+                          formik.setFieldValue(
+                            "notices_auto_send",
+                            !!e?.target?.checked,
+                          )
+                        }
+                        value={formik.values.notices_auto_send !== false}
+                      />
+                    </div>
+                  )}
                 </div>
                 <br />
                 <br />

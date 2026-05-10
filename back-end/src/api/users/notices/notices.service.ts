@@ -1399,7 +1399,7 @@ export class NoticesService {
         : this.companyDetails;
       const c = await repo.findOne({
         where: { company_id: companyId },
-        select: ['company_id', 'notices_auto_send'] as any,
+        select: { company_id: true, notices_auto_send: true },
       });
       return c?.notices_auto_send !== false;
     } catch (e) {
@@ -1557,7 +1557,7 @@ export class NoticesService {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
             status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-            auto_sent: true,
+            auto_sent: !!(userMode == 'Normal' && companyAutoSend),
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
             toName: noticeListWithData.clientName,
@@ -1703,7 +1703,7 @@ export class NoticesService {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
             status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-            auto_sent: true,
+            auto_sent: !!(userMode == 'Normal' && companyAutoSend),
             reference_id: noticeListWithData.contract_id,
             reference_link: noticeListWithData.contract_link,
             toName: noticeListWithData.clientName,
@@ -2286,7 +2286,7 @@ export class NoticesService {
               notice_id: newNotice.data.notice_id,
               notice_mail_uuid: newMail?.data?.id,
               status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-              auto_sent: true,
+              auto_sent: !!(userMode == 'Normal' && companyAutoSend),
               reference_id: noticeListWithData.payment_claim_id,
               reference_link: noticeListWithData.payment_claim_link,
               toName: noticeListWithData.clientName,
@@ -2914,7 +2914,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3049,7 +3049,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3189,7 +3189,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3332,7 +3332,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
               };
@@ -3590,7 +3590,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3728,7 +3728,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.payment_id,
                 reference_link: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -4024,7 +4024,7 @@ export class NoticesService {
                 notice_id: newMail.data.notice_id,
                 notice_mail_uuid: newMail?.data?.id,
                 status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-                auto_sent: true,
+                auto_sent: !!(userMode == 'Normal' && companyAutoSend),
                 reference_id: noticeListWithData.bank_account_id,
                 reference_link: noticeListWithData.bank_accoutn_link,
                 toName: noticeListWithData.clientName,
@@ -7337,6 +7337,38 @@ export class NoticesService {
       //   updateNoticeData as updateNoticesInput,
       // );
 
+      // Task #97 — record an activity-log entry whenever the system actually
+      // dispatches a notice mail on the user's behalf so users can see in
+      // their activity log that an auto-send happened.
+      try {
+        await this.activityLogService.insertActivityLog({
+          event_template_id: 202,
+          admin_id:
+            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+              ? decoded?.admin_id
+              : null,
+          to_user:
+            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+              ? decoded?.userId
+              : null,
+          from_user:
+            decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+              ? null
+              : decoded?.userId,
+          company_id: (mailDetails as any)?.company_id ?? null,
+          dynamic_values: {
+            noticeId: (mailDetails as any)?.noticeId ?? payload?.id,
+            mailUuid: payload?.id,
+          },
+          is_admin: false,
+          created_by: decoded?.userId,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `[NOTICE_FLOW] auto-sent activity log insert failed: ${e?.message || e}`,
+        );
+      }
+
       return framedResponse('SUCCESS', 'Mail Sent', {
         preview: preview_response,
         mails: mailDetails,
@@ -7753,7 +7785,7 @@ export class NoticesService {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
             status: userMode == 'Normal' && companyAutoSend ? 'Sent' : userMode == 'Normal' ? 'Not Sent' : 'Sent - Onboarded',
-            auto_sent: true,
+            auto_sent: !!(userMode == 'Normal' && companyAutoSend),
           };
 
           await this.handleUpdateNotice(decoded, updateNoticePayload);
