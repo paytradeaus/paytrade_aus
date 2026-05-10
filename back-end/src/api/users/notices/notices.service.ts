@@ -236,6 +236,17 @@ export class NoticesService {
     manager?: EntityManager,
     // NOTICE_FLOW correlation id; minted if absent so direct callers still emit a trace.
     flowId?: string,
+    // Task #101: optional richer context the trigger flows used to capture
+    // on the legacy basic-plan-only template-203 inserts. Threaded through
+    // here so the single central insert (below) preserves paymentName /
+    // referenceId / referenceLink / toName / toMail in dynamic_values.
+    logContext?: {
+      paymentName?: string;
+      referenceId?: number | string | null;
+      referenceLink?: string | null;
+      toName?: string | null;
+      toMail?: string | null;
+    },
   ) {
     const _flowId =
       flowId ??
@@ -318,6 +329,27 @@ export class NoticesService {
             noticeLink,
             noticeType: payload?.notice_type,
             noticeSubject: payload?.notice_type,
+            // Task #101: richer context from the trigger flows (was lost
+            // when the legacy basic-plan inserts were removed in #98).
+            ...(logContext?.paymentName !== undefined && {
+              paymentName: logContext.paymentName,
+            }),
+            ...(logContext?.referenceId !== undefined &&
+              logContext?.referenceId !== null && {
+                referenceId: logContext.referenceId,
+              }),
+            ...(logContext?.referenceLink !== undefined &&
+              logContext?.referenceLink !== null && {
+                referenceLink: logContext.referenceLink,
+              }),
+            ...(logContext?.toName !== undefined &&
+              logContext?.toName !== null && {
+                toName: logContext.toName,
+              }),
+            ...(logContext?.toMail !== undefined &&
+              logContext?.toMail !== null && {
+                toMail: logContext.toMail,
+              }),
           },
           is_admin: false,
           created_by: decoded?.userId,
@@ -1541,6 +1573,13 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.contract_id,
+              referenceLink: noticeListWithData.contract_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1672,6 +1711,13 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.contract_id,
+              referenceLink: noticeListWithData.contract_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1796,6 +1842,11 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.contract_id,
+              referenceLink: noticeListWithData.contract_link,
+            },
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -1900,6 +1951,11 @@ export class NoticesService {
         generateNoticePayload as generateNoticeInput,
         manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.contract_id,
+              referenceLink: noticeListWithData.contract_link,
+            },
       )) as generateNoticeResponse;
 
       this.logger.log(
@@ -2184,6 +2240,13 @@ export class NoticesService {
           generateNoticePayload as generateNoticeInput,
           manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_claim_id,
+              referenceLink: noticeListWithData.payment_claim_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
         )) as generateNoticeResponse;
 
         noticeGen = true;
@@ -2776,6 +2839,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -2897,6 +2967,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3006,6 +3083,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3121,6 +3205,11 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3235,6 +3324,11 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3321,6 +3415,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3434,6 +3535,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.payment_id,
+              referenceLink: noticeListWithData.payment_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
           noticeGen = true;
 
@@ -3706,6 +3814,13 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.bank_account_id,
+              referenceLink: noticeListWithData.bank_accoutn_link,
+              toName: noticeListWithData.clientName,
+              toMail: noticeListWithData.clientMail,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3813,6 +3928,11 @@ export class NoticesService {
             generateNoticePayload as generateNoticeInput,
             manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.bank_account_id,
+              referenceLink: noticeListWithData.bank_accoutn_link,
+            },
           )) as generateNoticeResponse;
 
           noticeGen = true;
@@ -3937,6 +4057,11 @@ export class NoticesService {
                   generateNoticePayload as generateNoticeInput,
                   manager,
             flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.bank_account_id,
+              referenceLink: noticeListWithData.bank_accoutn_link,
+            },
                 )) as generateNoticeResponse;
 
                 noticeGen = true;
