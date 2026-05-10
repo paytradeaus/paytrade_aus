@@ -1776,6 +1776,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] S23 RTA: Basic plan — notice generated, activity log created, no mail auto-generation`
+        );
         // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
@@ -1879,6 +1880,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] QBCC TA3 PTA: Basic plan — notice generated, activity log only`
+        );
         // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
@@ -1984,6 +1986,7 @@ export class NoticesService {
       } else {
         this.logger.log(
           `[HANDLE_NOTICE] QBCC TA3 RTA: Basic plan — notice generated, activity log only`
+        );
         // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
       }
     }
