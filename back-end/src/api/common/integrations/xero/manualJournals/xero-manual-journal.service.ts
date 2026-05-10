@@ -353,7 +353,23 @@ export class XeroManualJournalService {
 
     const payload = this.buildJournalPayload(args, kind, gstAmount, applicability.taxType);
 
+    // Diagnostic: log exactly what we're sending so we can correlate against
+    // what Xero booked if a user reports the MJ "isn't grossing up".
+    this.logger.log(
+      `[MJ_${kind.toUpperCase()}] posting MJ for claim ${pt_claim_id}: ` +
+        `retentionExGst=${retentionExGst} gstAmount=${gstAmount} ` +
+        `taxType=${applicability.taxType} (source=${applicability.source}) ` +
+        `lines=${JSON.stringify(
+          (payload.journalLines || []).map((l: any) => ({
+            accountCode: l.accountCode,
+            lineAmount: l.lineAmount,
+            taxType: l.taxType,
+          })),
+        )}`,
+    );
+
     let manualJournalId: string | null = null;
+    let createdJournal: any = null;
     try {
       await this.xeroService.refreshTokenSet(xd.company_id, xeroClient);
       const resp = await xeroClient.accountingApi.createManualJournals(
@@ -363,11 +379,30 @@ export class XeroManualJournalService {
       );
       const created = resp?.body?.manualJournals?.[0];
       manualJournalId = created?.manualJournalID || null;
+      createdJournal = created || null;
       if (!manualJournalId) {
         throw new Error(
           `Xero did not return a manualJournalID (response status=${(resp?.response as any)?.statusCode ?? 'unknown'})`,
         );
       }
+      // Diagnostic: log the lines as Xero recorded them — accountCode,
+      // grossAmount, netAmount, taxAmount, taxType — so we can confirm Xero
+      // booked the GST portion and not some other amount.
+      this.logger.log(
+        `[MJ_${kind.toUpperCase()}] Xero accepted MJ ${manualJournalId} ` +
+          `status=${created?.status} narration="${created?.narration}" date=${created?.date} ` +
+          `lines=${JSON.stringify(
+            (created?.journalLines || []).map((l: any) => ({
+              accountCode: l.accountCode,
+              accountID: l.accountID,
+              lineAmount: l.lineAmount,
+              grossAmount: l.grossAmount,
+              netAmount: l.netAmount,
+              taxAmount: l.taxAmount,
+              taxType: l.taxType,
+            })),
+          )}`,
+      );
     } catch (err: any) {
       const errMsg =
         err?.response?.body?.Message ||
@@ -455,7 +490,15 @@ export class XeroManualJournalService {
     });
     const saved = await this.retentionJournalsRepo.save(link);
 
-    await this.writeSuccessLog(decoded, args, kind, saved, applicability);
+    await this.writeSuccessLog(
+      decoded,
+      args,
+      kind,
+      saved,
+      applicability,
+      payload,
+      createdJournal,
+    );
 
     return saved;
   }
@@ -601,15 +644,43 @@ export class XeroManualJournalService {
     kind: 'gross_up' | 'gross_up_reversal',
     link: XeroRetentionJournals,
     applicability: ResolvedGstApplicability,
+    requestPayload?: ManualJournal,
+    createdJournal?: any,
   ) {
     const templateId = kind === 'gross_up' ? 600 : 601;
     const claim = args.claim;
+
+    // Snapshot request lines (what we asked Xero to post) and response
+    // lines (what Xero actually booked) so the sync log shows exactly
+    // which accounts and amounts landed.
+    const requestLines = (requestPayload?.journalLines || []).map((l: any) => ({
+      accountCode: l.accountCode,
+      lineAmount: l.lineAmount,
+      taxType: l.taxType,
+      description: l.description,
+    }));
+    const responseLines = (createdJournal?.journalLines || []).map((l: any) => ({
+      accountCode: l.accountCode,
+      accountID: l.accountID,
+      lineAmount: l.lineAmount,
+      grossAmount: l.grossAmount,
+      netAmount: l.netAmount,
+      taxAmount: l.taxAmount,
+      taxType: l.taxType,
+      description: l.description,
+    }));
+
     await this.xeroService.insertXeroSyncLogs(decoded, {
       id: null,
       api_name: 'createGrossUpManualJournal',
       api_payload: {
         payment_claim_id: claim?.payment_claim_id,
         kind,
+        retention_ex_gst: link.retention_ex_gst,
+        gst_amount: link.gst_amount,
+        resolved_tax_type: applicability.taxType,
+        resolution_source: applicability.source,
+        request_lines: requestLines,
       },
       integration_id: args.xeroDetails.integration_id,
       log_template_id: templateId,
@@ -629,13 +700,30 @@ export class XeroManualJournalService {
       history: [
         `Posted ${kind === 'gross_up' ? 'gross-up' : 'reversal'} MJ for claim ${claim?.payment_claim_id}`,
         `Tax type ${applicability.taxType} (source ${applicability.source})`,
+        `Retention ex-GST $${Number(link.retention_ex_gst).toFixed(2)}; GST gross-up $${Number(link.gst_amount).toFixed(2)}`,
+        requestLines.length
+          ? `Requested lines: ${requestLines
+              .map(
+                (l) =>
+                  `${Number(l.lineAmount) >= 0 ? 'DR' : 'CR'} ${l.accountCode} ${Math.abs(Number(l.lineAmount)).toFixed(2)}`,
+              )
+              .join(' / ')}`
+          : 'Requested lines: (none)',
+        responseLines.length
+          ? `Xero booked: ${responseLines
+              .map(
+                (l) =>
+                  `${Number(l.lineAmount) >= 0 ? 'DR' : 'CR'} ${l.accountCode} ${Math.abs(Number(l.lineAmount)).toFixed(2)} (net ${l.netAmount ?? '-'} / tax ${l.taxAmount ?? '-'} / gross ${l.grossAmount ?? '-'})`,
+              )
+              .join(' / ')}`
+          : 'Xero booked: (no journalLines returned)',
       ],
       important_checks: {
         'GST applicability resolution': 'Ok',
         'Manual journal post': 'Ok',
       },
       error_message: null,
-      xero_records: [],
+      xero_records: createdJournal ? [createdJournal] : [],
       paytrade_records: [claim],
       new_records: null,
       updated_records: null,
