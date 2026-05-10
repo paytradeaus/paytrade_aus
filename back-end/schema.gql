@@ -18666,6 +18666,11 @@ type Query {
   ): GetXeroProjectsListResponse!
 
   """
+  Returns whether the current company's Xero integration needs a re-auth (drives the cross-app reauth banner) plus a fresh consent URL.
+  """
+  getXeroReauthStatus: XeroReauthStatusResponse!
+
+  """
   Phase 3 — returns the retention gross-up Manual Journals PayTrade has posted to Xero for a given claim (newest first).
   """
   getXeroRetentionJournalsForClaim(
@@ -22795,6 +22800,38 @@ input VoteLikeFlagInput {
   Type of reaction, e.g., like, dislike, or other defined reaction types.
   """
   reaction_type: String!
+}
+
+"""
+Task #109 — Reauth status payload for the cross-app XeroReauthBanner. Indicates whether the company's Xero integration has a dead refresh token and (if so) bundles a fresh consent URL the UI can deep-link to.
+"""
+type XeroReauthStatus {
+  """Company id this status refers to."""
+  company_id: Float
+
+  """True when the company needs to re-authorise Xero."""
+  needs_reauth: Boolean!
+
+  """Timestamp the refresh token was first observed dead."""
+  needs_reauth_since: DateTime
+
+  """Fresh Xero consent URL the user should be sent to."""
+  reauth_url: String
+
+  """Tenant name (org label) for the prompt."""
+  tenant_name: String
+}
+
+"""Response wrapper for getXeroReauthStatus."""
+type XeroReauthStatusResponse {
+  """Reauth status payload."""
+  data: XeroReauthStatus
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
 }
 
 """Represents a Xero integration configuration and settings"""

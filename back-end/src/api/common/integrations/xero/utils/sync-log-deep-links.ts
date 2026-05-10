@@ -120,8 +120,12 @@ export function buildXeroDeepLink(row: LooseRow): string | null {
         xeroRecord?.manualJournalID ||
         xeroRecord?.ManualJournalID ||
         null;
+      // Xero deprecated the legacy `/ManualJournals/View.aspx?journalID=…`
+      // URL — it now returns an openresty 502. The Bank/RestoreManualJournal
+      // endpoint is the supported way to land on a single MJ and is the
+      // same URL we render in the retention-journals table.
       return id
-        ? `https://go.xero.com/ManualJournals/View.aspx?journalID=${id}`
+        ? `https://go.xero.com/Bank/RestoreManualJournal.aspx?ID=${id}`
         : null;
     }
     case 'Bank accounts': {
