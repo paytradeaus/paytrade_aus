@@ -1082,7 +1082,7 @@ export class SignupService {
   ): Promise<void> {
     await this.companyDetails.update(
       { company_id },
-      { notices_auto_send } as any,
+      { notices_auto_send },
     );
   }
 
