@@ -7119,7 +7119,6 @@ export class NoticesService {
               { notice_id: mailDetails.noticeId },
               {
                 status: 'Sent',
-                notice_mail_uuid: id,
                 updated_on: moment().tz('UTC') as any,
                 updated_group: 'SYSTEM',
               } as any,
@@ -7210,11 +7209,17 @@ export class NoticesService {
           const repo = manager
             ? manager.getRepository(NoticeDetails)
             : this.noticesRepo;
+          // Task #106: only write columns that actually exist on
+          // NoticeDetails. `notice_mail_uuid` is a transient input field used
+          // upstream to look up `NoticeMail.id` — it is NOT a column on this
+          // entity, so including it caused TypeORM to throw
+          // `Property "notice_mail_uuid" was not found in "NoticeDetails"`,
+          // which the catch swallowed as a WARN, leaving status at "Not Sent".
+          // The mail→notice link already exists via NoticeMail.notice_id FK.
           await repo.update(
             { notice_id: mailDetails.noticeId },
             {
               status: 'Sent',
-              notice_mail_uuid: payload.id,
               updated_on: moment().tz('UTC') as any,
               updated_group: 'SYSTEM',
             } as any,
