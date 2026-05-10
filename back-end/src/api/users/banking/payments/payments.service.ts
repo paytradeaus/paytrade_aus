@@ -2086,6 +2086,11 @@ export class PaymentsService {
     decoded,
     data: EditDetailsOfAPaymentInput,
     userId?: number,
+    // Task #105: when TRUE, suppress the inline notice-trigger at the end of
+    // this helper. The ABA mark-paid loop sets this so notices fire exactly
+    // once via the FE-driven `TriggerPaymentNotices` call after ABA download
+    // (one trigger per payment_id), instead of once per sub-payment leg here.
+    skipNoticeTrigger: boolean = false,
   ) {
     try {
       const { payment_id } = data;
@@ -2817,11 +2822,12 @@ export class PaymentsService {
         }
 
         if (
-          data.is_paid_confirmed === true ||
-          data.is_received_confirmed === true ||
-          data.is_retention_confirmed === true ||
-          paymentDetails.payment_type === '3rd Party' ||
-          paymentDetails.payment_type === 'Pay - Zero'
+          !skipNoticeTrigger &&
+          (data.is_paid_confirmed === true ||
+            data.is_received_confirmed === true ||
+            data.is_retention_confirmed === true ||
+            paymentDetails.payment_type === '3rd Party' ||
+            paymentDetails.payment_type === 'Pay - Zero')
         ) {
           notices = await this.noticeService.handleTriggerPaymentNotices(
             decoded,
@@ -4864,6 +4870,7 @@ export class PaymentsService {
                       decoded,
                       mark_paid_payment,
                       decoded?.userId,
+                      true,
                     );
                   } else if (tx.sub_payment_type === 'Retention Out') {
                     this.logger.log(`[ABA] Processing retention ${processedCount}/${transactions.length}: payment_id=${tx.payment_id}`);
@@ -4877,6 +4884,7 @@ export class PaymentsService {
                       decoded,
                       mark_paid_payment,
                       decoded?.userId,
+                      true,
                     );
                   } else {
                     this.logger.log(`[ABA] Skipping ${processedCount}/${transactions.length}: payment_id=${tx.payment_id} (sub_payment_type=${tx.sub_payment_type}, claim_type=${tx.claim_type})`);

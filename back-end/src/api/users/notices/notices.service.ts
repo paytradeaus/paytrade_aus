@@ -7096,23 +7096,39 @@ export class NoticesService {
           mailDetails,
         });
 
-        // const updateNoticeData: Partial<updateNoticesInput> = {
-        //   notice_id: mailDetails.noticeId,
-        //   notice_mail_uuid: id,
-        //   status: 'Sent',
-        // };
-
-        // await this.handleUpdateNotice(
-        //   decoded,
-        //   updateNoticeData as updateNoticesInput,
-        //   manager
-        // );
-
         if (!manager) {
           await this.emailQueueProducer.emailQueueProducer({
             ...mailDetails,
             mail_type: EmailTypeEnum.notice,
           });
+        }
+
+        // Task #105: persist Sent status + mail uuid so the Notices grid no
+        // longer shows "Not Sent" after the mail was actually queued.
+        // Direct repo write (no handleUpdateNotice) avoids emitting an extra
+        // activity log here — the auto-send "on user behalf" log (template
+        // 202) is already produced in the single-payload branch and the
+        // bulk update_notice_inputs caller still runs handleUpdateNotice
+        // afterward when applicable (e.g. Onboarding → "Sent - Onboarded").
+        if (mailDetails?.noticeId != null) {
+          try {
+            const repo = manager
+              ? manager.getRepository(NoticeDetails)
+              : this.noticesRepo;
+            await repo.update(
+              { notice_id: mailDetails.noticeId },
+              {
+                status: 'Sent',
+                notice_mail_uuid: id,
+                updated_on: moment().tz('UTC') as any,
+                updated_group: 'SYSTEM',
+              } as any,
+            );
+          } catch (e) {
+            this.logger.warn(
+              `[NOTICE_FLOW] inline status_update failed notice_id=${mailDetails?.noticeId} mail_id=${id} error=${e?.message || e}`,
+            );
+          }
         }
       }
       return framedResponse('SUCCESS', 'Mail sent', {
@@ -7182,16 +7198,37 @@ export class NoticesService {
 
       // await this.emailServices.sendMail(mailDetails);
 
-      // const updateNoticeData: Partial<updateNoticesInput> = {
-      //   notice_id: mailDetails.noticeId,
-      //   notice_mail_uuid: payload.id,
-      //   status: 'Sent',
-      // };
-
-      // await this.handleUpdateNotice(
-      //   decoded,
-      //   updateNoticeData as updateNoticesInput,
-      // );
+      // Task #105: persist Sent status + mail uuid so the Notices grid no
+      // longer shows "Not Sent" after the mail was actually queued. We write
+      // directly via the repo (skipping handleUpdateNotice) to avoid emitting
+      // a duplicate activity log row — the auto-send branch below already
+      // records template 202, and the bulk `update_notice_inputs` caller
+      // (when present, e.g. Onboarding mode) still runs handleUpdateNotice
+      // afterwards to overwrite with "Sent - Onboarded" + its own log.
+      if (mailDetails?.noticeId != null) {
+        try {
+          const repo = manager
+            ? manager.getRepository(NoticeDetails)
+            : this.noticesRepo;
+          await repo.update(
+            { notice_id: mailDetails.noticeId },
+            {
+              status: 'Sent',
+              notice_mail_uuid: payload.id,
+              updated_on: moment().tz('UTC') as any,
+              updated_group: 'SYSTEM',
+            } as any,
+          );
+          stage('status_updated_inline', {
+            notice_id: mailDetails.noticeId,
+            status: 'Sent',
+          });
+        } catch (e) {
+          this.logger.warn(
+            `[NOTICE_FLOW] inline status_update failed flow_id=${flowId} notice_id=${mailDetails?.noticeId} mail_id=${payload.id} error=${e?.message || e}`,
+          );
+        }
+      }
 
       stage('sent', {
         notice_id: mailDetails?.noticeId,
