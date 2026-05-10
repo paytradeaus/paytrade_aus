@@ -5435,5 +5435,15 @@
     "from_xero": true,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 506,
+    "sync_type": "Contact schedulers",
+    "description": "<p>PayTrade contact {{contact_name}} matched and linked to existing Xero contact (no duplicate created).</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
   }
 ]

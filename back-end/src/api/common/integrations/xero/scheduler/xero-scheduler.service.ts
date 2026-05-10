@@ -2394,6 +2394,8 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               'contact.merge_to_contact_id AS merge_to_contact_id',
               'contact.contact_name AS contact_name',
               'contact.contact_status AS contact_status',
+              'contact.is_customer AS is_customer',
+              'contact.is_supplier AS is_supplier',
               'c.client_supplier_id AS pt_contact_id',
               'c.client_supplier_name AS pt_contact_name',
             ])
@@ -2444,6 +2446,52 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 )
                 .execute();
               mappedContacts.push(element.contact_id);
+
+              // Task #110 — Auto-mapping by name match is an idempotent
+              // link path (no row was created in either system). Emit the
+              // dedicated "matched and linked existing" log so audit
+              // history reflects the link decision instead of leaving it
+              // silent (parallels template 504 for bank accounts).
+              try {
+                type AutoMappingRow = (typeof autoMappingRecords)[number];
+                const autoRow = autoMappingRecords.find(
+                  (r: AutoMappingRow) => r.contact_id === element.contact_id,
+                );
+                const contactName = autoRow?.contact_name || '';
+                const ptContactName = autoRow?.pt_contact_name || contactName;
+                const xeroRowId = autoRow?.id || null;
+                const ptType = autoRow?.is_customer ? 'Client' : 'Supplier';
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 505,
+                  dynamic_values: {
+                    contact_name: contactName,
+                    contact_type: ptType,
+                  },
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    xeroId: xeroRowId,
+                    paytradeId: element.pt_contact_id,
+                  },
+                  reference_id: xeroRowId,
+                  history: [
+                    `Matched existing PayTrade contact "${ptContactName}" for Xero contact "${contactName}" by name`,
+                    'Linked instead of creating duplicate',
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [{ contact_id: element.contact_id, contact_name: contactName }],
+                  paytrade_records: [{ client_supplier_id: element.pt_contact_id, client_supplier_name: ptContactName }],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } catch (logErr) {
+                this.logger.warn(
+                  `[Task #110] Failed to write linked-existing log for auto-mapped Xero contact ${element.contact_id}: ${logErr?.message || logErr}`,
+                );
+              }
             }
           }
 
@@ -2464,8 +2512,96 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               (c) => !mappedPtContactIds.has(c.client_supplier_id),
             );
 
+            // Task #110 — Preload all unmapped active Xero contacts once
+            // and index them by normalized name so the per-PT idempotent
+            // pre-check below is O(1) instead of issuing a fresh DB
+            // scan inside each loop iteration.
+            const candidateXeroRows: XeroContactDetails[] =
+              await this.xeroContactDetails.find({
+                where: {
+                  integration_id: xeroDetails.integration_id,
+                  pt_contact_id: IsNull(),
+                  contact_status: 'ACTIVE',
+                },
+              });
+            const xeroByNormalizedName = new Map<string, XeroContactDetails>();
+            for (const row of candidateXeroRows) {
+              const key = String(row.contact_name || '').trim().toLowerCase();
+              if (key && !xeroByNormalizedName.has(key)) {
+                xeroByNormalizedName.set(key, row);
+              }
+            }
+
             for (const ptContact of unmappedPtContacts) {
               try {
+                // Task #110 — Idempotent pre-check: if an unmapped Xero
+                // contact in our DB matches by name (case/whitespace-
+                // insensitive), link it directly instead of asking Xero
+                // to create a duplicate. Emits the dedicated "matched
+                // and linked existing" log (parallels template 503 for
+                // bank accounts) instead of the misleading 469
+                // "auto-created" entry.
+                const ptNameNorm = String(
+                  ptContact.client_supplier_name || '',
+                )
+                  .trim()
+                  .toLowerCase();
+                let linkedExisting = false;
+                if (ptNameNorm) {
+                  const matchedRow = xeroByNormalizedName.get(ptNameNorm);
+                  if (matchedRow) {
+                    const linkedStatus: MappedStatus = 'System';
+                    await this.xeroContactDetails
+                      .createQueryBuilder()
+                      .update(XeroContactDetails)
+                      .set({
+                        pt_contact_id: ptContact.client_supplier_id,
+                        mapped_status: linkedStatus,
+                        updated_by: userId,
+                        updated_on: moment.tz('UTC'),
+                        updated_group: createdGroup,
+                      })
+                      .where(
+                        'contact_id = :contact_id AND integration_id = :integration_id',
+                        {
+                          contact_id: matchedRow.contact_id,
+                          integration_id: xeroDetails.integration_id,
+                        },
+                      )
+                      .execute();
+                    xeroByNormalizedName.delete(ptNameNorm);
+                    await this.xeroService.insertXeroSyncLogs(decoded, {
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 506,
+                      dynamic_values: {
+                        contact_name: ptContact.client_supplier_name,
+                      },
+                      project_id: null,
+                      contract_id: null,
+                      reference: {
+                        xeroId: matchedRow.id,
+                        paytradeId: ptContact.client_supplier_id,
+                      },
+                      reference_id: matchedRow.id,
+                      history: [
+                        `Matched existing Xero contact "${matchedRow.contact_name}" for PayTrade contact "${ptContact.client_supplier_name}"`,
+                        'Linked instead of creating duplicate',
+                      ],
+                      important_checks: {},
+                      error_message: null,
+                      xero_records: [matchedRow],
+                      paytrade_records: [ptContact],
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                    });
+                    linkedExisting = true;
+                  }
+                }
+                if (linkedExisting) {
+                  continue;
+                }
+
                 await this.xeroContactsService.createContact(decoded, {
                   client_supplier_id: ptContact.client_supplier_id,
                   mapped_status: 'System',
