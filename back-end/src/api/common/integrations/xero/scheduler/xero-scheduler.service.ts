@@ -1147,7 +1147,15 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 );
               });
               if (preExisting) {
-                const linkRecord = this.xeroBankAccountDetails.create({
+                // Task #108 — Upsert keyed by (account_id, integration_id)
+                // so refresh ticks don't accumulate duplicate mapping rows.
+                const existingMapping = await this.xeroBankAccountDetails.findOne({
+                  where: {
+                    account_id: preExisting.accountID,
+                    integration_id: xeroDetails.integration_id,
+                  },
+                });
+                const linkPayload: any = {
                   account_id: preExisting.accountID,
                   integration_id: xeroDetails.integration_id,
                   tenant_id: xeroDetails.tenant_id,
@@ -1160,10 +1168,28 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   account_status: preExisting.status,
                   description: preExisting.description,
                   pt_bank_account_id: ptAccount.bank_account_id,
-                  mapped_status: 'System' as any,
-                  created_on: new Date(),
-                } as any);
-                await this.xeroBankAccountDetails.save(linkRecord);
+                  mapped_status: 'System',
+                };
+                if (existingMapping) {
+                  await this.xeroBankAccountDetails
+                    .createQueryBuilder()
+                    .update(XeroBankAccountDetails)
+                    .set(linkPayload)
+                    .where(
+                      'account_id = :account_id AND integration_id = :integration_id',
+                      {
+                        account_id: preExisting.accountID,
+                        integration_id: xeroDetails.integration_id,
+                      },
+                    )
+                    .execute();
+                } else {
+                  const linkRecord = this.xeroBankAccountDetails.create({
+                    ...linkPayload,
+                    created_on: new Date(),
+                  } as any);
+                  await this.xeroBankAccountDetails.save(linkRecord);
+                }
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   integration_id: xeroDetails.integration_id,
                   log_template_id: 503,
@@ -1319,7 +1345,16 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                     );
                   });
                   if (match) {
-                    const linkRecord = this.xeroBankAccountDetails.create({
+                    // Task #108 — Upsert keyed by (account_id, integration_id)
+                    // so duplicate-recovery doesn't accumulate mapping rows.
+                    const existingMapping =
+                      await this.xeroBankAccountDetails.findOne({
+                        where: {
+                          account_id: match.accountID,
+                          integration_id: xeroDetails.integration_id,
+                        },
+                      });
+                    const linkPayload: any = {
                       account_id: match.accountID,
                       integration_id: xeroDetails.integration_id,
                       tenant_id: xeroDetails.tenant_id,
@@ -1332,10 +1367,28 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                       account_status: match.status,
                       description: match.description,
                       pt_bank_account_id: ptAccount.bank_account_id,
-                      mapped_status: 'System' as any,
-                      created_on: new Date(),
-                    } as any);
-                    await this.xeroBankAccountDetails.save(linkRecord);
+                      mapped_status: 'System',
+                    };
+                    if (existingMapping) {
+                      await this.xeroBankAccountDetails
+                        .createQueryBuilder()
+                        .update(XeroBankAccountDetails)
+                        .set(linkPayload)
+                        .where(
+                          'account_id = :account_id AND integration_id = :integration_id',
+                          {
+                            account_id: match.accountID,
+                            integration_id: xeroDetails.integration_id,
+                          },
+                        )
+                        .execute();
+                    } else {
+                      const linkRecord = this.xeroBankAccountDetails.create({
+                        ...linkPayload,
+                        created_on: new Date(),
+                      } as any);
+                      await this.xeroBankAccountDetails.save(linkRecord);
+                    }
                     accounts.push(match);
                     await this.xeroService.insertXeroSyncLogs(decoded, {
                       integration_id: xeroDetails.integration_id,
