@@ -2,7 +2,7 @@
 import BreadCrumbs from "@/components/BreadCrumbs";
 import XeroReauthBanner from "../XeroReauthBanner";
 import { AppRoutes } from "@/shared/constant/appRoutes";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DynamicTable from "@/components/Table";
 
@@ -100,8 +100,14 @@ export default function XeroDashboard() {
     useState(false);
   const [sortValues, setSortValues] = useState<any>("");
   const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
-  const [claimFilterInput, setClaimFilterInput] = useState<string>("");
   const [claimFilterId, setClaimFilterId] = useState<number | null>(null);
+  // Task #107 — single Claims-style Search box that replaces the old narrow
+  // numeric input. Numeric input routes to the claim-id filter endpoint;
+  // non-numeric input becomes a client-side substring filter on the loaded
+  // page rows (matched against sync_type, reference, message, system,
+  // project, process — see `_searchText` in the row mappers below).
+  const [syncSearchText, setSyncSearchText] = useState<string>("");
+  const [clearSyncSearch, setClearSyncSearch] = useState<boolean>(false);
   // Task #95 — Sync Log date filter mirrors the Account Ledger / Journals
   // pattern: a single `filterByDurationDates` SELECT (All dates / Custom /
   // Last month / This month) plus an `isCustomDate` flag that reveals two
@@ -554,6 +560,21 @@ export default function XeroDashboard() {
           : fullDescription;
       return {
         ...val,
+        // Task #107 — concat-lowercased searchable text so the Search box
+        // can substring-match against the visible columns even though the
+        // displayed `description` / `process` / `sync_status` get replaced
+        // with JSX below.
+        _searchText: [
+          val.sync_type,
+          val.reference,
+          fullDescription,
+          val.system,
+          val.project_name,
+          isXeroToPaytrade ? "Xero Pay Trade" : "Pay Trade Xero",
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase(),
         created_on: val.created_on ? formatDate(val.created_on) : "",
         description: fullDescription ? (
           <span title={fullDescription}>{truncatedDescription}</span>
@@ -663,8 +684,23 @@ export default function XeroDashboard() {
           fullDescription.length > 80
             ? `${fullDescription.slice(0, 80)}…`
             : fullDescription;
+        const refStr = isXeroToPaytrade
+          ? val.reference?.xeroId || ""
+          : val.reference?.paytradeId || "";
         return {
           ...val,
+          // Task #107 — see mapClaimSyncRows comment.
+          _searchText: [
+            val.sync_type,
+            refStr,
+            fullDescription,
+            val.system,
+            val.project_name,
+            isXeroToPaytrade ? "Xero Pay Trade" : "Pay Trade Xero",
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
           created_on: val.created_on ? formatDate(val.created_on) : "",
           description: fullDescription ? (
             <span title={fullDescription}>{truncatedDescription}</span>
@@ -691,9 +727,7 @@ export default function XeroDashboard() {
               )}
             </span>
           ),
-          reference: isXeroToPaytrade
-            ? val.reference?.xeroId || ""
-            : val.reference?.paytradeId || "",
+          reference: refStr,
           started: (
             <>
               <span>{createdDate}</span>
@@ -710,6 +744,50 @@ export default function XeroDashboard() {
     setTotalRows(logs.total_count);
     setTableLoader(false);
   }
+
+  // Task #107 — Single Search box semantics. Numeric input → claim-id
+  // filter endpoint (matches the prior "Apply" button behaviour).
+  // Non-numeric → client-side substring filter on the loaded page rows.
+  // Empty input clears both. Always resets to page 1.
+  function handleSyncLogSearch(rawValue: string) {
+    const v = (rawValue || "").trim();
+    setCurrentPage(1);
+    if (!v) {
+      if (claimFilterId != null) setClaimFilterId(null);
+      if (syncSearchText) setSyncSearchText("");
+      return;
+    }
+    if (/^\d+$/.test(v)) {
+      // Numeric → claim-id filter; clear text-search and disable
+      // recovered-only (mirrors the previous Apply button behaviour).
+      const n = parseInt(v, 10);
+      if (!Number.isFinite(n) || n <= 0) {
+        // Invalid numeric (e.g. "0") — treat as a clear so the user
+        // never gets "stuck" with a stale claim filter while typing.
+        if (claimFilterId != null) setClaimFilterId(null);
+        if (syncSearchText) setSyncSearchText("");
+        return;
+      }
+      setRecoveredOnly(false);
+      if (syncSearchText) setSyncSearchText("");
+      setClaimFilterId(n);
+    } else {
+      if (claimFilterId != null) setClaimFilterId(null);
+      setSyncSearchText(v);
+    }
+  }
+
+  // Task #107 — apply non-numeric Search box text as a client-side
+  // substring filter against the loaded sync-log rows. Numeric search
+  // and `recoveredOnly` flow through the existing server-side paths.
+  const displayedSyncTableData = useMemo(() => {
+    const rows: any[] = syncLogData?.tableData || [];
+    if (!syncSearchText) return rows;
+    const q = syncSearchText.toLowerCase();
+    return rows.filter((r: any) =>
+      typeof r?._searchText === "string" && r._searchText.includes(q),
+    );
+  }, [syncLogData?.tableData, syncSearchText]);
 
   function closeModal() {
     setTimeout(() => {
@@ -1036,18 +1114,19 @@ export default function XeroDashboard() {
           <div className="grid">
             <div className="pt_box">
               <h4>Sync Log</h4>
-              {/* Task #95 — counters + the auto-recovered toggle live on
-                  their own header row above the filter controls so the
-                  toolbar reads as two clean tiers (status summary first,
-                  filter controls second) instead of everything competing for
-                  space on a single wrapping row. */}
+              {/* Task #107 — Single inline header row: status counters,
+                  Refresh, Manual sync, the Filtered/Clear claim-id badge
+                  (when active) and the Show auto-recovered pill (right-
+                  aligned). Wraps cleanly on narrow viewports. The Search
+                  box and dropdowns live in the Claims-style filter row
+                  below this header. */}
               <div
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
                   gap: "16px",
-                  margin: "10px 0 4px 0",
+                  margin: "10px 0 8px 0",
                 }}
               >
                 <div
@@ -1095,6 +1174,70 @@ export default function XeroDashboard() {
                     {syncLogData?.failed}
                   </p>
                 </div>
+                <CustomButton
+                  buttonName="Refresh"
+                  iconClassName="fa-light fa-refresh"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() => {
+                    fetchXeroSyncLogs();
+                  }}
+                  styles={{ margin: 0 }}
+                />
+                <CustomButton
+                  buttonName="Manual sync"
+                  iconClassName="fa-light fa-rotate"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={() => setManualSyncOpen(true)}
+                  styles={{ margin: 0 }}
+                />
+                {claimFilterId != null && (
+                  <>
+                    <span
+                      style={{ ...syncLogPillStyle(true), cursor: "default" }}
+                      title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
+                    >
+                      Filtered: claim #{claimFilterId}
+                    </span>
+                    <CustomButton
+                      buttonName="Clear"
+                      iconClassName="fa-light fa-close"
+                      buttonType={buttonType.CONTRAST_SMALL}
+                      actionType="button"
+                      onClick={() => {
+                        setClaimFilterId(null);
+                        setCurrentPage(1);
+                        // Reset the Search box's internal value too —
+                        // toggle clearSyncSearch true→false on next tick.
+                        setClearSyncSearch(true);
+                        setTimeout(() => setClearSyncSearch(false), 0);
+                      }}
+                      styles={{ margin: 0 }}
+                    />
+                  </>
+                )}
+                {(selectedDateRange !== "All dates" ||
+                  isCustomDate ||
+                  syncTypeFilter ||
+                  statusFilter) && (
+                  <CustomButton
+                    buttonName="Clear filters"
+                    iconClassName="fa-light fa-close"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    onClick={() => {
+                      setSelectedDateRange("All dates");
+                      setIsCustomDate(false);
+                      setActivityStartDate(null);
+                      setActivityEndDate(null);
+                      setSyncTypeFilter("");
+                      setStatusFilter("");
+                      setCurrentPage(1);
+                    }}
+                    styles={{ margin: 0 }}
+                  />
+                )}
                 <div
                   style={{
                     marginLeft: "auto",
@@ -1132,208 +1275,113 @@ export default function XeroDashboard() {
                   </button>
                 </div>
               </div>
-              {/* Task #95 — Action row: refresh, manual sync, claim-id
-                  filter and clear-filters live above the dropdown row so
-                  the buttons aren't competing with the SELECT controls
-                  for vertical space. The dropdowns themselves use
-                  `pt_filtergroup` / `pt_filteroptions` (the system filter
-                  bar) and the FormikControl SELECT / DATE_PICKER inputs
-                  — identical to the Account Ledger / Journals pages. */}
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "8px",
-                  margin: "8px 0 4px 0",
-                }}
-              >
-                <CustomButton
-                  buttonName="Refresh"
-                  iconClassName="fa-light fa-refresh"
-                  buttonType={buttonType.CONTRAST_SMALL}
-                  actionType="button"
-                  onClick={() => {
-                    fetchXeroSyncLogs();
-                  }}
-                  styles={{ margin: 0 }}
-                />
-                <CustomButton
-                  buttonName="Manual sync"
-                  iconClassName="fa-light fa-rotate"
-                  buttonType={buttonType.CONTRAST_SMALL}
-                  actionType="button"
-                  onClick={() => setManualSyncOpen(true)}
-                  styles={{ margin: 0 }}
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Filter by claim id…"
-                  value={claimFilterInput}
-                  onChange={(e) =>
-                    setClaimFilterInput(e.target.value.replace(/[^0-9]/g, ""))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const n = parseInt(claimFilterInput, 10);
-                      if (!Number.isFinite(n) || n <= 0) {
-                        showErrorToast("Enter a numeric claim id");
-                        return;
-                      }
-                      setCurrentPage(1);
-                      setClaimFilterId(n);
-                    }
-                  }}
-                  style={{
-                    boxSizing: "border-box",
-                    height: "28px",
-                    lineHeight: "24px",
-                    padding: "0 8px",
-                    fontSize: "var(--step--1)",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    backgroundColor: "#fff",
-                    width: "150px",
-                    verticalAlign: "middle",
-                    margin: 0,
-                  }}
-                  title="Show only sync log entries for this claim and its payments"
-                />
-                <CustomButton
-                  buttonName={claimFilterId != null ? "Update" : "Apply"}
-                  iconClassName="fa-light fa-filter"
-                  buttonType={buttonType.CONTRAST_SMALL}
-                  actionType="button"
-                  onClick={() => {
-                    const n = parseInt(claimFilterInput, 10);
-                    if (!Number.isFinite(n) || n <= 0) {
-                      showErrorToast("Enter a numeric claim id");
-                      return;
-                    }
-                    setCurrentPage(1);
-                    setRecoveredOnly(false);
-                    setClaimFilterId(n);
-                  }}
-                  styles={{ margin: 0 }}
-                  disabled={!claimFilterInput.trim()}
-                />
-                {claimFilterId != null && (
-                  <>
-                    <CustomButton
-                      buttonName="Clear"
-                      iconClassName="fa-light fa-close"
-                      buttonType={buttonType.CONTRAST_SMALL}
-                      actionType="button"
-                      onClick={() => {
-                        setClaimFilterInput("");
-                        setClaimFilterId(null);
-                        setCurrentPage(1);
-                      }}
-                      styles={{ margin: 0 }}
-                    />
-                    <span
-                      style={{ ...syncLogPillStyle(true), cursor: "default" }}
-                      title="Showing Invoices/Bills/Payments sync log entries for this claim only (newest 50)."
-                    >
-                      Filtered: claim #{claimFilterId}
-                    </span>
-                  </>
-                )}
-                {(selectedDateRange !== "All dates" ||
-                  isCustomDate ||
-                  syncTypeFilter ||
-                  statusFilter) && (
-                  <CustomButton
-                    buttonName="Clear filters"
-                    iconClassName="fa-light fa-close"
-                    buttonType={buttonType.CONTRAST_SMALL}
-                    actionType="button"
-                    onClick={() => {
-                      setSelectedDateRange("All dates");
-                      setIsCustomDate(false);
-                      setActivityStartDate(null);
-                      setActivityEndDate(null);
-                      setSyncTypeFilter("");
-                      setStatusFilter("");
-                      setCurrentPage(1);
-                    }}
-                    styles={{ margin: 0, marginLeft: "auto" }}
-                  />
-                )}
-              </div>
-              {/* Task #95 — Standard system filter bar (mirrors
-                  TrustAccounting/LedgerList exactly): pt_filtergroup
-                  wrapper containing pt_filteroptions with FormikControl
-                  SELECT components for date range, sync type and
-                  status. Disabled while a claim-id filter is active to
-                  mirror the existing 'auto-recovered only' behaviour. */}
+              {/* Task #107 — Claims-style filter row: SEARCH input +
+                  three SELECT dropdowns at equal widths inside
+                  pt_filtergroup / pt_filteroptions, mirroring the
+                  PayApps Claims page. The dropdowns dim while a
+                  numeric claim-id filter is active (existing behaviour),
+                  but the Search box stays interactive so the user can
+                  refine or clear the filter from the same control. */}
               <div className="pt_filtergroup">
-                <div
-                  className="pt_filteroptions"
-                  style={{
-                    opacity: claimFilterId != null ? 0.5 : 1,
-                    pointerEvents: claimFilterId != null ? "none" : "auto",
-                  }}
-                >
-                  <FormikControl
-                    placeholder="All dates"
-                    name="syncLogDateRange"
-                    options={filterByDurationDates}
-                    onChange={(value: any) => {
-                      setCurrentPage(1);
-                      if (value === "Custom") {
-                        setIsCustomDate(true);
-                      } else {
-                        setIsCustomDate(false);
-                        setActivityStartDate(null);
-                        setActivityEndDate(null);
-                      }
-                      setSelectedDateRange(value);
+                <div className="pt_filteroptions">
+                  {/* Each control gets its own real wrapper so (a) the row
+                      reads as 4 equal-width columns via flex:1 instead of
+                      shrink-to-content widths, and (b) we can dim/disable
+                      the three dropdowns independently of the Search box
+                      while a numeric claim-id filter is active. */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <FormikControl
+                      control={InputType.SEARCH}
+                      onChange={(value: any) => handleSyncLogSearch(value)}
+                      placeholder="Search by claim id, reference, project…"
+                      clearSearch={clearSyncSearch}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      opacity: claimFilterId != null ? 0.5 : 1,
                     }}
-                    control={InputType.SELECT}
-                    value={selectedDateRange}
-                    renderKey="label"
-                    valueKey="value"
-                  />
-                  <FormikControl
-                    placeholder="All sync types"
-                    name="syncLogType"
-                    options={[
-                      { label: "All sync types", value: "" },
-                      ...SYNC_TYPE_OPTIONS.map((t) => ({
-                        label: t,
-                        value: t,
-                      })),
-                    ]}
-                    onChange={(value: any) => {
-                      setCurrentPage(1);
-                      setSyncTypeFilter(value || "");
+                  >
+                    <FormikControl
+                      placeholder="All dates"
+                      name="syncLogDateRange"
+                      options={filterByDurationDates}
+                      disabled={claimFilterId != null}
+                      onChange={(value: any) => {
+                        setCurrentPage(1);
+                        if (value === "Custom") {
+                          setIsCustomDate(true);
+                        } else {
+                          setIsCustomDate(false);
+                          setActivityStartDate(null);
+                          setActivityEndDate(null);
+                        }
+                        setSelectedDateRange(value);
+                      }}
+                      control={InputType.SELECT}
+                      value={selectedDateRange}
+                      renderKey="label"
+                      valueKey="value"
+                    />
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      opacity: claimFilterId != null ? 0.5 : 1,
                     }}
-                    control={InputType.SELECT}
-                    value={syncTypeFilter}
-                    renderKey="label"
-                    valueKey="value"
-                  />
-                  <FormikControl
-                    placeholder="All statuses"
-                    name="syncLogStatus"
-                    options={[
-                      { label: "All statuses", value: "" },
-                      ...STATUS_OPTIONS.map((s) => ({
-                        label: s,
-                        value: s,
-                      })),
-                    ]}
-                    onChange={(value: any) => {
-                      setCurrentPage(1);
-                      setStatusFilter(value || "");
+                  >
+                    <FormikControl
+                      placeholder="All sync types"
+                      name="syncLogType"
+                      options={[
+                        { label: "All sync types", value: "" },
+                        ...SYNC_TYPE_OPTIONS.map((t) => ({
+                          label: t,
+                          value: t,
+                        })),
+                      ]}
+                      disabled={claimFilterId != null}
+                      onChange={(value: any) => {
+                        setCurrentPage(1);
+                        setSyncTypeFilter(value || "");
+                      }}
+                      control={InputType.SELECT}
+                      value={syncTypeFilter}
+                      renderKey="label"
+                      valueKey="value"
+                    />
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      opacity: claimFilterId != null ? 0.5 : 1,
                     }}
-                    control={InputType.SELECT}
-                    value={statusFilter}
-                    renderKey="label"
-                    valueKey="value"
-                  />
+                  >
+                    <FormikControl
+                      placeholder="All statuses"
+                      name="syncLogStatus"
+                      options={[
+                        { label: "All statuses", value: "" },
+                        ...STATUS_OPTIONS.map((s) => ({
+                          label: s,
+                          value: s,
+                        })),
+                      ]}
+                      disabled={claimFilterId != null}
+                      onChange={(value: any) => {
+                        setCurrentPage(1);
+                        setStatusFilter(value || "");
+                      }}
+                      control={InputType.SELECT}
+                      value={statusFilter}
+                      renderKey="label"
+                      valueKey="value"
+                    />
+                  </div>
                 </div>
               </div>
               {isCustomDate && (
@@ -1408,7 +1456,7 @@ export default function XeroDashboard() {
               )}
               <DynamicTable
                 headers={xeroSyncListHeaders}
-                gridData={syncLogData?.tableData}
+                gridData={displayedSyncTableData}
                 gridActions={actions}
                 onRowClick={handleRowClick}
                 hoverOnRowClick
