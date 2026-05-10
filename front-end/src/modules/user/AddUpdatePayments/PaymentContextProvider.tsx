@@ -448,6 +448,8 @@ export const PaymentsProvider = ({ children }: any) => {
           : tabTypes.SUPPLIER,
       payment_date: values?.payment_date
         ? getDatePickerFormat(values?.payment_date)
+        : !paymentId && !isViewMode && ImportScreen !== "import"
+        ? getDatePickerFormat()
         : "",
 
       payment_amount: ImportId
