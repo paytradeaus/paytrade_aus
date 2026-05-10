@@ -1380,14 +1380,19 @@ export class NoticesService {
     }
   }
 
-  /**
-   * Task #97: per-company opt-out for delegated auto-send.
-   * Returns FALSE only when company_details.notices_auto_send === false
-   * (explicit opt-out). NULL / TRUE / unknown company → TRUE (legacy default).
-   * The flag is consulted at every inner auto-send gate so the user still gets
-   * the notice + mail file generated for manual sending — only the automatic
-   * mail dispatch is suppressed.
-   */
+  /** Best-effort human-readable payment name for activity-log tokens. */
+  private resolvePaymentName(noticeListWithData: unknown): string {
+    const n = (noticeListWithData ?? {}) as {
+      contract_name?: string;
+      project_name?: string;
+      account_name?: string;
+      clientName?: string;
+    };
+    return (
+      n.contract_name ?? n.project_name ?? n.account_name ?? n.clientName ?? ''
+    );
+  }
+
   private async getCompanyAutoSendSetting(
     companyId: number,
     manager?: EntityManager,
@@ -1602,25 +1607,7 @@ export class NoticesService {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
             noticeType: generateNoticePayload.notice_type,
-            paymentName:
-              ((noticeListWithData as unknown) as {
-
-                contract_name?: string;
-
-                project_name?: string;
-
-                account_name?: string;
-
-                clientName?: string;
-
-              })?.contract_name ??
-
-              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-              '',
+            paymentName: this.resolvePaymentName(noticeListWithData),
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -1769,25 +1756,7 @@ export class NoticesService {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
             noticeType: generateNoticePayload.notice_type,
-            paymentName:
-              ((noticeListWithData as unknown) as {
-
-                contract_name?: string;
-
-                project_name?: string;
-
-                account_name?: string;
-
-                clientName?: string;
-
-              })?.contract_name ??
-
-              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-              '',
+            paymentName: this.resolvePaymentName(noticeListWithData),
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -1924,25 +1893,7 @@ export class NoticesService {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
             noticeType: generateNoticePayload.notice_type,
-            paymentName:
-              ((noticeListWithData as unknown) as {
-
-                contract_name?: string;
-
-                project_name?: string;
-
-                account_name?: string;
-
-                clientName?: string;
-
-              })?.contract_name ??
-
-              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-              '',
+            paymentName: this.resolvePaymentName(noticeListWithData),
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -2082,25 +2033,7 @@ export class NoticesService {
             noticeLink,
             noticeSubject: generateNoticePayload.notice_type,
             noticeType: generateNoticePayload.notice_type,
-            paymentName:
-              ((noticeListWithData as unknown) as {
-
-                contract_name?: string;
-
-                project_name?: string;
-
-                account_name?: string;
-
-                clientName?: string;
-
-              })?.contract_name ??
-
-              ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-              ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-              ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-              '',
+            paymentName: this.resolvePaymentName(noticeListWithData),
             referenceId: noticeListWithData.contract_id,
             referenceLink: noticeListWithData.contract_link,
           },
@@ -2411,25 +2344,7 @@ export class NoticesService {
               noticeLink,
               noticeSubject: generateNoticePayload.notice_type,
               noticeType: generateNoticePayload.notice_type,
-              paymentName:
-                ((noticeListWithData as unknown) as {
-
-                  contract_name?: string;
-
-                  project_name?: string;
-
-                  account_name?: string;
-
-                  clientName?: string;
-
-                })?.contract_name ??
-
-                ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                '',
+              paymentName: this.resolvePaymentName(noticeListWithData),
               referenceId: noticeListWithData.payment_claim_id,
               referenceLink: noticeListWithData.payment_claim_link,
               toName: noticeListWithData.clientName,
@@ -3063,25 +2978,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3219,25 +3116,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3380,25 +3259,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3544,25 +3405,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -3687,25 +3530,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -3847,25 +3672,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
               },
@@ -4005,25 +3812,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.payment_id,
                 referenceLink: noticeListWithData.payment_link,
                 toName: noticeListWithData.clientName,
@@ -4323,25 +4112,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.bank_account_id,
                 referenceLink: noticeListWithData.bank_accoutn_link,
               },
@@ -4461,25 +4232,7 @@ export class NoticesService {
                 noticeLink,
                 noticeSubject: generateNoticePayload.notice_type,
                 noticeType: generateNoticePayload.notice_type,
-                paymentName:
-                  ((noticeListWithData as unknown) as {
-
-                    contract_name?: string;
-
-                    project_name?: string;
-
-                    account_name?: string;
-
-                    clientName?: string;
-
-                  })?.contract_name ??
-
-                  ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                  ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                  ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                  '',
+                paymentName: this.resolvePaymentName(noticeListWithData),
                 referenceId: noticeListWithData.bank_account_id,
                 referenceLink: noticeListWithData.bank_accoutn_link,
               },
@@ -4648,25 +4401,7 @@ export class NoticesService {
                       noticeLink,
                       noticeSubject: generateNoticePayload.notice_type,
                       noticeType: generateNoticePayload.notice_type,
-                      paymentName:
-                        ((noticeListWithData as unknown) as {
-
-                          contract_name?: string;
-
-                          project_name?: string;
-
-                          account_name?: string;
-
-                          clientName?: string;
-
-                        })?.contract_name ??
-
-                        ((noticeListWithData as unknown) as { project_name?: string })?.project_name ??
-
-                        ((noticeListWithData as unknown) as { account_name?: string })?.account_name ??
-
-                        ((noticeListWithData as unknown) as { clientName?: string })?.clientName ??
-                        '',
+                      paymentName: this.resolvePaymentName(noticeListWithData),
                       referenceId: noticeListWithData.bank_account_id,
                       referenceLink: noticeListWithData.bank_accoutn_link,
                     },

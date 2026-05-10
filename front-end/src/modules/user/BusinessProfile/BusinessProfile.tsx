@@ -92,6 +92,8 @@ export default function BusinessProfile({ isEditable }: any) {
   const [showNoticesInfo, setShowNoticesInfo] = useState(false);
   const [searchedBusiness, setSearchedBusiness] = useState<any>("");
   const [displayModal, setDisplayModal] = useState(false);
+  const [displaySubscriptionModal, setDisplaySubscriptionModal] =
+    useState<boolean>(false);
   const [showJoinBusinessError, setShowJoinBusinessError] = useState("");
   const [matchedCompanies, setMatchedCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState<any>("");
@@ -830,61 +832,33 @@ export default function BusinessProfile({ isEditable }: any) {
                     />
                   </div>
                 </div>
-                {/* Task #97 — per-company notices auto-send opt-out. When
-                    UNCHECKED, the auto-send pipeline still generates the
-                    notice + mail file but skips the automatic send so the
-                    user can manually review and dispatch. */}
                 <label>
                   <small>Notices auto-send</small>
                 </label>
                 <div style={{ marginBottom: "1rem", display: "block" }}>
-                  {(formik.values?.SubscriptionType ||
-                    formik.values?.planType ||
-                    "Basic") === "Basic" ? (
-                    <div
-                      style={{
-                        padding: 12,
-                        background: "#fff5f5",
-                        border: "1px solid #f5c6cb",
-                        borderRadius: 6,
-                        fontSize: 13,
-                      }}
-                    >
-                      <div>
-                        Auto-send is a paid-plan feature. Upgrade your
-                        subscription to enable automatic delivery of
-                        compliance notices on your behalf.
-                      </div>
-                      <button
-                        type="button"
-                        className="primary"
-                        style={{ marginTop: 8 }}
-                        onClick={() => {
-                          router.push(AppRoutes.USER_SUBSCRIPTION_UPGRADE);
-                        }}
-                      >
-                        Upgrade now
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ marginBottom: "0.5rem" }}>
-                      <FormikControl
-                        id={"notices_auto_send"}
-                        name={"notices_auto_send"}
-                        label={
-                          "Automatically send compliance notices on my behalf when my plan supports delegated sending. Untick to generate notices but require a manual send."
-                        }
-                        control={InputType.CHECKBOX}
-                        onChange={(e: any) =>
-                          formik.setFieldValue(
-                            "notices_auto_send",
-                            !!e?.target?.checked,
-                          )
-                        }
-                        value={formik.values.notices_auto_send !== false}
-                      />
-                    </div>
-                  )}
+                  <FormikControl
+                    id={"notices_auto_send"}
+                    name={"notices_auto_send"}
+                    label={
+                      "Automatically send compliance notices on my behalf. Untick to generate notices but require a manual send."
+                    }
+                    control={InputType.CHECKBOX}
+                    onChange={(e: any) => {
+                      const plan =
+                        formik.values?.SubscriptionType ||
+                        formik.values?.planType ||
+                        "Basic";
+                      if (plan === "Basic" && e?.target?.checked) {
+                        setDisplaySubscriptionModal(true);
+                        return;
+                      }
+                      formik.setFieldValue(
+                        "notices_auto_send",
+                        !!e?.target?.checked,
+                      );
+                    }}
+                    value={formik.values.notices_auto_send !== false}
+                  />
                 </div>
                 <br />
                 <br />
@@ -1009,6 +983,28 @@ export default function BusinessProfile({ isEditable }: any) {
           <h4 className="text_center">
             When notices are turned off, you will not receive any notifications
             regarding claims and payments.
+          </h4>
+        </BaseModal>
+      )}
+      {displaySubscriptionModal && (
+        <BaseModal
+          modalId="Upgrade required"
+          displayModal={displaySubscriptionModal}
+          onClose={() => setDisplaySubscriptionModal(false)}
+          onHeaderIconClose={() => setDisplaySubscriptionModal(false)}
+          onConfirm={() => {
+            setDisplaySubscriptionModal(false);
+            router.push(AppRoutes.USER_SUBSCRIPTION_UPGRADE);
+            return true;
+          }}
+          firstButtonName="Not now"
+          secondButtonName="Upgrade now"
+          title="Upgrade required"
+          restrictOncloseFunctionInHeader
+        >
+          <h4 className="text_center">
+            Auto-send is a paid-plan feature. Upgrade your subscription to
+            enable automatic delivery of compliance notices on your behalf.
           </h4>
         </BaseModal>
       )}
