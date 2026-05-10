@@ -1806,7 +1806,10 @@ export class NoticesService {
           noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          if (userMode && userMode == 'Normal' && companyAutoSend) {
+          // Task #97 — QBCC delegated lodgement is a regulatory channel and is
+          // intentionally NOT controlled by the per-company `notices_auto_send`
+          // opt-out (which only governs client-facing notice mails).
+          if (userMode && userMode == 'Normal') {
             this.logger.log(`[HANDLE_NOTICE] QBCC TA3 PTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,
@@ -1943,7 +1946,9 @@ export class NoticesService {
           noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
-          if (userMode && userMode == 'Normal' && companyAutoSend) {
+          // Task #97 — QBCC delegated lodgement is regulatory and not gated by
+          // the per-company `notices_auto_send` opt-out.
+          if (userMode && userMode == 'Normal') {
             this.logger.log(`[HANDLE_NOTICE] QBCC TA3 RTA: AUTO-SENDING admin QBCC mail (Paid-delegated + Normal mode)`);
             const adminMail = (await this.handleSentAdminMailQbccNotice(
               decoded,

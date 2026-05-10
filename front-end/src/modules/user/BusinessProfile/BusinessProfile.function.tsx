@@ -111,6 +111,47 @@ export const fetchTrustTrackingById = async (
   }
 };
 
+// Task #97 — dedicated lightweight mutation used by the Notices page
+// gear-icon dialog so we can persist only the auto-send flag without
+// resubmitting the full Business Profile payload.
+export async function updateNoticesAutoSend(
+  company_id: number,
+  notices_auto_send: boolean,
+) {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation UpdateNoticesAutoSend(
+          $company_id: Float!
+          $notices_auto_send: Boolean!
+        ) {
+          updateNoticesAutoSend(
+            company_id: $company_id
+            notices_auto_send: $notices_auto_send
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { company_id, notices_auto_send },
+    });
+    if (
+      response?.data?.updateNoticesAutoSend?.status === ApiResponse.SUCCESS
+    ) {
+      return true;
+    }
+    showErrorToast(
+      response?.data?.updateNoticesAutoSend?.message ||
+        ApiResponse.SOMETHING_WENT_WRONG,
+    );
+    return false;
+  } catch (error: any) {
+    showErrorToast(error?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return false;
+  }
+}
+
 export async function updateBusinessDetails(inputData: Object) {
   try {
     const response = await apolloClient.mutate({

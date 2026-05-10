@@ -1698,6 +1698,55 @@ export class SignupResolver {
     }
   }
 
+  // Task #97 — dedicated minimal mutation so the Notices page gear-icon
+  // dialog can persist the per-company auto-send opt-out without having to
+  // submit the full Business Profile payload (which has many required fields).
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'updateNoticesAutoSend',
+    description:
+      'Updates only the per-company `notices_auto_send` opt-out flag. Used by the Notices page gear-icon dialog (Task #97).',
+  })
+  async updateNoticesAutoSend(
+    @Context() context,
+    @Args('company_id') company_id: number,
+    @Args('notices_auto_send') notices_auto_send: boolean,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const roles = (decoded?.companySpecificRoles || []).filter(
+        (r: any) => r && r.companyId === company_id,
+      );
+      const role = roles?.[0];
+      const allowed =
+        role &&
+        !role.isSystemAdded &&
+        (role.role === 'PRIMARY ADMIN' ||
+          role.role === 'ADMIN' ||
+          (role.role === 'STANDARD USER' && role.manageCompany === 'Yes'));
+      if (!allowed) {
+        return framedResponse(
+          'ERROR',
+          'You do not have permission to change this setting.',
+        );
+      }
+      await this.signupService.updateNoticesAutoSendFlag(
+        company_id,
+        !!notices_auto_send,
+      );
+      return framedResponse('SUCCESS', 'Notices auto-send updated.');
+    } catch (e) {
+      this.logger.error(
+        `updateNoticesAutoSend failed: ${e?.message || e}`,
+      );
+      return framedResponse(
+        'ERROR',
+        'Could not update notices auto-send setting.',
+      );
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.BASIC_USER, Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => CompanySignupResponse, {

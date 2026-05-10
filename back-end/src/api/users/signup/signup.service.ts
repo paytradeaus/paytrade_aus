@@ -1073,6 +1073,19 @@ export class SignupService {
       .getRawOne();
   }
 
+  // Task #97 — dedicated lightweight setter for the Notices page gear-icon
+  // dialog so the modal can persist `notices_auto_send` without going through
+  // the full company-profile update path.
+  async updateNoticesAutoSendFlag(
+    company_id: number,
+    notices_auto_send: boolean,
+  ): Promise<void> {
+    await this.companyDetails.update(
+      { company_id },
+      { notices_auto_send } as any,
+    );
+  }
+
   async updateCompanyDetails(
     decoded: any,
     updateCompanySignupInput: UpdateCompanySignupInput,

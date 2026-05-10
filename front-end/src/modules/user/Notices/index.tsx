@@ -46,7 +46,7 @@ import { useLoaderContext } from "@/context/useLoader";
 import BaseModal from "@/components/BaseModal";
 import {
   fetchBusinessDetails,
-  updateBusinessDetails,
+  updateNoticesAutoSend,
 } from "../BusinessProfile/BusinessProfile.function";
 import { showSuccessToast } from "@/components/Toaster";
 
@@ -843,10 +843,16 @@ export default function NoticesList({ overViewDetails = {} }: any) {
             try {
               setNoticeSettingsSaving(true);
               setLoader(true);
-              await updateBusinessDetails({
-                company_id: noticeSettingsCompany?.company_id,
-                notices_auto_send: !!noticeSettingsAutoSend,
-              });
+              // Task #97 — use the dedicated lightweight mutation so we
+              // don't have to resubmit the full Business Profile payload
+              // (which has many required fields and would 400 here).
+              const ok = await updateNoticesAutoSend(
+                Number(noticeSettingsCompany?.company_id),
+                !!noticeSettingsAutoSend,
+              );
+              if (!ok) {
+                return false;
+              }
               showSuccessToast("Notices settings updated.");
               setNoticeSettingsOpen(false);
               // Task #97 — refresh notices list so any status changes from

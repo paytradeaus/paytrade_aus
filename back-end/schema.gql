@@ -15706,6 +15706,11 @@ type Mutation {
   ): updateNoticeMailResponse!
 
   """
+  Updates only the per-company `notices_auto_send` opt-out flag. Used by the Notices page gear-icon dialog (Task #97).
+  """
+  updateNoticesAutoSend(company_id: Float!, notices_auto_send: Boolean!): StringResponse!
+
+  """
   Updates the authenticated user's password. 
       Ensures password complexity rules are enforced. 
       Sends a confirmation email after successful update.
