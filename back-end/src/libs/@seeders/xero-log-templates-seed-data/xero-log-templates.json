@@ -5475,5 +5475,15 @@
     "from_xero": false,
     "error_code": "MANUAL_TWO_SIDED_DISPATCH_FAILED",
     "associated_log_ids": null
+  },
+  {
+    "id": 521,
+    "sync_type": "Payments",
+    "description": "<p>Retention bank transfer amount mismatch for invoice {{invoice_number}} — expected gross {{expected_gross}} (incl. GST where applicable), found BankTransfer {{bank_transfer_id}} for {{found_amount}} within the &plusmn;{{window_days}} day window. Likely the net was transferred instead of the gross. Review the BankTransfer in Xero, fix the amount, and re-sync.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "RETENTION_TRANSFER_AMOUNT_MISMATCH",
+    "associated_log_ids": null
   }
 ]

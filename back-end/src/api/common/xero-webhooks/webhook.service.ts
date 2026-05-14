@@ -9827,6 +9827,97 @@ export class XeroWebhookService {
         } else {
           this.logger.log('[Retention Flow Debug] NO retention transfers found (length == 0), returning error');
           this.logger.log('else::' + " " + JSON.stringify({ existingPayment, previousPartPayments }));
+
+          // Task #141 — gross-amount-aware diagnostic. Before falling
+          // through to the legacy "No retention transfer identified"
+          // error, see whether there *is* an in-window candidate from
+          // the same payment account whose amount mismatches the
+          // expected gross retention (per recording mode + invoice
+          // lineAmountTypes). Emits template 521 so users can see when
+          // a transfer was created in Xero with the wrong amount
+          // (e.g. net pushed instead of gross). Log-only — does not
+          // change the existing block-and-return-false behaviour.
+          try {
+            const expectedGrossDiag = this.computeExpectedGrossRetention(
+              Number(paymentClaimDetails?.retention_amount || retention_amount || 0),
+              invoice?.lineAmountTypes,
+              (xeroDetails as any)?.retention_recording_mode,
+            );
+            const paymentMs = payment?.date
+              ? new Date(payment.date as any).getTime()
+              : null;
+            const WIN_MS_141 = 7 * 24 * 60 * 60 * 1000;
+            const mismatchCandidate = (
+              bankTransferResponse?.body?.bankTransfers || []
+            ).find((t: any) => {
+              const fromAcc = t?.fromBankAccount?.accountID;
+              const toAcc = t?.toBankAccount?.accountID;
+              const accountTouches =
+                fromAcc === xeroBankAccountDetails.account_id ||
+                toAcc === xeroBankAccountDetails.account_id;
+              if (!accountTouches) return false;
+              if (!paymentMs || !t?.date) return false;
+              const tMs = new Date(t.date as any).getTime();
+              if (Number.isNaN(tMs)) return false;
+              if (Math.abs(tMs - paymentMs) > WIN_MS_141) return false;
+              const a = Math.abs(Number(t?.amount || 0));
+              return (
+                a > 0 && Math.abs(a - expectedGrossDiag) >= 0.01
+              );
+            });
+            if (mismatchCandidate && expectedGrossDiag > 0) {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id || null,
+                api_name: 'createClaimInPaytrade',
+                api_payload: {
+                  sync_run_type,
+                  invoice_id: invoice?.invoiceID,
+                  tenant_id,
+                  expected_gross: expectedGrossDiag,
+                  found_amount: Number(mismatchCandidate.amount || 0),
+                  found_bank_transfer_id: mismatchCandidate.bankTransferID,
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 521,
+                dynamic_values: {
+                  invoice_number:
+                    invoice?.invoiceNumber || invoice?.invoiceID,
+                  expected_gross: `$${expectedGrossDiag.toFixed(2)}`,
+                  found_amount: `$${Number(mismatchCandidate.amount || 0).toFixed(2)}`,
+                  bank_transfer_id: mismatchCandidate.bankTransferID,
+                  window_days: 7,
+                },
+                project_id: xeroProjectDetails?.id,
+                contract_id: xeroContractDetails?.id,
+                reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                reference_id: xeroInvoice?.id,
+                history: [
+                  `API triggered from invoice ${sync_run_type}`,
+                  'Retention transfer amount mismatch detected (gross-amount aware)',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                },
+                error_message: `Retention transfer amount mismatch — expected gross $${expectedGrossDiag.toFixed(2)}, found $${Number(mismatchCandidate.amount || 0).toFixed(2)} (BankTransfer ${mismatchCandidate.bankTransferID})`,
+                xero_records: [mismatchCandidate],
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            }
+          } catch (diagErr: any) {
+            this.logger.error(
+              `[Task#141 mismatch-diag] failed to write template 521 log: ${diagErr?.message || diagErr}`,
+            );
+          }
+
           // no retention transfers identified
           const debugInfo = `[DEBUG] Branch: retentionTransfers.length=0 (no matches at all). ${retentionDebugContext}`;
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -14635,6 +14726,31 @@ export class XeroWebhookService {
     return matched;
   }
 
+  /**
+   * Task #141 — single source of truth for the gross retention amount
+   * compared against Xero `BankTransfer` legs. Mirrors the producer rule
+   * in `getRetentionLineSpec()`: the stored `retention_amount` is always
+   * ex-GST in PT, and is grossed up (×1.1) only when the Xero invoice's
+   * `lineAmountTypes` is `Inclusive` AND the integration's
+   * `retention_recording_mode` is `inc_gst`. For Exclusive invoices, or
+   * when recording mode is `ex_gst`, the BankTransfer was pushed at the
+   * ex-GST figure so no gross-up is applied. Used by both the manual
+   * pre-flight (`manualXeroPreflight`) and the inbound webhook flow's
+   * amount-mismatch diagnostic so the two paths can never drift.
+   */
+  private computeExpectedGrossRetention(
+    retentionExGst: number,
+    lineAmountTypes: any,
+    recordingMode?: string | null,
+  ): number {
+    const amount = Number(retentionExGst) || 0;
+    const lat = String(lineAmountTypes || '').toLowerCase();
+    const isInc = lat === 'inclusive';
+    const gross =
+      isInc && recordingMode === 'inc_gst' ? amount * 1.1 : amount;
+    return Math.round(gross * 100) / 100;
+  }
+
   async manualXeroPreflight(
     decoded: any,
     input: {
@@ -15110,6 +15226,132 @@ export class XeroWebhookService {
                   : 'ok',
               detail: `Matched ${matched.length}, PT-only ${ptUnmatched.length} (confirmed: ${ptUnsyncedConfirmedLegs}), Xero-only ${xeroUnmatched.length}.`,
             });
+
+            // Task #141 — Retention BankTransfer presence check.
+            // For paid-with-retention claims, verify that a Xero
+            // BankTransfer exists with the *gross* retention amount
+            // (per `retention_recording_mode` + invoice `lineAmountTypes`)
+            // within ±7 days of any payment leg. Surface present /
+            // missing / amount-mismatch as a typed check so operators
+            // see the leg's status before re-syncing — without changing
+            // PT-side `is_retention_confirmed` flipping logic.
+            if (
+              ptSide?.cash_retention &&
+              Number(ptSide?.retention_amount) > 0
+            ) {
+              try {
+                const expectedGross = this.computeExpectedGrossRetention(
+                  Number(ptSide.retention_amount),
+                  xeroInvoice?.lineAmountTypes,
+                  (xeroDetails as any)?.retention_recording_mode,
+                );
+                const ptRetLeg =
+                  ptLegs.find((l) => l.cash_retention) || ptLegs[0] || null;
+                const refDate =
+                  ptRetLeg?.date ||
+                  xeroSide?.payments?.[0]?.date ||
+                  null;
+                const refMs = refDate
+                  ? new Date(refDate as any).getTime()
+                  : null;
+                const WIN_DAYS = 7;
+                const WIN_MS = WIN_DAYS * 24 * 60 * 60 * 1000;
+                const btResp =
+                  await this.xero.accountingApi.getBankTransfers(
+                    xeroDetails.tenant_id,
+                    new Date('1900-01-01T00:00:00.000+00:00'),
+                    null,
+                    'Date DESC',
+                  );
+                const allBts = btResp?.body?.bankTransfers || [];
+                const inWindow = refMs
+                  ? allBts.filter((t: any) => {
+                      if (!t?.date) return false;
+                      const tMs = new Date(t.date as any).getTime();
+                      if (Number.isNaN(tMs)) return false;
+                      return Math.abs(tMs - refMs) <= WIN_MS;
+                    })
+                  : allBts;
+                const ptRefForRoundTrip = ptRetLeg?.id
+                  ? `PT-RET-${ptRetLeg.id}`
+                  : null;
+                const refMatched = ptRefForRoundTrip
+                  ? inWindow.find(
+                      (t: any) =>
+                        (t?.reference || '').trim() === ptRefForRoundTrip,
+                    )
+                  : null;
+                const exact = inWindow.filter(
+                  (t: any) =>
+                    Math.abs(
+                      Math.abs(Number(t?.amount || 0)) - expectedGross,
+                    ) < 0.01,
+                );
+                const winner = refMatched || exact[0] || null;
+                if (winner) {
+                  const wAmt = Number(winner.amount || 0);
+                  const wDate = winner.date
+                    ? moment(winner.date as any).format('DD/MM/YYYY')
+                    : '';
+                  checks.push({
+                    label: `Retention transfer present (BankTransfer ${winner.bankTransferID}, $${wAmt.toFixed(2)} on ${wDate})`,
+                    status: 'ok',
+                    detail: `Matched expected gross retention $${expectedGross.toFixed(2)} against Xero BankTransfer ${winner.bankTransferID}${refMatched ? ' via PT-RET reference' : ' on amount + ±7-day window'}.`,
+                  });
+                  xeroSide.retentionTransfer = {
+                    bank_transfer_id: winner.bankTransferID,
+                    amount: wAmt,
+                    date: winner.date,
+                    matched_by: refMatched ? 'reference' : 'amount',
+                    expected_gross: expectedGross,
+                  };
+                } else {
+                  // Look for an in-window candidate with a different
+                  // amount — likely someone pushed the net instead of
+                  // the gross. Surface it as an explicit mismatch
+                  // rather than letting it disappear behind a generic
+                  // "missing" warning.
+                  const mismatchCandidate = inWindow.find((t: any) => {
+                    const a = Math.abs(Number(t?.amount || 0));
+                    return a > 0 && Math.abs(a - expectedGross) >= 0.01;
+                  });
+                  if (mismatchCandidate) {
+                    const fAmt = Number(mismatchCandidate.amount || 0);
+                    checks.push({
+                      label: 'Retention transfer amount mismatch',
+                      status: 'warn',
+                      detail: `Expected gross $${expectedGross.toFixed(2)} (incl. GST where applicable), found BankTransfer ${mismatchCandidate.bankTransferID} for $${fAmt.toFixed(2)} in the ±${WIN_DAYS}-day window. Likely the net was transferred instead of the gross — review before syncing.`,
+                    });
+                    xeroSide.retentionTransferMismatch = {
+                      expected_gross: expectedGross,
+                      found_bank_transfer_id:
+                        mismatchCandidate.bankTransferID,
+                      found_amount: fAmt,
+                      window_days: WIN_DAYS,
+                    };
+                  } else {
+                    checks.push({
+                      label: 'Retention transfer leg missing',
+                      status: 'warn',
+                      detail: `No BankTransfer found in Xero matching the expected gross retention of $${expectedGross.toFixed(2)} within ±${WIN_DAYS} days. is_retention_confirmed will remain unticked on PayTrade until the transfer exists in Xero.`,
+                    });
+                    xeroSide.retentionTransferMissing = {
+                      expected_gross: expectedGross,
+                      window_days: WIN_DAYS,
+                    };
+                  }
+                }
+              } catch (e: any) {
+                // Non-fatal — surface the lookup failure as a warn so
+                // the operator knows the retention check didn't run,
+                // without blocking the rest of the pre-flight.
+                checks.push({
+                  label: 'Retention transfer check',
+                  status: 'warn',
+                  detail: `Could not query Xero BankTransfers: ${e?.message || String(e)}`,
+                });
+              }
+            }
           }
         }
 
