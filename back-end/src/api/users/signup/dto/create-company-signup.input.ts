@@ -42,7 +42,7 @@ export class CreateCompanySignupInput {
 
   @Field({
     description:
-      'Type of business entity (e.g., Business, Sole Trader, Personal).',
+      'Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: EntityType;
 
@@ -193,7 +193,7 @@ export class CreateSystemCompanySignupInput {
 
   @Field({
     description:
-      'Type of business entity (e.g., Business, Sole Trader, Personal).',
+      'Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: EntityType;
 

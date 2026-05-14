@@ -53,7 +53,7 @@ export class ViewClientSuppliersRes {
 
   @Field({
     nullable: true,
-    description: 'Type of business entity (Business, Sole Trader, Personal).',
+    description: 'Type of business entity (Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: EntityType;
 
@@ -241,7 +241,7 @@ export class ViewClientSuppliers {
 
   @Field({
     nullable: true,
-    description: 'Type of business entity (Business, Sole Trader, Personal).',
+    description: 'Type of business entity (Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: EntityType;
 

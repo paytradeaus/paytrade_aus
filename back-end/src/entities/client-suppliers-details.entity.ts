@@ -22,7 +22,11 @@ import { XeroIntegrationDetails } from './xero-integration-details.entity';
 export type ClientSupplierType = 'Client' | 'Supplier';
 export type ClientSupplierStatus = 'Draft' | 'Completed';
 export type RelatedEntity = 'Yes' | 'No';
-export type EntityType = 'Business' | 'Sole Trader' | 'Personal';
+export type EntityType =
+  | 'Business'
+  | 'Sole Trader'
+  | 'Personal'
+  | 'Partnership';
 
 @Entity()
 export class ClientSuppliersDetails {
@@ -68,7 +72,7 @@ export class ClientSuppliersDetails {
 
   @Column({
     type: 'enum',
-    enum: ['Business', 'Sole Trader', 'Personal'],
+    enum: ['Business', 'Sole Trader', 'Personal', 'Partnership'],
     nullable: true,
   })
   entity_type: EntityType;

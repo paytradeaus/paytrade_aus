@@ -129,7 +129,7 @@ export class CreateClientSuppliersDetailInput {
   related_entity: RelatedEntity;
 
   @Field({
-    description: 'Type of business entity (Business, Sole Trader, Personal).',
+    description: 'Type of business entity (Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: EntityType;
 

@@ -35,7 +35,11 @@ import { ActivityLogNew } from './activity-log-new.entity';
 import { XeroIntegrationDetails } from './xero-integration-details.entity';
 import { IntegrationDetails } from './integration-details.entity';
 import { CompanyCouponDetails } from './company-coupon-details.entity';
-export type EntityType = 'Business' | 'Sole Trader' | 'Personal';
+export type EntityType =
+  | 'Business'
+  | 'Sole Trader'
+  | 'Personal'
+  | 'Partnership';
 
 export const CompanyEmailPreferences = ['compliance', 'notices'];
 
@@ -65,7 +69,7 @@ export class CompanyDetails {
 
   @Column({
     type: 'enum',
-    enum: ['Business', 'Sole Trader', 'Personal'],
+    enum: ['Business', 'Sole Trader', 'Personal', 'Partnership'],
   })
   entity_type: EntityType;
 

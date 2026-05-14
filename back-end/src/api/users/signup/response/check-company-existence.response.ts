@@ -23,7 +23,7 @@ export class CheckCompanyExistenceRes {
 
   @Field({
     description:
-      'Type of business entity (e.g., Business, Sole Trader, Personal).',
+      'Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).',
   })
   entity_type: string;
 

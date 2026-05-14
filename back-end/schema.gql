@@ -1904,7 +1904,9 @@ type CheckCompanyExistenceRes {
   """Country where the business is located."""
   country: String!
 
-  """Type of business entity (e.g., Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String!
 
   """Filename or identifier of the attached file."""
@@ -2469,7 +2471,9 @@ type CompanySignupRes {
   """Email preference settings for the business."""
   email_preferences: JSONObject
 
-  """Type of business entity (e.g., Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String!
 
   """Expiry date of the subscription plan, if applicable."""
@@ -2586,7 +2590,9 @@ type CompanyWithLogoRes {
   """Number of times an invitation or request was declined by the user."""
   decline_count: Float
 
-  """Type of business entity (e.g., Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String
 
   """Expiry date of the subscription plan, if applicable."""
@@ -3024,7 +3030,9 @@ input CreateClientSuppliersDetailInput {
   """Timestamp when the client/supplier record was created."""
   created_on: DateTime
 
-  """Type of business entity (Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String!
 
   """Latitude coordinate of the client/supplier location."""
@@ -3122,7 +3130,9 @@ input CreateCompanySignupInput {
   """User email associated with the business creation request."""
   email_id: String
 
-  """Type of business entity (e.g., Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String!
 
   """Indicates whether the business has been verified."""
@@ -20621,7 +20631,9 @@ input UpdateClientSuppliersDetailInput {
   """Timestamp when the client/supplier record was created."""
   created_on: DateTime
 
-  """Type of business entity (Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String
 
   """Unique identifier of the client or supplier to be updated."""
@@ -20811,7 +20823,9 @@ input UpdateCompanySignupInput {
   """
   email_preferences: JSONObject
 
-  """Type of business entity (e.g., Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (e.g., Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String!
 
   """
@@ -22125,7 +22139,9 @@ type ViewClientSuppliers {
   """Timestamp when the record was created."""
   created_on: DateTime
 
-  """Type of business entity (Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String
 
   """Unique internal identifier for this record."""
@@ -22245,7 +22261,9 @@ type ViewClientSuppliersRes {
   """Timestamp when this record was created."""
   created_on: DateTime
 
-  """Type of business entity (Business, Sole Trader, Personal)."""
+  """
+  Type of business entity (Business, Sole Trader, Personal, Partnership).
+  """
   entity_type: String
 
   """Unique internal identifier for this record."""

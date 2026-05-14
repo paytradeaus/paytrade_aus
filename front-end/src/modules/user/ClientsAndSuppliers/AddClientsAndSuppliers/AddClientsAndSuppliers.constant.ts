@@ -11,6 +11,10 @@ const entityType = [
     label: "Personal",
     value: "Personal",
   },
+  {
+    label: "Partnership",
+    value: "Partnership",
+  },
 ];
 const relatedEntityTypeOptions = [
   { value: "Yes", label: "Yes" },
