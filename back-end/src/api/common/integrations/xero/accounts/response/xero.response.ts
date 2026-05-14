@@ -1,4 +1,4 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { ObjectType, Field, Int } from '@nestjs/graphql';
 import { MappedStatuses } from 'src/libs/@paytrade-types/paytrade-types';
 
 @ObjectType({ description: 'Represents a single Xero account record' })
@@ -166,4 +166,48 @@ export class GetPaytradeAccountsResponse {
 
   @Field({ nullable: true, description: 'Single Paytrade account payload' })
   data?: GetPaytradeAccounts;
+}
+
+@ObjectType({
+  description: 'Per-account error detail for batch bank account creation',
+})
+export class BatchCreateAccountsError {
+  @Field({ nullable: true, description: 'Xero account identifier that failed' })
+  account_id?: string;
+
+  @Field({ nullable: true, description: 'Xero account name (for display)' })
+  account_name?: string;
+
+  @Field({ description: 'Human-readable reason the account was not created' })
+  reason: string;
+}
+
+@ObjectType({ description: 'Batch create bank accounts result counts' })
+export class BatchCreateAccountsData {
+  @Field(() => Int, { description: 'Number of bank accounts successfully created' })
+  created: number;
+
+  @Field(() => Int, { description: 'Number of bank accounts skipped (already mapped or missing required fields)' })
+  skipped: number;
+
+  @Field(() => Int, { description: 'Number of bank accounts that failed to create' })
+  failed: number;
+
+  @Field(() => [BatchCreateAccountsError], {
+    nullable: true,
+    description: 'Per-account error detail for skipped/failed rows',
+  })
+  errors?: BatchCreateAccountsError[];
+}
+
+@ObjectType({ description: 'Response wrapper for batch bank account creation' })
+export class BatchCreateAccountsResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field(() => BatchCreateAccountsData, { nullable: true, description: 'Batch creation result counts' })
+  data?: BatchCreateAccountsData;
 }

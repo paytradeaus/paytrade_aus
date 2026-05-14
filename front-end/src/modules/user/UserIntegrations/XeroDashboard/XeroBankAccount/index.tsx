@@ -11,10 +11,12 @@ import CustomButton from "@/components/CustomButton/CustomButton";
 import BaseModal from "@/components/BaseModal";
 import {
   autoMappingBankAccounts,
+  BatchCreateAccountsInPaytrade,
   CreateBankAccountsInPaytrade,
   CreateBankAccountsInXero,
   getMappedBankAccountsLists,
   GetPaytradeBankAccountsListsForCompany,
+  GetUnmappedActiveXeroAccountsCount,
   getXeroBankAccountsListsForCompany,
   getXeroDetailsForCompany,
   manualMappingBankAccounts,
@@ -77,6 +79,12 @@ export default function XeroBankAccount() {
   const [showManualMapping, setShowManualMapping] = useState(false);
   const [manualMapData, setManualMapData] = useState<any>("");
   const [manualMapOptions, setManualMapOptions] = useState([]);
+
+  // Task #122 — track count of unmapped active Xero bank accounts so we
+  // can show the count in the "Create All in PayTrade" confirmation and
+  // disable the button when there's nothing to import.
+  const [unmappedXeroAccountsCount, setUnmappedXeroAccountsCount] =
+    useState<number>(0);
 
   const paytradeBankAccountsActions = [
     {
@@ -180,7 +188,16 @@ export default function XeroBankAccount() {
 
   useEffect(() => {
     fetchGetXeroDetailsForCompany();
+    refreshUnmappedXeroAccountsCount();
   }, []);
+
+  // Task #122 — Keep the bulk-button count fresh whenever the Xero tab
+  // table reloads (after sync, manual map, per-row create, etc.).
+  useEffect(() => {
+    if (tabStatus === "Xero bank accounts") {
+      refreshUnmappedXeroAccountsCount();
+    }
+  }, [tabStatus, gridData]);
 
   const fetchGetXeroDetailsForCompany = () => {
     setTableLoader(true);
@@ -448,6 +465,48 @@ export default function XeroBankAccount() {
     setTotalRows(totalCount);
   };
 
+  // Task #122 — Bulk-create every unmapped active Xero bank account in
+  // PayTrade in one click, then refresh the table so newly-mapped rows
+  // flip to "Mapped". Surfaces a per-row error breakdown modal when
+  // the batch reports skipped/failed accounts.
+  const handleBatchCreateInPaytrade = async () => {
+    setTableLoader(true);
+    const batchResult = await BatchCreateAccountsInPaytrade({
+      companyId: +(localStorage.getItem("companyId") || 0),
+    });
+    const { contacts, totalCount } = await fetchXeroBankAccounts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+    refreshUnmappedXeroAccountsCount();
+
+    if (batchResult?.errors && batchResult.errors.length > 0) {
+      setBatchErrors(batchResult.errors);
+    }
+  };
+
+  // Task #122 — Per-row error breakdown shown in a follow-up modal
+  // after the batch completes (so users can see *which* accounts
+  // failed and why, not just an aggregate count).
+  const [batchErrors, setBatchErrors] = useState<
+    { account_id?: string; account_name?: string; reason: string }[]
+  >([]);
+
+  // Task #122 — Fetch how many active Xero bank accounts are still
+  // unmapped so the bulk button can show a count and disable when
+  // zero. Uses the dedicated backend count endpoint that mirrors the
+  // batch eligibility filter (active + unmapped) exactly.
+  const refreshUnmappedXeroAccountsCount = async () => {
+    const count = await GetUnmappedActiveXeroAccountsCount({
+      companyId: +(localStorage.getItem("companyId") || 0),
+    });
+    setUnmappedXeroAccountsCount(count);
+  };
+
   const modelClose = () => {
     if (modelConfig.id === "Sync_xero_bankAccounts?") {
       syncXeroBankAccounts();
@@ -459,6 +518,8 @@ export default function XeroBankAccount() {
       handleCreateInXero();
     } else if (modelConfig.id === "Create_in_paytrade?") {
       handleCreateInPaytrade();
+    } else if (modelConfig.id === "Batch_create_in_paytrade?") {
+      handleBatchCreateInPaytrade();
     }
   };
 
@@ -723,6 +784,47 @@ export default function XeroBankAccount() {
                 }
                 styles={{ margin: "0 10px 10px 10px" }}
               />
+              {xeroData?.status === "ACTIVE" && (
+                <span
+                  title={
+                    unmappedXeroAccountsCount === 0
+                      ? "No unmapped active Xero bank accounts to import."
+                      : ""
+                  }
+                >
+                  <CustomButton
+                    buttonName="CREATE ALL IN PAYTRADE"
+                    iconClassName="fa-light fa-plus-circle"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    disabled={unmappedXeroAccountsCount === 0}
+                    onClick={() =>
+                      setModelConfig({
+                        show: true,
+                        title: "Create All in PayTrade",
+                        secondButtonName: "Create All",
+                        firstButtonName: "Cancel",
+                        description: (
+                          <>
+                            Create <b>{unmappedXeroAccountsCount}</b> unmapped
+                            Xero bank account
+                            {unmappedXeroAccountsCount === 1 ? "" : "s"} in
+                            PayTrade?
+                            <br />
+                            <br />
+                            Each new account will be created as a default
+                            <b> Cash Account</b>. You can change the account
+                            type afterwards in PayTrade&apos;s bank account
+                            settings.
+                          </>
+                        ),
+                        id: "Batch_create_in_paytrade?",
+                      })
+                    }
+                    styles={{ margin: "0 10px 10px 10px" }}
+                  />
+                </span>
+              )}
               {/* <CustomButton
                 buttonName="RESET"
                 iconClassName="fa-light fa-undo"
@@ -793,6 +895,77 @@ export default function XeroBankAccount() {
           }}
         >
           <p className="text_center">{modelConfig.description}</p>
+        </BaseModal>
+      )}
+      {batchErrors.length > 0 && (
+        <BaseModal
+          modalId="batchCreateAccountsErrors"
+          displayModal={batchErrors.length > 0}
+          onClose={() => setBatchErrors([])}
+          secondButtonName="Close"
+          firstButtonName=""
+          onConfirm={() => {
+            setBatchErrors([]);
+            return true;
+          }}
+          title="Some Xero bank accounts were not created"
+        >
+          <p className="text_center">
+            The following Xero bank account
+            {batchErrors.length === 1 ? " was" : "s were"} skipped or failed.
+            You can fix the issue in Xero (or in PayTrade) and re-run
+            <b> CREATE ALL IN PAYTRADE</b>.
+          </p>
+          <br />
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    Account
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    Reason
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchErrors.map((e, i) => (
+                  <tr key={`${e.account_id || i}`}>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        borderBottom: "1px solid #eee",
+                        verticalAlign: "top",
+                      }}
+                    >
+                      {e.account_name || e.account_id || "(unknown)"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      {e.reason}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </BaseModal>
       )}
       {showManualMapping && (

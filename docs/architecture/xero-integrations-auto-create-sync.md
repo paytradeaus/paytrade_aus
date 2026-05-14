@@ -1,6 +1,6 @@
 # Xero Integrations (Auto-Creation & Sync)
 
-- **Bank Account Auto-Create**: Two-way synchronization between PayTrade and Xero for bank accounts, with hourly schedulers and manual sync options.
+- **Bank Account Auto-Create**: Two-way synchronization between PayTrade and Xero for bank accounts, with hourly schedulers and manual sync options. Supports a one-click **CREATE ALL IN PAYTRADE** bulk action on the Xero Bank Accounts tab (Task #122) that mirrors the contacts equivalent: iterates every unmapped active Xero bank account, calls the existing `insertAccountDetailsInPaytrade` service path with a default **Cash Account** payload, and returns `{ created, skipped, failed }` counts. Each per-account create is wrapped in its own try/catch so one bad account doesn't abort the batch.
 - **Contact Auto-Create**: Two-way synchronization for contacts, supporting individual and batch creation with type determination (Client/Supplier) from Xero data.
 - **Smart Contract Auto-Creation**: Automatically creates contracts from Xero claims (invoices/bills) based on predefined logic and defaults when no existing contract matches. Validation consolidates all missing fields (Address, Email, bank details, PTA/RTA accounts) into a single error message.
 - **Project & Contract Auto-Create**: Two-way synchronization for projects and contracts, mapping them to Xero tracking categories, with individual and batch creation options.

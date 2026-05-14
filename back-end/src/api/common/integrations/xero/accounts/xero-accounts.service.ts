@@ -2729,4 +2729,130 @@ export class XeroAccountsService {
       `Bank account ${accountDetails.account_name} has been activated`,
     );
   }
+
+  /**
+   * Task #122 — Bulk-create every unmapped active Xero bank account in
+   * PayTrade. Mirrors the contacts equivalent: iterate the unmapped
+   * `xero_bank_account_details` rows for the company's active Xero
+   * integration, build a default-`Cash Account` payload from the Xero
+   * record, and reuse the existing `insertAccountDetailsInPaytrade`
+   * service path so account-type defaults, validation, Xero-side
+   * `updateAccount` mapping and sync logging stay identical to the
+   * per-row "Create in PayTrade" action. Each per-account create is
+   * wrapped in its own try/catch so one bad account doesn't abort the
+   * batch.
+   *
+   * Task #122 — Returns the number of Xero bank account rows for the
+   * company that the bulk batch will actually try to create. Kept as a
+   * single source of truth so the front-end count, the disabled-button
+   * state, and the batch loop never disagree.
+   */
+  async countUnmappedActiveXeroAccounts(companyId: number): Promise<number> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: companyId, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) {
+      return 0;
+    }
+    return this.xeroBankAccountDetails.count({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        pt_bank_account_id: null as any,
+        account_status: 'ACTIVE',
+      },
+    });
+  }
+
+  async batchCreateAccountsInPaytrade(decoded: any, companyId: number) {
+    const result: {
+      created: number;
+      skipped: number;
+      failed: number;
+      errors: { account_id?: string; account_name?: string; reason: string }[];
+    } = { created: 0, skipped: 0, failed: 0, errors: [] };
+    try {
+      const xeroDetails = await this.xeroIntegrationDetails.findOne({
+        where: { company_id: companyId, status: 'ACTIVE' },
+      });
+      if (!xeroDetails) {
+        throw new Error('No active Xero integration found');
+      }
+
+      const unmappedAccounts = await this.xeroBankAccountDetails.find({
+        where: {
+          integration_id: xeroDetails.integration_id,
+          pt_bank_account_id: null as any,
+          account_status: 'ACTIVE',
+        },
+      });
+
+      for (const xeroAccount of unmappedAccounts) {
+        try {
+          const acctNumStr = (xeroAccount.account_number || '').toString();
+          const bsbNum =
+            xeroAccount.bsb_number != null
+              ? Number(xeroAccount.bsb_number)
+              : null;
+
+          const payload: any = {
+            company_id: companyId,
+            account_name: xeroAccount.account_name,
+            account_type: 'Cash Account',
+            account_number: acctNumStr,
+            bsb_number: bsbNum,
+            financial_institution: xeroAccount.account_name || 'Unknown',
+            opening_date: new Date(),
+            delegate_powers: 'No',
+            status: 'Open',
+            project_ids: [],
+          };
+
+          const response = await this.insertAccountDetailsInPaytrade(decoded, {
+            company_id: companyId,
+            account_id: xeroAccount.account_id,
+            sync_id: null,
+            payload,
+          });
+
+          if (response && response.id) {
+            result.created++;
+          } else {
+            result.skipped++;
+            result.errors.push({
+              account_id: xeroAccount.account_id,
+              account_name: xeroAccount.account_name,
+              reason:
+                'Skipped — missing required fields (e.g. BSB or account number) or subscription cap reached. See Xero sync logs for details.',
+            });
+          }
+        } catch (err) {
+          const msg =
+            typeof err === 'string'
+              ? err
+              : err?.message || JSON.stringify(err);
+          if (
+            msg &&
+            msg.toLowerCase().includes('mapped to some other bank account')
+          ) {
+            result.skipped++;
+          } else {
+            result.failed++;
+          }
+          result.errors.push({
+            account_id: xeroAccount.account_id,
+            account_name: xeroAccount.account_name,
+            reason: msg || 'Unknown error',
+          });
+          this.logger.warn(
+            `Batch create in PayTrade failed for Xero bank account ${xeroAccount.account_id}: ${msg}`,
+          );
+        }
+      }
+
+      return result;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
 }

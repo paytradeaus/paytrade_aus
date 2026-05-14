@@ -1579,6 +1579,47 @@ type BankProjectDetail {
   project_name: String!
 }
 
+"""Batch create bank accounts result counts"""
+type BatchCreateAccountsData {
+  """Number of bank accounts successfully created"""
+  created: Int!
+
+  """Per-account error detail for skipped/failed rows"""
+  errors: [BatchCreateAccountsError!]
+
+  """Number of bank accounts that failed to create"""
+  failed: Int!
+
+  """
+  Number of bank accounts skipped (already mapped or missing required fields)
+  """
+  skipped: Int!
+}
+
+"""Per-account error detail for batch bank account creation"""
+type BatchCreateAccountsError {
+  """Xero account identifier that failed"""
+  account_id: String
+
+  """Xero account name (for display)"""
+  account_name: String
+
+  """Human-readable reason the account was not created"""
+  reason: String!
+}
+
+"""Response wrapper for batch bank account creation"""
+type BatchCreateAccountsResponse {
+  """Batch creation result counts"""
+  data: BatchCreateAccountsData
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
 """Batch create contacts result counts"""
 type BatchCreateContactsData {
   """Number of contacts successfully created"""
@@ -14110,6 +14151,14 @@ type Mutation {
   backfillContactGstFromXero: StringResponse!
 
   """
+  Creates all unmapped active Xero bank accounts in PayTrade for the specified company.
+  """
+  batchCreateAccountsInPaytrade(
+    """ID of the company to create bank accounts for."""
+    company_id: Float!
+  ): BatchCreateAccountsResponse!
+
+  """
   Creates all unmapped Xero contacts in PayTrade for the specified company.
   """
   batchCreateContactsInPaytrade(
@@ -18516,6 +18565,14 @@ type Query {
     """ID of the company to fetch trust training records for"""
     companyId: Float!
   ): GetFileDetailsResponse!
+
+  """
+  Returns the count of unmapped active Xero bank accounts eligible for bulk-create in PayTrade.
+  """
+  getUnmappedActiveXeroAccountsCount(
+    """ID of the company to count for."""
+    company_id: Float!
+  ): StringResponse!
 
   """
   Retrieves detailed user information by email address for a specific company.

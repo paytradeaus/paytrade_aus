@@ -11,6 +11,7 @@ import {
   YetToMapAccountsInput,
 } from './dto/xero.input';
 import {
+  BatchCreateAccountsResponse,
   GetPaytradeAccountsListResponse,
   GetPaytradeAccountsResponse,
   GetXeroAccountsListResponse,
@@ -327,6 +328,73 @@ export class XeroAccountsResolver {
       return framedResponse(
         'ERROR',
         'Unable to create bank account in paytrade',
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  // Task #122 — Returns the count the bulk action will actually try to
+  // create. Frontend uses this so the confirm-dialog count and the
+  // disabled-button state always match the batch eligibility.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'getUnmappedActiveXeroAccountsCount',
+    description:
+      'Returns the count of unmapped active Xero bank accounts eligible for bulk-create in PayTrade.',
+  })
+  async getUnmappedActiveXeroAccountsCount(
+    @Args('company_id', {
+      description: 'ID of the company to count for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      const count =
+        await this.xeroAccountsService.countUnmappedActiveXeroAccounts(
+          company_id,
+        );
+      return framedResponse('SUCCESS', 'Count fetched', String(count));
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  // Task #122 — Bulk-create all unmapped active Xero bank accounts in
+  // PayTrade in a single request. Mirrors `batchCreateContactsInPaytrade`.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => BatchCreateAccountsResponse, {
+    name: 'batchCreateAccountsInPaytrade',
+    description:
+      'Creates all unmapped active Xero bank accounts in PayTrade for the specified company.',
+  })
+  async batchCreateAccountsInPaytrade(
+    @Context() context,
+    @Args('company_id', {
+      description: 'ID of the company to create bank accounts for.',
+    })
+    company_id: number,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for batch creating bank accounts in PayTrade for company: ${company_id}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result =
+        await this.xeroAccountsService.batchCreateAccountsInPaytrade(
+          decoded,
+          company_id,
+        );
+      this.logger.log(
+        `Batch create bank accounts in PayTrade completed: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`,
+      );
+      return framedResponse(
+        'SUCCESS',
+        `Created ${result.created} bank accounts in PayTrade (${result.skipped} skipped, ${result.failed} failed)`,
+        result,
       );
     } catch (error) {
       return framedResponse('ERROR', error?.message ? error.message : error);

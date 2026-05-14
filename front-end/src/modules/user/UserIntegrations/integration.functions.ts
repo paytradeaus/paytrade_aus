@@ -1148,6 +1148,85 @@ export async function BatchCreateContactsInPaytrade(
   }
 }
 
+// Task #122 — Bulk-create all unmapped active Xero bank accounts in
+// PayTrade. Mirrors `BatchCreateContactsInPaytrade`. Returns the full
+// payload (counts + per-account errors) so the caller can render a
+// breakdown alongside the toast.
+export async function BatchCreateAccountsInPaytrade(
+  postData: any,
+  setLoading?: Function
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation BatchCreateAccountsInPaytrade($companyId: Float!) {
+          batchCreateAccountsInPaytrade(company_id: $companyId) {
+            data {
+              created
+              skipped
+              failed
+              errors {
+                account_id
+                account_name
+                reason
+              }
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+
+    const payload = response?.data?.batchCreateAccountsInPaytrade;
+    if (payload?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(payload?.message);
+    } else {
+      showErrorToast(payload?.message);
+    }
+    return payload?.data || null;
+  } catch (error: any) {
+    showErrorToast(error);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+}
+
+// Task #122 — Counts unmapped active Xero bank accounts eligible for
+// bulk-create in PayTrade. Single source of truth shared with the
+// backend batch loop so the dialog count and disabled-button state
+// match what the batch will actually attempt.
+export async function GetUnmappedActiveXeroAccountsCount(
+  postData: any
+): Promise<number> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetUnmappedActiveXeroAccountsCount($companyId: Float!) {
+          getUnmappedActiveXeroAccountsCount(company_id: $companyId) {
+            data
+            message
+            status
+          }
+        }
+      `,
+      variables: postData,
+      fetchPolicy: "no-cache",
+    });
+    const raw =
+      response?.data?.getUnmappedActiveXeroAccountsCount?.data ?? "0";
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  } catch (error: any) {
+    console.error("GraphQL Error:", error);
+    return 0;
+  }
+}
+
 export async function BatchCreateContactsInXero(
   postData: any,
   setLoading?: Function
