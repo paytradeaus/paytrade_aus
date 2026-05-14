@@ -4494,6 +4494,14 @@ export const manualXeroCatchupDiscover = async (variables: {
     hint?: string;
     pt_summary?: string;
     xero_summary?: string;
+    pt_details?: Array<{ label: string; value: string }>;
+    xero_details?: Array<{ label: string; value: string }>;
+    project_name?: string | null;
+    contract_name?: string | null;
+    xero_tracking_option_name?: string | null;
+    xero_tracking_option_id?: string | null;
+    xero_deep_link?: string | null;
+    paytrade_deep_link?: string | null;
   }>;
   counts?: Record<string, number>;
   notes?: {

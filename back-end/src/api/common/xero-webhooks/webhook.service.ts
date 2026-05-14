@@ -14924,8 +14924,62 @@ export class XeroWebhookService {
       hint?: string;
       pt_summary?: string;
       xero_summary?: string;
+      // Task #151 — diagnostic / row-detail payload. Each side carries
+      // a flat list of {label, value} pairs the FE renders verbatim in
+      // the secondary "Catch-up row details" dialog. Tracking option
+      // info is surfaced raw so operators can see WHY a Xero record
+      // came back as needs_import (e.g. tagged with a Xero project
+      // option that PayTrade hasn't linked).
+      pt_details?: Array<{ label: string; value: string }>;
+      xero_details?: Array<{ label: string; value: string }>;
+      project_name?: string | null;
+      contract_name?: string | null;
+      xero_tracking_option_name?: string | null;
+      xero_tracking_option_id?: string | null;
+      xero_deep_link?: string | null;
+      paytrade_deep_link?: string | null;
     };
     const rows: Row[] = [];
+
+    // Task #151 — small helpers for the row-detail payload. Inline so
+    // the catch-up endpoint stays self-contained; the existing
+    // sync-log-deep-links helpers expect a different (sync log) row
+    // shape and aren't reusable here.
+    const fmtMoney = (v: any): string =>
+      `$${(Number(v) || 0).toFixed(2)}`;
+    const fmtDate = (v: any): string => {
+      if (!v) return '—';
+      try {
+        const m = moment(v);
+        return m.isValid() ? m.format('DD/MM/YYYY') : String(v);
+      } catch {
+        return String(v);
+      }
+    };
+    const detail = (
+      label: string,
+      value: any,
+    ): { label: string; value: string } => ({
+      label,
+      value:
+        value === null || value === undefined || value === ''
+          ? '—'
+          : String(value),
+    });
+    const xeroInvoiceUrl = (id: string | null | undefined, type: any) => {
+      if (!id) return null;
+      const t = String(type || '').toUpperCase();
+      if (t === 'ACCREC') return `https://invoicing.xero.com/edit/${id}`;
+      if (t === 'ACCPAY')
+        return `https://go.xero.com/AccountsPayable/Edit.aspx?InvoiceID=${id}`;
+      // Unknown — modern invoicing URL works for ACCREC and silently
+      // 404s for ACCPAY, so prefer it as a generic fallback.
+      return `https://invoicing.xero.com/edit/${id}`;
+    };
+    const xeroPaymentUrl = (invoiceId: string | null | undefined) =>
+      invoiceId ? `https://invoicing.xero.com/edit/${invoiceId}` : null;
+    const xeroContactUrl = (id: string | null | undefined) =>
+      id ? `https://go.xero.com/Contacts/View/${id}` : null;
     const notes: Record<string, any> = {};
     let truncated = false;
 
@@ -15338,6 +15392,118 @@ export class XeroWebhookService {
             });
           }
         }
+
+        // Task #151 — row-detail enrichment (invoice/bill).
+        const claimByIdMap = new Map<number, any>();
+        for (const c of ptClaims) claimByIdMap.set(Number(c.payment_claim_id), c);
+        const invByIdMap = new Map<string, XeroInvWithLinks>();
+        for (const x of xeroInvoices) invByIdMap.set(String(x.inv.invoiceID), x);
+        const ptProjectNameByPtId = new Map<number, string>();
+        const ptContractNameByPtId = new Map<number, string>();
+        for (const c of ptClaims) {
+          if (c.project_id && c.projectDetails?.project_name)
+            ptProjectNameByPtId.set(
+              Number(c.project_id),
+              c.projectDetails.project_name,
+            );
+          if (c.contract_id && c.contractDetails?.contract_name)
+            ptContractNameByPtId.set(
+              Number(c.contract_id),
+              c.contractDetails.contract_name,
+            );
+        }
+        for (const r of rows) {
+          if (r.type !== rawType) continue;
+          const claim = r.pt_id
+            ? claimByIdMap.get(Number(r.pt_id))
+            : null;
+          const xeroLink = r.xero_id
+            ? invByIdMap.get(String(r.xero_id))
+            : null;
+          const inv = xeroLink?.inv ?? null;
+          if (claim) {
+            r.project_name = claim.projectDetails?.project_name || null;
+            r.contract_name = claim.contractDetails?.contract_name || null;
+            r.paytrade_deep_link = `/user/claims/view/${claim.payment_claim_id}`;
+            const claimDate =
+              claim.claim_type === 'Billable'
+                ? claim.received_date
+                : claim.sent_date;
+            r.pt_details = [
+              detail('Claim ID', claim.payment_claim_id),
+              detail('Reference', claim.claim_reference),
+              detail('Type', claim.claim_type),
+              detail('Status', claim.status),
+              detail(
+                'Contact',
+                claim.clientSupplierDetails?.client_supplier_name,
+              ),
+              detail('Project', claim.projectDetails?.project_name),
+              detail('Contract', claim.contractDetails?.contract_name),
+              detail('Amount', fmtMoney(claim.claim_amount)),
+              detail('GST', fmtMoney((claim as any).gst_amount)),
+              detail(
+                'Retention',
+                fmtMoney((claim as any).retention_amount),
+              ),
+              detail('Date', fmtDate(claimDate)),
+              detail('Due date', fmtDate(claim.due_date)),
+              detail('Created on', fmtDate(claim.created_on)),
+            ];
+          } else if (r.pt_id) {
+            r.paytrade_deep_link = `/user/claims/view/${r.pt_id}`;
+          }
+          if (inv) {
+            r.xero_deep_link = xeroInvoiceUrl(inv.invoiceID, inv.type);
+            let firstTracking: any = null;
+            for (const li of inv.lineItems || []) {
+              for (const t of li?.tracking || []) {
+                if (t?.option || t?.trackingOptionID) {
+                  firstTracking = t;
+                  break;
+                }
+              }
+              if (firstTracking) break;
+            }
+            if (firstTracking) {
+              r.xero_tracking_option_name = firstTracking.option || null;
+              r.xero_tracking_option_id =
+                firstTracking.trackingOptionID || null;
+            }
+            if (!r.project_name && xeroLink?.ptProjectId) {
+              const n = ptProjectNameByPtId.get(
+                Number(xeroLink.ptProjectId),
+              );
+              if (n) r.project_name = n;
+            }
+            if (!r.contract_name && xeroLink?.ptContractId) {
+              const n = ptContractNameByPtId.get(
+                Number(xeroLink.ptContractId),
+              );
+              if (n) r.contract_name = n;
+            }
+            r.xero_details = [
+              detail('Invoice ID', inv.invoiceID),
+              detail('Number', inv.invoiceNumber),
+              detail('Type', inv.type),
+              detail('Status', inv.status),
+              detail('Contact', inv.contact?.name),
+              detail('Subtotal', fmtMoney(inv.subTotal)),
+              detail('GST', fmtMoney(inv.totalTax)),
+              detail('Total', fmtMoney(inv.total)),
+              detail('Amount due', fmtMoney(inv.amountDue)),
+              detail('Amount paid', fmtMoney(inv.amountPaid)),
+              detail('Date', fmtDate(inv.date)),
+              detail('Due date', fmtDate(inv.dueDate)),
+              detail('Updated (UTC)', fmtDate(inv.updatedDateUTC)),
+              detail('Line amount type', inv.lineAmountTypes),
+              detail('Tracking option (raw)', r.xero_tracking_option_name),
+              detail('Tracking option ID', r.xero_tracking_option_id),
+              detail('Resolved PT project', r.project_name),
+              detail('Resolved PT contract', r.contract_name),
+            ];
+          }
+        }
       } else if (rawType === 'payment') {
         const ptPays = await this.paymentDetails
           .createQueryBuilder('p')
@@ -15500,6 +15666,64 @@ export class XeroWebhookService {
             });
           }
         }
+
+        // Task #151 — row-detail enrichment (payment).
+        const payByPtIdMap = new Map<number, any>();
+        for (const p of ptPays) payByPtIdMap.set(Number(p.payment_id), p);
+        const payByXeroIdMap = new Map<string, any>();
+        for (const x of xeroPays) payByXeroIdMap.set(String(x.paymentID), x);
+        for (const r of rows) {
+          if (r.type !== rawType) continue;
+          const p = r.pt_id ? payByPtIdMap.get(Number(r.pt_id)) : null;
+          const xpay = r.xero_id
+            ? payByXeroIdMap.get(String(r.xero_id))
+            : null;
+          if (p) {
+            r.paytrade_deep_link = p.payment_claim_id
+              ? `/user/claims/view/${p.payment_claim_id}?payment=${p.payment_id}`
+              : `/user/payments-list`;
+            r.pt_details = [
+              detail('Payment ID', p.payment_id),
+              detail('Type', p.payment_type),
+              detail(
+                'Contact',
+                p.clientSupplierDetails?.client_supplier_name,
+              ),
+              detail('Amount', fmtMoney(p.total_amount)),
+              detail('Cash retention', fmtMoney(p.cash_retention)),
+              detail(
+                'Retention amount',
+                fmtMoney((p as any).retention_amount),
+              ),
+              detail('Payment date', fmtDate(p.payment_date)),
+              detail('Status', p.current_status),
+              detail('Bank account ID', p.bank_account_id),
+            ];
+          } else if (r.pt_id) {
+            r.paytrade_deep_link = `/user/payments-list`;
+          }
+          if (xpay) {
+            r.xero_deep_link = xeroPaymentUrl(
+              xpay.invoice?.invoiceID || null,
+            );
+            r.xero_details = [
+              detail('Payment ID', xpay.paymentID),
+              detail('Status', xpay.status),
+              detail('Type', xpay.paymentType),
+              detail('Amount', fmtMoney(xpay.amount)),
+              detail('Date', fmtDate(xpay.date)),
+              detail('Reference', xpay.reference),
+              detail(
+                'Account',
+                xpay.account?.code || xpay.account?.name,
+              ),
+              detail('Invoice ID', xpay.invoice?.invoiceID),
+              detail('Invoice number', xpay.invoice?.invoiceNumber),
+              detail('Contact', xpay.invoice?.contact?.name),
+              detail('Updated (UTC)', fmtDate(xpay.updatedDateUTC)),
+            ];
+          }
+        }
       } else {
         // contact
         const ptContacts = await this.clientSuppliersDetails
@@ -15655,6 +15879,53 @@ export class XeroWebhookService {
               sublabel: `${c.contactStatus || ''}`,
               xero_summary: `Xero contact ${c.contactID} — ${c.name || ''}`,
             });
+          }
+        }
+
+        // Task #151 — row-detail enrichment (contact).
+        const ptContactByIdMap = new Map<number, any>();
+        for (const cs of ptContacts)
+          ptContactByIdMap.set(Number(cs.client_supplier_id), cs);
+        const xeroContactByIdMap = new Map<string, any>();
+        for (const c of xeroContacts)
+          xeroContactByIdMap.set(String(c.contactID), c);
+        for (const r of rows) {
+          if (r.type !== rawType) continue;
+          const cs = r.pt_id
+            ? ptContactByIdMap.get(Number(r.pt_id))
+            : null;
+          const xc = r.xero_id
+            ? xeroContactByIdMap.get(String(r.xero_id))
+            : null;
+          if (cs) {
+            r.paytrade_deep_link = `/user/clients-suppliers/view/${cs.client_supplier_id}`;
+            r.pt_details = [
+              detail('Contact ID', cs.client_supplier_id),
+              detail('Name', cs.client_supplier_name),
+              detail('Business name', (cs as any).business_name),
+              detail('Type', cs.client_supplier_type),
+              detail('Email', (cs as any).email),
+              detail('Phone', (cs as any).phone),
+              detail(
+                'GST registered',
+                (cs as any).is_gst_registered ? 'Yes' : 'No',
+              ),
+              detail('Created on', fmtDate(cs.created_on)),
+            ];
+          } else if (r.pt_id) {
+            r.paytrade_deep_link = `/user/clients-suppliers/view/${r.pt_id}`;
+          }
+          if (xc) {
+            r.xero_deep_link = xeroContactUrl(xc.contactID);
+            r.xero_details = [
+              detail('Contact ID', xc.contactID),
+              detail('Name', xc.name),
+              detail('Status', xc.contactStatus),
+              detail('Email', xc.emailAddress),
+              detail('Account number', xc.accountNumber),
+              detail('Default currency', xc.defaultCurrency),
+              detail('Updated (UTC)', fmtDate(xc.updatedDateUTC)),
+            ];
           }
         }
       }

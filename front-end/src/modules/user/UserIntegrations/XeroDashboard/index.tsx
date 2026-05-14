@@ -1741,6 +1741,12 @@ function ManualXeroSyncDialog({
     >
   >({});
 
+  // Task #151 — secondary "Catch-up row details" dialog. Holds the row
+  // currently being inspected; null when closed. Stacks on top of the
+  // Manual Xero Sync dialog via a separate <dialog> id, so the parent
+  // stays mounted underneath.
+  const [catchupRowDetail, setCatchupRowDetail] = useState<any | null>(null);
+
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
   // this dialog.
@@ -3254,42 +3260,36 @@ function ManualXeroSyncDialog({
                   {catchupSelected.size} selected
                 </span>
               </div>
+              {/* Task #151 — restyled to use the system pt_table look so
+                  the catch-up results match the rest of the app
+                  (Mapped Contacts, etc.). Action column with the
+                  standard eye button opens a secondary "Catch-up row
+                  details" dialog stacked on top of this one. */}
               <div
                 style={{
                   margin: "0 0 10px 0",
                   maxHeight: "360px",
                   overflowY: "auto",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
                 }}
               >
                 <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: "12px",
-                    tableLayout: "fixed",
-                  }}
+                  className="pt_table dataTable compact stripe"
+                  style={{ width: "100%" }}
                 >
                   <thead
                     style={{
                       position: "sticky",
                       top: 0,
-                      background: "#f5f5f5",
+                      background: "var(--theme-light, #f5f5f5)",
                       zIndex: 1,
                     }}
                   >
                     <tr>
-                      <th style={{ width: "32px", padding: "6px 8px", textAlign: "left" }}></th>
-                      <th style={{ padding: "6px 8px", textAlign: "left" }}>
-                        PayTrade side
-                      </th>
-                      <th style={{ width: "150px", padding: "6px 8px", textAlign: "center" }}>
-                        Status
-                      </th>
-                      <th style={{ padding: "6px 8px", textAlign: "left" }}>
-                        Xero side
-                      </th>
+                      <th style={{ width: 32 }}></th>
+                      <th>PayTrade side</th>
+                      <th style={{ textAlign: "center", width: 160 }}>Status</th>
+                      <th>Xero side</th>
+                      <th style={{ width: 60, textAlign: "center" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3334,17 +3334,16 @@ function ManualXeroSyncDialog({
                           ? "#fff5f5"
                           : isSelected
                           ? "#eaf3ff"
-                          : "transparent";
+                          : undefined;
                       return (
                         <tr
                           key={r.key}
                           style={{
-                            borderBottom: "1px solid #eee",
                             background: rowBg,
                             verticalAlign: "top",
                           }}
                         >
-                          <td style={{ padding: "8px", textAlign: "center" }}>
+                          <td style={{ textAlign: "center" }}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -3354,14 +3353,29 @@ function ManualXeroSyncDialog({
                           </td>
                           <td
                             style={{
-                              padding: "8px",
                               wordBreak: "break-word",
+                              whiteSpace: "normal",
                               opacity: r.pt_id ? 1 : 0.4,
                             }}
                           >
                             {r.pt_id ? (
                               <>
                                 <div>{r.pt_summary || r.label}</div>
+                                {(r.project_name || r.contract_name) && (
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      opacity: 0.75,
+                                      marginTop: "2px",
+                                    }}
+                                  >
+                                    {r.project_name}
+                                    {r.project_name && r.contract_name
+                                      ? " · "
+                                      : ""}
+                                    {r.contract_name}
+                                  </div>
+                                )}
                                 <code
                                   style={{
                                     fontSize: "10px",
@@ -3379,7 +3393,7 @@ function ManualXeroSyncDialog({
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: "8px", textAlign: "center" }}>
+                          <td style={{ textAlign: "center" }}>
                             <span
                               style={{
                                 display: "inline-block",
@@ -3402,6 +3416,7 @@ function ManualXeroSyncDialog({
                                   opacity: 0.7,
                                   fontStyle: "italic",
                                   fontSize: "11px",
+                                  whiteSpace: "normal",
                                 }}
                               >
                                 {r.hint}
@@ -3416,6 +3431,7 @@ function ManualXeroSyncDialog({
                                       ? "#a50e0e"
                                       : "#137333",
                                   fontSize: "11px",
+                                  whiteSpace: "normal",
                                 }}
                               >
                                 {rs.status === "running"
@@ -3444,14 +3460,29 @@ function ManualXeroSyncDialog({
                           </td>
                           <td
                             style={{
-                              padding: "8px",
                               wordBreak: "break-word",
+                              whiteSpace: "normal",
                               opacity: r.xero_id ? 1 : 0.4,
                             }}
                           >
                             {r.xero_id ? (
                               <>
                                 <div>{r.xero_summary || r.label}</div>
+                                {r.xero_tracking_option_name && (
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      opacity: 0.75,
+                                      marginTop: "2px",
+                                    }}
+                                    title={
+                                      r.xero_tracking_option_id ||
+                                      undefined
+                                    }
+                                  >
+                                    Tracking: {r.xero_tracking_option_name}
+                                  </div>
+                                )}
                                 <code
                                   style={{
                                     fontSize: "10px",
@@ -3468,6 +3499,22 @@ function ManualXeroSyncDialog({
                                 — no Xero row in window —
                               </span>
                             )}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <button
+                              type="button"
+                              className="secondary mr_zero_point_five"
+                              title="View row details"
+                              aria-label="View row details"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCatchupRowDetail(r);
+                              }}
+                              style={{ padding: "4px 8px" }}
+                            >
+                              <i className="fa-light fa-eye"></i>
+                            </button>
                           </td>
                         </tr>
                       );
@@ -3577,6 +3624,204 @@ function ManualXeroSyncDialog({
             </>
           )}
         </div>
+      )}
+      {/* Task #151 — secondary "Catch-up row details" dialog. Stacks
+          on top of the Manual Xero Sync dialog (separate <dialog> id)
+          so the parent stays mounted underneath. Footer offers Close
+          + cross-system deep links; both deep-link buttons keep this
+          dialog open (no `return true` from onConfirm) so the
+          operator can flip back and forth. */}
+      {catchupRowDetail && (
+        <BaseModal
+          modalId="manualXeroSyncRowDetail"
+          displayModal={!!catchupRowDetail}
+          title={`Catch-up row details${
+            catchupRowDetail.label ? ` — ${catchupRowDetail.label}` : ""
+          }`}
+          firstButtonName="Close"
+          middleButtonName="View in PayTrade"
+          secondButtonName="View in Xero"
+          disableMiddleButton={!catchupRowDetail.paytrade_deep_link}
+          disableSecondButton={!catchupRowDetail.xero_deep_link}
+          onClose={() => setCatchupRowDetail(null)}
+          onMiddleButtonClick={() => {
+            if (catchupRowDetail.paytrade_deep_link) {
+              window.open(
+                catchupRowDetail.paytrade_deep_link,
+                "_blank",
+                "noopener,noreferrer",
+              );
+            }
+          }}
+          onConfirm={() => {
+            if (catchupRowDetail.xero_deep_link) {
+              window.open(
+                catchupRowDetail.xero_deep_link,
+                "_blank",
+                "noopener,noreferrer",
+              );
+            }
+            // Returning undefined keeps the dialog open (BaseModal
+            // only auto-closes on `response == true`).
+            return undefined as any;
+          }}
+        >
+          {catchupRowDetail.hint && (
+            <p
+              style={{
+                margin: "0 0 12px 0",
+                padding: "8px 12px",
+                background: "#fff8e1",
+                border: "1px solid #f0e0a8",
+                borderRadius: 4,
+                fontSize: "13px",
+              }}
+            >
+              <strong>Hint:</strong> {catchupRowDetail.hint}
+            </p>
+          )}
+          {(catchupRowDetail.project_name ||
+            catchupRowDetail.contract_name ||
+            catchupRowDetail.xero_tracking_option_name) && (
+            <div
+              style={{
+                margin: "0 0 12px 0",
+                padding: "8px 12px",
+                background: "var(--theme-light, #f5f5f5)",
+                borderRadius: 4,
+                fontSize: "12px",
+              }}
+            >
+              {catchupRowDetail.project_name && (
+                <div>
+                  <strong>Project:</strong> {catchupRowDetail.project_name}
+                </div>
+              )}
+              {catchupRowDetail.contract_name && (
+                <div>
+                  <strong>Contract:</strong>{" "}
+                  {catchupRowDetail.contract_name}
+                </div>
+              )}
+              {catchupRowDetail.xero_tracking_option_name && (
+                <div>
+                  <strong>Xero tracking option:</strong>{" "}
+                  {catchupRowDetail.xero_tracking_option_name}
+                  {catchupRowDetail.xero_tracking_option_id && (
+                    <code
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 10,
+                        opacity: 0.7,
+                      }}
+                    >
+                      {catchupRowDetail.xero_tracking_option_id}
+                    </code>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 16,
+            }}
+          >
+            <div>
+              <h6 style={{ margin: "0 0 8px 0" }}>PayTrade side</h6>
+              {catchupRowDetail.pt_id ? (
+                <table
+                  className="pt_table dataTable compact"
+                  style={{ width: "100%", fontSize: 12 }}
+                >
+                  <tbody>
+                    {(
+                      catchupRowDetail.pt_details ||
+                      [{ label: "ID", value: String(catchupRowDetail.pt_id) }]
+                    ).map(
+                      (d: { label: string; value: string }, i: number) => (
+                        <tr key={i}>
+                          <td
+                            style={{
+                              fontWeight: 500,
+                              width: "40%",
+                              whiteSpace: "normal",
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {d.label}
+                          </td>
+                          <td
+                            style={{
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {d.value}
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              ) : (
+                <p style={{ fontStyle: "italic", opacity: 0.6 }}>
+                  — no PayTrade row in window —
+                </p>
+              )}
+            </div>
+            <div>
+              <h6 style={{ margin: "0 0 8px 0" }}>Xero side</h6>
+              {catchupRowDetail.xero_id ? (
+                <table
+                  className="pt_table dataTable compact"
+                  style={{ width: "100%", fontSize: 12 }}
+                >
+                  <tbody>
+                    {(
+                      catchupRowDetail.xero_details ||
+                      [
+                        {
+                          label: "ID",
+                          value: String(catchupRowDetail.xero_id),
+                        },
+                      ]
+                    ).map(
+                      (d: { label: string; value: string }, i: number) => (
+                        <tr key={i}>
+                          <td
+                            style={{
+                              fontWeight: 500,
+                              width: "40%",
+                              whiteSpace: "normal",
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {d.label}
+                          </td>
+                          <td
+                            style={{
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {d.value}
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              ) : (
+                <p style={{ fontStyle: "italic", opacity: 0.6 }}>
+                  — no Xero row in window —
+                </p>
+              )}
+            </div>
+          </div>
+        </BaseModal>
       )}
     </BaseModal>
   );
