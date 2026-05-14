@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed:xero-templates": "node scripts/seed-xero-log-templates.js"
+    "seed:xero-templates": "node scripts/seed-xero-log-templates.js",
+    "cleanup:xero-contacts": "node scripts/cleanup-xero-contacts.js"
   },
   "dependencies": {
     "@apollo/gateway": "^2.6.3",
