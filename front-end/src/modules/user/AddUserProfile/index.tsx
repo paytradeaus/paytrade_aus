@@ -29,10 +29,11 @@ export default function AddUserProfileForm() {
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
   const verifyButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [triggerPoint, setTriggerPoint] = useState<string>("");
+  const pendingActionRef = useRef<string>("");
   const [selectedImage, setSelectedImage] = useState<any>([]);
   const [croppedPreviewUrl, setCroppedPreviewUrl] = useState<string>("");
   const [isSkipDisabled, setIsSkipDisabled] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageError, setImageError] = useState<string>("");
   const router = useRouter();
 
@@ -52,20 +53,10 @@ export default function AddUserProfileForm() {
     }
   }, [userDetails]);
 
-  useEffect(() => {
-    if (recaptchaToken) {
-      if (triggerPoint === SUBMIT) {
-        onSubmit();
-      } else if (triggerPoint === SKIP) {
-        handleSkipClick();
-      }
-    }
-  }, [recaptchaToken]);
-
   const formik = useFormik({
     initialValues: {},
     onSubmit: () => {
-      clickRecaptchaButton(SUBMIT);
+      handleNextClick();
     },
   });
 
@@ -92,88 +83,99 @@ export default function AddUserProfileForm() {
     setImageError("");
   };
 
-  function clickRecaptchaButton(typeOfButton: string) {
-    setTriggerPoint(typeOfButton);
-    if (typeOfButton === SKIP) {
-      setIsSkipDisabled(true);
-    }
+  function triggerRecaptcha(action: string) {
+    pendingActionRef.current = action;
     verifyButtonRef?.current?.click();
   }
 
-  async function handleSkipClick() {
+  function handleSkipButtonClick() {
+    if (isSkipDisabled) return;
+    setIsSkipDisabled(true);
+    triggerRecaptcha(SKIP);
+  }
+
+  function handleNextClick() {
+    if (isSubmitting) return;
+    if (!imageFile) {
+      setImageError(
+        "Please upload an image or click the Skip button to continue."
+      );
+      return;
+    }
+    setImageError("");
+    setIsSubmitting(true);
+    triggerRecaptcha(SUBMIT);
+  }
+
+  async function handleSkipClick(token: string) {
     try {
       const details = {
-        // created_by: userDetails?.userDetails.Email,
-        // created_on: getCurrentUtcTime(),
         email_id: userDetails?.userDetails.email,
         first_name: userDetails?.userDetails.FirstName,
         last_name: userDetails?.userDetails.LastName,
         mail_type: "Verify_User",
         type: "Send",
         verification_code: "",
-        recaptcha_token: recaptchaToken ?? "",
+        recaptcha_token: token ?? "",
       };
 
-      // Call the function to insert email verification details
       const response = await insertEmailVerificationDetails(details);
       dispatch(setUserDetails({ ...userDetails?.userDetails, ...details }));
 
       if (response) {
         showSuccessToast("OTP has been sent to your registered email address");
         router.push("/user/registration/verification");
+      } else {
+        setIsSkipDisabled(false);
       }
     } catch (error) {
       console.error("Error in insertEmailVerificationDetails:", error);
-      // Handle errors, e.g., show an error message to the user
+      showErrorToast(
+        "Could not skip this step. Please try again."
+      );
+      setIsSkipDisabled(false);
     }
   }
 
-  async function onSubmit() {
-    if (recaptchaToken) {
-      // Ensure you have the token
-      // You can now send both the form values and the reCAPTCHA token to your server or perform other actions
-      // Check if image file is not selected
-      if (!imageFile) {
-        // Show error message or toast notification
-        setImageError(
-          "Please upload an image or click the Skip button to continue."
+  async function onSubmit(token: string) {
+    if (!imageFile) {
+      setImageError(
+        "Please upload an image or click the Skip button to continue."
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    setImageError("");
+
+    const details = {
+      email_id: userDetails?.userDetails.email,
+      first_name: userDetails?.userDetails.FirstName,
+      last_name: userDetails?.userDetails.LastName,
+      mail_type: "Verify_User",
+      type: "Send",
+      verification_code: "",
+      recaptcha_token: token,
+    };
+
+    try {
+      const response = await insertEmailVerificationDetails(details);
+      dispatch(setUserDetails({ ...userDetails?.userDetails, ...details }));
+
+      if (response) {
+        showSuccessToast(
+          "OTP has been sent to your registered email address"
         );
-
-        return; // Stop form submission
+        router.push(AppRoutes.USER_VERIFICATION);
+      } else {
+        setIsSubmitting(false);
       }
-
-      setImageError("");
-
-      const details = {
-        email_id: userDetails?.userDetails.email,
-        first_name: userDetails?.userDetails.FirstName,
-        last_name: userDetails?.userDetails.LastName,
-        mail_type: "Verify_User",
-        type: "Send",
-        verification_code: "",
-        recaptcha_token: recaptchaToken,
-      };
-
-      try {
-        // Call the function to insert email verification details
-        const response = await insertEmailVerificationDetails(details);
-        dispatch(setUserDetails({ ...userDetails?.userDetails, ...details }));
-
-        if (response) {
-          showSuccessToast(
-            "OTP has been sent to your registered email address"
-          );
-
-          router.push(AppRoutes.USER_VERIFICATION);
-        }
-        // Handle the response as needed
-
-        // You can perform other actions or navigate based on the response
-      } catch (error) {
-        // Handle errors
-        console.error("Error in insertEmailVerificationDetails:", error);
-        // You may want to display an error message to the user
-      }
+    } catch (error) {
+      console.error("Error in insertEmailVerificationDetails:", error);
+      showErrorToast(
+        "Could not continue. Please try again."
+      );
+      setIsSubmitting(false);
     }
   }
 
@@ -182,10 +184,21 @@ export default function AddUserProfileForm() {
   }
 
   function handleReCaptchaVerify(token: string) {
-    // Handle the reCAPTCHA token verification logic here
-
     setRecaptchaToken(token);
-    // You can send this token to your server for verification or other actions
+    const action = pendingActionRef.current;
+    pendingActionRef.current = "";
+    if (action === SUBMIT) {
+      onSubmit(token);
+    } else if (action === SKIP) {
+      handleSkipClick(token);
+    }
+  }
+
+  function handleReCaptchaError(message: string) {
+    pendingActionRef.current = "";
+    showErrorToast(message);
+    setIsSkipDisabled(false);
+    setIsSubmitting(false);
   }
 
   async function onImageSelection(image: any) {
@@ -279,7 +292,7 @@ export default function AddUserProfileForm() {
                   buttonType={buttonType.SECONDARY}
                   actionType="submit"
                   disabled={isSkipDisabled}
-                  onClick={() => clickRecaptchaButton(SKIP)}
+                  onClick={() => handleSkipButtonClick()}
                   inputButton
                 />
               </div>
@@ -287,6 +300,7 @@ export default function AddUserProfileForm() {
           </div>
           <ReCaptchaComponent
             onVerify={handleReCaptchaVerify}
+            onError={handleReCaptchaError}
             verifyButtonRef={verifyButtonRef}
           />
         </div>

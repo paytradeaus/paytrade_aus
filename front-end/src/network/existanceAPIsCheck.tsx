@@ -140,9 +140,9 @@ async function insertEmailVerificationDetails(inputData: Object) {
     // Return the array of company profiles with logos
     return false;
   } catch (error) {
-    // Handle errors
-
-    return false;
+    // Re-throw transport/runtime errors so callers can show feedback
+    // (ERROR-status responses are handled above and toast inline.)
+    throw error;
   }
 }
 
