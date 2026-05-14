@@ -1530,6 +1530,61 @@ Every two-sided run also emits the legacy template-499 trigger row so existing S
 
 The Run sync mutation is protected by an HMAC-signed action token bound to `(timestamp, company_id, type, xero_id, pt_id, recommended_action)` with a 10-minute TTL, plus a server-side check that the **I've reviewed this** flag is `true`. This prevents an admin from skipping the Check step by calling the mutation directly — Run sync can only execute against a recent, server-signed pre-flight result, and any change to either picked id resets the token so it can never outlive the inputs it was signed against.
 
+### 19.18 Two-Sided Manual Xero Sync — Catch-up Discovery by Date Range *(Added 2026-05-14)*
+
+**Where to find it:** Same dialog as 19.17 (Xero Dashboard → Sync Log → **Manual sync**). The dialog has a tab switcher at the top — switch from **Single record** to **Catch-up by date range**. Same gating: STANDARD USER, ADMIN and PRIMARY ADMIN, JWT-bound `company_id`.
+
+The catch-up tab is for users who don't already know a single record id but suspect drift across a window of time — for example after a long Xero outage, after restoring from a backup, or before an end-of-month review. It lists everything that touched the date window on either side, classifies each row, lets the user multi-select what to fix, and then drives the **same per-row pre-flight + two-sided sync** as 19.17 sequentially. **There is no new sync engine** — every selected row flows through `manualXeroPreflight` + `manualXeroTwoSidedSync` exactly as if the user had typed the ids into the single-record tab.
+
+#### What Discovery Looks At
+
+Discovery is **read-only** — clicking **Discover** never changes data on either side. Three record types are supported:
+
+| Type | PayTrade-side scope | Xero-side scope |
+|---|---|---|
+| **Invoice / Bill** | PayTrade payment claims in window where **both `project_id` and `contract_id` are non-NULL** (i.e. the rows that flow to Xero with tracking categories). Claims missing either link are out of scope and won't appear. | Xero invoices/bills in window whose `lineItems[].tracking[].trackingOptionID` resolves to a known PayTrade project via `XeroProjectDetails`. Invoices not tagged to a known PT project are skipped. |
+| **Payment** | PayTrade payment rows in window. | Xero payment rows in window. |
+| **Contact** | PayTrade client / supplier rows in window. | Xero contacts modified in window. **Upper bound is enforced client-side** off `UpdatedDateUTC` because the Xero Contacts API only supports `If-Modified-Since` as a lower bound. |
+
+Each side is capped at **200 rows per discovery**. If either side hits the cap a `truncated: true` flag is returned and the UI shows a *"Truncated — narrow your window"* warning. Default window when the tab opens is **last 30 days** so the user can hit Discover immediately.
+
+#### Per-Row Classification
+
+Every discovered row is classified into exactly one of six buckets, computed by joining PT-side and Xero-side rows:
+
+| Classification | Meaning | Default-selected? | Pre-flight will recommend |
+|---|---|---|---|
+| **`already_in_sync`** | Both sides exist, mapping row exists, totals agree within $0.01. | No | (nothing — row is uncheckable) |
+| **`needs_link`** | Both sides exist independently and pair on **invoice number first**, then **contract+amount±$0.01+date±2 days**, but no mapping row yet. | Yes | `link` |
+| **`amounts_disagree`** | Sides are linked or confidently paired but totals diverge by more than $0.01. Re-importing from Xero will overwrite the PT row. | Yes | `import` (canonical direction picked by pre-flight) |
+| **`needs_push`** | PT has the record, Xero side has nothing matching in window. | Yes | `push` |
+| **`needs_import`** | Xero has the record, PT side has nothing matching in window. | Yes | `import` |
+| **`blocked`** | Pre-flight precondition known to fail (e.g. PT claim is locally `paid` so push is blocked). | No | (nothing — row is uncheckable) |
+
+Match rule for invoice/bill is **invoice number first**, then **contract agreement required** before amount/date fallback — preventing cross-contract collisions where two different contracts happen to have a same-amount claim on the same day. Amount/date tolerance comes from the **shared `compareAmountAndDate(a_amt, b_amt, a_date, b_date, amount_tol=0.01, day_tol=2)` helper** that the per-row pre-flight payment-leg matcher also uses, so discovery and pre-flight cannot drift apart at the boundary.
+
+#### UI Layout
+
+Results are rendered as a **true side-by-side two-column table**: PayTrade record on the left, Xero record on the right, colour-coded status pill in the middle, multi-select checkbox on the far left. When only one side exists the other column shows a faded *"no row in window"* placeholder so missed pushes vs missed imports are visually distinct. Default selection ticks every actionable row (`needs_link`, `amounts_disagree`, `needs_push`, `needs_import`) so the operator only has to *un*tick rows they don't want to act on.
+
+#### Running the Batch
+
+After ticking rows the operator must tick the **"I've reviewed these N records"** checkbox (same per-row review gate as the single-record flow — server refuses without it) then click **Run sync on N selected**. Execution is **sequential with a small delay between rows** to avoid hammering Xero. For each selected row the dialog:
+
+1. Calls `manualXeroPreflight` to obtain a freshly-signed action token bound to that specific `(type, xero_id, pt_id, recommended_action)`.
+2. Calls `manualXeroTwoSidedSync` with the token. The same templates 518 / 519 / 520 from 19.17 fire per row.
+3. Captures the returned `syncLogId` and renders an inline **`sync log #N`** link (`/user/integrations/xero/syncLogDetails/{id}`, `target=_blank`) next to the row's pass/fail badge so the operator can drill straight into the audit trail.
+4. **Continues to the next row regardless of pass/fail** — partial success is the expected outcome of a recovery tool.
+
+When the batch finishes a footer summary reads **`Run complete — N/N — ✓ Synced X · ⨯ Failed Y · ◌ Skipped Z`** where *Skipped* is the difference between actionable rows discovered and rows the operator chose to tick.
+
+#### What it Deliberately Does *Not* Do
+
+- **No bank-transfer or manual-journal discovery** — those records are produced by confirming a payment / posting a gross-up journal (19.15), not recovered ad-hoc here.
+- **No contact *creation* in Xero from this dialog** — contact pushes are owned by the contact-sync settings (see Contact GST Sync notes).
+- **No background queue** — closing the dialog cancels remaining rows. Catch-up runs are interactive.
+- **No new sync engine** — every row goes through the same `manualXeroPreflight` + `manualXeroTwoSidedSync` code path as 19.17, so the audit trail is identical.
+
 ---
 
 ## 20. Community
