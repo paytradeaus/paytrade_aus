@@ -3104,7 +3104,9 @@ function ManualXeroSyncDialog({
                 </span>
                 {catchupResult.truncated && (
                   <span style={{ color: "#a86b00" }}>
-                    (results truncated at 200 per side — narrow the window)
+                    (results truncated at {catchupResult.per_side_cap ?? 1000}{" "}
+                    per side or by the server time budget — narrow the window
+                    to see the rest)
                   </span>
                 )}
               </div>

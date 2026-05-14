@@ -14888,7 +14888,24 @@ export class XeroWebhookService {
     const toIso = toDate.format('YYYY-MM-DD');
     const fromYmd = `DateTime(${fromDate.year()},${fromDate.month() + 1},${fromDate.date()})`;
     const toYmd = `DateTime(${toDate.year()},${toDate.month() + 1},${toDate.date()})`;
-    const PER_SIDE_CAP = 200;
+    // Task #149 — auto-page Xero fetches up to a higher hard cap with
+    // a server-side time budget so dense catch-up windows (>200 rows
+    // per side) no longer silently hide records behind the
+    // "truncated" warning. The cap and budget are both safety rails:
+    // whichever trips first sets `truncated = true` so the UI can
+    // still warn the user that more rows may exist.
+    //   PER_SIDE_CAP — hard ceiling per side (PT and Xero each).
+    //   XERO_PAGE_SIZE — Xero accounting API page size (fixed at 100).
+    //   MAX_XERO_PAGES — derived: enough pages to fill the cap.
+    //   TIME_BUDGET_MS — wall-clock budget for the whole discovery
+    //     request. Stops paging once exceeded (the rows already
+    //     gathered are still returned with truncated=true).
+    const PER_SIDE_CAP = 1000;
+    const XERO_PAGE_SIZE = 100;
+    const MAX_XERO_PAGES = Math.ceil(PER_SIDE_CAP / XERO_PAGE_SIZE);
+    const TIME_BUDGET_MS = 25_000;
+    const startedAt = Date.now();
+    const budgetExceeded = () => Date.now() - startedAt > TIME_BUDGET_MS;
 
     type Row = {
       key: string;
@@ -14983,11 +15000,16 @@ export class XeroWebhookService {
           if (m.pt_claim_id) ptToXeroMap.set(Number(m.pt_claim_id), m);
         }
 
-        // Xero side — invoices dated in window. Fetch up to 2 pages.
+        // Xero side — invoices dated in window. Auto-page up to
+        // MAX_XERO_PAGES or until the time budget is exhausted.
         const xeroInvoicesRaw: any[] = [];
         try {
           const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
-          for (let page = 1; page <= 2; page++) {
+          for (let page = 1; page <= MAX_XERO_PAGES; page++) {
+            if (budgetExceeded()) {
+              truncated = true;
+              break;
+            }
             const resp = await this.xero.accountingApi.getInvoices(
               tenant_id,
               undefined,
@@ -15001,7 +15023,7 @@ export class XeroWebhookService {
             );
             const batch = resp?.body?.invoices || [];
             xeroInvoicesRaw.push(...batch);
-            if (batch.length < 100) break;
+            if (batch.length < XERO_PAGE_SIZE) break;
             if (xeroInvoicesRaw.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroInvoicesRaw.length = PER_SIDE_CAP;
@@ -15237,7 +15259,11 @@ export class XeroWebhookService {
         const xeroPays: any[] = [];
         try {
           const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
-          for (let page = 1; page <= 2; page++) {
+          for (let page = 1; page <= MAX_XERO_PAGES; page++) {
+            if (budgetExceeded()) {
+              truncated = true;
+              break;
+            }
             const resp = await this.xero.accountingApi.getPayments(
               tenant_id,
               undefined,
@@ -15247,7 +15273,7 @@ export class XeroWebhookService {
             );
             const batch = resp?.body?.payments || [];
             xeroPays.push(...batch);
-            if (batch.length < 100) break;
+            if (batch.length < XERO_PAGE_SIZE) break;
             if (xeroPays.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroPays.length = PER_SIDE_CAP;
@@ -15384,7 +15410,11 @@ export class XeroWebhookService {
         const xeroContacts: any[] = [];
         const toUpper = toDate.clone().endOf('day').toDate();
         try {
-          for (let page = 1; page <= 2; page++) {
+          for (let page = 1; page <= MAX_XERO_PAGES; page++) {
+            if (budgetExceeded()) {
+              truncated = true;
+              break;
+            }
             const resp = await this.xero.accountingApi.getContacts(
               tenant_id,
               fromDate.toDate(),
@@ -15404,7 +15434,7 @@ export class XeroWebhookService {
               }
             });
             xeroContacts.push(...batch);
-            if (batchAll.length < 100) break;
+            if (batchAll.length < XERO_PAGE_SIZE) break;
             if (xeroContacts.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroContacts.length = PER_SIDE_CAP;
@@ -15530,6 +15560,8 @@ export class XeroWebhookService {
         rows,
         counts,
         truncated,
+        per_side_cap: PER_SIDE_CAP,
+        elapsed_ms: Date.now() - startedAt,
       };
     } catch (err: any) {
       const msg = err?.message || String(err);
