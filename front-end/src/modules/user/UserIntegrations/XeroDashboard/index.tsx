@@ -54,6 +54,16 @@ import { showErrorToast } from "@/components/Toaster";
 // the system FormikControl SELECT / DATE_PICKER components (matching the
 // Account Ledger / Journals filter bars exactly), so the bespoke
 // `syncLogFilterControl` style was removed.
+// Catch-up classification → display colour (mirrors `sync_status_style`).
+const catchupStatusMap: Record<string, { label: string; color: string }> = {
+  already_in_sync: { label: "Linked", color: "green" },
+  needs_link: { label: "Needs link", color: "orange" },
+  amounts_disagree: { label: "Amounts disagree", color: "orange" },
+  needs_push: { label: "PT only — needs push", color: "blue" },
+  needs_import: { label: "Xero only — needs import", color: "blue" },
+  blocked: { label: "Blocked", color: "red" },
+};
+
 const syncLogPillStyle = (active: boolean): React.CSSProperties => ({
   height: "28px",
   lineHeight: "26px",
@@ -1741,10 +1751,7 @@ function ManualXeroSyncDialog({
     >
   >({});
 
-  // Task #151 — secondary "Catch-up row details" dialog. Holds the row
-  // currently being inspected; null when closed. Stacks on top of the
-  // Manual Xero Sync dialog via a separate <dialog> id, so the parent
-  // stays mounted underneath.
+  // Task #151 — secondary "Catch-up row details" dialog state.
   const [catchupRowDetail, setCatchupRowDetail] = useState<any | null>(null);
 
   // PT-side picker is meaningful only for these types; bank_transfer and
@@ -3286,31 +3293,7 @@ function ManualXeroSyncDialog({
                     {catchupResult.rows.map((r: any) => {
                       const rs = catchupRowStatus[r.key];
                       const cls = r.classification;
-                      // Status colours mirror the existing
-                      // sync-log status pattern (basic.tsx
-                      // `sync_status_style`): plain coloured text,
-                      // no bespoke pill chrome.
-                      const statusMap: Record<
-                        string,
-                        { label: string; color: string }
-                      > = {
-                        already_in_sync: { label: "Linked", color: "green" },
-                        needs_link: { label: "Needs link", color: "orange" },
-                        amounts_disagree: {
-                          label: "Amounts disagree",
-                          color: "orange",
-                        },
-                        needs_push: {
-                          label: "PT only — needs push",
-                          color: "blue",
-                        },
-                        needs_import: {
-                          label: "Xero only — needs import",
-                          color: "blue",
-                        },
-                        blocked: { label: "Blocked", color: "red" },
-                      };
-                      const status = statusMap[cls] || {
+                      const status = catchupStatusMap[cls] || {
                         label: cls,
                         color: "inherit",
                       };
@@ -3330,7 +3313,10 @@ function ManualXeroSyncDialog({
                           ? "#eaf3ff"
                           : undefined;
                       return (
-                        <tr key={r.key} style={rowBg ? { background: rowBg } : undefined}>
+                        <tr
+                          key={r.key}
+                          style={rowBg ? { background: rowBg } : undefined}
+                        >
                           <td>
                             <input
                               type="checkbox"
@@ -3339,12 +3325,12 @@ function ManualXeroSyncDialog({
                               onChange={() => toggleCatchupRow(r.key)}
                             />
                           </td>
-                          <td style={r.pt_id ? undefined : { opacity: 0.4 }}>
+                          <td>
                             {r.pt_id ? (
                               <>
                                 <div>{r.pt_summary || r.label}</div>
                                 {(r.project_name || r.contract_name) && (
-                                  <small style={{ opacity: 0.75 }}>
+                                  <small>
                                     {r.project_name}
                                     {r.project_name && r.contract_name
                                       ? " · "
@@ -3353,22 +3339,20 @@ function ManualXeroSyncDialog({
                                   </small>
                                 )}
                                 <br />
-                                <code style={{ fontSize: 10, opacity: 0.6 }}>
-                                  PT {r.pt_id}
-                                </code>
+                                <small>PT {r.pt_id}</small>
                               </>
                             ) : (
                               <em>— no PayTrade row in window —</em>
                             )}
                           </td>
                           <td>
-                            <span style={{ color: status.color, fontWeight: 600 }}>
+                            <span style={{ color: status.color }}>
                               {status.label}
                             </span>
                             {r.hint && (
                               <div>
-                                <small style={{ opacity: 0.7, fontStyle: "italic" }}>
-                                  {r.hint}
+                                <small>
+                                  <em>{r.hint}</em>
                                 </small>
                               </div>
                             )}
@@ -3401,18 +3385,12 @@ function ManualXeroSyncDialog({
                               </div>
                             )}
                           </td>
-                          <td style={r.xero_id ? undefined : { opacity: 0.4 }}>
+                          <td>
                             {r.xero_id ? (
                               <>
                                 <div>{r.xero_summary || r.label}</div>
-                                {/* Surface tracking + resolved PT
-                                    project/contract on the Xero side
-                                    so operators can see WHY a row
-                                    came back as needs_import
-                                    (mismatched/missing tracking
-                                    option mapping). */}
                                 {(r.project_name || r.contract_name) && (
-                                  <small style={{ opacity: 0.75 }}>
+                                  <small>
                                     {r.project_name}
                                     {r.project_name && r.contract_name
                                       ? " · "
@@ -3422,9 +3400,11 @@ function ManualXeroSyncDialog({
                                 )}
                                 {r.xero_tracking_option_name ? (
                                   <div
-                                    title={r.xero_tracking_option_id || undefined}
+                                    title={
+                                      r.xero_tracking_option_id || undefined
+                                    }
                                   >
-                                    <small style={{ opacity: 0.75 }}>
+                                    <small>
                                       Tracking: {r.xero_tracking_option_name}
                                     </small>
                                   </div>
@@ -3445,9 +3425,7 @@ function ManualXeroSyncDialog({
                                     </div>
                                   )}
                                 <br />
-                                <code style={{ fontSize: 10, opacity: 0.6 }}>
-                                  Xero {r.xero_id}
-                                </code>
+                                <small>Xero {r.xero_id}</small>
                               </>
                             ) : (
                               <em>— no Xero row in window —</em>
@@ -3620,100 +3598,21 @@ function ManualXeroSyncDialog({
         >
           {(() => {
             const cls = catchupRowDetail.classification;
-            const statusMap: Record<string, { label: string; color: string }> =
-              {
-                already_in_sync: { label: "Linked", color: "green" },
-                needs_link: { label: "Needs link", color: "orange" },
-                amounts_disagree: {
-                  label: "Amounts disagree",
-                  color: "orange",
-                },
-                needs_push: {
-                  label: "PT only — needs push",
-                  color: "blue",
-                },
-                needs_import: {
-                  label: "Xero only — needs import",
-                  color: "blue",
-                },
-                blocked: { label: "Blocked", color: "red" },
-              };
-            const status = statusMap[cls] || { label: cls, color: "#555" };
+            const status = catchupStatusMap[cls] || {
+              label: cls,
+              color: "inherit",
+            };
             return (
-              <div style={{ marginBottom: 12 }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "4px 12px",
-                    borderRadius: 12,
-                    background: status.color,
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  {status.label}
-                </span>
+              <div className="mb_one">
+                <strong>Status: </strong>
+                <span style={{ color: status.color }}>{status.label}</span>
               </div>
             );
           })()}
           {catchupRowDetail.hint && (
-            <p
-              style={{
-                margin: "0 0 12px 0",
-                padding: "8px 12px",
-                background: "#fff8e1",
-                border: "1px solid #f0e0a8",
-                borderRadius: 4,
-                fontSize: "13px",
-              }}
-            >
+            <p className="mb_one">
               <strong>Hint:</strong> {catchupRowDetail.hint}
             </p>
-          )}
-          {(catchupRowDetail.project_name ||
-            catchupRowDetail.contract_name ||
-            catchupRowDetail.xero_tracking_option_name) && (
-            <div
-              style={{
-                margin: "0 0 12px 0",
-                padding: "8px 12px",
-                background: "var(--theme-light, #f5f5f5)",
-                borderRadius: 4,
-                fontSize: "12px",
-              }}
-            >
-              {catchupRowDetail.project_name && (
-                <div>
-                  <strong>Project:</strong> {catchupRowDetail.project_name}
-                </div>
-              )}
-              {catchupRowDetail.contract_name && (
-                <div>
-                  <strong>Contract:</strong>{" "}
-                  {catchupRowDetail.contract_name}
-                </div>
-              )}
-              {catchupRowDetail.xero_tracking_option_name && (
-                <div>
-                  <strong>Xero tracking option:</strong>{" "}
-                  {catchupRowDetail.xero_tracking_option_name}
-                  {catchupRowDetail.xero_tracking_option_id && (
-                    <code
-                      style={{
-                        marginLeft: 6,
-                        fontSize: 10,
-                        opacity: 0.7,
-                      }}
-                    >
-                      {catchupRowDetail.xero_tracking_option_id}
-                    </code>
-                  )}
-                </div>
-              )}
-            </div>
           )}
           <div
             style={{
@@ -3723,12 +3622,9 @@ function ManualXeroSyncDialog({
             }}
           >
             <div>
-              <h6 style={{ margin: "0 0 8px 0" }}>PayTrade side</h6>
+              <h6>PayTrade side</h6>
               {catchupRowDetail.pt_id ? (
-                <table
-                  className="pt_table dataTable compact"
-                  style={{ width: "100%", fontSize: 12 }}
-                >
+                <table className="pt_table dataTable compact">
                   <tbody>
                     {(
                       catchupRowDetail.pt_details ||
@@ -3736,42 +3632,25 @@ function ManualXeroSyncDialog({
                     ).map(
                       (d: { label: string; value: string }, i: number) => (
                         <tr key={i}>
-                          <td
-                            style={{
-                              fontWeight: 500,
-                              width: "40%",
-                              whiteSpace: "normal",
-                              verticalAlign: "top",
-                            }}
-                          >
-                            {d.label}
+                          <td>
+                            <strong>{d.label}</strong>
                           </td>
-                          <td
-                            style={{
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {d.value}
-                          </td>
+                          <td>{d.value}</td>
                         </tr>
                       ),
                     )}
                   </tbody>
                 </table>
               ) : (
-                <p style={{ fontStyle: "italic", opacity: 0.6 }}>
-                  — no PayTrade row in window —
+                <p>
+                  <em>— no PayTrade row in window —</em>
                 </p>
               )}
             </div>
             <div>
-              <h6 style={{ margin: "0 0 8px 0" }}>Xero side</h6>
+              <h6>Xero side</h6>
               {catchupRowDetail.xero_id ? (
-                <table
-                  className="pt_table dataTable compact"
-                  style={{ width: "100%", fontSize: 12 }}
-                >
+                <table className="pt_table dataTable compact">
                   <tbody>
                     {(
                       catchupRowDetail.xero_details ||
@@ -3784,32 +3663,18 @@ function ManualXeroSyncDialog({
                     ).map(
                       (d: { label: string; value: string }, i: number) => (
                         <tr key={i}>
-                          <td
-                            style={{
-                              fontWeight: 500,
-                              width: "40%",
-                              whiteSpace: "normal",
-                              verticalAlign: "top",
-                            }}
-                          >
-                            {d.label}
+                          <td>
+                            <strong>{d.label}</strong>
                           </td>
-                          <td
-                            style={{
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {d.value}
-                          </td>
+                          <td>{d.value}</td>
                         </tr>
                       ),
                     )}
                   </tbody>
                 </table>
               ) : (
-                <p style={{ fontStyle: "italic", opacity: 0.6 }}>
-                  — no Xero row in window —
+                <p>
+                  <em>— no Xero row in window —</em>
                 </p>
               )}
             </div>

@@ -14945,11 +14945,7 @@ export class XeroWebhookService {
     };
     const rows: Row[] = [];
 
-    // Task #151 — small formatting helpers for the row-detail payload.
-    // Deep links reuse the shared sync-log-deep-link helpers below
-    // (`buildXeroSyncLogDeepLink` / `buildPaytradeSyncLogDeepLink`)
-    // so the catch-up dialog routes the operator to the same Xero /
-    // PT URLs the sync-log details view does.
+    // Task #151 — row-detail formatting helpers + deep-link adapter.
     const fmtMoney = (v: any): string =>
       `$${(Number(v) || 0).toFixed(2)}`;
     const fmtDate = (v: any): string => {
@@ -14971,8 +14967,6 @@ export class XeroWebhookService {
           ? '—'
           : String(value),
     });
-    // Adapt a catch-up row's source records to the LooseRow shape the
-    // sync-log-deep-link helpers expect, then return both URLs.
     const buildDeepLinks = (
       syncType: string,
       ptId: string | number | null | undefined,
@@ -15437,10 +15431,6 @@ export class XeroWebhookService {
             ? invByIdMap.get(String(r.xero_id))
             : null;
           const inv = xeroLink?.inv ?? null;
-          // Reuse the shared sync-log-deep-link helpers via the
-          // `buildDeepLinks` adapter so the catch-up dialog hands the
-          // operator the same Xero / PT URLs the sync-log details
-          // view does.
           const dl = buildDeepLinks(
             'Invoices',
             claim?.payment_claim_id ?? r.pt_id,
