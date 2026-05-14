@@ -98,6 +98,8 @@ export class BankAccountsValidator {
         where: {
           account_number: account_number,
           added_by_client_supplier: false,
+          company_id: company_id,
+          status: In(['Draft', 'Open', 'Active']),
         },
       });
       if (
