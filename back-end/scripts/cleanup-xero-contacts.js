@@ -217,6 +217,18 @@ async function main() {
     }
 
     // 3. APPLY — single transaction.
+    // Detect optional companion table BEFORE the transaction. The
+    // `xero_contact_dedupe_conflicts` ledger is created by the Task #135
+    // migrations; production environments that never ran those migrations
+    // will not have it, and we must not let that abort the merge.
+    const conflictsTableRes = await client.query(
+      `SELECT to_regclass('public.xero_contact_dedupe_conflicts') AS t`,
+    );
+    const hasConflictsTable = conflictsTableRes.rows[0].t !== null;
+    if (!hasConflictsTable) {
+      console.log('Note: xero_contact_dedupe_conflicts table not present — skipping ledger cleanup step.');
+    }
+
     console.log('Applying MERGE inside a single transaction...');
     await client.query('BEGIN');
     try {
@@ -300,18 +312,22 @@ async function main() {
 
       // Clear resolved conflict ledger rows: any row whose
       // (integration_id, contact_id) no longer has duplicates.
-      const cleared = await client.query(
-        `DELETE FROM xero_contact_dedupe_conflicts c
-           WHERE c.integration_id = ANY($1::int[])
-             AND NOT EXISTS (
-               SELECT 1 FROM xero_contact_details xcd
-                WHERE xcd.integration_id = c.integration_id
-                  AND xcd.contact_id = c.contact_id
-                GROUP BY xcd.integration_id, xcd.contact_id
-                HAVING COUNT(*) > 1
-             )`,
-        [integrationIds],
-      );
+      // Skipped silently when the ledger table does not exist.
+      let cleared = { rowCount: 0 };
+      if (hasConflictsTable) {
+        cleared = await client.query(
+          `DELETE FROM xero_contact_dedupe_conflicts c
+             WHERE c.integration_id = ANY($1::int[])
+               AND NOT EXISTS (
+                 SELECT 1 FROM xero_contact_details xcd
+                  WHERE xcd.integration_id = c.integration_id
+                    AND xcd.contact_id = c.contact_id
+                  GROUP BY xcd.integration_id, xcd.contact_id
+                  HAVING COUNT(*) > 1
+               )`,
+          [integrationIds],
+        );
+      }
 
       const afterRes = await client.query(
         `SELECT COUNT(*)::int AS c FROM xero_contact_details

@@ -32,6 +32,8 @@ The first command confirms all changes are committed. The second shows exactly w
 
 ### 2. Push to Railway
 
+git push github-new develop/release-1:main
+
 `new develop/release-1:main``bash
 git push github-
 
