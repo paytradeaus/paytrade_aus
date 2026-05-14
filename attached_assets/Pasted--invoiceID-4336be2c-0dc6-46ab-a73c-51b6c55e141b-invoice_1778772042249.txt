@@ -1,0 +1,117 @@
+[
+  {
+    "invoiceID": "4336be2c-0dc6-46ab-a73c-51b6c55e141b",
+    "invoiceNumber": "PF-8928",
+    "type": "ACCPAY",
+    "date": "2026-04-08T00:00:00.000Z",
+    "updatedDateUTC": "2026-04-15T22:03:11.770Z",
+    "total": 225.5,
+    "contactName": "Planmate Systems Pty Ltd (Plan Filing Shop)",
+    "lineItemCount": 1,
+    "trackingEntries": [
+      {
+        "line": 0,
+        "categoryId": "7cff651d-a86d-4a01-b7e2-3f9e8bf3dff7",
+        "categoryName": "Project",
+        "optionId": null,
+        "optionName": "2501 - Alba",
+        "ptProjectMatch": null,
+        "ptContractMatch": null
+      }
+    ],
+    "resolved": {
+      "ptProjectId": null,
+      "ptContractId": null
+    }
+  },
+  {
+    "invoiceID": "d5f90ba9-7e04-4eac-af30-2579da3c541e",
+    "invoiceNumber": "001-INV-1021474160-APR-26",
+    "type": "ACCPAY",
+    "date": "2026-04-13T00:00:00.000Z",
+    "updatedDateUTC": "2026-04-16T03:09:36.567Z",
+    "total": 59.5,
+    "contactName": "Officeworks LTD",
+    "lineItemCount": 1,
+    "trackingEntries": [
+      {
+        "line": 0,
+        "categoryId": "7cff651d-a86d-4a01-b7e2-3f9e8bf3dff7",
+        "categoryName": "Project",
+        "optionId": null,
+        "optionName": "2501 - Alba",
+        "ptProjectMatch": null,
+        "ptContractMatch": null
+      }
+    ],
+    "resolved": {
+      "ptProjectId": null,
+      "ptContractId": null
+    }
+  },
+  {
+    "invoiceID": "c3343319-9da9-4213-bde9-bfd63a4bd28b",
+    "invoiceNumber": "002-INV-APR-26",
+    "type": "ACCPAY",
+    "date": "2026-04-10T00:00:00.000Z",
+    "updatedDateUTC": "2026-04-16T03:10:22.840Z",
+    "total": 377.2,
+    "contactName": "Officeworks LTD",
+    "lineItemCount": 1,
+    "trackingEntries": [
+      {
+        "line": 0,
+        "categoryId": "7cff651d-a86d-4a01-b7e2-3f9e8bf3dff7",
+        "categoryName": "Project",
+        "optionId": null,
+        "optionName": "2501 - Alba",
+        "ptProjectMatch": null,
+        "ptContractMatch": null
+      }
+    ],
+    "resolved": {
+      "ptProjectId": null,
+      "ptContractId": null
+    }
+  },
+  {
+    "invoiceID": "56d10146-ff91-4d97-a8ec-1cf96e728b20",
+    "invoiceNumber": "INV-3353",
+    "type": "ACCPAY",
+    "date": "2026-04-08T00:00:00.000Z",
+    "updatedDateUTC": "2026-04-16T03:11:56.610Z",
+    "total": 324.42,
+    "contactName": "ABC Trendz Pty Ltd",
+    "lineItemCount": 1,
+    "trackingEntries": [],
+    "resolved": {
+      "ptProjectId": null,
+      "ptContractId": null
+    }
+  },
+  {
+    "invoiceID": "91bb6856-1b25-4a0c-bee2-a7d9a7563c57",
+    "invoiceNumber": "001-INV-84966-APR-26",
+    "type": "ACCPAY",
+    "date": "2026-04-10T00:00:00.000Z",
+    "updatedDateUTC": "2026-04-16T05:22:55.917Z",
+    "total": 378.52,
+    "contactName": "Pivot Australia Pty Ltd t/a Tradeline Site Services",
+    "lineItemCount": 1,
+    "trackingEntries": [
+      {
+        "line": 0,
+        "categoryId": "7cff651d-a86d-4a01-b7e2-3f9e8bf3dff7",
+        "categoryName": "Project",
+        "optionId": null,
+        "optionName": "2501 - Alba",
+        "ptProjectMatch": null,
+        "ptContractMatch": null
+      }
+    ],
+    "resolved": {
+      "ptProjectId": null,
+      "ptContractId": null
+    }
+  }
+]

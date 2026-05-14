@@ -14945,21 +14945,45 @@ export class XeroWebhookService {
           where: { integration_id },
         });
         const trackingToPtProject = new Map<string, number>();
+        // Name-fallback map: Xero's /Invoices LIST endpoint returns
+        // tracking entries with `option` (the option name, e.g.
+        // "2501 - Alba") populated but `trackingOptionID` is often
+        // NULL — full option IDs only come back from GET-by-ID. To
+        // avoid a per-record detail fetch, we also key the map by
+        // lowercased option name as a fallback when ID is missing.
+        const trackingNameToPtProject = new Map<string, number>();
         for (const p of xeroProjects) {
-          if (p.project_id && p.pt_project_id) {
-            trackingToPtProject.set(
-              String(p.project_id).toLowerCase(),
-              Number(p.pt_project_id),
-            );
+          if (p.pt_project_id) {
+            if (p.project_id) {
+              trackingToPtProject.set(
+                String(p.project_id).toLowerCase(),
+                Number(p.pt_project_id),
+              );
+            }
+            if (p.project_name) {
+              trackingNameToPtProject.set(
+                String(p.project_name).trim().toLowerCase(),
+                Number(p.pt_project_id),
+              );
+            }
           }
         }
         const trackingToPtContract = new Map<string, number>();
+        const trackingNameToPtContract = new Map<string, number>();
         for (const c of xeroContracts) {
-          if (c.contract_id && c.pt_contract_id) {
-            trackingToPtContract.set(
-              String(c.contract_id).toLowerCase(),
-              Number(c.pt_contract_id),
-            );
+          if (c.pt_contract_id) {
+            if (c.contract_id) {
+              trackingToPtContract.set(
+                String(c.contract_id).toLowerCase(),
+                Number(c.pt_contract_id),
+              );
+            }
+            if (c.contract_name) {
+              trackingNameToPtContract.set(
+                String(c.contract_name).trim().toLowerCase(),
+                Number(c.pt_contract_id),
+              );
+            }
           }
         }
 
@@ -15120,8 +15144,21 @@ export class XeroWebhookService {
               const opt = t?.trackingOptionID
                 ? String(t.trackingOptionID).toLowerCase()
                 : null;
-              const projHit = opt ? trackingToPtProject.get(opt) || null : null;
-              const ctrHit = opt ? trackingToPtContract.get(opt) || null : null;
+              const optName = t?.option
+                ? String(t.option).trim().toLowerCase()
+                : null;
+              // Prefer ID match; fall back to option-name match
+              // because Xero's /Invoices LIST endpoint frequently
+              // returns trackingOptionID = null while populating the
+              // option name.
+              const projHit =
+                (opt ? trackingToPtProject.get(opt) : null) ||
+                (optName ? trackingNameToPtProject.get(optName) : null) ||
+                null;
+              const ctrHit =
+                (opt ? trackingToPtContract.get(opt) : null) ||
+                (optName ? trackingNameToPtContract.get(optName) : null) ||
+                null;
               trackingSeen.push({
                 line: lineIdx,
                 categoryId: t?.trackingCategoryID || null,
@@ -15131,7 +15168,7 @@ export class XeroWebhookService {
                 ptProjectMatch: projHit,
                 ptContractMatch: ctrHit,
               });
-              if (!opt) continue;
+              if (!opt && !optName) continue;
               if (!ptProjectId && projHit) ptProjectId = projHit;
               if (!ptContractId && ctrHit) ptContractId = ctrHit;
             }
