@@ -1733,7 +1733,6 @@ function ManualXeroSyncDialog({
   const [catchupSelected, setCatchupSelected] = useState<Set<string>>(
     new Set(),
   );
-  const [catchupReviewed, setCatchupReviewed] = useState<boolean>(false);
   const [catchupRunning, setCatchupRunning] = useState<boolean>(false);
   const [catchupProgress, setCatchupProgress] = useState<{
     done: number;
@@ -1822,7 +1821,6 @@ function ManualXeroSyncDialog({
       setCatchupError(null);
       setCatchupResult(null);
       setCatchupSelected(new Set());
-      setCatchupReviewed(false);
       setCatchupRunning(false);
       setCatchupProgress({ done: 0, total: 0, pass: 0, fail: 0 });
       setCatchupRowStatus({});
@@ -2055,7 +2053,6 @@ function ManualXeroSyncDialog({
     setCatchupError(null);
     setCatchupResult(null);
     setCatchupSelected(new Set());
-    setCatchupReviewed(false);
     setCatchupRowStatus({});
     setCatchupProgress({ done: 0, total: 0, pass: 0, fail: 0 });
     try {
@@ -2101,12 +2098,6 @@ function ManualXeroSyncDialog({
 
   const handleRunBatch = async () => {
     if (!catchupResult || !Array.isArray(catchupResult.rows)) return;
-    if (!catchupReviewed) {
-      setCatchupError(
-        "Tick \u201cI've reviewed these records\u201d before running the batch.",
-      );
-      return;
-    }
     const selectedRows = catchupResult.rows.filter((r: any) =>
       catchupSelected.has(r.key),
     );
@@ -2212,12 +2203,27 @@ function ManualXeroSyncDialog({
   };
 
   const runDisabled =
-    mode === "catchup" ||
-    busy ||
-    !preflight ||
-    !preflight.actionToken ||
-    !!preflight.blocked ||
-    !reviewed;
+    mode === "catchup"
+      ? catchupRunning ||
+        catchupBusy ||
+        !catchupResult ||
+        catchupSelected.size === 0
+      : busy ||
+        !preflight ||
+        !preflight.actionToken ||
+        !!preflight.blocked ||
+        !reviewed;
+
+  const secondButtonLabel =
+    mode === "catchup"
+      ? catchupRunning
+        ? `Running ${catchupProgress.done}/${catchupProgress.total}…`
+        : catchupSelected.size > 0
+        ? `Run sync on ${catchupSelected.size} selected`
+        : "Run sync"
+      : busy
+      ? "Running…"
+      : "Run sync";
 
   if (!open) return null;
   return (
@@ -2227,9 +2233,9 @@ function ManualXeroSyncDialog({
       onClose={handleClose}
       title="Manual Xero sync"
       firstButtonName="Close"
-      secondButtonName={busy ? "Running…" : "Run sync"}
+      secondButtonName={secondButtonLabel}
       disableSecondButton={runDisabled}
-      onConfirm={handleConfirm}
+      onConfirm={mode === "catchup" ? handleRunBatch : handleConfirm}
     >
       {/* Task #147 — mode tabs. Single = pick one record; Catch-up =
           discover and batch-sync everything in a date window. */}
@@ -3007,7 +3013,6 @@ function ManualXeroSyncDialog({
                 if (isCatchupType(v)) setCatchupType(v);
                 setCatchupResult(null);
                 setCatchupSelected(new Set());
-                setCatchupReviewed(false);
                 setCatchupRowStatus({});
               }}
               disabled={catchupBusy || catchupRunning}
@@ -3270,25 +3275,25 @@ function ManualXeroSyncDialog({
                   {catchupSelected.size} selected
                 </span>
               </div>
-              {/* Task #151 — restyled to use the system pt_table look so
-                  the catch-up results match the rest of the app
-                  (Mapped Contacts, etc.). Action column with the
-                  standard eye button opens a secondary "Catch-up row
-                  details" dialog stacked on top of this one. */}
+              {/* Task #151 — restyled to use the system pt_table look. */}
               <div
                 style={{
                   margin: "0 0 10px 0",
                   maxHeight: "360px",
                   overflowY: "auto",
+                  overflowX: "auto",
                 }}
               >
-                <table className="pt_table dataTable compact stripe">
+                <table
+                  className="pt_table dataTable compact stripe"
+                  style={{ minWidth: "720px" }}
+                >
                   <thead>
                     <tr>
                       <th></th>
-                      <th>PayTrade side</th>
+                      <th>PayTrade</th>
                       <th>Status</th>
-                      <th>Xero side</th>
+                      <th>Xero</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -3459,56 +3464,6 @@ function ManualXeroSyncDialog({
                   </tbody>
                 </table>
               </div>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "8px",
-                  fontWeight: 500,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={catchupReviewed}
-                  onChange={(e) => setCatchupReviewed(e.target.checked)}
-                  disabled={catchupRunning}
-                />
-                I&apos;ve reviewed these {catchupSelected.size} record
-                {catchupSelected.size === 1 ? "" : "s"} and want to run them.
-              </label>
-              <button
-                type="button"
-                onClick={handleRunBatch}
-                disabled={
-                  catchupRunning ||
-                  !catchupReviewed ||
-                  catchupSelected.size === 0
-                }
-                style={{
-                  padding: "8px 14px",
-                  background: "#1a73e8",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  opacity:
-                    catchupRunning ||
-                    !catchupReviewed ||
-                    catchupSelected.size === 0
-                      ? 0.55
-                      : 1,
-                  cursor:
-                    catchupRunning ||
-                    !catchupReviewed ||
-                    catchupSelected.size === 0
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {catchupRunning
-                  ? `Running ${catchupProgress.done}/${catchupProgress.total}…`
-                  : `Run sync on ${catchupSelected.size} selected`}
-              </button>
               {(catchupRunning || catchupProgress.done > 0) && (
                 <div
                   style={{
