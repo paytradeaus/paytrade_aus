@@ -3034,30 +3034,40 @@ function ManualXeroSyncDialog({
                 style={{ width: "100%", padding: "6px 8px" }}
               />
             </label>
-            <button
-              type="button"
-              onClick={handleDiscover}
-              disabled={
-                catchupBusy ||
-                catchupRunning ||
-                !catchupFrom ||
-                !catchupTo
-              }
+            <div
               style={{
-                alignSelf: "flex-end",
-                padding: "8px 14px",
-                background: "#1a73e8",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                cursor:
-                  catchupBusy || catchupRunning || !catchupFrom || !catchupTo
-                    ? "not-allowed"
-                    : "pointer",
+                display: "flex",
+                flexDirection: "column",
+                fontSize: "12px",
               }}
             >
-              {catchupBusy ? "Discovering…" : "Discover"}
-            </button>
+              <span aria-hidden="true" style={{ visibility: "hidden" }}>
+                &nbsp;
+              </span>
+              <button
+                type="button"
+                onClick={handleDiscover}
+                disabled={
+                  catchupBusy ||
+                  catchupRunning ||
+                  !catchupFrom ||
+                  !catchupTo
+                }
+                style={{
+                  padding: "6px 14px",
+                  background: "#1a73e8",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor:
+                    catchupBusy || catchupRunning || !catchupFrom || !catchupTo
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {catchupBusy ? "Discovering…" : "Discover"}
+              </button>
+            </div>
           </div>
           {catchupError && (
             <div

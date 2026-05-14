@@ -1208,15 +1208,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      // IDOR guard — caller must own the company they're acting on. The
-      // role-guard above only confirms the user is an admin somewhere; the
-      // JWT-bound company id is what proves they're an admin of *this*
-      // company. Reject any cross-company tampering attempt up front.
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
@@ -1323,11 +1326,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
@@ -1388,11 +1398,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
@@ -1445,11 +1462,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
@@ -1518,11 +1542,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
@@ -1589,11 +1620,18 @@ export class XeroResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      const callerCompanyId =
-        decoded?.companyId ?? decoded?.company_id ?? null;
+      // IDOR guard. The JWT internal service has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT
+      // (decodeJwtToken throws "Unauthorized to perform this action"
+      // otherwise). So if we got here, headers.companyid IS the active
+      // company. Reject when the args-level company_id does not match it,
+      // catching cross-company tampering at the GraphQL layer.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
       if (
-        !callerCompanyId ||
-        Number(callerCompanyId) !== Number(company_id)
+        !headerCompanyId ||
+        headerCompanyId !== Number(company_id)
       ) {
         return framedResponse(
           'ERROR',
