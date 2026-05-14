@@ -14972,7 +14972,11 @@ export class XeroWebhookService {
                         `${r.number || r.id} for $${r.amount.toFixed(2)}${r.date ? ` on ${moment(r.date).format('DD/MM/YYYY')}` : ''}`,
                     )
                     .join(', ');
-                  payLabel = 'Full payment (covered by credit note)';
+                  // Task #140 acceptance — embed the matched CN refs
+                  // into payLabel itself so xeroSide.paymentStatus
+                  // (used by consumers that don't walk the checks
+                  // array) is self-describing.
+                  payLabel = `Full payment (covered by credit note ${refStr})`;
                   payStatus = 'ok';
                   payDetail = `Xero invoice fully settled: $${paid.toFixed(2)} paid + $${cnOffset.toFixed(2)} credit note(s) (${refStr}) of $${total.toFixed(2)} total.`;
                 } else if (cnOffset > 0) {
