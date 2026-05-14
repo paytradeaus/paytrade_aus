@@ -14895,6 +14895,7 @@ export class XeroWebhookService {
       classification:
         | 'already_in_sync'
         | 'needs_link'
+        | 'amounts_disagree'
         | 'needs_push'
         | 'needs_import'
         | 'blocked';
@@ -14914,13 +14915,50 @@ export class XeroWebhookService {
       await this.xeroService.refreshTokenSet(company_id, this.xero);
 
       if (rawType === 'invoice_bill') {
-        // PT side — claims created in window.
+        // Build the Xero project / contract tracking-option → PT id
+        // maps so we can scope discovery to records that touch a
+        // tracking option this company has linked to a PT
+        // project / contract. Per task requirements: discovery only
+        // surfaces records "with a Xero-linked project/contract".
+        const xeroProjects = await this.xeroProjectDetails.find({
+          where: { integration_id },
+        });
+        const xeroContracts = await this.xeroContractDetails.find({
+          where: { integration_id },
+        });
+        const trackingToPtProject = new Map<string, number>();
+        for (const p of xeroProjects) {
+          if (p.project_id && p.pt_project_id) {
+            trackingToPtProject.set(
+              String(p.project_id).toLowerCase(),
+              Number(p.pt_project_id),
+            );
+          }
+        }
+        const trackingToPtContract = new Map<string, number>();
+        for (const c of xeroContracts) {
+          if (c.contract_id && c.pt_contract_id) {
+            trackingToPtContract.set(
+              String(c.contract_id).toLowerCase(),
+              Number(c.pt_contract_id),
+            );
+          }
+        }
+
+        // PT side — claims created in window. Project-tracking-linked
+        // scope: the claim must carry both a project_id and a
+        // contract_id (those are the rows that flow through Xero
+        // with tracking categories). Claims with no project or no
+        // contract are out of scope for catch-up — they wouldn't
+        // round-trip cleanly anyway.
         const ptClaims = await this.paymentClaims
           .createQueryBuilder('c')
           .leftJoinAndSelect('c.clientSupplierDetails', 'cs')
           .leftJoinAndSelect('c.projectDetails', 'pj')
           .leftJoinAndSelect('c.contractDetails', 'ct')
           .where('c.company_id = :company_id', { company_id })
+          .andWhere('c.project_id IS NOT NULL')
+          .andWhere('c.contract_id IS NOT NULL')
           .andWhere('c.created_on >= :from AND c.created_on < :to', {
             from: fromDate.startOf('day').toDate(),
             to: toDate.clone().add(1, 'day').startOf('day').toDate(),
@@ -14946,7 +14984,7 @@ export class XeroWebhookService {
         }
 
         // Xero side — invoices dated in window. Fetch up to 2 pages.
-        const xeroInvoices: any[] = [];
+        const xeroInvoicesRaw: any[] = [];
         try {
           const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
           for (let page = 1; page <= 2; page++) {
@@ -14962,11 +15000,11 @@ export class XeroWebhookService {
               page,
             );
             const batch = resp?.body?.invoices || [];
-            xeroInvoices.push(...batch);
+            xeroInvoicesRaw.push(...batch);
             if (batch.length < 100) break;
-            if (xeroInvoices.length >= PER_SIDE_CAP) {
+            if (xeroInvoicesRaw.length >= PER_SIDE_CAP) {
               truncated = true;
-              xeroInvoices.length = PER_SIDE_CAP;
+              xeroInvoicesRaw.length = PER_SIDE_CAP;
               break;
             }
           }
@@ -14976,85 +15014,154 @@ export class XeroWebhookService {
             message: `Xero invoice fetch failed: ${e?.message || e}`,
           };
         }
-        // Index Xero invoices by canonical id for the existing-mapping
-        // lookup AND by lower-cased invoiceNumber for the unmapped
-        // pairing pass.
-        const xeroById = new Map<string, any>();
-        const xeroByNumber = new Map<string, any>();
-        for (const inv of xeroInvoices) {
-          if (inv?.invoiceID) xeroById.set(String(inv.invoiceID), inv);
-          if (inv?.invoiceNumber) {
+
+        // Resolve each Xero invoice's tracking → PT project / contract
+        // (via XeroProjectDetails / XeroContractDetails). Drop any
+        // invoice whose tracking does NOT resolve to a known PT
+        // project/contract — those are out of catch-up scope.
+        type XeroInvWithLinks = {
+          inv: any;
+          ptProjectId: number | null;
+          ptContractId: number | null;
+        };
+        const xeroInvoices: XeroInvWithLinks[] = [];
+        for (const inv of xeroInvoicesRaw) {
+          let ptProjectId: number | null = null;
+          let ptContractId: number | null = null;
+          for (const li of inv?.lineItems || []) {
+            for (const t of li?.tracking || []) {
+              const opt = t?.trackingOptionID
+                ? String(t.trackingOptionID).toLowerCase()
+                : null;
+              if (!opt) continue;
+              if (!ptProjectId && trackingToPtProject.has(opt)) {
+                ptProjectId = trackingToPtProject.get(opt) || null;
+              }
+              if (!ptContractId && trackingToPtContract.has(opt)) {
+                ptContractId = trackingToPtContract.get(opt) || null;
+              }
+            }
+            if (ptProjectId && ptContractId) break;
+          }
+          if (ptProjectId) {
+            xeroInvoices.push({ inv, ptProjectId, ptContractId });
+          }
+        }
+
+        // Index by invoiceNumber (lower-cased) for reference matching.
+        const xeroByNumber = new Map<string, XeroInvWithLinks>();
+        for (const x of xeroInvoices) {
+          if (x.inv?.invoiceNumber) {
             xeroByNumber.set(
-              String(inv.invoiceNumber).trim().toLowerCase(),
-              inv,
+              String(x.inv.invoiceNumber).trim().toLowerCase(),
+              x,
             );
           }
         }
         const consumedXeroIds = new Set<string>();
 
-        // Walk PT claims first.
+        // Walk PT claims first. Matching rule (one source of truth
+        // with preflight): invoice number first, then
+        // contract+amount±$0.01+date±2days using the shared
+        // compareAmountAndDate comparator.
         for (const claim of ptClaims) {
           const mapping = ptToXeroMap.get(Number(claim.payment_claim_id));
           const ptSummary = `Claim #${claim.payment_claim_id}${claim.claim_reference ? ` — ${claim.claim_reference}` : ''} • ${claim.claim_type} • $${Number(claim.claim_amount || 0).toFixed(2)} • ${claim.clientSupplierDetails?.client_supplier_name || ''} • ${claim.status}`;
           if (mapping?.invoice_id) {
             consumedXeroIds.add(String(mapping.invoice_id));
+            // Already linked. Compare totals (amount tolerance only —
+            // dates can legitimately differ once Xero has paid the
+            // invoice on a different day) to flag amounts_disagree.
+            const amountsAgree =
+              this.compareAmountAndDate(
+                Number(claim.claim_amount || 0),
+                Number(mapping.total_amount || 0),
+                null,
+                null,
+              );
             rows.push({
               key: `pt:${claim.payment_claim_id}`,
-              classification: 'already_in_sync',
+              classification: amountsAgree ? 'already_in_sync' : 'amounts_disagree',
               type: rawType,
               pt_id: String(claim.payment_claim_id),
               xero_id: String(mapping.invoice_id),
-              label: `Claim #${claim.payment_claim_id} ↔ Xero invoice ${mapping.invoice_id}`,
-              sublabel: ptSummary,
+              label: amountsAgree
+                ? `Claim #${claim.payment_claim_id} ↔ Xero invoice ${mapping.invoice_id}`
+                : `Claim #${claim.payment_claim_id} ↔ ${mapping.invoice_id} — totals disagree`,
+              sublabel: amountsAgree
+                ? ptSummary
+                : `PT $${Number(claim.claim_amount || 0).toFixed(2)} vs Xero $${Number(mapping.total_amount || 0).toFixed(2)} — re-importing from Xero will overwrite the PT row.`,
               pt_summary: ptSummary,
               xero_summary: `Xero ${mapping.type || 'invoice'} ${mapping.invoice_id} — total $${Number(mapping.total_amount || 0).toFixed(2)}`,
+              hint: amountsAgree
+                ? undefined
+                : 'Recommend re-importing from Xero — preflight will produce the canonical action.',
             });
             continue;
           }
-          // No mapping. Try to pair against an unconsumed Xero invoice
-          // by reference (claim_reference == invoiceNumber), then by
-          // amount + date (compareAmountAndDate, ±$0.01, ±2 days).
-          let pairedXero: any = null;
+          // No mapping. Pair against an unconsumed Xero invoice using
+          // the project/contract-tracking-aware matcher.
+          let pairedXero: XeroInvWithLinks | null = null;
+          let pairedAmountAgrees = true;
+          // 1. invoice number
           if (claim.claim_reference) {
             const candidate = xeroByNumber.get(
               String(claim.claim_reference).trim().toLowerCase(),
             );
-            if (candidate && !consumedXeroIds.has(String(candidate.invoiceID))) {
+            if (candidate && !consumedXeroIds.has(String(candidate.inv.invoiceID))) {
               pairedXero = candidate;
+              pairedAmountAgrees = this.compareAmountAndDate(
+                Number(claim.claim_amount || 0),
+                Number(candidate.inv.total || 0),
+                null,
+                null,
+              );
             }
           }
+          // 2. contract + amount + date (only when both sides agree on
+          //    PT contract id — prevents cross-contract collisions on
+          //    same-amount/same-day claims).
           if (!pairedXero) {
             const claimDate =
               claim.claim_type === 'Billable'
                 ? claim.received_date
                 : claim.sent_date;
-            for (const inv of xeroInvoices) {
-              if (consumedXeroIds.has(String(inv.invoiceID))) continue;
+            for (const x of xeroInvoices) {
+              if (consumedXeroIds.has(String(x.inv.invoiceID))) continue;
+              const sameContract =
+                x.ptContractId &&
+                Number(x.ptContractId) === Number(claim.contract_id);
+              if (!sameContract) continue;
               if (
                 this.compareAmountAndDate(
                   Number(claim.claim_amount || 0),
-                  Number(inv.total || 0),
+                  Number(x.inv.total || 0),
                   claimDate,
-                  inv.date,
+                  x.inv.date,
                 )
               ) {
-                pairedXero = inv;
+                pairedXero = x;
+                pairedAmountAgrees = true;
                 break;
               }
             }
           }
           if (pairedXero) {
-            consumedXeroIds.add(String(pairedXero.invoiceID));
+            consumedXeroIds.add(String(pairedXero.inv.invoiceID));
             rows.push({
-              key: `pair:${claim.payment_claim_id}:${pairedXero.invoiceID}`,
-              classification: 'needs_link',
+              key: `pair:${claim.payment_claim_id}:${pairedXero.inv.invoiceID}`,
+              classification: pairedAmountAgrees ? 'needs_link' : 'amounts_disagree',
               type: rawType,
               pt_id: String(claim.payment_claim_id),
-              xero_id: String(pairedXero.invoiceID),
-              label: `Claim #${claim.payment_claim_id} ↔ ${pairedXero.invoiceNumber || pairedXero.invoiceID}`,
-              sublabel: `Both sides exist but no mapping — recommend linking.`,
+              xero_id: String(pairedXero.inv.invoiceID),
+              label: pairedAmountAgrees
+                ? `Claim #${claim.payment_claim_id} ↔ ${pairedXero.inv.invoiceNumber || pairedXero.inv.invoiceID}`
+                : `Claim #${claim.payment_claim_id} ↔ ${pairedXero.inv.invoiceNumber || pairedXero.inv.invoiceID} — totals disagree`,
+              sublabel: pairedAmountAgrees
+                ? `Both sides exist but no mapping — recommend linking.`
+                : `PT $${Number(claim.claim_amount || 0).toFixed(2)} vs Xero $${Number(pairedXero.inv.total || 0).toFixed(2)} — preflight will recommend the canonical direction.`,
               pt_summary: ptSummary,
-              xero_summary: `${pairedXero.type} ${pairedXero.invoiceNumber || pairedXero.invoiceID} — total $${Number(pairedXero.total || 0).toFixed(2)} — ${pairedXero.status}`,
+              xero_summary: `${pairedXero.inv.type} ${pairedXero.inv.invoiceNumber || pairedXero.inv.invoiceID} — total $${Number(pairedXero.inv.total || 0).toFixed(2)} — ${pairedXero.inv.status}`,
             });
             continue;
           }
@@ -15078,12 +15185,11 @@ export class XeroWebhookService {
           });
         }
 
-        // Walk remaining Xero invoices (Xero-only).
-        for (const inv of xeroInvoices) {
+        // Walk remaining Xero invoices (Xero-only). Already filtered
+        // to "tracking resolves to a known PT project" above.
+        for (const x of xeroInvoices) {
+          const inv = x.inv;
           if (consumedXeroIds.has(String(inv.invoiceID))) continue;
-          // Either the invoice is already mapped to a PT claim outside
-          // the window (already_in_sync — surface as info), or it has
-          // no mapping (needs_import).
           const localRow = await this.xeroInvoicesBills.findOne({
             where: { integration_id, invoice_id: inv.invoiceID },
           });
@@ -15271,10 +15377,12 @@ export class XeroWebhookService {
           if (m.pt_contact_id) ptToXero.set(Number(m.pt_contact_id), m);
         }
         // Xero contacts modified in window — Contacts has no creation
-        // date filter so we use ifModifiedSince. For a discovery
-        // surface this is good enough: every contact touched in the
-        // window will be visible.
+        // date filter so we use ifModifiedSince as the lower bound and
+        // then client-side filter the upper bound by updatedDateUTC.
+        // This honours the explicit date-window contract: nothing
+        // modified after to_date should appear in the result.
         const xeroContacts: any[] = [];
+        const toUpper = toDate.clone().endOf('day').toDate();
         try {
           for (let page = 1; page <= 2; page++) {
             const resp = await this.xero.accountingApi.getContacts(
@@ -15285,9 +15393,18 @@ export class XeroWebhookService {
               undefined,
               page,
             );
-            const batch = resp?.body?.contacts || [];
+            const batchAll = resp?.body?.contacts || [];
+            const batch = batchAll.filter((c: any) => {
+              const u = c?.updatedDateUTC || c?.UpdatedDateUTC;
+              if (!u) return true;
+              try {
+                return moment(u).toDate() <= toUpper;
+              } catch {
+                return true;
+              }
+            });
             xeroContacts.push(...batch);
-            if (batch.length < 100) break;
+            if (batchAll.length < 100) break;
             if (xeroContacts.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroContacts.length = PER_SIDE_CAP;

@@ -1698,11 +1698,24 @@ function ManualXeroSyncDialog({
   // multi-select results table that batches the existing per-row
   // preflight + run-sync calls.
   const [mode, setMode] = useState<"single" | "catchup">("single");
-  const [catchupType, setCatchupType] = useState<
-    "invoice_bill" | "payment" | "contact"
-  >("invoice_bill");
-  const [catchupFrom, setCatchupFrom] = useState<string>("");
-  const [catchupTo, setCatchupTo] = useState<string>("");
+  type CatchupType = "invoice_bill" | "payment" | "contact";
+  const isCatchupType = (v: string): v is CatchupType =>
+    v === "invoice_bill" || v === "payment" || v === "contact";
+  // Default to a last-30-days window so the user can hit Discover
+  // immediately on first open without typing dates. Format YYYY-MM-DD
+  // for the native <input type="date"> control.
+  const defaultCatchupTo = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const defaultCatchupFrom = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const [catchupType, setCatchupType] = useState<CatchupType>("invoice_bill");
+  const [catchupFrom, setCatchupFrom] = useState<string>(defaultCatchupFrom);
+  const [catchupTo, setCatchupTo] = useState<string>(defaultCatchupTo);
   const [catchupBusy, setCatchupBusy] = useState<boolean>(false);
   const [catchupError, setCatchupError] = useState<string | null>(null);
   const [catchupResult, setCatchupResult] = useState<any>(null);
@@ -1783,8 +1796,8 @@ function ManualXeroSyncDialog({
       setReviewed(false);
       setMode("single");
       setCatchupType("invoice_bill");
-      setCatchupFrom("");
-      setCatchupTo("");
+      setCatchupFrom(defaultCatchupFrom);
+      setCatchupTo(defaultCatchupTo);
       setCatchupBusy(false);
       setCatchupError(null);
       setCatchupResult(null);
@@ -2963,7 +2976,8 @@ function ManualXeroSyncDialog({
             <select
               value={catchupType}
               onChange={(e) => {
-                setCatchupType(e.target.value as any);
+                const v = e.target.value;
+                if (isCatchupType(v)) setCatchupType(v);
                 setCatchupResult(null);
                 setCatchupSelected(new Set());
                 setCatchupReviewed(false);
@@ -3122,131 +3136,211 @@ function ManualXeroSyncDialog({
                   {catchupSelected.size} selected
                 </span>
               </div>
-              <ul
+              <div
                 style={{
-                  listStyle: "none",
                   margin: "0 0 10px 0",
-                  padding: 0,
-                  maxHeight: "320px",
+                  maxHeight: "360px",
                   overflowY: "auto",
                   border: "1px solid #ddd",
                   borderRadius: "4px",
                 }}
               >
-                {catchupResult.rows.map((r: any) => {
-                  const rs = catchupRowStatus[r.key];
-                  const cls = r.classification;
-                  const tagColor =
-                    cls === "already_in_sync"
-                      ? "#137333"
-                      : cls === "blocked"
-                      ? "#a50e0e"
-                      : cls === "needs_link"
-                      ? "#a86b00"
-                      : "#1a73e8";
-                  const isSelected = catchupSelected.has(r.key);
-                  const disabledRow =
-                    catchupRunning ||
-                    cls === "already_in_sync" ||
-                    cls === "blocked";
-                  return (
-                    <li
-                      key={r.key}
-                      style={{
-                        padding: "8px 10px",
-                        borderBottom: "1px solid #eee",
-                        background:
-                          rs?.status === "running"
-                            ? "#fff8e1"
-                            : rs?.status === "passed"
-                            ? "#f3fbf3"
-                            : rs?.status === "failed"
-                            ? "#fff5f5"
-                            : isSelected
-                            ? "#eaf3ff"
-                            : "transparent",
-                        fontSize: "13px",
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={disabledRow}
-                        onChange={() => toggleCatchupRow(r.key)}
-                        style={{ marginTop: "3px" }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div>
-                          <span
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: "12px",
+                    tableLayout: "fixed",
+                  }}
+                >
+                  <thead
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      background: "#f5f5f5",
+                      zIndex: 1,
+                    }}
+                  >
+                    <tr>
+                      <th style={{ width: "32px", padding: "6px 8px", textAlign: "left" }}></th>
+                      <th style={{ padding: "6px 8px", textAlign: "left" }}>
+                        PayTrade side
+                      </th>
+                      <th style={{ width: "150px", padding: "6px 8px", textAlign: "center" }}>
+                        Status
+                      </th>
+                      <th style={{ padding: "6px 8px", textAlign: "left" }}>
+                        Xero side
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catchupResult.rows.map((r: any) => {
+                      const rs = catchupRowStatus[r.key];
+                      const cls = r.classification;
+                      const pillMap: Record<
+                        string,
+                        { label: string; color: string }
+                      > = {
+                        already_in_sync: { label: "Linked", color: "#137333" },
+                        needs_link: { label: "Needs link", color: "#a86b00" },
+                        amounts_disagree: {
+                          label: "Amounts disagree",
+                          color: "#b35900",
+                        },
+                        needs_push: {
+                          label: "PT only — needs push",
+                          color: "#1a73e8",
+                        },
+                        needs_import: {
+                          label: "Xero only — needs import",
+                          color: "#1a73e8",
+                        },
+                        blocked: { label: "Blocked", color: "#a50e0e" },
+                      };
+                      const pill = pillMap[cls] || {
+                        label: cls,
+                        color: "#555",
+                      };
+                      const isSelected = catchupSelected.has(r.key);
+                      const disabledRow =
+                        catchupRunning ||
+                        cls === "already_in_sync" ||
+                        cls === "blocked";
+                      const rowBg =
+                        rs?.status === "running"
+                          ? "#fff8e1"
+                          : rs?.status === "passed"
+                          ? "#f3fbf3"
+                          : rs?.status === "failed"
+                          ? "#fff5f5"
+                          : isSelected
+                          ? "#eaf3ff"
+                          : "transparent";
+                      return (
+                        <tr
+                          key={r.key}
+                          style={{
+                            borderBottom: "1px solid #eee",
+                            background: rowBg,
+                            verticalAlign: "top",
+                          }}
+                        >
+                          <td style={{ padding: "8px", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={disabledRow}
+                              onChange={() => toggleCatchupRow(r.key)}
+                            />
+                          </td>
+                          <td
                             style={{
-                              display: "inline-block",
-                              padding: "1px 6px",
-                              borderRadius: "3px",
-                              background: tagColor,
-                              color: "#fff",
-                              fontSize: "10px",
-                              textTransform: "uppercase",
-                              marginRight: "6px",
-                              fontWeight: 600,
+                              padding: "8px",
+                              wordBreak: "break-word",
+                              opacity: r.pt_id ? 1 : 0.4,
                             }}
                           >
-                            {cls.replace(/_/g, " ")}
-                          </span>
-                          <b>{r.label}</b>
-                        </div>
-                        {r.sublabel && (
-                          <div style={{ opacity: 0.75, marginTop: "2px" }}>
-                            {r.sublabel}
-                          </div>
-                        )}
-                        {r.hint && (
-                          <div
+                            {r.pt_id ? (
+                              <>
+                                <div>{r.pt_summary || r.label}</div>
+                                <code
+                                  style={{
+                                    fontSize: "10px",
+                                    opacity: 0.6,
+                                    display: "block",
+                                    marginTop: "2px",
+                                  }}
+                                >
+                                  PT {r.pt_id}
+                                </code>
+                              </>
+                            ) : (
+                              <span style={{ fontStyle: "italic" }}>
+                                — no PayTrade row in window —
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "8px", textAlign: "center" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 8px",
+                                borderRadius: "10px",
+                                background: pill.color,
+                                color: "#fff",
+                                fontSize: "10px",
+                                textTransform: "uppercase",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {pill.label}
+                            </span>
+                            {r.hint && (
+                              <div
+                                style={{
+                                  marginTop: "4px",
+                                  opacity: 0.7,
+                                  fontStyle: "italic",
+                                  fontSize: "11px",
+                                }}
+                              >
+                                {r.hint}
+                              </div>
+                            )}
+                            {rs?.message && (
+                              <div
+                                style={{
+                                  marginTop: "4px",
+                                  color:
+                                    rs.status === "failed"
+                                      ? "#a50e0e"
+                                      : "#137333",
+                                  fontSize: "11px",
+                                }}
+                              >
+                                {rs.status === "running"
+                                  ? "Running…"
+                                  : rs.status === "passed"
+                                  ? `✓ ${rs.message}`
+                                  : `⨯ ${rs.message}`}
+                              </div>
+                            )}
+                          </td>
+                          <td
                             style={{
-                              opacity: 0.7,
-                              marginTop: "2px",
-                              fontStyle: "italic",
+                              padding: "8px",
+                              wordBreak: "break-word",
+                              opacity: r.xero_id ? 1 : 0.4,
                             }}
                           >
-                            {r.hint}
-                          </div>
-                        )}
-                        {rs?.message && (
-                          <div
-                            style={{
-                              marginTop: "4px",
-                              color:
-                                rs.status === "failed" ? "#a50e0e" : "#137333",
-                            }}
-                          >
-                            {rs.status === "running"
-                              ? "Running…"
-                              : rs.status === "passed"
-                              ? `✓ ${rs.message}`
-                              : `⨯ ${rs.message}`}
-                          </div>
-                        )}
-                        {(r.pt_id || r.xero_id) && (
-                          <code
-                            style={{
-                              opacity: 0.55,
-                              fontSize: "11px",
-                              display: "block",
-                              marginTop: "2px",
-                            }}
-                          >
-                            {r.pt_id ? `PT ${r.pt_id}` : ""}
-                            {r.pt_id && r.xero_id ? " · " : ""}
-                            {r.xero_id ? `Xero ${r.xero_id}` : ""}
-                          </code>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                            {r.xero_id ? (
+                              <>
+                                <div>{r.xero_summary || r.label}</div>
+                                <code
+                                  style={{
+                                    fontSize: "10px",
+                                    opacity: 0.6,
+                                    display: "block",
+                                    marginTop: "2px",
+                                  }}
+                                >
+                                  Xero {r.xero_id}
+                                </code>
+                              </>
+                            ) : (
+                              <span style={{ fontStyle: "italic" }}>
+                                — no Xero row in window —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <label
                 style={{
                   display: "flex",
