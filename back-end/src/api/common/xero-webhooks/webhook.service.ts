@@ -15996,8 +15996,10 @@ export class XeroWebhookService {
               });
             }
             // Match each PT leg to a Xero leg by amount (±$0.01) +
-            // payment_date (±2 days). Anything left unmatched on the PT
-            // side and confirmed counts as "unsynced confirmed leg".
+            // payment_date (±2 days) using the shared
+            // compareAmountAndDate comparator — same source of truth
+            // as Task #147 catch-up discovery so divergence between
+            // discovery and pre-flight cannot occur.
             const usedXero = new Set<number>();
             const matched: any[] = [];
             const ptUnmatched: any[] = [];
@@ -16006,14 +16008,14 @@ export class XeroWebhookService {
               for (let i = 0; i < xeroLegs.length; i++) {
                 if (usedXero.has(i)) continue;
                 const xl = xeroLegs[i];
-                const dAmt = Math.abs((xl.amount || 0) - (pl.amount || 0));
-                const dDays =
-                  pl.date && xl.date
-                    ? Math.abs(
-                        moment(pl.date).diff(moment(xl.date), 'days'),
-                      )
-                    : 0;
-                if (dAmt < 0.01 && dDays <= 2) {
+                if (
+                  this.compareAmountAndDate(
+                    pl.amount || 0,
+                    xl.amount || 0,
+                    pl.date,
+                    xl.date,
+                  )
+                ) {
                   hit = i;
                   break;
                 }

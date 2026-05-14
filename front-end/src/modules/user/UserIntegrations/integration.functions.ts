@@ -4482,6 +4482,7 @@ export const manualXeroCatchupDiscover = async (variables: {
     classification:
       | "already_in_sync"
       | "needs_link"
+      | "amounts_disagree"
       | "needs_push"
       | "needs_import"
       | "blocked";

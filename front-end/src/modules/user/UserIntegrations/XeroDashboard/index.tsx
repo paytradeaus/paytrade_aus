@@ -1733,7 +1733,11 @@ function ManualXeroSyncDialog({
   const [catchupRowStatus, setCatchupRowStatus] = useState<
     Record<
       string,
-      { status: "pending" | "running" | "passed" | "failed"; message?: string }
+      {
+        status: "pending" | "running" | "passed" | "failed";
+        message?: string;
+        syncLogId?: number | null;
+      }
     >
   >({});
 
@@ -2057,7 +2061,8 @@ function ManualXeroSyncDialog({
           if (
             row.classification === "needs_link" ||
             row.classification === "needs_push" ||
-            row.classification === "needs_import"
+            row.classification === "needs_import" ||
+            row.classification === "amounts_disagree"
           ) {
             initial.add(row.key);
           }
@@ -2103,7 +2108,11 @@ function ManualXeroSyncDialog({
     });
     const status: Record<
       string,
-      { status: "pending" | "running" | "passed" | "failed"; message?: string }
+      {
+        status: "pending" | "running" | "passed" | "failed";
+        message?: string;
+        syncLogId?: number | null;
+      }
     > = {};
     for (const r of selectedRows) status[r.key] = { status: "pending" };
     setCatchupRowStatus({ ...status });
@@ -2148,12 +2157,14 @@ function ManualXeroSyncDialog({
             status[row.key] = {
               status: "passed",
               message: run?.message || run?.direction || "Synced.",
+              syncLogId: run?.syncLogId ?? null,
             };
           } else {
             fail++;
             status[row.key] = {
               status: "failed",
               message: run?.message || "Run sync failed.",
+              syncLogId: run?.syncLogId ?? null,
             };
           }
         }
@@ -3305,6 +3316,22 @@ function ManualXeroSyncDialog({
                                   : rs.status === "passed"
                                   ? `✓ ${rs.message}`
                                   : `⨯ ${rs.message}`}
+                                {rs.syncLogId ? (
+                                  <>
+                                    {" — "}
+                                    <a
+                                      href={`/user/integrations/xero/syncLogDetails/${rs.syncLogId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: "#1a73e8",
+                                        textDecoration: "underline",
+                                      }}
+                                    >
+                                      sync log #{rs.syncLogId}
+                                    </a>
+                                  </>
+                                ) : null}
                               </div>
                             )}
                           </td>
@@ -3393,14 +3420,45 @@ function ManualXeroSyncDialog({
                     opacity: 0.85,
                   }}
                 >
-                  Progress: {catchupProgress.done}/{catchupProgress.total} —{" "}
-                  <span style={{ color: "#137333" }}>
-                    ✓ {catchupProgress.pass} passed
-                  </span>
-                  {" · "}
-                  <span style={{ color: "#a50e0e" }}>
-                    ⨯ {catchupProgress.fail} failed
-                  </span>
+                  {(() => {
+                    const actionable = (catchupResult?.rows || []).filter(
+                      (r: any) =>
+                        r.classification === "needs_link" ||
+                        r.classification === "needs_push" ||
+                        r.classification === "needs_import" ||
+                        r.classification === "amounts_disagree",
+                    ).length;
+                    const skipped = Math.max(
+                      0,
+                      actionable - catchupProgress.total,
+                    );
+                    const isFinal =
+                      !catchupRunning &&
+                      catchupProgress.done === catchupProgress.total &&
+                      catchupProgress.total > 0;
+                    return (
+                      <>
+                        {isFinal ? "Run complete — " : "Progress: "}
+                        {catchupProgress.done}/{catchupProgress.total} —{" "}
+                        <span style={{ color: "#137333" }}>
+                          ✓ Synced {catchupProgress.pass}
+                        </span>
+                        {" · "}
+                        <span style={{ color: "#a50e0e" }}>
+                          ⨯ Failed {catchupProgress.fail}
+                        </span>
+                        {" · "}
+                        <span style={{ color: "#666" }}>
+                          ◌ Skipped {skipped}
+                        </span>
+                        {skipped > 0 && (
+                          <span style={{ marginLeft: "6px", opacity: 0.7 }}>
+                            (actionable rows the operator left unselected)
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </>
