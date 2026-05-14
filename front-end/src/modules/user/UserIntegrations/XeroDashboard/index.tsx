@@ -3012,62 +3012,81 @@ function ManualXeroSyncDialog({
               gap: "8px",
               marginBottom: "12px",
               flexWrap: "wrap",
+              alignItems: "flex-end",
             }}
           >
-            <label style={{ flex: "1 1 140px", fontSize: "12px" }}>
+            <label
+              style={{
+                flex: "1 1 140px",
+                fontSize: "12px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               From
               <input
                 type="date"
                 value={catchupFrom}
                 onChange={(e) => setCatchupFrom(e.target.value)}
                 disabled={catchupBusy || catchupRunning}
-                style={{ width: "100%", padding: "6px 8px" }}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  fontSize: "13px",
+                  height: "32px",
+                  boxSizing: "border-box",
+                }}
               />
             </label>
-            <label style={{ flex: "1 1 140px", fontSize: "12px" }}>
+            <label
+              style={{
+                flex: "1 1 140px",
+                fontSize: "12px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               To
               <input
                 type="date"
                 value={catchupTo}
                 onChange={(e) => setCatchupTo(e.target.value)}
                 disabled={catchupBusy || catchupRunning}
-                style={{ width: "100%", padding: "6px 8px" }}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  fontSize: "13px",
+                  height: "32px",
+                  boxSizing: "border-box",
+                }}
               />
             </label>
-            <div
+            <button
+              type="button"
+              onClick={handleDiscover}
+              disabled={
+                catchupBusy ||
+                catchupRunning ||
+                !catchupFrom ||
+                !catchupTo
+              }
               style={{
-                display: "flex",
-                flexDirection: "column",
-                fontSize: "12px",
+                height: "32px",
+                padding: "0 14px",
+                fontSize: "13px",
+                background: "#1a73e8",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                boxSizing: "border-box",
+                cursor:
+                  catchupBusy || catchupRunning || !catchupFrom || !catchupTo
+                    ? "not-allowed"
+                    : "pointer",
               }}
             >
-              <span aria-hidden="true" style={{ visibility: "hidden" }}>
-                &nbsp;
-              </span>
-              <button
-                type="button"
-                onClick={handleDiscover}
-                disabled={
-                  catchupBusy ||
-                  catchupRunning ||
-                  !catchupFrom ||
-                  !catchupTo
-                }
-                style={{
-                  padding: "6px 14px",
-                  background: "#1a73e8",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor:
-                    catchupBusy || catchupRunning || !catchupFrom || !catchupTo
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {catchupBusy ? "Discovering…" : "Discover"}
-              </button>
-            </div>
+              {catchupBusy ? "Discovering…" : "Discover"}
+            </button>
           </div>
           {catchupError && (
             <div
