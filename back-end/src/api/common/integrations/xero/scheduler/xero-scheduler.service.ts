@@ -259,17 +259,15 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               status: In(['Active', 'Open', 'Draft'] as any),
             },
           });
-          // Stricter tie-break: only auto-link when we have an exact
-          // BSB+account match, OR exactly one status-valid candidate.
-          // Otherwise leave the orphan for manual mapping rather than
-          // guess between siblings.
-          const exact = candidates.find(
+          // Strict match only on (company_id, account_number,
+          // bsb_number). Anything else is left for manual mapping
+          // so we never auto-link to the wrong sibling account.
+          const match = candidates.find(
             (c) =>
               xba.bsb_number != null &&
               c.bsb_number != null &&
               Number(c.bsb_number) === Number(xba.bsb_number),
           );
-          const match = exact || (candidates.length === 1 ? candidates[0] : null);
           if (!match) continue;
 
           await this.xeroBankAccountDetails
@@ -2213,9 +2211,11 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                     this.xeroBankAccountDetails.manager.getRepository(
                       BankAccounts,
                     );
-                  // Task #115 — mirror Task #108's status filter so
-                  // we never relink the Xero row to a stale
-                  // Closed/Deleted PT bank account.
+                  // Task #115 — strict match only:
+                  // (company_id, account_number, bsb_number) with
+                  // status In Active/Open/Draft (mirrors Task #108).
+                  // No fallback to "first candidate" — we'd rather
+                  // leave the row for manual mapping than guess.
                   const orphanCandidates = draftAccountNumber
                     ? await bankAccountsRepoLocal2.find({
                         where: {
@@ -2225,13 +2225,12 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                         },
                       })
                     : [];
-                  const orphanLink =
-                    orphanCandidates.find(
-                      (c) =>
-                        draftBsbNumber &&
-                        c.bsb_number != null &&
-                        Number(c.bsb_number) === Number(draftBsbNumber),
-                    ) || orphanCandidates[0];
+                  const orphanLink = orphanCandidates.find(
+                    (c) =>
+                      draftBsbNumber &&
+                      c.bsb_number != null &&
+                      Number(c.bsb_number) === Number(draftBsbNumber),
+                  );
                   if (orphanLink) {
                     await this.xeroBankAccountDetails
                       .createQueryBuilder()
@@ -2285,9 +2284,46 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                     });
                     return account;
                   }
-                  this.logger.warn(
-                    `[Task #115] Duplicate account_number for company ${company_id} but no PT row matched; skipping noisy retry.`,
-                  );
+                  // No strict match — surface a structured sync log
+                  // so this orphan is visible in the Xero sync UI
+                  // instead of being a silent warn-only line, but
+                  // don't rethrow (that's what caused the hourly
+                  // ERROR loop).
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    id: sync_id || null,
+                    api_name: 'createOrUpdateAccountInPaytrade',
+                    api_payload: {
+                      account_id,
+                      account_name: account.name,
+                      account_number: draftAccountNumber || null,
+                      bsb_number: draftBsbNumber || null,
+                      account_status: account.status,
+                    },
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: 379,
+                    dynamic_values: {},
+                    project_id: null,
+                    contract_id: null,
+                    reference: {
+                      xeroId: xeroAccountDetails?.id,
+                      paytradeId: null,
+                    },
+                    reference_id: xeroAccountDetails?.id,
+                    history: [
+                      `Auto-create skipped: account number already exists for company ${company_id}`,
+                      'No exact (company, account_number, bsb) match — pending manual mapping',
+                    ],
+                    important_checks: {
+                      'Duplicate account_number recovery': 'Pending manual map',
+                    },
+                    error_message:
+                      'Duplicate account number with no exact PayTrade match — please map manually',
+                    xero_records: [account],
+                    paytrade_records: [],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
                 } catch (recoverErr: any) {
                   this.logger.warn(
                     `[Task #115] Second-chance link after duplicate-account error failed: ${recoverErr?.message || recoverErr}`,

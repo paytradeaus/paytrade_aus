@@ -511,7 +511,16 @@ export default function XeroBankAccount() {
   };
 
   const handleManualMappingBankAccounts = async () => {
-    await manualMappingBankAccounts(
+    // Task #115 — guard against missing selection so the modal shows a
+    // friendly toast instead of firing an invalid GraphQL mutation.
+    if (!manualMapData?.account_id || !selectedContact?.account_id) {
+      const { showErrorToast } = await import("@/components/Toaster");
+      showErrorToast(
+        "Please select a bank account to map before confirming."
+      );
+      return;
+    }
+    const mapResult = await manualMappingBankAccounts(
       tabStatus === "Paytrade bank accounts"
         ? {
             payload: {
@@ -526,25 +535,37 @@ export default function XeroBankAccount() {
             },
           }
     );
-    if (tabStatus === "Xero bank accounts") {
-      const { contacts, totalCount } = await fetchXeroBankAccounts(
-        currentPage,
-        entriesPerPage,
-        search,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
-    } else if (tabStatus === "Paytrade bank accounts") {
-      const { contacts, totalCount } = await fetchPaytradeBankAccounts(
-        currentPage,
-        entriesPerPage,
-        search,
-        sortValues,
-        setTableLoader
-      );
-      setGridData(contacts);
-      setTotalRows(totalCount);
+    // Task #115 — if the mutation failed `manualMappingBankAccounts`
+    // already surfaced a toast. Keep the modal open so the user can
+    // pick a different account or close manually, and skip the
+    // refetch (which would otherwise destructure a null and crash).
+    if (!mapResult) {
+      return;
+    }
+    setShowManualMapping(false);
+    try {
+      if (tabStatus === "Xero bank accounts") {
+        const result = await fetchXeroBankAccounts(
+          currentPage,
+          entriesPerPage,
+          search,
+          setTableLoader
+        );
+        setGridData(result?.contacts || []);
+        setTotalRows(result?.totalCount || 0);
+      } else if (tabStatus === "Paytrade bank accounts") {
+        const result = await fetchPaytradeBankAccounts(
+          currentPage,
+          entriesPerPage,
+          search,
+          sortValues,
+          setTableLoader
+        );
+        setGridData(result?.contacts || []);
+        setTotalRows(result?.totalCount || 0);
+      }
+    } catch (err) {
+      console.error("[XeroBankAccount] post-map refetch failed", err);
     }
     setManualMapData("");
   };
