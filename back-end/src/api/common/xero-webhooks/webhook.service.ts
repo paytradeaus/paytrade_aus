@@ -6317,31 +6317,14 @@ export class XeroWebhookService {
       this.logger.log('[Credit Note Debug] shouldCheckCreditNotes:' + " " + JSON.stringify(shouldCheckCreditNotes));
 
       if (shouldCheckCreditNotes) {
-        const allCreditNotes = await this.xero.accountingApi.getCreditNotes(
+        // Task #140 — shared credit-note correlation helper. Behaviour
+        // is byte-identical to the previous inline lookup; the manual
+        // pre-flight (manualXeroPreflight) reuses the same helper to
+        // disambiguate pay-less from interim part-payment.
+        creditNotesOfAnInvoice = await this.findCreditNotesAllocatedToInvoice(
           xeroDetails.tenant_id,
-          new Date('1900-01-01T00:00:00.000-00:00'),
-          null,
-          'CreditNoteNumber ASC',
-          1,
-          4,
-          100,
+          invoice?.invoiceID,
         );
-
-        // this.logger.log(
-        //   'allCreditNotes?.body?.creditNotes: ',
-        //   allCreditNotes?.body?.creditNotes,
-        // );
-        if (allCreditNotes?.body?.creditNotes?.length > 0) {
-          for (const creditNote of allCreditNotes?.body?.creditNotes) {
-            if (
-              Array.isArray(creditNote?.allocations) &&
-              creditNote?.allocations[0]?.invoice?.invoiceID ===
-                invoice?.invoiceID
-            ) {
-              creditNotesOfAnInvoice.push(creditNote);
-            }
-          }
-        }
       }
       this.logger.log('creditNotesOfAnInvoice: ' + " " + JSON.stringify(creditNotesOfAnInvoice));
 
@@ -14614,6 +14597,44 @@ export class XeroWebhookService {
    * `link` / `blocked`) and signs an action token the Run-sync caller
    * must echo back.
    */
+  /**
+   * Task #140 — shared credit-note correlation. Returns Xero credit
+   * notes whose first allocation targets `invoiceID`. Used by both the
+   * standard inbound flow (`validateAndProcessWebhookInvoice`) and the
+   * manual pre-flight (`manualXeroPreflight`) so the two paths can
+   * never disagree about whether a residual is covered by a credit
+   * note. Behaviour deliberately mirrors the original inline lookup
+   * (paged at 100, allocations[0] only) — do not change without
+   * touching both call sites.
+   */
+  private async findCreditNotesAllocatedToInvoice(
+    tenant_id: string,
+    invoiceID: string | undefined,
+  ): Promise<CreditNote[]> {
+    const matched: CreditNote[] = [];
+    if (!invoiceID) return matched;
+    const allCreditNotes = await this.xero.accountingApi.getCreditNotes(
+      tenant_id,
+      new Date('1900-01-01T00:00:00.000-00:00'),
+      null,
+      'CreditNoteNumber ASC',
+      1,
+      4,
+      100,
+    );
+    if (allCreditNotes?.body?.creditNotes?.length > 0) {
+      for (const creditNote of allCreditNotes.body.creditNotes) {
+        if (
+          Array.isArray(creditNote?.allocations) &&
+          creditNote?.allocations[0]?.invoice?.invoiceID === invoiceID
+        ) {
+          matched.push(creditNote);
+        }
+      }
+    }
+    return matched;
+  }
+
   async manualXeroPreflight(
     decoded: any,
     input: {
@@ -14899,9 +14920,73 @@ export class XeroWebhookService {
                 payLabel = 'Full payment';
                 payDetail = `Xero invoice is fully paid ($${paid.toFixed(2)} of $${total.toFixed(2)}, status ${status || 'PAID'}).`;
               } else {
-                payLabel = 'Part payment / pay less';
-                payStatus = 'warn';
-                payDetail = `Xero invoice is part-paid: $${paid.toFixed(2)} of $${total.toFixed(2)} (still owing $${due.toFixed(2)}). Review whether this is an interim part-payment or a "pay less" final settlement before syncing.`;
+                // Task #140 — disambiguate pay-less (residual covered
+                // by a Xero credit note) from interim part-payment
+                // using the same correlation the standard inbound
+                // flow uses. If the credit-note allocations cover the
+                // residual within $0.01, downgrade to a green "Full
+                // payment (covered by credit note …)" check; if they
+                // cover only part of the residual, keep the warning
+                // but surface the partial-cover detail.
+                let cnOffset = 0;
+                const cnRefs: Array<{
+                  id: string;
+                  number: string;
+                  amount: number;
+                  date: any;
+                }> = [];
+                try {
+                  const matchedCns =
+                    await this.findCreditNotesAllocatedToInvoice(
+                      xeroDetails.tenant_id,
+                      xeroInvoice.invoiceID,
+                    );
+                  for (const cn of matchedCns) {
+                    for (const alloc of cn.allocations || []) {
+                      if (
+                        alloc?.invoice?.invoiceID === xeroInvoice.invoiceID
+                      ) {
+                        const amt = Number(alloc.amount || 0);
+                        cnOffset += amt;
+                        cnRefs.push({
+                          id: cn.creditNoteID,
+                          number: cn.creditNoteNumber,
+                          amount: amt,
+                          date: cn.date,
+                        });
+                      }
+                    }
+                  }
+                } catch (_e) {
+                  // Non-fatal — fall back to the original ambiguous
+                  // warning so a credit-note lookup hiccup never
+                  // blocks the pre-flight.
+                }
+                if (cnRefs.length > 0) {
+                  xeroSide.creditNoteOffsets = cnRefs;
+                }
+                if (cnOffset > 0 && paid + cnOffset >= total - 0.01) {
+                  const refStr = cnRefs
+                    .map(
+                      (r) =>
+                        `${r.number || r.id} for $${r.amount.toFixed(2)}${r.date ? ` on ${moment(r.date).format('DD/MM/YYYY')}` : ''}`,
+                    )
+                    .join(', ');
+                  payLabel = 'Full payment (covered by credit note)';
+                  payStatus = 'ok';
+                  payDetail = `Xero invoice fully settled: $${paid.toFixed(2)} paid + $${cnOffset.toFixed(2)} credit note(s) (${refStr}) of $${total.toFixed(2)} total.`;
+                } else if (cnOffset > 0) {
+                  const refStr = cnRefs
+                    .map((r) => `${r.number || r.id} ($${r.amount.toFixed(2)})`)
+                    .join(', ');
+                  payLabel = 'Part payment / pay less';
+                  payStatus = 'warn';
+                  payDetail = `Xero invoice is part-paid: $${paid.toFixed(2)} of $${total.toFixed(2)} (still owing $${due.toFixed(2)}). Credit note(s) ${refStr} cover $${cnOffset.toFixed(2)} of the $${due.toFixed(2)} residual — remainder still outstanding.`;
+                } else {
+                  payLabel = 'Part payment / pay less';
+                  payStatus = 'warn';
+                  payDetail = `Xero invoice is part-paid: $${paid.toFixed(2)} of $${total.toFixed(2)} (still owing $${due.toFixed(2)}). No credit note allocations found against this invoice — review whether this is an interim part-payment or a "pay less" final settlement before syncing.`;
+                }
               }
               xeroSide.paymentStatus = payLabel;
               checks.push({
