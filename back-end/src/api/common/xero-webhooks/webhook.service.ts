@@ -14777,16 +14777,27 @@ export class XeroWebhookService {
   }
 
   /**
-   * Task #141 — single source of truth for the gross retention amount
-   * compared against Xero `BankTransfer` legs. Mirrors the producer rule
-   * in `getRetentionLineSpec()`: the stored `retention_amount` is always
-   * ex-GST in PT, and is grossed up (×1.1) only when the Xero invoice's
-   * `lineAmountTypes` is `Inclusive` AND the integration's
-   * `retention_recording_mode` is `inc_gst`. For Exclusive invoices, or
-   * when recording mode is `ex_gst`, the BankTransfer was pushed at the
-   * ex-GST figure so no gross-up is applied. Used by both the manual
-   * pre-flight (`manualXeroPreflight`) and the inbound webhook flow's
-   * amount-mismatch diagnostic so the two paths can never drift.
+   * Task #141 — single source of truth for the expected gross retention
+   * amount compared against the outbound Xero `BankTransfer` leg
+   * (`xero-payments.service.ts` ~L951). PT stores `retention_amount`
+   * ex-GST; the BankTransfer push uses that raw stored value, so the
+   * only way the *transferred* figure becomes inc-GST is when the
+   * configured recording mode + invoice line-amount-types combination
+   * causes the upstream payment flow to substitute the gross figure.
+   *
+   * Per Task #141 product rules, that substitution is in scope ONLY
+   * when `lineAmountTypes === 'Inclusive'` AND
+   * `retention_recording_mode === 'inc_gst'` — matching the
+   * `forceGrossUp` arm of `getRetentionLineSpec()` in
+   * `xero-invoices.service.ts`. The other producer arm (Inclusive +
+   * GST-applicable account tax type with ex_gst mode) governs the
+   * retention LINE on the invoice but does NOT change what the
+   * BankTransfer leg carries — so this helper deliberately omits the
+   * per-account tax-type lookup. Adding it would diverge from the
+   * actual outbound transfer amount and cause false mismatches.
+   *
+   * Used by both `manualXeroPreflight` (blocking) and the inbound
+   * webhook diagnostic (log-only) so the two paths can never drift.
    */
   private computeExpectedGrossRetention(
     retentionExGst: number,
