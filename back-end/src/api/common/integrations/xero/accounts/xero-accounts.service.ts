@@ -2219,6 +2219,14 @@ export class XeroAccountsService {
         .execute();
 
       if (response?.affected > 0) {
+        // Task #128 — User has resolved this orphan via the manual
+        // Xero Settings → Bank accounts mapping. Close any open
+        // template-379 "Pending manual map" sync log rows so the
+        // Xero sync log UI no longer shows a stale unresolved error.
+        await this.xeroService.clearPendingBankMappingLogs(
+          xeroDetails.integration_id,
+          checkXeroId?.id,
+        );
         return `Accounts has been mapped successfully`;
       } else {
         return `Account is not mapped`;
@@ -2275,6 +2283,7 @@ export class XeroAccountsService {
         .getRawMany();
 
       const yet_to_map = rawResults?.map((res) => ({
+        id: res.id,
         account_id: res.account_id,
         pt_bank_account_id: res?.pt_bank_account_id,
       }));
@@ -2300,6 +2309,12 @@ export class XeroAccountsService {
               },
             )
             .execute();
+          // Task #128 — Auto-map resolved this orphan; clear any
+          // open template-379 "Pending manual map" sync log rows.
+          await this.xeroService.clearPendingBankMappingLogs(
+            xeroDetails.integration_id,
+            element.id,
+          );
           mappedAccounts.push(element.account_id);
         }
       }

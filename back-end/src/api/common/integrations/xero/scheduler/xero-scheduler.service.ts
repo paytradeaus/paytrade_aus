@@ -352,6 +352,13 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             })
             .where('id = :id AND pt_bank_account_id IS NULL', { id: xba.id })
             .execute();
+          // Task #128 — Back-fill linked the orphan; clear any open
+          // template-379 "Pending manual map" sync log rows so the
+          // Xero sync log UI reflects the resolved state.
+          await this.xeroService.clearPendingBankMappingLogs(
+            xba.integration_id,
+            xba.id,
+          );
           linked++;
         } catch (rowErr: any) {
           this.logger.warn(
@@ -1370,6 +1377,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           .getRawMany();
 
         const yet_to_map = autoMappingRecords?.map((res) => ({
+          id: res.id,
           account_id: res.account_id,
           pt_bank_account_id: res?.pt_bank_account_id,
         }));
@@ -1394,6 +1402,13 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 },
               )
               .execute();
+            // Task #128 — Hourly auto-mapping resolved this orphan;
+            // clear any open template-379 "Pending manual map"
+            // sync log rows for it.
+            await this.xeroService.clearPendingBankMappingLogs(
+              xeroDetails.integration_id,
+              element.id,
+            );
             mappedAccounts.push(element.account_id);
           }
         }
@@ -2207,6 +2222,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   )
                   .execute();
 
+                // Task #128 — Inbound auto-link resolved this orphan;
+                // clear any open template-379 "Pending manual map"
+                // sync log rows.
+                await this.xeroService.clearPendingBankMappingLogs(
+                  xeroDetails.integration_id,
+                  xeroAccountDetails?.id,
+                );
+
                 await this.xeroService.insertXeroSyncLogs(decoded, {
                   id: sync_id || null,
                   api_name: 'createOrUpdateAccountInPaytrade',
@@ -2325,6 +2348,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                         },
                       )
                       .execute();
+
+                    // Task #128 — Second-chance link recovered the
+                    // orphan; clear any open template-379 "Pending
+                    // manual map" sync log rows.
+                    await this.xeroService.clearPendingBankMappingLogs(
+                      xeroDetails.integration_id,
+                      xeroAccountDetails?.id,
+                    );
 
                     await this.xeroService.insertXeroSyncLogs(decoded, {
                       id: sync_id || null,
@@ -2461,6 +2492,13 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   },
                 )
                 .execute();
+              // Task #128 — Draft auto-create resolved this orphan;
+              // clear any open template-379 "Pending manual map"
+              // sync log rows.
+              await this.xeroService.clearPendingBankMappingLogs(
+                xeroDetails.integration_id,
+                xeroAccountDetails?.id,
+              );
             }
 
             await this.xeroService.insertXeroSyncLogs(decoded, {

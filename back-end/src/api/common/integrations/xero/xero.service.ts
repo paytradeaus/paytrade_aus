@@ -1187,6 +1187,47 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     return !!existing;
   }
 
+  /**
+   * Task #128 — Closes any open template-379 "Pending manual map"
+   * sync log rows for a given XeroBankAccountDetails row once the
+   * orphan has been linked to a PayTrade bank account. Safe to
+   * call from any code path that transitions `pt_bank_account_id`
+   * from NULL → set (manual map, auto map, scheduler back-fill,
+   * inbound auto-create link). Idempotent and best-effort:
+   * swallows errors so the caller's primary link/update path is
+   * never destabilised by a logging cleanup failure.
+   */
+  async clearPendingBankMappingLogs(
+    integration_id: number,
+    xeroBankAccountDetailsId: string | null | undefined,
+  ): Promise<number> {
+    if (!integration_id || !xeroBankAccountDetailsId) return 0;
+    try {
+      const result = await this.xeroSyncLogs
+        .createQueryBuilder()
+        .delete()
+        .from(XeroSyncLogs)
+        .where('integration_id = :integration_id', { integration_id })
+        .andWhere('log_template_id = 379')
+        .andWhere('reference_id = :reference_id', {
+          reference_id: String(xeroBankAccountDetailsId),
+        })
+        .execute();
+      const affected = result?.affected || 0;
+      if (affected > 0) {
+        this.logger.log(
+          `[Task #128] Cleared ${affected} pending bank-mapping sync log(s) for xero_bank_account ${xeroBankAccountDetailsId}`,
+        );
+      }
+      return affected;
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #128] clearPendingBankMappingLogs failed for xero_bank_account ${xeroBankAccountDetailsId}: ${err?.message || err}`,
+      );
+      return 0;
+    }
+  }
+
   async insertXeroSyncLogs(
     decoded,
     createXeroSyncLogInput: CreateXeroSyncLogInput,
