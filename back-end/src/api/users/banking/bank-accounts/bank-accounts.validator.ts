@@ -214,6 +214,7 @@ export class BankAccountsValidator {
       const {
         company_id,
         account_name,
+        account_number,
         bank_account_id,
         account_type,
         project_ids,
@@ -227,6 +228,20 @@ export class BankAccountsValidator {
         throw `Invalid data. Bank account id which you have provided is invalid or not present.`;
 
       const status = bankAccountToBeEdited.status;
+
+      if (account_number) {
+        const duplicateAccounts = await this.bankAccountsRepo.find({
+          where: {
+            account_number: account_number,
+            added_by_client_supplier: false,
+            company_id: company_id,
+            status: In(['Draft', 'Open', 'Active']),
+            bank_account_id: Not(bank_account_id),
+          },
+        });
+        if (duplicateAccounts && duplicateAccounts.length > 0)
+          throw `Account number already exists`;
+      }
 
       //Validate whether the project is in completed state or not.
       if (project_ids && project_ids.length) {
