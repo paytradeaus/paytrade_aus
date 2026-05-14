@@ -476,24 +476,6 @@ export class XeroAccountsService {
   async insertAccountDetailsInPaytrade(decoded: any, data: any) {
     const { company_id, account_id, sync_id } = data;
 
-    const {
-      account_name,
-      account_number,
-      bsb_number,
-      account_type,
-      project_ids,
-      trustee_id,
-      associated_cash_account_id,
-      client_supplier_id,
-      opening_date,
-      contract_date,
-      contract_practical_completion_date,
-      first_sub_contract_date,
-      contract_value,
-      financial_institution,
-      delegate_powers,
-    } = data.payload || {};
-
     const xeroDetails = await this.xeroIntegrationDetails.findOne({
       where: { company_id, status: 'ACTIVE' },
       relations: ['integrationDetails'],
@@ -523,6 +505,60 @@ export class XeroAccountsService {
     if (!checkExistenceInDb) {
       throw `Xero account details not found`;
     }
+
+    // Task #134 — Per-row "Create in PayTrade" button on the Xero
+    // bank-accounts tab calls this endpoint with only
+    // {account_id, company_id} and no payload, so the validation
+    // block below would always fail with "Missing mandatory fields"
+    // and the user would only ever see "Unable to create bank
+    // account in paytrade". Synthesize sensible defaults from the
+    // cached Xero record (Cash Account + name/BSB/account_number
+    // from Xero + opening_date today + delegate_powers No +
+    // status Open + empty project list) so the per-row button
+    // behaves like a single-row version of the bulk action. Trust
+    // account types still need extra fields; bulk path handles
+    // those via the dedicated dialog. Existing callers that pass
+    // a payload are unaffected because we only synthesize when
+    // payload is absent or empty.
+    if (!data.payload || Object.keys(data.payload).length === 0) {
+      const acctNumStr = checkExistenceInDb.account_number || null;
+      const bsbNum =
+        checkExistenceInDb.bsb_number != null &&
+        String(checkExistenceInDb.bsb_number) !== ''
+          ? Number(checkExistenceInDb.bsb_number) || null
+          : null;
+      data.payload = {
+        company_id,
+        account_name: checkExistenceInDb.account_name,
+        account_type: 'Cash Account',
+        account_number: acctNumStr,
+        bsb_number: bsbNum,
+        financial_institution:
+          checkExistenceInDb.account_name || 'Unknown',
+        opening_date: new Date(),
+        delegate_powers: 'No',
+        status: 'Open',
+        project_ids: [],
+      };
+    }
+
+    const {
+      account_name,
+      account_number,
+      bsb_number,
+      account_type,
+      project_ids,
+      trustee_id,
+      associated_cash_account_id,
+      client_supplier_id,
+      opening_date,
+      contract_date,
+      contract_practical_completion_date,
+      first_sub_contract_date,
+      contract_value,
+      financial_institution,
+      delegate_powers,
+    } = data.payload || {};
 
     const account = await this.getBankAccountByAccountId(
       account_id,
