@@ -15040,6 +15040,15 @@ export class XeroWebhookService {
               undefined,
               undefined,
               page,
+              undefined, // includeArchived
+              undefined, // createdByMyApp
+              undefined, // unitdp
+              false,     // summaryOnly — REQUIRED so Xero returns
+                         // LineItems (and therefore tracking
+                         // categories), otherwise paginated list
+                         // responses come back as summary-only and
+                         // every invoice gets dropped by the
+                         // tracking-category resolver.
             );
             const batchAll = resp?.body?.invoices || [];
             for (const inv of batchAll) {
