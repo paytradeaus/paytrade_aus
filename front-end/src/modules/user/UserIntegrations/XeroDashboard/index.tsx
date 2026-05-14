@@ -34,6 +34,7 @@ import {
   manualXeroPreflight,
   manualXeroTwoSidedSync,
   manualXeroCatchupDiscover,
+  CatchupRow,
   SkipContractMapping,
   syncAllBankAccountsByCompanyId,
   syncAllContactsByCompanyId,
@@ -1752,7 +1753,9 @@ function ManualXeroSyncDialog({
   >({});
 
   // Task #151 — secondary "Catch-up row details" dialog state.
-  const [catchupRowDetail, setCatchupRowDetail] = useState<any | null>(null);
+  const [catchupRowDetail, setCatchupRowDetail] = useState<CatchupRow | null>(
+    null,
+  );
 
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
@@ -3399,13 +3402,17 @@ function ManualXeroSyncDialog({
                                   </small>
                                 )}
                                 {r.xero_tracking_option_name ? (
-                                  <div
-                                    title={
-                                      r.xero_tracking_option_id || undefined
-                                    }
-                                  >
+                                  <div>
                                     <small>
                                       Tracking: {r.xero_tracking_option_name}
+                                      {r.xero_tracking_option_id ? (
+                                        <>
+                                          {" "}
+                                          <code>
+                                            ({r.xero_tracking_option_id})
+                                          </code>
+                                        </>
+                                      ) : null}
                                     </small>
                                   </div>
                                 ) : (

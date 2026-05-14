@@ -4466,6 +4466,35 @@ export const manualXeroPreflight = async (variables: {
  * date window, each with a per-row classification the dialog uses to
  * batch-drive the existing per-row preflight + run-sync calls.
  */
+export type CatchupRowClassification =
+  | "already_in_sync"
+  | "needs_link"
+  | "amounts_disagree"
+  | "needs_push"
+  | "needs_import"
+  | "blocked";
+
+export interface CatchupRow {
+  key: string;
+  classification: CatchupRowClassification;
+  type: string;
+  pt_id: string | null;
+  xero_id: string | null;
+  label: string;
+  sublabel?: string;
+  hint?: string;
+  pt_summary?: string;
+  xero_summary?: string;
+  pt_details?: Array<{ label: string; value: string }>;
+  xero_details?: Array<{ label: string; value: string }>;
+  project_name?: string | null;
+  contract_name?: string | null;
+  xero_tracking_option_name?: string | null;
+  xero_tracking_option_id?: string | null;
+  xero_deep_link?: string | null;
+  paytrade_deep_link?: string | null;
+}
+
 export const manualXeroCatchupDiscover = async (variables: {
   company_id: number;
   type: "invoice_bill" | "payment" | "contact";
@@ -4477,32 +4506,7 @@ export const manualXeroCatchupDiscover = async (variables: {
   type?: string;
   from_date?: string;
   to_date?: string;
-  rows?: Array<{
-    key: string;
-    classification:
-      | "already_in_sync"
-      | "needs_link"
-      | "amounts_disagree"
-      | "needs_push"
-      | "needs_import"
-      | "blocked";
-    type: string;
-    pt_id: string | null;
-    xero_id: string | null;
-    label: string;
-    sublabel?: string;
-    hint?: string;
-    pt_summary?: string;
-    xero_summary?: string;
-    pt_details?: Array<{ label: string; value: string }>;
-    xero_details?: Array<{ label: string; value: string }>;
-    project_name?: string | null;
-    contract_name?: string | null;
-    xero_tracking_option_name?: string | null;
-    xero_tracking_option_id?: string | null;
-    xero_deep_link?: string | null;
-    paytrade_deep_link?: string | null;
-  }>;
+  rows?: CatchupRow[];
   counts?: Record<string, number>;
   notes?: {
     xero_skipped_no_tracking?: number;
