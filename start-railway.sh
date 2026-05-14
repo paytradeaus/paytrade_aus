@@ -27,6 +27,30 @@ for i in {1..60}; do
   sleep 2
 done
 
+# Task #145 follow-up — auto-run the duplicate Xero contacts cleanup
+# on every deploy. The script is idempotent and fail-safe:
+#   - Does nothing when there are 0 rows in scope.
+#   - Aborts (non-zero exit) without deleting if any targeted rows are
+#     still referenced by client_suppliers_details / xero_invoices_bills
+#     / xero_payments / xero_sync_logs.
+# So a clean DB on a subsequent deploy is a no-op.
+#
+# Company id is taken from XERO_CONTACTS_CLEANUP_COMPANY_ID; defaults to
+# 1012 (Signature Multi-Res Pty Ltd). Set XERO_CONTACTS_CLEANUP=off to
+# skip entirely. We never let the cleanup status fail the deploy — the
+# app should boot regardless.
+CLEANUP_COMPANY_ID="${XERO_CONTACTS_CLEANUP_COMPANY_ID:-1012}"
+if [ "${XERO_CONTACTS_CLEANUP:-on}" = "off" ]; then
+  echo "[xero-contacts-cleanup] Skipped (XERO_CONTACTS_CLEANUP=off)"
+elif [ -z "$CLEANUP_COMPANY_ID" ]; then
+  echo "[xero-contacts-cleanup] Skipped (no company id)"
+else
+  echo "[xero-contacts-cleanup] Running --apply for company_id=$CLEANUP_COMPANY_ID"
+  ( cd /app/back-end && node scripts/cleanup-xero-contacts.js \
+      --company-id "$CLEANUP_COMPANY_ID" --apply ) || \
+    echo "[xero-contacts-cleanup] Non-zero exit (see output above) — continuing deploy."
+fi
+
 cd /app/front-end && npx next start -p $FRONTEND_PORT -H 0.0.0.0 &
 FRONTEND_PID=$!
 
