@@ -3023,8 +3023,8 @@ function ManualXeroSyncDialog({
               <option value="contact">Contacts</option>
             </select>
             <small style={{ opacity: 0.7 }}>
-              Bank transfers and manual journals are produced as side-
-              effects of other syncs and aren&apos;t catch-up-eligible.
+              Bank transfers and manual journals are produced as
+              side-effects of other syncs and aren&apos;t catch-up-eligible.
             </small>
           </div>
           <div
