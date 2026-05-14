@@ -32,7 +32,7 @@ The first command confirms all changes are committed. The second shows exactly w
 
 ### 2. Push to Railway
 
-```basnew develop/release-1:mainh
+`new develop/release-1:main``bash
 git push github-
 
 pejt2000-cyber

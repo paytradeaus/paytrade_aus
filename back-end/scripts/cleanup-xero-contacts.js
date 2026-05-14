@@ -1,28 +1,37 @@
 /**
- * Task #145 — One-shot cleanup for duplicate Xero contact rows for a SINGLE company.
+ * Task #145 — Duplicate Xero contact cleanup for a SINGLE company.
  *
- * What this does:
- *   For one company at a time, deletes every row in `xero_contact_details`
- *   that belongs to that company's ACTIVE `xero_integration_details`
- *   row(s) — but ONLY when no other PayTrade record references those
- *   rows. The intended follow-up is for the user to click "Sync" on the
- *   Xero Contacts tab; the partial unique index added in the Task #135
- *   migrations then keeps things clean.
+ * REWRITTEN to do MERGE-based dedupe (the original delete-only flow
+ * always aborted in production because xero_invoices_bills.contact_id
+ * and xero_payments.contact_id are FK constraints — you can't delete a
+ * duplicate row while invoices still point at it).
  *
- * Safety guarantees:
- *   - Requires --company-id <id>. There is no all-companies mode.
- *   - Defaults to --dry-run. You must pass --apply to actually delete.
- *   - Refuses to run (no deletes) if ANY of the targeted rows are
- *     referenced by:
- *       * client_suppliers_details (via xero_contact_details.pt_contact_id mapping)
- *       * xero_invoices_bills.contact_id
- *       * xero_payments.contact_id
- *       * xero_sync_logs.reference->>'xeroId' JSONB references
- *   - With --apply, all DELETEs (xero_contact_details +
- *     xero_contact_dedupe_conflicts for the same integration) run inside
- *     a single transaction.
+ * The logic here mirrors the Task #135 Phase 1 migration
+ * (`1715731300000-XeroContactsDedupeAndUniqueIndex.ts`) but scoped to
+ * one company's ACTIVE integration(s):
  *
- * How to run on Railway:
+ *   1. Group duplicates by (integration_id, contact_id) where
+ *      contact_id IS NOT NULL.
+ *   2. Skip TRUE mapped-vs-mapped conflicts (a group whose mapped rows
+ *      reference more than one distinct PT pt_contact_id) — those need
+ *      a human to pick a winner. They are recorded in
+ *      `xero_contact_dedupe_conflicts` for the operator.
+ *   3. For every other group: pick a canonical row (prefer mapped,
+ *      then oldest created_on, then lowest id text), repoint
+ *      xero_invoices_bills.contact_id, xero_payments.contact_id, and
+ *      the JSONB `xero_sync_logs.reference->>'xeroId'` references to
+ *      the canonical row, then delete the duplicates.
+ *   4. Also dedupe rows with contact_id IS NULL by
+ *      (integration_id, lower(contact_name)) using the same merge
+ *      strategy — these are the "Unmapped" duplicates the user sees on
+ *      the XERO CONTACTS tab when contact_id never came back from
+ *      Xero.
+ *   5. Clear stale `xero_contact_dedupe_conflicts` rows for the same
+ *      integration once nothing remains in conflict.
+ *
+ * Idempotent: on a clean DB the cleanup is a no-op.
+ *
+ * How to run:
  *   pnpm --filter back-end run cleanup:xero-contacts -- --company-id <id>
  *   pnpm --filter back-end run cleanup:xero-contacts -- --company-id <id> --apply
  *
@@ -70,8 +79,8 @@ Required:
                         May also be supplied via COMPANY_ID env var.
 
 Optional:
-  --dry-run             (default) Print what would be deleted, change nothing.
-  --apply               Perform the deletes inside a single transaction.
+  --dry-run             (default) Print what would be merged, change nothing.
+  --apply               Perform the merge inside a single transaction.
 `);
 }
 
@@ -101,8 +110,8 @@ async function main() {
   const client = new Client({ connectionString: databaseUrl, ssl: sslConfig });
   await client.connect();
 
-  console.log('=== Task #145 — Xero contacts cleanup ===');
-  console.log(`Mode:        ${args.apply ? 'APPLY (will delete)' : 'DRY-RUN (no changes)'}`);
+  console.log('=== Task #145 — Xero contacts MERGE cleanup ===');
+  console.log(`Mode:        ${args.apply ? 'APPLY (will repoint + delete)' : 'DRY-RUN (no changes)'}`);
   console.log(`Company ID:  ${companyId}`);
   console.log('');
 
@@ -128,164 +137,184 @@ async function main() {
     }
     console.log('');
 
-    // 2. Count xero_contact_details rows in scope (summary).
-    const totalRes = await client.query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE contact_id IS NULL)::int AS null_contact_id
-         FROM xero_contact_details
-         WHERE integration_id = ANY($1::int[])`,
-      [integrationIds],
-    );
-    const byStatusRes = await client.query(
-      `SELECT contact_status, COUNT(*)::int AS c
+    // 2. Identify duplicate groups for this company.
+    //    Two grouping keys:
+    //      (a) (integration_id, contact_id)            where contact_id IS NOT NULL
+    //      (b) (integration_id, lower(contact_name))   where contact_id IS NULL
+    const groupsByContactIdRes = await client.query(
+      `SELECT integration_id, contact_id, COUNT(*)::int AS row_count,
+              array_agg(id ORDER BY
+                CASE WHEN mapped_status::text IN ('Manual', 'Auto', 'System') THEN 0 ELSE 1 END,
+                created_on NULLS LAST,
+                id::text
+              ) AS row_ids,
+              COUNT(DISTINCT pt_contact_id)::int AS distinct_pt
          FROM xero_contact_details
          WHERE integration_id = ANY($1::int[])
-         GROUP BY contact_status
-         ORDER BY contact_status`,
+           AND contact_id IS NOT NULL
+         GROUP BY integration_id, contact_id
+         HAVING COUNT(*) > 1`,
       [integrationIds],
     );
-    const total = totalRes.rows[0].total;
-    console.log(`xero_contact_details rows in scope: ${total}`);
-    console.log(`  contact_id IS NULL: ${totalRes.rows[0].null_contact_id}`);
-    console.log('  By contact_status:');
-    if (byStatusRes.rows.length === 0) {
-      console.log('    (none)');
-    } else {
-      for (const r of byStatusRes.rows) {
-        console.log(`    ${r.contact_status || '(null)'}: ${r.c}`);
-      }
-    }
+    const groupsByNameRes = await client.query(
+      `SELECT integration_id, lower(contact_name) AS name_key,
+              COUNT(*)::int AS row_count,
+              array_agg(id ORDER BY
+                CASE WHEN mapped_status::text IN ('Manual', 'Auto', 'System') THEN 0 ELSE 1 END,
+                created_on NULLS LAST,
+                id::text
+              ) AS row_ids,
+              COUNT(DISTINCT pt_contact_id)::int AS distinct_pt
+         FROM xero_contact_details
+         WHERE integration_id = ANY($1::int[])
+           AND contact_id IS NULL
+         GROUP BY integration_id, lower(contact_name)
+         HAVING COUNT(*) > 1`,
+      [integrationIds],
+    );
+
+    const totalGroups = groupsByContactIdRes.rows.length + groupsByNameRes.rows.length;
+    const totalDupesPlanned =
+      groupsByContactIdRes.rows.reduce((s, r) => s + (r.row_count - 1), 0) +
+      groupsByNameRes.rows.reduce((s, r) => s + (r.row_count - 1), 0);
+
+    console.log(`Duplicate groups found: ${totalGroups}`);
+    console.log(`  by (integration_id, contact_id):     ${groupsByContactIdRes.rows.length}`);
+    console.log(`  by (integration_id, contact_name):   ${groupsByNameRes.rows.length}`);
+    console.log(`Rows that would be removed (canonical kept per group): ${totalDupesPlanned}`);
     console.log('');
 
-    if (total === 0) {
-      console.log('Nothing to delete. Exiting.');
+    if (totalGroups === 0) {
+      console.log('Nothing to merge. Exiting.');
       await client.end();
       process.exit(0);
     }
 
-    // 3. Reference checks. Each must be zero, or we abort.
-    //    The set of in-scope xero_contact_details.id values is reused
-    //    across each check via an IN (subquery) pattern.
-    const inScopeSelector = `
-      SELECT id FROM xero_contact_details
-      WHERE integration_id = ANY($1::int[])
-    `;
-
-    const mappedRes = await client.query(
-      `SELECT COUNT(*)::int AS c
-         FROM xero_contact_details
-         WHERE integration_id = ANY($1::int[])
-           AND pt_contact_id IS NOT NULL`,
-      [integrationIds],
-    );
-    const mappedClientSuppliersRes = await client.query(
-      `SELECT COUNT(DISTINCT csd.client_supplier_id)::int AS c
-         FROM client_suppliers_details csd
-         WHERE csd.client_supplier_id IN (
-           SELECT pt_contact_id FROM xero_contact_details
-           WHERE integration_id = ANY($1::int[])
-             AND pt_contact_id IS NOT NULL
-         )`,
-      [integrationIds],
-    );
-
-    const invoicesRes = await client.query(
-      `SELECT COUNT(*)::int AS c
-         FROM xero_invoices_bills
-         WHERE contact_id IN (${inScopeSelector})`,
-      [integrationIds],
-    );
-
-    const paymentsRes = await client.query(
-      `SELECT COUNT(*)::int AS c
-         FROM xero_payments
-         WHERE contact_id IN (${inScopeSelector})`,
-      [integrationIds],
-    );
-
-    const syncLogsRes = await client.query(
-      `SELECT COUNT(*)::int AS c
-         FROM xero_sync_logs
-         WHERE reference IS NOT NULL
-           AND (reference::jsonb->>'xeroId') IN (
-             SELECT id::text FROM xero_contact_details
-             WHERE integration_id = ANY($1::int[])
-           )`,
-      [integrationIds],
-    );
-
-    const conflictsRes = await client.query(
-      `SELECT COUNT(*)::int AS c
-         FROM xero_contact_dedupe_conflicts
-         WHERE integration_id = ANY($1::int[])`,
-      [integrationIds],
-    );
-
-    console.log('Reference checks (must all be zero to proceed):');
-    console.log(`  client_suppliers_details mapped via pt_contact_id: ${mappedClientSuppliersRes.rows[0].c} (${mappedRes.rows[0].c} xero rows are mapped)`);
-    console.log(`  xero_invoices_bills.contact_id references:         ${invoicesRes.rows[0].c}`);
-    console.log(`  xero_payments.contact_id references:               ${paymentsRes.rows[0].c}`);
-    console.log(`  xero_sync_logs.reference->>'xeroId' references:    ${syncLogsRes.rows[0].c}`);
-    console.log(`  xero_contact_dedupe_conflicts rows (will clear):   ${conflictsRes.rows[0].c}`);
-    console.log('');
-
-    const blockingTotal =
-      mappedRes.rows[0].c +
-      invoicesRes.rows[0].c +
-      paymentsRes.rows[0].c +
-      syncLogsRes.rows[0].c;
-
-    if (blockingTotal > 0) {
-      console.error('ABORT: targeted xero_contact_details rows are still referenced elsewhere.');
-      console.error('This script refuses to run when any of the following are non-zero:');
-      if (mappedRes.rows[0].c > 0) {
-        console.error(`  - ${mappedRes.rows[0].c} xero_contact_details rows are mapped to PT contacts (pt_contact_id IS NOT NULL).`);
+    // Surface conflict groups (mapped to >1 distinct PT contact) — these are SKIPPED.
+    const conflictGroups = groupsByContactIdRes.rows.filter((g) => g.distinct_pt > 1);
+    const conflictNameGroups = groupsByNameRes.rows.filter((g) => g.distinct_pt > 1);
+    if (conflictGroups.length > 0 || conflictNameGroups.length > 0) {
+      console.log('Mapped-vs-mapped CONFLICT groups (will be SKIPPED — need human resolution):');
+      for (const g of conflictGroups) {
+        console.log(`  contact_id=${g.contact_id} integration_id=${g.integration_id} rows=${g.row_count} distinct_pt=${g.distinct_pt}`);
       }
-      if (invoicesRes.rows[0].c > 0) {
-        console.error(`  - ${invoicesRes.rows[0].c} xero_invoices_bills rows reference these contacts.`);
+      for (const g of conflictNameGroups) {
+        console.log(`  name=${g.name_key} integration_id=${g.integration_id} rows=${g.row_count} distinct_pt=${g.distinct_pt}`);
       }
-      if (paymentsRes.rows[0].c > 0) {
-        console.error(`  - ${paymentsRes.rows[0].c} xero_payments rows reference these contacts.`);
-      }
-      if (syncLogsRes.rows[0].c > 0) {
-        console.error(`  - ${syncLogsRes.rows[0].c} xero_sync_logs rows reference these contacts via reference->>'xeroId'.`);
-      }
-      console.error('');
-      console.error('This profile is NOT safe for the delete-only cleanup. A merge-based');
-      console.error('resolution is required instead. No changes were made.');
-      await client.end();
-      process.exit(2);
-    }
-
-    // 4. Either dry-run summary or apply inside a transaction.
-    if (args.dryRun) {
-      console.log('DRY-RUN: would execute (no changes applied):');
-      console.log(`  DELETE FROM xero_contact_dedupe_conflicts WHERE integration_id = ANY('{${integrationIds.join(',')}}'::int[]);  -- ${conflictsRes.rows[0].c} row(s)`);
-      console.log(`  DELETE FROM xero_contact_details          WHERE integration_id = ANY('{${integrationIds.join(',')}}'::int[]);  -- ${total} row(s)`);
       console.log('');
-      console.log('Re-run with --apply to perform the deletes.');
+    }
+
+    if (args.dryRun) {
+      console.log('DRY-RUN: would merge each non-conflict group, repointing references first.');
+      console.log('  - xero_invoices_bills.contact_id       repointed to canonical');
+      console.log('  - xero_payments.contact_id             repointed to canonical');
+      console.log("  - xero_sync_logs.reference->>'xeroId'  repointed to canonical");
+      console.log('  - duplicate xero_contact_details rows  deleted');
+      console.log('');
+      console.log('Re-run with --apply to perform the merge.');
       await client.end();
       process.exit(0);
     }
 
-    // --apply: single transaction.
-    console.log('Applying deletes inside a single transaction...');
+    // 3. APPLY — single transaction.
+    console.log('Applying MERGE inside a single transaction...');
     await client.query('BEGIN');
     try {
-      const deletedConflicts = await client.query(
-        `DELETE FROM xero_contact_dedupe_conflicts
-           WHERE integration_id = ANY($1::int[])`,
-        [integrationIds],
-      );
-      const deletedContacts = await client.query(
-        `DELETE FROM xero_contact_details
-           WHERE integration_id = ANY($1::int[])`,
+      let mergedGroups = 0;
+      let removedRows = 0;
+      let invoicesRepointed = 0;
+      let paymentsRepointed = 0;
+      let syncLogsRepointed = 0;
+
+      for (const g of groupsByContactIdRes.rows) {
+        if (g.distinct_pt > 1) continue; // skip conflict
+        const canonical = g.row_ids[0];
+        const dupes = g.row_ids.slice(1);
+        if (dupes.length === 0) continue;
+
+        const inv = await client.query(
+          `UPDATE xero_invoices_bills SET contact_id = $1::uuid
+             WHERE contact_id = ANY($2::uuid[])`,
+          [canonical, dupes],
+        );
+        const pay = await client.query(
+          `UPDATE xero_payments SET contact_id = $1::uuid
+             WHERE contact_id = ANY($2::uuid[])`,
+          [canonical, dupes],
+        );
+        const log = await client.query(
+          `UPDATE xero_sync_logs
+             SET reference = jsonb_set(reference::jsonb, '{xeroId}', to_jsonb($1::text))
+             WHERE reference IS NOT NULL
+               AND reference::jsonb->>'xeroId' = ANY($2::text[])`,
+          [canonical, dupes.map(String)],
+        );
+        const del = await client.query(
+          `DELETE FROM xero_contact_details WHERE id = ANY($1::uuid[])`,
+          [dupes],
+        );
+
+        invoicesRepointed += inv.rowCount;
+        paymentsRepointed += pay.rowCount;
+        syncLogsRepointed += log.rowCount;
+        removedRows += del.rowCount;
+        mergedGroups += 1;
+        console.log(`  merged contact_id=${g.contact_id} kept=${canonical} removed=${dupes.length} (inv=${inv.rowCount} pay=${pay.rowCount} log=${log.rowCount})`);
+      }
+
+      for (const g of groupsByNameRes.rows) {
+        if (g.distinct_pt > 1) continue; // skip conflict
+        const canonical = g.row_ids[0];
+        const dupes = g.row_ids.slice(1);
+        if (dupes.length === 0) continue;
+
+        const inv = await client.query(
+          `UPDATE xero_invoices_bills SET contact_id = $1::uuid
+             WHERE contact_id = ANY($2::uuid[])`,
+          [canonical, dupes],
+        );
+        const pay = await client.query(
+          `UPDATE xero_payments SET contact_id = $1::uuid
+             WHERE contact_id = ANY($2::uuid[])`,
+          [canonical, dupes],
+        );
+        const log = await client.query(
+          `UPDATE xero_sync_logs
+             SET reference = jsonb_set(reference::jsonb, '{xeroId}', to_jsonb($1::text))
+             WHERE reference IS NOT NULL
+               AND reference::jsonb->>'xeroId' = ANY($2::text[])`,
+          [canonical, dupes.map(String)],
+        );
+        const del = await client.query(
+          `DELETE FROM xero_contact_details WHERE id = ANY($1::uuid[])`,
+          [dupes],
+        );
+
+        invoicesRepointed += inv.rowCount;
+        paymentsRepointed += pay.rowCount;
+        syncLogsRepointed += log.rowCount;
+        removedRows += del.rowCount;
+        mergedGroups += 1;
+        console.log(`  merged name=${g.name_key} kept=${canonical} removed=${dupes.length} (inv=${inv.rowCount} pay=${pay.rowCount} log=${log.rowCount})`);
+      }
+
+      // Clear resolved conflict ledger rows: any row whose
+      // (integration_id, contact_id) no longer has duplicates.
+      const cleared = await client.query(
+        `DELETE FROM xero_contact_dedupe_conflicts c
+           WHERE c.integration_id = ANY($1::int[])
+             AND NOT EXISTS (
+               SELECT 1 FROM xero_contact_details xcd
+                WHERE xcd.integration_id = c.integration_id
+                  AND xcd.contact_id = c.contact_id
+                GROUP BY xcd.integration_id, xcd.contact_id
+                HAVING COUNT(*) > 1
+             )`,
         [integrationIds],
       );
 
       const afterRes = await client.query(
-        `SELECT COUNT(*)::int AS c
-           FROM xero_contact_details
+        `SELECT COUNT(*)::int AS c FROM xero_contact_details
            WHERE integration_id = ANY($1::int[])`,
         [integrationIds],
       );
@@ -293,14 +322,18 @@ async function main() {
       await client.query('COMMIT');
 
       console.log('');
-      console.log('=== Apply complete ===');
-      console.log(`xero_contact_dedupe_conflicts deleted: ${deletedConflicts.rowCount}`);
-      console.log(`xero_contact_details deleted:          ${deletedContacts.rowCount}`);
-      console.log(`xero_contact_details rows before:      ${total}`);
-      console.log(`xero_contact_details rows after:       ${afterRes.rows[0].c}`);
-      console.log('');
-      console.log('Next step: ask the user to click **Sync** on the Xero Contacts tab.');
-      console.log('The partial unique index from Task #135 will keep things clean.');
+      console.log('=== Merge complete ===');
+      console.log(`Groups merged:                          ${mergedGroups}`);
+      console.log(`xero_contact_details rows deleted:      ${removedRows}`);
+      console.log(`xero_invoices_bills repointed:          ${invoicesRepointed}`);
+      console.log(`xero_payments repointed:                ${paymentsRepointed}`);
+      console.log(`xero_sync_logs.reference repointed:     ${syncLogsRepointed}`);
+      console.log(`xero_contact_dedupe_conflicts cleared:  ${cleared.rowCount}`);
+      console.log(`xero_contact_details rows after:        ${afterRes.rows[0].c}`);
+      const skipped = conflictGroups.length + conflictNameGroups.length;
+      if (skipped > 0) {
+        console.log(`Skipped (mapped-vs-mapped conflicts):   ${skipped} — needs manual resolution.`);
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
