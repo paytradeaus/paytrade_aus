@@ -3272,53 +3272,47 @@ function ManualXeroSyncDialog({
                   overflowY: "auto",
                 }}
               >
-                <table
-                  className="pt_table dataTable compact stripe"
-                  style={{ width: "100%" }}
-                >
-                  <thead
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      background: "var(--theme-light, #f5f5f5)",
-                      zIndex: 1,
-                    }}
-                  >
+                <table className="pt_table dataTable compact stripe">
+                  <thead>
                     <tr>
-                      <th style={{ width: 32 }}></th>
+                      <th></th>
                       <th>PayTrade side</th>
-                      <th style={{ textAlign: "center", width: 160 }}>Status</th>
+                      <th>Status</th>
                       <th>Xero side</th>
-                      <th style={{ width: 60, textAlign: "center" }}>Action</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {catchupResult.rows.map((r: any) => {
                       const rs = catchupRowStatus[r.key];
                       const cls = r.classification;
-                      const pillMap: Record<
+                      // Status colours mirror the existing
+                      // sync-log status pattern (basic.tsx
+                      // `sync_status_style`): plain coloured text,
+                      // no bespoke pill chrome.
+                      const statusMap: Record<
                         string,
                         { label: string; color: string }
                       > = {
-                        already_in_sync: { label: "Linked", color: "#137333" },
-                        needs_link: { label: "Needs link", color: "#a86b00" },
+                        already_in_sync: { label: "Linked", color: "green" },
+                        needs_link: { label: "Needs link", color: "orange" },
                         amounts_disagree: {
                           label: "Amounts disagree",
-                          color: "#b35900",
+                          color: "orange",
                         },
                         needs_push: {
                           label: "PT only — needs push",
-                          color: "#1a73e8",
+                          color: "blue",
                         },
                         needs_import: {
                           label: "Xero only — needs import",
-                          color: "#1a73e8",
+                          color: "blue",
                         },
-                        blocked: { label: "Blocked", color: "#a50e0e" },
+                        blocked: { label: "Blocked", color: "red" },
                       };
-                      const pill = pillMap[cls] || {
+                      const status = statusMap[cls] || {
                         label: cls,
-                        color: "#555",
+                        color: "inherit",
                       };
                       const isSelected = catchupSelected.has(r.key);
                       const disabledRow =
@@ -3336,14 +3330,8 @@ function ManualXeroSyncDialog({
                           ? "#eaf3ff"
                           : undefined;
                       return (
-                        <tr
-                          key={r.key}
-                          style={{
-                            background: rowBg,
-                            verticalAlign: "top",
-                          }}
-                        >
-                          <td style={{ textAlign: "center" }}>
+                        <tr key={r.key} style={rowBg ? { background: rowBg } : undefined}>
+                          <td>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -3351,156 +3339,121 @@ function ManualXeroSyncDialog({
                               onChange={() => toggleCatchupRow(r.key)}
                             />
                           </td>
-                          <td
-                            style={{
-                              wordBreak: "break-word",
-                              whiteSpace: "normal",
-                              opacity: r.pt_id ? 1 : 0.4,
-                            }}
-                          >
+                          <td style={r.pt_id ? undefined : { opacity: 0.4 }}>
                             {r.pt_id ? (
                               <>
                                 <div>{r.pt_summary || r.label}</div>
                                 {(r.project_name || r.contract_name) && (
-                                  <div
-                                    style={{
-                                      fontSize: "11px",
-                                      opacity: 0.75,
-                                      marginTop: "2px",
-                                    }}
-                                  >
+                                  <small style={{ opacity: 0.75 }}>
                                     {r.project_name}
                                     {r.project_name && r.contract_name
                                       ? " · "
                                       : ""}
                                     {r.contract_name}
-                                  </div>
+                                  </small>
                                 )}
-                                <code
-                                  style={{
-                                    fontSize: "10px",
-                                    opacity: 0.6,
-                                    display: "block",
-                                    marginTop: "2px",
-                                  }}
-                                >
+                                <br />
+                                <code style={{ fontSize: 10, opacity: 0.6 }}>
                                   PT {r.pt_id}
                                 </code>
                               </>
                             ) : (
-                              <span style={{ fontStyle: "italic" }}>
-                                — no PayTrade row in window —
-                              </span>
+                              <em>— no PayTrade row in window —</em>
                             )}
                           </td>
-                          <td style={{ textAlign: "center" }}>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "2px 8px",
-                                borderRadius: "10px",
-                                background: pill.color,
-                                color: "#fff",
-                                fontSize: "10px",
-                                textTransform: "uppercase",
-                                fontWeight: 600,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {pill.label}
+                          <td>
+                            <span style={{ color: status.color, fontWeight: 600 }}>
+                              {status.label}
                             </span>
                             {r.hint && (
-                              <div
-                                style={{
-                                  marginTop: "4px",
-                                  opacity: 0.7,
-                                  fontStyle: "italic",
-                                  fontSize: "11px",
-                                  whiteSpace: "normal",
-                                }}
-                              >
-                                {r.hint}
+                              <div>
+                                <small style={{ opacity: 0.7, fontStyle: "italic" }}>
+                                  {r.hint}
+                                </small>
                               </div>
                             )}
                             {rs?.message && (
-                              <div
-                                style={{
-                                  marginTop: "4px",
-                                  color:
-                                    rs.status === "failed"
-                                      ? "#a50e0e"
-                                      : "#137333",
-                                  fontSize: "11px",
-                                  whiteSpace: "normal",
-                                }}
-                              >
-                                {rs.status === "running"
-                                  ? "Running…"
-                                  : rs.status === "passed"
-                                  ? `✓ ${rs.message}`
-                                  : `⨯ ${rs.message}`}
-                                {rs.syncLogId ? (
-                                  <>
-                                    {" — "}
-                                    <a
-                                      href={`/user/integrations/xero/syncLogDetails/${rs.syncLogId}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        color: "#1a73e8",
-                                        textDecoration: "underline",
-                                      }}
-                                    >
-                                      sync log #{rs.syncLogId}
-                                    </a>
-                                  </>
-                                ) : null}
+                              <div>
+                                <small
+                                  style={{
+                                    color:
+                                      rs.status === "failed" ? "red" : "green",
+                                  }}
+                                >
+                                  {rs.status === "running"
+                                    ? "Running…"
+                                    : rs.status === "passed"
+                                    ? `✓ ${rs.message}`
+                                    : `⨯ ${rs.message}`}
+                                  {rs.syncLogId ? (
+                                    <>
+                                      {" — "}
+                                      <a
+                                        href={`/user/integrations/xero/syncLogDetails/${rs.syncLogId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        sync log #{rs.syncLogId}
+                                      </a>
+                                    </>
+                                  ) : null}
+                                </small>
                               </div>
                             )}
                           </td>
-                          <td
-                            style={{
-                              wordBreak: "break-word",
-                              whiteSpace: "normal",
-                              opacity: r.xero_id ? 1 : 0.4,
-                            }}
-                          >
+                          <td style={r.xero_id ? undefined : { opacity: 0.4 }}>
                             {r.xero_id ? (
                               <>
                                 <div>{r.xero_summary || r.label}</div>
-                                {r.xero_tracking_option_name && (
+                                {/* Surface tracking + resolved PT
+                                    project/contract on the Xero side
+                                    so operators can see WHY a row
+                                    came back as needs_import
+                                    (mismatched/missing tracking
+                                    option mapping). */}
+                                {(r.project_name || r.contract_name) && (
+                                  <small style={{ opacity: 0.75 }}>
+                                    {r.project_name}
+                                    {r.project_name && r.contract_name
+                                      ? " · "
+                                      : ""}
+                                    {r.contract_name}
+                                  </small>
+                                )}
+                                {r.xero_tracking_option_name ? (
                                   <div
-                                    style={{
-                                      fontSize: "11px",
-                                      opacity: 0.75,
-                                      marginTop: "2px",
-                                    }}
-                                    title={
-                                      r.xero_tracking_option_id ||
-                                      undefined
-                                    }
+                                    title={r.xero_tracking_option_id || undefined}
                                   >
-                                    Tracking: {r.xero_tracking_option_name}
+                                    <small style={{ opacity: 0.75 }}>
+                                      Tracking: {r.xero_tracking_option_name}
+                                    </small>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <small style={{ color: "orange" }}>
+                                      No tracking option set on Xero record
+                                    </small>
                                   </div>
                                 )}
-                                <code
-                                  style={{
-                                    fontSize: "10px",
-                                    opacity: 0.6,
-                                    display: "block",
-                                    marginTop: "2px",
-                                  }}
-                                >
+                                {r.xero_tracking_option_name &&
+                                  !r.project_name &&
+                                  !r.contract_name && (
+                                    <div>
+                                      <small style={{ color: "orange" }}>
+                                        No matching PayTrade project/contract
+                                      </small>
+                                    </div>
+                                  )}
+                                <br />
+                                <code style={{ fontSize: 10, opacity: 0.6 }}>
                                   Xero {r.xero_id}
                                 </code>
                               </>
                             ) : (
-                              <span style={{ fontStyle: "italic" }}>
-                                — no Xero row in window —
-                              </span>
+                              <em>— no Xero row in window —</em>
                             )}
                           </td>
-                          <td style={{ textAlign: "center" }}>
+                          <td>
                             <button
                               type="button"
                               className="secondary mr_zero_point_five"
@@ -3511,7 +3464,6 @@ function ManualXeroSyncDialog({
                                 e.stopPropagation();
                                 setCatchupRowDetail(r);
                               }}
-                              style={{ padding: "4px 8px" }}
                             >
                               <i className="fa-light fa-eye"></i>
                             </button>
@@ -3661,11 +3613,52 @@ function ManualXeroSyncDialog({
                 "noopener,noreferrer",
               );
             }
-            // Returning undefined keeps the dialog open (BaseModal
-            // only auto-closes on `response == true`).
-            return undefined as any;
+            // No return value — BaseModal only auto-closes on
+            // `response == true`, so the dialog stays open and the
+            // operator can flip back and forth between PT and Xero.
           }}
         >
+          {(() => {
+            const cls = catchupRowDetail.classification;
+            const statusMap: Record<string, { label: string; color: string }> =
+              {
+                already_in_sync: { label: "Linked", color: "green" },
+                needs_link: { label: "Needs link", color: "orange" },
+                amounts_disagree: {
+                  label: "Amounts disagree",
+                  color: "orange",
+                },
+                needs_push: {
+                  label: "PT only — needs push",
+                  color: "blue",
+                },
+                needs_import: {
+                  label: "Xero only — needs import",
+                  color: "blue",
+                },
+                blocked: { label: "Blocked", color: "red" },
+              };
+            const status = statusMap[cls] || { label: cls, color: "#555" };
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: 12,
+                    background: status.color,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  {status.label}
+                </span>
+              </div>
+            );
+          })()}
           {catchupRowDetail.hint && (
             <p
               style={{

@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { jwtConstants } from 'src/api/auth/constants';
 import { XeroPaymentsService } from '../integrations/xero/payments/xero-payments.service';
+import {
+  buildXeroDeepLink as buildXeroSyncLogDeepLink,
+  buildPaytradeDeepLink as buildPaytradeSyncLogDeepLink,
+} from '../integrations/xero/utils/sync-log-deep-links';
 import { XeroContactDetails } from 'src/entities/xero-contact-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
@@ -14941,10 +14945,11 @@ export class XeroWebhookService {
     };
     const rows: Row[] = [];
 
-    // Task #151 — small helpers for the row-detail payload. Inline so
-    // the catch-up endpoint stays self-contained; the existing
-    // sync-log-deep-links helpers expect a different (sync log) row
-    // shape and aren't reusable here.
+    // Task #151 — small formatting helpers for the row-detail payload.
+    // Deep links reuse the shared sync-log-deep-link helpers below
+    // (`buildXeroSyncLogDeepLink` / `buildPaytradeSyncLogDeepLink`)
+    // so the catch-up dialog routes the operator to the same Xero /
+    // PT URLs the sync-log details view does.
     const fmtMoney = (v: any): string =>
       `$${(Number(v) || 0).toFixed(2)}`;
     const fmtDate = (v: any): string => {
@@ -14966,20 +14971,31 @@ export class XeroWebhookService {
           ? '—'
           : String(value),
     });
-    const xeroInvoiceUrl = (id: string | null | undefined, type: any) => {
-      if (!id) return null;
-      const t = String(type || '').toUpperCase();
-      if (t === 'ACCREC') return `https://invoicing.xero.com/edit/${id}`;
-      if (t === 'ACCPAY')
-        return `https://go.xero.com/AccountsPayable/Edit.aspx?InvoiceID=${id}`;
-      // Unknown — modern invoicing URL works for ACCREC and silently
-      // 404s for ACCPAY, so prefer it as a generic fallback.
-      return `https://invoicing.xero.com/edit/${id}`;
+    // Adapt a catch-up row's source records to the LooseRow shape the
+    // sync-log-deep-link helpers expect, then return both URLs.
+    const buildDeepLinks = (
+      syncType: string,
+      ptId: string | number | null | undefined,
+      xeroId: string | null | undefined,
+      xeroRecord: any,
+      paytradeRecord: any,
+      ptDetailsObj: Record<string, any> = {},
+      xeroDetailsObj: Record<string, any> = {},
+    ): { xero: string | null; pt: string | null } => {
+      const looseRow = {
+        sync_type: syncType,
+        xero_id: xeroId ?? null,
+        paytrade_id: ptId != null ? String(ptId) : null,
+        xero_records: xeroRecord ? [xeroRecord] : [],
+        paytrade_records: paytradeRecord ? [paytradeRecord] : [],
+        xero_details: xeroDetailsObj,
+        paytrade_details: ptDetailsObj,
+      };
+      return {
+        xero: buildXeroSyncLogDeepLink(looseRow),
+        pt: buildPaytradeSyncLogDeepLink(looseRow),
+      };
     };
-    const xeroPaymentUrl = (invoiceId: string | null | undefined) =>
-      invoiceId ? `https://invoicing.xero.com/edit/${invoiceId}` : null;
-    const xeroContactUrl = (id: string | null | undefined) =>
-      id ? `https://go.xero.com/Contacts/View/${id}` : null;
     const notes: Record<string, any> = {};
     let truncated = false;
 
@@ -15421,10 +15437,22 @@ export class XeroWebhookService {
             ? invByIdMap.get(String(r.xero_id))
             : null;
           const inv = xeroLink?.inv ?? null;
+          // Reuse the shared sync-log-deep-link helpers via the
+          // `buildDeepLinks` adapter so the catch-up dialog hands the
+          // operator the same Xero / PT URLs the sync-log details
+          // view does.
+          const dl = buildDeepLinks(
+            'Invoices',
+            claim?.payment_claim_id ?? r.pt_id,
+            inv?.invoiceID ?? r.xero_id,
+            inv,
+            claim,
+          );
+          if (dl.xero) r.xero_deep_link = dl.xero;
+          if (dl.pt) r.paytrade_deep_link = dl.pt;
           if (claim) {
             r.project_name = claim.projectDetails?.project_name || null;
             r.contract_name = claim.contractDetails?.contract_name || null;
-            r.paytrade_deep_link = `/user/claims/view/${claim.payment_claim_id}`;
             const claimDate =
               claim.claim_type === 'Billable'
                 ? claim.received_date
@@ -15450,11 +15478,8 @@ export class XeroWebhookService {
               detail('Due date', fmtDate(claim.due_date)),
               detail('Created on', fmtDate(claim.created_on)),
             ];
-          } else if (r.pt_id) {
-            r.paytrade_deep_link = `/user/claims/view/${r.pt_id}`;
           }
           if (inv) {
-            r.xero_deep_link = xeroInvoiceUrl(inv.invoiceID, inv.type);
             let firstTracking: any = null;
             for (const li of inv.lineItems || []) {
               for (const t of li?.tracking || []) {
@@ -15678,10 +15703,16 @@ export class XeroWebhookService {
           const xpay = r.xero_id
             ? payByXeroIdMap.get(String(r.xero_id))
             : null;
+          const dl = buildDeepLinks(
+            'Payments',
+            p?.payment_id ?? r.pt_id,
+            xpay?.paymentID ?? r.xero_id,
+            xpay,
+            p,
+          );
+          if (dl.xero) r.xero_deep_link = dl.xero;
+          if (dl.pt) r.paytrade_deep_link = dl.pt;
           if (p) {
-            r.paytrade_deep_link = p.payment_claim_id
-              ? `/user/claims/view/${p.payment_claim_id}?payment=${p.payment_id}`
-              : `/user/payments-list`;
             r.pt_details = [
               detail('Payment ID', p.payment_id),
               detail('Type', p.payment_type),
@@ -15699,13 +15730,8 @@ export class XeroWebhookService {
               detail('Status', p.current_status),
               detail('Bank account ID', p.bank_account_id),
             ];
-          } else if (r.pt_id) {
-            r.paytrade_deep_link = `/user/payments-list`;
           }
           if (xpay) {
-            r.xero_deep_link = xeroPaymentUrl(
-              xpay.invoice?.invoiceID || null,
-            );
             r.xero_details = [
               detail('Payment ID', xpay.paymentID),
               detail('Status', xpay.status),
@@ -15897,8 +15923,18 @@ export class XeroWebhookService {
           const xc = r.xero_id
             ? xeroContactByIdMap.get(String(r.xero_id))
             : null;
+          const dl = buildDeepLinks(
+            'Contacts',
+            cs?.client_supplier_id ?? r.pt_id,
+            xc?.contactID ?? r.xero_id,
+            xc,
+            cs,
+            cs ? { client_supplier_id: cs.client_supplier_id } : {},
+            xc ? { contact_id: xc.contactID } : {},
+          );
+          if (dl.xero) r.xero_deep_link = dl.xero;
+          if (dl.pt) r.paytrade_deep_link = dl.pt;
           if (cs) {
-            r.paytrade_deep_link = `/user/clients-suppliers/view/${cs.client_supplier_id}`;
             r.pt_details = [
               detail('Contact ID', cs.client_supplier_id),
               detail('Name', cs.client_supplier_name),
@@ -15912,11 +15948,8 @@ export class XeroWebhookService {
               ),
               detail('Created on', fmtDate(cs.created_on)),
             ];
-          } else if (r.pt_id) {
-            r.paytrade_deep_link = `/user/clients-suppliers/view/${r.pt_id}`;
           }
           if (xc) {
-            r.xero_deep_link = xeroContactUrl(xc.contactID);
             r.xero_details = [
               detail('Contact ID', xc.contactID),
               detail('Name', xc.name),
