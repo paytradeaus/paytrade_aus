@@ -294,34 +294,42 @@ export default function XeroBankAccount() {
   useEffect(() => {
     const fetchData = async () => {
       setTableLoader(true);
-      if (tabStatus === "Xero bank accounts") {
-        const { contacts, totalCount } = await fetchXeroBankAccounts(
-          currentPage,
-          entriesPerPage,
-          search,
-          setTableLoader
-        );
-        setGridData(contacts);
-        setTotalRows(totalCount);
-      } else if (tabStatus === "Paytrade bank accounts") {
-        const { contacts, totalCount } = await fetchPaytradeBankAccounts(
-          currentPage,
-          entriesPerPage,
-          search,
-          sortValues,
-          setTableLoader
-        );
-        setGridData(contacts);
-        setTotalRows(totalCount);
-      } else if (tabStatus === "Mapped bank accounts") {
-        const { contacts, totalCount } = await fetchMappedBankAccounts(
-          currentPage,
-          entriesPerPage,
-          search,
-          setTableLoader
-        );
-        setGridData(contacts);
-        setTotalRows(totalCount);
+      // Task #115 — defensive guard. The list helpers return `null` on
+      // GraphQL errors, which used to crash the Pending Bank Account
+      // Mapping tab via `const { contacts, totalCount } = null`.
+      try {
+        let result: any = null;
+        if (tabStatus === "Xero bank accounts") {
+          result = await fetchXeroBankAccounts(
+            currentPage,
+            entriesPerPage,
+            search,
+            setTableLoader
+          );
+        } else if (tabStatus === "Paytrade bank accounts") {
+          result = await fetchPaytradeBankAccounts(
+            currentPage,
+            entriesPerPage,
+            search,
+            sortValues,
+            setTableLoader
+          );
+        } else if (tabStatus === "Mapped bank accounts") {
+          result = await fetchMappedBankAccounts(
+            currentPage,
+            entriesPerPage,
+            search,
+            setTableLoader
+          );
+        }
+        setGridData(result?.contacts || []);
+        setTotalRows(result?.totalCount || 0);
+      } catch (err) {
+        console.error("[XeroBankAccount] fetchData failed", err);
+        setGridData([]);
+        setTotalRows(0);
+      } finally {
+        setTableLoader(false);
       }
     };
     fetchData();

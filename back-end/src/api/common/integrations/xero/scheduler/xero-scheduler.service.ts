@@ -203,6 +203,101 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           ),
         );
     }, 30_000);
+
+    // Task #115 — One-shot back-fill: link orphaned
+    // `xero_bank_account_details` rows (pt_bank_account_id IS NULL) to
+    // any matching PayTrade bank account in the same company so the
+    // hourly scheduler stops re-attempting `addBankAccount` and
+    // logging `Account number already exists` forever.
+    setTimeout(() => {
+      this.backfillOrphanedXeroBankAccountLinks().catch((err) =>
+        this.logger.warn(
+          `[Task #115] backfillOrphanedXeroBankAccountLinks failed: ${err?.message || err}`,
+        ),
+      );
+    }, 90_000);
+  }
+
+  /**
+   * Task #115 — Idempotent startup back-fill. Finds
+   * `xero_bank_account_details` rows whose `pt_bank_account_id` is NULL
+   * and whose `(company_id, account_number, bsb_number)` matches an
+   * existing PayTrade bank account, and links them. Safe to re-run.
+   */
+  private async backfillOrphanedXeroBankAccountLinks(): Promise<void> {
+    let scanned = 0;
+    let linked = 0;
+    try {
+      const orphans = await this.xeroBankAccountDetails
+        .createQueryBuilder('xba')
+        .innerJoin(
+          XeroIntegrationDetails,
+          'xid',
+          'xid.integration_id = xba.integration_id',
+        )
+        .addSelect('xid.company_id', 'xid_company_id')
+        .where('xba.pt_bank_account_id IS NULL')
+        .andWhere('xba.account_number IS NOT NULL')
+        .andWhere(`xba.account_number <> ''`)
+        .getRawAndEntities();
+
+      const bankRepo =
+        this.xeroBankAccountDetails.manager.getRepository(BankAccounts);
+
+      for (let i = 0; i < orphans.entities.length; i++) {
+        const xba = orphans.entities[i];
+        const companyId = orphans.raw[i]?.xid_company_id;
+        if (!companyId) continue;
+        scanned++;
+        try {
+          // Task #115 — mirror Task #108's status filter to avoid
+          // back-filling links to stale Closed/Deleted PT accounts.
+          const candidates = await bankRepo.find({
+            where: {
+              company_id: companyId,
+              account_number: xba.account_number,
+              status: In(['Active', 'Open', 'Draft'] as any),
+            },
+          });
+          // Stricter tie-break: only auto-link when we have an exact
+          // BSB+account match, OR exactly one status-valid candidate.
+          // Otherwise leave the orphan for manual mapping rather than
+          // guess between siblings.
+          const exact = candidates.find(
+            (c) =>
+              xba.bsb_number != null &&
+              c.bsb_number != null &&
+              Number(c.bsb_number) === Number(xba.bsb_number),
+          );
+          const match = exact || (candidates.length === 1 ? candidates[0] : null);
+          if (!match) continue;
+
+          await this.xeroBankAccountDetails
+            .createQueryBuilder()
+            .update(XeroBankAccountDetails)
+            .set({
+              pt_bank_account_id: match.bank_account_id,
+              mapped_status: 'System',
+              updated_on: moment.tz('UTC'),
+              updated_group: 'SYSTEM',
+            })
+            .where('id = :id AND pt_bank_account_id IS NULL', { id: xba.id })
+            .execute();
+          linked++;
+        } catch (rowErr: any) {
+          this.logger.warn(
+            `[Task #115] back-fill skipped xero_bank_account ${xba.id}: ${rowErr?.message || rowErr}`,
+          );
+        }
+      }
+      this.logger.log(
+        `[Task #115] backfillOrphanedXeroBankAccountLinks: scanned=${scanned} linked=${linked}`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #115] backfillOrphanedXeroBankAccountLinks aborted: ${err?.message || err}`,
+      );
+    }
   }
 
   /**
@@ -2077,22 +2172,132 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
 
         if (hasMissingFields && xeroDetails.xero_to_pt_bank_auto_create) {
           try {
+            const draftAccountNumber =
+              (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) ||
+              account_number ||
+              '';
+            const draftBsbNumber =
+              parseInt(
+                (account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6),
+                10,
+              ) || bsb_number || 0;
             const draftPayload: any = {
               company_id,
               account_name: account.name || account_name || 'Unnamed Xero Account',
               account_type: account_type || 'Cash Account',
-              account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || account_number || '',
-              bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || bsb_number || 0,
+              account_number: draftAccountNumber,
+              bsb_number: draftBsbNumber,
               financial_institution: financial_institution || 'From Xero - pending update',
               opening_date: opening_date || new Date().toISOString().split('T')[0],
               delegate_powers: delegate_powers || null,
               status: 'Draft',
             };
-            const bankResponse = await this.bankAccountsService.addBankAccount(
-              decoded,
-              draftPayload,
-              decoded?.userId,
-            );
+
+            // Task #115 — idempotent auto-create. Wrap in inner try/catch
+            // so a duplicate-account-number race doesn't keep firing the
+            // same `[ERROR] Account number already exists` every hour.
+            // We do a second-chance lookup ignoring status, link if we
+            // find the orphan, and write a clean sync log.
+            let bankResponse: any;
+            try {
+              bankResponse = await this.bankAccountsService.addBankAccount(
+                decoded,
+                draftPayload,
+                decoded?.userId,
+              );
+            } catch (addErr: any) {
+              const addMsg = String(addErr?.message || addErr || '');
+              if (/Account number already exists/i.test(addMsg)) {
+                try {
+                  const bankAccountsRepoLocal2 =
+                    this.xeroBankAccountDetails.manager.getRepository(
+                      BankAccounts,
+                    );
+                  // Task #115 — mirror Task #108's status filter so
+                  // we never relink the Xero row to a stale
+                  // Closed/Deleted PT bank account.
+                  const orphanCandidates = draftAccountNumber
+                    ? await bankAccountsRepoLocal2.find({
+                        where: {
+                          company_id,
+                          account_number: draftAccountNumber,
+                          status: In(['Active', 'Open', 'Draft'] as any),
+                        },
+                      })
+                    : [];
+                  const orphanLink =
+                    orphanCandidates.find(
+                      (c) =>
+                        draftBsbNumber &&
+                        c.bsb_number != null &&
+                        Number(c.bsb_number) === Number(draftBsbNumber),
+                    ) || orphanCandidates[0];
+                  if (orphanLink) {
+                    await this.xeroBankAccountDetails
+                      .createQueryBuilder()
+                      .update(XeroBankAccountDetails)
+                      .set({
+                        pt_bank_account_id: orphanLink.bank_account_id,
+                        mapped_status: 'System',
+                        updated_by: decoded?.userId || null,
+                        updated_on: moment.tz('UTC'),
+                        updated_group: decoded ? 'USER' : 'SYSTEM',
+                      })
+                      .where(
+                        'account_id = :account_id AND integration_id = :integration_id',
+                        {
+                          account_id,
+                          integration_id: xeroDetails.integration_id,
+                        },
+                      )
+                      .execute();
+
+                    await this.xeroService.insertXeroSyncLogs(decoded, {
+                      id: sync_id || null,
+                      api_name: 'createOrUpdateAccountInPaytrade',
+                      api_payload: {
+                        account_id,
+                        account_name: account.name,
+                        linked_to_existing_pt_bank_account_id:
+                          orphanLink.bank_account_id,
+                      },
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 504,
+                      dynamic_values: { account_name: account.name },
+                      project_id: null,
+                      contract_id: null,
+                      reference: {
+                        xeroId: xeroAccountDetails?.id,
+                        paytradeId: orphanLink.bank_account_id,
+                      },
+                      reference_id: xeroAccountDetails?.id,
+                      history: [
+                        `Linked existing PayTrade bank account "${orphanLink.account_name}" after duplicate-create error`,
+                        'Resolved orphaned auto-create draft',
+                      ],
+                      important_checks: {},
+                      error_message: null,
+                      xero_records: [account],
+                      paytrade_records: [orphanLink],
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                    });
+                    return account;
+                  }
+                  this.logger.warn(
+                    `[Task #115] Duplicate account_number for company ${company_id} but no PT row matched; skipping noisy retry.`,
+                  );
+                } catch (recoverErr: any) {
+                  this.logger.warn(
+                    `[Task #115] Second-chance link after duplicate-account error failed: ${recoverErr?.message || recoverErr}`,
+                  );
+                }
+                // Don't rethrow — bail out so this record stops looping.
+                return account;
+              }
+              throw addErr;
+            }
 
             let newBankAccountId;
             if (bankResponse && 'bank_account_id' in bankResponse) {
