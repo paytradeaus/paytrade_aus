@@ -2835,10 +2835,82 @@ export class XeroAccountsService {
           overrideMap.get(xeroAccount.account_id) || resolvedDefault;
         try {
           const acctNumStr = (xeroAccount.account_number || '').toString();
-          const bsbNum =
+          // Task #124 — Treat blank/whitespace BSB as missing before
+          // numeric conversion. `Number("")` is `0` which would
+          // otherwise bypass the missing-BSB pre-check and produce
+          // the generic skip reason instead of the specific one.
+          const bsbRaw =
             xeroAccount.bsb_number != null
-              ? Number(xeroAccount.bsb_number)
-              : null;
+              ? String(xeroAccount.bsb_number).trim()
+              : '';
+          const bsbNum = bsbRaw === '' ? null : Number(bsbRaw);
+
+          // Task #124 — Pre-check the fields the bulk wrapper can't
+          // synthesize (BSB + account number must come from Xero).
+          // Producing a specific reason up-front avoids the generic
+          // "missing required fields OR subscription cap" message and
+          // lets the user act on the actual problem. We still write
+          // the same xero_sync_logs entry that
+          // `insertAccountDetailsInPaytrade` would have written
+          // (template 365 — "Missing mandatory fields"), so the
+          // existing audit trail is preserved.
+          const missingFields: string[] = [];
+          if (!acctNumStr || !acctNumStr.replace(/\D/g, '')) {
+            missingFields.push('account number');
+          }
+          if (bsbNum == null || isNaN(bsbNum)) {
+            missingFields.push('BSB');
+          }
+          if (missingFields.length > 0) {
+            result.skipped++;
+            const friendlyMissing = `Missing ${missingFields.join(
+              ' and ',
+            )} on the Xero bank account. Add ${
+              missingFields.length === 1 ? 'it' : 'them'
+            } in Xero, sync, then re-run.`;
+            result.errors.push({
+              account_id: xeroAccount.account_id,
+              account_name: xeroAccount.account_name,
+              reason: friendlyMissing,
+            });
+            try {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: null,
+                api_name: 'createAccountInPaytrade',
+                api_payload: {
+                  account_id: xeroAccount.account_id,
+                  account_name: xeroAccount.account_name,
+                  account_number: acctNumStr || null,
+                  bsb_number: bsbNum,
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 365,
+                dynamic_values: {},
+                project_id: null,
+                contract_id: null,
+                reference: { xeroId: xeroAccount.id, paytradeId: null },
+                reference_id: xeroAccount.id,
+                history: [
+                  `Bulk create-in-PayTrade triggered for ${xeroAccount.account_name}`,
+                  'Import failed',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Failed',
+                },
+                error_message: `Missing mandatory fields: ${missingFields.join(', ')}`,
+                xero_records: [xeroAccount],
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            } catch (logErr) {
+              this.logger.warn(
+                `Failed to write missing-fields sync log for Xero bank account ${xeroAccount.account_id}: ${logErr?.message || logErr}`,
+              );
+            }
+            continue;
+          }
 
           const payload: any = {
             company_id: companyId,
@@ -2863,6 +2935,14 @@ export class XeroAccountsService {
           if (response && response.id) {
             result.created++;
           } else {
+            // Task #124 — With BSB/account number guarded above and
+            // already-mapped handled in catch, the remaining falsy
+            // return paths from `insertAccountDetailsInPaytrade` are
+            // (a) subscription-cap warning and (b) any other unhandled
+            // validation. Keep the reason generic but actionable, and
+            // point users at the per-account sync log row that
+            // `insertAccountDetailsInPaytrade` already wrote with the
+            // exact cause.
             result.skipped++;
             // Task #123 — Trust account types need extra fields
             // (trustee, projects, contract dates) that the bulk
@@ -2879,8 +2959,15 @@ export class XeroAccountsService {
                 'Skipped — Retention Trust accounts need trustee, associated cash account and projects. ' +
                 'Create the row as Cash Account here, or finish the trust-account fields in PayTrade.';
             } else {
+              // Task #124 — With BSB/account number guarded above and
+              // already-mapped handled in catch, the remaining falsy
+              // return paths from `insertAccountDetailsInPaytrade` are
+              // (a) subscription-cap warning and (b) any other
+              // unhandled validation. Keep the reason generic but
+              // actionable, and point users at the per-account sync
+              // log row that already records the exact cause.
               reason =
-                'Skipped — missing required fields (e.g. BSB or account number) or subscription cap reached. See Xero sync logs for details.';
+                'Skipped — could not be created in PayTrade (often a subscription plan limit). Open Xero Sync Logs for this account to see the exact reason.';
             }
             result.errors.push({
               account_id: xeroAccount.account_id,
@@ -2893,18 +2980,33 @@ export class XeroAccountsService {
             typeof err === 'string'
               ? err
               : err?.message || JSON.stringify(err);
-          if (
-            msg &&
-            msg.toLowerCase().includes('mapped to some other bank account')
-          ) {
+          // Task #124 — Map common backend error strings to friendlier
+          // user-facing reasons. Falls back to the raw message so we
+          // never hide the real cause from the user.
+          let friendly = msg || 'Unknown error';
+          const lower = (msg || '').toLowerCase();
+          if (lower.includes('mapped to some other bank account')) {
             result.skipped++;
+            friendly =
+              'Already mapped in PayTrade to a different bank account. Unmap it first if you want to re-link this Xero account.';
+          } else if (lower.includes('paytrade is currently not active in xero')) {
+            result.failed++;
+            friendly =
+              'PayTrade is no longer connected to Xero. Reconnect in Xero Settings and re-run.';
+          } else if (lower.includes('no xero integration found')) {
+            result.failed++;
+            friendly = 'No active Xero integration found for this company.';
+          } else if (lower.includes('xero account details not found')) {
+            result.failed++;
+            friendly =
+              'This Xero bank account is no longer available — re-sync the Xero bank accounts list and try again.';
           } else {
             result.failed++;
           }
           result.errors.push({
             account_id: xeroAccount.account_id,
             account_name: xeroAccount.account_name,
-            reason: msg || 'Unknown error',
+            reason: friendly,
           });
           this.logger.warn(
             `Batch create in PayTrade failed for Xero bank account ${xeroAccount.account_id}: ${msg}`,
