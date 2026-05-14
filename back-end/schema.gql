@@ -1579,6 +1579,19 @@ type BankProjectDetail {
   project_name: String!
 }
 
+"""
+Per-row override of the PayTrade account type for a Xero bank account being bulk-created.
+"""
+input BatchCreateAccountTypeOverrideInput {
+  """Xero account_id this override applies to"""
+  account_id: String!
+
+  """
+  PayTrade account type to use for this row (Cash Account, Project Trust Account, Retention Trust Account)
+  """
+  account_type: String!
+}
+
 """Batch create bank accounts result counts"""
 type BatchCreateAccountsData {
   """Number of bank accounts successfully created"""
@@ -14162,7 +14175,9 @@ type Mutation {
     """ID of the company to create bank accounts for."""
     company_id: Float!
 
-    """Default PayTrade account type for every row (defaults to "Cash Account")."""
+    """
+    Default PayTrade account type for every row (defaults to "Cash Account").
+    """
     default_account_type: String
   ): BatchCreateAccountsResponse!
 
@@ -23090,19 +23105,6 @@ type XeroResponse {
 
   """Auto-create new Xero projects in PayTrade"""
   xero_to_pt_project_auto_create: Boolean
-}
-
-"""
-Per-row override of the PayTrade account type for a Xero bank account being bulk-created.
-"""
-input BatchCreateAccountTypeOverrideInput {
-  """Xero account_id this override applies to"""
-  account_id: String!
-
-  """
-  PayTrade account type to use for this row (Cash Account, Project Trust Account, Retention Trust Account)
-  """
-  account_type: String!
 }
 
 """Input for specifying accounts that are yet to be mapped"""
