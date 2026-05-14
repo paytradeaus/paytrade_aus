@@ -1,3 +1,5 @@
+import React from "react";
+
 export const listTabOptions = [
   { label: "Current" },
   { label: "Archived", value: null },
@@ -241,7 +243,35 @@ export const xeroContractsRenderData = [
 ];
 export const xeroBankAccountsRenderData = [
   { key: "account_name" },
-  { key: "mapped_status" },
+  {
+    key: "mapped_status",
+    // Task #129 — When the back-fill scheduler has already tried to
+    // auto-link this orphan Xero bank account and given up (template
+    // 379 sync log), surface a distinct "Needs mapping" badge instead
+    // of the generic "Unmapped" label so operators can act on it from
+    // the Xero bank accounts tab.
+    render: (row: any) => {
+      if (row?.needs_mapping) {
+        const reason =
+          row?.needs_mapping_reason ||
+          "Auto-link skipped — please map this Xero bank account manually.";
+        return React.createElement(
+          "span",
+          {
+            className: "alert",
+            title: reason,
+            "data-tooltip": reason,
+            "data-placement": "left",
+          },
+          React.createElement("i", {
+            className: "fa-light fa-triangle-exclamation",
+          }),
+          " Needs mapping",
+        );
+      }
+      return row?.mapped_status;
+    },
+  },
 ];
 export const xeroBillsRenderData = [
   { key: "invoice_id" },

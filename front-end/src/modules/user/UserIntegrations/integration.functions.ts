@@ -2599,6 +2599,8 @@ export const getXeroBankAccountsListsForCompany = async (
                 pt_bank_account_id
                 pt_account_name
                 tenant_id
+                needs_mapping
+                needs_mapping_reason
               }
               total_count
             }

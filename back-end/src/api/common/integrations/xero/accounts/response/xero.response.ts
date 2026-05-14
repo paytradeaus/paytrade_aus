@@ -35,6 +35,25 @@ export class GetXeroAccounts {
     description: 'Paytrade account name this Xero account is mapped to',
   })
   pt_account_name: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #129 — true when this orphan Xero bank account has a recent ' +
+      'pending-manual-map sync log (template 379) and is still unmapped. ' +
+      'The UI uses this to render a distinct "Needs mapping" badge instead ' +
+      'of the generic "Unmapped" label.',
+  })
+  needs_mapping: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #129 — short human-readable reason from the most recent ' +
+      'pending-manual-map sync log (e.g. duplicate account number, ' +
+      'ambiguous BSB). Surfaced as a tooltip on the "Needs mapping" badge.',
+  })
+  needs_mapping_reason: string;
 }
 
 @ObjectType({ description: 'Paginated list of Xero accounts' })

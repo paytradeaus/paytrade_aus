@@ -1794,6 +1794,37 @@ export class XeroAccountsService {
           `CASE WHEN account.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped' ELSE 'Unmapped' END`,
           'mapped_status',
         )
+        // Task #129 — surface a distinct "Needs mapping" badge for orphan
+        // Xero bank accounts the back-fill scheduler (template 379) has
+        // already tried and given up on. The scheduler re-logs daily for
+        // every still-pending orphan, so we treat the *most recent* log
+        // within the last 7 days as the open breadcrumb and pull its
+        // error_message for the tooltip.
+        .addSelect(
+          `(
+            account.pt_bank_account_id IS NULL
+            AND EXISTS (
+              SELECT 1 FROM xero_sync_logs sl
+              WHERE sl.log_template_id = 379
+                AND sl.reference_id = account.id::text
+                AND sl.integration_id = account.integration_id
+                AND sl.created_on >= (NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days'
+            )
+          )`,
+          'needs_mapping',
+        )
+        .addSelect(
+          `(
+            SELECT sl.error_message FROM xero_sync_logs sl
+            WHERE sl.log_template_id = 379
+              AND sl.reference_id = account.id::text
+              AND sl.integration_id = account.integration_id
+              AND sl.created_on >= (NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days'
+            ORDER BY sl.created_on DESC
+            LIMIT 1
+          )`,
+          'needs_mapping_reason',
+        )
         .addSelect('xero.company_id', 'company_id')
         .innerJoin(
           XeroIntegrationDetails,
