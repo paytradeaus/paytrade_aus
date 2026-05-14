@@ -15098,23 +15098,61 @@ export class XeroWebhookService {
         };
         const xeroInvoices: XeroInvWithLinks[] = [];
         let xeroSkippedNoTracking = 0;
+        // Temporary debug: capture per-invoice diagnostic of what
+        // tracking we actually saw on each line item, so the operator
+        // can see WHY tracking resolution failed.
+        const debugSamples: any[] = [];
         for (const inv of xeroInvoicesRaw) {
           let ptProjectId: number | null = null;
           let ptContractId: number | null = null;
+          const trackingSeen: Array<{
+            line: number;
+            categoryId: string | null;
+            categoryName: string | null;
+            optionId: string | null;
+            optionName: string | null;
+            ptProjectMatch: number | null;
+            ptContractMatch: number | null;
+          }> = [];
+          let lineIdx = 0;
           for (const li of inv?.lineItems || []) {
             for (const t of li?.tracking || []) {
               const opt = t?.trackingOptionID
                 ? String(t.trackingOptionID).toLowerCase()
                 : null;
+              const projHit = opt ? trackingToPtProject.get(opt) || null : null;
+              const ctrHit = opt ? trackingToPtContract.get(opt) || null : null;
+              trackingSeen.push({
+                line: lineIdx,
+                categoryId: t?.trackingCategoryID || null,
+                categoryName: t?.name || null,
+                optionId: t?.trackingOptionID || null,
+                optionName: t?.option || null,
+                ptProjectMatch: projHit,
+                ptContractMatch: ctrHit,
+              });
               if (!opt) continue;
-              if (!ptProjectId && trackingToPtProject.has(opt)) {
-                ptProjectId = trackingToPtProject.get(opt) || null;
-              }
-              if (!ptContractId && trackingToPtContract.has(opt)) {
-                ptContractId = trackingToPtContract.get(opt) || null;
-              }
+              if (!ptProjectId && projHit) ptProjectId = projHit;
+              if (!ptContractId && ctrHit) ptContractId = ctrHit;
             }
+            lineIdx++;
             if (ptProjectId && ptContractId) break;
+          }
+          // Capture a debug sample for the first few invoices (capped
+          // at 5 to keep the response & log size sane).
+          if (debugSamples.length < 5) {
+            debugSamples.push({
+              invoiceID: inv?.invoiceID,
+              invoiceNumber: inv?.invoiceNumber,
+              type: inv?.type,
+              date: inv?.date,
+              updatedDateUTC: inv?.updatedDateUTC,
+              total: inv?.total,
+              contactName: inv?.contact?.name,
+              lineItemCount: (inv?.lineItems || []).length,
+              trackingEntries: trackingSeen,
+              resolved: { ptProjectId, ptContractId },
+            });
           }
           if (ptProjectId) {
             xeroInvoices.push({ inv, ptProjectId, ptContractId });
@@ -15122,11 +15160,28 @@ export class XeroWebhookService {
             xeroSkippedNoTracking++;
           }
         }
+        // TEMP DEBUG — log the per-invoice tracking diagnostic so we
+        // can see in the server console exactly what Xero returned and
+        // why every invoice was dropped. Remove once root cause is
+        // confirmed.
+        try {
+          this.logger.log(
+            `[MANUAL_CATCHUP_DEBUG] company_id=${company_id} window=${fromIso}..${toIso} ` +
+              `xero_total_in_window=${xeroInvoicesRaw.length} ` +
+              `xero_skipped_no_tracking=${xeroSkippedNoTracking} ` +
+              `tracking_map_projects=${trackingToPtProject.size} ` +
+              `tracking_map_contracts=${trackingToPtContract.size} ` +
+              `samples=${JSON.stringify(debugSamples)}`,
+          );
+        } catch {}
         // Stash for response counts so the FE can show a helpful hint
         // when Xero returned records but tracking-resolution dropped
         // them all (otherwise the user sees "0 rows" with no clue why).
         notes.xero_skipped_no_tracking = xeroSkippedNoTracking;
         notes.xero_total_in_window = xeroInvoicesRaw.length;
+        notes.tracking_map_projects = trackingToPtProject.size;
+        notes.tracking_map_contracts = trackingToPtContract.size;
+        notes.debug_samples = debugSamples;
 
         // Index by invoiceNumber (lower-cased) for reference matching.
         const xeroByNumber = new Map<string, XeroInvWithLinks>();

@@ -3145,38 +3145,105 @@ function ManualXeroSyncDialog({
                 ) > 0 && (
                   <div
                     style={{
-                      padding: "8px 10px",
+                      padding: "10px 12px",
                       marginBottom: "8px",
                       background: "#fff8e1",
-                      border: "1px solid #f0c36d",
+                      border: "1px solid #f5b5b5",
                       borderRadius: "4px",
-                      color: "#7a5b00",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <div style={{ marginBottom: "6px" }}>
+                      <b>Heads up:</b> Xero returned{" "}
+                      {Number(
+                        (catchupResult as any)?.notes?.xero_total_in_window ??
+                          0,
+                      )}{" "}
+                      invoice/bill record
+                      {Number(
+                        (catchupResult as any)?.notes?.xero_total_in_window ??
+                          0,
+                      ) === 1
+                        ? ""
+                        : "s"}{" "}
+                      in this window, but{" "}
+                      {Number(
+                        (catchupResult as any)?.notes
+                          ?.xero_skipped_no_tracking ?? 0,
+                      )}{" "}
+                      of them were skipped because their line items don&apos;t
+                      carry a tracking-category option that PayTrade has linked
+                      to a project/contract. PayTrade has{" "}
+                      {Number(
+                        (catchupResult as any)?.notes?.tracking_map_projects ??
+                          0,
+                      )}{" "}
+                      project tracking link
+                      {Number(
+                        (catchupResult as any)?.notes?.tracking_map_projects ??
+                          0,
+                      ) === 1
+                        ? ""
+                        : "s"}{" "}
+                      and{" "}
+                      {Number(
+                        (catchupResult as any)?.notes?.tracking_map_contracts ??
+                          0,
+                      )}{" "}
+                      contract link
+                      {Number(
+                        (catchupResult as any)?.notes?.tracking_map_contracts ??
+                          0,
+                      ) === 1
+                        ? ""
+                        : "s"}{" "}
+                      configured for this integration.
+                    </div>
+                  </div>
+                )}
+              {Array.isArray(
+                (catchupResult as any)?.notes?.debug_samples,
+              ) &&
+                (catchupResult as any).notes.debug_samples.length > 0 && (
+                  <details
+                    style={{
+                      marginBottom: "8px",
+                      padding: "8px 10px",
+                      background: "#fafafa",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
                       fontSize: "12px",
                     }}
                   >
-                    <b>Heads up:</b> Xero returned{" "}
-                    {Number(
-                      (catchupResult as any)?.notes?.xero_total_in_window ?? 0,
-                    )}{" "}
-                    invoice/bill record
-                    {Number(
-                      (catchupResult as any)?.notes?.xero_total_in_window ?? 0,
-                    ) === 1
-                      ? ""
-                      : "s"}{" "}
-                    in this window, but{" "}
-                    {Number(
-                      (catchupResult as any)?.notes?.xero_skipped_no_tracking ??
-                        0,
-                    )}{" "}
-                    of them were skipped because their line items don't carry a
-                    tracking-category option that PayTrade has linked to a
-                    project/contract. Catch-up sync only surfaces invoices that
-                    can be auto-matched to a PT project — add a recognised
-                    project/contract tracking category in Xero (or use the
-                    Single record tab to import them and assign manually) to
-                    bring them into the catch-up flow.
-                  </div>
+                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+                      Debug — first{" "}
+                      {(catchupResult as any).notes.debug_samples.length} Xero
+                      record
+                      {(catchupResult as any).notes.debug_samples.length === 1
+                        ? ""
+                        : "s"}{" "}
+                      with tracking diagnostic
+                    </summary>
+                    <pre
+                      style={{
+                        marginTop: "8px",
+                        maxHeight: "260px",
+                        overflow: "auto",
+                        background: "#fff",
+                        border: "1px solid #eee",
+                        padding: "8px",
+                        fontSize: "11px",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {JSON.stringify(
+                        (catchupResult as any).notes.debug_samples,
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </details>
                 )}
               <div
                 style={{
@@ -3201,7 +3268,14 @@ function ManualXeroSyncDialog({
                     }
                     setCatchupSelected(all);
                   }}
-                  style={{ padding: "4px 8px" }}
+                  style={{
+                    padding: "4px 10px",
+                    background: "#fff",
+                    color: "#1a73e8",
+                    border: "1px solid #1a73e8",
+                    borderRadius: "4px",
+                    cursor: catchupRunning ? "not-allowed" : "pointer",
+                  }}
                 >
                   Select all actionable
                 </button>
@@ -3209,7 +3283,14 @@ function ManualXeroSyncDialog({
                   type="button"
                   disabled={catchupRunning}
                   onClick={() => setCatchupSelected(new Set())}
-                  style={{ padding: "4px 8px" }}
+                  style={{
+                    padding: "4px 10px",
+                    background: "#fff",
+                    color: "#555",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    cursor: catchupRunning ? "not-allowed" : "pointer",
+                  }}
                 >
                   Clear selection
                 </button>
@@ -3466,10 +3547,16 @@ function ManualXeroSyncDialog({
                 }
                 style={{
                   padding: "8px 14px",
-                  background: "#137333",
+                  background: "#1a73e8",
                   color: "#fff",
                   border: "none",
                   borderRadius: "4px",
+                  opacity:
+                    catchupRunning ||
+                    !catchupReviewed ||
+                    catchupSelected.size === 0
+                      ? 0.55
+                      : 1,
                   cursor:
                     catchupRunning ||
                     !catchupReviewed ||
