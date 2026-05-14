@@ -9847,22 +9847,72 @@ export class XeroWebhookService {
               ? new Date(payment.date as any).getTime()
               : null;
             const WIN_MS_141 = 7 * 24 * 60 * 60 * 1000;
+
+            // Resolve mapped retention/trust account ids from PT
+            // payment-details for this claim. Without this we can't
+            // distinguish a real (wrongly-amounted) retention transfer
+            // from an unrelated transfer between two arbitrary
+            // accounts that happens to share the date and amount.
+            const trustAccountIdsDiag = new Set<string>();
+            try {
+              const claimPaysDiag = paymentClaimDetails?.payment_claim_id
+                ? await this.paymentDetails.find({
+                    where: {
+                      payment_claim_id: Number(
+                        paymentClaimDetails.payment_claim_id,
+                      ),
+                    },
+                  })
+                : [];
+              const ptRetentionBankIdsDiag = Array.from(
+                new Set(
+                  claimPaysDiag
+                    .map((p: any) => p?.retention_account)
+                    .filter((v: any) => v !== null && v !== undefined)
+                    .map((v: any) => Number(v)),
+                ),
+              );
+              if (ptRetentionBankIdsDiag.length > 0) {
+                const trustMapsDiag =
+                  await this.xeroBankAccountDetails.find({
+                    where: {
+                      integration_id: xeroDetails.integration_id,
+                      pt_bank_account_id: In(ptRetentionBankIdsDiag),
+                    },
+                  });
+                for (const m of trustMapsDiag) {
+                  if (m?.account_id)
+                    trustAccountIdsDiag.add(m.account_id);
+                }
+              }
+            } catch (_e) {
+              // Fall through with empty set — we'll require a trust
+              // endpoint below, so an empty set means we emit no
+              // mismatch log (fail-closed) rather than risking a
+              // false-positive against an unrelated transfer.
+            }
+
             const mismatchCandidate = (
               bankTransferResponse?.body?.bankTransfers || []
             ).find((t: any) => {
               const fromAcc = t?.fromBankAccount?.accountID;
               const toAcc = t?.toBankAccount?.accountID;
-              const accountTouches =
+              const paymentTouches =
                 fromAcc === xeroBankAccountDetails.account_id ||
                 toAcc === xeroBankAccountDetails.account_id;
-              if (!accountTouches) return false;
+              if (!paymentTouches) return false;
+              const trustTouches =
+                trustAccountIdsDiag.size > 0 &&
+                ((fromAcc && trustAccountIdsDiag.has(fromAcc)) ||
+                  (toAcc && trustAccountIdsDiag.has(toAcc)));
+              if (!trustTouches) return false;
               if (!paymentMs || !t?.date) return false;
               const tMs = new Date(t.date as any).getTime();
               if (Number.isNaN(tMs)) return false;
               if (Math.abs(tMs - paymentMs) > WIN_MS_141) return false;
               const a = Math.abs(Number(t?.amount || 0));
               return (
-                a > 0 && Math.abs(a - expectedGrossDiag) >= 0.01
+                a > 0 && Math.abs(a - expectedGrossDiag) > 0.01
               );
             });
             if (mismatchCandidate && expectedGrossDiag > 0) {
@@ -15239,7 +15289,7 @@ export class XeroWebhookService {
               ptSide?.cash_retention &&
               Number(ptSide?.retention_amount) > 0
             ) {
-              try {
+              retentionCheck: try {
                 const expectedGross = this.computeExpectedGrossRetention(
                   Number(ptSide.retention_amount),
                   xeroInvoice?.lineAmountTypes,
@@ -15256,6 +15306,53 @@ export class XeroWebhookService {
                   : null;
                 const WIN_DAYS = 7;
                 const WIN_MS = WIN_DAYS * 24 * 60 * 60 * 1000;
+
+                // Resolve the set of mapped retention/trust-account
+                // Xero accountIDs for this claim — we only consider a
+                // BankTransfer to be "the retention transfer" if one
+                // of its endpoints lands in a mapped retention bank
+                // account. This prevents false present/mismatch
+                // verdicts from unrelated transfers that happen to
+                // share the same date and amount.
+                const trustAccountIds = new Set<string>();
+                const claimIdForTrust = ptSide?.id || claimIdForLegs;
+                if (claimIdForTrust) {
+                  try {
+                    const claimPays = await this.paymentDetails.find({
+                      where: {
+                        company_id,
+                        payment_claim_id: Number(claimIdForTrust),
+                      },
+                    });
+                    const ptRetentionBankIds = Array.from(
+                      new Set(
+                        claimPays
+                          .map((p: any) => p?.retention_account)
+                          .filter(
+                            (v: any) => v !== null && v !== undefined,
+                          )
+                          .map((v: any) => Number(v)),
+                      ),
+                    );
+                    if (ptRetentionBankIds.length > 0) {
+                      const trustMaps =
+                        await this.xeroBankAccountDetails.find({
+                          where: {
+                            integration_id: xeroDetails.integration_id,
+                            pt_bank_account_id: In(ptRetentionBankIds),
+                          },
+                        });
+                      for (const m of trustMaps) {
+                        if (m?.account_id)
+                          trustAccountIds.add(m.account_id);
+                      }
+                    }
+                  } catch (_e) {
+                    // Non-fatal — fall through with empty set; the
+                    // check below will degrade to a clear warn.
+                  }
+                }
+
                 const btResp =
                   await this.xero.accountingApi.getBankTransfers(
                     xeroDetails.tenant_id,
@@ -15272,20 +15369,50 @@ export class XeroWebhookService {
                       return Math.abs(tMs - refMs) <= WIN_MS;
                     })
                   : allBts;
+                // Scope to candidates that actually touch a mapped
+                // retention/trust account. Fail-closed: if no trust
+                // account could be resolved (e.g. retention bank not
+                // mapped to Xero yet), surface an inconclusive warn
+                // and skip the present/mismatch evaluation entirely
+                // — never fall back to unscoped matching, because
+                // an unrelated same-date/same-amount transfer could
+                // produce a false positive.
+                if (trustAccountIds.size === 0) {
+                  checks.push({
+                    label: 'Retention transfer check inconclusive',
+                    status: 'warn',
+                    detail:
+                      'Could not resolve a mapped retention/trust bank account for this claim — the BankTransfer presence check was skipped. Map the PT retention bank account to its Xero counterpart in Settings → Xero → Bank Accounts and re-run the pre-flight.',
+                  });
+                  xeroSide.retentionTransferMissing = {
+                    expected_gross: expectedGross,
+                    window_days: WIN_DAYS,
+                    reason: 'no_trust_account_mapped',
+                  };
+                  break retentionCheck;
+                }
+                const scopedInWindow = inWindow.filter((t: any) => {
+                  const fromAcc = t?.fromBankAccount?.accountID;
+                  const toAcc = t?.toBankAccount?.accountID;
+                  return (
+                    (fromAcc && trustAccountIds.has(fromAcc)) ||
+                    (toAcc && trustAccountIds.has(toAcc))
+                  );
+                });
                 const ptRefForRoundTrip = ptRetLeg?.id
                   ? `PT-RET-${ptRetLeg.id}`
                   : null;
                 const refMatched = ptRefForRoundTrip
-                  ? inWindow.find(
+                  ? scopedInWindow.find(
                       (t: any) =>
                         (t?.reference || '').trim() === ptRefForRoundTrip,
                     )
                   : null;
-                const exact = inWindow.filter(
+                const exact = scopedInWindow.filter(
                   (t: any) =>
                     Math.abs(
                       Math.abs(Number(t?.amount || 0)) - expectedGross,
-                    ) < 0.01,
+                    ) <= 0.01,
                 );
                 const winner = refMatched || exact[0] || null;
                 if (winner) {
@@ -15311,10 +15438,12 @@ export class XeroWebhookService {
                   // the gross. Surface it as an explicit mismatch
                   // rather than letting it disappear behind a generic
                   // "missing" warning.
-                  const mismatchCandidate = inWindow.find((t: any) => {
-                    const a = Math.abs(Number(t?.amount || 0));
-                    return a > 0 && Math.abs(a - expectedGross) >= 0.01;
-                  });
+                  const mismatchCandidate = scopedInWindow.find(
+                    (t: any) => {
+                      const a = Math.abs(Number(t?.amount || 0));
+                      return a > 0 && Math.abs(a - expectedGross) > 0.01;
+                    },
+                  );
                   if (mismatchCandidate) {
                     const fAmt = Number(mismatchCandidate.amount || 0);
                     checks.push({
