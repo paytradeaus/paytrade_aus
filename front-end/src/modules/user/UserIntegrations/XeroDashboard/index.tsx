@@ -30,6 +30,9 @@ import {
   getXeroDetailsForCompany,
   manualXeroResync,
   manualXeroResyncLookup,
+  manualXeroPaytradeLookup,
+  manualXeroPreflight,
+  manualXeroTwoSidedSync,
   SkipContractMapping,
   syncAllBankAccountsByCompanyId,
   syncAllContactsByCompanyId,
@@ -1669,7 +1672,31 @@ function ManualXeroSyncDialog({
     message: string;
     syncLogId?: number | null;
     resolvedXeroId?: string | null;
+    direction?: string;
   } | null>(null);
+
+  // Task #136 — PayTrade-side picker state. Mirrors the Xero-side hint /
+  // candidates / picked label triplet but searches PT entities only.
+  const [ptHint, setPtHint] = useState<string>("");
+  const [ptId, setPtId] = useState<string>("");
+  const [ptPickedLabel, setPtPickedLabel] = useState<string | null>(null);
+  const [ptCandidates, setPtCandidates] = useState<
+    Array<{ id: string; label: string; sublabel?: string }>
+  >([]);
+  const [ptLookupBusy, setPtLookupBusy] = useState<boolean>(false);
+  const [ptLookupError, setPtLookupError] = useState<string | null>(null);
+
+  // Task #136 — preflight + reviewed-gate state.
+  const [preflight, setPreflight] = useState<any>(null);
+  const [preflightBusy, setPreflightBusy] = useState<boolean>(false);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [reviewed, setReviewed] = useState<boolean>(false);
+
+  // PT-side picker is meaningful only for these types; bank_transfer and
+  // manual_journal don't have a direct user-creatable PT counterpart in
+  // this dialog.
+  const ptSideSupported =
+    type === "invoice_bill" || type === "payment" || type === "contact";
 
   // Task #72 — inline lookup widget state. The hint is debounced so we
   // don't hammer Xero on every keystroke.
@@ -1714,6 +1741,14 @@ function ManualXeroSyncDialog({
       setToDate("");
       setPage(1);
       setHasMore(false);
+      setPtHint("");
+      setPtId("");
+      setPtPickedLabel(null);
+      setPtCandidates([]);
+      setPtLookupError(null);
+      setPreflight(null);
+      setPreflightError(null);
+      setReviewed(false);
     }
   }, [open]);
 
@@ -1728,7 +1763,63 @@ function ManualXeroSyncDialog({
     setPickedLabel(null);
     setPage(1);
     setHasMore(false);
+    setPtHint("");
+    setPtId("");
+    setPtPickedLabel(null);
+    setPtCandidates([]);
+    setPtLookupError(null);
+    setPreflight(null);
+    setPreflightError(null);
+    setReviewed(false);
   }, [type]);
+
+  // Any change to the chosen ids invalidates a previous preflight — the
+  // signed action token is bound to that exact (xero_id, pt_id) tuple.
+  useEffect(() => {
+    setPreflight(null);
+    setPreflightError(null);
+    setReviewed(false);
+  }, [id, ptId]);
+
+  // Debounced PT-side lookup.
+  useEffect(() => {
+    if (!ptSideSupported) {
+      setPtCandidates([]);
+      setPtLookupError(null);
+      return;
+    }
+    const trimmed = ptHint.trim();
+    if (trimmed.length < 2) {
+      setPtCandidates([]);
+      setPtLookupError(null);
+      setPtLookupBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setPtLookupBusy(true);
+    setPtLookupError(null);
+    const handle = setTimeout(async () => {
+      const res = await manualXeroPaytradeLookup({
+        company_id: companyId,
+        type,
+        hint: trimmed,
+      });
+      if (cancelled) return;
+      setPtLookupBusy(false);
+      setPtCandidates(res.candidates || []);
+      setPtLookupError(
+        res.success
+          ? res.candidates?.length
+            ? null
+            : "No matching PayTrade records."
+          : res.message || "Lookup failed."
+      );
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [ptHint, type, companyId, ptSideSupported]);
 
   // Reset to page 1 whenever the hint or date-range changes — the
   // current page number is meaningful only against the previous query.
@@ -1795,19 +1886,73 @@ function ManualXeroSyncDialog({
     onClose();
   };
 
+  const handleCheck = async () => {
+    const xeroTrim = id.trim();
+    const ptTrim = ptId.trim();
+    if (!xeroTrim && !ptTrim) {
+      setPreflightError(
+        "Pick at least one side — a Xero record, a PayTrade record, or both."
+      );
+      setPreflight(null);
+      return;
+    }
+    setPreflightBusy(true);
+    setPreflightError(null);
+    setReviewed(false);
+    try {
+      const res = await manualXeroPreflight({
+        company_id: companyId,
+        type,
+        xero_id: xeroTrim || null,
+        pt_id: ptTrim || null,
+      });
+      if (!res?.success) {
+        setPreflight(null);
+        setPreflightError(res?.message || "Pre-flight failed.");
+      } else {
+        setPreflight(res);
+      }
+    } finally {
+      setPreflightBusy(false);
+    }
+  };
+
   const handleConfirm = async (): Promise<boolean> => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      setResult({ success: false, message: "Please enter a Xero ID first." });
+    if (!preflight || !preflight.actionToken) {
+      setResult({
+        success: false,
+        message:
+          "Click Check first — Run sync needs a fresh pre-flight token (10-minute TTL).",
+      });
+      return false;
+    }
+    if (preflight.blocked) {
+      setResult({
+        success: false,
+        message:
+          preflight.blockReason ||
+          "Pre-flight blocked this combination. Resolve manually first.",
+      });
+      return false;
+    }
+    if (!reviewed) {
+      setResult({
+        success: false,
+        message: "Tick \u201cI've reviewed this\u201d before running the sync.",
+      });
       return false;
     }
     setBusy(true);
     setResult(null);
     try {
-      const res = await manualXeroResync({
+      const res = await manualXeroTwoSidedSync({
         company_id: companyId,
         type,
-        id: trimmed,
+        xero_id: id.trim() || null,
+        pt_id: ptId.trim() || null,
+        action_token: preflight.actionToken,
+        reviewed,
+        preflight_snapshot_json: JSON.stringify(preflight),
       });
       setResult(res);
       if (res?.success && onSuccess) {
@@ -1820,10 +1965,15 @@ function ManualXeroSyncDialog({
     } finally {
       setBusy(false);
     }
-    // Returning false keeps the modal open so the user sees the result
-    // panel and can either run another id or close manually.
     return false;
   };
+
+  const runDisabled =
+    busy ||
+    !preflight ||
+    !preflight.actionToken ||
+    !!preflight.blocked ||
+    !reviewed;
 
   if (!open) return null;
   return (
@@ -1834,13 +1984,15 @@ function ManualXeroSyncDialog({
       title="Manual Xero sync"
       firstButtonName="Close"
       secondButtonName={busy ? "Running…" : "Run sync"}
-      disableSecondButton={busy || !id.trim()}
+      disableSecondButton={runDisabled}
       onConfirm={handleConfirm}
     >
       <p style={{ fontSize: "13px", marginTop: 0, opacity: 0.8 }}>
-        Re-pull a single Xero record and re-run the matching webhook
-        handler. Use when a webhook was missed or a record is out of sync
-        between Xero and PayTrade.
+        Pick a Xero record, a PayTrade record, or both. Click <b>Check</b> to
+        inspect type, mapping, payment status and reconciliation, then tick
+        <b> I&apos;ve reviewed this</b> before <b>Run sync</b>. The dialog
+        will route the sync to the correct direction (import / push / link)
+        based on what you provide.
       </p>
       <div style={{ marginBottom: "12px" }}>
         <h5 style={{ margin: "0 0 4px 0" }}>Record type</h5>
@@ -2117,6 +2269,406 @@ function ManualXeroSyncDialog({
           </small>
         )}
       </div>
+      {/* Task #136 — PayTrade-side picker. Hidden for record types that
+          have no user-creatable PT counterpart in this dialog. */}
+      {ptSideSupported && (
+        <div
+          style={{
+            marginBottom: "12px",
+            padding: "10px 12px",
+            border: "1px solid #d6e4ff",
+            background: "#f6faff",
+            borderRadius: "4px",
+          }}
+        >
+          <h5 style={{ margin: "0 0 4px 0" }}>
+            PayTrade side{" "}
+            <span style={{ opacity: 0.6, fontWeight: 400 }}>(optional)</span>
+          </h5>
+          <input
+            type="text"
+            placeholder={
+              type === "invoice_bill"
+                ? "Search PT claims by id, reference, contact name or amount…"
+                : type === "payment"
+                ? "Search PT payments by id, contact name, memo or amount…"
+                : "Search PT contacts by name…"
+            }
+            value={ptHint}
+            onChange={(e) => setPtHint(e.target.value)}
+            disabled={busy}
+            style={{ width: "100%", padding: "8px 10px" }}
+          />
+          {ptLookupBusy && (
+            <small style={{ opacity: 0.7 }}>Searching PayTrade…</small>
+          )}
+          {!ptLookupBusy && ptLookupError && (
+            <small style={{ color: "#a50e0e" }}>{ptLookupError}</small>
+          )}
+          {!ptLookupBusy && ptCandidates.length > 0 && (
+            <ul
+              style={{
+                listStyle: "none",
+                margin: "6px 0 0 0",
+                padding: 0,
+                maxHeight: "180px",
+                overflowY: "auto",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                background: "#fff",
+              }}
+            >
+              {ptCandidates.map((c) => (
+                <li
+                  key={c.id}
+                  onClick={() => {
+                    if (busy) return;
+                    setPtId(c.id);
+                    setPtPickedLabel(c.label);
+                  }}
+                  style={{
+                    padding: "8px 10px",
+                    borderBottom: "1px solid #eee",
+                    cursor: busy ? "not-allowed" : "pointer",
+                    background: ptId === c.id ? "#eaf3ff" : "transparent",
+                    fontSize: "13px",
+                  }}
+                >
+                  <div style={{ fontWeight: 500 }}>{c.label}</div>
+                  {c.sublabel && (
+                    <div style={{ opacity: 0.7 }}>{c.sublabel}</div>
+                  )}
+                  <code style={{ opacity: 0.6, fontSize: "11px" }}>{c.id}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ marginTop: "8px" }}>
+            <input
+              type="text"
+              placeholder="…or paste a PayTrade id directly"
+              value={ptId}
+              onChange={(e) => {
+                setPtId(e.target.value);
+                setPtPickedLabel(null);
+              }}
+              disabled={busy}
+              style={{ width: "100%", padding: "8px 10px" }}
+            />
+            {ptPickedLabel && (
+              <small style={{ color: "#137333" }}>
+                Selected: {ptPickedLabel} — <code>{ptId}</code>
+              </small>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Task #136 — Check + preflight panel. The Run sync button stays
+          disabled until the user clicks Check and ticks the review gate. */}
+      <div style={{ marginBottom: "12px" }}>
+        <button
+          type="button"
+          onClick={handleCheck}
+          disabled={busy || preflightBusy || (!id.trim() && !ptId.trim())}
+          style={{
+            padding: "8px 14px",
+            background: "#1a73e8",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor:
+              busy || preflightBusy || (!id.trim() && !ptId.trim())
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {preflightBusy ? "Checking…" : "Check"}
+        </button>
+        {preflightError && (
+          <div
+            style={{
+              marginTop: "8px",
+              padding: "8px 10px",
+              borderRadius: "4px",
+              background: "#fdecea",
+              color: "#a50e0e",
+              fontSize: "13px",
+            }}
+          >
+            {preflightError}
+          </div>
+        )}
+      </div>
+
+      {preflight && (
+        <div
+          style={{
+            marginBottom: "12px",
+            padding: "10px 12px",
+            borderRadius: "4px",
+            border: preflight.blocked
+              ? "1px solid #f5b5b5"
+              : "1px solid #cde4cd",
+            background: preflight.blocked ? "#fff5f5" : "#f3fbf3",
+            fontSize: "13px",
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: "6px" }}>
+            Pre-flight summary —{" "}
+            <span
+              style={{
+                color: preflight.blocked
+                  ? "#a50e0e"
+                  : preflight.recommendedAction === "push"
+                  ? "#1a73e8"
+                  : "#137333",
+                textTransform: "uppercase",
+              }}
+            >
+              {preflight.recommendedAction}
+            </span>
+          </div>
+          <div style={{ marginBottom: "6px" }}>{preflight.actionSummary}</div>
+          {preflight.blocked && preflight.blockReason && (
+            <div style={{ color: "#a50e0e", marginBottom: "6px" }}>
+              <b>Blocked:</b> {preflight.blockReason}
+            </div>
+          )}
+          {preflight.xeroSide?.exists && (
+            <div style={{ marginTop: "4px" }}>
+              <b>Xero:</b> {preflight.xeroSide.summary}
+            </div>
+          )}
+          {preflight.ptSide?.exists && (
+            <div style={{ marginTop: "4px" }}>
+              <b>PayTrade:</b> {preflight.ptSide.summary}
+            </div>
+          )}
+          {preflight.link?.mapped !== undefined && (
+            <div style={{ marginTop: "4px", opacity: 0.85 }}>
+              <b>Mapping:</b>{" "}
+              {preflight.link.mapped
+                ? `linked (PT ${
+                    preflight.link.pt_claim_id ??
+                    preflight.link.pt_payment_id ??
+                    preflight.link.pt_client_supplier_id ??
+                    "?"
+                  })`
+                : "not linked yet"}
+            </div>
+          )}
+          {/* Task #136 — Side-by-side payment-leg reconciliation matrix */}
+          {(preflight.xeroSide?.legs?.length > 0 ||
+            preflight.ptSide?.legs?.length > 0 ||
+            preflight.xeroSide?.reconciliation) && (
+            <div
+              style={{
+                marginTop: "10px",
+                paddingTop: "8px",
+                borderTop: "1px solid #e5e5e5",
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: "4px" }}>
+                Payment-leg reconciliation
+              </div>
+              <table
+                style={{
+                  width: "100%",
+                  fontSize: "12px",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "#f6f6f6", textAlign: "left" }}>
+                    <th style={{ padding: "4px 6px" }}>Side</th>
+                    <th style={{ padding: "4px 6px" }}>Date</th>
+                    <th style={{ padding: "4px 6px" }}>Amount</th>
+                    <th style={{ padding: "4px 6px" }}>Reference / memo</th>
+                    <th style={{ padding: "4px 6px" }}>Status</th>
+                    <th style={{ padding: "4px 6px" }}>Match</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(preflight.xeroSide?.reconciliation?.matched || []).map(
+                    (m: any, i: number) => (
+                      <React.Fragment key={`m-${i}`}>
+                        <tr style={{ background: "#f3fbf3" }}>
+                          <td style={{ padding: "3px 6px" }}>Xero</td>
+                          <td style={{ padding: "3px 6px" }}>
+                            {m.xero?.date || ""}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>
+                            ${Number(m.xero?.amount || 0).toFixed(2)}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>
+                            {m.xero?.reference || "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>—</td>
+                          <td style={{ padding: "3px 6px" }} rowSpan={2}>
+                            ✓ matched
+                          </td>
+                        </tr>
+                        <tr
+                          style={{
+                            background: "#f3fbf3",
+                            borderBottom: "1px solid #d6e8d6",
+                          }}
+                        >
+                          <td style={{ padding: "3px 6px" }}>PT</td>
+                          <td style={{ padding: "3px 6px" }}>
+                            {m.pt?.date
+                              ? String(m.pt.date).slice(0, 10)
+                              : ""}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>
+                            ${Number(m.pt?.amount || 0).toFixed(2)}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>
+                            {m.pt?.reference || "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px" }}>
+                            {m.pt?.status}
+                            {m.pt?.confirmed ? " (confirmed)" : ""}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    ),
+                  )}
+                  {(preflight.xeroSide?.reconciliation?.ptUnmatched || []).map(
+                    (l: any, i: number) => (
+                      <tr
+                        key={`pu-${i}`}
+                        style={{
+                          background: l.confirmed ? "#fff8e1" : "#fafafa",
+                          borderBottom: "1px solid #eee",
+                        }}
+                      >
+                        <td style={{ padding: "3px 6px" }}>PT only</td>
+                        <td style={{ padding: "3px 6px" }}>
+                          {l.date ? String(l.date).slice(0, 10) : ""}
+                        </td>
+                        <td style={{ padding: "3px 6px" }}>
+                          ${Number(l.amount || 0).toFixed(2)}
+                        </td>
+                        <td style={{ padding: "3px 6px" }}>
+                          {l.reference || "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px" }}>
+                          {l.status}
+                          {l.confirmed ? " (confirmed)" : ""}
+                        </td>
+                        <td style={{ padding: "3px 6px" }}>
+                          {l.confirmed ? "→ push" : "unconfirmed"}
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                  {(
+                    preflight.xeroSide?.reconciliation?.xeroUnmatched || []
+                  ).map((l: any, i: number) => (
+                    <tr
+                      key={`xu-${i}`}
+                      style={{
+                        background: "#fff8e1",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      <td style={{ padding: "3px 6px" }}>Xero only</td>
+                      <td style={{ padding: "3px 6px" }}>{l.date || ""}</td>
+                      <td style={{ padding: "3px 6px" }}>
+                        ${Number(l.amount || 0).toFixed(2)}
+                      </td>
+                      <td style={{ padding: "3px 6px" }}>
+                        {l.reference || "—"}
+                      </td>
+                      <td style={{ padding: "3px 6px" }}>—</td>
+                      <td style={{ padding: "3px 6px" }}>→ import</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {Array.isArray(preflight.xeroSide?.creditNotes) &&
+            preflight.xeroSide.creditNotes.length > 0 && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  paddingTop: "8px",
+                  borderTop: "1px solid #e5e5e5",
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: "4px" }}>
+                  Xero credit notes (this contact)
+                </div>
+                <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px" }}>
+                  {preflight.xeroSide.creditNotes.map((cn: any, i: number) => (
+                    <li key={`cn-${i}`} style={{ padding: "2px 0" }}>
+                      <code>{cn.number || cn.id}</code> — $
+                      {Number(cn.total || 0).toFixed(2)} (remaining $
+                      {Number(cn.remaining || 0).toFixed(2)}) — {cn.status} —{" "}
+                      {cn.date}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          {Array.isArray(preflight.checks) && preflight.checks.length > 0 && (
+            <ul
+              style={{
+                listStyle: "none",
+                margin: "8px 0 0 0",
+                padding: 0,
+                borderTop: "1px solid #e5e5e5",
+              }}
+            >
+              {preflight.checks.map((c: any, i: number) => (
+                <li
+                  key={i}
+                  style={{
+                    padding: "4px 0",
+                    borderBottom: "1px dotted #eee",
+                    color:
+                      c.status === "fail"
+                        ? "#a50e0e"
+                        : c.status === "warn"
+                        ? "#a86b00"
+                        : "#137333",
+                  }}
+                >
+                  <b>
+                    [{c.status.toUpperCase()}] {c.label}:
+                  </b>{" "}
+                  <span style={{ color: "#333" }}>{c.detail}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!preflight.blocked && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "10px",
+                paddingTop: "8px",
+                borderTop: "1px solid #cde4cd",
+                fontWeight: 500,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={reviewed}
+                onChange={(e) => setReviewed(e.target.checked)}
+                disabled={busy}
+              />
+              I&apos;ve reviewed this and want to run the sync.
+            </label>
+          )}
+        </div>
+      )}
+
       {result && (
         <div
           style={{
@@ -2130,6 +2682,7 @@ function ManualXeroSyncDialog({
         >
           <div style={{ fontWeight: 500 }}>
             {result.success ? "Sync triggered" : "Sync failed"}
+            {result.direction ? ` — ${result.direction}` : ""}
           </div>
           <div style={{ marginTop: "4px" }}>{result.message}</div>
           {result.resolvedXeroId && (

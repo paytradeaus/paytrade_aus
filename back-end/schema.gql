@@ -15235,6 +15235,11 @@ type Mutation {
   ): StringResponse!
 
   """
+  Run a two-sided manual Xero sync. The action_token must come from a recent manualXeroPreflight call (10-minute TTL).
+  """
+  manualXeroTwoSidedSync(action_token: String!, company_id: Float!, preflight_snapshot_json: String, pt_id: String, reviewed: Boolean!, type: String!, xero_id: String): StringResponse!
+
+  """
   Match selected bank transactions with payments and synchronize results with Xero and compliance services.
   """
   matchTransactions(
@@ -18946,6 +18951,16 @@ type Query {
     """Timezone of the user for login timestamp"""
     user_timezone: String!
   ): AuthResponse!
+
+  """
+  Find candidate PayTrade records (claims, payments, contacts) for the two-sided Manual Xero Sync dialog. Returns up to 10 candidates by free-text hint.
+  """
+  manualXeroPaytradeLookup(company_id: Float!, hint: String!, type: String!): StringResponse!
+
+  """
+  Inspect the chosen Xero and/or PayTrade record before running a manual sync. Returns shape, mapping, payment status and a signed action token.
+  """
+  manualXeroPreflight(company_id: Float!, pt_id: String, type: String!, xero_id: String): StringResponse!
 
   """
   Find candidate Xero records for the Manual Xero Re-sync widget by a human-readable hint (invoice number, contact name, reference, etc.). Returns up to 10 candidates with their GUIDs.

@@ -212,9 +212,9 @@ export class XeroContactsDedupeAndUniqueIndex1715731300000
             SET contact_id = canonical_id
             WHERE contact_id = ANY(duplicate_ids);
 
-          -- Repoint the JSONB `xeroId` references inside the per-sync
+          -- Repoint the JSONB xeroId references inside the per-sync
           -- log payloads. The xero_sync_logs.reference column stores
-          -- `{"xeroId": "<xero_contact_details.id>", "paytradeId": ...}`
+          -- {"xeroId": "<xero_contact_details.id>", "paytradeId": ...}
           -- so dangling refs would be left behind on delete otherwise.
           UPDATE xero_sync_logs
             SET reference = jsonb_set(

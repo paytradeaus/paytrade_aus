@@ -1368,4 +1368,201 @@ export class XeroResolver {
       );
     }
   }
+
+  /**
+   * Task #136 — PayTrade-side picker for the two-sided Manual Xero Sync
+   * dialog. Mirrors `manualXeroResyncLookup` but searches PT entities.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'manualXeroPaytradeLookup',
+    description:
+      'Find candidate PayTrade records (claims, payments, contacts) for the two-sided Manual Xero Sync dialog. Returns up to 10 candidates by free-text hint.',
+  })
+  async manualXeroPaytradeLookup(
+    @Context() context,
+    @Args('company_id') company_id: number,
+    @Args('type') type: string,
+    @Args('hint') hint: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+            candidates: [],
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroPaytradeLookup(
+        decoded,
+        { company_id, type, hint },
+      );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+          candidates: [],
+        }),
+      );
+    }
+  }
+
+  /**
+   * Task #136 — Pre-flight inspection for the two-sided Manual Xero Sync
+   * dialog. Returns a JSON-stringified preflight object including the
+   * recommended direction and a signed action token Run sync must echo.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'manualXeroPreflight',
+    description:
+      'Inspect the chosen Xero and/or PayTrade record before running a manual sync. Returns shape, mapping, payment status and a signed action token.',
+  })
+  async manualXeroPreflight(
+    @Context() context,
+    @Args('company_id') company_id: number,
+    @Args('type') type: string,
+    @Args('xero_id', { nullable: true }) xero_id?: string,
+    @Args('pt_id', { nullable: true }) pt_id?: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroPreflight(
+        decoded,
+        { company_id, type, xero_id, pt_id },
+      );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      if (this.refreshTokenReAuthenticate({ error })) {
+        const decoded = await this.jwtInternalService.decodeJwtToken(context);
+        const response = await this.xeroService.getAuthUrl(
+          company_id,
+          decoded?.userId,
+          false,
+          decoded?.timezone,
+        );
+        return framedResponse('XERO_REFRESH', response);
+      }
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
+    }
+  }
+
+  /**
+   * Task #136 — Two-sided Manual Xero Sync runner. Validates the action
+   * token signed by `manualXeroPreflight` and dispatches the chosen
+   * direction (import / push / link).
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'manualXeroTwoSidedSync',
+    description:
+      'Run a two-sided manual Xero sync. The action_token must come from a recent manualXeroPreflight call (10-minute TTL).',
+  })
+  async manualXeroTwoSidedSync(
+    @Context() context,
+    @Args('company_id') company_id: number,
+    @Args('type') type: string,
+    @Args('action_token') action_token: string,
+    @Args('reviewed') reviewed: boolean,
+    @Args('xero_id', { nullable: true }) xero_id?: string,
+    @Args('pt_id', { nullable: true }) pt_id?: string,
+    @Args('preflight_snapshot_json', { nullable: true })
+    preflight_snapshot_json?: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroTwoSidedSync(
+        decoded,
+        {
+          company_id,
+          type,
+          xero_id,
+          pt_id,
+          action_token,
+          reviewed,
+          preflight_snapshot_json,
+        },
+      );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      if (this.refreshTokenReAuthenticate({ error })) {
+        const decoded = await this.jwtInternalService.decodeJwtToken(context);
+        const response = await this.xeroService.getAuthUrl(
+          company_id,
+          decoded?.userId,
+          false,
+          decoded?.timezone,
+        );
+        return framedResponse('XERO_REFRESH', response);
+      }
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
+    }
+  }
 }

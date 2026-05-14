@@ -1459,6 +1459,77 @@ This feature synchronises contact information — address, phone number, and ema
 - Contacts must be mapped before their information can sync.
 - The sync never clears existing PayTrade values — it only updates when Xero has data.
 
+### 19.17 Two-Sided Manual Xero Sync (Self-Service Recovery) *(Updated 2026-05-14)*
+
+**Where to find it:** Xero Dashboard (`/user/integrations/xero`) → Sync Log tab → **Manual sync** button (next to *Refresh*). Available to STANDARD USER, ADMIN and PRIMARY ADMIN — gated by an in-resolver check that rejects company_id tampering against the JWT.
+
+The Manual Sync dialog is a self-service recovery tool for moving a single record between PayTrade and Xero. It supports five record types — **Invoice / Bill**, **Payment**, **Bank Transfer** (PT-RET retention transfer), **Contact**, and **Manual Journal** (retention gross-up). It is the same dialog whether the user is fixing a missed sync, repairing a broken mapping, or linking two records that were created independently in each system.
+
+#### Three Workflows
+
+| Workflow | When to use | What the user enters |
+|---|---|---|
+| **One way: Xero → PayTrade (import)** | Record exists in Xero but is missing or out of date in PayTrade. | Xero ID (or invoice/bill number) only. PayTrade-side picker left empty. |
+| **Other way: PayTrade → Xero (push)** | Record exists in PayTrade (e.g. confirmed payment leg) but never reached Xero. | PayTrade record selected from the search picker. Xero-side left empty. |
+| **Linking 2 existing records** | Both records already exist but aren't linked (mapping was lost or both were created independently). | Both Xero ID **and** matching PayTrade record. |
+
+The user clicks **Check** to run the pre-flight, reviews the panel, ticks **I've reviewed this**, then clicks **Run sync**. The dialog routes the sync to the correct direction (`import` / `push` / `link` / `blocked`) based on what the pre-flight found — the user does not have to choose the direction manually.
+
+#### Reuses the Standard Sync Flow (No Lite Implementations)
+
+- **Import / Link directions** re-pull the single record from Xero and dispatch it through the **same inbound webhook handler** used for live Xero webhook events, stamped with `sync_run_type: 'manual'`. This means retention extraction, **Smart Contract resolution** (19.5) and **Smart Contract Auto-Create** (19.10), contact/project/contract/bank-account mapping, account-code and tax-type validation against the company's Xero settings, tracking-category resolution, audit-pack PDF caching, and the retention gross-up manual-journal producer all run unchanged.
+- **Push direction** calls the same per-record creators used by the live PayTrade confirm flows — so the company's Xero integration settings (account codes, tax codes, tracking categories), the retention recording mode (`ex_gst` / `inc_gst`), the retention tax-type override, per-line GST recompute, and Phase 3 retention gross-up manual journals (19.15) are all applied. Push of a fully-paid Xero invoice from a PT-only claim is blocked at pre-flight — paid invoices in Xero must be imported, not overwritten.
+
+#### Pre-flight Checks (always shown before Run sync is enabled)
+
+| Check | What it tells the user |
+|---|---|
+| **Live Xero lookup** | Confirms the Xero record is reachable on the current connection. |
+| **Mapping** | Whether a PayTrade ↔ Xero link already exists, and to which PayTrade id. |
+| **Amount agreement** | Xero total vs PayTrade total, with the dollar delta. |
+| **Payment status** | **Unpaid** / **Part payment / pay less** / **Full payment** / **Overpaid (credit on file)** — see classification below. |
+| **Xero credit notes (contact)** | Up to 10 outstanding credit notes on the Xero contact, with remaining credit. Helps explain pay-less / overpayment scenarios. |
+| **Payment legs reconciled** | Counts of matched / PayTrade-only / Xero-only legs, with a sub-count of confirmed PayTrade legs that should have reached Xero. |
+| **Retention shape** | Retention line presence, codes-shared flag, base-line presence, signed net-retained amount. |
+| **Contact / project / contract / bank-account mapping** | For invoice/bill records, validates that all linked entities have local mappings. |
+
+#### How Full / Part / Pay Less / Overpaid is Identified and Shown
+
+Two layers — both visible on the pre-flight panel before the user can tick "I've reviewed this":
+
+1. **Header classification** (typed check `Payment status: …`) computed from Xero's `amountTotal` / `amountPaid` / `amountDue` / `status`:
+   - **Unpaid** — no payments recorded against the Xero invoice.
+   - **Part payment / pay less** — partially paid with an outstanding balance. Flagged as a *warning* so the user explicitly considers whether this is an interim part-payment or a final "pay less" settlement before syncing. The still-owing amount is shown.
+   - **Full payment** — fully paid (`amountDue ≤ $0.01` or status `PAID`).
+   - **Overpaid (credit on file)** — Xero shows `paid > total`. Flagged as a *warning* with the excess amount; usually indicates a credit note or overpayment on the contact.
+
+2. **Per-leg reconciliation matrix** — every Xero `payments[]` leg is matched against every PayTrade `PaymentDetails` row (joined to `subPayments` for confirmation status) by amount (±$0.01) and date (±2 days). Results are bucketed into `matched` / `ptUnmatched` / `xeroUnmatched` with a separate counter for PayTrade legs that are confirmed but missing from Xero. The dialog renders this as a side-by-side table with explicit per-row badges (`✓ matched`, `→ push`, `→ import`, `unconfirmed`) so the user can see, leg-by-leg, exactly what each direction will do — full payments line up as one matched row, part-payments show one matched leg plus an unmatched remainder, and pay-less / overpayment scenarios surface as a Xero-only leg larger than the PayTrade total or as a credit note in the contact's credit-note panel.
+
+The recommended-action engine consumes both layers: "both sides fully paid but totals disagree" is **blocked** to prevent destructive overwrites of paid records, and any confirmed PayTrade leg that hasn't reached Xero flips the recommendation to **push** even when both sides exist, so the leg gets pushed rather than overwritten.
+
+#### How to Find the IDs the Dialog Asks For
+
+| Record type | Where in PayTrade | Where in Xero |
+|---|---|---|
+| **Invoice / Bill** | The PayTrade ID is the **claim id** — visible at the top of the payment-claim detail page (`/user/payment-claims/<id>`) and as the leading number in any Sync Log row's *Reference* column. The PayTrade-side picker also accepts amount, claim reference, contact name, business name, **project name**, or **contract name**. | Either the **Invoice GUID** (Xero URL: `https://go.xero.com/AccountsReceivable/Edit.aspx?InvoiceID=<GUID>`) or the human-readable **Invoice / Bill number** (e.g. `INV-0042`). The dialog accepts either — invoice numbers are resolved to GUIDs automatically. |
+| **Payment** | The PayTrade ID is the **payment id** — visible on the Payments page row, on the payment detail page URL (`/user/payments/<id>`), and on its Sync Log rows. The PayTrade-side picker also accepts amount, memo, or contact name. | **Payment GUID** — open the payment from the Xero invoice's *Payments* tab; the URL contains `bankTransactionID=<GUID>`. |
+| **Bank Transfer (PT-RET)** | Not selectable from the PayTrade side — these are produced when confirming a payment with cash retention. Use the *Payment* picker instead. | **BankTransfer GUID** from the Xero bank transfer screen, or the `PT-RET-<payment_id>` reference in the transaction's *Reference* field. |
+| **Contact** | The PayTrade ID is the **client / supplier id** — visible on the Clients & Suppliers page row and in the URL (`/user/clients-suppliers/<id>`). The PayTrade-side picker accepts contact name or business name. | **Contact GUID** — open the contact in Xero; the URL is `https://go.xero.com/Contacts/View/<GUID>`. |
+| **Manual Journal (retention gross-up)** | Not selectable from the PayTrade side — produced by the Phase 3 retention gross-up flow. The dialog only accepts a Xero ID (anti-echo aware). | **ManualJournal GUID** from the Xero manual journal URL (`https://go.xero.com/Journal/View.aspx?journalID=<GUID>`). |
+
+#### After Run Sync
+
+The result panel shows the chosen direction, a plain-language message, and a clickable link to the enriched Sync Log row. Three new templates record the outcome:
+- **Template 518** — succeeded (`MANUAL_TWO_SIDED_TRIGGERED`).
+- **Template 519** — blocked by pre-flight (`MANUAL_TWO_SIDED_BLOCKED`) — used only when the recommended action is `blocked` (e.g. both sides fully paid but totals disagree).
+- **Template 520** — dispatched but failed at runtime (`MANUAL_TWO_SIDED_DISPATCH_FAILED`).
+
+Every two-sided run also emits the legacy template-499 trigger row so existing Sync Log filters by `MANUAL_XERO_SYNC_TRIGGERED` continue to surface it.
+
+#### Server-Side Safety Gate
+
+The Run sync mutation is protected by an HMAC-signed action token bound to `(timestamp, company_id, type, xero_id, pt_id, recommended_action)` with a 10-minute TTL, plus a server-side check that the **I've reviewed this** flag is `true`. This prevents an admin from skipping the Check step by calling the mutation directly — Run sync can only execute against a recent, server-signed pre-flight result, and any change to either picked id resets the token so it can never outlive the inputs it was signed against.
+
 ---
 
 ## 20. Community

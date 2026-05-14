@@ -96,6 +96,7 @@ import { ContractType } from 'src/entities/contract-type.entity';
 import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
 import { RetentionReversalFunctions } from 'src/api/users/banking/payments/retentions/retention-reversal-functions';
 import { XeroInvoicesService } from '../integrations/xero/invoicesAndBills/xero-invoices.service';
+import { XeroPaymentsService } from '../integrations/xero/payments/xero-payments.service';
 import { XeroManualJournalService } from '../integrations/xero/manualJournals/xero-manual-journal.service';
 import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
 import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
@@ -222,6 +223,7 @@ import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
     ContractDetailsService,
     RetentionReversalFunctions,
     XeroInvoicesService,
+    XeroPaymentsService,
     XeroManualJournalService,
     EmailQueueProducer,
     XeroWaitQueueService,

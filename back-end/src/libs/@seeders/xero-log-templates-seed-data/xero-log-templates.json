@@ -5445,5 +5445,35 @@
     "from_xero": false,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 518,
+    "sync_type": "Manual sync (two-sided)",
+    "description": "<p>Two-sided manual Xero sync triggered for {{type}} (direction: {{direction}}). Xero id: {{xero_id}}; PayTrade id: {{pt_id}}. Pre-flight checks reviewed by user before dispatch.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "MANUAL_TWO_SIDED_TRIGGERED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 519,
+    "sync_type": "Manual sync (two-sided)",
+    "description": "<p>Two-sided manual Xero sync was blocked by pre-flight. Reason: {{block_reason}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MANUAL_TWO_SIDED_BLOCKED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 520,
+    "sync_type": "Manual sync (two-sided)",
+    "description": "<p>Two-sided manual Xero sync failed during dispatch for {{type}} (direction: {{direction}}). Error: {{block_reason}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "MANUAL_TWO_SIDED_DISPATCH_FAILED",
+    "associated_log_ids": null
   }
 ]

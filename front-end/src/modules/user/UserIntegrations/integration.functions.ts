@@ -4218,6 +4218,7 @@ export const manualXeroResync = async (variables: {
   message: string;
   syncLogId?: number | null;
   resolvedXeroId?: string | null;
+  direction?: string;
 }> => {
   try {
     const response = await apolloClient.mutate({
@@ -4345,5 +4346,200 @@ export const manualXeroResyncLookup = async (variables: {
       message: error?.message || ApiResponse.ERROR,
       candidates: [],
     };
+  }
+};
+
+/**
+ * Task #136 — PayTrade-side picker for the two-sided manual sync dialog.
+ * Mirrors `manualXeroResyncLookup` but searches PT entities only.
+ */
+export const manualXeroPaytradeLookup = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  hint: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  candidates: Array<{ id: string; label: string; sublabel?: string }>;
+}> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query ManualXeroPaytradeLookup(
+          $company_id: Float!
+          $type: String!
+          $hint: String!
+        ) {
+          manualXeroPaytradeLookup(
+            company_id: $company_id
+            type: $type
+            hint: $hint
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroPaytradeLookup;
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: false, message: res?.message, candidates: [] };
+    }
+    return {
+      success: !!parsed?.success,
+      message: parsed?.message,
+      candidates: Array.isArray(parsed?.candidates) ? parsed.candidates : [],
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || ApiResponse.ERROR,
+      candidates: [],
+    };
+  }
+};
+
+/**
+ * Task #136 — Pre-flight inspection for the two-sided manual sync dialog.
+ * Returns shape, mapping, payment-status / reconciliation checks, the
+ * recommended direction and a signed action token Run sync must echo.
+ */
+export const manualXeroPreflight = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  xero_id?: string | null;
+  pt_id?: string | null;
+}): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query ManualXeroPreflight(
+          $company_id: Float!
+          $type: String!
+          $xero_id: String
+          $pt_id: String
+        ) {
+          manualXeroPreflight(
+            company_id: $company_id
+            type: $type
+            xero_id: $xero_id
+            pt_id: $pt_id
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        company_id: variables.company_id,
+        type: variables.type,
+        xero_id: variables.xero_id || null,
+        pt_id: variables.pt_id || null,
+      },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroPreflight;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return { success: false, message: "Xero re-authentication required." };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: false, message: res?.message };
+    }
+    return parsed;
+  } catch (error: any) {
+    return { success: false, message: error?.message || ApiResponse.ERROR };
+  }
+};
+
+/**
+ * Task #136 — Two-sided manual Xero sync runner. Calls
+ * `manualXeroTwoSidedSync`, which validates the preflight action token and
+ * dispatches the chosen direction (import / push / link).
+ */
+export const manualXeroTwoSidedSync = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  xero_id?: string | null;
+  pt_id?: string | null;
+  action_token: string;
+  reviewed: boolean;
+  preflight_snapshot_json?: string | null;
+}): Promise<{
+  success: boolean;
+  message: string;
+  syncLogId?: number | null;
+  resolvedXeroId?: string | null;
+  direction?: string;
+}> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation ManualXeroTwoSidedSync(
+          $company_id: Float!
+          $type: String!
+          $action_token: String!
+          $reviewed: Boolean!
+          $xero_id: String
+          $pt_id: String
+          $preflight_snapshot_json: String
+        ) {
+          manualXeroTwoSidedSync(
+            company_id: $company_id
+            type: $type
+            action_token: $action_token
+            reviewed: $reviewed
+            xero_id: $xero_id
+            pt_id: $pt_id
+            preflight_snapshot_json: $preflight_snapshot_json
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        company_id: variables.company_id,
+        type: variables.type,
+        action_token: variables.action_token,
+        reviewed: variables.reviewed,
+        xero_id: variables.xero_id || null,
+        pt_id: variables.pt_id || null,
+        preflight_snapshot_json: variables.preflight_snapshot_json || null,
+      },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroTwoSidedSync;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return { success: false, message: "Xero re-authentication required." };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = {
+        success: res?.status === ApiResponse.SUCCESS,
+        message: res?.message,
+      };
+    }
+    if (parsed?.success) {
+      showSuccessToast(parsed?.message || "Manual sync triggered");
+    } else {
+      showErrorToast(parsed?.message || "Manual sync failed");
+    }
+    return parsed;
+  } catch (error: any) {
+    const msg = error?.message || ApiResponse.ERROR;
+    showErrorToast(msg);
+    return { success: false, message: msg };
   }
 };
