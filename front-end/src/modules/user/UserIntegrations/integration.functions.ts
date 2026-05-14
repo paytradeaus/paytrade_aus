@@ -1157,10 +1157,22 @@ export async function BatchCreateAccountsInPaytrade(
   setLoading?: Function
 ): Promise<any> {
   try {
+    // Task #123 — Pass the user-picked default account type and any
+    // per-row overrides to the backend so the bulk-create can produce
+    // trust-account rows (or stay on the default Cash Account fast
+    // path when no overrides are provided).
     const response = await apolloClient.query({
       query: gql`
-        mutation BatchCreateAccountsInPaytrade($companyId: Float!) {
-          batchCreateAccountsInPaytrade(company_id: $companyId) {
+        mutation BatchCreateAccountsInPaytrade(
+          $companyId: Float!
+          $defaultAccountType: String
+          $accountTypeOverrides: [BatchCreateAccountTypeOverrideInput!]
+        ) {
+          batchCreateAccountsInPaytrade(
+            company_id: $companyId
+            default_account_type: $defaultAccountType
+            account_type_overrides: $accountTypeOverrides
+          ) {
             data {
               created
               skipped

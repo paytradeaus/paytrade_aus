@@ -86,6 +86,26 @@ export default function XeroBankAccount() {
   const [unmappedXeroAccountsCount, setUnmappedXeroAccountsCount] =
     useState<number>(0);
 
+  // Task #123 — Bulk dialog now lets the user pick a default account
+  // type (and override individual rows) before confirming. We open a
+  // dedicated modal (separate from the generic confirmation modal) so
+  // the picker UI has room to breathe and we can fetch the per-row
+  // list lazily.
+  const ACCOUNT_TYPE_OPTIONS = [
+    { label: "Cash Account", value: "Cash Account" },
+    { label: "Project Trust Account", value: "Project Trust Account" },
+    { label: "Retention Trust Account", value: "Retention Trust Account" },
+  ];
+  const [showBatchCreateModal, setShowBatchCreateModal] = useState(false);
+  const [batchDefaultAccountType, setBatchDefaultAccountType] =
+    useState<string>("Cash Account");
+  const [batchRowOverrides, setBatchRowOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [batchUnmappedAccounts, setBatchUnmappedAccounts] = useState<any[]>([]);
+  const [batchUnmappedLoading, setBatchUnmappedLoading] = useState(false);
+  const [showPerRowOverrides, setShowPerRowOverrides] = useState(false);
+
   const paytradeBankAccountsActions = [
     {
       label: "Manual map",
@@ -470,9 +490,19 @@ export default function XeroBankAccount() {
   // flip to "Mapped". Surfaces a per-row error breakdown modal when
   // the batch reports skipped/failed accounts.
   const handleBatchCreateInPaytrade = async () => {
+    // Task #123 — Build override list from row-level picks. Skip rows
+    // that already match the default so we send the smallest possible
+    // payload.
+    const overrides = Object.entries(batchRowOverrides)
+      .filter(([, type]) => type && type !== batchDefaultAccountType)
+      .map(([account_id, account_type]) => ({ account_id, account_type }));
+
+    setShowBatchCreateModal(false);
     setTableLoader(true);
     const batchResult = await BatchCreateAccountsInPaytrade({
       companyId: +(localStorage.getItem("companyId") || 0),
+      defaultAccountType: batchDefaultAccountType,
+      accountTypeOverrides: overrides.length > 0 ? overrides : null,
     });
     const { contacts, totalCount } = await fetchXeroBankAccounts(
       currentPage,
@@ -486,6 +516,43 @@ export default function XeroBankAccount() {
 
     if (batchResult?.errors && batchResult.errors.length > 0) {
       setBatchErrors(batchResult.errors);
+    }
+  };
+
+  // Task #123 — Open the bulk dialog: reset picker state and lazily
+  // fetch the unmapped Xero accounts list so the per-row override
+  // section can render without an extra round-trip when expanded.
+  const openBatchCreateModal = async () => {
+    setBatchDefaultAccountType("Cash Account");
+    setBatchRowOverrides({});
+    setShowPerRowOverrides(false);
+    setShowBatchCreateModal(true);
+    setBatchUnmappedLoading(true);
+    try {
+      const data = await getXeroBankAccountsListsForCompany(
+        {
+          payload: {
+            company_id: +(localStorage.getItem("companyId") || 0),
+            page_number: 1,
+            page_size: 500,
+            search: "",
+            sorting_field: "",
+            sorting_order: "",
+            mapped_status: "Unmapped",
+          },
+        },
+        () => {}
+      );
+      const list = (data?.account_list || []).filter(
+        (a: any) =>
+          (a.account_status || "").toString().toLowerCase() === "active"
+      );
+      setBatchUnmappedAccounts(list);
+    } catch (err) {
+      console.error("[XeroBankAccount] failed to load unmapped accounts", err);
+      setBatchUnmappedAccounts([]);
+    } finally {
+      setBatchUnmappedLoading(false);
     }
   };
 
@@ -518,8 +585,6 @@ export default function XeroBankAccount() {
       handleCreateInXero();
     } else if (modelConfig.id === "Create_in_paytrade?") {
       handleCreateInPaytrade();
-    } else if (modelConfig.id === "Batch_create_in_paytrade?") {
-      handleBatchCreateInPaytrade();
     }
   };
 
@@ -798,29 +863,7 @@ export default function XeroBankAccount() {
                     buttonType={buttonType.CONTRAST_SMALL}
                     actionType="button"
                     disabled={unmappedXeroAccountsCount === 0}
-                    onClick={() =>
-                      setModelConfig({
-                        show: true,
-                        title: "Create All in PayTrade",
-                        secondButtonName: "Create All",
-                        firstButtonName: "Cancel",
-                        description: (
-                          <>
-                            Create <b>{unmappedXeroAccountsCount}</b> unmapped
-                            Xero bank account
-                            {unmappedXeroAccountsCount === 1 ? "" : "s"} in
-                            PayTrade?
-                            <br />
-                            <br />
-                            Each new account will be created as a default
-                            <b> Cash Account</b>. You can change the account
-                            type afterwards in PayTrade&apos;s bank account
-                            settings.
-                          </>
-                        ),
-                        id: "Batch_create_in_paytrade?",
-                      })
-                    }
+                    onClick={openBatchCreateModal}
                     styles={{ margin: "0 10px 10px 10px" }}
                   />
                 </span>
@@ -895,6 +938,203 @@ export default function XeroBankAccount() {
           }}
         >
           <p className="text_center">{modelConfig.description}</p>
+        </BaseModal>
+      )}
+      {showBatchCreateModal && (
+        <BaseModal
+          modalId="batchCreateAccountsConfig"
+          displayModal={showBatchCreateModal}
+          onClose={() => setShowBatchCreateModal(false)}
+          secondButtonName="Create All"
+          firstButtonName="Cancel"
+          onConfirm={() => {
+            handleBatchCreateInPaytrade();
+            return true;
+          }}
+          title="Create All in PayTrade"
+        >
+          <div style={{ padding: "0 4px" }}>
+            <p>
+              Create <b>{unmappedXeroAccountsCount}</b> unmapped Xero bank
+              account{unmappedXeroAccountsCount === 1 ? "" : "s"} in PayTrade.
+            </p>
+            <br />
+            <label
+              style={{
+                display: "block",
+                fontWeight: 600,
+                marginBottom: "6px",
+              }}
+            >
+              Default account type
+            </label>
+            <select
+              value={batchDefaultAccountType}
+              onChange={(e) => setBatchDefaultAccountType(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+              }}
+            >
+              {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p style={{ fontSize: "0.85em", color: "#666", marginTop: 6 }}>
+              Trust account types need extra fields (trustee, projects,
+              contract dates) which can&apos;t be set in this dialog. Rows
+              picked as a trust type will be skipped with a per-row reason so
+              you can finish the setup in PayTrade&apos;s bank account form.
+            </p>
+
+            <div style={{ marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => setShowPerRowOverrides((v) => !v)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#0066cc",
+                  cursor: "pointer",
+                  padding: 0,
+                  fontSize: "0.95em",
+                }}
+              >
+                <i
+                  className={`fa-light ${
+                    showPerRowOverrides ? "fa-chevron-down" : "fa-chevron-right"
+                  }`}
+                  style={{ marginRight: 6 }}
+                />
+                Customize per account
+                {batchUnmappedAccounts.length > 0
+                  ? ` (${batchUnmappedAccounts.length})`
+                  : ""}
+              </button>
+              {/* Task #123 — The override list is capped at 500 rows
+                  to keep the dialog responsive. Anything beyond that
+                  still gets created with the default account type;
+                  users can re-classify the overflow rows in PayTrade
+                  afterwards. */}
+              {unmappedXeroAccountsCount > batchUnmappedAccounts.length &&
+                !batchUnmappedLoading && (
+                  <p
+                    style={{
+                      fontSize: "0.85em",
+                      color: "#a15c00",
+                      marginTop: 6,
+                    }}
+                  >
+                    Showing the first {batchUnmappedAccounts.length} of{" "}
+                    {unmappedXeroAccountsCount} unmapped accounts for per-row
+                    overrides. The remaining accounts will be created with the
+                    selected default account type and can be re-classified
+                    afterwards in PayTrade.
+                  </p>
+                )}
+            </div>
+
+            {showPerRowOverrides && (
+              <div
+                style={{
+                  marginTop: 10,
+                  maxHeight: 280,
+                  overflowY: "auto",
+                  border: "1px solid #eee",
+                  borderRadius: 4,
+                }}
+              >
+                {batchUnmappedLoading ? (
+                  <div style={{ padding: 12, textAlign: "center" }}>
+                    Loading accounts...
+                  </div>
+                ) : batchUnmappedAccounts.length === 0 ? (
+                  <div style={{ padding: 12, textAlign: "center" }}>
+                    No unmapped accounts to display.
+                  </div>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "6px 8px",
+                            borderBottom: "1px solid #ddd",
+                            background: "#fafafa",
+                          }}
+                        >
+                          Xero account
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "6px 8px",
+                            borderBottom: "1px solid #ddd",
+                            background: "#fafafa",
+                          }}
+                        >
+                          Account type
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batchUnmappedAccounts.map((row: any) => {
+                        const id = row.account_id;
+                        const value =
+                          batchRowOverrides[id] || batchDefaultAccountType;
+                        return (
+                          <tr key={id}>
+                            <td
+                              style={{
+                                padding: "6px 8px",
+                                borderBottom: "1px solid #eee",
+                                verticalAlign: "top",
+                              }}
+                            >
+                              {row.account_name || id}
+                            </td>
+                            <td
+                              style={{
+                                padding: "6px 8px",
+                                borderBottom: "1px solid #eee",
+                              }}
+                            >
+                              <select
+                                value={value}
+                                onChange={(e) =>
+                                  setBatchRowOverrides((prev) => ({
+                                    ...prev,
+                                    [id]: e.target.value,
+                                  }))
+                                }
+                                style={{
+                                  width: "100%",
+                                  padding: "4px 6px",
+                                  border: "1px solid #ccc",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
         </BaseModal>
       )}
       {batchErrors.length > 0 && (

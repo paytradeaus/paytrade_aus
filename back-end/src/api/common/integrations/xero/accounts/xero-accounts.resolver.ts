@@ -4,6 +4,7 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { StringResponse } from 'src/api/users/signup/response/auth.response';
 import {
+  BatchCreateAccountTypeOverrideInput,
   CompleteBankAccountDraftInput,
   GetMappedXeroAccountListsInput,
   GetPaytradeAccountListsInput,
@@ -376,10 +377,33 @@ export class XeroAccountsResolver {
       description: 'ID of the company to create bank accounts for.',
     })
     company_id: number,
+    // Task #123 — Optional default account type the user picked in the
+    // bulk dialog. Defaults to "Cash Account" so the existing one-click
+    // behaviour is preserved when the argument is omitted.
+    @Args('default_account_type', {
+      nullable: true,
+      description:
+        'Default PayTrade account type for every row (defaults to "Cash Account").',
+    })
+    default_account_type: string | undefined,
+    // Task #123 — Optional per-row overrides so the user can mark a
+    // subset of Xero rows as Project Trust / Retention Trust before
+    // confirming the bulk create.
+    @Args('account_type_overrides', {
+      nullable: true,
+      type: () => [BatchCreateAccountTypeOverrideInput],
+      description:
+        'Optional per-account overrides of the default account type, keyed by Xero account_id.',
+    })
+    account_type_overrides:
+      | BatchCreateAccountTypeOverrideInput[]
+      | undefined,
   ): Promise<any> {
     try {
       this.logger.log(
-        `Request received for batch creating bank accounts in PayTrade for company: ${company_id}`,
+        `Request received for batch creating bank accounts in PayTrade for company: ${company_id} (default_account_type=${
+          default_account_type || 'Cash Account'
+        }, overrides=${(account_type_overrides || []).length})`,
       );
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
 
@@ -387,6 +411,8 @@ export class XeroAccountsResolver {
         await this.xeroAccountsService.batchCreateAccountsInPaytrade(
           decoded,
           company_id,
+          default_account_type,
+          account_type_overrides,
         );
       this.logger.log(
         `Batch create bank accounts in PayTrade completed: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`,

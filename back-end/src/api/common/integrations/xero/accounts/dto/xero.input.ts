@@ -116,6 +116,21 @@ export class YetToMapAccountsInput {
 }
 
 @InputType({
+  description:
+    'Per-row override of the PayTrade account type for a Xero bank account being bulk-created.',
+})
+export class BatchCreateAccountTypeOverrideInput {
+  @Field({ description: 'Xero account_id this override applies to' })
+  account_id: string;
+
+  @Field({
+    description:
+      'PayTrade account type to use for this row (Cash Account, Project Trust Account, Retention Trust Account)',
+  })
+  account_type: string;
+}
+
+@InputType({
   description: 'Input for completing a draft bank account created from Xero with missing fields',
 })
 export class CompleteBankAccountDraftInput {

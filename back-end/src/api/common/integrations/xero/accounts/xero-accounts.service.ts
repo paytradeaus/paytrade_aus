@@ -2763,7 +2763,19 @@ export class XeroAccountsService {
     });
   }
 
-  async batchCreateAccountsInPaytrade(decoded: any, companyId: number) {
+  async batchCreateAccountsInPaytrade(
+    decoded: any,
+    companyId: number,
+    // Task #123 — User-picked default account type from the bulk
+    // dialog. Keep "Cash Account" as the fallback so the existing
+    // one-click default behaviour stays intact when the caller omits
+    // the argument.
+    defaultAccountType?: string,
+    // Task #123 — Per-row overrides keyed by Xero `account_id` so the
+    // user can mark a subset of accounts as Project Trust / Retention
+    // Trust without changing the default.
+    accountTypeOverrides?: { account_id: string; account_type: string }[],
+  ) {
     const result: {
       created: number;
       skipped: number;
@@ -2778,6 +2790,36 @@ export class XeroAccountsService {
         throw new Error('No active Xero integration found');
       }
 
+      // Task #123 — Validate the picked account types up-front so a
+      // typo in `default_account_type` doesn't silently fall back to
+      // "Cash Account" for every row.
+      const validAccountTypes = [
+        'Cash Account',
+        'Project Trust Account',
+        'Retention Trust Account',
+      ];
+      const resolvedDefault =
+        defaultAccountType && defaultAccountType.trim()
+          ? defaultAccountType
+          : 'Cash Account';
+      if (!validAccountTypes.includes(resolvedDefault)) {
+        throw new Error(
+          `Invalid default account type: ${resolvedDefault}. Allowed: ${validAccountTypes.join(
+            ', ',
+          )}`,
+        );
+      }
+      const overrideMap = new Map<string, string>();
+      for (const o of accountTypeOverrides || []) {
+        if (!o?.account_id || !o?.account_type) continue;
+        if (!validAccountTypes.includes(o.account_type)) {
+          throw new Error(
+            `Invalid account type override for ${o.account_id}: ${o.account_type}`,
+          );
+        }
+        overrideMap.set(o.account_id, o.account_type);
+      }
+
       const unmappedAccounts = await this.xeroBankAccountDetails.find({
         where: {
           integration_id: xeroDetails.integration_id,
@@ -2787,6 +2829,10 @@ export class XeroAccountsService {
       });
 
       for (const xeroAccount of unmappedAccounts) {
+        // Task #123 — Resolve the per-row account type: row override
+        // wins, otherwise fall back to the dialog default.
+        const rowAccountType =
+          overrideMap.get(xeroAccount.account_id) || resolvedDefault;
         try {
           const acctNumStr = (xeroAccount.account_number || '').toString();
           const bsbNum =
@@ -2797,7 +2843,7 @@ export class XeroAccountsService {
           const payload: any = {
             company_id: companyId,
             account_name: xeroAccount.account_name,
-            account_type: 'Cash Account',
+            account_type: rowAccountType,
             account_number: acctNumStr,
             bsb_number: bsbNum,
             financial_institution: xeroAccount.account_name || 'Unknown',
@@ -2818,11 +2864,28 @@ export class XeroAccountsService {
             result.created++;
           } else {
             result.skipped++;
+            // Task #123 — Trust account types need extra fields
+            // (trustee, projects, contract dates) that the bulk
+            // dialog can't reasonably collect per row. Surface a
+            // type-specific reason so the user knows to finish the
+            // setup in PayTrade's bank account form.
+            let reason: string;
+            if (rowAccountType === 'Project Trust Account') {
+              reason =
+                'Skipped — Project Trust accounts need trustee, associated cash account, project, client/supplier, contract dates and contract value. ' +
+                'Create the row as Cash Account here, or finish the trust-account fields in PayTrade.';
+            } else if (rowAccountType === 'Retention Trust Account') {
+              reason =
+                'Skipped — Retention Trust accounts need trustee, associated cash account and projects. ' +
+                'Create the row as Cash Account here, or finish the trust-account fields in PayTrade.';
+            } else {
+              reason =
+                'Skipped — missing required fields (e.g. BSB or account number) or subscription cap reached. See Xero sync logs for details.';
+            }
             result.errors.push({
               account_id: xeroAccount.account_id,
               account_name: xeroAccount.account_name,
-              reason:
-                'Skipped — missing required fields (e.g. BSB or account number) or subscription cap reached. See Xero sync logs for details.',
+              reason,
             });
           }
         } catch (err) {
