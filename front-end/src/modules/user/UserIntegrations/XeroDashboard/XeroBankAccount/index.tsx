@@ -22,6 +22,7 @@ import {
   manualMappingBankAccounts,
   syncAllBankAccountsByCompanyId,
   unMappingBankAccounts,
+  removeXeroBankAccountCacheRow,
 } from "../../integration.functions";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
@@ -133,6 +134,33 @@ export default function XeroBankAccount() {
       onClick: (row: any) => handleOptionClick(row, "Create in PayTrade"),
       conditionalApiDisplayKey: "createIcon",
     },
+    // Task #134 — Self-service "Remove" for an orphaned/phantom cache
+    // row. Drops the `xero_bank_account_details` row entirely so it
+    // disappears from the table; only available on unmapped rows so
+    // we never offer to delete a row that's actively linked to a
+    // PayTrade bank account.
+    {
+      label: "Remove",
+      icon: "fa-light fa-trash",
+      onClick: (row: any) => {
+        setSelectedContact(row);
+        setModelConfig({
+          show: true,
+          title: "Remove Xero bank account row",
+          secondButtonName: "Remove",
+          firstButtonName: "Cancel",
+          id: "Remove_xero_cache_row?",
+          description: (
+            <>
+              Remove the Xero cache row for <b>{row?.account_name}</b>? This
+              clears it from PayTrade only — it does not delete the account in
+              Xero.
+            </>
+          ),
+        });
+      },
+      conditionalApiDisplayKey: "removeIcon",
+    },
   ];
   const mappedBankAccountsActions = [
     {
@@ -148,7 +176,9 @@ export default function XeroBankAccount() {
           id: "Unmap_from?",
           description: (
             <>
-              <b>{row?.pt_account_name}</b> from <b>{row?.account_name}</b>?
+              Unmap <b>{row?.pt_account_name}</b> from <b>{row?.account_name}</b>?
+              This only removes the link in PayTrade — the account in Xero is
+              not touched.
             </>
           ),
         });
@@ -251,12 +281,18 @@ export default function XeroBankAccount() {
       contacts:
         data?.account_list.map((val: any) => {
           const isUnmapped = val.mapped_status?.toLocaleLowerCase() !== "mapped";
+          const status = val.account_status?.toLocaleLowerCase();
           return {
             ...val,
             dynamicIcon: {
-              syncIcon: isUnmapped && val.account_status?.toLocaleLowerCase() !== "draft",
+              syncIcon: isUnmapped && status !== "draft",
               manual: isUnmapped,
               createIcon: isUnmapped,
+              // Task #134 — Restrict Remove to stale/orphaned rows
+              // (DRAFT or ARCHIVED). ACTIVE Xero rows would just
+              // re-appear on the next sync, so hide it there.
+              removeIcon:
+                isUnmapped && (status === "draft" || status === "archived"),
             },
           };
         }) || [],
@@ -585,7 +621,29 @@ export default function XeroBankAccount() {
       handleCreateInXero();
     } else if (modelConfig.id === "Create_in_paytrade?") {
       handleCreateInPaytrade();
+    } else if (modelConfig.id === "Remove_xero_cache_row?") {
+      handleRemoveXeroCacheRow();
     }
+  };
+
+  // Task #134 — Drop a phantom/orphaned `xero_bank_account_details`
+  // row from the cache, then refresh the Xero tab so the table
+  // reflects the removal.
+  const handleRemoveXeroCacheRow = async () => {
+    setTableLoader(true);
+    await removeXeroBankAccountCacheRow(
+      { accountId: selectedContact?.account_id },
+      setTableLoader,
+    );
+    const { contacts, totalCount } = await fetchXeroBankAccounts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader,
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+    refreshUnmappedXeroAccountsCount();
   };
 
   const handleUnmapBankAccounts = async () => {

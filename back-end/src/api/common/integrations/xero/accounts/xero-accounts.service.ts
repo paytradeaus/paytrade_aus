@@ -1870,7 +1870,11 @@ export class XeroAccountsService {
         .where(`xero.company_id = :companyId`, {
           companyId: data.company_id,
         })
-        .andWhere(`account.account_status <> 'ARCHIVED'`);
+        .andWhere(`account.account_status <> 'ARCHIVED'`)
+        // Task #134 — exclude phantom rows (non-UUID or colliding with bank_accounts.id).
+        .andWhere(
+          `account.account_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = account.account_id)`,
+        );
 
       if (data.search) {
         queryBuilder.andWhere(
@@ -2137,7 +2141,11 @@ export class XeroAccountsService {
             companyId: data.company_id,
           },
         )
-        .andWhere(`account.account_status <> 'ARCHIVED'`);
+        .andWhere(`account.account_status <> 'ARCHIVED'`)
+        // Task #134 — exclude phantom rows.
+        .andWhere(
+          `account.account_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = account.account_id)`,
+        );
 
       if (data.search) {
         queryBuilder.andWhere(
@@ -2312,7 +2320,12 @@ export class XeroAccountsService {
             companyId: company_id,
           },
         )
-        .andWhere('account.pt_bank_account_id IS NULL');
+        .andWhere('account.pt_bank_account_id IS NULL')
+        // Task #134 — real ACTIVE Xero rows only; exclude phantoms.
+        .andWhere(`account.account_status = 'ACTIVE'`)
+        .andWhere(
+          `account.account_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = account.account_id)`,
+        );
 
       const rawResults = await queryBuilder
         .orderBy({ 'account.account_name': 'ASC' })
@@ -2405,6 +2418,68 @@ export class XeroAccountsService {
     }
   }
 
+  /**
+   * Task #134 — Self-service Remove for an orphaned cache row in
+   * `xero_bank_account_details`. Used by the Xero Settings → Bank
+   * accounts UI to drop a stray row (typically a phantom left over
+   * from the legacy Draft branch, or a Xero-side account the user
+   * doesn't want surfaced any more). Only allowed on rows scoped to
+   * the caller's active Xero integration. Also clears any open
+   * template-379 sync logs tied to the row so it disappears from the
+   * Pending Bank Account Mapping breadcrumbs.
+   */
+  async removeXeroBankAccountCacheRow(
+    account_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+          where: { company_id, status: 'ACTIVE' },
+        })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const row = await this.xeroBankAccountDetails.findOne({
+        where: {
+          account_id,
+          integration_id: xeroDetails.integration_id,
+        },
+      });
+      if (!row) {
+        return framedResponse('ERROR', 'Xero bank account cache row not found');
+      }
+
+      // Best-effort: clear any pending-mapping breadcrumbs first so
+      // the sync log UI reflects the removal even if the delete
+      // races with another scheduler tick.
+      await this.xeroService.clearPendingBankMappingLogs(
+        xeroDetails.integration_id,
+        row.id,
+      );
+
+      const result = await this.xeroBankAccountDetails
+        .createQueryBuilder()
+        .delete()
+        .from(XeroBankAccountDetails)
+        .where('id = :id', { id: row.id })
+        .execute();
+
+      this.logger.log(
+        `[Task #134] removeXeroBankAccountCacheRow: company=${company_id} account_id=${account_id} affected=${result.affected || 0} by user=${decoded?.userId}`,
+      );
+
+      return framedResponse(
+        'SUCCESS',
+        'Xero bank account cache row removed successfully',
+      );
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
+
   async unMappingAccount(account_id: string, company_id: number, decoded: any) {
     try {
       const xeroDetails = company_id
@@ -2434,6 +2509,23 @@ export class XeroAccountsService {
         .execute();
 
       if (response?.affected > 0) {
+        // Task #134 — Best-effort: clear any open template-379
+        // pending-mapping breadcrumbs so the Sync Log UI stays in
+        // sync with the now-unmapped row.
+        try {
+          const row = await this.xeroBankAccountDetails.findOne({
+            where: {
+              account_id,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+          if (row?.id) {
+            await this.xeroService.clearPendingBankMappingLogs(
+              xeroDetails.integration_id,
+              row.id,
+            );
+          }
+        } catch {}
         return `Accounts has been unmapped successfully`;
       } else {
         return `Accounts are not unmapped`;
@@ -2470,66 +2562,35 @@ export class XeroAccountsService {
           xeroDetails.integrationDetails.integration_status,
         )
       ) {
+        // Task #134 — Drafts are local-only (no Xero placeholder row).
+        // Open accounts push only when both auto-create flags allow it.
         if (data.status === 'Draft') {
-          const payload = {
-            tenant_id: xeroDetails.tenant_id,
-            integration_id: xeroDetails.integration_id,
-            account_id: accountDetails.id,
-            account_name: accountDetails.account_name,
-            account_number: accountDetails.account_number,
-            bsb_number: accountDetails.bsb_number,
-            account_status: 'DRAFT',
-            mapped_status: 'System',
-            description: accountDetails.account_type,
-            pt_bank_account_id: bank_account_id,
-            created_by: accountDetails.created_by,
-            created_on: accountDetails.created_on,
-            created_group: accountDetails.created_group,
-          };
-
-          const response: any = await this.insertAccountDetails(payload);
           this.logger.log(
-            `Xero Account details inserted successfully with data: ${JSON.stringify(response)}`,
+            `[Task #134] Draft bank account id=${bank_account_id} — no Xero placeholder created.`,
           );
-          if (response) {
-            const addSyncLogResponse =
-              await this.xeroService.insertXeroSyncLogs(decoded, {
-                integration_id: xeroDetails.integration_id,
-                log_template_id: 17,
-                dynamic_values: { account_name: payload?.account_name },
-                project_id: null,
-                contract_id: null,
-                reference: {
-                  xeroId: response?.id,
-                  paytradeId: accountDetails?.id,
-                },
-                reference_id: accountDetails?.id,
-                history: [
-                  `API triggered from bank account ${payload?.account_name}`,
-                  'Export will not occur in draft state',
-                ],
-                important_checks: {},
-                error_message: null,
-                xero_records: [],
-                paytrade_records: [accountDetails],
-                new_records: null,
-                updated_records: null,
-                synced_records: null,
-              });
-          }
         } else if (data.status === 'Open') {
-          const xeroPayload = {
-            bank_account_id,
-            mapped_status: 'System',
-          };
+          if (!xeroDetails.pt_to_xero_bank_auto_create) {
+            this.logger.log(
+              `[Task #134] Skipping Xero auto-create for bank account ${accountDetails.account_name} (id=${bank_account_id}) — pt_to_xero_bank_auto_create is disabled for company ${data.company_id}.`,
+            );
+          } else if (accountDetails.skip_xero_auto_create) {
+            this.logger.log(
+              `[Task #134] Skipping Xero auto-create for bank account ${accountDetails.account_name} (id=${bank_account_id}) — bank_account.skip_xero_auto_create=true.`,
+            );
+          } else {
+            const xeroPayload = {
+              bank_account_id,
+              mapped_status: 'System',
+            };
 
-          const xeroResponse: any = await this.createBankAccount(
-            decoded,
-            xeroPayload,
-          );
-          this.logger.log(
-            `Xero Account details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
-          );
+            const xeroResponse: any = await this.createBankAccount(
+              decoded,
+              xeroPayload,
+            );
+            this.logger.log(
+              `Xero Account details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
+            );
+          }
         }
       }
       return true;
@@ -2563,56 +2624,25 @@ export class XeroAccountsService {
           accountDetails.bank_account_id,
           xeroDetails.integration_id,
         );
-        if (isAccountExists) {
-          if (accountDetails.status === 'Draft' && data.status === 'Draft') {
-            const payload = {
-              tenant_id: xeroDetails.tenant_id,
-              integration_id: xeroDetails.integration_id,
-              account_id: accountDetails.id,
-              account_name: data.account_name,
-              account_number: data.account_number,
-              bsb_number: data.bsb_number,
-              description: data.account_type,
-              pt_bank_account_id: accountDetails.bank_account_id,
-              updated_by: data.updated_by,
-              updated_on: moment.tz('UTC'),
-              updated_group: 'USER',
-            };
 
-            const response: any = await this.updateAccountDetails(payload);
+        // Task #134 — Draft→Draft is a no-op; Draft→Open pushes only when allowed.
+        if (accountDetails.status === 'Draft' && data.status === 'Draft') {
+          this.logger.log(
+            `[Task #134] Draft→Draft edit id=${bank_account_id} — no Xero-side action.`,
+          );
+        } else if (
+          accountDetails.status === 'Draft' &&
+          data.status === 'Open'
+        ) {
+          if (!xeroDetails.pt_to_xero_bank_auto_create) {
             this.logger.log(
-              `Xero Client supplier details inserted successfully with data: ${JSON.stringify(response)}`,
+              `[Task #134] Skipping Xero create on Draft→Open for ${accountDetails.account_name} (id=${bank_account_id}) — pt_to_xero_bank_auto_create disabled.`,
             );
-            if (response) {
-              const addSyncLogResponse =
-                await this.xeroService.insertXeroSyncLogs(decoded, {
-                  integration_id: xeroDetails.integration_id,
-                  log_template_id: 21,
-                  dynamic_values: { account_name: payload?.account_name },
-                  project_id: null,
-                  contract_id: null,
-                  reference: {
-                    xeroId: response?.id,
-                    paytradeId: accountDetails?.id,
-                  },
-                  reference_id: accountDetails?.id,
-                  history: [
-                    `API triggered from bank account ${payload?.account_name}`,
-                    'Export will not occur in draft state',
-                  ],
-                  important_checks: {},
-                  error_message: null,
-                  xero_records: [],
-                  paytrade_records: [accountDetails],
-                  new_records: null,
-                  updated_records: null,
-                  synced_records: null,
-                });
-            }
-          } else if (
-            accountDetails.status === 'Draft' &&
-            data.status === 'Open'
-          ) {
+          } else if (accountDetails.skip_xero_auto_create) {
+            this.logger.log(
+              `[Task #134] Skipping Xero create on Draft→Open for ${accountDetails.account_name} (id=${bank_account_id}) — bank_account.skip_xero_auto_create=true.`,
+            );
+          } else {
             const xeroPayload = {
               bank_account_id,
               mapped_status: 'System',
@@ -2625,18 +2655,18 @@ export class XeroAccountsService {
             this.logger.log(
               `Xero account details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
             );
-          } else if (accountDetails.status === 'Open') {
-            const xeroPayload = {
-              bank_account_id: accountDetails.bank_account_id,
-            };
-            const xeroResponse: any = await this.editBankAccount(
-              decoded,
-              xeroPayload,
-            );
-            this.logger.log(
-              `Xero account details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
-            );
           }
+        } else if (accountDetails.status === 'Open' && isAccountExists) {
+          const xeroPayload = {
+            bank_account_id: accountDetails.bank_account_id,
+          };
+          const xeroResponse: any = await this.editBankAccount(
+            decoded,
+            xeroPayload,
+          );
+          this.logger.log(
+            `Xero account details inserted successfully with data: ${JSON.stringify(xeroResponse)}`,
+          );
         }
       }
       return true;

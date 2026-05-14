@@ -716,6 +716,40 @@ export class XeroAccountsResolver {
     }
   }
 
+  // Task #134 — Self-service "Remove" for an orphaned/phantom Xero
+  // bank account cache row. Mirrors `unMappingAccount` (which only
+  // clears the link) but actually drops the row from
+  // `xero_bank_account_details` so it disappears from the Xero
+  // Settings → Bank accounts UI. Also clears any open template-379
+  // "Pending manual map" sync log breadcrumbs.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'removeXeroBankAccountCacheRow',
+    description:
+      'Removes a Xero bank account cache row (xero_bank_account_details) for the caller\'s active Xero integration.',
+  })
+  async removeXeroBankAccountCacheRow(
+    @Context() context,
+    @Args('account_id', {
+      description: 'Xero account_id of the cache row to remove.',
+    })
+    account_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      return await this.xeroAccountsService.removeXeroBankAccountCacheRow(
+        account_id,
+        companyId,
+        decoded,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {

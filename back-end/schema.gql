@@ -14299,6 +14299,11 @@ type Mutation {
   ): StringResponse!
 
   """
+  Admin-only: deletes phantom xero_bank_account_details rows and clears their pending bank-mapping sync logs. Idempotent.
+  """
+  cleanupPhantomXeroBankAccounts: StringResponse!
+
+  """
   Completes a draft bank account with the required missing fields and activates it.
   """
   completeBankAccountDraft(
@@ -15292,6 +15297,14 @@ type Mutation {
     """Unique ID of the failed notice to regenerate"""
     noticeId: Float!
   ): RegenerateNoticeResponse!
+
+  """
+  Removes a Xero bank account cache row (xero_bank_account_details) for the caller's active Xero integration.
+  """
+  removeXeroBankAccountCacheRow(
+    """Xero account_id of the cache row to remove."""
+    account_id: String!
+  ): StringResponse!
 
   """Sends a data deletion request email to admin on behalf of the user."""
   requestDataDeletion(entity_name: String, request_type: String!): StringResponse!

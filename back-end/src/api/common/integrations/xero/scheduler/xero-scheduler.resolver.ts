@@ -36,6 +36,30 @@ export class XeroSchedulerResolver {
     this.logger = new PaytradeLogger('XERO_SCHEDULER_RESOLVER');
   }
 
+  // Task #134 — Admin-triggered global cleanup of phantom Xero
+  // bank-account cache rows. Same idempotent routine that runs ~60s
+  // after bootstrap; logs per-company counts.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'cleanupPhantomXeroBankAccounts',
+    description:
+      'Admin-only: deletes phantom xero_bank_account_details rows and clears their pending bank-mapping sync logs. Idempotent.',
+  })
+  async cleanupPhantomXeroBankAccounts(@Context() context) {
+    try {
+      await this.jwtInternalService.decodeJwtToken(context);
+      const result =
+        await this.xeroSchedulerService.cleanupPhantomXeroBankAccounts();
+      return framedResponse(
+        'SUCCESS',
+        `Cleanup complete: deleted ${result.totalDeleted} phantom row(s), cleared ${result.totalLogsCleared} sync log(s) across ${result.perCompany.length} company/companies.`,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => StringResponse, {

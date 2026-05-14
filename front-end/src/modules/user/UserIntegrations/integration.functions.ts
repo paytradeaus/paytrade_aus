@@ -3156,6 +3156,50 @@ export const unMappingBankAccounts = async (
     setLoading && setLoading(false);
   }
 };
+// Task #134 — Self-service "Remove" for an orphaned Xero bank
+// account cache row (e.g. a phantom row left over from the legacy
+// Draft branch). Calls the matching backend mutation and surfaces
+// the result via the standard toasts so the Xero Settings → Bank
+// accounts table can refresh after the row is dropped.
+export const removeXeroBankAccountCacheRow = async (
+  data: { accountId: string },
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation RemoveXeroBankAccountCacheRow($accountId: String!) {
+          removeXeroBankAccountCacheRow(account_id: $accountId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.removeXeroBankAccountCacheRow?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.removeXeroBankAccountCacheRow.message);
+      return true;
+    }
+    if (
+      response?.data?.removeXeroBankAccountCacheRow?.status ===
+      ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.removeXeroBankAccountCacheRow.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
 export const unMappingBills = async (
   data: any,
   setLoading?: Function

@@ -216,6 +216,118 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         ),
       );
     }, 90_000);
+
+    // Task #134 — Idempotent startup cleanup of phantom rows minted by
+    // the legacy Draft branch of addBankAccountToXero.
+    setTimeout(() => {
+      this.cleanupPhantomXeroBankAccounts().catch((err) =>
+        this.logger.warn(
+          `[Task #134] cleanupPhantomXeroBankAccounts failed: ${err?.message || err}`,
+        ),
+      );
+    }, 60_000);
+  }
+
+  /**
+   * Task #134 — Idempotent cleanup of phantom xero_bank_account_details
+   * rows. Phantom = account_id is non-UUID OR matches a bank_accounts.id,
+   * with account_status='DRAFT' and mapped_status='System'. Deletes
+   * template-379 pending-mapping logs first, then the row itself.
+   * Returns per-company deleted/logsCleared counts and logs them.
+   */
+  async cleanupPhantomXeroBankAccounts(): Promise<{
+    totalDeleted: number;
+    totalLogsCleared: number;
+    perCompany: Array<{
+      company_id: number | null;
+      integration_id: number;
+      deleted: number;
+      logs_cleared: number;
+    }>;
+  }> {
+    const perCompanyMap = new Map<
+      number,
+      { company_id: number | null; integration_id: number; deleted: number; logs_cleared: number }
+    >();
+    let totalDeleted = 0;
+    let totalLogsCleared = 0;
+    try {
+      const phantoms = await this.xeroBankAccountDetails
+        .createQueryBuilder('xba')
+        .leftJoin(
+          XeroIntegrationDetails,
+          'xid',
+          'xid.integration_id = xba.integration_id',
+        )
+        .select([
+          'xba.id AS id',
+          'xba.integration_id AS integration_id',
+          'xid.company_id AS company_id',
+        ])
+        .where(`xba.account_status = 'DRAFT'`)
+        .andWhere(`xba.mapped_status = 'System'`)
+        .andWhere(
+          `(xba.account_id::text !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' OR EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = xba.account_id))`,
+        )
+        .getRawMany();
+
+      if (!phantoms.length) {
+        this.logger.log(
+          `[Task #134] cleanupPhantomXeroBankAccounts: no phantom rows found`,
+        );
+        return { totalDeleted: 0, totalLogsCleared: 0, perCompany: [] };
+      }
+
+      for (const p of phantoms) {
+        try {
+          const cleared = await this.xeroService.clearPendingBankMappingLogs(
+            p.integration_id,
+            p.id,
+          );
+          await this.xeroBankAccountDetails
+            .createQueryBuilder()
+            .delete()
+            .where('id = :id', { id: p.id })
+            .execute();
+          totalDeleted++;
+          totalLogsCleared += cleared || 0;
+          const key = Number(p.integration_id);
+          const entry = perCompanyMap.get(key) || {
+            company_id: p.company_id != null ? Number(p.company_id) : null,
+            integration_id: key,
+            deleted: 0,
+            logs_cleared: 0,
+          };
+          entry.deleted++;
+          entry.logs_cleared += cleared || 0;
+          perCompanyMap.set(key, entry);
+        } catch (rowErr: any) {
+          this.logger.warn(
+            `[Task #134] cleanupPhantomXeroBankAccounts: failed to delete phantom ${p.id} (integration_id=${p.integration_id}, company_id=${p.company_id}): ${rowErr?.message || rowErr}`,
+          );
+        }
+      }
+
+      const perCompany = Array.from(perCompanyMap.values());
+      for (const c of perCompany) {
+        this.logger.log(
+          `[Task #134] cleanupPhantomXeroBankAccounts: company_id=${c.company_id} integration_id=${c.integration_id} deleted=${c.deleted} sync_logs_cleared=${c.logs_cleared}`,
+        );
+      }
+      this.logger.log(
+        `[Task #134] cleanupPhantomXeroBankAccounts: total deleted=${totalDeleted}/${phantoms.length}, total sync_logs_cleared=${totalLogsCleared} across ${perCompany.length} companies`,
+      );
+      return { totalDeleted, totalLogsCleared, perCompany };
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #134] cleanupPhantomXeroBankAccounts aborted: ${err?.message || err}`,
+      );
+      return {
+        totalDeleted,
+        totalLogsCleared,
+        perCompany: Array.from(perCompanyMap.values()),
+      };
+    }
   }
 
   /**
@@ -239,6 +351,12 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         .where('xba.pt_bank_account_id IS NULL')
         .andWhere('xba.account_number IS NOT NULL')
         .andWhere(`xba.account_number <> ''`)
+        // Task #134 — Real, ACTIVE Xero rows only: valid UUID and no
+        // collision with bank_accounts.id (phantom signature).
+        .andWhere(`xba.account_status = 'ACTIVE'`)
+        .andWhere(
+          `xba.account_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = xba.account_id)`,
+        )
         .getRawAndEntities();
 
       const bankRepo =
@@ -1373,6 +1491,11 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             },
           )
           .andWhere('account.pt_bank_account_id IS NULL')
+          // Task #134 — Real, ACTIVE Xero rows only.
+          .andWhere(`account.account_status = 'ACTIVE'`)
+          .andWhere(
+            `account.account_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.id = account.account_id)`,
+          )
           .orderBy({ 'account.account_name': 'ASC' })
           .getRawMany();
 
