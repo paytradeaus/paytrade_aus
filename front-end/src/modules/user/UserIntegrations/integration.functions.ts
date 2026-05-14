@@ -4496,6 +4496,11 @@ export const manualXeroCatchupDiscover = async (variables: {
     xero_summary?: string;
   }>;
   counts?: Record<string, number>;
+  notes?: {
+    xero_skipped_no_tracking?: number;
+    xero_total_in_window?: number;
+    [key: string]: any;
+  };
   truncated?: boolean;
 }> => {
   try {

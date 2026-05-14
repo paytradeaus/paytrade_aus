@@ -3139,6 +3139,45 @@ function ManualXeroSyncDialog({
                   </span>
                 )}
               </div>
+              {catchupType === "invoice_bill" &&
+                Number(
+                  (catchupResult as any)?.notes?.xero_skipped_no_tracking ?? 0,
+                ) > 0 && (
+                  <div
+                    style={{
+                      padding: "8px 10px",
+                      marginBottom: "8px",
+                      background: "#fff8e1",
+                      border: "1px solid #f0c36d",
+                      borderRadius: "4px",
+                      color: "#7a5b00",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <b>Heads up:</b> Xero returned{" "}
+                    {Number(
+                      (catchupResult as any)?.notes?.xero_total_in_window ?? 0,
+                    )}{" "}
+                    invoice/bill record
+                    {Number(
+                      (catchupResult as any)?.notes?.xero_total_in_window ?? 0,
+                    ) === 1
+                      ? ""
+                      : "s"}{" "}
+                    in this window, but{" "}
+                    {Number(
+                      (catchupResult as any)?.notes?.xero_skipped_no_tracking ??
+                        0,
+                    )}{" "}
+                    of them were skipped because their line items don't carry a
+                    tracking-category option that PayTrade has linked to a
+                    project/contract. Catch-up sync only surfaces invoices that
+                    can be auto-matched to a PT project — add a recognised
+                    project/contract tracking category in Xero (or use the
+                    Single record tab to import them and assign manually) to
+                    bring them into the catch-up flow.
+                  </div>
+                )}
               <div
                 style={{
                   marginBottom: "8px",

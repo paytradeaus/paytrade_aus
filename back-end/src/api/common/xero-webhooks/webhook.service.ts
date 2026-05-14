@@ -14926,6 +14926,7 @@ export class XeroWebhookService {
       xero_summary?: string;
     };
     const rows: Row[] = [];
+    const notes: Record<string, any> = {};
     let truncated = false;
 
     try {
@@ -15000,11 +15001,30 @@ export class XeroWebhookService {
           if (m.pt_claim_id) ptToXeroMap.set(Number(m.pt_claim_id), m);
         }
 
-        // Xero side — invoices dated in window. Auto-page up to
-        // MAX_XERO_PAGES or until the time budget is exhausted.
+        // Xero side — invoices CREATED OR MODIFIED in window.
+        //
+        // Catch-up semantics: the user's mental model is "what's new in
+        // Xero since I last synced", which means we must filter by when
+        // the record was created/updated in Xero — NOT by the
+        // transactional `Date` field stamped on the bill (which can be
+        // backdated to the supplier's invoice date and fall outside the
+        // window even for bills created today).
+        //
+        // We mirror the contact-side approach: pass `ifModifiedSince`
+        // as the lower bound and client-side filter the upper bound
+        // by `updatedDateUTC` so the explicit date window is honoured.
+        // Auto-page up to MAX_XERO_PAGES or until the time budget is
+        // exhausted.
+        // Sort ASC by UpdatedDateUTC so we can early-break once a record's
+        // updatedDateUTC exceeds the upper bound — guarantees we don't
+        // burn the page budget on post-window rows and miss in-window
+        // records below them. Raw fetched count drives truncation
+        // detection so a full page-budget run still flags truncated=true
+        // even if the filter dropped some.
         const xeroInvoicesRaw: any[] = [];
+        const invToUpper = toDate.clone().endOf('day').toDate();
+        let invStoppedByUpper = false;
         try {
-          const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
           for (let page = 1; page <= MAX_XERO_PAGES; page++) {
             if (budgetExceeded()) {
               truncated = true;
@@ -15012,22 +15032,43 @@ export class XeroWebhookService {
             }
             const resp = await this.xero.accountingApi.getInvoices(
               tenant_id,
+              fromDate.startOf('day').toDate(),
               undefined,
-              where,
-              'Date DESC',
+              'UpdatedDateUTC ASC',
               undefined,
               undefined,
               undefined,
               undefined,
               page,
             );
-            const batch = resp?.body?.invoices || [];
-            xeroInvoicesRaw.push(...batch);
-            if (batch.length < XERO_PAGE_SIZE) break;
+            const batchAll = resp?.body?.invoices || [];
+            for (const inv of batchAll) {
+              const u = inv?.updatedDateUTC;
+              let withinUpper = true;
+              if (u) {
+                try {
+                  withinUpper = moment(u).toDate() <= invToUpper;
+                } catch {
+                  withinUpper = true;
+                }
+              }
+              if (!withinUpper) {
+                invStoppedByUpper = true;
+                break;
+              }
+              xeroInvoicesRaw.push(inv);
+            }
+            if (invStoppedByUpper) break;
+            if (batchAll.length < XERO_PAGE_SIZE) break;
             if (xeroInvoicesRaw.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroInvoicesRaw.length = PER_SIDE_CAP;
               break;
+            }
+            if (page === MAX_XERO_PAGES && batchAll.length === XERO_PAGE_SIZE) {
+              // Hit page ceiling with a full page — there may still be
+              // in-window rows we never fetched.
+              truncated = true;
             }
           }
         } catch (e: any) {
@@ -15047,6 +15088,7 @@ export class XeroWebhookService {
           ptContractId: number | null;
         };
         const xeroInvoices: XeroInvWithLinks[] = [];
+        let xeroSkippedNoTracking = 0;
         for (const inv of xeroInvoicesRaw) {
           let ptProjectId: number | null = null;
           let ptContractId: number | null = null;
@@ -15067,8 +15109,15 @@ export class XeroWebhookService {
           }
           if (ptProjectId) {
             xeroInvoices.push({ inv, ptProjectId, ptContractId });
+          } else {
+            xeroSkippedNoTracking++;
           }
         }
+        // Stash for response counts so the FE can show a helpful hint
+        // when Xero returned records but tracking-resolution dropped
+        // them all (otherwise the user sees "0 rows" with no clue why).
+        notes.xero_skipped_no_tracking = xeroSkippedNoTracking;
+        notes.xero_total_in_window = xeroInvoicesRaw.length;
 
         // Index by invoiceNumber (lower-cased) for reference matching.
         const xeroByNumber = new Map<string, XeroInvWithLinks>();
@@ -15256,9 +15305,17 @@ export class XeroWebhookService {
           truncated = true;
           ptPays.length = PER_SIDE_CAP;
         }
+        // Xero side — payments CREATED OR MODIFIED in window.
+        // Same rationale + ASC/early-break guard as the invoice fetch
+        // above: filter by when the payment was created/updated in
+        // Xero (via `ifModifiedSince`), not by the transactional
+        // `Date` field which can be backdated. Sort ASC and stop once
+        // we cross the upper bound so the page budget is never burned
+        // by post-window churn.
         const xeroPays: any[] = [];
+        const payToUpper = toDate.clone().endOf('day').toDate();
+        let payStoppedByUpper = false;
         try {
-          const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
           for (let page = 1; page <= MAX_XERO_PAGES; page++) {
             if (budgetExceeded()) {
               truncated = true;
@@ -15266,18 +15323,37 @@ export class XeroWebhookService {
             }
             const resp = await this.xero.accountingApi.getPayments(
               tenant_id,
+              fromDate.startOf('day').toDate(),
               undefined,
-              where,
-              'Date DESC',
+              'UpdatedDateUTC ASC',
               page,
             );
-            const batch = resp?.body?.payments || [];
-            xeroPays.push(...batch);
-            if (batch.length < XERO_PAGE_SIZE) break;
+            const batchAll = resp?.body?.payments || [];
+            for (const pay of batchAll) {
+              const u = pay?.updatedDateUTC;
+              let withinUpper = true;
+              if (u) {
+                try {
+                  withinUpper = moment(u).toDate() <= payToUpper;
+                } catch {
+                  withinUpper = true;
+                }
+              }
+              if (!withinUpper) {
+                payStoppedByUpper = true;
+                break;
+              }
+              xeroPays.push(pay);
+            }
+            if (payStoppedByUpper) break;
+            if (batchAll.length < XERO_PAGE_SIZE) break;
             if (xeroPays.length >= PER_SIDE_CAP) {
               truncated = true;
               xeroPays.length = PER_SIDE_CAP;
               break;
+            }
+            if (page === MAX_XERO_PAGES && batchAll.length === XERO_PAGE_SIZE) {
+              truncated = true;
             }
           }
         } catch (e: any) {
@@ -15559,6 +15635,7 @@ export class XeroWebhookService {
         to_date: toIso,
         rows,
         counts,
+        notes,
         truncated,
         per_side_cap: PER_SIDE_CAP,
         elapsed_ms: Date.now() - startedAt,
