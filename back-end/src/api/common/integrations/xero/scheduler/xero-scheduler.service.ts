@@ -268,7 +268,78 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               c.bsb_number != null &&
               Number(c.bsb_number) === Number(xba.bsb_number),
           );
-          if (!match) continue;
+          if (!match) {
+            // Task #120 — leave a breadcrumb in the Xero sync log UI
+            // so this orphan is visible to operators on the Pending
+            // Bank Account Mapping page instead of being silent.
+            // Daily dedup: only one log per orphan per UTC day so
+            // unresolved orphans get a fresh breadcrumb every day
+            // without spamming the hourly scheduler runs.
+            try {
+              const alreadyLoggedToday =
+                await this.xeroService.hasSyncLogToday(
+                  xba.integration_id,
+                  379,
+                  xba.id,
+                );
+              if (!alreadyLoggedToday) {
+                const candidateRecords: Record<string, any>[] = candidates.map(
+                  (c) => ({
+                    bank_account_id: c.bank_account_id,
+                    account_name: c.account_name,
+                    account_number: c.account_number,
+                    bsb_number: c.bsb_number,
+                    status: c.status,
+                  }),
+                );
+                await this.xeroService.insertXeroSyncLogs(
+                  null,
+                  {
+                  id: null,
+                  api_name: 'backfillOrphanedXeroBankAccountLinks',
+                  api_payload: {
+                    account_id: xba.account_id,
+                    account_name: xba.account_name,
+                    account_number: xba.account_number || null,
+                    bsb_number: xba.bsb_number || null,
+                    candidate_count: candidates.length,
+                  },
+                  integration_id: xba.integration_id,
+                  log_template_id: 379,
+                  dynamic_values: {},
+                  project_id: null,
+                  contract_id: null,
+                  reference: { xeroId: xba.id, paytradeId: null },
+                  reference_id: xba.id,
+                  history: [
+                    candidates.length === 0
+                      ? `Back-fill skipped: no PayTrade bank account with account_number "${xba.account_number}" for company ${companyId}`
+                      : `Back-fill skipped: ${candidates.length} PayTrade candidate(s) found for account_number "${xba.account_number}" but none with matching BSB ${xba.bsb_number ?? '(none)'}`,
+                    'Pending manual mapping in Xero Settings → Bank accounts',
+                  ],
+                  important_checks: {
+                    'Duplicate account_number recovery': 'Pending manual map',
+                  },
+                  error_message:
+                    candidates.length === 0
+                      ? 'Orphaned Xero bank account — no PayTrade match. Please map manually.'
+                      : 'Orphaned Xero bank account — ambiguous PayTrade candidates with no BSB match. Please map manually.',
+                  xero_records: [],
+                  paytrade_records: candidateRecords,
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                  },
+                  { skipCrossTimeDedup: true },
+                );
+              }
+            } catch (logErr: any) {
+              this.logger.warn(
+                `[Task #120] Failed to write pending-mapping sync log for xero_bank_account ${xba.id}: ${logErr?.message || logErr}`,
+              );
+            }
+            continue;
+          }
 
           await this.xeroBankAccountDetails
             .createQueryBuilder()
@@ -2293,41 +2364,71 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   // instead of being a silent warn-only line, but
                   // don't rethrow (that's what caused the hourly
                   // ERROR loop).
-                  await this.xeroService.insertXeroSyncLogs(decoded, {
-                    id: sync_id || null,
-                    api_name: 'createOrUpdateAccountInPaytrade',
-                    api_payload: {
-                      account_id,
-                      account_name: account.name,
-                      account_number: draftAccountNumber || null,
-                      bsb_number: draftBsbNumber || null,
-                      account_status: account.status,
-                    },
-                    integration_id: xeroDetails.integration_id,
-                    log_template_id: 379,
-                    dynamic_values: {},
-                    project_id: null,
-                    contract_id: null,
-                    reference: {
-                      xeroId: xeroAccountDetails?.id,
-                      paytradeId: null,
-                    },
-                    reference_id: xeroAccountDetails?.id,
-                    history: [
-                      `Auto-create skipped: account number already exists for company ${company_id}`,
-                      'No exact (company, account_number, bsb) match — pending manual mapping',
-                    ],
-                    important_checks: {
-                      'Duplicate account_number recovery': 'Pending manual map',
-                    },
-                    error_message:
-                      'Duplicate account number with no exact PayTrade match — please map manually',
-                    xero_records: [account],
-                    paytrade_records: [],
-                    new_records: null,
-                    updated_records: null,
-                    synced_records: null,
-                  });
+                  // Task #120 — apply daily dedup: only one
+                  // pending-mapping breadcrumb per orphan per UTC
+                  // day so unresolved orphans get a fresh log every
+                  // day without spamming the hourly scheduler runs.
+                  const alreadyLoggedToday = xeroAccountDetails?.id
+                    ? await this.xeroService.hasSyncLogToday(
+                        xeroDetails.integration_id,
+                        379,
+                        xeroAccountDetails.id,
+                      )
+                    : false;
+                  if (!alreadyLoggedToday) {
+                    const ambiguousCandidateRecords: Record<string, any>[] =
+                      orphanCandidates.map((c) => ({
+                        bank_account_id: c.bank_account_id,
+                        account_name: c.account_name,
+                        account_number: c.account_number,
+                        bsb_number: c.bsb_number,
+                        status: c.status,
+                      }));
+                    await this.xeroService.insertXeroSyncLogs(
+                      decoded,
+                      {
+                      id: sync_id || null,
+                      api_name: 'createOrUpdateAccountInPaytrade',
+                      api_payload: {
+                        account_id,
+                        account_name: account.name,
+                        account_number: draftAccountNumber || null,
+                        bsb_number: draftBsbNumber || null,
+                        account_status: account.status,
+                        candidate_count: orphanCandidates.length,
+                      },
+                      integration_id: xeroDetails.integration_id,
+                      log_template_id: 379,
+                      dynamic_values: {},
+                      project_id: null,
+                      contract_id: null,
+                      reference: {
+                        xeroId: xeroAccountDetails?.id,
+                        paytradeId: null,
+                      },
+                      reference_id: xeroAccountDetails?.id,
+                      history: [
+                        `Auto-create skipped: account number already exists for company ${company_id}`,
+                        orphanCandidates.length === 0
+                          ? 'No PayTrade candidates found — pending manual mapping'
+                          : `${orphanCandidates.length} ambiguous PayTrade candidate(s), none with matching BSB — pending manual mapping`,
+                      ],
+                      important_checks: {
+                        'Duplicate account_number recovery': 'Pending manual map',
+                      },
+                      error_message:
+                        orphanCandidates.length === 0
+                          ? 'Duplicate account number with no PayTrade match — please map manually'
+                          : 'Duplicate account number with ambiguous PayTrade candidates (no BSB match) — please map manually',
+                      xero_records: [account],
+                      paytrade_records: ambiguousCandidateRecords,
+                      new_records: null,
+                      updated_records: null,
+                      synced_records: null,
+                      },
+                      { skipCrossTimeDedup: true },
+                    );
+                  }
                 } catch (recoverErr: any) {
                   this.logger.warn(
                     `[Task #115] Second-chance link after duplicate-account error failed: ${recoverErr?.message || recoverErr}`,

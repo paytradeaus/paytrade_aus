@@ -1161,9 +1161,36 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Task #120 — Returns true when a `xero_sync_logs` row already
+   * exists today (UTC) for the given (integration_id,
+   * log_template_id, reference_id) triplet. Callers use this to
+   * implement "one breadcrumb per orphan per day" semantics for
+   * pending-mapping logs without spamming the Xero sync log UI.
+   */
+  async hasSyncLogToday(
+    integration_id: number,
+    log_template_id: number,
+    reference_id: string | null,
+  ): Promise<boolean> {
+    if (!integration_id || !log_template_id || !reference_id) return false;
+    const startOfDayUtc = moment.utc().startOf('day').toDate();
+    const existing = await this.xeroSyncLogs
+      .createQueryBuilder('log')
+      .select('log.id', 'id')
+      .where('log.integration_id = :integration_id', { integration_id })
+      .andWhere('log.log_template_id = :log_template_id', { log_template_id })
+      .andWhere('log.reference_id = :reference_id', { reference_id })
+      .andWhere('log.created_on >= :startOfDayUtc', { startOfDayUtc })
+      .limit(1)
+      .getRawOne();
+    return !!existing;
+  }
+
   async insertXeroSyncLogs(
     decoded,
     createXeroSyncLogInput: CreateXeroSyncLogInput,
+    options?: { skipCrossTimeDedup?: boolean },
   ) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (createXeroSyncLogInput.contract_id != null && !uuidRegex.test(String(createXeroSyncLogInput.contract_id))) {
@@ -1186,6 +1213,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         where: { id: createXeroSyncLogInput?.log_template_id },
       });
       if (
+        !options?.skipCrossTimeDedup &&
         templateDetails &&
         templateDetails.sync_status !== 'Succeeded' &&
         templateDetails.from_xero &&
