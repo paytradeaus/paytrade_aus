@@ -255,14 +255,27 @@ export class XeroAccountsService {
         }
       } else {
         try {
+          // Task #116 — Only send bankAccountNumber when we actually have
+          // a BSB + account number pair. Never send "null12345" or "".
+          const bsbDigitsCreate =
+            accountDetails.bsb_number != null
+              ? String(accountDetails.bsb_number).replace(/\D/g, '')
+              : '';
+          const acctDigitsCreate = (accountDetails.account_number || '')
+            .toString()
+            .replace(/\D/g, '');
+          const bankAccountNumberCreate =
+            bsbDigitsCreate && acctDigitsCreate
+              ? `${bsbDigitsCreate.padStart(6, '0')}${acctDigitsCreate}`
+              : undefined;
           const xeroResponse = await this.xero.accountingApi.createAccount(
             xeroDetails.tenant_id,
             {
               code: Math.floor(Math.random() * 100000).toString(),
               name: accountDetails.account_name,
-              bankAccountNumber:
-                String(accountDetails.bsb_number) +
-                accountDetails.account_number,
+              ...(bankAccountNumberCreate
+                ? { bankAccountNumber: bankAccountNumberCreate }
+                : {}),
               currencyCode: CurrencyCode.AUD,
               description: accountDetails.account_type || '',
               type: AccountType.BANK,
@@ -643,6 +656,19 @@ export class XeroAccountsService {
           bank_account_id,
         );
 
+        // Task #116 — Only send bankAccountNumber when we have both
+        // BSB + account number; otherwise omit the field.
+        const bsbDigitsImp =
+          paytradeAccountDetails.bsb_number != null
+            ? String(paytradeAccountDetails.bsb_number).replace(/\D/g, '')
+            : '';
+        const acctDigitsImp = (paytradeAccountDetails.account_number || '')
+          .toString()
+          .replace(/\D/g, '');
+        const bankAccountNumberImp =
+          bsbDigitsImp && acctDigitsImp
+            ? `${bsbDigitsImp.padStart(6, '0')}${acctDigitsImp}`
+            : undefined;
         const updateBankAccountResponse =
           await this.xero.accountingApi.updateAccount(
             xeroDetails.tenant_id,
@@ -651,9 +677,9 @@ export class XeroAccountsService {
               accounts: [
                 {
                   name: paytradeAccountDetails.account_name,
-                  bankAccountNumber:
-                    String(paytradeAccountDetails.bsb_number) +
-                    paytradeAccountDetails.account_number,
+                  ...(bankAccountNumberImp
+                    ? { bankAccountNumber: bankAccountNumberImp }
+                    : {}),
                   description: paytradeAccountDetails.account_type,
                 },
               ],
@@ -859,6 +885,19 @@ export class XeroAccountsService {
       this.logger.log(`xeroAccountDetails: ${JSON.stringify(xeroAccountDetails)}`);
       if (xeroAccountDetails.body.accounts[0] !== null) {
         try {
+          // Task #116 — Only send bankAccountNumber when we have both
+          // BSB + account number; otherwise omit the field.
+          const bsbDigitsEdit =
+            accountDetails.bsb_number != null
+              ? String(accountDetails.bsb_number).replace(/\D/g, '')
+              : '';
+          const acctDigitsEdit = (accountDetails.account_number || '')
+            .toString()
+            .replace(/\D/g, '');
+          const bankAccountNumberEdit =
+            bsbDigitsEdit && acctDigitsEdit
+              ? `${bsbDigitsEdit.padStart(6, '0')}${acctDigitsEdit}`
+              : undefined;
           const updateBankAccountResponse =
             await this.xero.accountingApi.updateAccount(
               xeroDetails.tenant_id,
@@ -867,9 +906,9 @@ export class XeroAccountsService {
                 accounts: [
                   {
                     name: accountDetails.account_name,
-                    bankAccountNumber:
-                      String(accountDetails.bsb_number) +
-                      accountDetails.account_number,
+                    ...(bankAccountNumberEdit
+                      ? { bankAccountNumber: bankAccountNumberEdit }
+                      : {}),
                     description: accountDetails.account_type,
                   },
                 ],

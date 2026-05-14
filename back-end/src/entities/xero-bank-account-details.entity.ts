@@ -32,7 +32,7 @@ export class XeroBankAccountDetails {
   @Column({ type: 'text' })
   account_name: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   account_number: string;
 
   @Column({ type: 'int', nullable: true })

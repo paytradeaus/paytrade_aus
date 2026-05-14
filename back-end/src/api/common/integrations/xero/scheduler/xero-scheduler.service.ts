@@ -2260,6 +2260,20 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 bank_account_id,
               );
 
+            // Task #116 — Only send bankAccountNumber when we actually
+            // have a BSB + account number pair. Never send "null12345"
+            // or "" back to Xero.
+            const bsbDigitsSched =
+              paytradeAccountDetails.bsb_number != null
+                ? String(paytradeAccountDetails.bsb_number).replace(/\D/g, '')
+                : '';
+            const acctDigitsSched = (paytradeAccountDetails.account_number || '')
+              .toString()
+              .replace(/\D/g, '');
+            const bankAccountNumberSched =
+              bsbDigitsSched && acctDigitsSched
+                ? `${bsbDigitsSched.padStart(6, '0')}${acctDigitsSched}`
+                : undefined;
             const updateBankAccountResponse =
               await this.xero.accountingApi.updateAccount(
                 xeroDetails.tenant_id,
@@ -2268,9 +2282,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   accounts: [
                     {
                       name: paytradeAccountDetails.account_name,
-                      bankAccountNumber:
-                        String(paytradeAccountDetails.bsb_number) +
-                        paytradeAccountDetails.account_number,
+                      ...(bankAccountNumberSched
+                        ? { bankAccountNumber: bankAccountNumberSched }
+                        : {}),
                       description: paytradeAccountDetails.account_type,
                     },
                   ],
