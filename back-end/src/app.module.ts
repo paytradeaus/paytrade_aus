@@ -114,6 +114,7 @@ import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-se
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 import { ActivityLogTemplatePlaceholderSeederModule } from './libs/@seeders/activity-log-template-placeholder-seeder.module';
 import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
+import { ManualXeroSyncGuideSeederModule } from './libs/@seeders/manual-xero-sync-guide-seeder.module';
 import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retention-mode-schema-seeder.module';
 import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-gst-schema-seeder.module';
 import { XeroRetentionJournalsSchemaSeederModule } from './libs/@seeders/xero-retention-journals-schema-seeder.module';
@@ -343,6 +344,7 @@ import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-
     EmailTemplateUrlCleanupSeederModule,
     ActivityLogTemplatePlaceholderSeederModule,
     AbaGuidesSeederModule,
+    ManualXeroSyncGuideSeederModule,
     XeroRetentionModeSchemaSeederModule,
     XeroContactGstSchemaSeederModule,
     XeroRetentionJournalsSchemaSeederModule,
