@@ -67,11 +67,22 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     }
 
     try {
+      // IMPORTANT: never return null from retryStrategy — that
+      // permanently disables reconnection and every subsequent command
+      // throws "Connection is closed." until the process restarts.
+      // Production Redis (e.g. Upstash) regularly terminates idle TCP
+      // connections, so we must retry forever with a capped backoff.
+      // maxRetriesPerRequest is also set to null so queue commands
+      // wait through transient drops instead of failing the cron tick.
       this.redis = new Redis(redisUrl, {
-        maxRetriesPerRequest: 3,
-        retryStrategy: (times) => {
-          if (times > 5) return null;
-          return Math.min(times * 1000, 5000);
+        maxRetriesPerRequest: null,
+        enableReadyCheck: true,
+        retryStrategy: (times) =>
+          Math.min(Math.max(times * 200, 1000), 30000),
+        reconnectOnError: (err) => {
+          const msg = err?.message || '';
+          // Force reconnect on Upstash / cluster READONLY blip too.
+          return msg.includes('READONLY') || msg.includes('Connection is closed');
         },
       });
 

@@ -92,11 +92,19 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     const redisUrl = process.env.REDIS_URL;
     if (redisUrl) {
       try {
+        // IMPORTANT: never return null from retryStrategy — that
+        // permanently disables reconnection and every subsequent command
+        // throws "Connection is closed." until the process restarts.
+        // Production Redis (e.g. Upstash) regularly terminates idle TCP
+        // connections, so we must retry forever with a capped backoff.
         this.redis = new Redis(redisUrl, {
-          maxRetriesPerRequest: 3,
-          retryStrategy: (times) => {
-            if (times > 5) return null;
-            return Math.min(times * 1000, 5000);
+          maxRetriesPerRequest: 5,
+          enableReadyCheck: true,
+          retryStrategy: (times) =>
+            Math.min(Math.max(times * 200, 1000), 30000),
+          reconnectOnError: (err) => {
+            const msg = err?.message || '';
+            return msg.includes('READONLY') || msg.includes('Connection is closed');
           },
         });
         this.redis.on('error', (err) => {

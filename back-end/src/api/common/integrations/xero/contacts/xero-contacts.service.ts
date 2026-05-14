@@ -77,7 +77,12 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     }
     try {
       this.redis = new Redis(redisUrl, {
-        maxRetriesPerRequest: 1,
+        maxRetriesPerRequest: 5,
+        enableReadyCheck: true,
+        reconnectOnError: (err) => {
+          const msg = err?.message || '';
+          return msg.includes('READONLY') || msg.includes('Connection is closed');
+        },
         enableOfflineQueue: false,
         lazyConnect: false,
         retryStrategy: (times) => Math.min(times * 200, 2000),
