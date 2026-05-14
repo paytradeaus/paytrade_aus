@@ -4501,7 +4501,6 @@ export const manualXeroCatchupDiscover = async (variables: {
     xero_total_in_window?: number;
     tracking_map_projects?: number;
     tracking_map_contracts?: number;
-    debug_samples?: Array<any>;
     [key: string]: any;
   };
   truncated?: boolean;

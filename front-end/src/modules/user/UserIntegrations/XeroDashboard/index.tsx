@@ -3201,50 +3201,6 @@ function ManualXeroSyncDialog({
                     </div>
                   </div>
                 )}
-              {Array.isArray(
-                (catchupResult as any)?.notes?.debug_samples,
-              ) &&
-                (catchupResult as any).notes.debug_samples.length > 0 && (
-                  <details
-                    style={{
-                      marginBottom: "8px",
-                      padding: "8px 10px",
-                      background: "#fafafa",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                    }}
-                  >
-                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-                      Debug — first{" "}
-                      {(catchupResult as any).notes.debug_samples.length} Xero
-                      record
-                      {(catchupResult as any).notes.debug_samples.length === 1
-                        ? ""
-                        : "s"}{" "}
-                      with tracking diagnostic
-                    </summary>
-                    <pre
-                      style={{
-                        marginTop: "8px",
-                        maxHeight: "260px",
-                        overflow: "auto",
-                        background: "#fff",
-                        border: "1px solid #eee",
-                        padding: "8px",
-                        fontSize: "11px",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {JSON.stringify(
-                        (catchupResult as any).notes.debug_samples,
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </details>
-                )}
               <div
                 style={{
                   marginBottom: "8px",
