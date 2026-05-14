@@ -2105,13 +2105,17 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   status: In(['Active', 'Open', 'Draft'] as any),
                 },
               });
-              const exactMatch =
-                ptCandidates.find(
-                  (c) =>
-                    xeroBsb != null &&
-                    c.bsb_number != null &&
-                    Number(c.bsb_number) === xeroBsb,
-                ) || ptCandidates[0];
+              // Task #115 — strict (company_id, account_number, bsb)
+              // match only. Removed the `|| ptCandidates[0]` fallback
+              // that could link a Xero account to the wrong sibling
+              // PayTrade account when BSB didn't match. Falls through
+              // to the draft-create path otherwise.
+              const exactMatch = ptCandidates.find(
+                (c) =>
+                  xeroBsb != null &&
+                  c.bsb_number != null &&
+                  Number(c.bsb_number) === xeroBsb,
+              );
               if (exactMatch) {
                 await this.xeroBankAccountDetails
                   .createQueryBuilder()
