@@ -4493,6 +4493,11 @@ export interface CatchupRow {
   xero_tracking_option_id?: string | null;
   xero_deep_link?: string | null;
   paytrade_deep_link?: string | null;
+  // Task #151 follow-up — cheap in-memory pre-checks surfaced at
+  // discovery time. Rendered verbatim as orange warning chips
+  // under the Xero side cell. Rows with issues are still
+  // selectable; the operator chooses whether to attempt sync.
+  blocking_issues?: string[];
 }
 
 export const manualXeroCatchupDiscover = async (variables: {

@@ -3419,6 +3419,18 @@ function ManualXeroSyncDialog({
                                       </small>
                                     </div>
                                   )}
+                                {r.blocking_issues &&
+                                  r.blocking_issues.length > 0 && (
+                                    <div style={{ marginTop: 4 }}>
+                                      {r.blocking_issues.map((iss, idx) => (
+                                        <div key={idx}>
+                                          <small style={{ color: "orange" }}>
+                                            ⚠ {iss}
+                                          </small>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 <br />
                                 <small>Xero {r.xero_id}</small>
                               </>

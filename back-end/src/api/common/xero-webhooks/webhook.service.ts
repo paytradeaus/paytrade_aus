@@ -14942,6 +14942,13 @@ export class XeroWebhookService {
       xero_tracking_option_id?: string | null;
       xero_deep_link?: string | null;
       paytrade_deep_link?: string | null;
+      // Task #151 follow-up — cheap in-memory pre-checks surfaced in
+      // discovery so the operator can see which rows will likely fail
+      // BEFORE hitting Run sync. Each issue is a short human-readable
+      // string. Populated only for invoice_bill rows today; rows with
+      // any blocking_issues are still selectable — operator chooses
+      // whether to attempt the sync anyway.
+      blocking_issues?: string[];
     };
     const rows: Row[] = [];
 
@@ -15462,6 +15469,58 @@ export class XeroWebhookService {
             }
           }
         }
+
+        // Task #151 follow-up — load the small set of mapping tables
+        // we need to run cheap per-row preflight checks in-memory.
+        // These mirror the lookups the run-sync's per-row preflight
+        // performs, so the operator sees the same "this will fail"
+        // signals at Discovery time without paying for any extra
+        // Xero API calls.
+        const mappedContacts = await this.xeroContactDetails.find({
+          where: { integration_id, pt_contact_id: Not(IsNull()) },
+        });
+        const mappedContactByXeroId = new Map<
+          string,
+          { pt_contact_id: number; contact_name: string }
+        >();
+        for (const mc of mappedContacts) {
+          if (mc.contact_id && mc.pt_contact_id) {
+            mappedContactByXeroId.set(String(mc.contact_id).toLowerCase(), {
+              pt_contact_id: Number(mc.pt_contact_id),
+              contact_name: mc.contact_name || '',
+            });
+          }
+        }
+        const allSuppliersForCompany = await this.clientSuppliersDetails.find({
+          where: { company_id },
+        });
+        const supplierByPtId = new Map<number, ClientSuppliersDetails>();
+        for (const s of allSuppliersForCompany) {
+          if (s.client_supplier_id) {
+            supplierByPtId.set(Number(s.client_supplier_id), s);
+          }
+        }
+        const allProjectOverrides = await this.supplierProjectAccountCodes.find({
+          where: { company_id },
+        });
+        const overridesBySupplierId = new Map<
+          number,
+          { project_id: number; account_code: string }[]
+        >();
+        for (const ov of allProjectOverrides) {
+          if (!ov.client_supplier_id) continue;
+          const list =
+            overridesBySupplierId.get(Number(ov.client_supplier_id)) || [];
+          list.push({
+            project_id: Number(ov.project_id),
+            account_code: ov.account_code,
+          });
+          overridesBySupplierId.set(Number(ov.client_supplier_id), list);
+        }
+        const integrationCfg = await this.xeroIntegrationDetails.findOne({
+          where: { integration_id },
+        });
+
         for (const r of rows) {
           if (r.type !== rawType) continue;
           const claim = r.pt_id
@@ -15557,6 +15616,80 @@ export class XeroWebhookService {
               detail('Resolved PT project', r.project_name),
               detail('Resolved PT contract', r.contract_name),
             ];
+
+            // Task #151 follow-up — cheap in-memory pre-checks. We
+            // only flag failures the run-sync would hit deterministi-
+            // cally on the PT side: contact mapping, missing line
+            // account codes, and (for inbound bills) supplier bill-
+            // code resolution. Does NOT auto-exclude the row from
+            // selection — the operator decides whether to attempt.
+            const issues: string[] = [];
+            const xeroContactId = inv.contact?.contactID
+              ? String(inv.contact.contactID).toLowerCase()
+              : null;
+            const mappedContact = xeroContactId
+              ? mappedContactByXeroId.get(xeroContactId) || null
+              : null;
+            if (!mappedContact) {
+              const cname = inv.contact?.name || 'Unknown contact';
+              issues.push(`Xero contact "${cname}" is not mapped to a PayTrade client/supplier`);
+            }
+            const lines: any[] = Array.isArray(inv.lineItems)
+              ? inv.lineItems
+              : [];
+            const blankCodes = lines.filter(
+              (li) => !li?.accountCode || String(li.accountCode).trim() === '',
+            );
+            if (blankCodes.length > 0) {
+              issues.push(
+                `${blankCodes.length} line item(s) have no Xero account code`,
+              );
+            }
+            const isBill =
+              String(inv.type || '').toUpperCase() === 'ACCPAY';
+            if (isBill && mappedContact) {
+              const supplier =
+                supplierByPtId.get(mappedContact.pt_contact_id) || null;
+              const overrides = supplier?.client_supplier_id
+                ? overridesBySupplierId.get(
+                    Number(supplier.client_supplier_id),
+                  ) || []
+                : [];
+              const ptProjectId =
+                xeroLink?.ptProjectId != null
+                  ? Number(xeroLink.ptProjectId)
+                  : null;
+              const unresolvedCodes = new Set<string>();
+              for (const li of lines) {
+                const candidate = li?.accountCode
+                  ? String(li.accountCode)
+                  : null;
+                const res = resolveSupplierBillCode({
+                  supplier,
+                  projectId: ptProjectId,
+                  xeroDetails: integrationCfg,
+                  projectOverrides: overrides,
+                  // Skip CoA naming-convention discovery here — it
+                  // requires a Xero API call we deliberately avoid
+                  // at Discovery time. Run-sync still does it.
+                  xeroChartOfAccounts: [],
+                  direction: 'inbound',
+                  candidateAccountCode: candidate,
+                });
+                if (res.source === 'unresolved') {
+                  unresolvedCodes.add(candidate || '(blank)');
+                }
+              }
+              if (unresolvedCodes.size > 0) {
+                const list = Array.from(unresolvedCodes).join(', ');
+                issues.push(
+                  `Supplier bill code unresolved for line account code(s): ${list}`,
+                );
+              }
+            }
+            if (issues.length > 0) {
+              r.blocking_issues = issues;
+            }
           }
         }
       } else if (rawType === 'payment') {
