@@ -15422,6 +15422,46 @@ export class XeroWebhookService {
               c.contractDetails.contract_name,
             );
         }
+        // Also seed name lookups from the integration's mapped Xero
+        // project/contract table — needed for "Xero only / needs_import"
+        // rows where there is no PT claim in the window to source the
+        // PT project/contract name from. Without this, the FE warning
+        // "No matching PayTrade project/contract" fires even when the
+        // tracking option IS mapped to a PT project.
+        const mappedPtProjectIds = Array.from(
+          new Set(
+            xeroProjects
+              .map((p) => (p.pt_project_id ? Number(p.pt_project_id) : 0))
+              .filter((n) => n > 0),
+          ),
+        );
+        const mappedPtContractIds = Array.from(
+          new Set(
+            xeroContracts
+              .map((c) => (c.pt_contract_id ? Number(c.pt_contract_id) : 0))
+              .filter((n) => n > 0),
+          ),
+        );
+        if (mappedPtProjectIds.length) {
+          const ptProjs = await this.projectDetails.find({
+            where: { project_id: In(mappedPtProjectIds) },
+          });
+          for (const p of ptProjs) {
+            if (p.project_id && p.project_name && !ptProjectNameByPtId.has(Number(p.project_id))) {
+              ptProjectNameByPtId.set(Number(p.project_id), p.project_name);
+            }
+          }
+        }
+        if (mappedPtContractIds.length) {
+          const ptCtrs = await this.contractDetails.find({
+            where: { contract_id: In(mappedPtContractIds) },
+          });
+          for (const c of ptCtrs) {
+            if (c.contract_id && c.contract_name && !ptContractNameByPtId.has(Number(c.contract_id))) {
+              ptContractNameByPtId.set(Number(c.contract_id), c.contract_name);
+            }
+          }
+        }
         for (const r of rows) {
           if (r.type !== rawType) continue;
           const claim = r.pt_id
