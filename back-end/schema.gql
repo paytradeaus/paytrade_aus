@@ -1545,6 +1545,9 @@ type AuthResponse {
 
 """Represents auto-mapping statistics"""
 type AutoMap {
+  """True when this sync was skipped because another sync is already in progress for the same company"""
+  already_running: Boolean
+
   """Number of mapped items"""
   mapped: Float
 

@@ -7,6 +7,7 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Group } from './user-details.entity';
 import { XeroIntegrationDetails } from './xero-integration-details.entity';
@@ -16,6 +17,16 @@ import { XeroInvoicesBills } from './xero-invoices-bills.entity';
 import { XeroPayments } from './xero-payments.entity';
 
 @Entity()
+// Task #135 — Partial unique index prevents duplicate Xero contact rows
+// per integration. Created with `WHERE contact_id IS NOT NULL` so the
+// existing legacy rows that pre-date `contact_id` (kept as NULL on
+// disconnected/archived integrations) don't collide. The matching DB
+// migration deduplicates existing rows before adding the index so the
+// constraint can be enforced safely on production data.
+@Index('UQ_xero_contact_details_integration_contact', ['integration_id', 'contact_id'], {
+  unique: true,
+  where: '"contact_id" IS NOT NULL',
+})
 export class XeroContactDetails {
   @PrimaryGeneratedColumn('uuid')
   id: string;

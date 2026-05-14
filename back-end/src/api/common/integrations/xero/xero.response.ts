@@ -263,6 +263,16 @@ export class AutoMap {
 
   @Field({ nullable: true, description: 'Total number of items' })
   total?: number;
+
+  // Task #135 — true when a per-company Xero contacts sync was skipped
+  // because another sync was already running. The frontend uses this
+  // flag to surface a friendly info toast instead of a success message.
+  @Field({
+    nullable: true,
+    description:
+      'True when this sync was skipped because another sync is already in progress for the same company',
+  })
+  already_running?: boolean;
 }
 
 @ObjectType({ description: 'Response wrapper for auto-map statistics' })

@@ -748,11 +748,18 @@ export default function XeroContacts() {
           {tabStatus === "Xero contacts" && (
             <>
               <CustomButton
-                buttonName="SYNC"
+                buttonName={tableLoader ? "Syncing..." : "SYNC"}
                 iconClassName="fa-light fa-sync"
                 buttonType={buttonType.CONTRAST_SMALL}
                 actionType="button"
-                onClick={() =>
+                // Task #135 — Disable while a sync (or any other table
+                // load) is in flight so a rapid double-click can't fire
+                // a second `syncAllContactsByCompanyId` mutation. The
+                // backend per-company Redis lock backstops this, but
+                // gating the button keeps the UI quiet for the user.
+                disabled={tableLoader}
+                onClick={() => {
+                  if (tableLoader) return;
                   setModelConfig({
                     show: true,
                     title: "",
@@ -760,8 +767,8 @@ export default function XeroContacts() {
                     firstButtonName: "Cancel",
                     description: "Sync xero contacts?",
                     id: "Sync_xero_contacts?",
-                  })
-                }
+                  });
+                }}
                 styles={{ margin: "0 10px 10px 10px" }}
               />
               {isXeroConnected && (

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Address, Contact, Phone, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
+import Redis from 'ioredis';
 import {
   GetMappedXeroContactListsInput,
   GetPaytradeContactListsInput,
@@ -24,9 +25,15 @@ moment.tz.setDefault('UTC');
 dotenv.config();
 
 @Injectable()
-export class XeroContactsService {
+export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
   private logger = new PaytradeLogger('XERO_CONTACTS_SERVICE');
   private xero: XeroClient;
+  // Task #135 — Per-company Redis lock to serialise sync runs and stop
+  // concurrent SYNC clicks / webhook fallbacks from racing into the
+  // check-then-insert path that produced duplicate xero_contact_details
+  // rows. Mirrors the pattern used by `XeroService.refreshTokenSet`.
+  private redis: Redis | null = null;
+  private static readonly SYNC_LOCK_TTL_SECONDS = 300; // 5 min, longer than a worst-case sync
   constructor(
     @InjectRepository(XeroIntegrationDetails)
     private xeroIntegrationDetails: Repository<XeroIntegrationDetails>,
@@ -58,6 +65,72 @@ export class XeroContactsService {
       state: '',
       httpTimeout: 10000, // Set timeout for requests
     });
+  }
+
+  onModuleInit() {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      this.logger.warn(
+        '[Task #135] REDIS_URL not configured - per-company sync lock disabled (DB-level unique index still prevents duplicate inserts)',
+      );
+      return;
+    }
+    try {
+      this.redis = new Redis(redisUrl, {
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        lazyConnect: false,
+        retryStrategy: (times) => Math.min(times * 200, 2000),
+      });
+      this.redis.on('error', (err) => {
+        this.logger.error(`Redis connection error (contacts sync lock): ${err.message}`);
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #135] Failed to connect Redis for contacts sync lock: ${err?.message}`,
+      );
+      this.redis = null;
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.redis) {
+      this.redis.disconnect();
+      this.redis = null;
+    }
+  }
+
+  private async acquireSyncLock(companyId: number): Promise<string | null> {
+    if (!this.redis) return 'no-lock'; // sentinel — proceed but rely on DB unique index
+    const lockKey = `xero-sync-contacts-lock:${companyId}`;
+    const lockValue = `${process.pid}-${Date.now()}`;
+    const result = await this.redis.set(
+      lockKey,
+      lockValue,
+      'EX',
+      XeroContactsService.SYNC_LOCK_TTL_SECONDS,
+      'NX',
+    );
+    return result === 'OK' ? lockValue : null;
+  }
+
+  private async releaseSyncLock(companyId: number, lockValue: string): Promise<void> {
+    if (!this.redis || lockValue === 'no-lock') return;
+    const lockKey = `xero-sync-contacts-lock:${companyId}`;
+    const script = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    try {
+      await this.redis.eval(script, 1, lockKey, lockValue);
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #135] Failed to release contacts sync lock for company ${companyId}: ${err?.message}`,
+      );
+    }
   }
 
   private readonly INACTIVE_STATUSES = [
@@ -1821,7 +1894,35 @@ export class XeroContactsService {
     }
   }
 
+  // Task #135 — Public entry point: serialise per-company so concurrent
+  // SYNC clicks / webhook fallbacks can't race into the check-then-insert
+  // path that produced duplicate xero_contact_details rows.
   async syncAllContactsByCompanyId(decoded: any, company_id: number) {
+    const lockValue = await this.acquireSyncLock(company_id);
+    if (!lockValue) {
+      this.logger.warn(
+        `[Task #135] syncAllContactsByCompanyId skipped for company ${company_id}: another sync is already in progress`,
+      );
+      const payload: {
+        mapped: number;
+        unmapped: number;
+        total: number;
+        already_running: boolean;
+      } = { mapped: 0, unmapped: 0, total: 0, already_running: true };
+      return framedResponse(
+        'SUCCESS',
+        'A Xero contacts sync is already in progress for this company. Please wait for it to finish.',
+        payload,
+      );
+    }
+    try {
+      return await this.runSyncAllContactsByCompanyId(decoded, company_id);
+    } finally {
+      await this.releaseSyncLock(company_id, lockValue);
+    }
+  }
+
+  private async runSyncAllContactsByCompanyId(decoded: any, company_id: number) {
     try {
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
         where: { company_id, status: 'ACTIVE' },
@@ -1927,11 +2028,21 @@ export class XeroContactsService {
             }
           });
 
-          // Batch insert new contacts
+          // Batch insert new contacts.
+          // Task #135 — Use ON CONFLICT DO NOTHING so a race that slips
+          // past the per-company Redis lock (or a sync triggered from a
+          // host where Redis is unreachable) cannot insert a duplicate
+          // row. The partial unique index on
+          // (integration_id, contact_id) WHERE contact_id IS NOT NULL
+          // is the DB-level backstop this clause hooks into.
           if (newContacts.length > 0) {
-            const xeroContactDetails =
-              await this.xeroContactDetails.create(newContacts);
-            await this.xeroContactDetails.save(xeroContactDetails);
+            await this.xeroContactDetails
+              .createQueryBuilder()
+              .insert()
+              .into(XeroContactDetails)
+              .values(newContacts)
+              .orIgnore()
+              .execute();
           }
 
           // Batch update existing contacts
@@ -2237,15 +2348,19 @@ export class XeroContactsService {
           `CASE WHEN contact.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped' ELSE 'Unmapped' END`,
           'mapped_status',
         )
-        .addSelect('xero.company_id', 'company_id')
-        .innerJoin(
-          XeroIntegrationDetails,
-          'xero',
-          `xero.status = 'ACTIVE' AND xero.integration_id = contact.integration_id`,
+        // Task #135 — Use a subquery on the integration table instead of
+        // an inner join so a company that has more than one ACTIVE row
+        // sharing the same `integration_id` cannot multiply the contact
+        // result set. The Map-based de-dupe further down is kept as a
+        // defence in depth.
+        .where(
+          `contact.integration_id IN (
+            SELECT xero.integration_id
+            FROM xero_integration_details xero
+            WHERE xero.status = 'ACTIVE' AND xero.company_id = :companyId
+          )`,
+          { companyId: data.company_id },
         )
-        .where(`xero.company_id = :companyId`, {
-          companyId: data.company_id,
-        })
         .andWhere(`contact.contact_status <> 'ARCHIVED'`);
 
       if (data.search) {

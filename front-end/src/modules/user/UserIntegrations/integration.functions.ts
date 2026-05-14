@@ -631,6 +631,7 @@ export const syncAllContactsByCompanyId = async (
               mapped
               total
               unmapped
+              already_running
             }
             message
             status
@@ -646,6 +647,14 @@ export const syncAllContactsByCompanyId = async (
       return null; // stop further flow
     }
     if (res?.status === ApiResponse.SUCCESS) {
+      // Task #135 — When the per-company sync lock is already held by
+      // another in-flight run, the backend returns SUCCESS with an
+      // `already_running` flag in `data` so the user sees a friendly
+      // info toast instead of a noisy error.
+      if (res?.data?.already_running) {
+        toast.info(res.message);
+        return res?.data;
+      }
       showSuccessToast(res.message);
       return res?.data;
     }
