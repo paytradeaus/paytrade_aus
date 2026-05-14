@@ -4461,6 +4461,83 @@ export const manualXeroPreflight = async (variables: {
 };
 
 /**
+ * Task #147 — Catch-up discovery for the Manual Xero Sync dialog.
+ * Read-only: returns every PT-side and Xero-side record in the chosen
+ * date window, each with a per-row classification the dialog uses to
+ * batch-drive the existing per-row preflight + run-sync calls.
+ */
+export const manualXeroCatchupDiscover = async (variables: {
+  company_id: number;
+  type: "invoice_bill" | "payment" | "contact";
+  from_date: string;
+  to_date: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  type?: string;
+  from_date?: string;
+  to_date?: string;
+  rows?: Array<{
+    key: string;
+    classification:
+      | "already_in_sync"
+      | "needs_link"
+      | "needs_push"
+      | "needs_import"
+      | "blocked";
+    type: string;
+    pt_id: string | null;
+    xero_id: string | null;
+    label: string;
+    sublabel?: string;
+    hint?: string;
+    pt_summary?: string;
+    xero_summary?: string;
+  }>;
+  counts?: Record<string, number>;
+  truncated?: boolean;
+}> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query ManualXeroCatchupDiscover(
+          $company_id: Float!
+          $type: String!
+          $from_date: String!
+          $to_date: String!
+        ) {
+          manualXeroCatchupDiscover(
+            company_id: $company_id
+            type: $type
+            from_date: $from_date
+            to_date: $to_date
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.manualXeroCatchupDiscover;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return { success: false, message: "Xero re-authentication required." };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: false, message: res?.message };
+    }
+    return parsed;
+  } catch (error: any) {
+    return { success: false, message: error?.message || ApiResponse.ERROR };
+  }
+};
+
+/**
  * Task #136 — Two-sided manual Xero sync runner. Calls
  * `manualXeroTwoSidedSync`, which validates the preflight action token and
  * dispatches the chosen direction (import / push / link).

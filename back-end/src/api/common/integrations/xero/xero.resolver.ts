@@ -1490,6 +1490,81 @@ export class XeroResolver {
   }
 
   /**
+   * Task #147 — Catch-up discovery mode for the Manual Xero Sync
+   * dialog. Read-only: returns every PT-side and Xero-side record in
+   * the chosen date window with a per-row classification (needs_push /
+   * needs_import / needs_link / already_in_sync / blocked). The
+   * frontend then drives existing per-row preflight + run sync calls
+   * sequentially — no new sync engine here.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => StringResponse, {
+    name: 'manualXeroCatchupDiscover',
+    description:
+      'List PT-side and Xero-side records in a date window with per-row sync classification (needs_push / needs_import / needs_link / already_in_sync / blocked). Used by the catch-up tab in the Manual Xero Sync dialog.',
+  })
+  async manualXeroCatchupDiscover(
+    @Context() context,
+    @Args('company_id') company_id: number,
+    @Args('type', {
+      description: 'One of: invoice_bill, payment, contact',
+    })
+    type: string,
+    @Args('from_date', { description: 'ISO date (YYYY-MM-DD)' })
+    from_date: string,
+    @Args('to_date', { description: 'ISO date (YYYY-MM-DD)' })
+    to_date: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const callerCompanyId =
+        decoded?.companyId ?? decoded?.company_id ?? null;
+      if (
+        !callerCompanyId ||
+        Number(callerCompanyId) !== Number(company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+            rows: [],
+          }),
+        );
+      }
+      const result = await this.xeroWebhookService.manualXeroCatchupDiscover(
+        decoded,
+        { company_id, type, from_date, to_date },
+      );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      if (this.refreshTokenReAuthenticate({ error })) {
+        const decoded = await this.jwtInternalService.decodeJwtToken(context);
+        const response = await this.xeroService.getAuthUrl(
+          company_id,
+          decoded?.userId,
+          false,
+          decoded?.timezone,
+        );
+        return framedResponse('XERO_REFRESH', response);
+      }
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+          rows: [],
+        }),
+      );
+    }
+  }
+
+  /**
    * Task #136 — Two-sided Manual Xero Sync runner. Validates the action
    * token signed by `manualXeroPreflight` and dispatches the chosen
    * direction (import / push / link).

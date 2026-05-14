@@ -33,6 +33,7 @@ import {
   manualXeroPaytradeLookup,
   manualXeroPreflight,
   manualXeroTwoSidedSync,
+  manualXeroCatchupDiscover,
   SkipContractMapping,
   syncAllBankAccountsByCompanyId,
   syncAllContactsByCompanyId,
@@ -1692,6 +1693,37 @@ function ManualXeroSyncDialog({
   const [preflightError, setPreflightError] = useState<string | null>(null);
   const [reviewed, setReviewed] = useState<boolean>(false);
 
+  // Task #147 — catch-up discovery mode. The single-record flow above
+  // remains the default; "catchup" surfaces a date-range picker and
+  // multi-select results table that batches the existing per-row
+  // preflight + run-sync calls.
+  const [mode, setMode] = useState<"single" | "catchup">("single");
+  const [catchupType, setCatchupType] = useState<
+    "invoice_bill" | "payment" | "contact"
+  >("invoice_bill");
+  const [catchupFrom, setCatchupFrom] = useState<string>("");
+  const [catchupTo, setCatchupTo] = useState<string>("");
+  const [catchupBusy, setCatchupBusy] = useState<boolean>(false);
+  const [catchupError, setCatchupError] = useState<string | null>(null);
+  const [catchupResult, setCatchupResult] = useState<any>(null);
+  const [catchupSelected, setCatchupSelected] = useState<Set<string>>(
+    new Set(),
+  );
+  const [catchupReviewed, setCatchupReviewed] = useState<boolean>(false);
+  const [catchupRunning, setCatchupRunning] = useState<boolean>(false);
+  const [catchupProgress, setCatchupProgress] = useState<{
+    done: number;
+    total: number;
+    pass: number;
+    fail: number;
+  }>({ done: 0, total: 0, pass: 0, fail: 0 });
+  const [catchupRowStatus, setCatchupRowStatus] = useState<
+    Record<
+      string,
+      { status: "pending" | "running" | "passed" | "failed"; message?: string }
+    >
+  >({});
+
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
   // this dialog.
@@ -1749,6 +1781,18 @@ function ManualXeroSyncDialog({
       setPreflight(null);
       setPreflightError(null);
       setReviewed(false);
+      setMode("single");
+      setCatchupType("invoice_bill");
+      setCatchupFrom("");
+      setCatchupTo("");
+      setCatchupBusy(false);
+      setCatchupError(null);
+      setCatchupResult(null);
+      setCatchupSelected(new Set());
+      setCatchupReviewed(false);
+      setCatchupRunning(false);
+      setCatchupProgress({ done: 0, total: 0, pass: 0, fail: 0 });
+      setCatchupRowStatus({});
     }
   }, [open]);
 
@@ -1968,7 +2012,167 @@ function ManualXeroSyncDialog({
     return false;
   };
 
+  // Task #147 — catch-up handlers.
+  const handleDiscover = async () => {
+    if (!catchupFrom || !catchupTo) {
+      setCatchupError("Pick both a from and to date.");
+      return;
+    }
+    setCatchupBusy(true);
+    setCatchupError(null);
+    setCatchupResult(null);
+    setCatchupSelected(new Set());
+    setCatchupReviewed(false);
+    setCatchupRowStatus({});
+    setCatchupProgress({ done: 0, total: 0, pass: 0, fail: 0 });
+    try {
+      const res = await manualXeroCatchupDiscover({
+        company_id: companyId,
+        type: catchupType,
+        from_date: catchupFrom,
+        to_date: catchupTo,
+      });
+      if (!res?.success) {
+        setCatchupError(res?.message || "Discovery failed.");
+      } else {
+        setCatchupResult(res);
+        // Default-select every row that the per-row preflight would
+        // most plausibly accept — exclude already-in-sync (no-op) and
+        // blocked (will fail). User can still toggle manually.
+        const initial = new Set<string>();
+        for (const row of res.rows || []) {
+          if (
+            row.classification === "needs_link" ||
+            row.classification === "needs_push" ||
+            row.classification === "needs_import"
+          ) {
+            initial.add(row.key);
+          }
+        }
+        setCatchupSelected(initial);
+      }
+    } finally {
+      setCatchupBusy(false);
+    }
+  };
+
+  const toggleCatchupRow = (key: string) => {
+    setCatchupSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleRunBatch = async () => {
+    if (!catchupResult || !Array.isArray(catchupResult.rows)) return;
+    if (!catchupReviewed) {
+      setCatchupError(
+        "Tick \u201cI've reviewed these records\u201d before running the batch.",
+      );
+      return;
+    }
+    const selectedRows = catchupResult.rows.filter((r: any) =>
+      catchupSelected.has(r.key),
+    );
+    if (!selectedRows.length) {
+      setCatchupError("Select at least one record to sync.");
+      return;
+    }
+    setCatchupError(null);
+    setCatchupRunning(true);
+    setCatchupProgress({
+      done: 0,
+      total: selectedRows.length,
+      pass: 0,
+      fail: 0,
+    });
+    const status: Record<
+      string,
+      { status: "pending" | "running" | "passed" | "failed"; message?: string }
+    > = {};
+    for (const r of selectedRows) status[r.key] = { status: "pending" };
+    setCatchupRowStatus({ ...status });
+
+    let pass = 0;
+    let fail = 0;
+    for (let i = 0; i < selectedRows.length; i++) {
+      const row = selectedRows[i];
+      status[row.key] = { status: "running" };
+      setCatchupRowStatus({ ...status });
+      try {
+        const pre = await manualXeroPreflight({
+          company_id: companyId,
+          type: catchupType,
+          xero_id: row.xero_id || null,
+          pt_id: row.pt_id || null,
+        });
+        if (!pre?.success) {
+          fail++;
+          status[row.key] = {
+            status: "failed",
+            message: pre?.message || "Pre-flight failed.",
+          };
+        } else if (pre.blocked) {
+          fail++;
+          status[row.key] = {
+            status: "failed",
+            message: pre.blockReason || "Pre-flight blocked.",
+          };
+        } else {
+          const run = await manualXeroTwoSidedSync({
+            company_id: companyId,
+            type: catchupType,
+            xero_id: row.xero_id || null,
+            pt_id: row.pt_id || null,
+            action_token: pre.actionToken,
+            reviewed: true,
+            preflight_snapshot_json: JSON.stringify(pre),
+          });
+          if (run?.success) {
+            pass++;
+            status[row.key] = {
+              status: "passed",
+              message: run?.message || run?.direction || "Synced.",
+            };
+          } else {
+            fail++;
+            status[row.key] = {
+              status: "failed",
+              message: run?.message || "Run sync failed.",
+            };
+          }
+        }
+      } catch (e: any) {
+        fail++;
+        status[row.key] = {
+          status: "failed",
+          message: e?.message || "Unexpected error.",
+        };
+      }
+      setCatchupRowStatus({ ...status });
+      setCatchupProgress({
+        done: i + 1,
+        total: selectedRows.length,
+        pass,
+        fail,
+      });
+      // Brief pause so we don't hammer the backend back-to-back.
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    setCatchupRunning(false);
+    if (onSuccess) {
+      try {
+        onSuccess();
+      } catch {
+        // best-effort refresh
+      }
+    }
+  };
+
   const runDisabled =
+    mode === "catchup" ||
     busy ||
     !preflight ||
     !preflight.actionToken ||
@@ -1987,6 +2191,48 @@ function ManualXeroSyncDialog({
       disableSecondButton={runDisabled}
       onConfirm={handleConfirm}
     >
+      {/* Task #147 — mode tabs. Single = pick one record; Catch-up =
+          discover and batch-sync everything in a date window. */}
+      <div
+        style={{
+          display: "flex",
+          gap: "4px",
+          marginBottom: "12px",
+          borderBottom: "1px solid #ddd",
+        }}
+      >
+        {(
+          [
+            { k: "single", label: "Single record" },
+            { k: "catchup", label: "Catch-up by date range" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.k}
+            type="button"
+            onClick={() => {
+              if (busy || catchupRunning) return;
+              setMode(t.k);
+            }}
+            disabled={busy || catchupRunning}
+            style={{
+              padding: "8px 14px",
+              border: "none",
+              borderBottom:
+                mode === t.k
+                  ? "2px solid #1a73e8"
+                  : "2px solid transparent",
+              background: "transparent",
+              color: mode === t.k ? "#1a73e8" : "#444",
+              fontWeight: mode === t.k ? 600 : 400,
+              cursor: busy || catchupRunning ? "not-allowed" : "pointer",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {mode === "single" && (<>
       <p style={{ fontSize: "13px", marginTop: 0, opacity: 0.8 }}>
         Pick a Xero record, a PayTrade record, or both. Click <b>Check</b> to
         inspect type, mapping, payment status and reconciliation, then tick
@@ -2699,6 +2945,372 @@ function ManualXeroSyncDialog({
               </Link>
             </div>
           ) : null}
+        </div>
+      )}
+      </>)}
+      {/* Task #147 — Catch-up by date range. */}
+      {mode === "catchup" && (
+        <div>
+          <p style={{ fontSize: "13px", marginTop: 0, opacity: 0.8 }}>
+            Pick a record type and a date window. We&apos;ll list every
+            PayTrade-side and Xero-side record in that window with a
+            recommended action (push / import / link), then sync the ones
+            you select one-by-one using the same per-row checks as the
+            single-record flow.
+          </p>
+          <div style={{ marginBottom: "12px" }}>
+            <h5 style={{ margin: "0 0 4px 0" }}>Record type</h5>
+            <select
+              value={catchupType}
+              onChange={(e) => {
+                setCatchupType(e.target.value as any);
+                setCatchupResult(null);
+                setCatchupSelected(new Set());
+                setCatchupReviewed(false);
+                setCatchupRowStatus({});
+              }}
+              disabled={catchupBusy || catchupRunning}
+              style={{ width: "100%", padding: "8px 10px" }}
+            >
+              <option value="invoice_bill">Invoices / Bills</option>
+              <option value="payment">Payments</option>
+              <option value="contact">Contacts</option>
+            </select>
+            <small style={{ opacity: 0.7 }}>
+              Bank transfers and manual journals are produced as side-
+              effects of other syncs and aren&apos;t catch-up-eligible.
+            </small>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              marginBottom: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <label style={{ flex: "1 1 140px", fontSize: "12px" }}>
+              From
+              <input
+                type="date"
+                value={catchupFrom}
+                onChange={(e) => setCatchupFrom(e.target.value)}
+                disabled={catchupBusy || catchupRunning}
+                style={{ width: "100%", padding: "6px 8px" }}
+              />
+            </label>
+            <label style={{ flex: "1 1 140px", fontSize: "12px" }}>
+              To
+              <input
+                type="date"
+                value={catchupTo}
+                onChange={(e) => setCatchupTo(e.target.value)}
+                disabled={catchupBusy || catchupRunning}
+                style={{ width: "100%", padding: "6px 8px" }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleDiscover}
+              disabled={
+                catchupBusy ||
+                catchupRunning ||
+                !catchupFrom ||
+                !catchupTo
+              }
+              style={{
+                alignSelf: "flex-end",
+                padding: "8px 14px",
+                background: "#1a73e8",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor:
+                  catchupBusy || catchupRunning || !catchupFrom || !catchupTo
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+            >
+              {catchupBusy ? "Discovering…" : "Discover"}
+            </button>
+          </div>
+          {catchupError && (
+            <div
+              style={{
+                padding: "8px 10px",
+                borderRadius: "4px",
+                background: "#fdecea",
+                color: "#a50e0e",
+                fontSize: "13px",
+                marginBottom: "10px",
+              }}
+            >
+              {catchupError}
+            </div>
+          )}
+          {catchupResult && Array.isArray(catchupResult.rows) && (
+            <>
+              <div
+                style={{
+                  fontSize: "12px",
+                  marginBottom: "8px",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <span>
+                  <b>{catchupResult.counts?.total ?? 0}</b> rows
+                </span>
+                <span style={{ color: "#137333" }}>
+                  ✓ {catchupResult.counts?.already_in_sync ?? 0} in sync
+                </span>
+                <span style={{ color: "#1a73e8" }}>
+                  ↗ {catchupResult.counts?.needs_push ?? 0} push
+                </span>
+                <span style={{ color: "#1a73e8" }}>
+                  ↘ {catchupResult.counts?.needs_import ?? 0} import
+                </span>
+                <span style={{ color: "#a86b00" }}>
+                  ⇄ {catchupResult.counts?.needs_link ?? 0} link
+                </span>
+                <span style={{ color: "#a50e0e" }}>
+                  ⨯ {catchupResult.counts?.blocked ?? 0} blocked
+                </span>
+                {catchupResult.truncated && (
+                  <span style={{ color: "#a86b00" }}>
+                    (results truncated at 200 per side — narrow the window)
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  marginBottom: "8px",
+                  display: "flex",
+                  gap: "8px",
+                  fontSize: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={catchupRunning}
+                  onClick={() => {
+                    const all = new Set<string>();
+                    for (const r of catchupResult.rows) {
+                      if (
+                        r.classification !== "already_in_sync" &&
+                        r.classification !== "blocked"
+                      )
+                        all.add(r.key);
+                    }
+                    setCatchupSelected(all);
+                  }}
+                  style={{ padding: "4px 8px" }}
+                >
+                  Select all actionable
+                </button>
+                <button
+                  type="button"
+                  disabled={catchupRunning}
+                  onClick={() => setCatchupSelected(new Set())}
+                  style={{ padding: "4px 8px" }}
+                >
+                  Clear selection
+                </button>
+                <span style={{ marginLeft: "auto", opacity: 0.7 }}>
+                  {catchupSelected.size} selected
+                </span>
+              </div>
+              <ul
+                style={{
+                  listStyle: "none",
+                  margin: "0 0 10px 0",
+                  padding: 0,
+                  maxHeight: "320px",
+                  overflowY: "auto",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                }}
+              >
+                {catchupResult.rows.map((r: any) => {
+                  const rs = catchupRowStatus[r.key];
+                  const cls = r.classification;
+                  const tagColor =
+                    cls === "already_in_sync"
+                      ? "#137333"
+                      : cls === "blocked"
+                      ? "#a50e0e"
+                      : cls === "needs_link"
+                      ? "#a86b00"
+                      : "#1a73e8";
+                  const isSelected = catchupSelected.has(r.key);
+                  const disabledRow =
+                    catchupRunning ||
+                    cls === "already_in_sync" ||
+                    cls === "blocked";
+                  return (
+                    <li
+                      key={r.key}
+                      style={{
+                        padding: "8px 10px",
+                        borderBottom: "1px solid #eee",
+                        background:
+                          rs?.status === "running"
+                            ? "#fff8e1"
+                            : rs?.status === "passed"
+                            ? "#f3fbf3"
+                            : rs?.status === "failed"
+                            ? "#fff5f5"
+                            : isSelected
+                            ? "#eaf3ff"
+                            : "transparent",
+                        fontSize: "13px",
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={disabledRow}
+                        onChange={() => toggleCatchupRow(r.key)}
+                        style={{ marginTop: "3px" }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "1px 6px",
+                              borderRadius: "3px",
+                              background: tagColor,
+                              color: "#fff",
+                              fontSize: "10px",
+                              textTransform: "uppercase",
+                              marginRight: "6px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {cls.replace(/_/g, " ")}
+                          </span>
+                          <b>{r.label}</b>
+                        </div>
+                        {r.sublabel && (
+                          <div style={{ opacity: 0.75, marginTop: "2px" }}>
+                            {r.sublabel}
+                          </div>
+                        )}
+                        {r.hint && (
+                          <div
+                            style={{
+                              opacity: 0.7,
+                              marginTop: "2px",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {r.hint}
+                          </div>
+                        )}
+                        {rs?.message && (
+                          <div
+                            style={{
+                              marginTop: "4px",
+                              color:
+                                rs.status === "failed" ? "#a50e0e" : "#137333",
+                            }}
+                          >
+                            {rs.status === "running"
+                              ? "Running…"
+                              : rs.status === "passed"
+                              ? `✓ ${rs.message}`
+                              : `⨯ ${rs.message}`}
+                          </div>
+                        )}
+                        {(r.pt_id || r.xero_id) && (
+                          <code
+                            style={{
+                              opacity: 0.55,
+                              fontSize: "11px",
+                              display: "block",
+                              marginTop: "2px",
+                            }}
+                          >
+                            {r.pt_id ? `PT ${r.pt_id}` : ""}
+                            {r.pt_id && r.xero_id ? " · " : ""}
+                            {r.xero_id ? `Xero ${r.xero_id}` : ""}
+                          </code>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "8px",
+                  fontWeight: 500,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={catchupReviewed}
+                  onChange={(e) => setCatchupReviewed(e.target.checked)}
+                  disabled={catchupRunning}
+                />
+                I&apos;ve reviewed these {catchupSelected.size} record
+                {catchupSelected.size === 1 ? "" : "s"} and want to run them.
+              </label>
+              <button
+                type="button"
+                onClick={handleRunBatch}
+                disabled={
+                  catchupRunning ||
+                  !catchupReviewed ||
+                  catchupSelected.size === 0
+                }
+                style={{
+                  padding: "8px 14px",
+                  background: "#137333",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor:
+                    catchupRunning ||
+                    !catchupReviewed ||
+                    catchupSelected.size === 0
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {catchupRunning
+                  ? `Running ${catchupProgress.done}/${catchupProgress.total}…`
+                  : `Run sync on ${catchupSelected.size} selected`}
+              </button>
+              {(catchupRunning || catchupProgress.done > 0) && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    opacity: 0.85,
+                  }}
+                >
+                  Progress: {catchupProgress.done}/{catchupProgress.total} —{" "}
+                  <span style={{ color: "#137333" }}>
+                    ✓ {catchupProgress.pass} passed
+                  </span>
+                  {" · "}
+                  <span style={{ color: "#a50e0e" }}>
+                    ⨯ {catchupProgress.fail} failed
+                  </span>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </BaseModal>

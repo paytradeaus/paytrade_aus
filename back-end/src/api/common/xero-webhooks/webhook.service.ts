@@ -14777,6 +14777,651 @@ export class XeroWebhookService {
   }
 
   /**
+   * Task #147 — Shared amount/date tolerance comparator used by both the
+   * catch-up discovery layer (`manualXeroCatchupDiscover`) and the
+   * preflight's payment-leg matcher (`manualXeroPreflight`). Returns
+   * true when |amtA − amtB| ≤ amtTol AND (if both dates are present)
+   * |daysBetween(dateA, dateB)| ≤ dayTol. This is the canonical
+   * "is this the same record" rule — keeping the two layers in lock-
+   * step prevents discovery from flagging "needs_link" only for the
+   * preflight to disagree on Run sync.
+   */
+  private compareAmountAndDate(
+    amtA: number,
+    amtB: number,
+    dateA: any,
+    dateB: any,
+    amtTol = 0.01,
+    dayTol = 2,
+  ): boolean {
+    if (Math.abs((Number(amtA) || 0) - (Number(amtB) || 0)) > amtTol) {
+      return false;
+    }
+    if (!dateA || !dateB) return true;
+    try {
+      return Math.abs(moment(dateA).diff(moment(dateB), 'days')) <= dayTol;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Task #147 — Catch-up discovery mode for Manual Xero Sync.
+   *
+   * Read-only. Given a user-defined date window and a record type,
+   * lists every PT-side and Xero-side record in the window with its
+   * mapping/link status and a per-row classification:
+   *   - already_in_sync  — both sides exist and are linked
+   *   - needs_link       — both sides exist (matched by reference,
+   *                        or by amount + date) but no mapping row
+   *   - needs_push       — exists in PT only
+   *   - needs_import     — exists in Xero only
+   *   - blocked          — push unsupported (e.g. PT-only Paid claim)
+   *
+   * No new sync engine. The frontend then drives the existing per-row
+   * `manualXeroPreflight` + `manualXeroTwoSidedSync` sequentially. The
+   * discovery's classification is a hint — the per-row preflight
+   * remains the authoritative gate (and signs the action token).
+   */
+  async manualXeroCatchupDiscover(
+    decoded: any,
+    input: {
+      company_id: number;
+      type: string;
+      from_date: string;
+      to_date: string;
+    },
+  ): Promise<any> {
+    const company_id = Number(input?.company_id);
+    const rawType = String(input?.type || '').trim().toLowerCase();
+    const fromStr = String(input?.from_date || '').trim();
+    const toStr = String(input?.to_date || '').trim();
+
+    const allowedTypes = new Set(['invoice_bill', 'payment', 'contact']);
+    if (!company_id || !rawType) {
+      return { success: false, message: 'company_id and type are required.' };
+    }
+    if (!allowedTypes.has(rawType)) {
+      return {
+        success: false,
+        message: `Catch-up discovery is supported for invoice_bill, payment and contact only. ("${rawType}" is not catch-up-eligible — bank transfers and manual journals are produced as side-effects of other syncs and have no standalone discovery surface.)`,
+      };
+    }
+    if (!fromStr || !toStr) {
+      return { success: false, message: 'from_date and to_date are required.' };
+    }
+    const fromDate = moment(fromStr, [moment.ISO_8601, 'YYYY-MM-DD'], true);
+    const toDate = moment(toStr, [moment.ISO_8601, 'YYYY-MM-DD'], true);
+    if (!fromDate.isValid() || !toDate.isValid()) {
+      return {
+        success: false,
+        message: 'from_date and to_date must be ISO dates (YYYY-MM-DD).',
+      };
+    }
+    if (fromDate.isAfter(toDate)) {
+      return { success: false, message: 'from_date must be on or before to_date.' };
+    }
+    const windowDays = toDate.diff(fromDate, 'days');
+    if (windowDays > 366) {
+      return {
+        success: false,
+        message: 'Date window cannot exceed 366 days. Pick a tighter range.',
+      };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return {
+        success: false,
+        message: 'No active Xero integration found for this company.',
+      };
+    }
+    const integration_id = xeroDetails.integration_id;
+    const tenant_id = xeroDetails.tenant_id;
+
+    // Inclusive end-of-day for the upper bound so a same-day record at
+    // 23:59 is included. Xero `where` clauses use `DateTime(y,m,d)`.
+    const fromIso = fromDate.format('YYYY-MM-DD');
+    const toIso = toDate.format('YYYY-MM-DD');
+    const fromYmd = `DateTime(${fromDate.year()},${fromDate.month() + 1},${fromDate.date()})`;
+    const toYmd = `DateTime(${toDate.year()},${toDate.month() + 1},${toDate.date()})`;
+    const PER_SIDE_CAP = 200;
+
+    type Row = {
+      key: string;
+      classification:
+        | 'already_in_sync'
+        | 'needs_link'
+        | 'needs_push'
+        | 'needs_import'
+        | 'blocked';
+      type: string;
+      pt_id: string | null;
+      xero_id: string | null;
+      label: string;
+      sublabel: string;
+      hint?: string;
+      pt_summary?: string;
+      xero_summary?: string;
+    };
+    const rows: Row[] = [];
+    let truncated = false;
+
+    try {
+      await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+      if (rawType === 'invoice_bill') {
+        // PT side — claims created in window.
+        const ptClaims = await this.paymentClaims
+          .createQueryBuilder('c')
+          .leftJoinAndSelect('c.clientSupplierDetails', 'cs')
+          .leftJoinAndSelect('c.projectDetails', 'pj')
+          .leftJoinAndSelect('c.contractDetails', 'ct')
+          .where('c.company_id = :company_id', { company_id })
+          .andWhere('c.created_on >= :from AND c.created_on < :to', {
+            from: fromDate.startOf('day').toDate(),
+            to: toDate.clone().add(1, 'day').startOf('day').toDate(),
+          })
+          .orderBy('c.created_on', 'DESC')
+          .limit(PER_SIDE_CAP + 1)
+          .getMany();
+        if (ptClaims.length > PER_SIDE_CAP) {
+          truncated = true;
+          ptClaims.length = PER_SIDE_CAP;
+        }
+        const ptClaimIds = ptClaims.map((c) => c.payment_claim_id);
+        const localMappings = ptClaimIds.length
+          ? await this.xeroInvoicesBills
+              .createQueryBuilder('x')
+              .where('x.integration_id = :integration_id', { integration_id })
+              .andWhere('x.pt_claim_id IN (:...ids)', { ids: ptClaimIds })
+              .getMany()
+          : [];
+        const ptToXeroMap = new Map<number, XeroInvoicesBills>();
+        for (const m of localMappings) {
+          if (m.pt_claim_id) ptToXeroMap.set(Number(m.pt_claim_id), m);
+        }
+
+        // Xero side — invoices dated in window. Fetch up to 2 pages.
+        const xeroInvoices: any[] = [];
+        try {
+          const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
+          for (let page = 1; page <= 2; page++) {
+            const resp = await this.xero.accountingApi.getInvoices(
+              tenant_id,
+              undefined,
+              where,
+              'Date DESC',
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              page,
+            );
+            const batch = resp?.body?.invoices || [];
+            xeroInvoices.push(...batch);
+            if (batch.length < 100) break;
+            if (xeroInvoices.length >= PER_SIDE_CAP) {
+              truncated = true;
+              xeroInvoices.length = PER_SIDE_CAP;
+              break;
+            }
+          }
+        } catch (e: any) {
+          return {
+            success: false,
+            message: `Xero invoice fetch failed: ${e?.message || e}`,
+          };
+        }
+        // Index Xero invoices by canonical id for the existing-mapping
+        // lookup AND by lower-cased invoiceNumber for the unmapped
+        // pairing pass.
+        const xeroById = new Map<string, any>();
+        const xeroByNumber = new Map<string, any>();
+        for (const inv of xeroInvoices) {
+          if (inv?.invoiceID) xeroById.set(String(inv.invoiceID), inv);
+          if (inv?.invoiceNumber) {
+            xeroByNumber.set(
+              String(inv.invoiceNumber).trim().toLowerCase(),
+              inv,
+            );
+          }
+        }
+        const consumedXeroIds = new Set<string>();
+
+        // Walk PT claims first.
+        for (const claim of ptClaims) {
+          const mapping = ptToXeroMap.get(Number(claim.payment_claim_id));
+          const ptSummary = `Claim #${claim.payment_claim_id}${claim.claim_reference ? ` — ${claim.claim_reference}` : ''} • ${claim.claim_type} • $${Number(claim.claim_amount || 0).toFixed(2)} • ${claim.clientSupplierDetails?.client_supplier_name || ''} • ${claim.status}`;
+          if (mapping?.invoice_id) {
+            consumedXeroIds.add(String(mapping.invoice_id));
+            rows.push({
+              key: `pt:${claim.payment_claim_id}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(claim.payment_claim_id),
+              xero_id: String(mapping.invoice_id),
+              label: `Claim #${claim.payment_claim_id} ↔ Xero invoice ${mapping.invoice_id}`,
+              sublabel: ptSummary,
+              pt_summary: ptSummary,
+              xero_summary: `Xero ${mapping.type || 'invoice'} ${mapping.invoice_id} — total $${Number(mapping.total_amount || 0).toFixed(2)}`,
+            });
+            continue;
+          }
+          // No mapping. Try to pair against an unconsumed Xero invoice
+          // by reference (claim_reference == invoiceNumber), then by
+          // amount + date (compareAmountAndDate, ±$0.01, ±2 days).
+          let pairedXero: any = null;
+          if (claim.claim_reference) {
+            const candidate = xeroByNumber.get(
+              String(claim.claim_reference).trim().toLowerCase(),
+            );
+            if (candidate && !consumedXeroIds.has(String(candidate.invoiceID))) {
+              pairedXero = candidate;
+            }
+          }
+          if (!pairedXero) {
+            const claimDate =
+              claim.claim_type === 'Billable'
+                ? claim.received_date
+                : claim.sent_date;
+            for (const inv of xeroInvoices) {
+              if (consumedXeroIds.has(String(inv.invoiceID))) continue;
+              if (
+                this.compareAmountAndDate(
+                  Number(claim.claim_amount || 0),
+                  Number(inv.total || 0),
+                  claimDate,
+                  inv.date,
+                )
+              ) {
+                pairedXero = inv;
+                break;
+              }
+            }
+          }
+          if (pairedXero) {
+            consumedXeroIds.add(String(pairedXero.invoiceID));
+            rows.push({
+              key: `pair:${claim.payment_claim_id}:${pairedXero.invoiceID}`,
+              classification: 'needs_link',
+              type: rawType,
+              pt_id: String(claim.payment_claim_id),
+              xero_id: String(pairedXero.invoiceID),
+              label: `Claim #${claim.payment_claim_id} ↔ ${pairedXero.invoiceNumber || pairedXero.invoiceID}`,
+              sublabel: `Both sides exist but no mapping — recommend linking.`,
+              pt_summary: ptSummary,
+              xero_summary: `${pairedXero.type} ${pairedXero.invoiceNumber || pairedXero.invoiceID} — total $${Number(pairedXero.total || 0).toFixed(2)} — ${pairedXero.status}`,
+            });
+            continue;
+          }
+          // PT-only.
+          const isPaid =
+            String(claim.status || '').toLowerCase() === 'paid';
+          rows.push({
+            key: `pt:${claim.payment_claim_id}`,
+            classification: isPaid ? 'blocked' : 'needs_push',
+            type: rawType,
+            pt_id: String(claim.payment_claim_id),
+            xero_id: null,
+            label: `Claim #${claim.payment_claim_id}${claim.claim_reference ? ` — ${claim.claim_reference}` : ''}`,
+            sublabel: isPaid
+              ? 'Locally Paid but never pushed — push blocked (reset claim to Confirmed first).'
+              : ptSummary,
+            pt_summary: ptSummary,
+            hint: isPaid
+              ? 'Reset the claim to Confirmed in PayTrade, push the invoice, then push its payments individually.'
+              : undefined,
+          });
+        }
+
+        // Walk remaining Xero invoices (Xero-only).
+        for (const inv of xeroInvoices) {
+          if (consumedXeroIds.has(String(inv.invoiceID))) continue;
+          // Either the invoice is already mapped to a PT claim outside
+          // the window (already_in_sync — surface as info), or it has
+          // no mapping (needs_import).
+          const localRow = await this.xeroInvoicesBills.findOne({
+            where: { integration_id, invoice_id: inv.invoiceID },
+          });
+          if (localRow?.pt_claim_id) {
+            rows.push({
+              key: `xero:${inv.invoiceID}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(localRow.pt_claim_id),
+              xero_id: String(inv.invoiceID),
+              label: `Xero invoice ${inv.invoiceNumber || inv.invoiceID} ↔ PT claim #${localRow.pt_claim_id}`,
+              sublabel: `${inv.type} • $${Number(inv.total || 0).toFixed(2)} • ${inv.contact?.name || ''} • ${inv.status}`,
+              xero_summary: `${inv.type} ${inv.invoiceNumber || inv.invoiceID} — total $${Number(inv.total || 0).toFixed(2)} — ${inv.status}`,
+            });
+          } else {
+            rows.push({
+              key: `xero:${inv.invoiceID}`,
+              classification: 'needs_import',
+              type: rawType,
+              pt_id: null,
+              xero_id: String(inv.invoiceID),
+              label: `Xero ${inv.type} ${inv.invoiceNumber || inv.invoiceID}`,
+              sublabel: `${inv.contact?.name || ''} • $${Number(inv.total || 0).toFixed(2)} • ${inv.status} • ${inv.date ? moment(inv.date).format('DD/MM/YYYY') : ''}`,
+              xero_summary: `${inv.type} ${inv.invoiceNumber || inv.invoiceID} — total $${Number(inv.total || 0).toFixed(2)} — ${inv.status}`,
+            });
+          }
+        }
+      } else if (rawType === 'payment') {
+        const ptPays = await this.paymentDetails
+          .createQueryBuilder('p')
+          .leftJoinAndSelect('p.clientSupplierDetails', 'cs')
+          .leftJoinAndSelect('p.xeroPayments', 'xp')
+          .where('p.company_id = :company_id', { company_id })
+          .andWhere('p.payment_date >= :from AND p.payment_date <= :to', {
+            from: fromDate.format('YYYY-MM-DD'),
+            to: toDate.format('YYYY-MM-DD'),
+          })
+          .orderBy('p.payment_date', 'DESC')
+          .limit(PER_SIDE_CAP + 1)
+          .getMany();
+        if (ptPays.length > PER_SIDE_CAP) {
+          truncated = true;
+          ptPays.length = PER_SIDE_CAP;
+        }
+        const xeroPays: any[] = [];
+        try {
+          const where = `Date >= ${fromYmd} && Date <= ${toYmd}`;
+          for (let page = 1; page <= 2; page++) {
+            const resp = await this.xero.accountingApi.getPayments(
+              tenant_id,
+              undefined,
+              where,
+              'Date DESC',
+              page,
+            );
+            const batch = resp?.body?.payments || [];
+            xeroPays.push(...batch);
+            if (batch.length < 100) break;
+            if (xeroPays.length >= PER_SIDE_CAP) {
+              truncated = true;
+              xeroPays.length = PER_SIDE_CAP;
+              break;
+            }
+          }
+        } catch (e: any) {
+          return {
+            success: false,
+            message: `Xero payment fetch failed: ${e?.message || e}`,
+          };
+        }
+        const consumedXeroIds = new Set<string>();
+        for (const p of ptPays) {
+          const xp = (p as any).xeroPayments?.[0];
+          const ptSummary = `Payment #${p.payment_id} • ${p.payment_type || ''} • $${Number(p.total_amount || 0).toFixed(2)} • ${p.payment_date} • ${p.clientSupplierDetails?.client_supplier_name || ''} • ${p.current_status || ''}`;
+          if (xp?.payment_id) {
+            consumedXeroIds.add(String(xp.payment_id));
+            rows.push({
+              key: `pt:${p.payment_id}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(p.payment_id),
+              xero_id: String(xp.payment_id),
+              label: `Payment #${p.payment_id} ↔ Xero payment ${xp.payment_id}`,
+              sublabel: ptSummary,
+              pt_summary: ptSummary,
+            });
+            continue;
+          }
+          let paired: any = null;
+          for (const xpay of xeroPays) {
+            if (consumedXeroIds.has(String(xpay.paymentID))) continue;
+            if (
+              this.compareAmountAndDate(
+                Number(p.total_amount || 0),
+                Number(xpay.amount || 0),
+                p.payment_date,
+                xpay.date,
+              )
+            ) {
+              paired = xpay;
+              break;
+            }
+          }
+          if (paired) {
+            consumedXeroIds.add(String(paired.paymentID));
+            rows.push({
+              key: `pair:${p.payment_id}:${paired.paymentID}`,
+              classification: 'needs_link',
+              type: rawType,
+              pt_id: String(p.payment_id),
+              xero_id: String(paired.paymentID),
+              label: `Payment #${p.payment_id} ↔ Xero ${paired.paymentID}`,
+              sublabel: `Amount/date match — recommend linking.`,
+              pt_summary: ptSummary,
+              xero_summary: `Xero payment ${paired.paymentID} — $${Number(paired.amount || 0).toFixed(2)} on ${paired.date} — ${paired.status}`,
+            });
+            continue;
+          }
+          rows.push({
+            key: `pt:${p.payment_id}`,
+            classification: 'needs_push',
+            type: rawType,
+            pt_id: String(p.payment_id),
+            xero_id: null,
+            label: `Payment #${p.payment_id} — $${Number(p.total_amount || 0).toFixed(2)}`,
+            sublabel: ptSummary,
+            pt_summary: ptSummary,
+          });
+        }
+        for (const xpay of xeroPays) {
+          if (consumedXeroIds.has(String(xpay.paymentID))) continue;
+          const local = await this.xeroPayments.findOne({
+            where: { integration_id, payment_id: xpay.paymentID },
+          });
+          if (local?.pt_payment_id) {
+            rows.push({
+              key: `xero:${xpay.paymentID}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(local.pt_payment_id),
+              xero_id: String(xpay.paymentID),
+              label: `Xero payment ${xpay.paymentID} ↔ PT payment #${local.pt_payment_id}`,
+              sublabel: `$${Number(xpay.amount || 0).toFixed(2)} • ${xpay.date} • ${xpay.status}`,
+              xero_summary: `Xero payment ${xpay.paymentID} — $${Number(xpay.amount || 0).toFixed(2)} on ${xpay.date} — ${xpay.status}`,
+            });
+          } else {
+            rows.push({
+              key: `xero:${xpay.paymentID}`,
+              classification: 'needs_import',
+              type: rawType,
+              pt_id: null,
+              xero_id: String(xpay.paymentID),
+              label: `Xero payment ${xpay.paymentID} — $${Number(xpay.amount || 0).toFixed(2)}`,
+              sublabel: `${xpay.date || ''} • ${xpay.status || ''} • invoice ${xpay.invoice?.invoiceID || '(none)'}`,
+              xero_summary: `Xero payment ${xpay.paymentID} — $${Number(xpay.amount || 0).toFixed(2)} on ${xpay.date} — ${xpay.status}`,
+            });
+          }
+        }
+      } else {
+        // contact
+        const ptContacts = await this.clientSuppliersDetails
+          .createQueryBuilder('cs')
+          .where('cs.company_id = :company_id', { company_id })
+          .andWhere('cs.created_on >= :from AND cs.created_on < :to', {
+            from: fromDate.startOf('day').toDate(),
+            to: toDate.clone().add(1, 'day').startOf('day').toDate(),
+          })
+          .orderBy('cs.created_on', 'DESC')
+          .limit(PER_SIDE_CAP + 1)
+          .getMany();
+        if (ptContacts.length > PER_SIDE_CAP) {
+          truncated = true;
+          ptContacts.length = PER_SIDE_CAP;
+        }
+        const ptIds = ptContacts.map((c) => c.client_supplier_id);
+        const ptMap = ptIds.length
+          ? await this.xeroContactDetails
+              .createQueryBuilder('x')
+              .where('x.integration_id = :integration_id', { integration_id })
+              .andWhere('x.pt_contact_id IN (:...ids)', { ids: ptIds })
+              .getMany()
+          : [];
+        const ptToXero = new Map<number, any>();
+        for (const m of ptMap) {
+          if (m.pt_contact_id) ptToXero.set(Number(m.pt_contact_id), m);
+        }
+        // Xero contacts modified in window — Contacts has no creation
+        // date filter so we use ifModifiedSince. For a discovery
+        // surface this is good enough: every contact touched in the
+        // window will be visible.
+        const xeroContacts: any[] = [];
+        try {
+          for (let page = 1; page <= 2; page++) {
+            const resp = await this.xero.accountingApi.getContacts(
+              tenant_id,
+              fromDate.toDate(),
+              undefined,
+              'Name ASC',
+              undefined,
+              page,
+            );
+            const batch = resp?.body?.contacts || [];
+            xeroContacts.push(...batch);
+            if (batch.length < 100) break;
+            if (xeroContacts.length >= PER_SIDE_CAP) {
+              truncated = true;
+              xeroContacts.length = PER_SIDE_CAP;
+              break;
+            }
+          }
+        } catch (e: any) {
+          return {
+            success: false,
+            message: `Xero contact fetch failed: ${e?.message || e}`,
+          };
+        }
+        const xeroByName = new Map<string, any>();
+        for (const c of xeroContacts) {
+          if (c?.name) {
+            xeroByName.set(String(c.name).trim().toLowerCase(), c);
+          }
+        }
+        const consumedXeroIds = new Set<string>();
+        for (const cs of ptContacts) {
+          const ptSummary = `${cs.client_supplier_name}${cs.business_name ? ` (${cs.business_name})` : ''} • ${cs.client_supplier_type}`;
+          const mapping = ptToXero.get(Number(cs.client_supplier_id));
+          if (mapping?.contact_id) {
+            consumedXeroIds.add(String(mapping.contact_id));
+            rows.push({
+              key: `pt:${cs.client_supplier_id}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(cs.client_supplier_id),
+              xero_id: String(mapping.contact_id),
+              label: `${cs.client_supplier_name} ↔ Xero ${mapping.contact_id}`,
+              sublabel: ptSummary,
+              pt_summary: ptSummary,
+              xero_summary: `Xero contact ${mapping.contact_id} — ${mapping.contact_name || ''}`,
+            });
+            continue;
+          }
+          const candidate = xeroByName.get(
+            String(cs.client_supplier_name || '').trim().toLowerCase(),
+          );
+          if (candidate && !consumedXeroIds.has(String(candidate.contactID))) {
+            consumedXeroIds.add(String(candidate.contactID));
+            rows.push({
+              key: `pair:${cs.client_supplier_id}:${candidate.contactID}`,
+              classification: 'needs_link',
+              type: rawType,
+              pt_id: String(cs.client_supplier_id),
+              xero_id: String(candidate.contactID),
+              label: `${cs.client_supplier_name} ↔ Xero ${candidate.contactID}`,
+              sublabel: 'Same name on both sides — recommend linking.',
+              pt_summary: ptSummary,
+              xero_summary: `Xero contact ${candidate.contactID} — ${candidate.name || ''}`,
+            });
+            continue;
+          }
+          rows.push({
+            key: `pt:${cs.client_supplier_id}`,
+            classification: 'needs_push',
+            type: rawType,
+            pt_id: String(cs.client_supplier_id),
+            xero_id: null,
+            label: cs.client_supplier_name,
+            sublabel: ptSummary,
+            pt_summary: ptSummary,
+            hint: 'PT contact push from this dialog is not yet supported — create the contact in Xero (or trigger from the contact page).',
+          });
+        }
+        for (const c of xeroContacts) {
+          if (consumedXeroIds.has(String(c.contactID))) continue;
+          const local = await this.xeroContactDetails.findOne({
+            where: { integration_id, contact_id: c.contactID },
+          });
+          if (local?.pt_contact_id) {
+            rows.push({
+              key: `xero:${c.contactID}`,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(local.pt_contact_id),
+              xero_id: String(c.contactID),
+              label: `Xero ${c.name || c.contactID} ↔ PT contact #${local.pt_contact_id}`,
+              sublabel: `${c.contactStatus || ''}`,
+              xero_summary: `Xero contact ${c.contactID} — ${c.name || ''}`,
+            });
+          } else {
+            rows.push({
+              key: `xero:${c.contactID}`,
+              classification: 'needs_import',
+              type: rawType,
+              pt_id: null,
+              xero_id: String(c.contactID),
+              label: `Xero contact ${c.name || c.contactID}`,
+              sublabel: `${c.contactStatus || ''}`,
+              xero_summary: `Xero contact ${c.contactID} — ${c.name || ''}`,
+            });
+          }
+        }
+      }
+
+      // Push-unsupported types fall back to needs_link / needs_import
+      // via classification — `needs_push` for `contact` already carries
+      // a hint above. The frontend's per-row preflight will still gate
+      // dispatch.
+
+      const counts = {
+        total: rows.length,
+        already_in_sync: rows.filter(
+          (r) => r.classification === 'already_in_sync',
+        ).length,
+        needs_link: rows.filter((r) => r.classification === 'needs_link')
+          .length,
+        needs_push: rows.filter((r) => r.classification === 'needs_push')
+          .length,
+        needs_import: rows.filter((r) => r.classification === 'needs_import')
+          .length,
+        blocked: rows.filter((r) => r.classification === 'blocked').length,
+      };
+      return {
+        success: true,
+        type: rawType,
+        company_id,
+        from_date: fromIso,
+        to_date: toIso,
+        rows,
+        counts,
+        truncated,
+      };
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      this.logger.error(`[MANUAL_CATCHUP] ${msg}`);
+      return { success: false, message: msg };
+    }
+  }
+
+  /**
    * Task #141 — single source of truth for the expected gross retention
    * amount compared against the outbound Xero `BankTransfer` leg
    * (`xero-payments.service.ts` ~L951). PT stores `retention_amount`

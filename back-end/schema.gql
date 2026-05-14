@@ -18953,6 +18953,22 @@ type Query {
   ): AuthResponse!
 
   """
+  List PT-side and Xero-side records in a date window with per-row sync classification (needs_push / needs_import / needs_link / already_in_sync / blocked). Used by the catch-up tab in the Manual Xero Sync dialog.
+  """
+  manualXeroCatchupDiscover(
+    company_id: Float!
+
+    """ISO date (YYYY-MM-DD)"""
+    from_date: String!
+
+    """ISO date (YYYY-MM-DD)"""
+    to_date: String!
+
+    """One of: invoice_bill, payment, contact"""
+    type: String!
+  ): StringResponse!
+
+  """
   Find candidate PayTrade records (claims, payments, contacts) for the two-sided Manual Xero Sync dialog. Returns up to 10 candidates by free-text hint.
   """
   manualXeroPaytradeLookup(company_id: Float!, hint: String!, type: String!): StringResponse!
