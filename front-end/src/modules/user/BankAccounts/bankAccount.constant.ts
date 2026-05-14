@@ -2,7 +2,7 @@ const bankAccountTypeOptions = [
   { value: "All", label: "All" },
   { value: "Retention Trust Account", label: "Retention Trust Account" },
   { value: "Project Trust Account", label: "Project Trust Account" },
-  { value: "Cash Account", label: "Cash Account" },
+  { value: "Cash Account", label: "General Account" },
 ];
 
 const tabOptions = [{ label: "Current" }, { label: "Archived", value: null }];

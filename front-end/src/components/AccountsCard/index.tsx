@@ -19,7 +19,7 @@ export default function AccountsCard({
       <div className="pt_dashboxwrap">
         {/* <a href="bankaccount.html" className="pt_dashbox">
           <div className="pt_dashleft">
-            <b>Cash account - Deepa</b>
+            <b>General account - Deepa</b>
             <span>last updated on 01/10/2024</span>
           </div>
           <div className="pt_dashright">

@@ -2198,7 +2198,7 @@ export default function SyncLogDetailsBasic() {
                 }
               >
                 <option value="">Select Account Type</option>
-                <option value="Cash Account">Cash Account</option>
+                <option value="Cash Account">General Account</option>
                 <option value="Project Trust Account">Project Trust Account</option>
                 <option value="Retention Trust Account">Retention Trust Account</option>
               </select>
@@ -2282,12 +2282,12 @@ export default function SyncLogDetailsBasic() {
                 </p>
                 <div style={{ marginBottom: "0.8rem" }}>
                   <label style={{ display: "block", marginBottom: "0.3rem", fontWeight: 500 }}>
-                    Associated Cash Account ID <span style={{ color: "red" }}>*</span>
+                    Associated General Account ID <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     className="pt_input"
                     type="number"
-                    placeholder="Cash account ID"
+                    placeholder="General account ID"
                     value={bankDraftForm.associated_cash_account_id}
                     onChange={(e) =>
                       setBankDraftForm({ ...bankDraftForm, associated_cash_account_id: e.target.value })

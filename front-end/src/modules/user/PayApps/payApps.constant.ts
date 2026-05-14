@@ -66,7 +66,7 @@ const archiveActions = [
 const accountTypeOptions = [
   {
     value: "Cash Account",
-    label: "Cash Account",
+    label: "General Account",
   },
   {
     value: "Project Trust Account",

@@ -245,7 +245,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       headContractId: Yup.string().required("Contract Details is  required"),
       Trustee: Yup.string().required("Trustee Name is required"),
       associated_cash_account_id: Yup.string().required(
-        "Cash account is required"
+        "General account is required"
       ),
       DelegateStatus: Yup.string().required("Delegate Power is required"),
     }),
@@ -253,7 +253,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       MultiProjects: Yup.string().required("Project is required"),
       Trustee: Yup.string().required("Trustee Name is required"),
       associated_cash_account_id: Yup.string().required(
-        "Cash account is required"
+        "General account is required"
       ),
       DelegateStatus: Yup.string().required("Delegate Power is required"),
     }),
@@ -2384,8 +2384,8 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                   {selectedBankType && selectedBankType !== "Cash Account" && (
                     <FormikControl
                       control={InputType.SELECT}
-                      label={"Select cash account"}
-                      secondLabel={isEditable ? "" : "Add cash account"}
+                      label={"Select general account"}
+                      secondLabel={isEditable ? "" : "Add general account"}
                       onSecondLabelClick={() =>
                         handleAddQuickRecord(
                           `${AppRoutes.USER_ADD_BANK_ACCOUNTS}?quick-add=cashacc`,

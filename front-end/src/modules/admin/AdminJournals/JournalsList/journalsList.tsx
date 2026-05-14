@@ -413,7 +413,7 @@ export default function AdminJournalsList() {
               { label: "All", value: "All" },
               {
                 value: "Cash Account",
-                label: "Cash account",
+                label: "General account",
               },
               {
                 value: "Project Trust Account",

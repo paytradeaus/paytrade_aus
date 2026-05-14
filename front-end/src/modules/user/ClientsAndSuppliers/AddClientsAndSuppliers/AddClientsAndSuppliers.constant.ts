@@ -21,7 +21,7 @@ const statusTypeOptions = [
   { value: "Completed", label: "Completed" },
 ];
 const accountTypeOptions = [
-  { value: "Cash Account", label: "Cash Account" },
+  { value: "Cash Account", label: "General Account" },
   { value: "Project Trust Account", label: "Project Trust Account" },
   { value: "Retention Trust Account", label: "Retention Trust Account" },
 ];

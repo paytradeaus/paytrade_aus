@@ -33,7 +33,7 @@ export default function ReuseableCards() {
         <FeatureCard
           lottieSrc="/json/rbicons/cardverification.json"
           title="Account opening"
-          description="Onboard new and existing trust and cash accounts, with compliance checks and linked notice processing."
+          description="Onboard new and existing trust and general accounts, with compliance checks and linked notice processing."
         />
 
         <FeatureCard

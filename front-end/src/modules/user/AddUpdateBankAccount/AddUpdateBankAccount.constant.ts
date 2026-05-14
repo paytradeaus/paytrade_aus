@@ -1,7 +1,7 @@
 import { QUICK_ADD_RECORD_VALUE } from "@/shared/constant/general";
 
 const bankAccountTypes = [
-  { value: "Cash Account", label: "Cash Account" },
+  { value: "Cash Account", label: "General Account" },
   { value: "Project Trust Account", label: "Project Trust Account" },
   { value: "Retention Trust Account", label: "Retention Trust Account" },
 ];

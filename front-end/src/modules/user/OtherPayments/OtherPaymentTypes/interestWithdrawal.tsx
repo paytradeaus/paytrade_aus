@@ -131,10 +131,10 @@ const InterestWithdrawalForm = (props: any) => {
           formik.setFieldValue("fromAccount", bankIDFrom);
           setFromSelectedValue(accountList);
           showErrorToast(
-            "From account cannot be added against the Cash account"
+            "From account cannot be added against the General account"
           );
           setAccountError(
-            "From account cannot be added against the Cash account"
+            "From account cannot be added against the General account"
           );
         }
       } catch (error) {
@@ -160,7 +160,7 @@ const InterestWithdrawalForm = (props: any) => {
           setFromSelectedValue(accountList);
 
           setAccountError(
-            "From account cannot be added against the Cash account"
+            "From account cannot be added against the General account"
           );
         }
       } catch (error) {
@@ -514,7 +514,7 @@ const InterestWithdrawalForm = (props: any) => {
                 setAccountError(null);
               } else {
                 setAccountError(
-                  "From account cannot be added against the Cash account"
+                  "From account cannot be added against the General account"
                 );
               }
             }}

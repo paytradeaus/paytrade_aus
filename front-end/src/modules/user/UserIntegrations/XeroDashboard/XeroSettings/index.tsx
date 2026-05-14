@@ -1287,7 +1287,7 @@ export default function XeroSettings() {
               <details open>
                 <summary>Contact financial details sync</summary>
                 <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
-                  Control whether bank account details (account name, number, BSB) are automatically synced between mapped contacts. Only the first account per contact is synced. Imported accounts default to Cash Account type.
+                  Control whether bank account details (account name, number, BSB) are automatically synced between mapped contacts. Only the first account per contact is synced. Imported accounts default to General Account type.
                 </p>
                 <div className="grid pt_infocol">
                   <div>
@@ -1311,7 +1311,7 @@ export default function XeroSettings() {
                   <div>
                     <h5>Sync Xero financial details to PayTrade?</h5>
                     <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
-                      When a mapped contact in Xero has batch payment details but the PayTrade contact has no account details, the financial details will be imported as a Cash Account during the next sync.
+                      When a mapped contact in Xero has batch payment details but the PayTrade contact has no account details, the financial details will be imported as a General Account during the next sync.
                     </p>
                     <FormikControl
                       control={InputType.SELECT}
@@ -1327,7 +1327,7 @@ export default function XeroSettings() {
                     />
                     {syncContactFinancialToPt && (
                       <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
-                        Note: Imported accounts will default to Cash Account type. You can change the account type after import — this will not trigger a sync error as account type is a PayTrade-only field.
+                        Note: Imported accounts will default to General Account type. You can change the account type after import — this will not trigger a sync error as account type is a PayTrade-only field.
                       </p>
                     )}
                   </div>

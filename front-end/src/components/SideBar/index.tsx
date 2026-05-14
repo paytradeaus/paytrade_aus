@@ -117,7 +117,7 @@ export default function Sidebar() {
                     <Link
                       href={`${AppRoutes.USER_ADD_BANK_ACCOUNTS}?type=${queryParamsData.cash}`}
                     >
-                      Cash Account
+                      General Account
                     </Link>
                   </li>
                   <hr />

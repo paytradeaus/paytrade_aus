@@ -528,7 +528,7 @@ export default function HomeScreenPage() {
                 ></lottie-player>
                 <h4>Connected bank data</h4>
                 <p>
-                  Connect your bank cash account, project and retention trust
+                  Connect your bank general account, project and retention trust
                   accounts for real-time data.
                 </p>
               </div>
