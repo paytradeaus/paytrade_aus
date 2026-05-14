@@ -10,6 +10,15 @@ const AccountType = {
   RETENTION_TRUST_ACCOUNT: "Retention Trust Account",
 };
 
+const ACCOUNT_TYPE_DISPLAY_LABELS: Record<string, string> = {
+  "Cash Account": "General Account",
+};
+
+const getAccountTypeLabel = (value?: string | null): string => {
+  if (!value) return "";
+  return ACCOUNT_TYPE_DISPLAY_LABELS[value] || value;
+};
+
 const filterByDuration = [
   {
     label: "All",
@@ -250,6 +259,7 @@ export {
   CountryList,
   PAY_TRADE_UK_SITE,
   AccountType,
+  getAccountTypeLabel,
   filterByDuration,
   listTabOptions,
   ABOUT_SECTION_FOOTER_CONTENT,

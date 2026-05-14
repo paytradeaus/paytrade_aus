@@ -6,6 +6,7 @@ import DynamicTable from "@/components/Table";
 import TabSwitch from "@/components/TabSwitch";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { InputType, NA } from "@/shared/constant/general";
+import { getAccountTypeLabel } from "@/shared/constant/data";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { IBankTrustAccountDetails } from "./bankTrustAccount.types";
@@ -122,7 +123,12 @@ const BankAccounts = (props: any) => {
       defaultOption = "Cash Account";
     }
 
-    setSelectedAccType({ value: defaultOption, label: defaultOption });
+    const matchedOption = bankAccountTypeOptions.find(
+      (opt) => opt.value === defaultOption
+    );
+    setSelectedAccType(
+      matchedOption || { value: defaultOption, label: defaultOption }
+    );
     getFetchBankAccountsLists(1, entriesPerPage, defaultOption);
   }
 
@@ -277,6 +283,7 @@ const BankAccounts = (props: any) => {
                     true
                   )}`
                 : "$0.00",
+              account_type: getAccountTypeLabel(listObj?.account_type),
             };
           }
         );

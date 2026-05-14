@@ -7,6 +7,7 @@ import { bankOverviewTabOptions } from "./BankAccountOverview.constants";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
 import { useDispatch } from "react-redux";
 import { AppRoutes } from "@/shared/constant/appRoutes";
+import { getAccountTypeLabel } from "@/shared/constant/data";
 
 export default function BankAccountDetailsTab() {
   const dispatch = useDispatch();
@@ -46,7 +47,7 @@ export default function BankAccountDetailsTab() {
             </div>
             <div className="pt_infolistdata">
               <h6>Account Type</h6>
-              {bankDetailsData?.account_type}
+              {getAccountTypeLabel(bankDetailsData?.account_type)}
             </div>
             <div className="pt_infolistdata">
               <h6>Financial Institution</h6>

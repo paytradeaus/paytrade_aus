@@ -853,7 +853,7 @@ export class BankAccountsService {
         bankAccountDetails.account_type == 'Cash Account' &&
         data.status == 'Draft'
       ) {
-        throw `Invalid input. Cash accounts can't be changed to draft.`;
+        throw `Invalid input. General accounts can't be changed to draft.`;
       } else {
         await this.bankAccountsRepo
           .createQueryBuilder()

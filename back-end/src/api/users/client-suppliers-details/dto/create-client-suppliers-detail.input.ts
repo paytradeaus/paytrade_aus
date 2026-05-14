@@ -31,7 +31,7 @@ export class CreateAccountDetailInput {
 
   @Field({
     description:
-      'Type of bank account (e.g., Cash Account, Project Trust Account, Retention Trust Account).',
+      'Type of bank account (e.g., General Account, Project Trust Account, Retention Trust Account).',
   })
   account_type: BankAccountType;
 

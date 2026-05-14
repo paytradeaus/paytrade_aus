@@ -108,7 +108,7 @@ export class FetchAllBankAccounts {
   @Field({
     nullable: true,
     description:
-      'Indicates whether this account is associated with a cash account.',
+      'Indicates whether this account is associated with a general account.',
   })
   is_cash_associated?: boolean;
 }
@@ -233,7 +233,7 @@ export class FetchBankAccountDetails {
 
   @Field({
     nullable: true,
-    description: 'ID of the associated cash account, if applicable.',
+    description: 'ID of the associated general account, if applicable.',
   })
   associated_cash_account_id: number;
 }
@@ -326,7 +326,7 @@ export class FetchBankAccountDetailsForEditing {
 
   @Field({
     nullable: true,
-    description: 'Associated cash account ID, if applicable.',
+    description: 'Associated general account ID, if applicable.',
   })
   associated_cash_account_id: number;
 }

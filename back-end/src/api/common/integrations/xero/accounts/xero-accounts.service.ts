@@ -2654,11 +2654,11 @@ export class XeroAccountsService {
     }
 
     if (data.account_type === 'Project Trust Account') {
-      if (!data.associated_cash_account_id) throw `Associated cash account is required for Project Trust Accounts`;
+      if (!data.associated_cash_account_id) throw `Associated general account is required for Project Trust Accounts`;
       if (!data.trustee_id) throw `Trustee is required for Project Trust Accounts`;
     }
     if (data.account_type === 'Retention Trust Account') {
-      if (!data.associated_cash_account_id) throw `Associated cash account is required for Retention Trust Accounts`;
+      if (!data.associated_cash_account_id) throw `Associated general account is required for Retention Trust Accounts`;
       if (!data.trustee_id) throw `Trustee is required for Retention Trust Accounts`;
     }
 

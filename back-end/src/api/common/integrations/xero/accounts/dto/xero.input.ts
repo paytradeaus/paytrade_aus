@@ -125,7 +125,7 @@ export class CompleteBankAccountDraftInput {
   @Field({ description: 'Company ID' })
   company_id: number;
 
-  @Field({ description: 'Type of the account (Cash Account, Project Trust Account, Retention Trust Account)' })
+  @Field({ description: 'Type of the account (General Account, Project Trust Account, Retention Trust Account)' })
   account_type: string;
 
   @Field({ description: 'Financial institution name' })
@@ -143,7 +143,7 @@ export class CompleteBankAccountDraftInput {
   @Field({ nullable: true, description: 'BSB number' })
   bsb_number: number;
 
-  @Field({ nullable: true, description: 'Associated cash account ID (required for trust accounts)' })
+  @Field({ nullable: true, description: 'Associated general account ID (required for trust accounts)' })
   associated_cash_account_id: number;
 
   @Field({ nullable: true, description: 'Trustee ID (required for trust accounts)' })

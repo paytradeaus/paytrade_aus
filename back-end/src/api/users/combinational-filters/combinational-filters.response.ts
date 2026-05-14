@@ -46,7 +46,7 @@ export class FromAccounts {
   @Field({
     nullable: true,
     description:
-      'Type of the bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Type of the bank account (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   from_account_type: BankAccountType;
 }

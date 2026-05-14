@@ -154,7 +154,7 @@ export class BankAccountsValidator {
             if (!contract_value)
               throw `Missing contract details. Expecting contract value.`;
             if (!associated_cash_account_id)
-              throw `Missing associated cash account. Expecting cash account to associate with Project Trust Account.`;
+              throw `Missing associated general account. Expecting general account to associate with Project Trust Account.`;
           }
           break;
         case 'Retention Trust Account':
@@ -171,22 +171,22 @@ export class BankAccountsValidator {
             if (!project_ids || !project_ids.length)
               throw `Missing project details. Expecting atleast one.`;
             if (!associated_cash_account_id)
-              throw `Missing associated cash account. Expecting cash account to associate with Project Trust Account.`;
+              throw `Missing associated general account. Expecting general account to associate with Project Trust Account.`;
           }
           break;
         case 'Cash Account': {
           // if (delegate_powers)
           //   throw `Invalid data. Delegate powers are not accepted in Cash accounts.`;
           if (project_ids)
-            throw `Invalid data. Project ids are not allowed for cash accounts.`;
+            throw `Invalid data. Project ids are not allowed for general accounts.`;
           if (client_supplier_id)
-            throw `Invalid data. Client supplier is not allowed for cash accounts.`;
+            throw `Invalid data. Client supplier is not allowed for general accounts.`;
           if (trustee_id)
-            throw `Invalid data. Trustee id is not allowed for cash accounts.`;
+            throw `Invalid data. Trustee id is not allowed for general accounts.`;
           if (project_ids)
-            throw `Invalid data. Project ids are not allowed for cash accounts.`;
+            throw `Invalid data. Project ids are not allowed for general accounts.`;
           if (retention_trust_certificate_attachment_ids)
-            throw `Invalid data. Retention trust certificate attachment ids are not allowed for cash accounts.`;
+            throw `Invalid data. Retention trust certificate attachment ids are not allowed for general accounts.`;
         }
       }
       this.logger.log(

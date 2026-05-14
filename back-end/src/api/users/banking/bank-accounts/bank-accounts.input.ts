@@ -50,7 +50,7 @@ export class AddBankAccountInput {
 
   @Field({
     nullable: true,
-    description: 'Associated cash account ID, if applicable.',
+    description: 'Associated general account ID, if applicable.',
   })
   associated_cash_account_id: number;
 
@@ -200,7 +200,7 @@ export class EditDetailsOfABankAccountInput {
   @Field({ nullable: true, description: 'Updated status of the bank account.' })
   status: BankAccountStatus;
 
-  @Field({ nullable: true, description: 'Updated associated cash account ID.' })
+  @Field({ nullable: true, description: 'Updated associated general account ID.' })
   associated_cash_account_id: number;
 }
 

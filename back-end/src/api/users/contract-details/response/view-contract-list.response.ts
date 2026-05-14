@@ -197,21 +197,21 @@ export class ViewContractRes {
   @Field({
     nullable: true,
     description:
-      'Type of payment bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Type of payment bank account (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   payment_from_account_type?: BankAccountType;
 
   @Field({
     nullable: true,
     description:
-      'Type of retention bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Type of retention bank account (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   retention_from_account_type?: BankAccountType;
 
   @Field({
     nullable: true,
     description:
-      'Type of payment-to bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Type of payment-to bank account (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   payment_to_account_type?: BankAccountType;
 

@@ -308,7 +308,7 @@ export class FetchAllComplianceResultsInDashboard {
   @Field({
     nullable: true,
     description:
-      'Bank account type (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Bank account type (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   bank_account_type?: BankAccountType;
 

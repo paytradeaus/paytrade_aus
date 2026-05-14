@@ -55,7 +55,7 @@ export class FetchAllCompliancesInput {
   @Field({
     nullable: true,
     description:
-      'Bank account type filter (e.g., Retention Trust Account, Project Trust Account, Cash Account).',
+      'Bank account type filter (e.g., Retention Trust Account, Project Trust Account, General Account).',
   })
   account_type?: BankAccountType;
 

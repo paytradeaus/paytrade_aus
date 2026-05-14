@@ -431,7 +431,7 @@ input AddBankAccountInput {
   """APCA number of the bank account, if applicable."""
   apca_number: Float
 
-  """Associated cash account ID, if applicable."""
+  """Associated general account ID, if applicable."""
   associated_cash_account_id: Float
 
   """BSB number of the bank account."""
@@ -2668,11 +2668,11 @@ input CompleteBankAccountDraftInput {
   account_number: String
 
   """
-  Type of the account (Cash Account, Project Trust Account, Retention Trust Account)
+  Type of the account (General Account, Project Trust Account, Retention Trust Account)
   """
   account_type: String!
 
-  """Associated cash account ID (required for trust accounts)"""
+  """Associated general account ID (required for trust accounts)"""
   associated_cash_account_id: Float
 
   """The PayTrade bank account ID of the draft account"""
@@ -2805,7 +2805,7 @@ input CreateAccountDetailInput {
   account_number: String
 
   """
-  Type of bank account (e.g., Cash Account, Project Trust Account, Retention Trust Account).
+  Type of bank account (e.g., General Account, Project Trust Account, Retention Trust Account).
   """
   account_type: String!
 
@@ -4183,7 +4183,7 @@ input EditDetailsOfABankAccountInput {
   """Updated APCA number."""
   apca_number: Float
 
-  """Updated associated cash account ID."""
+  """Updated associated general account ID."""
   associated_cash_account_id: Float
 
   """ID of the bank account to edit."""
@@ -4898,7 +4898,7 @@ type FetchAllBankAccounts {
   """Formatted string value of the bank account balance."""
   formatted_bank_account_balance: String
 
-  """Indicates whether this account is associated with a cash account."""
+  """Indicates whether this account is associated with a general account."""
   is_cash_associated: Boolean
 
   """Number of days since the account was last updated."""
@@ -5150,7 +5150,7 @@ type FetchAllComplianceResultsInDashboard {
   bank_account_name: String
 
   """
-  Bank account type (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Bank account type (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   bank_account_type: String
 
@@ -5232,7 +5232,7 @@ type FetchAllCompliances {
 """Input for fetching all compliances with pagination and filters."""
 input FetchAllCompliancesInput {
   """
-  Bank account type filter (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Bank account type filter (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   account_type: String
 
@@ -6494,7 +6494,7 @@ type FetchBankAccountDetails {
   """APCA number of the bank account."""
   apca_number: Float
 
-  """ID of the associated cash account, if applicable."""
+  """ID of the associated general account, if applicable."""
   associated_cash_account_id: Float
 
   """Unique identifier of the bank account."""
@@ -6545,7 +6545,7 @@ type FetchBankAccountDetailsForEditing {
   """APCA number of the bank account."""
   apca_number: Float
 
-  """Associated cash account ID, if applicable."""
+  """Associated general account ID, if applicable."""
   associated_cash_account_id: Float
 
   """Unique identifier of the bank account."""
@@ -9235,7 +9235,7 @@ type FromAccounts {
   from_account_name: String
 
   """
-  Type of the bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Type of the bank account (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   from_account_type: String
 }
@@ -22406,7 +22406,7 @@ type ViewContractRes {
   payment_from_account_name: String
 
   """
-  Type of payment bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Type of payment bank account (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   payment_from_account_type: String
 
@@ -22420,7 +22420,7 @@ type ViewContractRes {
   payment_to_account_name: String
 
   """
-  Type of payment-to bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Type of payment-to bank account (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   payment_to_account_type: String
 
@@ -22450,7 +22450,7 @@ type ViewContractRes {
   retention_from_account_name: String
 
   """
-  Type of retention bank account (e.g., Retention Trust Account, Project Trust Account, Cash Account).
+  Type of retention bank account (e.g., Retention Trust Account, Project Trust Account, General Account).
   """
   retention_from_account_type: String
 
