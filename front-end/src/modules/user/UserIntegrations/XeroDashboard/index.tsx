@@ -3027,87 +3027,70 @@ function ManualXeroSyncDialog({
               side-effects of other syncs and aren&apos;t catch-up-eligible.
             </small>
           </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              marginBottom: "12px",
-              flexWrap: "wrap",
-              alignItems: "flex-end",
-            }}
-          >
-            <label
-              style={{
-                flex: "1 1 140px",
-                fontSize: "12px",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              From
-              <input
+          {/* Task #152 — date row uses the system FormikControl DATE_PICKER
+              + CustomButton so it visually matches the Account Ledger /
+              Journals filter bars and the Sync Log filter row above. */}
+          <div className="grid" style={{ marginBottom: "12px" }}>
+            <div>
+              <FormikControl
+                label="From"
+                name="catchupFromDate"
+                control={InputType.DATE_PICKER}
                 type="date"
                 value={catchupFrom}
-                onChange={(e) => setCatchupFrom(e.target.value)}
-                disabled={catchupBusy || catchupRunning}
-                style={{
-                  width: "100%",
-                  padding: "6px 8px",
-                  fontSize: "13px",
-                  height: "32px",
-                  boxSizing: "border-box",
+                onChange={(selectedDate: string) => {
+                  // Task #152 — keep the picker's canonical YYYY-MM-DD
+                  // string as-is; round-tripping through `new Date(...)`
+                  // would parse it as UTC and drift by a day in negative
+                  // offsets. The native input we replaced did the same.
+                  if (!selectedDate) {
+                    setCatchupFrom("");
+                    return;
+                  }
+                  setCatchupFrom(selectedDate);
+                  if (catchupTo && selectedDate > catchupTo) {
+                    setCatchupTo(selectedDate);
+                  }
                 }}
+                disabled={catchupBusy || catchupRunning}
               />
-            </label>
-            <label
-              style={{
-                flex: "1 1 140px",
-                fontSize: "12px",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              To
-              <input
+            </div>
+            <div>
+              <FormikControl
+                label="To"
+                name="catchupToDate"
+                control={InputType.DATE_PICKER}
                 type="date"
                 value={catchupTo}
-                onChange={(e) => setCatchupTo(e.target.value)}
-                disabled={catchupBusy || catchupRunning}
-                style={{
-                  width: "100%",
-                  padding: "6px 8px",
-                  fontSize: "13px",
-                  height: "32px",
-                  boxSizing: "border-box",
+                onChange={(selectedDate: string) => {
+                  // Task #152 — see "From" handler above; use the
+                  // YYYY-MM-DD string directly to avoid UTC drift.
+                  if (!selectedDate) {
+                    setCatchupTo("");
+                    return;
+                  }
+                  if (catchupFrom && selectedDate < catchupFrom) return;
+                  setCatchupTo(selectedDate);
                 }}
+                minDate={catchupFrom || ""}
+                disabled={catchupBusy || catchupRunning}
               />
-            </label>
-            <button
-              type="button"
-              onClick={handleDiscover}
-              disabled={
-                catchupBusy ||
-                catchupRunning ||
-                !catchupFrom ||
-                !catchupTo
-              }
-              style={{
-                height: "32px",
-                padding: "0 14px",
-                fontSize: "13px",
-                background: "#1a73e8",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                boxSizing: "border-box",
-                cursor:
-                  catchupBusy || catchupRunning || !catchupFrom || !catchupTo
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              {catchupBusy ? "Discovering…" : "Discover"}
-            </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <CustomButton
+                buttonName={catchupBusy ? "Discovering…" : "Discover"}
+                iconClassName="fa-light fa-magnifying-glass"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                onClick={handleDiscover}
+                disabled={
+                  catchupBusy ||
+                  catchupRunning ||
+                  !catchupFrom ||
+                  !catchupTo
+                }
+              />
+            </div>
           </div>
           {catchupError && (
             <div
