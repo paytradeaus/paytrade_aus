@@ -392,7 +392,10 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
               // else → unlimited numeric OR non-numeric → skip restriction
 
               // 🔹 Step 3: Check Delegate authority subscription
-              if (formik?.values?.DelegateStatus === "No") {
+              if (
+                formik?.values?.DelegateStatus === "No" &&
+                formik?.values?.BankAccountType !== "Cash Account"
+              ) {
                 const delegateItem =
                   subscriptionResponse?.plan_items?.find(
                     (item: any) => item.item_name === "Delegate authority"
@@ -1175,7 +1178,8 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         opening_date: OpeningDate || null,
         associated_cash_account_id:
           +formik?.values?.associated_cash_account_id || null,
-        delegate_powers: DelegateStatus,
+        delegate_powers:
+          BankAccountType === "Cash Account" ? "No" : DelegateStatus,
         ...(formik?.values?.apca_number
           ? { apca_number: +formik.values.apca_number }
           : {}),
@@ -1289,7 +1293,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
 
           if (triggerBtnStatus === "completed") {
             if (
-              (planName !== "Basic" && values?.DelegateStatus === "Yes") ||
+              (planName !== "Basic" &&
+                BankAccountType !== "Cash Account" &&
+                values?.DelegateStatus === "Yes") ||
               isFree
             ) {
               // if (planName !== "Basic" && values?.DelegateStatus === "Yes") {
@@ -2099,6 +2105,10 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   function onAccountTypeChange(selectedValue: string) {
     formik?.setFieldValue("BankAccountType", selectedValue);
 
+    if (selectedValue === "Cash Account") {
+      formik?.setFieldValue("DelegateStatus", "No");
+    }
+
     setSelectedBankType(selectedValue);
   }
 
@@ -2452,7 +2462,8 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
 
                   {RenderBankOptionsTypeSwitch()}
 
-                  {selectedBankType && (
+                  {selectedBankType &&
+                    selectedBankType !== "Cash Account" && (
                     <FormikControl
                       control={InputType.SELECT}
                       label={"Delegate powers"}

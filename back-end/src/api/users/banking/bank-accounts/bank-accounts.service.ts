@@ -134,6 +134,10 @@ export class BankAccountsService {
         }
       }
 
+      if (payload.account_type === 'Cash Account') {
+        payload.delegate_powers = 'No';
+      }
+
       if (payload.status === 'Open') {
         const subscriptionItemForRestriction =
           subscriptionDetails &&
@@ -470,6 +474,10 @@ export class BankAccountsService {
             warningMessage: `Trust cannot be made active. Please upgrade your subscription plan.`,
           };
         }
+      }
+
+      if (payload.account_type === 'Cash Account') {
+        payload.delegate_powers = 'No';
       }
 
       if (payload.status !== 'Draft') {
