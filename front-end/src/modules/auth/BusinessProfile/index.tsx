@@ -59,6 +59,7 @@ export default function BusinessProfile() {
     { value: "Business", label: "Business" },
     { value: "Sole Trader", label: "Sole Trader" },
     { value: "Personal", label: "Personal" },
+    { value: "Partnership", label: "Partnership" },
   ];
 
   const companyDetails: any = useAppSelector(
