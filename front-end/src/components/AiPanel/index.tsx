@@ -1,8 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { getCookie } from "cookies-next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import {
   AI_PANEL_MAX_WIDTH,
   AI_PANEL_MIN_WIDTH,
@@ -114,6 +117,41 @@ function derivePageContext(
     entityId,
   };
 }
+
+// Allow target/rel on links so we can open them in a new tab safely.
+const markdownSanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.a) || []),
+      ["target"],
+      ["rel"],
+    ],
+  },
+};
+
+const MarkdownMessage = memo(function MarkdownMessage({
+  text,
+}: {
+  text: string;
+}) {
+  return (
+    <div className={styles.markdown}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema]]}
+        components={{
+          a: ({ node, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer" />
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+});
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
   {
@@ -714,13 +752,21 @@ export default function AiPanel() {
                 m.role === "user" ? styles.msgUser : styles.msgAi
               }`}
             >
-              <div className={styles.msgBubble}>{m.content}</div>
+              <div className={styles.msgBubble}>
+                {m.role === "assistant" ? (
+                  <MarkdownMessage text={m.content} />
+                ) : (
+                  m.content
+                )}
+              </div>
             </div>
           ))}
 
           {sending && streamingText && (
             <div className={`${styles.msg} ${styles.msgAi}`}>
-              <div className={styles.msgBubble}>{streamingText}</div>
+              <div className={styles.msgBubble}>
+                <MarkdownMessage text={streamingText} />
+              </div>
             </div>
           )}
 
