@@ -71,6 +71,21 @@ button {
   white-space: nowrap;
 }
 
+/* Hide native password reveal / clear controls so our custom show-hide
+   eye icon isn't duplicated by Edge / IE / WebKit's built-in one. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="text"]::-ms-reveal,
+input[type="text"]::-ms-clear {
+  display: none;
+}
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-strong-password-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 button i {
   margin-right: var(--space-xs);
 }
