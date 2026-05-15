@@ -34,6 +34,25 @@ import {
 } from './response/get-project-contract-list.response';
 import { XeroService } from 'src/api/common/integrations/xero/xero.service';
 import { XeroContactsService } from 'src/api/common/integrations/xero/contacts/xero-contacts.service';
+// Lazy resolution of XeroInvoicesService to avoid pulling its (very large)
+// dependency graph into the CSDS module.
+import { ModuleRef } from '@nestjs/core';
+import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAndBills/xero-invoices.service';
+import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
+
+type SmartCreateReplayResult = {
+  invoice_id: string;
+  status: 'created' | 'skipped' | 'failed';
+  reason?: string;
+  contract_id?: number;
+};
+
+type PendingEmailResolutions = {
+  email_just_added: boolean;
+  smart_creates_attempted: number;
+  smart_creates: SmartCreateReplayResult[];
+  blocked_notices_count: number;
+};
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 var errorMessage = '';
@@ -46,6 +65,8 @@ export class ClientSuppliersDetailsResolver {
     private readonly clientSuppliersDetailsService: ClientSuppliersDetailsService,
     private readonly xeroService: XeroService,
     private readonly xeroContactsService: XeroContactsService,
+    // Task #154 — Used to lazily resolve XeroInvoicesService at call time.
+    private readonly moduleRef: ModuleRef,
   ) {
     this.logger = new PaytradeLogger('CLIENT_SUPPLIERS_RESOLVER');
   }
@@ -318,6 +339,132 @@ export class ClientSuppliersDetailsResolver {
         `Response received for editing client supplier: id=${editClientSuppliersDetailsRes?.id}`,
       );
 
+      // Email-just-added recovery: if the contact was previously flagged
+      // needs_email and the user has now saved a non-empty address, replay
+      // queued smart-creates and (when fully resolved) clear the flag and
+      // close out the prior 610-613 warning rows.
+      let pendingResolutions: PendingEmailResolutions | null = null;
+      try {
+        const contact = clientSuppliersDetails as ClientSuppliersDetails;
+        const previousEmail = (contact?.client_email_id || '').trim();
+        const newEmail = (
+          updateClientSuppliersDetailInput?.client_email_id || ''
+        ).trim();
+        const emailJustAdded =
+          !!contact?.needs_email && previousEmail === '' && newEmail !== '';
+
+        if (emailJustAdded && editClientSuppliersDetailsRes) {
+          const queuedBefore = Array.isArray(contact.pending_email_actions)
+            ? contact.pending_email_actions.length
+            : 0;
+          const waitingSyncLogs = await this.clientSuppliersDetailsService
+            .countWaitingSyncLogsForContact(contact.id)
+            .catch(() => 0);
+
+          let smartCreates: SmartCreateReplayResult[] = [];
+          let replayCompleted = false;
+          try {
+            const xeroInvoices = this.moduleRef.get(XeroInvoicesService, {
+              strict: false,
+            });
+            smartCreates =
+              (await xeroInvoices?.replayPendingSmartCreatesForContact?.(
+                decoded,
+                contact.id,
+              )) || [];
+            replayCompleted = true;
+          } catch (replayErr) {
+            this.logger.warn(
+              `Smart-create replay failed for contact ${contact.id}: ${replayErr?.message || replayErr}`,
+            );
+          }
+
+          const failedCount = smartCreates.filter(
+            (r) => r?.status === 'failed',
+          ).length;
+          const allResolved = replayCompleted && failedCount === 0;
+
+          if (allResolved) {
+            await this.clientSuppliersDetailsService
+              .markNeedsEmail(contact.id, false)
+              .catch((clearErr) =>
+                this.logger.warn(
+                  `Failed to clear needs_email for contact ${contact.id}: ${clearErr?.message || clearErr}`,
+                ),
+              );
+
+            const xeroDetailsForClear = await this.xeroService
+              .getIntegrationDetails(updateClientSuppliersDetailInput.company_id)
+              .catch(() => null);
+            if (xeroDetailsForClear?.integration_id) {
+              const successCount = smartCreates.filter(
+                (r) => r.status === 'created',
+              ).length;
+              const clearedLog: { sync_id?: number } | null = await this.xeroService
+                .insertXeroSyncLogs(decoded, {
+                  integration_id: xeroDetailsForClear.integration_id,
+                  log_template_id: 614,
+                  dynamic_values: {
+                    contact_name: contact.client_supplier_name,
+                    processed_summary:
+                      smartCreates.length > 0
+                        ? `${successCount} of ${smartCreates.length} queued items processed.`
+                        : 'No queued items required reprocessing.',
+                  },
+                  project_id: null,
+                  contract_id: null,
+                  reference: { paytradeId: contact.id },
+                  reference_id: contact.id,
+                  history: [
+                    'Email added by user — needs_email flag cleared',
+                    `Smart-create replays attempted: ${smartCreates.length}`,
+                  ],
+                  important_checks: {},
+                  error_message: null,
+                  xero_records: [],
+                  paytrade_records: [contact],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                })
+                .catch((logErr) => {
+                  this.logger.warn(
+                    `Failed to write 614 cleared log for contact ${contact.id}: ${logErr?.message || logErr}`,
+                  );
+                  return null;
+                });
+
+              await this.xeroService
+                .markEmailWaitingLogsResolved(
+                  contact.id,
+                  xeroDetailsForClear.integration_id,
+                  clearedLog?.sync_id ?? null,
+                )
+                .catch((markErr) =>
+                  this.logger.warn(
+                    `Failed to mark prior email-waiting logs resolved for contact ${contact.id}: ${markErr?.message || markErr}`,
+                  ),
+                );
+            }
+          } else {
+            this.logger.warn(
+              `needs_email kept set for contact ${contact.id} — replayCompleted=${replayCompleted} failedCount=${failedCount}`,
+            );
+          }
+
+          pendingResolutions = {
+            email_just_added: true,
+            smart_creates_attempted: smartCreates.length,
+            smart_creates: smartCreates,
+            blocked_notices_count: waitingSyncLogs || queuedBefore,
+          };
+        }
+      } catch (transitionErr) {
+        this.logger.warn(
+          `needs_email transition handling failed: ${transitionErr?.message || transitionErr}`,
+        );
+      }
+
       if (editClientSuppliersDetailsRes) {
         const xeroDetails = await this.xeroService.getIntegrationDetails(
           updateClientSuppliersDetailInput.company_id,
@@ -459,10 +606,16 @@ export class ClientSuppliersDetailsResolver {
           }
         }
 
+        // Task #154 — surface the "items waiting" payload alongside the
+        // edited record so the FE can prompt the user.
+        const enrichedRes: any = {
+          ...editClientSuppliersDetailsRes,
+          pending_resolutions: pendingResolutions || undefined,
+        };
         return framedResponse(
           'SUCCESS',
           `Client/Supplier has been updated.`,
-          editClientSuppliersDetailsRes,
+          enrichedRes,
         );
       }
       throw new Error(`Failed to edit the Client/Supplier, please try again`);

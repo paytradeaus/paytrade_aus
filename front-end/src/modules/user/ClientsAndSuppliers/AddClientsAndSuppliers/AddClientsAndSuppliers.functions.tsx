@@ -67,6 +67,18 @@ export async function updateClientSuppliersById(postData: any): Promise<any> {
               client_supplier_status
               company_id
               id
+              # Task #154 — items waiting for email to be added.
+              pending_resolutions {
+                email_just_added
+                smart_creates_attempted
+                blocked_notices_count
+                smart_creates {
+                  invoice_id
+                  status
+                  reason
+                  contract_id
+                }
+              }
             }
             message
             status
@@ -86,6 +98,11 @@ export async function updateClientSuppliersById(postData: any): Promise<any> {
         client_supplier_id:
           response?.data?.editClientSuppliersDetailsById?.data
             ?.client_supplier_id,
+        // Task #154 — pass through to the page so it can show the
+        // "N items were waiting" prompt.
+        pending_resolutions:
+          response?.data?.editClientSuppliersDetailsById?.data
+            ?.pending_resolutions || null,
       };
     }
     if (response?.data?.editClientSuppliersDetailsById?.status === ERROR) {
@@ -164,6 +181,8 @@ export async function fetchClientSuppliersList(postData: any): Promise<any> {
                 business_name
                 claim_count
                 client_email_id
+                # Task #154 — surfaces "Missing email" badge in list view.
+                needs_email
                 client_phone_no
                 client_supplier_address
                 client_supplier_id
@@ -221,6 +240,8 @@ export async function fetchClientSuppliersById(postData: any): Promise<any> {
               acn_number
               business_name
               client_email_id
+              # Task #154 — surfaces "Missing email" badge in detail view.
+              needs_email
               client_phone_no
               client_supplier_address
               client_supplier_id
@@ -343,6 +364,8 @@ export async function getClientSuppliersListByProjectId(
                 business_name
                 claim_count
                 client_email_id
+                # Task #154 — surfaces "Missing email" badge in list view.
+                needs_email
                 client_phone_no
                 client_supplier_address
                 client_supplier_id

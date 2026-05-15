@@ -277,7 +277,11 @@ export default function ClientsAndSuppliers({ overViewDetails = {} }: any) {
         const enrichedList = (response?.client_suppliers_list || []).map(
           (item: any) => {
             const warnings: string[] = [];
-            if (!item.client_email_id) warnings.push("Email");
+            // Task #154 — `needs_email` is the soft-fail flag set by
+            // inbound Xero contact imports that succeeded with every
+            // mandatory field present except email. It also covers the
+            // case where client_email_id is empty for any other reason.
+            if (!item.client_email_id || item.needs_email) warnings.push("Email");
             if (!item.client_supplier_address) warnings.push("Address");
             if (!Number(item.bank_account_count)) warnings.push("Bank A/C");
             return { ...item, missing_data_warnings: warnings };

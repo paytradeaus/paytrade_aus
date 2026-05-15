@@ -2573,6 +2573,23 @@ export const uploadAttachment = async (
       setOpenAttachmentModel(true);
       break;
     }
+    // Task #154 — Soft-fail "needs email" sync logs (manual / scheduler /
+    // webhook imports + smart-create blocked). Resolution is to add the
+    // missing email on the contact's edit page; the backend then auto
+    // replays any queued smart-create attempts and clears the flag.
+    case "CONTACT_IMPORTED_NEEDS_EMAIL":
+    case "SCHEDULER_CONTACT_IMPORTED_NEEDS_EMAIL":
+    case "WH_CONTACT_IMPORTED_NEEDS_EMAIL":
+    case "SMART_CREATE_BLOCKED_MISSING_EMAIL": {
+      const ptContactId =
+        viewLogData?.reference?.paytradeId ||
+        viewLogData?.paytrade_records?.[0]?.id ||
+        viewLogData?.paytrade_details?.id;
+      if (ptContactId && typeof window !== "undefined") {
+        window.location.href = `/user/clients-suppliers/edit/${ptContactId}`;
+      }
+      break;
+    }
     default:
       return false;
   }

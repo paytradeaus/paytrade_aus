@@ -99,6 +99,18 @@ export class ViewClientSuppliersRes {
   @Field({ nullable: true, description: 'Email ID of the client/supplier.' })
   client_email_id: string;
 
+  // Task #154 — Soft-fail flag set when an inbound Xero contact import
+  // (manual / scheduler / webhook) succeeded with every mandatory field
+  // present except email. The FE renders a "Missing email" badge when
+  // this is true, regardless of whether client_email_id was later
+  // patched outside the normal edit flow.
+  @Field({
+    nullable: true,
+    description:
+      'True when the contact was imported from Xero without an email and still needs one to be added (Task #154).',
+  })
+  needs_email?: boolean;
+
   @Field({ nullable: true, description: 'Website URL of the client/supplier.' })
   client_website: string;
 

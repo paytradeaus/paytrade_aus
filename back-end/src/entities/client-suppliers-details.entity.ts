@@ -140,6 +140,23 @@ export class ClientSuppliersDetails {
   @Column({ default: false })
   is_deleted: Boolean;
 
+  // Task #154 — When a Xero contact arrives via inbound import (manual /
+  // scheduler / webhook) with every mandatory field present *except* email,
+  // we now soft-fail: import the contact and flag it. UI surfaces a
+  // "Missing email" badge and a Resolve link in the Xero Sync Log routes
+  // here. Auto-clears once the email is saved and any queued items have
+  // been processed or dismissed.
+  @Column({ type: 'boolean', default: false })
+  needs_email: boolean;
+
+  // Task #154 — Queue of follow-on actions that were blocked because the
+  // contact had no email (currently: smart contract auto-create attempts
+  // from inbound Xero claim sync). Replayed when the user adds an email.
+  // Shape per entry: { kind: 'smart_create_contract', invoice_id, tenant_id,
+  // company_id, project_id, queued_on, sync_run_type? }.
+  @Column({ type: 'jsonb', nullable: true })
+  pending_email_actions: any;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

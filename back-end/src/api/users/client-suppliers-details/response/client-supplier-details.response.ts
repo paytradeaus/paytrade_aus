@@ -84,6 +84,64 @@ export class FetchClientSupplierDetailsForPaymentClaim {
   claim_amount: number;
 }
 
+// Task #154 — Per-entry result returned to the frontend after the email
+// transition runs the queued smart-create replays.
+@ObjectType({
+  description:
+    'Result of replaying a single queued smart-create-contract attempt after the contact email was added.',
+})
+export class PendingSmartCreateResult {
+  @Field({ description: 'Xero invoice/bill id the smart create was for.' })
+  invoice_id: string;
+
+  @Field({
+    description:
+      'Outcome of the replay: created | skipped | failed. See reason for skipped/failed.',
+  })
+  status: string;
+
+  @Field({ nullable: true, description: 'Why the replay was skipped or failed.' })
+  reason?: string;
+
+  @Field({
+    nullable: true,
+    description: 'PayTrade contract id when status=created.',
+  })
+  contract_id?: number;
+}
+
+// Task #154 — Aggregate "items that were waiting" returned alongside the
+// edited contact so the frontend can show the
+// "N items were waiting — Process now / Review first / Not now" prompt.
+@ObjectType({
+  description:
+    'Items that were waiting for this contact to get an email, returned after the email is saved.',
+})
+export class ContactPendingResolutions {
+  @Field({
+    description:
+      'True when the user just added an email that the contact previously lacked (transition).',
+  })
+  email_just_added: boolean;
+
+  @Field({
+    description:
+      'Number of queued smart-contract auto-create attempts that were replayed.',
+  })
+  smart_creates_attempted: number;
+
+  @Field(() => [PendingSmartCreateResult], {
+    description: 'Per-attempt result for the replayed smart-create attempts.',
+  })
+  smart_creates: PendingSmartCreateResult[];
+
+  @Field({
+    description:
+      'Number of failed/blocked notices for this contact still awaiting user action.',
+  })
+  blocked_notices_count: number;
+}
+
 @ObjectType({ description: 'Basic client/supplier details response.' })
 export class ClientSuppliersDetailsRes {
   @Field({ description: 'Unique identifier of the record.' })
@@ -106,6 +164,15 @@ export class ClientSuppliersDetailsRes {
 
   @Field({ description: 'Status of the client/supplier.' })
   client_supplier_status: ClientSupplierStatus;
+
+  // Task #154 — populated only by editClientSuppliersDetailsById when the
+  // user adds an email that was previously missing.
+  @Field(() => ContactPendingResolutions, {
+    nullable: true,
+    description:
+      'Items that were waiting for this contact to get an email — populated after the email is saved on a previously-flagged contact.',
+  })
+  pending_resolutions?: ContactPendingResolutions;
 }
 
 @ObjectType({ description: 'Response wrapper for client/supplier details.' })

@@ -4189,21 +4189,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           account_details,
         } = data.payload || {};
 
-        if (
-          !client_supplier_name ||
-          !client_supplier_type ||
-          !client_supplier_status ||
-          !related_entity ||
-          !entity_type ||
-          !place_id ||
-          !client_supplier_address ||
-          !country ||
-          !region ||
-          !latitude ||
-          !longitude ||
-          !client_phone_no ||
-          !client_email_id
-        ) {
+        // Soft-fail on email-only missing; hard-fail on every
+        // other mandatory field with explicit field list.
+        const _otherMissing =
+          this.xeroContactsService.collectMissingMandatoryFields(data.payload, {
+            excludeEmail: true,
+          });
+        const _emailMissing = !client_email_id;
+        if (_otherMissing.length > 0) {
           const addSyncLogResponse = await this.xeroService.insertXeroSyncLogs(
             decoded,
             {
@@ -4229,7 +4222,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               important_checks: {
                 'Import data format validation': 'Failed',
               },
-              error_message: `Missing mandatory fields`,
+              error_message: `Missing mandatory fields: ${_otherMissing.join(', ')}${_emailMissing ? ' (email also missing)' : ''}`,
               xero_records: [contact],
               paytrade_records: [],
               new_records: null,
@@ -4352,12 +4345,15 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               const addresses = [];
               addresses.push(address);
 
-              const contactData = {
+              const contactData: any = {
                 name: response.client_supplier_name,
                 addresses: addresses,
-                emailAddress: response.client_email_id,
                 phones: phones,
               };
+              // Skip emailAddress when we don't have one.
+              if (response.client_email_id) {
+                contactData.emailAddress = response.client_email_id;
+              }
 
               const updateContactResponse =
                 await this.xero.accountingApi.updateContact(
@@ -4392,6 +4388,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               xeroContactDetails.updated_group = response.created_group;
               await this.xeroContactDetails.save(xeroContactDetails);
 
+              // flag needs_email when imported without one.
+              if (_emailMissing) {
+                await this.clientSuppliersDetailsService.markNeedsEmail(
+                  response.id,
+                  true,
+                );
+              }
+
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: sync_id || null,
                 api_name: 'createOrUpdateContactInPaytrade',
@@ -4402,7 +4406,8 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   contact_status,
                 },
                 integration_id: xeroDetails.integration_id,
-                log_template_id: 383,
+                // soft-fail warning template when email missing.
+                log_template_id: _emailMissing ? 611 : 383,
                 dynamic_values: {
                   contact_name: response?.client_supplier_name,
                   status: String(contact?.contactStatus)?.toLowerCase(),
@@ -4416,10 +4421,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 reference_id: xeroContactDetails?.id,
                 history: [
                   `API triggered from contact scheduler ${response?.client_supplier_name}`,
-                  'Import successful',
+                  _emailMissing
+                    ? 'Imported with warning: email missing'
+                    : 'Import successful',
                 ],
                 important_checks: {},
-                error_message: null,
+                error_message: _emailMissing
+                  ? 'Imported without an email address — add one to enable notices and smart contract creation.'
+                  : null,
                 xero_records: [contact],
                 paytrade_records: [response],
                 new_records: null,

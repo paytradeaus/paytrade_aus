@@ -126,6 +126,7 @@ import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-
 import { XeroBankAccountNumberNullableSchemaSeederModule } from './libs/@seeders/xero-bank-account-number-nullable-schema-seeder.module';
 import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sync-logs-error-code-schema-seeder.module';
 import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-type-partnership-schema-seeder.module';
+import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-needs-email-schema-seeder.module';
 
 @Module({
   imports: [
@@ -356,6 +357,7 @@ import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-
     XeroBankAccountNumberNullableSchemaSeederModule,
     XeroSyncLogsErrorCodeSchemaSeederModule,
     EntityTypePartnershipSchemaSeederModule,
+    ContactNeedsEmailSchemaSeederModule,
   ],
   providers: [
     AppService,

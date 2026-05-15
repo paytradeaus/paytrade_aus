@@ -1326,6 +1326,36 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     return xeroSyncLog;
   }
 
+  // Stamp prior email-waiting warning rows (templates 610-613) for a contact
+  // as resolved by merging a `resolved_at` / `resolved_by_log_id` marker into
+  // their dynamic_values jsonb. Used after the user adds the missing email
+  // and the queued smart-creates have all replayed cleanly.
+  async markEmailWaitingLogsResolved(
+    contactId: string,
+    integrationId: number,
+    resolvedByLogId: number | null,
+  ): Promise<number> {
+    const result = await this.xeroSyncLogs
+      .createQueryBuilder()
+      .update(XeroSyncLogs)
+      .set({
+        dynamic_values: () =>
+          `COALESCE(dynamic_values, '{}'::jsonb) || jsonb_build_object('resolved_at', to_jsonb(now()::text), 'resolved_by_log_id', to_jsonb(${
+            resolvedByLogId === null ? 'NULL' : Number(resolvedByLogId)
+          }::int))`,
+      })
+      .where('integration_id = :integration_id', {
+        integration_id: integrationId,
+      })
+      .andWhere('log_template_id IN (:...templates)', {
+        templates: [610, 611, 612, 613],
+      })
+      .andWhere(`reference->>'paytradeId' = :contactId`, { contactId })
+      .andWhere(`COALESCE(dynamic_values->>'resolved_at', '') = ''`)
+      .execute();
+    return result?.affected ?? 0;
+  }
+
   async getXeroSyncLogs(getXeroSyncLogsInput: GetXeroSyncLogsInput, timezone) {
     const { id, page_number, page_size, sorting_field } = getXeroSyncLogsInput;
     const skip =

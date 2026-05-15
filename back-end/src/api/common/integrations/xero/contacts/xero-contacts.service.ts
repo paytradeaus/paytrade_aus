@@ -788,6 +788,35 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     return await this.xeroContactDetails.save(xeroContactDetails);
   }
 
+  // Returns the list of mandatory contact fields that are
+  // empty in the inbound Xero payload. When `excludeEmail` is true the
+  // email field is omitted from the check (so callers can soft-fail on
+  // email alone while still hard-failing on any other missing field).
+  collectMissingMandatoryFields(
+    payload: any,
+    opts: { excludeEmail?: boolean } = {},
+  ): string[] {
+    const p = payload || {};
+    const checks: Array<[string, any]> = [
+      ['Name', p.client_supplier_name],
+      ['Type', p.client_supplier_type],
+      ['Status', p.client_supplier_status],
+      ['Related entity', p.related_entity],
+      ['Entity type', p.entity_type],
+      ['Place ID', p.place_id],
+      ['Address', p.client_supplier_address],
+      ['Country', p.country],
+      ['Region', p.region],
+      ['Latitude', p.latitude],
+      ['Longitude', p.longitude],
+      ['Phone', p.client_phone_no],
+    ];
+    if (!opts.excludeEmail) {
+      checks.push(['Email', p.client_email_id]);
+    }
+    return checks.filter(([, v]) => !v).map(([k]) => k);
+  }
+
   async insertContactDetailsInPaytrade(decoded: any, data: any) {
     try {
       const { company_id, contact_id, sync_id } = data;
@@ -897,21 +926,16 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      if (
-        !client_supplier_name ||
-        !client_supplier_type ||
-        !client_supplier_status ||
-        !related_entity ||
-        !entity_type ||
-        !place_id ||
-        !client_supplier_address ||
-        !country ||
-        !region ||
-        !latitude ||
-        !longitude ||
-        !client_phone_no ||
-        !client_email_id
-      ) {
+      // Split missing-field validation. Email alone is now a
+      // soft-fail (the contact is still imported and flagged needs_email).
+      // Every other missing mandatory field is still a hard failure, and
+      // the error message now lists exactly which fields are missing
+      // instead of the old generic "Missing mandatory fields".
+      const _otherMissing = this.collectMissingMandatoryFields(data.payload, {
+        excludeEmail: true,
+      });
+      const _emailMissing = !client_email_id;
+      if (_otherMissing.length > 0) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id || null,
           api_name: 'createContactInPaytrade',
@@ -934,7 +958,7 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
           important_checks: {
             'Import data format validation': 'Failed',
           },
-          error_message: `Missing mandatory fields`,
+          error_message: `Missing mandatory fields: ${_otherMissing.join(', ')}${_emailMissing ? ' (email also missing)' : ''}`,
           xero_records: [contact],
           paytrade_records: [],
           new_records: null,
@@ -1042,9 +1066,14 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
             const contactData: any = {
               name: response.client_supplier_name,
               addresses: addresses,
-              emailAddress: response.client_email_id,
               phones: phones,
             };
+            // Only echo emailAddress back to Xero when we have
+            // one. Otherwise leave it untouched (and remember to flag the
+            // contact as needs_email below).
+            if (response.client_email_id) {
+              contactData.emailAddress = response.client_email_id;
+            }
 
             // Phase 2 outbound: push per-contact GST overrides to Xero.
             this.applyContactGstToXeroPayload(contactData, response);
@@ -1089,6 +1118,15 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
               contact,
             );
 
+            // Mark the freshly imported PT contact as
+            // needs_email so the UI can render the badge / Resolve link.
+            if (_emailMissing) {
+              await this.clientSuppliersDetails.update(
+                { id: response.id },
+                { needs_email: true },
+              );
+            }
+
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: sync_id || null,
               api_name: 'createContactInPaytrade',
@@ -1098,7 +1136,8 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
                 client_email_id: contact.emailAddress || '',
               },
               integration_id: xeroDetails.integration_id,
-              log_template_id: 14,
+              // soft-fail warning template when email missing.
+              log_template_id: _emailMissing ? 610 : 14,
               dynamic_values: {
                 contact_name: response?.client_supplier_name,
                 status: updatedContact.contactStatus?.toLowerCase(),
@@ -1112,10 +1151,14 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
               reference_id: xeroContactDetails?.id,
               history: [
                 `API triggered from Client/supplier ${response?.client_supplier_name}`,
-                'Import successful',
+                _emailMissing
+                  ? 'Imported with warning: email missing'
+                  : 'Import successful',
               ],
               important_checks: {},
-              error_message: null,
+              error_message: _emailMissing
+                ? 'Imported without an email address — add one to enable notices and smart contract creation.'
+                : null,
               xero_records: [contact],
               paytrade_records: [response],
               new_records: null,

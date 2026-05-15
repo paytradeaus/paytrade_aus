@@ -750,7 +750,7 @@ export class XeroWebhookService {
         },
       });
 
-      let pt_client_supplier;
+      let pt_client_supplier: ClientSuppliersDetails | boolean | null;
 
       if (xeroContactDetails.pt_contact_id) {
         const clientSuppliersDetails =
@@ -891,9 +891,9 @@ export class XeroWebhookService {
           data,
         );
         this.logger.log(`[Xero Contact Webhook] new::` + " " + JSON.stringify(pt_client_supplier));
-        if (pt_client_supplier) {
+        if (pt_client_supplier && typeof pt_client_supplier === 'object') {
           xeroContactDetails.pt_contact_id =
-            pt_client_supplier?.client_supplier_id;
+            pt_client_supplier.client_supplier_id;
           xeroContactDetails.mapped_status = 'System';
           await this.xeroContactDetails.save(xeroContactDetails);
         }
@@ -909,25 +909,53 @@ export class XeroWebhookService {
             client_email_id: contact.emailAddress || '',
           },
           integration_id: xeroDetails.integration_id,
-          log_template_id: 201,
+          // Use the email-missing warning template when the freshly created
+          // PT contact was flagged needs_email by the soft-fail path inside
+          // handleContactCreate. handleContactCreate may return a boolean
+          // sentinel on early-exit paths, so guard with a type check.
+          log_template_id:
+            typeof pt_client_supplier === 'object' &&
+            pt_client_supplier?.needs_email
+              ? 612
+              : 201,
           dynamic_values: {
-            contact_name: pt_client_supplier?.client_supplier_name,
+            contact_name:
+              typeof pt_client_supplier === 'object'
+                ? pt_client_supplier?.client_supplier_name
+                : undefined,
           },
           project_id: null,
           contract_id: null,
           reference: {
             xeroId: xeroContactDetails?.id,
-            paytradeId: pt_client_supplier?.id,
+            paytradeId:
+              typeof pt_client_supplier === 'object'
+                ? pt_client_supplier?.id
+                : undefined,
           },
           reference_id: xeroContactDetails?.id,
           history: [
-            `API triggered from contact webhook ${pt_client_supplier?.client_supplier_name}`,
-            'Import successful',
+            `API triggered from contact webhook ${
+              typeof pt_client_supplier === 'object'
+                ? pt_client_supplier?.client_supplier_name
+                : ''
+            }`,
+            typeof pt_client_supplier === 'object' &&
+            pt_client_supplier?.needs_email
+              ? 'Imported with warning: email missing'
+              : 'Import successful',
           ],
           important_checks: {},
-          error_message: null,
+          error_message:
+            typeof pt_client_supplier === 'object' &&
+            pt_client_supplier?.needs_email
+              ? 'Imported without an email address — add one to enable notices and smart contract creation.'
+              : null,
           xero_records: [contact],
-          paytrade_records: [pt_client_supplier],
+          paytrade_records:
+            typeof pt_client_supplier === 'object' && pt_client_supplier
+              ? [pt_client_supplier]
+              : [],
           new_records: null,
           updated_records: null,
           synced_records: null,
@@ -1037,21 +1065,14 @@ export class XeroWebhookService {
       client_email_id,
       account_details,
     } = data || {};
-    if (
-      !client_supplier_name ||
-      !client_supplier_type ||
-      !client_supplier_status ||
-      !related_entity ||
-      !entity_type ||
-      !place_id ||
-      !client_supplier_address ||
-      !country ||
-      !region ||
-      !latitude ||
-      !longitude ||
-      !client_phone_no ||
-      !client_email_id
-    ) {
+    // Task #154 — Soft-fail on email-only missing; hard-fail on every other
+    // missing mandatory field with the exact field names listed.
+    const _otherMissing =
+      this.xeroContactsService.collectMissingMandatoryFields(data, {
+        excludeEmail: true,
+      });
+    const _emailMissing = !client_email_id;
+    if (_otherMissing.length > 0) {
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
         api_name: 'createContactInPaytradeThroughWebhook',
@@ -1075,7 +1096,7 @@ export class XeroWebhookService {
         important_checks: {
           'Import data format validation': 'Failed',
         },
-        error_message: `Missing mandatory fields`,
+        error_message: `Missing mandatory fields: ${_otherMissing.join(', ')}${_emailMissing ? ' (email also missing)' : ''}`,
         xero_records: [contact],
         paytrade_records: [],
         new_records: null,
@@ -1179,6 +1200,16 @@ export class XeroWebhookService {
           xeroContactDetails.updated_on = response.created_on;
           xeroContactDetails.updated_group = response.created_group;
           await this.xeroContactDetails.save(xeroContactDetails);
+
+          // Mark needs_email so the wrapper can pick the warning sync-log
+          // template and the UI can render the badge.
+          if (_emailMissing) {
+            await this.clientSuppliersDetailsService.markNeedsEmail(
+              response.id,
+              true,
+            );
+            response.needs_email = true;
+          }
 
           return response;
         }

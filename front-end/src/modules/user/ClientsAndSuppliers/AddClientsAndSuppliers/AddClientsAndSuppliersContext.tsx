@@ -308,6 +308,57 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
         dispatch(setAccountDetailsData(""));
         formik.resetForm();
 
+        // Task #154 — Backend may have replayed queued smart-create
+        // attempts that were waiting for this contact's email. If so,
+        // surface a quick prompt summarising what just happened and let
+        // the user jump to the sync log to review the per-item outcome.
+        // "Process now" is implicit (already executed server-side); this
+        // dialog represents the "Review first / Not now" choice.
+        try {
+          const pr = clientsResponse?.pending_resolutions;
+          if (pr?.email_just_added) {
+            const totalRetried = Number(pr?.smart_creates_attempted || 0);
+            const created = Array.isArray(pr?.smart_creates)
+              ? pr.smart_creates.filter((r: any) => r?.status === "created")
+                  .length
+              : 0;
+            // Task #154 — Always prompt when an email was just added on a
+            // previously-flagged contact, even if there were zero queued
+            // smart-create attempts. The blocked_notices_count covers the
+            // wider sync-log backlog (templates 610-613) that the user
+            // may want to review independently of smart-create replays.
+            const backlog = Number(pr?.blocked_notices_count || 0);
+            if (
+              (backlog > 0 || totalRetried > 0) &&
+              typeof window !== "undefined"
+            ) {
+              const headline =
+                backlog > 0
+                  ? `${backlog} item${backlog === 1 ? " was" : "s were"} waiting for this contact's email.`
+                  : `Items waiting for this contact's email have been processed.`;
+              const detail =
+                totalRetried > 0
+                  ? `${created} of ${totalRetried} smart-create retr${totalRetried === 1 ? "y" : "ies"} succeeded.\n\n`
+                  : "\n";
+              const ok = window.confirm(
+                `${headline}\n${detail}` +
+                  `OK — Review the results in the Xero sync log.\n` +
+                  `Cancel — Not now.`,
+              );
+              if (ok) {
+                router.push("/user/integrations/xero");
+                return;
+              }
+            }
+          }
+        } catch (prErr) {
+          // Non-blocking — supplier save already succeeded.
+          console.error(
+            "Task #154 — failed to surface pending_resolutions prompt:",
+            prErr,
+          );
+        }
+
         const smartContractErrorCodes = [
           "SMART_CONTRACT_CONTACT_INCOMPLETE",
           "SMART_CONTRACT_NO_SUPPLIER_FINANCIALS",

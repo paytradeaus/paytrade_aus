@@ -2350,6 +2350,11 @@ type ClientSuppliersDetailsRes {
 
   """Unique identifier of the record."""
   id: String!
+
+  """
+  Items that were waiting for this contact to get an email — populated after the email is saved on a previously-flagged contact.
+  """
+  pending_resolutions: ContactPendingResolutions
 }
 
 """Response wrapper for client/supplier details."""
@@ -2793,6 +2798,29 @@ type ComplianceRules {
 
   """Number of the rule"""
   rule_number: Float
+}
+
+"""
+Items that were waiting for this contact to get an email, returned after the email is saved.
+"""
+type ContactPendingResolutions {
+  """
+  Number of failed/blocked notices for this contact still awaiting user action.
+  """
+  blocked_notices_count: Float!
+
+  """
+  True when the user just added an email that the contact previously lacked (transition).
+  """
+  email_just_added: Boolean!
+
+  """Per-attempt result for the replayed smart-create attempts."""
+  smart_creates: [PendingSmartCreateResult!]!
+
+  """
+  Number of queued smart-contract auto-create attempts that were replayed.
+  """
+  smart_creates_attempted: Float!
 }
 
 """Represents the details of a contract including related notices."""
@@ -16620,6 +16648,25 @@ type PaymentHistory {
   subscription_id: Float!
 }
 
+"""
+Result of replaying a single queued smart-create-contract attempt after the contact email was added.
+"""
+type PendingSmartCreateResult {
+  """PayTrade contract id when status=created."""
+  contract_id: Float
+
+  """Xero invoice/bill id the smart create was for."""
+  invoice_id: String!
+
+  """Why the replay was skipped or failed."""
+  reason: String
+
+  """
+  Outcome of the replay: created | skipped | failed. See reason for skipped/failed.
+  """
+  status: String!
+}
+
 type PricingTableFeatureListResponse {
   data: [PricingTableFeatureType!]
   message: String!
@@ -22413,6 +22460,11 @@ type ViewClientSuppliersRes {
 
   """Longitude coordinate of the client/supplier location."""
   longitude: String
+
+  """
+  True when the contact was imported from Xero without an email and still needs one to be added (Task #154).
+  """
+  needs_email: Boolean
 
   """Payment terms agreed with this client/supplier."""
   payment_terms: Float

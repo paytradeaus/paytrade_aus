@@ -78,6 +78,40 @@ export class ClientSuppliersDetailsService {
     return await this.companyDetails.findOne({ where: { company_id } });
   }
 
+  // Toggle the needs_email soft-fail flag on a contact. Used
+  // by the inbound import paths (manual / scheduler / webhook) and by the
+  // edit flow (clear once an email has been saved).
+  async markNeedsEmail(id: string, value: boolean): Promise<void> {
+    await this.clientSuppliersDetails.update({ id }, { needs_email: value });
+  }
+
+  // Count the inbound-sync log entries that flagged this
+  // contact as needing an email (templates 610/611/612 = manual /
+  // scheduler / webhook soft-fail) plus the smart-create-blocked entries
+  // (template 613). The reference jsonb on each log carries
+  // `paytradeId` = client_suppliers_details.id, so we can attribute them
+  // back to a contact without needing a foreign key. There's no
+  // resolution column on the log, so the FE simply uses this for the
+  // "N items were waiting" wording — the queue replay itself happens
+  // server-side from `pending_email_actions`.
+  async countWaitingSyncLogsForContact(
+    contactId: string | number,
+  ): Promise<number> {
+    try {
+      const rows = await this.clientSuppliersDetails.manager.query(
+        `SELECT COUNT(*)::int AS c
+           FROM xero_sync_logs
+          WHERE log_template_id IN (610, 611, 612, 613)
+            AND reference->>'paytradeId' = $1`,
+        [String(contactId)],
+      );
+      return Number(rows?.[0]?.c || 0);
+    } catch {
+      // Best-effort — never block the edit flow on this count.
+      return 0;
+    }
+  }
+
   async insertClientSupplierDetails(
     decoded,
     createClientSuppliersDetailInput: CreateClientSuppliersDetailInput,
@@ -301,6 +335,7 @@ export class ClientSuppliersDetailsService {
       .addSelect('cs.client_supplier_address', 'client_supplier_address')
       .addSelect('cs.client_phone_no', 'client_phone_no')
       .addSelect('cs.client_email_id', 'client_email_id')
+      .addSelect('cs.needs_email', 'needs_email')
       .addSelect('cs.client_website', 'client_website')
       .addSelect('cs.qbcc_number', 'qbcc_number')
       .addSelect('cs.acn_number', 'acn_number')
@@ -647,6 +682,7 @@ export class ClientSuppliersDetailsService {
       client_supplier_address: result.client_supplier_address,
       client_phone_no: result.client_phone_no,
       client_email_id: result.client_email_id,
+      needs_email: !!result.needs_email,
       client_website: result.client_website,
       qbcc_number: result.qbcc_number,
       acn_number: result.acn_number,
@@ -1310,6 +1346,7 @@ export class ClientSuppliersDetailsService {
       .addSelect('cs.client_supplier_address', 'client_supplier_address')
       .addSelect('cs.client_phone_no', 'client_phone_no')
       .addSelect('cs.client_email_id', 'client_email_id')
+      .addSelect('cs.needs_email', 'needs_email')
       .addSelect('cs.client_website', 'client_website')
       .addSelect('cs.qbcc_number', 'qbcc_number')
       .addSelect('cs.acn_number', 'acn_number')

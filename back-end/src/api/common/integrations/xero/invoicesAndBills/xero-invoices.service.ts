@@ -6534,6 +6534,59 @@ export class XeroInvoicesService {
       }
     }
 
+    // When the *only* blocker is the missing email, queue the
+    // smart-create attempt onto the contact and write a specific warning
+    // log instead of a hard failure. The attempt is replayed automatically
+    // when the user later saves an email via editClientSuppliersDetailsById.
+    if (
+      allIssues.length === 1 &&
+      allIssues[0] === 'Email Address'
+    ) {
+      await this.queueSmartCreateForEmailReplay(clientSuppliersDetails, {
+        invoice_id: data.invoice_id,
+        tenant_id: data.tenant_id,
+        company_id,
+        project_id: projectDetails.project_id,
+        sync_run_type: data.sync_run_type || null,
+        queued_on: new Date().toISOString(),
+      });
+      this.logger.log(
+        `Smart contract creation queued: contact ${contactName} missing email (invoice ${invoice_id})`,
+      );
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'smartCreateContract',
+        api_payload: smartLogPayload,
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 613,
+        dynamic_values: {
+          contact_name: contactName,
+          invoice_id,
+        },
+        project_id: xeroProjectId,
+        contract_id: null,
+        // paytradeId must point to the client_suppliers_details
+        // row so the email-edit transition / sync-log resolve UI can
+        // attribute this blocked entry back to the contact.
+        reference: {
+          xeroId: checkExistenceInDb?.id,
+          paytradeId: clientSuppliersDetails?.id,
+        },
+        reference_id: clientSuppliersDetails?.id,
+        history: [
+          `API triggered from claim ${invoice_id}`,
+          'Smart contract creation queued — waiting for contact email',
+        ],
+        important_checks: {},
+        error_message: `Blocked: missing client email for '${contactName}'. Queued for replay once an email is saved.`,
+        xero_records: [invoiceDetails],
+        paytrade_records: [clientSuppliersDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return null;
+    }
+
     if (allIssues.length > 0) {
       const issueList = allIssues.join('; ');
       const contactFieldsMissing = allIssues.filter(i =>
@@ -6802,5 +6855,181 @@ export class XeroInvoicesService {
       });
       return null;
     }
+  }
+
+  // Append a smart-create attempt to the contact's queue when
+  // it was blocked by a missing email. Idempotent on (invoice_id) so the
+  // same claim can't pile up multiple replay entries across re-syncs.
+  async queueSmartCreateForEmailReplay(
+    contact: ClientSuppliersDetails,
+    entry: {
+      invoice_id: string;
+      tenant_id: string;
+      company_id: number;
+      project_id: number;
+      sync_run_type: string | null;
+      queued_on: string;
+    },
+  ): Promise<void> {
+    const fresh = await this.clientSuppliersDetails.findOne({
+      where: { id: contact.id },
+    });
+    if (!fresh) return;
+    const existing: any[] = Array.isArray(fresh.pending_email_actions)
+      ? fresh.pending_email_actions
+      : [];
+    const dedup = existing.filter(
+      (e) =>
+        !(
+          e &&
+          e.kind === 'smart_create_contract' &&
+          e.invoice_id === entry.invoice_id
+        ),
+    );
+    dedup.push({ kind: 'smart_create_contract', ...entry });
+    await this.clientSuppliersDetails.update(
+      { id: contact.id },
+      { needs_email: true, pending_email_actions: dedup },
+    );
+  }
+
+  // Replay queued smart-create attempts after a contact's email is added.
+  // Successes/skips are removed from the queue; failures are kept (with an
+  // incremented attempt counter and last_error) so a future save can retry.
+  async replayPendingSmartCreatesForContact(
+    decoded: any,
+    contactId: string,
+  ): Promise<Array<{ invoice_id: string; status: 'created' | 'skipped' | 'failed'; reason?: string; contract_id?: number }>> {
+    const fresh = await this.clientSuppliersDetails.findOne({
+      where: { id: contactId },
+    });
+    if (!fresh) return [];
+    const queue: any[] = Array.isArray(fresh.pending_email_actions)
+      ? fresh.pending_email_actions
+      : [];
+    const others = queue.filter(
+      (e) => !(e && e.kind === 'smart_create_contract'),
+    );
+    const smartCreates = queue.filter(
+      (e) => e && e.kind === 'smart_create_contract',
+    );
+
+    const results: Array<{
+      invoice_id: string;
+      status: 'created' | 'skipped' | 'failed';
+      reason?: string;
+      contract_id?: number;
+    }> = [];
+    const retainedFailures: any[] = [];
+    for (const entry of smartCreates) {
+      let result: { invoice_id: string; status: 'created' | 'skipped' | 'failed'; reason?: string; contract_id?: number };
+      try {
+        result = await this.replaySingleSmartCreate(decoded, fresh, entry);
+      } catch (err: any) {
+        result = {
+          invoice_id: entry.invoice_id,
+          status: 'failed',
+          reason: err?.message || String(err),
+        };
+      }
+      results.push(result);
+      if (result.status === 'failed') {
+        retainedFailures.push({
+          ...entry,
+          attempt_count: Number(entry?.attempt_count || 0) + 1,
+          last_error: result.reason || null,
+          last_attempt_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    const remaining = [...others, ...retainedFailures];
+    await this.clientSuppliersDetails.update(
+      { id: contactId },
+      { pending_email_actions: remaining },
+    );
+    return results;
+  }
+
+  private async replaySingleSmartCreate(
+    decoded: any,
+    contact: ClientSuppliersDetails,
+    entry: any,
+  ): Promise<{
+    invoice_id: string;
+    status: 'created' | 'skipped' | 'failed';
+    reason?: string;
+    contract_id?: number;
+  }> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: entry.company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails) {
+      return {
+        invoice_id: entry.invoice_id,
+        status: 'skipped',
+        reason: 'No active Xero integration',
+      };
+    }
+    const projectDetails: any = await this.dataSource
+      .getRepository(ProjectDetails)
+      .findOne({ where: { project_id: entry.project_id } });
+    if (!projectDetails) {
+      return {
+        invoice_id: entry.invoice_id,
+        status: 'skipped',
+        reason: 'Project no longer available',
+      };
+    }
+    let invoiceDetails: any;
+    try {
+      await this.xeroService.refreshTokenSet(entry.company_id, this.xero);
+      const invResp = await this.xero.accountingApi.getInvoice(
+        entry.tenant_id,
+        entry.invoice_id,
+      );
+      invoiceDetails = invResp?.body?.invoices?.[0];
+    } catch (err: any) {
+      return {
+        invoice_id: entry.invoice_id,
+        status: 'failed',
+        reason: `Could not fetch claim from Xero: ${err?.message || err}`,
+      };
+    }
+    if (!invoiceDetails) {
+      return {
+        invoice_id: entry.invoice_id,
+        status: 'skipped',
+        reason: 'Claim no longer exists in Xero',
+      };
+    }
+    const created = await this.smartCreateContract(decoded, {
+      company_id: entry.company_id,
+      projectDetails,
+      clientSuppliersDetails: contact,
+      invoiceDetails,
+      xeroDetails,
+      data: {
+        invoice_id: entry.invoice_id,
+        tenant_id: entry.tenant_id,
+        sync_run_type: entry.sync_run_type || 'email_replay',
+      },
+      invoice_id: entry.invoice_id,
+      checkExistenceInDb: null,
+      xeroProjectDetailsId: null,
+    });
+    if (created) {
+      return {
+        invoice_id: entry.invoice_id,
+        status: 'created',
+        contract_id: created.contract_id,
+      };
+    }
+    return {
+      invoice_id: entry.invoice_id,
+      status: 'skipped',
+      reason: 'Smart create returned no contract — see most recent sync log for details',
+    };
   }
 }

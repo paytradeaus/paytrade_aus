@@ -792,6 +792,26 @@ export default function AddClientsAndSuppliers() {
                   onBlur={formik.handleBlur("client_email_id")}
                   value={formik.values.client_email_id}
                 />
+                {obj?.needs_email && !formik.values.client_email_id && (
+                  <div
+                    className="warning-badge"
+                    style={{
+                      marginTop: -8,
+                      marginBottom: 12,
+                      padding: "6px 10px",
+                      background: "#fff4e5",
+                      border: "1px solid #ffb74d",
+                      borderRadius: 4,
+                      color: "#7a4f01",
+                      fontSize: 12,
+                    }}
+                  >
+                    <i className="fa-light fa-triangle-exclamation" />
+                    {" "}Missing email — imported from Xero without an email
+                    address. Add one to unblock invoices and contracts that
+                    are waiting on this contact.
+                  </div>
+                )}
 
                 <FormikControl
                   control={InputType.TEXT_FIELD}

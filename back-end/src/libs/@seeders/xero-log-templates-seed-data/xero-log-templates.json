@@ -5485,5 +5485,55 @@
     "from_xero": true,
     "error_code": "RETENTION_TRANSFER_AMOUNT_MISMATCH",
     "associated_log_ids": null
+  },
+  {
+    "id": 610,
+    "sync_type": "Contacts",
+    "description": "<p>Contact <b>{{contact_name}}</b> was imported but is missing an email address. Click Resolve to add it now so notices and smart contract creation can run.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "CONTACT_IMPORTED_NEEDS_EMAIL",
+    "associated_log_ids": [611, 612]
+  },
+  {
+    "id": 611,
+    "sync_type": "Contact schedulers",
+    "description": "<p>Contact <b>{{contact_name}}</b> was imported via the scheduler but is missing an email address. Click Resolve to add it now so notices and smart contract creation can run.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTACT_IMPORTED_NEEDS_EMAIL",
+    "associated_log_ids": [610, 612]
+  },
+  {
+    "id": 612,
+    "sync_type": "Contact webhook",
+    "description": "<p>Contact <b>{{contact_name}}</b> was imported via the Xero webhook but is missing an email address. Click Resolve to add it now so notices and smart contract creation can run.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_IMPORTED_NEEDS_EMAIL",
+    "associated_log_ids": [610, 611]
+  },
+  {
+    "id": 613,
+    "sync_type": "Claims",
+    "description": "<p>Smart contract auto-creation blocked for claim {{invoice_id}}: contact <b>{{contact_name}}</b> has no email address. The attempt has been queued and will be re-tried automatically once an email is added. Click Resolve to add the email now.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SMART_CREATE_BLOCKED_MISSING_EMAIL",
+    "associated_log_ids": null
+  },
+  {
+    "id": 614,
+    "sync_type": "Contacts",
+    "description": "<p>Email saved for <b>{{contact_name}}</b>. {{processed_summary}}</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": null
   }
 ]
