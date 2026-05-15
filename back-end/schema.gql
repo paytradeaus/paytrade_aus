@@ -1197,34 +1197,6 @@ input AdminAddHolidayInput {
   recurring_every_year: Boolean
 }
 
-type AdminAiPurchasesCsvResponse {
-  csv: String!
-  filename: String!
-  row_count: Int!
-}
-
-"""Filter for the admin AI credit purchases page."""
-input AdminAiPurchasesFilterInput {
-  company_id: Int
-  end_date: DateTime
-  max_amount: Float
-  min_amount: Float
-  page_number: Int
-  page_size: Int
-  start_date: DateTime
-
-  """pending|succeeded|failed|refunded"""
-  status: String
-}
-
-type AdminAiPurchasesPageResponse {
-  rows: [AiCreditPurchaseResponse!]!
-  total_count: Int!
-  total_credits_sold_usd: Float!
-  total_revenue_usd: Float!
-  total_stripe_fees_usd: Float!
-}
-
 """Input type for admin to create a new company"""
 input AdminCreateCompanyInput {
   """ABN (Australian Business Number)"""
@@ -1453,54 +1425,6 @@ type AiAnswerResponse {
   suggestions: [String!]
 }
 
-type AiBillingOverviewResponse {
-  balance_usd: Float!
-  company_id: Int!
-  is_below_trigger: Boolean!
-  last_allocation_period: String
-  low_balance_trigger_usd: Float!
-  plan_monthly_credit_usd: Float!
-  plan_name: String
-  settings: AiBillingSettingsResponse!
-}
-
-type AiBillingSettingsResponse {
-  auto_topup_enabled: Boolean!
-  billing_email: String
-  company_id: Int!
-  is_sandbox: Boolean!
-  last_topup_failure_reason: String
-  low_balance_trigger_usd: Float!
-  monthly_topup_cap_usd: Float!
-  stripe_payment_method_id: String
-  topup_amount_usd: Float!
-}
-
-type AiCreditLedgerEntry {
-  amount_usd: Float!
-  balance_after: Float!
-  created_on: DateTime!
-  event_type: String!
-  id: String!
-  notes: String
-}
-
-type AiCreditPurchaseResponse {
-  amount_charged_usd: Float!
-  company_id: Int!
-  company_name: String
-  created_on: DateTime!
-  credits_purchased_usd: Float!
-  currency: String!
-  failure_reason: String
-  id: String!
-  receipt_pdf_url: String
-  status: String!
-  stripe_fee_usd: Float!
-  stripe_payment_intent_id: String
-  trigger_type: String!
-}
-
 """Standard response wrapper for the admin AI live-follow audit listing."""
 type AiLiveFollowAuditResponse {
   data: [AiLiveFollowAuditRow!]
@@ -1546,12 +1470,6 @@ type AllowAdminToLoginAsUserResponse {
 
 input AskAiSupportInput {
   question: String!
-}
-
-"""Attach a Stripe payment method to the company for AI billing."""
-input AttachPaymentMethodInput {
-  is_sandbox: Boolean = false
-  payment_method_id: String!
 }
 
 """Represents an audit report with optional details."""
@@ -9590,24 +9508,6 @@ input GetActivityLogInput {
   user_id: Float
 }
 
-"""Input for fetching the deterministic AI status snapshot."""
-input GetAiStatusSnapshotInput {
-  """Company id (business profile) to scope the snapshot."""
-  company_id: Int!
-
-  """
-  Optional: bypass the cache (e.g. after a known mutation). Defaults to false.
-  """
-  force_refresh: Boolean
-}
-
-"""GraphQL response wrapper for the AI status snapshot."""
-type GetAiStatusSnapshotResponse {
-  data: StatusSnapshotGql
-  message: String
-  status: String!
-}
-
 """Input payload for fetching audit reports with filters and pagination."""
 input GetAllAuditReportInput {
   """Type of bank account."""
@@ -13796,13 +13696,6 @@ input ManageBlogCommentInput {
   comment_status: String!
 }
 
-"""Trigger a one-off (manual) AI credit top-up."""
-input ManualTopupInput {
-  """Credit value (USD) to add to the balance."""
-  credits_usd: Float!
-  is_sandbox: Boolean = false
-}
-
 """Response for matched transaction payments."""
 type MatchedTxnPaymentsResponse {
   """Matched payments and transactions."""
@@ -14299,7 +14192,6 @@ type Mutation {
     """Payment method ID to associate."""
     payment_method_id: String!
   ): StringResponse!
-  attachAiBillingPaymentMethod(company_id: Int!, input: AttachPaymentMethodInput!): AiBillingSettingsResponse!
 
   """Automatically maps all unmapped bank accounts for the given company."""
   autoMappingAccount(
@@ -14508,7 +14400,6 @@ type Mutation {
     """Optional synchronization ID for Xero."""
     sync_id: String
   ): GetXeroAccountsResponse!
-  createAiBillingSetupIntent(company_id: Int!, is_sandbox: Boolean = false): StripeSetupIntentResponse!
 
   """Creates a claim in Paytrade using the provided payload."""
   createClaimInPaytrade(
@@ -15331,7 +15222,6 @@ type Mutation {
     """
     integrateAdatreeInput: integrateAdatreeInput!
   ): integrateAdatreeResponse!
-  manualAiCreditTopup(company_id: Int!, input: ManualTopupInput!): TopupResultResponse!
 
   """Allows manual mapping of unmapped bank accounts to company accounts."""
   manualMappingAccount(
@@ -15530,7 +15420,6 @@ type Mutation {
     """The id of the Failed retention-transfer sync log to retry."""
     sync_log_id: String!
   ): GetXeroPaymentsResponse!
-  runAiCreditMonthlyAllocation(period: String): Boolean!
 
   """Sends a system email to specified clients."""
   sendSystemEmailToTheClients(
@@ -15592,7 +15481,6 @@ type Mutation {
     """
     password: String
   ): UiPreferencesResponse!
-  setAiUserCostMultiplier(value: Float!): Float!
 
   """
   Set a selected payment method as the default card for future subscription charges.
@@ -15911,7 +15799,6 @@ type Mutation {
     """Input payload containing fields to update for the admin."""
     updateAdminInput: UpdateAdminInput!
   ): PTAdminResponse!
-  updateAiBillingSettings(company_id: Int!, input: UpdateAiBillingSettingsInput!): AiBillingSettingsResponse!
 
   """Modify an existing answer or comment within a discussion idea."""
   updateAnswerComment(
@@ -17752,7 +17639,6 @@ type Query {
     """
     financialInstitutionId: String!
   ): csvTemplateFileDetailsResponse!
-  exportAdminAiPurchasesCsv(input: AdminAiPurchasesFilterInput): AdminAiPurchasesCsvResponse!
 
   """
   Fetch account ledger entries for a specific bank account, showing debits, credits, and balances.
@@ -18228,7 +18114,6 @@ type Query {
     """
     getActivityLogInput: GetActivityLogInput!
   ): ActivityLogListResponse!
-  getAdminAiPurchases(input: AdminAiPurchasesFilterInput): AdminAiPurchasesPageResponse!
 
   """
   Fetches detailed information about a specific admin including groups, profile, and attachments.
@@ -18237,15 +18122,6 @@ type Query {
     """The unique ID of the admin to fetch."""
     Id: String!
   ): PTAdminGroupResponse!
-  getAiBillingOverview(company_id: Int!): AiBillingOverviewResponse!
-  getAiCreditLedger(company_id: Int!, limit: Int): [AiCreditLedgerEntry!]!
-  getAiCreditPurchases(company_id: Int!): [AiCreditPurchaseResponse!]!
-
-  """
-  Returns a deterministic snapshot of issues across compliance, notices, reconciliation, payments, contracts, claims, contacts and Xero sync for the requested company. No LLM involvement; cached briefly per company.
-  """
-  getAiStatusSnapshot(payload: GetAiStatusSnapshotInput!): GetAiStatusSnapshotResponse!
-  getAiUserCostMultiplier: Float!
 
   """
   Fetch all audit reports based on filter criteria for the given bank accounts.
@@ -19984,53 +19860,6 @@ type StatementResponse {
   value: String!
 }
 
-"""A single deterministic status issue."""
-type StatusIssueGql {
-  affectedRecordId: String
-  affectedRecordType: String!
-  agentCanHelp: Boolean!
-
-  """Issue category."""
-  category: String!
-  description: String!
-  detectedAt: String!
-
-  """Stable id `<category>:<record_type>:<id>:<check>`."""
-  id: String!
-  projectId: Int
-  requiresApproval: Boolean!
-
-  """critical | warning | info"""
-  severity: String!
-  suggestedAction: String!
-  title: String!
-}
-
-"""Per-category block of issues."""
-type StatusSnapshotCategoryBlockGql {
-  category: String!
-  issues: [StatusIssueGql!]!
-  totalFound: Int!
-  truncated: Boolean!
-}
-
-"""Deterministic AI status snapshot for a company."""
-type StatusSnapshotGql {
-  categories: [StatusSnapshotCategoryBlockGql!]!
-  companyId: Int!
-  generatedAt: String!
-  summary: StatusSnapshotSummaryGql!
-  topIssues: [StatusIssueGql!]!
-}
-
-"""Severity counters across the snapshot."""
-type StatusSnapshotSummaryGql {
-  critical: Int!
-  info: Int!
-  total: Int!
-  warning: Int!
-}
-
 """
 Generic response type used for operations that return only status and message.
 """
@@ -20040,11 +19869,6 @@ type StringResponse {
 
   """Indicates whether the operation was successful."""
   status: String!
-}
-
-type StripeSetupIntentResponse {
-  client_secret: String!
-  customer_id: String!
 }
 
 """Represents a sub-menu item in the side menu."""
@@ -20872,17 +20696,6 @@ type TicketMailDetail {
   toEmail: String!
 }
 
-type TopupResultResponse {
-  amount_charged_usd: Float!
-  balance_after: Float!
-  client_secret: String
-  credits_purchased_usd: Float!
-  failure_reason: String
-  purchase_id: String!
-  status: String!
-  stripe_fee_usd: Float!
-}
-
 """
 Response returned after triggering an activity log when a user is signed out.
 """
@@ -21018,15 +20831,6 @@ input UpdateAdminMenuInput {
   menu_status: String
   route_path: String
   sub_menus: [SubMenuInput!]
-}
-
-"""Update auto top-up + low-balance settings for a company."""
-input UpdateAiBillingSettingsInput {
-  auto_topup_enabled: Boolean
-  billing_email: String
-  low_balance_trigger_usd: Float
-  monthly_topup_cap_usd: Float
-  topup_amount_usd: Float
 }
 
 """Input type for updating an existing answer comment."""
