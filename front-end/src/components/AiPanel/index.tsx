@@ -294,7 +294,7 @@ export default function AiPanel() {
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const { decodeTokenData }: any = useTokenDetails();
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const composerInputRef = useRef<HTMLInputElement | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   // True when the current composer value was loaded via the Up-arrow
   // shortcut, so Down/Escape can clear it without interfering with the
   // user's own typing.
@@ -1461,93 +1461,108 @@ export default function AiPanel() {
         )}
 
         <form className={styles.composer} onSubmit={onComposerSubmit}>
-          <div
-            className={styles.composerRow}
-            onClick={() => composerInputRef.current?.focus()}
-          >
-            <input
-              ref={composerInputRef}
-              className={styles.composerInput}
-              placeholder="Ask me anything about Pay Trade…"
-              value={input}
-              onChange={(e) => {
-                // User typing/clearing manually invalidates the up-arrow
-                // shortcut state so Down/Escape no longer clears their input.
-                upArrowLoadedRef.current = false;
-                setInput(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                // Power-user shortcut: when the composer is empty, Up loads
-                // the most recent user message for editing (terminal/Slack
-                // style). Down/Escape clears it again, but only if it was
-                // loaded via Up — so it doesn't wipe text the user typed.
-                if (e.key === "ArrowUp") {
-                  if (input.length > 0) return;
-                  for (let i = messages.length - 1; i >= 0; i--) {
-                    if (messages[i].role === "user") {
-                      e.preventDefault();
-                      editMessage(messages[i].content, true);
-                      break;
-                    }
-                  }
-                } else if (e.key === "ArrowDown" || e.key === "Escape") {
-                  if (upArrowLoadedRef.current && input.length > 0) {
+          <textarea
+            ref={composerInputRef}
+            className={styles.composerInput}
+            placeholder="Ask me anything about Pay Trade…"
+            value={input}
+            rows={1}
+            onChange={(e) => {
+              // User typing/clearing manually invalidates the up-arrow
+              // shortcut state so Down/Escape no longer clears their input.
+              upArrowLoadedRef.current = false;
+              setInput(e.target.value);
+              // Auto-grow: reset then size to scrollHeight (capped via CSS
+              // max-height which then enables an inner scroll).
+              const el = e.target as HTMLTextAreaElement;
+              el.style.height = "auto";
+              el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+            }}
+            onKeyDown={(e) => {
+              // Enter sends; Shift+Enter inserts a newline (standard chat UX).
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                if (!sending && input.trim()) {
+                  onComposerSubmit(
+                    e as unknown as React.FormEvent<HTMLFormElement>,
+                  );
+                }
+                return;
+              }
+              // Power-user shortcut: when the composer is empty, Up loads
+              // the most recent user message for editing (terminal/Slack
+              // style). Down/Escape clears it again, but only if it was
+              // loaded via Up — so it doesn't wipe text the user typed.
+              if (e.key === "ArrowUp") {
+                if (input.length > 0) return;
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].role === "user") {
                     e.preventDefault();
-                    setInput("");
-                    upArrowLoadedRef.current = false;
+                    editMessage(messages[i].content, true);
+                    break;
                   }
                 }
-              }}
-              disabled={sending}
-              aria-label="AI assistant message"
-              maxLength={4000}
-            />
-            {sending ? (
-              <button
-                type="button"
-                className={styles.stopBtn}
-                onClick={onStop}
-                title="Stop"
-                aria-label="Stop AI response"
-              >
-                <i className="fa-light fa-stop"></i> Stop
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className={styles.sendBtn}
-                disabled={!input.trim()}
-                title="Send"
-                aria-label="Send message"
-              >
-                <i className="fa-light fa-arrow-up"></i>
-              </button>
-            )}
-          </div>
-          <div className={styles.composerFoot}>
-            <span>
+              } else if (e.key === "ArrowDown" || e.key === "Escape") {
+                if (upArrowLoadedRef.current && input.length > 0) {
+                  e.preventDefault();
+                  setInput("");
+                  upArrowLoadedRef.current = false;
+                }
+              }
+            }}
+            disabled={sending}
+            aria-label="AI assistant message"
+            maxLength={4000}
+          />
+          <div className={styles.composerActions}>
+            <span className={styles.composerCredit}>
               {sending
                 ? "Streaming…"
                 : creditBalance !== null
-                  ? `Read-only · Credit available: $${creditBalance.toFixed(
+                  ? `Credit available: $${creditBalance.toFixed(
                       creditBalance >= 1 ? 2 : 4,
                     )}`
-                  : "Read-only assistant"}
+                  : "Credit unavailable"}
             </span>
-            {!isMobile && (
-              <button
-                type="button"
-                className={styles.footIconBtn}
-                title="Collapse AI assistant to rail"
-                aria-label="Collapse AI assistant to rail"
-                onClick={() => {
-                  dispatch(setAiPanelState("rail"));
-                  persistUiPreferences({ aiPanelState: "rail" });
-                }}
-              >
-                <i className="fa-light fa-table-columns"></i>
-              </button>
-            )}
+            <div className={styles.composerActionsRight}>
+              {!isMobile && (
+                <button
+                  type="button"
+                  className={styles.footIconBtn}
+                  title="Collapse AI assistant to rail"
+                  aria-label="Collapse AI assistant to rail"
+                  onClick={() => {
+                    dispatch(setAiPanelState("rail"));
+                    persistUiPreferences({ aiPanelState: "rail" });
+                  }}
+                >
+                  <i className="fa-light fa-table-columns"></i>
+                </button>
+              )}
+              {sending ? (
+                <button
+                  type="button"
+                  className={styles.stopBtn}
+                  onClick={onStop}
+                  title="Stop"
+                  aria-label="Stop AI response"
+                >
+                  <i className="fa-light fa-stop"></i>
+                  <span>Stop</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className={styles.sendBtn}
+                  disabled={!input.trim()}
+                  title="Send (Enter)"
+                  aria-label="Send message"
+                >
+                  <i className="fa-light fa-arrow-up"></i>
+                  <span>Send</span>
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </aside>
