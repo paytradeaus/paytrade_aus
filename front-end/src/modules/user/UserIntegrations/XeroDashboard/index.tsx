@@ -12,6 +12,7 @@ import {
   xeroSynListRenderData,
 } from "../integration.constant";
 import CustomButton from "@/components/CustomButton/CustomButton";
+import TabSwitch from "@/components/TabSwitch";
 import {
   buttonType,
   filterByDurationDates,
@@ -2236,46 +2237,24 @@ function ManualXeroSyncDialog({
       disableSecondButton={runDisabled}
       onConfirm={mode === "catchup" ? handleRunBatch : handleConfirm}
     >
-      {/* Task #147 — mode tabs. Single = pick one record; Catch-up =
-          discover and batch-sync everything in a date window. */}
-      <div
-        style={{
-          display: "flex",
-          gap: "4px",
-          marginBottom: "12px",
-          borderBottom: "1px solid #ddd",
-        }}
-      >
-        {(
-          [
-            { k: "single", label: "Single record" },
-            { k: "catchup", label: "Catch-up by date range" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.k}
-            type="button"
-            onClick={() => {
-              if (busy || catchupRunning) return;
-              setMode(t.k);
-            }}
+      {/* Mode tabs — canonical TabSwitch (filterbutton) used by the
+          rest of the system (bank-account-overview etc.) so this
+          dialog matches every other tab affordance in PayTrade. */}
+      <div className="grid pt_topfilters">
+        <div className="pt_filters">
+          <TabSwitch
+            tabOptions={[
+              { label: "Single record", value: "single" },
+              { label: "Catch-up by date range", value: "catchup" },
+            ]}
+            tabValue={mode}
             disabled={busy || catchupRunning}
-            style={{
-              padding: "8px 14px",
-              border: "none",
-              borderBottom:
-                mode === t.k
-                  ? "2px solid #1a73e8"
-                  : "2px solid transparent",
-              background: "transparent",
-              color: mode === t.k ? "#1a73e8" : "#444",
-              fontWeight: mode === t.k ? 600 : 400,
-              cursor: busy || catchupRunning ? "not-allowed" : "pointer",
+            onChange={(v: string) => {
+              if (busy || catchupRunning) return;
+              setMode(v as "single" | "catchup");
             }}
-          >
-            {t.label}
-          </button>
-        ))}
+          />
+        </div>
       </div>
       {mode === "single" && (<>
       <p style={{ fontSize: "13px", marginTop: 0, opacity: 0.8 }}>
@@ -3258,10 +3237,20 @@ function ManualXeroSyncDialog({
                 </span>
               </div>
               {/* Canonical PayTrade table classes; row state via
-                  `data-row-state` attr styled in CSS. */}
+                  `data-row-state` attr styled in CSS. The wrapper
+                  is constrained to the dialog content width so the
+                  table scrolls inside the dialog (rather than
+                  pushing the action column off the right edge), and
+                  picks up matching left/right padding from the
+                  dialog body. */}
               <div
                 className="table-responsive tablesorter-default pt_table"
-                style={{ margin: "0 0 10px 0" }}
+                style={{
+                  margin: "0 0 10px 0",
+                  maxWidth: "100%",
+                  overflowX: "auto",
+                  boxSizing: "border-box",
+                }}
               >
                 <table className="dataTable compact stripe hover order-column">
                   <thead>
@@ -3450,15 +3439,30 @@ function ManualXeroSyncDialog({
                               );
                             })()}
                           </td>
-                          <td title="View row details">
-                            <CustomButton
-                              buttonName="View"
-                              iconClassName="fa-light fa-eye"
-                              buttonType={buttonType.CONTRAST_SMALL}
-                              actionType="button"
-                              styles={{ margin: 0 }}
-                              onClick={() => setCatchupRowDetail(r)}
-                            />
+                          {/* Canonical "View" eye action — same
+                              markup as the sync-log table action
+                              (gridActions style: "primary",
+                              icon: "fa-light fa-eye"), so this row
+                              renders the identical red round eye
+                              button you see on every other PayTrade
+                              table. */}
+                          <td data-label="Actions" className="text_center">
+                            <a
+                              data-tooltip="View"
+                              data-placement="left"
+                              onClick={(e: any) => e?.preventDefault()}
+                            >
+                              <button
+                                type="button"
+                                className="primary mr_zero_point_five"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCatchupRowDetail(r);
+                                }}
+                              >
+                                <i className="fa-light fa-eye"></i>
+                              </button>
+                            </a>
                           </td>
                         </tr>
                       );
