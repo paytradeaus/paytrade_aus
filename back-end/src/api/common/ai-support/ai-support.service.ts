@@ -590,6 +590,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
       companyId?: number;
     },
     onDelta?: (chunk: string) => void,
+    abortSignal?: AbortSignal,
   ) {
     if (!this.openai) {
       return { status: 'ERROR', answer: null, message: 'AI support is not available at this time.', remainingQuota: 0, communityPostId: null };
@@ -649,6 +650,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         relevanceCheck.needsWebSearch,
         combinedContext,
         onDelta,
+        abortSignal,
       );
 
       let communityPostId: string | null = null;
@@ -908,6 +910,7 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
     useWebSearch: boolean = false,
     liveContext: string | null = null,
     onDelta?: (chunk: string) => void,
+    abortSignal?: AbortSignal,
   ): Promise<string> {
     const liveContextBlock = liveContext ? `\n\n${liveContext}\n` : '';
     const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
@@ -950,8 +953,19 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
       requestOptions.stream = true;
       let assembled = '';
       try {
-        const stream: any = await this.openai.responses.create(requestOptions);
+        const stream: any = await this.openai.responses.create(
+          requestOptions,
+          abortSignal ? { signal: abortSignal } : undefined,
+        );
         for await (const event of stream as AsyncIterable<any>) {
+          if (abortSignal?.aborted) {
+            try {
+              stream.controller?.abort?.();
+            } catch {
+              /* noop */
+            }
+            break;
+          }
           const type = event?.type || '';
           if (type === 'response.output_text.delta') {
             const delta: string =
@@ -976,8 +990,18 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
           }
         }
       } catch (err: any) {
-        this.logger.error(`OpenAI streaming error: ${err?.message}`);
-        if (!assembled) throw err;
+        const isAbort =
+          abortSignal?.aborted ||
+          err?.name === 'AbortError' ||
+          err?.name === 'APIUserAbortError';
+        if (isAbort) {
+          this.logger.log(
+            `OpenAI stream aborted by client; persisting ${assembled.length} chars streamed so far.`,
+          );
+        } else {
+          this.logger.error(`OpenAI streaming error: ${err?.message}`);
+          if (!assembled) throw err;
+        }
       }
       return (
         assembled ||

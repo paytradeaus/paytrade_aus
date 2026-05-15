@@ -281,6 +281,7 @@ export class AiChatService {
     threadId?: string | null,
     rawPageContext?: ChatPageContext,
     onDelta?: (chunk: string) => void,
+    abortSignal?: AbortSignal,
   ): Promise<{
     status: string;
     message?: string;
@@ -346,6 +347,7 @@ export class AiChatService {
         trimmedInput,
         pageContext,
         onDelta,
+        abortSignal,
       );
     } catch (err: any) {
       this.logger.error(`askQuestion failed for user=${userId}: ${err?.message}`);

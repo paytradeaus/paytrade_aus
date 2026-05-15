@@ -269,18 +269,32 @@ export interface StreamAiChatCallbacks {
     remainingQuota?: number | null;
   }) => void;
   onError: (message: string) => void;
+  /**
+   * Fired when the user aborts via the AbortSignal passed in `signal`.
+   * Distinct from `onError` because the partial answer streamed so far is
+   * still valid and the backend is persisting it as the final message.
+   */
+  onAborted?: () => void;
+  /** Optional AbortSignal to cancel the in-flight stream. */
+  signal?: AbortSignal;
 }
 
 export async function streamAiChatMessage(
   message: string,
   cbOrOptions:
     | StreamAiChatCallbacks
+    | (StreamAiChatCallbacks & {
+        threadId?: string;
+        pageContext?: AiChatPageContext;
+      })
     | {
         threadId?: string;
         pageContext?: AiChatPageContext;
         onDelta: any;
         onDone: any;
         onError: any;
+        onAborted?: () => void;
+        signal?: AbortSignal;
       }
 ): Promise<void> {
   const cb: StreamAiChatCallbacks =
@@ -294,6 +308,7 @@ export async function streamAiChatMessage(
   if (typeof window !== "undefined") {
     token = localStorage.getItem("accessToken") || "";
   }
+  const signal = cb.signal;
   let response: Response;
   try {
     response = await fetch("/ai-chat/stream", {
@@ -303,9 +318,14 @@ export async function streamAiChatMessage(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ message, threadId, pageContext }),
+      signal,
     });
   } catch (err: any) {
-    cb.onError(err?.message || "Unable to send message");
+    if (signal?.aborted) {
+      cb.onAborted?.();
+    } else {
+      cb.onError(err?.message || "Unable to send message");
+    }
     return;
   }
 
@@ -376,7 +396,11 @@ export async function streamAiChatMessage(
       cb.onError("Stream ended unexpectedly.");
     }
   } catch (err: any) {
-    cb.onError(err?.message || "Stream interrupted");
+    if (signal?.aborted) {
+      cb.onAborted?.();
+    } else {
+      cb.onError(err?.message || "Stream interrupted");
+    }
   }
 }
 export async function listAiChatThreads(): Promise<AiChatThreadSummary[]> {

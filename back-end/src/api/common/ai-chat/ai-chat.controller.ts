@@ -57,8 +57,18 @@ export class AiChatController {
     };
 
     let closed = false;
+    const abortController = new AbortController();
     res.on('close', () => {
       closed = true;
+      // Client disconnected (e.g. user clicked Stop). Tell the OpenAI
+      // stream to stop so we don't waste tokens after the user has
+      // moved on. Whatever was streamed so far will still be persisted
+      // by the service as the final assistant message.
+      try {
+        abortController.abort();
+      } catch {
+        /* noop */
+      }
     });
 
     try {
@@ -70,6 +80,7 @@ export class AiChatController {
           if (closed) return;
           send('delta', { content: chunk });
         },
+        abortController.signal,
       );
 
       send('done', {

@@ -216,6 +216,8 @@ export default function AiPanel() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Tracks the in-flight stream so the user can stop it mid-answer.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Ref keeps latest width for the mouseup persist handler.
   const widthRef = useRef(width);
@@ -391,9 +393,13 @@ export default function AiPanel() {
       setMessages((prev) => [...prev, optimistic]);
       setInput("");
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       await streamAiChatMessage(trimmed, {
         threadId: activeThreadId || undefined,
         pageContext,
+        signal: controller.signal,
         onDelta: (chunk) => {
           setStreamingText((prev) => prev + chunk);
         },
@@ -411,15 +417,50 @@ export default function AiPanel() {
           refreshThreadList();
           setStreamingText("");
           setSending(false);
+          abortRef.current = null;
         },
         onError: (msg) => {
           setErrorBanner(msg);
           setStreamingText("");
           setSending(false);
+          abortRef.current = null;
+        },
+        onAborted: () => {
+          // The backend persists whatever was streamed so far as the
+          // assistant message. Refresh history to pick up the canonical
+          // record (with stable id + status), and clear the streaming
+          // bubble so it isn't shown twice.
+          setStreamingText("");
+          setSending(false);
+          abortRef.current = null;
+          fetchAiChatHistory().then((h) => {
+            if (h && h.length > 0) setMessages(h);
+          });
         },
       });
     },
     [sending, activeThreadId, refreshThreadList, buildPageContext]
+  );
+
+  const onStop = useCallback(() => {
+    if (!sending) return;
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* noop */
+    }
+  }, [sending]);
+
+  // Make sure we don't leave a stream running if the panel unmounts.
+  useEffect(
+    () => () => {
+      try {
+        abortRef.current?.abort();
+      } catch {
+        /* noop */
+      }
+    },
+    []
   );
 
   const onComposerSubmit = (e: React.FormEvent) => {
@@ -798,15 +839,27 @@ export default function AiPanel() {
               aria-label="AI assistant message"
               maxLength={500}
             />
-            <button
-              type="submit"
-              className={styles.sendBtn}
-              disabled={sending || !input.trim()}
-              title="Send"
-              aria-label="Send message"
-            >
-              <i className="fa-light fa-arrow-up"></i>
-            </button>
+            {sending ? (
+              <button
+                type="button"
+                className={styles.sendBtn}
+                onClick={onStop}
+                title="Stop"
+                aria-label="Stop generating"
+              >
+                <i className="fa-light fa-stop"></i>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className={styles.sendBtn}
+                disabled={!input.trim()}
+                title="Send"
+                aria-label="Send message"
+              >
+                <i className="fa-light fa-arrow-up"></i>
+              </button>
+            )}
           </div>
           <div className={styles.composerFoot}>
             <span>{sending ? "Thinking…" : "AI is ready — pilot"}</span>
