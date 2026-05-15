@@ -359,6 +359,7 @@ export default function AddClientsAndSuppliers() {
       client_phone_no: obj?.client_phone_no ?? "",
       isEmailExist: obj?.isEmailExist || false,
       client_email_id: obj?.client_email_id ?? "",
+      needs_email: obj?.needs_email ?? false,
       client_website: obj?.client_website ?? "",
       acn_number: obj?.acn_number ?? "",
       abn_number: obj?.abn_number ?? "",
@@ -792,7 +793,7 @@ export default function AddClientsAndSuppliers() {
                   onBlur={formik.handleBlur("client_email_id")}
                   value={formik.values.client_email_id}
                 />
-                {obj?.needs_email && !formik.values.client_email_id && (
+                {formik.values.needs_email && !formik.values.client_email_id && (
                   <div
                     className="warning-badge"
                     style={{

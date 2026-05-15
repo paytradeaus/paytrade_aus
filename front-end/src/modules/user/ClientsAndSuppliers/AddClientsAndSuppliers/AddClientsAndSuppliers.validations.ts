@@ -27,6 +27,9 @@ const initialValues = {
   xero_purchases_gst_setting: "",
   // Task #41 — per-supplier default Xero account code (variable bill code mode).
   xero_default_account_code: "",
+  // Task #154 — soft-fail flag from inbound Xero contact import; drives the
+  // "Missing email" warning badge on the email field.
+  needs_email: false,
 };
 
 const validationSchema = yup.object().shape({
