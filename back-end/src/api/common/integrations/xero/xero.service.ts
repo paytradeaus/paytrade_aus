@@ -1412,6 +1412,15 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    // Archive view: by default the table and counters show only
+    // active (non-archived) rows. When archived=true is passed the
+    // table flips to "Archived only" so users can review/unarchive.
+    if (getXeroSyncLogsInput.archived) {
+      queryBuilder.andWhere('log.archived_at IS NOT NULL');
+    } else {
+      queryBuilder.andWhere('log.archived_at IS NULL');
+    }
+
     // Task #85 — sync_type / sync_status dropdown filters from the Sync
     // Logs dashboard toolbar. Both columns live on `xero_log_templates`,
     // already joined as `template`.
@@ -1581,22 +1590,31 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       finalCount = total_count;
     }
 
-    const statuses = ['Succeeded', 'Warning', 'Failed'];
+    // Counters always reflect the same archive view as the table:
+    // when the user is looking at the active list, Synced/Warning/
+    // Failed only count active rows; the separate "Archived" pill
+    // counts everything currently archived (regardless of status)
+    // so users can see at a glance how big the audit pile is.
+    const statuses = ['Succeeded', 'Warning', 'Failed', 'Archived'];
     const statusMap = new Map<string, any>();
     if (id) {
       const combinedTableQuery = `
         WITH combined_table AS (
-            SELECT l.integration_id as integration_id, t.sync_status, COUNT(l.*) AS status_count
+            SELECT
+              l.integration_id as integration_id,
+              CASE WHEN l.archived_at IS NOT NULL THEN 'Archived'
+                   ELSE CAST(t.sync_status AS text) END AS sync_status,
+              COUNT(l.*) AS status_count
             FROM xero_sync_logs l INNER JOIN xero_log_templates t on l.log_template_id = t.id
-            GROUP BY l.integration_id, t.sync_status
+            GROUP BY l.integration_id, sync_status
           )
           SELECT c.*, i.company_id, i.integration_status
           FROM combined_table c 
           LEFT JOIN integration_details i 
-          ON c.integration_id = i.integration_id WHERE i.integration_status <> 'Deleted - archived' AND i.id = '${id}'
+          ON c.integration_id = i.integration_id WHERE i.integration_status <> 'Deleted - archived' AND i.id = $1
         `;
 
-      const result = await this.dataSource.query(combinedTableQuery);
+      const result = await this.dataSource.query(combinedTableQuery, [id]);
 
       // Aggregate database results into the map
       result.forEach((entry) => {
@@ -1618,6 +1636,79 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       xero_logs: finalResult,
       count: filledData,
     };
+  }
+
+  /**
+   * Archive (or un-archive) one or more xero_sync_logs rows.
+   *
+   * IDOR-safe: every row id is verified to belong to an integration
+   * owned by the caller's company before any UPDATE runs. Mismatched
+   * rows are silently skipped (we return the count of rows actually
+   * affected so the UI can warn the user if some were rejected).
+   *
+   * `mode` controls direction:
+   *   - 'archive'   stamps archived_at = now(), archived_by_user_id,
+   *                 archive_note (only on rows currently NOT archived)
+   *   - 'unarchive' clears archived_at / archived_by_user_id /
+   *                 archive_note (only on rows currently archived)
+   */
+  async archiveOrUnarchiveSyncLogs(input: {
+    ids: string[];
+    company_id: number;
+    user_id: number;
+    note?: string | null;
+    mode: 'archive' | 'unarchive';
+  }): Promise<{ affected: number; rejected: number }> {
+    const { ids, company_id, user_id, note, mode } = input;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { affected: 0, rejected: 0 };
+    }
+    // Cap to a sane bulk size to keep the IN-list and lock window
+    // bounded; the UI's "Archive selected" button respects the same
+    // limit on the page-size dropdown (max 100 rows per page).
+    const safeIds = Array.from(new Set(ids.map((s) => String(s))))
+      .slice(0, 200);
+
+    // IDOR guard — restrict to rows whose integration belongs to
+    // this company. Done as part of the UPDATE so we never leak
+    // cross-company row existence via the affected count alone.
+    if (mode === 'archive') {
+      const result = await this.dataSource.query(
+        `
+        UPDATE xero_sync_logs l
+           SET archived_at = timezone('utc', now()),
+               archived_by_user_id = $1,
+               archive_note = $2
+          FROM xero_integration_details x
+         WHERE l.integration_id = x.integration_id
+           AND x.company_id = $3
+           AND l.id = ANY($4::uuid[])
+           AND l.archived_at IS NULL
+        `,
+        [user_id, note ?? null, company_id, safeIds],
+      );
+      const affected =
+        Array.isArray(result) && result[1] != null ? Number(result[1]) : 0;
+      return { affected, rejected: safeIds.length - affected };
+    } else {
+      const result = await this.dataSource.query(
+        `
+        UPDATE xero_sync_logs l
+           SET archived_at = NULL,
+               archived_by_user_id = NULL,
+               archive_note = NULL
+          FROM xero_integration_details x
+         WHERE l.integration_id = x.integration_id
+           AND x.company_id = $1
+           AND l.id = ANY($2::uuid[])
+           AND l.archived_at IS NOT NULL
+        `,
+        [company_id, safeIds],
+      );
+      const affected =
+        Array.isArray(result) && result[1] != null ? Number(result[1]) : 0;
+      return { affected, rejected: safeIds.length - affected };
+    }
   }
 
   async getIntegrationIssuesForDashboard(company_id: number) {

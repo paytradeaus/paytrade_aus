@@ -1656,6 +1656,24 @@ type AllowAdminToLoginAsUserResponse {
   status: String!
 }
 
+"""
+Input for archiving (or un-archiving) one or more Xero sync log rows. Archived rows stay in the database for audit but are excluded from the default Synced/Warning/Issues counters.
+"""
+input ArchiveSyncLogsInput {
+  """
+  Company id of the calling user (IDOR guard — must match the JWT companyid header and own the integration each row belongs to).
+  """
+  company_id: Float!
+
+  """List of xero_sync_logs.id (UUID) values to act on."""
+  ids: [String!]!
+
+  """
+  Optional free-text note attached to each archived row (e.g. "Resolved manually outside PayTrade").
+  """
+  note: String
+}
+
 input AskAiSupportInput {
   question: String!
 }
@@ -12935,6 +12953,11 @@ type GetXeroResponse {
 
 """Input for retrieving Xero synchronization logs"""
 input GetXeroSyncLogsInput {
+  """
+  Archive view: omit/false → only active (non-archived) rows (default); true → only archived rows. Counters always reflect the same view as the table.
+  """
+  archived: Boolean
+
   """Date filter type (e.g., created_at)"""
   date_filter: String
 
@@ -14403,6 +14426,14 @@ type Mutation {
     """Input payload containing fields to update for the user by admin."""
     updateAdminInput: UpdateUserDetailsInput!
   ): PTUserResponse!
+
+  """
+  Archive one or more Xero sync log rows so they no longer count toward Synced/Warning/Issues totals. Returns { affected, rejected } as JSON in the message field.
+  """
+  archiveXeroSyncLogs(
+    """IDs to archive, company id, and optional note."""
+    input: ArchiveSyncLogsInput!
+  ): StringResponse!
 
   """Ask PayTrade AI a question. Requires authentication."""
   askAiSupport(askAiSupportInput: AskAiSupportInput!): AiAnswerResponse!
@@ -16011,6 +16042,12 @@ type Mutation {
   unMappingProject(
     """ID of the project to unmap."""
     project_id: String!
+  ): StringResponse!
+
+  """Un-archive one or more previously archived Xero sync log rows."""
+  unarchiveXeroSyncLogs(
+    """IDs to un-archive and company id."""
+    input: ArchiveSyncLogsInput!
   ): StringResponse!
 
   """

@@ -160,6 +160,43 @@ export class GetXeroSyncLogsInput {
       'Optional template.sync_status filter (Succeeded / Warning / Failed).',
   })
   sync_status?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Archive view: omit/false → only active (non-archived) rows ' +
+      '(default); true → only archived rows. Counters always reflect ' +
+      'the same view as the table.',
+  })
+  archived?: boolean;
+}
+
+@InputType({
+  description:
+    'Input for archiving (or un-archiving) one or more Xero sync log rows. ' +
+    'Archived rows stay in the database for audit but are excluded from ' +
+    'the default Synced/Warning/Issues counters.',
+})
+export class ArchiveSyncLogsInput {
+  @Field(() => [String], {
+    description: 'List of xero_sync_logs.id (UUID) values to act on.',
+  })
+  ids: string[];
+
+  @Field({
+    description:
+      'Company id of the calling user (IDOR guard — must match the JWT ' +
+      'companyid header and own the integration each row belongs to).',
+  })
+  company_id: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'Optional free-text note attached to each archived row (e.g. ' +
+      '"Resolved manually outside PayTrade").',
+  })
+  note?: string;
 }
 
 @InputType({ description: 'Input to retrieve account codes for a company' })

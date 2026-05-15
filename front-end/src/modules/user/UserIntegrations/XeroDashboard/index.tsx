@@ -50,6 +50,7 @@ import FormikControl from "@/components/FormikControl";
 import { formatDate, stripHtml } from "@/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { showErrorToast } from "@/components/Toaster";
+import { archiveXeroSyncLogs } from "../integration.functions";
 
 // Task #95 — pill style retained for the auto-recovered toggle and the
 // "Filtered: claim #N" badge. All other Sync Log toolbar controls now use
@@ -163,12 +164,35 @@ export default function XeroDashboard() {
     succeeded: 0,
     warning: 0,
     failed: 0,
+    archived: 0,
     tableData: [],
   });
+  // Archive-view toggle. When true, the table flips to "Archived only"
+  // and the per-row action becomes Un-archive. Counters are still
+  // returned for all four statuses so the pills stay live.
+  const [archivedView, setArchivedView] = useState<boolean>(false);
+  // IDs the user has bulk-selected via the row checkboxes.
+  const [selectedSyncIds, setSelectedSyncIds] = useState<string[]>([]);
+  // Confirm-archive modal state.
+  const [archiveModalOpen, setArchiveModalOpen] = useState<boolean>(false);
+  const [archiveModalIds, setArchiveModalIds] = useState<string[]>([]);
+  const [archiveModalMode, setArchiveModalMode] =
+    useState<"archive" | "unarchive">("archive");
+  const [archiveNote, setArchiveNote] = useState<string>("");
   const [categoryTrackingError, setCategoryTrackingError] =
     useState<string>("");
   const handleRowClick = (rowData: any) => {
     router.push("/user/integrations/xero/syncLogDetails/" + rowData?.id);
+  };
+  // Open the confirm-archive modal for one row (per-row icon click).
+  const openArchiveModal = (
+    rowData: any,
+    mode: "archive" | "unarchive",
+  ) => {
+    setArchiveModalIds([rowData.id]);
+    setArchiveModalMode(mode);
+    setArchiveNote("");
+    setArchiveModalOpen(true);
   };
   const actions = [
     {
@@ -177,6 +201,27 @@ export default function XeroDashboard() {
       style: "primary",
       onClick: (rowData: any) => handleRowClick(rowData),
       displayByDefault: true,
+    },
+    // Archive icon — only renders when the row is Failed/Warning AND
+    // not yet archived. The DynamicTable's displayDynamicActions reads
+    // `archive_eligible` (set in fetchXeroSyncLogs) and shows the
+    // action when it equals true.
+    {
+      label: "Archive",
+      icon: "fa-light fa-box-archive",
+      style: "secondary",
+      onClick: (rowData: any) => openArchiveModal(rowData, "archive"),
+      comparisonRowKey: "archive_eligible",
+      conditionalComparisonData: true,
+    },
+    // Un-archive icon — only renders for archived rows.
+    {
+      label: "Un-archive",
+      icon: "fa-light fa-box-open",
+      style: "secondary",
+      onClick: (rowData: any) => openArchiveModal(rowData, "unarchive"),
+      comparisonRowKey: "unarchive_eligible",
+      conditionalComparisonData: true,
     },
   ];
   const companyId = +(localStorage.getItem("companyId") || 0);
@@ -502,6 +547,22 @@ export default function XeroDashboard() {
     });
   }
 
+  // Reset the row-selection state whenever the underlying data
+  // changes (page, filter, archive view) so the bulk-archive button
+  // never acts on stale ids.
+  useEffect(() => {
+    setSelectedSyncIds([]);
+  }, [
+    archivedView,
+    statusFilter,
+    syncTypeFilter,
+    selectedDateRange,
+    activityStartDate,
+    activityEndDate,
+    currentPage,
+    entriesPerPage,
+  ]);
+
   useEffect(() => {
     fetchXeroSyncLogs();
   }, [
@@ -516,7 +577,29 @@ export default function XeroDashboard() {
     activityEndDate,
     syncTypeFilter,
     statusFilter,
+    archivedView,
   ]);
+
+  // Submit handler for the confirm-archive modal — runs the
+  // mutation, refreshes the table, and closes the modal.
+  async function handleArchiveConfirm(): Promise<boolean> {
+    if (!archiveModalIds.length) return false;
+    const result = await archiveXeroSyncLogs({
+      ids: archiveModalIds,
+      company_id: companyId,
+      note: archiveNote?.trim() || null,
+      mode: archiveModalMode,
+    });
+    if (result.success) {
+      setSelectedSyncIds([]);
+      await fetchXeroSyncLogs();
+      setArchiveModalOpen(false);
+      setArchiveModalIds([]);
+      setArchiveNote("");
+      return true;
+    }
+    return false;
+  }
 
   const RECOVERED_TEMPLATE_IDS = [493, 495];
   const RECOVERED_ERROR_CODES = [
@@ -672,18 +755,18 @@ export default function XeroDashboard() {
         recovered_only: recoveredOnly,
         sync_type: syncTypeFilter || null,
         sync_status: statusFilter || null,
+        archived: archivedView,
       },
     });
+    const findCount = (key: string) =>
+      logs.count?.find(
+        (val: { sync_status: string }) => val.sync_status == key,
+      )?.status_count ?? 0;
     setSyncLogData({
-      succeeded: logs.count.find(
-        (val: { sync_status: string }) => val.sync_status == "Succeeded"
-      ).status_count,
-      warning: logs.count.find(
-        (val: { sync_status: string }) => val.sync_status == "Warning"
-      ).status_count,
-      failed: logs.count.find(
-        (val: { sync_status: string }) => val.sync_status == "Failed"
-      ).status_count,
+      succeeded: findCount("Succeeded"),
+      warning: findCount("Warning"),
+      failed: findCount("Failed"),
+      archived: findCount("Archived"),
       tableData: logs.xero_logs.map((val: any) => {
         const distanceAgo = formatDistanceToNow(new Date(val.created_on), {
           addSuffix: true,
@@ -702,8 +785,19 @@ export default function XeroDashboard() {
         const refStr = isXeroToPaytrade
           ? val.reference?.xeroId || ""
           : val.reference?.paytradeId || "";
+        const isArchived = !!val.archived_at;
+        const isFailedOrWarn =
+          val.sync_status === "Failed" || val.sync_status === "Warning";
         return {
           ...val,
+          // Drives the per-row Archive / Un-archive action visibility
+          // via DynamicTable.displayDynamicActions(comparisonRowKey).
+          archive_eligible: !isArchived && isFailedOrWarn,
+          unarchive_eligible: isArchived,
+          is_archived: isArchived,
+          // Allow the row to participate in the table's bulk-select
+          // checkbox column (DynamicTable looks for `checked`).
+          checked: false,
           // Task #107 — see mapClaimSyncRows comment.
           _searchText: [
             val.sync_type,
@@ -1190,6 +1284,36 @@ export default function XeroDashboard() {
                     {syncLogData?.failed}
                   </p>
                 </div>
+                {/* Archive pill — clicking it flips the table into
+                    "Archived only" view so users can review what they
+                    have dismissed and un-archive any false positives. */}
+                <div
+                  style={{
+                    textTransform: "uppercase",
+                    lineHeight: "18px",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    padding: "0 8px",
+                    border: archivedView ? "1px solid #888" : "1px solid transparent",
+                    borderRadius: "4px",
+                  }}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    setArchivedView((v) => !v);
+                  }}
+                  title={
+                    archivedView
+                      ? "Showing archived only — click to return to active rows"
+                      : "Click to view archived rows"
+                  }
+                >
+                  <span>Archived</span>
+                  <p
+                    style={{ textAlign: "right", color: "#666", margin: 0 }}
+                  >
+                    {syncLogData?.archived}
+                  </p>
+                </div>
                 <CustomButton
                   buttonName="Refresh"
                   iconClassName="fa-light fa-refresh"
@@ -1236,7 +1360,8 @@ export default function XeroDashboard() {
                 {(selectedDateRange !== "All dates" ||
                   isCustomDate ||
                   syncTypeFilter ||
-                  statusFilter) && (
+                  statusFilter ||
+                  archivedView) && (
                   <CustomButton
                     buttonName="Clear filters"
                     iconClassName="fa-light fa-close"
@@ -1249,7 +1374,36 @@ export default function XeroDashboard() {
                       setActivityEndDate(null);
                       setSyncTypeFilter("");
                       setStatusFilter("");
+                      setArchivedView(false);
                       setCurrentPage(1);
+                    }}
+                    styles={{ margin: 0 }}
+                  />
+                )}
+                {/* Bulk Archive / Un-archive button — only enabled
+                    when the user has selected one or more rows. In
+                    active view it archives Failed/Warning rows; in
+                    archived view it un-archives. The mutation
+                    silently skips rows that don't match the criteria
+                    (e.g. Succeeded rows accidentally selected) and
+                    the toast reports both counts. */}
+                {selectedSyncIds.length > 0 && (
+                  <CustomButton
+                    buttonName={`${
+                      archivedView ? "Un-archive" : "Archive"
+                    } selected (${selectedSyncIds.length})`}
+                    iconClassName={
+                      archivedView
+                        ? "fa-light fa-box-open"
+                        : "fa-light fa-box-archive"
+                    }
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    onClick={() => {
+                      setArchiveModalIds([...selectedSyncIds]);
+                      setArchiveModalMode(archivedView ? "unarchive" : "archive");
+                      setArchiveNote("");
+                      setArchiveModalOpen(true);
                     }}
                     styles={{ margin: 0 }}
                   />
@@ -1484,6 +1638,13 @@ export default function XeroDashboard() {
                 onEntriesPerPageChange={setEntriesPerPage}
                 onPageChange={setCurrentPage}
                 totalEntries={totalRows}
+                enableCheckbox={claimFilterId == null}
+                checkBoxId="id"
+                onGridCheckboxChange={(rows: any[]) =>
+                  setSelectedSyncIds(
+                    (rows || []).map((r: any) => String(r?.id)).filter(Boolean),
+                  )
+                }
                 onSortChange={(sortConfig) => {
                   if (claimFilterId != null) return;
                   if (syncLogData?.tableData?.length > 0) {
@@ -1491,6 +1652,52 @@ export default function XeroDashboard() {
                   }
                 }}
               />
+              {/* Confirm Archive / Un-archive modal. Optional note
+                  is captured in archive_note for audit. */}
+              {archiveModalOpen && (
+                <BaseModal
+                  modalId="archiveSyncLogs"
+                  displayModal={archiveModalOpen}
+                  onClose={() => {
+                    setArchiveModalOpen(false);
+                    setArchiveModalIds([]);
+                    setArchiveNote("");
+                  }}
+                  title={
+                    archiveModalMode === "archive"
+                      ? `Archive ${archiveModalIds.length} sync log ${
+                          archiveModalIds.length === 1 ? "entry" : "entries"
+                        }`
+                      : `Un-archive ${archiveModalIds.length} sync log ${
+                          archiveModalIds.length === 1 ? "entry" : "entries"
+                        }`
+                  }
+                  firstButtonName="Cancel"
+                  secondButtonName={
+                    archiveModalMode === "archive" ? "Archive" : "Un-archive"
+                  }
+                  onConfirm={handleArchiveConfirm}
+                >
+                  <p>
+                    {archiveModalMode === "archive"
+                      ? "Archived rows stay in the database for audit but are removed from the Synced/Warning/Issues counters and the default table view. Succeeded rows in your selection (if any) will be skipped."
+                      : "Un-archived rows return to the active list and start counting toward Synced/Warning/Issues again."}
+                  </p>
+                  {archiveModalMode === "archive" && (
+                    <>
+                      <h5>Note (optional)</h5>
+                      <textarea
+                        rows={3}
+                        style={{ width: "100%" }}
+                        maxLength={500}
+                        value={archiveNote}
+                        onChange={(e) => setArchiveNote(e.target.value)}
+                        placeholder="e.g. Resolved manually outside PayTrade"
+                      />
+                    </>
+                  )}
+                </BaseModal>
+              )}
             </div>
           </div>
         </>

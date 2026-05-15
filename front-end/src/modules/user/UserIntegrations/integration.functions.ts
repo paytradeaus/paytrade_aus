@@ -4258,6 +4258,79 @@ export const manualXeroResync = async (variables: {
 };
 
 /**
+ * Archive (or un-archive) one or more Xero sync log rows.
+ *
+ * Archived rows stay in the database for audit but are excluded from
+ * the default Synced/Warning/Issues counters and table view. The
+ * backend returns `{ success, affected, rejected }` JSON-stringified
+ * inside `message`; we parse and return the structured shape so the
+ * UI can show a summary toast ("12 archived, 1 skipped").
+ */
+export const archiveXeroSyncLogs = async (variables: {
+  ids: string[];
+  company_id: number;
+  note?: string | null;
+  mode: "archive" | "unarchive";
+}): Promise<{ success: boolean; affected: number; rejected: number; message?: string }> => {
+  const mutationName =
+    variables.mode === "archive" ? "archiveXeroSyncLogs" : "unarchiveXeroSyncLogs";
+  const opName =
+    variables.mode === "archive" ? "ArchiveXeroSyncLogs" : "UnarchiveXeroSyncLogs";
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation ${opName}($input: ArchiveSyncLogsInput!) {
+          ${mutationName}(input: $input) {
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        input: {
+          ids: variables.ids,
+          company_id: variables.company_id,
+          note: variables.note ?? null,
+        },
+      },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.[mutationName];
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = { success: res?.status === ApiResponse.SUCCESS, message: res?.message };
+    }
+    if (res?.status !== ApiResponse.SUCCESS || !parsed?.success) {
+      showErrorToast(parsed?.message || `Failed to ${variables.mode} sync logs`);
+      return {
+        success: false,
+        affected: parsed?.affected ?? 0,
+        rejected: parsed?.rejected ?? variables.ids.length,
+        message: parsed?.message,
+      };
+    }
+    const verb = variables.mode === "archive" ? "archived" : "un-archived";
+    const skipped = parsed?.rejected ?? 0;
+    const summary =
+      skipped > 0
+        ? `${parsed.affected} ${verb}, ${skipped} skipped`
+        : `${parsed.affected} ${verb}`;
+    showSuccessToast(summary);
+    return {
+      success: true,
+      affected: parsed.affected ?? 0,
+      rejected: parsed.rejected ?? 0,
+    };
+  } catch (error: any) {
+    const msg = error?.message || ApiResponse.ERROR;
+    showErrorToast(msg);
+    return { success: false, affected: 0, rejected: variables.ids.length, message: msg };
+  }
+};
+
+/**
  * Task #72 — Lookup helper for the Manual Xero Re-sync widget.
  *
  * Returns up to 10 candidate Xero records for the chosen type filtered

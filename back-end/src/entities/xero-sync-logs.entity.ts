@@ -64,6 +64,18 @@ export class XeroSyncLogs {
   @Column({ type: 'varchar', nullable: true })
   error_code: string;
 
+  // User-driven archive — see xero-sync-logs-archive-schema-seeder.
+  // archived_at IS NOT NULL means the row is hidden from the default
+  // Synced/Warning/Issues counters and table view.
+  @Column({ type: 'timestamptz', nullable: true })
+  archived_at: Date | null;
+
+  @Column({ type: 'integer', nullable: true })
+  archived_by_user_id: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  archive_note: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   xero_records: Record<string, any>[];
 

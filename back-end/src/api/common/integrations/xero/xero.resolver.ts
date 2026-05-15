@@ -21,6 +21,7 @@ import {
   XeroReauthStatusResponse,
 } from './xero.response';
 import {
+  ArchiveSyncLogsInput,
   CreateAccountInput,
   CreateTaxTypeInput,
   CreateXeroSyncLogInput,
@@ -809,6 +810,108 @@ export class XeroResolver {
       return framedResponse(
         'ERROR',
         `Errored while getting the sync log with message: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Archive (or un-archive) one or more sync log rows.
+   *
+   * Archived rows stay in the database for audit but are excluded
+   * from the default Synced/Warning/Issues counters and table view.
+   * They can be reviewed via the "Archived" filter in the UI and
+   * un-archived with `unarchiveXeroSyncLogs`.
+   *
+   * IDOR-protected: rejects any call whose company_id does not
+   * match the JWT companyid header, and the underlying UPDATE
+   * additionally restricts by company ownership of each row's
+   * integration so cross-company tampering can't slip through.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'archiveXeroSyncLogs',
+    description:
+      'Archive one or more Xero sync log rows so they no longer ' +
+      'count toward Synced/Warning/Issues totals. Returns ' +
+      '{ affected, rejected } as JSON in the message field.',
+  })
+  async archiveXeroSyncLogs(
+    @Context() context,
+    @Args('input', {
+      description: 'IDs to archive, company id, and optional note.',
+    })
+    input: ArchiveSyncLogsInput,
+  ) {
+    return this.archiveOrUnarchiveSyncLogsInternal(context, input, 'archive');
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'unarchiveXeroSyncLogs',
+    description:
+      'Un-archive one or more previously archived Xero sync log rows.',
+  })
+  async unarchiveXeroSyncLogs(
+    @Context() context,
+    @Args('input', {
+      description: 'IDs to un-archive and company id.',
+    })
+    input: ArchiveSyncLogsInput,
+  ) {
+    return this.archiveOrUnarchiveSyncLogsInternal(context, input, 'unarchive');
+  }
+
+  private async archiveOrUnarchiveSyncLogsInternal(
+    context: any,
+    input: ArchiveSyncLogsInput,
+    mode: 'archive' | 'unarchive',
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
+      if (
+        !headerCompanyId ||
+        headerCompanyId !== Number(input.company_id)
+      ) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result = await this.xeroService.archiveOrUnarchiveSyncLogs({
+        ids: input.ids,
+        company_id: Number(input.company_id),
+        user_id: Number((decoded as any)?.userId ?? 0),
+        note: input.note ?? null,
+        mode,
+      });
+      this.logger.log(
+        `[SYNC_LOG_${mode.toUpperCase()}] user=${(decoded as any)?.userId} ` +
+          `company=${input.company_id} requested=${input.ids?.length ?? 0} ` +
+          `affected=${result.affected} rejected=${result.rejected}`,
+      );
+      return framedResponse(
+        'SUCCESS',
+        JSON.stringify({ success: true, ...result }),
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `[SYNC_LOG_${mode.toUpperCase()}] failed: ${error?.message || error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message || 'Failed to update sync logs.',
+        }),
       );
     }
   }

@@ -129,6 +129,7 @@ import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-var
 import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-integration-recovery-schema-seeder.module';
 import { XeroBankAccountNumberNullableSchemaSeederModule } from './libs/@seeders/xero-bank-account-number-nullable-schema-seeder.module';
 import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sync-logs-error-code-schema-seeder.module';
+import { XeroSyncLogsArchiveSchemaSeederModule } from './libs/@seeders/xero-sync-logs-archive-schema-seeder.module';
 import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-type-partnership-schema-seeder.module';
 import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-needs-email-schema-seeder.module';
 import { AiCostMultiplierSeederModule } from './libs/@seeders/ai-cost-multiplier-seeder.module';
@@ -368,6 +369,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroIntegrationRecoverySchemaSeederModule,
     XeroBankAccountNumberNullableSchemaSeederModule,
     XeroSyncLogsErrorCodeSchemaSeederModule,
+    XeroSyncLogsArchiveSchemaSeederModule,
     EntityTypePartnershipSchemaSeederModule,
     ContactNeedsEmailSchemaSeederModule,
     AiCostMultiplierSeederModule,
