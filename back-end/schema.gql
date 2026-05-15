@@ -15339,6 +15339,11 @@ type Mutation {
   ): QuickAdjustMatchResponse!
 
   """
+  Record the route + visible record IDs the user is currently viewing so the AI assistant can ground its next answer. No-op when the user has not enabled AI live follow.
+  """
+  recordAiLiveFollowContext(input: RecordAiLiveFollowContextInput!): RecordAiLiveFollowContextResponse!
+
+  """
   Refreshes all Xero-related data (accounts, contacts, projects, contracts) for a given company.
   """
   refreshAllByCompanyId(
@@ -19324,6 +19329,30 @@ type ReconciliationReportResponse {
   message: String!
 
   """Operation status."""
+  status: String!
+}
+
+input RecordAiLiveFollowContextInput {
+  """
+  Map of visible entity IDs extracted from the URL or page (e.g. { projectId: "123" }). Values are strings.
+  """
+  entityIds: JSON
+
+  """Optional human-readable label for the page (e.g. "Projects · 123")."""
+  pageLabel: String
+
+  """Pathname the user is currently viewing (e.g. /user/projects/123)."""
+  route: String!
+}
+
+type RecordAiLiveFollowContextResponse {
+  """Optional human-readable message."""
+  message: String
+
+  """Echo of the route we recorded (when status=SUCCESS)."""
+  recordedRoute: String
+
+  """SUCCESS, IGNORED (flag off / not eligible), or ERROR."""
   status: String!
 }
 
