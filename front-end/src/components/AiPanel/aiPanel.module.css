@@ -241,7 +241,7 @@
 }
 
 .msgBubble {
-  max-width: 85%;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 14px;
   font-size: var(--step--1);
@@ -249,6 +249,25 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: anywhere;
+}
+
+.stoppedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--cave-lighter);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--shade-light);
+  border: 1px solid var(--shade-light);
+  line-height: 1.4;
+  user-select: none;
+}
+
+.stoppedPill i {
+  font-size: 0.75rem;
 }
 
 /* Markdown rendering inside assistant bubbles. The bubble keeps

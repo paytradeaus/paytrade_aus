@@ -838,6 +838,8 @@ export default function AiPanel() {
             }
             const popoverId = `ai-ctx-pop-${m.id}`;
             const isOpen = openContextChipId === m.id;
+            const wasStopped =
+              m.role === "assistant" && m.status === "STOPPED";
             return (
               <div
                 key={m.id}
@@ -912,6 +914,18 @@ export default function AiPanel() {
                           ))
                         )}
                       </div>
+                    </span>
+                  )}
+                  {wasStopped && (
+                    <span
+                      className={styles.stoppedPill}
+                      title="You stopped this answer before it finished. It may be incomplete."
+                    >
+                      <i
+                        className="fa-light fa-circle-stop"
+                        aria-hidden="true"
+                      ></i>
+                      Stopped — answer may be incomplete
                     </span>
                   )}
                 </div>

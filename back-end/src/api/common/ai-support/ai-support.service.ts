@@ -645,17 +645,26 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         [liveContext, perMessageContext]
           .filter((s): s is string => Boolean(s))
           .join('\n\n') || null;
-      const answer = await this.callOpenAI(
+      const aiResult = await this.callOpenAI(
         sanitised,
         relevanceCheck.needsWebSearch,
         combinedContext,
         onDelta,
         abortSignal,
       );
+      const answer = aiResult.text;
+      const wasAborted = aiResult.aborted;
 
       let communityPostId: string | null = null;
       try {
-        communityPostId = await this.postToCommunity(userId, sanitised, answer);
+        if (wasAborted) {
+          // Don't post a half-finished, user-stopped answer to the community.
+          this.logger.log(
+            `Skipping community post for user=${userId} because the stream was stopped by the user.`,
+          );
+        } else {
+          communityPostId = await this.postToCommunity(userId, sanitised, answer);
+        }
         if (communityPostId) {
           this.logger.log(
             `AI Q&A auto-posted to community: discussion id=${communityPostId} for user=${userId}`,
@@ -674,7 +683,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
       const remaining = rateCheck.limit - rateCheck.used - 1;
 
       return {
-        status: 'SUCCESS',
+        status: wasAborted ? 'STOPPED' : 'SUCCESS',
         answer,
         message: null,
         remainingQuota: Math.max(0, remaining),
@@ -911,7 +920,7 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
     liveContext: string | null = null,
     onDelta?: (chunk: string) => void,
     abortSignal?: AbortSignal,
-  ): Promise<string> {
+  ): Promise<{ text: string; aborted: boolean }> {
     const liveContextBlock = liveContext ? `\n\n${liveContext}\n` : '';
     const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
 
@@ -952,6 +961,7 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
     if (onDelta) {
       requestOptions.stream = true;
       let assembled = '';
+      let aborted = false;
       try {
         const stream: any = await this.openai.responses.create(
           requestOptions,
@@ -959,6 +969,7 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
         );
         for await (const event of stream as AsyncIterable<any>) {
           if (abortSignal?.aborted) {
+            aborted = true;
             try {
               stream.controller?.abort?.();
             } catch {
@@ -995,6 +1006,7 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
           err?.name === 'AbortError' ||
           err?.name === 'APIUserAbortError';
         if (isAbort) {
+          aborted = true;
           this.logger.log(
             `OpenAI stream aborted by client; persisting ${assembled.length} chars streamed so far.`,
           );
@@ -1003,15 +1015,22 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
           if (!assembled) throw err;
         }
       }
-      return (
-        assembled ||
-        'I was unable to generate a response. Please contact our support team for help.'
-      );
+      return {
+        text:
+          assembled ||
+          'I was unable to generate a response. Please contact our support team for help.',
+        aborted,
+      };
     }
 
     const response = await this.openai.responses.create(requestOptions);
 
-    return response.output_text || 'I was unable to generate a response. Please contact our support team for help.';
+    return {
+      text:
+        response.output_text ||
+        'I was unable to generate a response. Please contact our support team for help.',
+      aborted: false,
+    };
   }
 
   private async getOrCreateAiBotUser(): Promise<UserDetails | null> {
