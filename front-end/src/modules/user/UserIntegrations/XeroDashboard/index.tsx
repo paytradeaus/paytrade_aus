@@ -3674,6 +3674,15 @@ function ManualXeroSyncDialog({
                 gridActions={catchupActions}
                 enableCheckbox
                 checkBoxId="key"
+                // DynamicTable's checkbox only ticks when BOTH the row's
+                // `checked` flag AND its internal `selectedRows` state
+                // include the row. That internal state is only seeded
+                // from this prop, so we feed it the already-checked
+                // rows on every render — otherwise selection survives
+                // in our `catchupSelected` set but the box looks empty.
+                selectedCheckboxRows={catchupGridData.filter(
+                  (r: any) => r.checked
+                )}
                 disableCheckBox={catchupRunning}
                 alignActionsDataCenter
                 hidePagination
