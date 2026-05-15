@@ -14930,6 +14930,7 @@ type Mutation {
     """ID of the user to delete from the company"""
     user_id: Float!
   ): StringResponse!
+  detachAiBillingPaymentMethod(company_id: Int!): AiBillingSettingsResponse!
 
   """Disconnects or deletes the Xero connection for a given ID."""
   disconnectFromXero(
