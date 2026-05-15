@@ -3269,15 +3269,17 @@ function ManualXeroSyncDialog({
               >
                 <table
                   className="pt_table dataTable compact stripe"
-                  style={{ minWidth: "720px" }}
+                  style={{ minWidth: "960px" }}
                 >
                   <thead>
                     <tr>
-                      <th></th>
+                      <th style={{ width: "32px" }}></th>
                       <th>PayTrade</th>
                       <th>Status</th>
                       <th>Xero</th>
-                      <th>Action</th>
+                      <th style={{ width: "80px", whiteSpace: "nowrap" }}>
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3438,7 +3440,7 @@ function ManualXeroSyncDialog({
                               <em>— no Xero row in window —</em>
                             )}
                           </td>
-                          <td>
+                          <td style={{ whiteSpace: "nowrap" }}>
                             <button
                               type="button"
                               className="secondary mr_zero_point_five"
