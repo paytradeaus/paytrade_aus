@@ -1477,13 +1477,13 @@ type AiBillingSettingsResponse {
   topup_amount_usd: Float!
 }
 
-"""A single message in the AI assistant chat thread."""
+"""A single message in an AI assistant chat thread."""
 type AiChatMessage {
   """Message text."""
   content: String!
 
   """Stable id for the message (uuid)."""
-  id: String!
+  id: ID!
 
   """
   For user messages: the page-context hint that was active for this turn (route, entity, ids).
@@ -1543,12 +1543,44 @@ input AiChatPageContextInput {
   route: String
 }
 
-"""Standard wrapper for AI chat responses."""
+"""Wrapper for AI chat send/load responses (single thread)."""
 type AiChatResponse {
   history: [AiChatMessage!]
   message: String
   remainingQuota: Int
   status: String!
+
+  """Thread the messages belong to."""
+  threadId: ID
+
+  """Current thread title (after auto-titling, if any)."""
+  threadTitle: String
+}
+
+"""Wrapper for the list-threads query."""
+type AiChatThreadListResponse {
+  message: String
+  status: String!
+  threads: [AiChatThreadSummary!]
+}
+
+"""Wrapper for thread mutations that return a thread summary."""
+type AiChatThreadMutationResponse {
+  message: String
+  status: String!
+  thread: AiChatThreadSummary
+}
+
+"""Summary of an AI chat thread for the picker list."""
+type AiChatThreadSummary {
+  """ISO-8601 UTC timestamp the thread was created."""
+  createdAt: String!
+  id: ID!
+
+  """ISO-8601 UTC timestamp of the most recent message."""
+  lastMessageAt: String
+  messageCount: Int!
+  title: String!
 }
 
 type AiCreditLedgerEntry {
@@ -14540,7 +14572,9 @@ type Mutation {
   """
   cleanupPhantomXeroBankAccounts: StringResponse!
 
-  """Clear the persisted AI chat history for the current user."""
+  """
+  (Deprecated) Delete the most recent AI chat thread for the current user.
+  """
   clearAiChatHistory: AiChatResponse!
 
   """
@@ -14587,6 +14621,9 @@ type Mutation {
     sync_id: String
   ): GetXeroAccountsResponse!
   createAiBillingSetupIntent(company_id: Int!, is_sandbox: Boolean = false): StripeSetupIntentResponse!
+
+  """Create a new (empty) AI assistant chat thread for the current user."""
+  createAiChatThread: AiChatThreadMutationResponse!
 
   """Creates a claim in Paytrade using the provided payload."""
   createClaimInPaytrade(
@@ -14874,6 +14911,9 @@ type Mutation {
     """Optional synchronization ID for Xero."""
     sync_id: String
   ): GetXeroAccountsResponse!
+
+  """Delete an AI chat thread and all of its messages."""
+  deleteAiChatThread(input: ThreadIdInput!): AiChatThreadMutationResponse!
 
   """Remove a payment method permanently from the company billing profile."""
   deleteCardByPaymentMethodId(
@@ -15559,6 +15599,9 @@ type Mutation {
     account_id: String!
   ): StringResponse!
 
+  """Rename an existing AI chat thread."""
+  renameAiChatThread(input: RenameAiChatThreadInput!): AiChatThreadMutationResponse!
+
   """Sends a data deletion request email to admin on behalf of the user."""
   requestDataDeletion(entity_name: String, request_type: String!): StringResponse!
 
@@ -15612,7 +15655,7 @@ type Mutation {
   runAiCreditMonthlyAllocation(period: String): Boolean!
 
   """
-  Send a message to the AI assistant and persist the exchange to the user history.
+  Send a message to the AI assistant. Appends to the supplied thread, or creates a new thread when threadId is omitted.
   """
   sendAiChatMessage(input: SendAiChatMessageInput!): AiChatResponse!
 
@@ -18323,8 +18366,13 @@ type Query {
   ): PTAdminGroupResponse!
   getAiBillingOverview(company_id: Int!): AiBillingOverviewResponse!
 
-  """Return the persisted AI assistant chat history for the current user."""
+  """
+  (Deprecated) Return the most recent AI chat thread for the current user. Prefer listAiChatThreads + getAiChatThread.
+  """
   getAiChatHistory: AiChatResponse!
+
+  """Return a single AI chat thread (with messages) by id."""
+  getAiChatThread(threadId: ID!): AiChatResponse!
   getAiCreditLedger(company_id: Int!, limit: Int): [AiCreditLedgerEntry!]!
   getAiCreditPurchases(company_id: Int!): [AiCreditPurchaseResponse!]!
 
@@ -19127,6 +19175,9 @@ type Query {
     payment_claim_id: Float!
   ): GetClaimSyncLogsResponse!
 
+  """Return the AI assistant chat threads for the current user."""
+  listAiChatThreads: AiChatThreadListResponse!
+
   """Admin audit listing of users with AI live follow enabled."""
   listAiLiveFollowUsers: AiLiveFollowAuditResponse!
 
@@ -19609,6 +19660,13 @@ type RegenerateNoticeResponse {
   status: String!
 }
 
+input RenameAiChatThreadInput {
+  threadId: ID!
+
+  """New title (max 200 chars). Empty resets to "New chat"."""
+  title: String!
+}
+
 """
 Phase 3 — single retention gross-up Manual Journal posted by PayTrade for a claim
 """
@@ -19755,6 +19813,11 @@ input SendAiChatMessageInput {
 
   """Optional structured page-context hint for the assistant."""
   pageContext: AiChatPageContextInput
+
+  """
+  Thread to append the message to. If omitted, a new thread is created and titled from the first message.
+  """
+  threadId: ID
 }
 
 """Input for sending a system email"""
@@ -20956,6 +21019,10 @@ type TaxRates {
 
   """Type of tax (e.g., GST, VAT)"""
   type: String
+}
+
+input ThreadIdInput {
+  threadId: ID!
 }
 
 """Details of an email associated with a support ticket."""
