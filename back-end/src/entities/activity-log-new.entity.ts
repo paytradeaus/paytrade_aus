@@ -13,6 +13,9 @@ import { AdminDetails } from './admin-details.entity';
 import { UserMode } from 'src/libs/@paytrade-types/paytrade-types';
 import { ActivityLogTemplates } from './activity-log-templates.entity';
 
+/** human = UI action, ai_delegate = action routed through an AI tool, system = background job. */
+export type ActorMode = 'human' | 'ai_delegate' | 'system';
+
 @Entity()
 export class ActivityLogNew {
   @PrimaryGeneratedColumn('uuid')
@@ -84,6 +87,17 @@ export class ActivityLogNew {
     nullable: true,
   })
   updated_group: Group;
+
+  @Column({
+    type: 'enum',
+    enum: ['human', 'ai_delegate', 'system'],
+    default: 'human',
+    nullable: false,
+  })
+  actor_mode: ActorMode;
+
+  @Column({ type: 'uuid', nullable: true })
+  ai_run_id: string | null;
 
   @ManyToOne(() => UserDetails, (user) => user.activityLogNew)
   @JoinColumn({ name: 'from_user', referencedColumnName: 'user_id' })
