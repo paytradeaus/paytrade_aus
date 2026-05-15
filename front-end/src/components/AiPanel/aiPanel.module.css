@@ -69,10 +69,17 @@
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
+  /* Override global `button { box-shadow: inset … var(--coral) }`. */
+  box-shadow: none;
 }
 
 .iconBtn:hover {
   background: var(--shade-light);
+  box-shadow: none;
+}
+
+.iconBtn i {
+  margin: 0;
 }
 
 .followingBadge {
@@ -817,11 +824,17 @@ a.contextChip:hover {
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
+  box-shadow: none;
 }
 
 .footIconBtn:hover {
   background: var(--shade-light);
   color: var(--ocean);
+  box-shadow: none;
+}
+
+.footIconBtn i {
+  margin: 0;
 }
 
 .railIcon {
@@ -830,14 +843,24 @@ a.contextChip:hover {
   cursor: pointer;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  /* Override global `button { box-shadow: inset … var(--coral) }`. */
+  box-shadow: none;
 }
 
 .railIcon:hover {
   background: var(--shade-light);
+  box-shadow: none;
+}
+
+.railIcon i {
+  margin: 0;
 }
 
 .hideToggle {

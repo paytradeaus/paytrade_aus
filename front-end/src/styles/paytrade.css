@@ -370,26 +370,29 @@ body #fader {
 .pt_nav_collapse_btn {
   position: absolute;
   bottom: 12px;
-  right: -10px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid var(--shade-light);
-  background: var(--pico-background-color, #fff);
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  border: none;
+  background: transparent;
   color: var(--ocean);
   cursor: pointer;
   z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 14px;
   padding: 0;
   outline: none;
+  /* Override global `button { box-shadow: inset … var(--coral) }` which
+     paints a coral inner glow on every <button>. */
   box-shadow: none;
 }
 
 .pt_nav_collapse_btn:hover {
   background: var(--shade-light);
+  box-shadow: none;
 }
 
 .pt_nav_collapse_btn:focus,
@@ -397,7 +400,11 @@ body #fader {
 .pt_nav_collapse_btn:active {
   outline: none;
   box-shadow: none;
-  border-color: var(--shade-light);
+  border: none;
+}
+
+.pt_nav_collapse_btn i {
+  margin: 0;
 }
 
 .pt_dashboard .paytradeffectwrap {
@@ -4590,10 +4597,11 @@ a.pt_linksbox {
   .pt_dashboard.nav-collapsed .pt_nav_collapse_btn,
   .pt_dashboard .pt_nav_collapse_btn {
     display: inline-flex;
-    right: -14px;
+    right: 8px;
     width: 32px;
     height: 32px;
-    font-size: 13px;
+    font-size: 16px;
+    box-shadow: none;
   }
 }
 
