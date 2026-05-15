@@ -63,13 +63,28 @@ export class ManualXeroSyncGuideSeederService
 
   private async seedGuides(seedRows: ManualXeroSyncGuideSeed[]) {
     let inserted = 0;
-    let skipped = 0;
+    let updated = 0;
+    let unchanged = 0;
     for (const row of seedRows) {
       const existing = await this.blogRepo.findOne({
         where: { title: row.title },
       });
+
       if (existing) {
-        skipped++;
+        const sameContent = existing.content === row.content;
+        const sameSlug = existing.urlSlug === row.urlSlug;
+        const sameTags =
+          JSON.stringify(existing.tags ?? []) === JSON.stringify(row.tags);
+        if (sameContent && sameSlug && sameTags) {
+          unchanged++;
+          continue;
+        }
+        existing.content = row.content;
+        existing.urlSlug = row.urlSlug;
+        existing.tags = row.tags;
+        existing.updated_group = 'SYSTEM';
+        await this.blogRepo.save(existing);
+        updated++;
         continue;
       }
 
@@ -93,7 +108,7 @@ export class ManualXeroSyncGuideSeederService
       inserted++;
     }
     this.logger.log(
-      `manual_xero_sync_how_to_guides: inserted ${inserted}, already-present ${skipped}, of ${seedRows.length}`,
+      `manual_xero_sync_how_to_guides: inserted ${inserted}, updated ${updated}, unchanged ${unchanged}, of ${seedRows.length}`,
     );
   }
 }

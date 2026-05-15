@@ -1459,9 +1459,11 @@ This feature synchronises contact information — address, phone number, and ema
 - Contacts must be mapped before their information can sync.
 - The sync never clears existing PayTrade values — it only updates when Xero has data.
 
-### 19.17 Two-Sided Manual Xero Sync (Self-Service Recovery) *(Updated 2026-05-14)*
+### 19.17 Two-Sided Manual Xero Sync (Self-Service Recovery) *(Updated 2026-05-15)*
 
 **Where to find it:** Xero Dashboard (`/user/integrations/xero`) → Sync Log tab → **Manual sync** button (next to *Refresh*). Available to STANDARD USER, ADMIN and PRIMARY ADMIN — gated by an in-resolver check that rejects company_id tampering against the JWT.
+
+**Dialog presentation *(Updated 2026-05-15)*:** Manual sync opens as a **full-screen popup** (95vw × 95vh) instead of the older centred modal — both the single-record tab and the catch-up tab need horizontal room for the side-by-side PT ↔ Xero panels and the multi-row catch-up table. The popup uses the system surface colour (`--theme-light`, so it re-themes correctly in dark mode), pins the **Single record / Catch-up by date range** tab switcher to the top as a sticky strip, and keeps a single body scroller — the Pico header and footer never scroll out of view. The chrome around the dialog is also collapsible: the left sidebar and the right AI panel each gained a chevron pill at their column divider, so an operator who needs the full width for a wide catch-up window can hide both rails without leaving the dialog. The popup is reached via a `fullScreenPopup` flag on the shared `BaseModal` component — it is the same control surface as before, just rendered in a wider frame.
 
 The Manual Sync dialog is a self-service recovery tool for moving a single record between PayTrade and Xero. It supports five record types — **Invoice / Bill**, **Payment**, **Bank Transfer** (PT-RET retention transfer), **Contact**, and **Manual Journal** (retention gross-up). It is the same dialog whether the user is fixing a missed sync, repairing a broken mapping, or linking two records that were created independently in each system.
 
@@ -1530,9 +1532,11 @@ Every two-sided run also emits the legacy template-499 trigger row so existing S
 
 The Run sync mutation is protected by an HMAC-signed action token bound to `(timestamp, company_id, type, xero_id, pt_id, recommended_action)` with a 10-minute TTL, plus a server-side check that the **I've reviewed this** flag is `true`. This prevents an admin from skipping the Check step by calling the mutation directly — Run sync can only execute against a recent, server-signed pre-flight result, and any change to either picked id resets the token so it can never outlive the inputs it was signed against.
 
-### 19.18 Two-Sided Manual Xero Sync — Catch-up Discovery by Date Range *(Added 2026-05-14)*
+### 19.18 Two-Sided Manual Xero Sync — Catch-up Discovery by Date Range *(Updated 2026-05-15)*
 
 **Where to find it:** Same dialog as 19.17 (Xero Dashboard → Sync Log → **Manual sync**). The dialog has a tab switcher at the top — switch from **Single record** to **Catch-up by date range**. Same gating: STANDARD USER, ADMIN and PRIMARY ADMIN, JWT-bound `company_id`.
+
+**Dialog presentation *(Updated 2026-05-15)*:** Catch-up uses the same **full-screen popup** as 19.17 (95vw × 95vh, themed surface, sticky tab strip pinned at the top, single body scroller). The wider canvas was added specifically for this tab — the side-by-side PT ↔ Xero results table needs the room — and the **record-type / From / To / Discover** filter row sits inline directly under the sticky tab strip so it stays in reach while the operator scrolls through results. Each results row carries a checkbox whose visual tick state is driven by the parent's `selectedCheckboxRows` set (so the dialog and the table never disagree about what is currently selected), and the rightmost **Actions** column has its own header label so the table never renders a phantom unlabelled td. Sidebar and AI-panel chevron toggles are available throughout if the operator needs to widen the dialog further.
 
 The catch-up tab is for users who don't already know a single record id but suspect drift across a window of time — for example after a long Xero outage, after restoring from a backup, or before an end-of-month review. It lists everything that touched the date window on either side, classifies each row, lets the user multi-select what to fix, and then drives the **same per-row pre-flight + two-sided sync** as 19.17 sequentially. **There is no new sync engine** — every selected row flows through `manualXeroPreflight` + `manualXeroTwoSidedSync` exactly as if the user had typed the ids into the single-record tab.
 
