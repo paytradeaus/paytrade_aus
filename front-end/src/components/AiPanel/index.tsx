@@ -609,6 +609,12 @@ export default function AiPanel() {
             }
           }
         } else if (event.type === "run_completed") {
+          const liveErrorReason =
+            event.status !== "stopped"
+              ? (event.errorReason && event.errorReason.trim()) ||
+                (event.errorMessage && event.errorMessage.trim()) ||
+                undefined
+              : undefined;
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -617,6 +623,7 @@ export default function AiPanel() {
                     pending: false,
                     runSummary: event.summary,
                     runStatus: event.status,
+                    errorReason: liveErrorReason ?? m.errorReason,
                     content:
                       m.content ||
                       event.errorMessage ||

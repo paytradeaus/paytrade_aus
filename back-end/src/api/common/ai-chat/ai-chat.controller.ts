@@ -143,6 +143,7 @@ export class AiChatController {
       }
     } catch (err: any) {
       this.logger.error(`chat stream error: ${err?.message || err}`);
+      const streamErr = err?.message || 'Stream failed';
       write('run_completed', {
         type: 'run_completed',
         runId: '',
@@ -156,7 +157,8 @@ export class AiChatController {
           durationMs: 0,
           model: null,
         },
-        errorMessage: err?.message || 'Stream failed',
+        errorMessage: streamErr,
+        errorReason: streamErr.slice(0, 240),
       });
     } finally {
       try {

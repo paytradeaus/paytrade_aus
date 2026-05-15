@@ -79,6 +79,7 @@ export type OrchestratorEvent =
         model: string | null;
       };
       errorMessage?: string;
+      errorReason?: string;
     };
 
 /**
@@ -109,13 +110,15 @@ export class AiChatOrchestratorService {
     const startedAt = Date.now();
 
     if (!this.llm.isAvailable()) {
+      const unavailable =
+        'AI chat is not available right now. Please try again later.';
       yield {
         type: 'run_completed',
         runId: '',
         status: 'failed',
         summary: this.emptySummary(0),
-        errorMessage:
-          'AI chat is not available right now. Please try again later.',
+        errorMessage: unavailable,
+        errorReason: unavailable,
       };
       return;
     }
@@ -441,6 +444,7 @@ export class AiChatOrchestratorService {
       status: finalStatus,
       summary,
       errorMessage: finalError,
+      errorReason: finalError ? finalError.slice(0, 240) : undefined,
     };
   }
 

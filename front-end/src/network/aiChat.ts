@@ -86,6 +86,7 @@ export type AiChatStreamEvent =
       status: "completed" | "stopped" | "failed";
       summary: AiChatRunSummary;
       errorMessage?: string;
+      errorReason?: string;
     };
 
 export interface SendChatOptions {
