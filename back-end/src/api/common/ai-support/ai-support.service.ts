@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, In } from 'typeorm';
 import OpenAI from 'openai';
+import Redis from 'ioredis';
 import * as crypto from 'crypto';
 import { AiSupportUsage } from 'src/entities/ai-support-usage.entity';
 import { FAQ } from 'src/entities/admin-faq.entity';
@@ -23,22 +24,31 @@ const PAID_LIMIT = 20;
 const PAID_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 const MAX_QUESTION_LENGTH = 500;
-const LIVE_FOLLOW_TTL_MS = 10 * 60 * 1000;
-const LIVE_FOLLOW_MAX_ENTRIES = 1000;
+const LIVE_FOLLOW_TTL_SECONDS = 10 * 60;
+
+function resolveAppEnvironment(): string {
+  if (process.env.APP_ENVIRONMENT) {
+    return process.env.APP_ENVIRONMENT;
+  }
+  if (process.env.REPL_ID) {
+    return process.env.REPLIT_DEPLOYMENT ? 'staging' : 'development';
+  }
+  return 'production';
+}
 
 interface LiveFollowContext {
   route: string;
   pageLabel?: string;
   entityIds?: Record<string, string>;
-  recordedAt: number;
 }
 
 @Injectable()
-export class AiSupportService {
+export class AiSupportService implements OnModuleInit, OnModuleDestroy {
   private logger = new PaytradeLogger('AI_SUPPORT');
   private openai: OpenAI | null = null;
   private systemGuideContent: string = '';
-  private liveFollowContexts = new Map<number, LiveFollowContext>();
+  private redis: Redis | null = null;
+  private liveFollowKeyPrefix: string = `ai_live_follow:${resolveAppEnvironment()}:`;
 
   constructor(
     @InjectRepository(AiSupportUsage)
@@ -67,6 +77,57 @@ export class AiSupportService {
       this.logger.warn('OPENAI_API_KEY not set - AI support will not work');
     }
     this.loadSystemGuide();
+  }
+
+  onModuleInit() {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      this.logger.warn(
+        'REDIS_URL not configured - live-follow context persistence disabled',
+      );
+      return;
+    }
+    try {
+      // IMPORTANT: never return null from retryStrategy — that
+      // permanently disables reconnection and every subsequent command
+      // throws "Connection is closed." until the process restarts.
+      this.redis = new Redis(redisUrl, {
+        maxRetriesPerRequest: 5,
+        enableReadyCheck: true,
+        retryStrategy: (times) =>
+          Math.min(Math.max(times * 200, 1000), 30000),
+        reconnectOnError: (err) => {
+          const msg = err?.message || '';
+          return (
+            msg.includes('READONLY') || msg.includes('Connection is closed')
+          );
+        },
+      });
+      this.redis.on('error', (err) => {
+        this.logger.error(
+          `Redis connection error (live-follow): ${err.message}`,
+        );
+      });
+      this.logger.log(
+        `Live-follow context Redis store initialized — key prefix=${this.liveFollowKeyPrefix}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to connect Redis for live-follow context: ${err?.message}`,
+      );
+      this.redis = null;
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.redis) {
+      this.redis.disconnect();
+      this.redis = null;
+    }
+  }
+
+  private liveFollowKey(userId: number): string {
+    return `${this.liveFollowKeyPrefix}${userId}`;
   }
 
   private loadSystemGuide() {
@@ -277,19 +338,33 @@ export class AiSupportService {
       ? String(input.pageLabel).slice(0, 200)
       : undefined;
 
-    if (this.liveFollowContexts.size > LIVE_FOLLOW_MAX_ENTRIES) {
-      const cutoff = Date.now() - LIVE_FOLLOW_TTL_MS;
-      for (const [uid, ctx] of this.liveFollowContexts.entries()) {
-        if (ctx.recordedAt < cutoff) this.liveFollowContexts.delete(uid);
-      }
+    if (!this.redis) {
+      this.logger.warn(
+        `Live-follow context not persisted for user=${userId} — Redis unavailable`,
+      );
+      return {
+        status: 'ERROR',
+        message: 'Live-follow context store is unavailable.',
+      };
     }
 
-    this.liveFollowContexts.set(userId, {
-      route,
-      pageLabel,
-      entityIds,
-      recordedAt: Date.now(),
-    });
+    const payload: LiveFollowContext = { route, pageLabel, entityIds };
+    try {
+      await this.redis.set(
+        this.liveFollowKey(userId),
+        JSON.stringify(payload),
+        'EX',
+        LIVE_FOLLOW_TTL_SECONDS,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to persist live-follow context for user=${userId}: ${err?.message}`,
+      );
+      return {
+        status: 'ERROR',
+        message: 'Failed to record live-follow context.',
+      };
+    }
 
     this.logger.log(
       `Live-follow context recorded for user=${userId} route="${route}"` +
@@ -307,19 +382,42 @@ export class AiSupportService {
     return v.replace(/[\u0000-\u001F\u007F]+/g, ' ').trim();
   }
 
-  clearLiveFollowContext(userId: number) {
-    this.liveFollowContexts.delete(userId);
+  async clearLiveFollowContext(userId: number): Promise<void> {
+    if (!this.redis) return;
+    try {
+      await this.redis.del(this.liveFollowKey(userId));
+    } catch (err) {
+      this.logger.warn(
+        `Failed to clear live-follow context for user=${userId}: ${err?.message}`,
+      );
+    }
   }
 
   private async getLiveFollowContextForPrompt(
     userId: number,
   ): Promise<string | null> {
-    const ctx = this.liveFollowContexts.get(userId);
-    if (!ctx) return null;
-    if (Date.now() - ctx.recordedAt > LIVE_FOLLOW_TTL_MS) {
-      this.liveFollowContexts.delete(userId);
+    if (!this.redis) return null;
+    let raw: string | null = null;
+    try {
+      raw = await this.redis.get(this.liveFollowKey(userId));
+    } catch (err) {
+      this.logger.warn(
+        `Failed to read live-follow context for user=${userId}: ${err?.message}`,
+      );
       return null;
     }
+    if (!raw) return null;
+    let ctx: LiveFollowContext;
+    try {
+      ctx = JSON.parse(raw) as LiveFollowContext;
+    } catch (err) {
+      this.logger.warn(
+        `Discarding malformed live-follow context for user=${userId}: ${err?.message}`,
+      );
+      await this.clearLiveFollowContext(userId);
+      return null;
+    }
+    if (!ctx?.route) return null;
     // Re-check the flag at read time so disabling live-follow takes
     // effect immediately, even for context cached before the toggle.
     const user = await this.userDetails.findOne({
@@ -327,7 +425,7 @@ export class AiSupportService {
       select: { user_id: true, ai_live_follow_enabled: true },
     });
     if (!user?.ai_live_follow_enabled) {
-      this.liveFollowContexts.delete(userId);
+      await this.clearLiveFollowContext(userId);
       return null;
     }
     const route = this.sanitiseContextValue(ctx.route);
