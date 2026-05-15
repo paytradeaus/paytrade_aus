@@ -3278,7 +3278,7 @@ function ManualXeroSyncDialog({
                       <th>PayTrade</th>
                       <th>Status</th>
                       <th>Xero</th>
-                      <th>View</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
