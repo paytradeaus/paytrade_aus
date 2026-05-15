@@ -28,9 +28,30 @@ const SUPPLIER_CONTACT_EMAIL = 'support@paytrade.app';
 // Registered office address for the AUD tax invoice. Defaults to the
 // Sydney registered office on file; can be overridden per-environment via
 // PAYTRADE_SUPPLIER_ADDRESS without a code deploy if it ever moves.
+// Multi-line addresses are supported by separating lines with `\n` (or a
+// literal "\n" sequence in the env var) — each line is rendered on its
+// own row in the TAX INVOICE block so longer registered addresses stay
+// readable rather than wrapping mid-street.
 const SUPPLIER_ADDRESS =
   process.env.PAYTRADE_SUPPLIER_ADDRESS ||
-  'Level 1, 5 Martin Place, Sydney NSW 2000, Australia';
+  'Level 1, 5 Martin Place\nSydney NSW 2000\nAustralia';
+
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderSupplierAddressHtml = (raw: string): string =>
+  raw
+    .replace(/\\n/g, '\n')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map(escapeHtml)
+    .join('<br>');
 
 /**
  * Task #161 / #168 — Generates a receipt PDF for a successful AI credit
@@ -189,7 +210,7 @@ export class AiBillingReceiptService {
             '<p style="margin:0 0 4px;font-size:12px;color:#555;line-height:1.5;">',
             `<strong>${SUPPLIER_LEGAL_NAME}</strong><br>`,
             `ABN ${SUPPLIER_ABN}<br>`,
-            `${SUPPLIER_ADDRESS}<br>`,
+            `${renderSupplierAddressHtml(SUPPLIER_ADDRESS)}<br>`,
             `<a href="mailto:${SUPPLIER_CONTACT_EMAIL}" style="color:#0d3b66;">${SUPPLIER_CONTACT_EMAIL}</a>`,
             '</p>',
             `<p style="margin:8px 0 4px;font-size:12px;color:#555;">Invoice <strong>${invoiceNumber}</strong> · ${invoiceDate}</p>`,
