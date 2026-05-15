@@ -6,7 +6,10 @@
   max-height: 100vh;
   background: var(--pico-card-background-color, var(--wind-lightest));
   border-left: 1px solid var(--shade-light);
-  overflow: hidden;
+  /* Allow the column-divider chevron pill (positioned at left: -10px on
+     both rail and open states) to overflow the panel's left edge so it
+     visibly straddles the divider with the main content. */
+  overflow: visible;
   z-index: 4;
 }
 
@@ -14,9 +17,11 @@
   width: 48px !important;
   min-width: 48px !important;
   align-items: center;
-  /* Push the single maximise icon to the bottom of the rail to mirror
-     the sidebar's collapse button placement. */
-  justify-content: flex-end;
+  /* The collapse/expand control is now a divider pill (.railIcon) that
+     positions itself absolutely on the left edge, vertically centred —
+     mirroring the sidebar's pattern — so the rail body itself doesn't
+     need any internal alignment for it. */
+  justify-content: flex-start;
   padding: var(--space-s) 0;
   gap: var(--space-s);
 }
@@ -848,38 +853,55 @@ a.contextChip:hover {
   margin: 0;
 }
 
-.railIcon {
-  font-size: 14px;
+/* Column-divider chevron pill — mirrors `.pt_nav_collapse_btn` on the
+   left sidebar. Sits half-outside the panel's left edge, vertically
+   centred, so the affordance reads as "open/close this column". The
+   `.railIcon` class is used in rail state, `.dividerCollapseBtn` in
+   open state — same look, different action (expand vs collapse). */
+.railIcon,
+.dividerCollapseBtn {
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wind);
+  background: var(--wind-lightest);
   color: var(--ocean);
   cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius);
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
   padding: 0;
-  margin: 0 8px;
-  /* Override global `button { box-shadow: inset … var(--coral) }` which
-     would otherwise paint a coral inner glow on every <button>. */
-  box-shadow: none !important;
+  margin: 0;
+  outline: none;
+  /* Override global `button { box-shadow: inset … var(--coral) }`. */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.railIcon:hover {
-  background: var(--shade-light);
-  box-shadow: none !important;
+.railIcon:hover,
+.dividerCollapseBtn:hover {
+  background: var(--ocean);
+  color: var(--wind-lightest);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
 }
 
 .railIcon:focus,
 .railIcon:focus-visible,
-.railIcon:active {
+.railIcon:active,
+.dividerCollapseBtn:focus,
+.dividerCollapseBtn:focus-visible,
+.dividerCollapseBtn:active {
   outline: none;
-  box-shadow: none !important;
 }
 
-.railIcon i {
+.railIcon i,
+.dividerCollapseBtn i {
   margin: 0;
 }
 

@@ -382,32 +382,41 @@ body #fader {
   justify-content: center;
 }
 
+/* Sidebar collapse/expand toggle.
+   Positioned as a small chevron pill at the column divider on the
+   right edge of the sidebar, vertically centred. Sitting on the
+   divider (rather than the sidebar's bottom-left) keeps it clear of
+   the Cookiebot widget that lives at the page's bottom-left, and
+   matches the column-divider affordance the user requested. */
 .pt_nav_collapse_btn {
   position: absolute;
-  bottom: 12px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius);
-  border: none;
-  background: transparent;
+  top: 50%;
+  right: -10px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--wind);
+  background: var(--wind-lightest);
   color: var(--ocean);
   cursor: pointer;
   z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 11px;
   padding: 0;
   outline: none;
   /* Override global `button { box-shadow: inset … var(--coral) }` which
      paints a coral inner glow on every <button>. */
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .pt_nav_collapse_btn:hover {
-  background: var(--shade-light);
-  box-shadow: none;
+  background: var(--ocean);
+  color: var(--wind-lightest);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 .pt_nav_collapse_btn:focus,
@@ -4634,11 +4643,11 @@ a.pt_linksbox {
   .pt_dashboard.nav-collapsed .pt_nav_collapse_btn,
   .pt_dashboard .pt_nav_collapse_btn {
     display: inline-flex;
-    right: 8px;
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
-    box-shadow: none;
+    /* Slightly larger touch target on tablets while keeping the
+       column-divider position from the desktop rule above. */
+    width: 22px;
+    height: 44px;
+    font-size: 12px;
   }
 }
 

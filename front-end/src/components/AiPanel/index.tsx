@@ -832,7 +832,7 @@ export default function AiPanel() {
             persistUiPreferences({ aiPanelState: "open" });
           }}
         >
-          <i className="fa-light fa-table-columns"></i>
+          <i className="fa-solid fa-chevron-left"></i>
         </button>
       </aside>
     );
@@ -870,6 +870,20 @@ export default function AiPanel() {
           aria-orientation="vertical"
           aria-label="Resize AI assistant"
         />
+        {!isMobile && (
+          <button
+            type="button"
+            className={styles.dividerCollapseBtn}
+            title="Collapse AI assistant to rail"
+            aria-label="Collapse AI assistant to rail"
+            onClick={() => {
+              dispatch(setAiPanelState("rail"));
+              persistUiPreferences({ aiPanelState: "rail" });
+            }}
+          >
+            <i className="fa-solid fa-chevron-right"></i>
+          </button>
+        )}
 
         <div className={styles.header}>
           <button
@@ -1524,7 +1538,7 @@ export default function AiPanel() {
                     persistUiPreferences({ aiPanelState: "rail" });
                   }}
                 >
-                  <i className="fa-light fa-table-columns"></i>
+                  <i className="fa-solid fa-chevron-right"></i>
                 </button>
               )}
               {sending ? (
