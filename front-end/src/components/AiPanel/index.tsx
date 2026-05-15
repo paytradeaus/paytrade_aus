@@ -251,8 +251,27 @@ export default function AiPanel() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [snapshotChip, setSnapshotChip] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
   // Tracks the in-flight stream so the user can stop it mid-answer.
   const abortRef = useRef<AbortController | null>(null);
+
+  // Load a previous user message into the composer so the user can tweak
+  // the wording before re-sending instead of just retrying verbatim.
+  const editMessage = useCallback((text: string) => {
+    setInput(text);
+    requestAnimationFrame(() => {
+      const el = composerInputRef.current;
+      if (el) {
+        el.focus();
+        const len = el.value.length;
+        try {
+          el.setSelectionRange(len, len);
+        } catch {
+          /* noop */
+        }
+      }
+    });
+  }, []);
 
   // Close any open context popover when the user clicks elsewhere or
   // presses Escape. The popover is intentionally lightweight — no portal,
@@ -975,6 +994,21 @@ export default function AiPanel() {
                     ) : (
                       m.content
                     )}
+                    {m.role === "user" && (
+                      <button
+                        type="button"
+                        className={styles.userEditBtn}
+                        disabled={sending}
+                        title="Edit and resend this question"
+                        aria-label="Edit this question"
+                        onClick={() => editMessage(m.content)}
+                      >
+                        <i
+                          className="fa-light fa-pen-to-square"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                    )}
                   </div>
                   {chipLabel && (
                     <span
@@ -1090,6 +1124,22 @@ export default function AiPanel() {
                             Retry
                           </button>
                         )}
+                        {priorUserMsg && (
+                          <button
+                            type="button"
+                            className={styles.stoppedAction}
+                            disabled={sending}
+                            title="Edit the question and send again"
+                            aria-label="Edit original question"
+                            onClick={() => editMessage(priorUserMsg!.content)}
+                          >
+                            <i
+                              className="fa-light fa-pen-to-square"
+                              aria-hidden="true"
+                            ></i>
+                            Edit
+                          </button>
+                        )}
                         <button
                           type="button"
                           className={styles.stoppedAction}
@@ -1192,6 +1242,7 @@ export default function AiPanel() {
         <form className={styles.composer} onSubmit={onComposerSubmit}>
           <div className={styles.composerRow}>
             <input
+              ref={composerInputRef}
               className={styles.composerInput}
               placeholder="Ask me anything about Pay Trade…"
               value={input}

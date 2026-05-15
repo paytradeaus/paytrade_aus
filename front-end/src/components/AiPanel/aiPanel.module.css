@@ -434,6 +434,45 @@
   background: var(--ocean);
   color: #fff;
   border-bottom-right-radius: 4px;
+  position: relative;
+}
+
+.userEditBtn {
+  position: absolute;
+  top: 50%;
+  left: -28px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--wind-light);
+  color: var(--ocean);
+  border: 1px solid var(--shade-light);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.msgUser:hover .userEditBtn,
+.userEditBtn:focus-visible {
+  opacity: 1;
+}
+
+.userEditBtn:hover:not(:disabled) {
+  background: var(--ocean);
+  color: #fff;
+  border-color: var(--ocean);
+}
+
+.userEditBtn:disabled {
+  opacity: 0;
+  cursor: not-allowed;
 }
 
 .msgGroup {
