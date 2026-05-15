@@ -844,7 +844,7 @@ export default function AiPanel() {
             persistUiPreferences({ aiPanelState: "hidden" });
           }}
         >
-          <i className="fa-light fa-sidebar"></i>
+          <i className="fa-light fa-table-columns"></i>
         </button>
       </aside>
     );
@@ -937,20 +937,6 @@ export default function AiPanel() {
             >
               <i className="fa-light fa-pen-to-square"></i>
             </button>
-            {!isMobile && (
-              <button
-                type="button"
-                className={styles.iconBtn}
-                title="Collapse to rail"
-                aria-label="Collapse AI assistant to rail"
-                onClick={() => {
-                  dispatch(setAiPanelState("rail"));
-                  persistUiPreferences({ aiPanelState: "rail" });
-                }}
-              >
-                <i className="fa-light fa-sidebar-flip"></i>
-              </button>
-            )}
             <button
               type="button"
               className={styles.iconBtn}
@@ -1548,6 +1534,20 @@ export default function AiPanel() {
                     )}`
                   : "Read-only assistant"}
             </span>
+            {!isMobile && (
+              <button
+                type="button"
+                className={styles.footIconBtn}
+                title="Collapse AI assistant to rail"
+                aria-label="Collapse AI assistant to rail"
+                onClick={() => {
+                  dispatch(setAiPanelState("rail"));
+                  persistUiPreferences({ aiPanelState: "rail" });
+                }}
+              >
+                <i className="fa-light fa-table-columns"></i>
+              </button>
+            )}
           </div>
         </form>
       </aside>

@@ -42,6 +42,9 @@ export default function UserLayout({
   const uiPrefsHydrated = useAppSelector(
     (state: RootState) => state.uiPreferences.hydrated
   );
+  const aiLiveFollowEnabled = useAppSelector(
+    (state: RootState) => state.uiPreferences.aiLiveFollowEnabled
+  );
 
   // Get userMode from Redux
   const reduxUserMode = useAppSelector(
@@ -199,9 +202,16 @@ export default function UserLayout({
   if (!isClient) return null; // Avoid mismatches during hydration
 
   // Compute the AI column width for the dashboard grid. "hidden" → 0,
-  // "rail" → fixed 48px, "open" → user-resized width.
-  const aiColPx =
-    aiPanelState === "hidden" ? 0 : aiPanelState === "rail" ? 48 : aiPanelWidth;
+  // "rail" → fixed 48px, "open" → user-resized width. When the user
+  // hasn't enabled the AI assistant in Personal Info we collapse the
+  // column entirely so the main content reclaims that horizontal space.
+  const aiColPx = !aiLiveFollowEnabled
+    ? 0
+    : aiPanelState === "hidden"
+      ? 0
+      : aiPanelState === "rail"
+        ? 48
+        : aiPanelWidth;
 
   return (
     <div>

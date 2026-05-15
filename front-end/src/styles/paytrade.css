@@ -369,7 +369,7 @@ body #fader {
 
 .pt_nav_collapse_btn {
   position: absolute;
-  top: 12px;
+  bottom: 12px;
   right: -10px;
   width: 22px;
   height: 22px;
@@ -384,10 +384,20 @@ body #fader {
   justify-content: center;
   font-size: 11px;
   padding: 0;
+  outline: none;
+  box-shadow: none;
 }
 
 .pt_nav_collapse_btn:hover {
   background: var(--shade-light);
+}
+
+.pt_nav_collapse_btn:focus,
+.pt_nav_collapse_btn:focus-visible,
+.pt_nav_collapse_btn:active {
+  outline: none;
+  box-shadow: none;
+  border-color: var(--shade-light);
 }
 
 .pt_dashboard .paytradeffectwrap {

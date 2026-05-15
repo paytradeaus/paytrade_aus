@@ -800,11 +800,28 @@ a.contextChip:hover {
 .composerFoot {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 6px;
   font-size: var(--step--2);
   color: var(--cave-lighter);
   padding: 0 4px;
-  min-height: 14px;
+  min-height: 18px;
+}
+
+.footIconBtn {
+  background: transparent;
+  border: none;
+  color: var(--cave-lighter);
+  padding: 2px 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.footIconBtn:hover {
+  background: var(--shade-light);
+  color: var(--ocean);
 }
 
 .railIcon {

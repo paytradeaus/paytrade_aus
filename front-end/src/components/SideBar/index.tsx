@@ -88,11 +88,7 @@ export default function Sidebar() {
             persistUiPreferences({ navCollapsed: next });
           }}
         >
-          <i
-            className={`fa-light ${
-              navCollapsed ? "fa-sidebar" : "fa-sidebar-flip"
-            }`}
-          ></i>
+          <i className="fa-light fa-table-columns"></i>
         </button>
         <div className="mobilenavtop">
           <Link href={AppRoutes.HOME} className="logo"></Link>
