@@ -1,0 +1,570 @@
+Understood — no image. Yes, those 3 points are important and should be added into the Replit build spec.
+
+## 1. Will the toolkit be the foundation of an API others can integrate with?
+
+Yes — **it absolutely should be designed that way from day one**.
+
+The AI toolkit should not be a separate “AI-only” layer. It should be a structured wrapper around Pay Trade’s internal service/API layer.
+
+Think of it like this:
+
+```txt
+Pay Trade Core Services
+        ↓
+Internal API / Service Functions
+        ↓
+AI Tool Registry
+        ↓
+OpenAI Agent
+```
+
+The toolkit should become the **catalogued action layer** of Pay Trade.
+
+That means the same controlled actions used by the AI could later power:
+
+```txt
+External public API
+Xero/Procore integrations
+Partner integrations
+Mobile app actions
+Webhook automations
+Zapier/Make/n8n-style connectors
+Internal admin tools
+AI agent tools
+```
+
+For example, this AI tool:
+
+```txt
+preparePaymentForApproval
+```
+
+Should not be a random AI-only function. It should call a proper Pay Trade backend service:
+
+```ts
+PaymentService.preparePaymentForApproval({
+  businessProfileId,
+  projectId,
+  claimId,
+  amount,
+  requestedByUserId,
+  actorMode: "ai_delegate"
+})
+```
+
+Then later, the public API could expose a version of the same underlying action:
+
+```http
+POST /api/v1/payments/prepare-for-approval
+```
+
+The AI registry becomes a controlled catalogue of what Pay Trade can do.
+
+### Recommended design rule
+
+Build every AI tool as a wrapper around a proper domain service.
+
+Example:
+
+```ts
+const preparePaymentTool = {
+  name: "preparePaymentForApproval",
+  description: "Prepare a claim payment for user approval.",
+  riskLevel: "financial",
+  requiresApproval: true,
+  inputSchema: PreparePaymentInputSchema,
+  execute: async (input, context) => {
+    return PaymentService.preparePaymentForApproval({
+      ...input,
+      businessProfileId: context.businessProfileId,
+      actorUserId: context.userId,
+      actorMode: "ai_delegate",
+      aiRunId: context.aiRunId
+    });
+  }
+};
+```
+
+This avoids the dangerous situation where you have:
+
+```txt
+one system for humans
+one system for the AI
+one system for API integrations
+one system for automations
+```
+
+Instead, Pay Trade should have **one trusted action layer**, with different entry points.
+
+```txt
+Human UI → same services
+AI Agent → same services
+Public API → same services
+Integrations → same services
+Automations → same services
+```
+
+### Extra benefit
+
+This also means your AI toolkit catalogue can later become your API documentation foundation.
+
+Each tool already needs:
+
+```txt
+name
+description
+input schema
+output schema
+permissions
+risk level
+approval requirement
+reversibility
+affected records
+audit behaviour
+```
+
+Those are almost exactly the same things needed for a public developer API.
+
+So yes — the toolkit should be designed as the foundation of an integration API.
+
+---
+
+## 2. How do we dynamically update the current page after the AI changes something?
+
+This is very important.
+
+When the AI writes to the system, Pay Trade needs a **mutation event system**.
+
+Every AI tool that changes data should return a structured list of affected records and cache invalidation keys.
+
+Example tool result:
+
+```ts
+{
+  success: true,
+  action: "claim.updated",
+  affectedRecords: [
+    {
+      type: "claim",
+      id: "claim_123"
+    },
+    {
+      type: "project",
+      id: "project_456"
+    },
+    {
+      type: "compliance_issue",
+      id: "issue_789"
+    }
+  ],
+  invalidationKeys: [
+    "dashboard:business:bp_123",
+    "project:proj_456:claims",
+    "claim:claim_123",
+    "compliance:business:bp_123",
+    "notices:project:proj_456"
+  ],
+  userVisibleSummary: "Updated claim PT-1042 and refreshed the related compliance issue."
+}
+```
+
+Then the frontend receives that update through a live event channel.
+
+Recommended options:
+
+```txt
+Server-Sent Events
+WebSockets
+Supabase realtime
+Postgres NOTIFY/LISTEN
+Pusher/Ably
+React Query invalidation
+TanStack Query invalidation
+```
+
+If Pay Trade is React-based, the cleanest pattern is:
+
+```txt
+AI tool completes mutation
+        ↓
+Backend emits ai.mutation.completed event
+        ↓
+Frontend receives event
+        ↓
+Frontend checks invalidationKeys
+        ↓
+React Query invalidates matching queries
+        ↓
+Relevant cards/tables reload automatically
+```
+
+Example event:
+
+```ts
+{
+  eventType: "ai.mutation.completed",
+  aiRunId: "run_123",
+  businessProfileId: "bp_123",
+  actionType: "claim.updated",
+  affectedRecords: [
+    { type: "claim", id: "claim_123" },
+    { type: "project", id: "project_456" }
+  ],
+  invalidationKeys: [
+    "claim:claim_123",
+    "project:proj_456:claims",
+    "dashboard:business:bp_123"
+  ],
+  summary: "The AI updated claim PT-1042."
+}
+```
+
+On the frontend:
+
+```ts
+eventBus.on("ai.mutation.completed", (event) => {
+  for (const key of event.invalidationKeys) {
+    queryClient.invalidateQueries({ queryKey: keyToQueryKey(key) });
+  }
+});
+```
+
+### Page-specific reload
+
+If the user is currently on the affected page, the page should update immediately.
+
+Example:
+
+User is on:
+
+```txt
+/projects/proj_456/claims
+```
+
+Agent updates:
+
+```txt
+claim_123
+```
+
+The page sees:
+
+```txt
+project:proj_456:claims
+```
+
+and reloads that table/card.
+
+The UI can show a small visual cue:
+
+```txt
+Updated by Pay Trade AI just now
+```
+
+or:
+
+```txt
+Claim PT-1042 was updated by Matthew Williams — AI
+```
+
+### Partial reload, not full page reload
+
+Do not reload the whole page if possible.
+
+The agent should trigger specific query invalidations:
+
+```txt
+dashboard summary card
+claims table
+notices list
+compliance issue card
+payment todo count
+activity log
+```
+
+This keeps the product feeling alive and controlled.
+
+### Suggested Replit instruction
+
+Add this to the build spec:
+
+```txt
+Every AI tool that mutates data must return affectedRecords and invalidationKeys. The backend must emit an ai.mutation.completed event over the live event channel. The frontend must listen for these events and invalidate/reload only the affected React Query/TanStack Query caches. If the current page is affected, show a subtle “Updated by AI” indicator on the relevant component. Do not require a full page refresh.
+```
+
+---
+
+## 3. How can the AI navigate to another part of the system and show the user what it is working on?
+
+You want two modes:
+
+```txt
+Quiet background mode
+Live follow mode
+```
+
+## Mode A — Quiet background mode
+
+The agent works in another area but does not move the user’s screen.
+
+Example:
+
+```txt
+The user is on Dashboard.
+The agent is checking Contracts.
+The user stays on Dashboard.
+The AI panel shows:
+“Checking contracts with missing details…”
+```
+
+The breadcrumb shows:
+
+```txt
+✓ Opened contracts context internally
+✓ Checked 8 contracts
+✓ Found 2 missing retention terms
+```
+
+This is safest and should be the default.
+
+## Mode B — Live follow mode
+
+The user can toggle:
+
+```txt
+Follow agent live
+```
+
+When enabled, the AI can guide the UI to relevant pages.
+
+Example:
+
+```txt
+Agent is reviewing a claim.
+The main page navigates to /claims/claim_123.
+The relevant claim is highlighted.
+The AI panel explains what it is doing.
+```
+
+The agent should not directly manipulate the browser. Instead, it emits a controlled navigation event.
+
+Example:
+
+```ts
+{
+  eventType: "ai.navigation.requested",
+  aiRunId: "run_123",
+  destination: {
+    route: "/projects/proj_456/contracts",
+    label: "Contracts for ALBA - 92 Kingsford Smith Drive"
+  },
+  reason: "I need to inspect contracts with missing details.",
+  highlight: {
+    recordType: "contract",
+    recordId: "contract_789"
+  }
+}
+```
+
+Frontend receives that event.
+
+If **Live follow mode is on**, navigate automatically:
+
+```ts
+router.navigate(event.destination.route);
+```
+
+If **Live follow mode is off**, show a prompt:
+
+```txt
+The AI is working in Contracts.
+
+[View live] [Stay here]
+```
+
+### Recommended UI
+
+In the AI panel, add a toggle:
+
+```txt
+[ ] Follow agent live
+```
+
+When off:
+
+```txt
+AI is working in: Contracts
+[View]
+```
+
+When on:
+
+```txt
+Following AI live
+Current area: Contracts
+[Stop following]
+```
+
+The top of the AI panel could show:
+
+```txt
+Agent location:
+Dashboard → Contracts → Contract PT-C-103 → Notices
+```
+
+That becomes the breadcrumb trail.
+
+---
+
+# Agent navigation should use “view intents”
+
+Instead of telling the AI it can go anywhere freely, create a controlled tool:
+
+```txt
+requestUserViewNavigation
+```
+
+Input:
+
+```ts
+{
+  route: string,
+  reason: string,
+  recordType?: string,
+  recordId?: string,
+  highlightComponent?: string
+}
+```
+
+Output:
+
+```ts
+{
+  navigationAccepted: boolean,
+  liveFollowEnabled: boolean,
+  currentRoute: string
+}
+```
+
+This keeps navigation controlled and auditable.
+
+The AI does not “take over” the UI. It requests view changes through the app.
+
+---
+
+# Highlighting what the AI is working on
+
+When the agent navigates or updates a record, the UI should be able to highlight the relevant item.
+
+Example:
+
+```ts
+{
+  highlight: {
+    type: "record",
+    entityType: "claim",
+    entityId: "claim_123",
+    style: "ai-working"
+  }
+}
+```
+
+Frontend result:
+
+```txt
+Claim PT-1042 row gets a soft glowing border
+Small label: AI reviewing
+```
+
+When complete:
+
+```txt
+AI updated this claim
+```
+
+This could fade after 10–15 seconds, but remain visible in the activity log.
+
+---
+
+# Best behaviour pattern
+
+The agent should usually say:
+
+```txt
+I need to review the Contracts area to continue.
+
+[Follow live] [Let AI work in background]
+```
+
+But if the user has already enabled Live follow mode, it can move automatically.
+
+This avoids the frustrating feeling of the screen changing unexpectedly.
+
+---
+
+# Add this section to the Replit spec
+
+```txt
+Add an AI live navigation system.
+
+The AI must not directly control browser navigation. Instead, it emits controlled navigation events using a requestUserViewNavigation tool.
+
+The AI panel must support two modes:
+
+1. Background mode:
+The AI works without changing the user’s main page. The AI panel shows where it is working and provides a View button.
+
+2. Live follow mode:
+When enabled by the user, the frontend automatically navigates to the page or record the AI is working on. The target record or component should be highlighted with an “AI reviewing” or “Updated by AI” state.
+
+Every navigation event must include:
+- destination route
+- reason
+- affected record type
+- affected record ID
+- optional highlight target
+- aiRunId
+
+If live follow mode is off, show a prompt in the AI panel:
+“The AI is working in Contracts. View live?”
+with buttons:
+- View live
+- Stay here
+
+The AI panel should also show an agent location breadcrumb:
+Dashboard → Contracts → Contract PT-C-103 → Notices.
+
+When an AI tool updates data, the backend must emit affectedRecords and invalidationKeys. The frontend must invalidate only the affected caches and reload the relevant components dynamically.
+```
+
+---
+
+# How these 3 things connect
+
+The proper full architecture becomes:
+
+```txt
+User asks AI to help
+        ↓
+Agent creates plan
+        ↓
+Agent selects toolkit action
+        ↓
+Toolkit calls Pay Trade service/API
+        ↓
+Service updates database
+        ↓
+Service records audit + affected records
+        ↓
+Backend emits mutation event
+        ↓
+Frontend invalidates affected cache
+        ↓
+Current page updates dynamically
+        ↓
+AI panel records breadcrumb
+        ↓
+If live follow is on, UI navigates/highlights current work area
+```
+
+This gives you a system that feels intelligent, but remains safe, auditable, and API-ready.

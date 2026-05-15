@@ -1,0 +1,1307 @@
+Yes — this is a strong idea, but the key refinement is this:
+
+**The Pay Trade AI agent must not directly “do things” in the database. It should only act through controlled Pay Trade server-side tools, with permissions, approvals, audit logs, reversible action batches, and clear status tracking.**
+
+OpenAI’s current agent pattern supports this well: the app owns orchestration, tools, approvals and state; function/tool calling lets the model request actions, but your application executes the actual code; guardrails and human review should be used around sensitive side effects; and agent state can be stored/resumed when a run is interrupted or awaiting approval. ([OpenAI Developers][1])
+
+Below is a refined, Replit-ready build spec.
+
+---
+
+# Pay Trade AI Agent System — Build Specification
+
+## 1. Core product concept
+
+Add a **Replit-style AI messenger agent** into Pay Trade that can:
+
+1. Understand the current page the user is on.
+2. Understand the current Pay Trade business/project/trust/compliance status.
+3. Create a plan before acting.
+4. Break the plan into visible task steps.
+5. Use approved Pay Trade toolkits to carry out work.
+6. Pause when user input, file upload, approval, or missing data is required.
+7. Record every action in an audit trail.
+8. Allow AI-created changes to be reverted where technically and legally possible.
+9. Self-review its work against the original task.
+10. Show cost, duration, token usage, tool calls and step history.
+
+The agent should feel similar to Replit’s assistant: visible plan, visible breadcrumbs, expandable work steps, stop/resume behaviour, file upload prompts, approval prompts, and a clear “what I did” trail.
+
+---
+
+# 2. Recommended architecture
+
+Use a **Pay Trade Agent Orchestrator** on the backend.
+
+The frontend chat panel should never call OpenAI directly. It should call your own backend:
+
+```txt
+Frontend AI Messenger
+        ↓
+Pay Trade Agent API
+        ↓
+Agent Orchestrator
+        ↓
+Tool Registry / Toolkits
+        ↓
+Pay Trade Database / Xero / Procore / Email / Notices / Files
+        ↓
+Audit Log + Revert Ledger + Cost Ledger
+```
+
+OpenAI should be used for reasoning, planning and tool selection. Pay Trade should remain responsible for permissions, database writes, external API calls, audit logging, and approvals. This matches OpenAI’s tool-calling model, where the model requests a tool call and your application executes the function with controlled inputs and outputs. ([OpenAI Developers][2])
+
+---
+
+# 3. UI layout
+
+## Main app shell
+
+Update Pay Trade’s layout to include three regions:
+
+```txt
+| Left Nav | AI Messenger Column | Main Page |
+```
+
+### Left nav
+
+The existing left-hand menu should be shrinkable.
+
+States:
+
+```txt
+expanded: icons + labels
+collapsed: icons only
+```
+
+Store user preference:
+
+```ts
+userSettings.leftNavCollapsed = true | false
+```
+
+### AI messenger column
+
+Add a resizable/collapsible AI column between the left nav and main page.
+
+States:
+
+```ts
+aiPanelState = "open" | "collapsed" | "hidden"
+aiPanelWidth = number
+```
+
+The AI panel should contain:
+
+```txt
+System status summary
+Active plan / task progress
+Outstanding approvals
+Required uploads
+Unresolved warnings
+Conversation messages
+Expandable agent steps
+Message input
+```
+
+### Message input behaviour
+
+When idle:
+
+```txt
+[Type message...] [Send Arrow]
+```
+
+When the agent is running:
+
+```txt
+[Agent is working...] [Stop Button]
+```
+
+When stopped:
+
+```txt
+[Resume previous task] [Start new instruction]
+```
+
+---
+
+# 4. Page-aware context
+
+Every chat request should include page context from the frontend.
+
+Example payload:
+
+```ts
+{
+  route: "/projects/:projectId/reconciliation",
+  pageTitle: "Monthly Trust Reconciliation",
+  businessProfileId: "bp_123",
+  projectId: "proj_456",
+  trustAccountId: "trust_789",
+  selectedRecordIds: ["claim_1", "claim_2"],
+  visibleFilters: {
+    status: "unreconciled",
+    dateRange: "current_month"
+  },
+  activeRecordType: "reconciliation",
+  activeRecordId: "rec_123",
+  unsavedChangesOnPage: false
+}
+```
+
+Important rule:
+
+**Frontend page context is only a hint. The backend must validate all IDs, permissions and access before giving anything to the agent.**
+
+The agent should be instructed:
+
+```txt
+You are page-aware. Use the current page context when answering.
+If the user asks about "this", "these", "the current claim", "this reconciliation", or "this project", resolve that reference from the validated page context.
+If the page context is insufficient, ask for clarification or use a read-only lookup tool.
+```
+
+---
+
+# 5. System status engine
+
+On load, the AI agent should not guess the system status. Pay Trade should generate a structured status snapshot using deterministic backend queries.
+
+Create endpoint:
+
+```txt
+GET /api/ai/status-snapshot
+```
+
+Return:
+
+```ts
+{
+  businessProfileId: string,
+  generatedAt: string,
+  severitySummary: {
+    critical: number,
+    warning: number,
+    info: number
+  },
+  issues: [
+    {
+      id: string,
+      category: "compliance" | "notices" | "payments" | "reconciliation" | "contacts" | "contracts" | "sync" | "trust_account" | "claims",
+      severity: "critical" | "warning" | "info",
+      title: string,
+      description: string,
+      affectedRecordType: string,
+      affectedRecordId: string,
+      suggestedAction: string,
+      agentCanHelp: boolean,
+      requiresApproval: boolean
+    }
+  ]
+}
+```
+
+The AI then summarises the snapshot:
+
+```txt
+I have checked your current Pay Trade status.
+
+I found:
+- 3 compliance items needing attention
+- 2 notices not yet sent
+- 1 overdue reconciliation
+- 4 contacts missing required details
+- 1 Xero sync failure
+
+Would you like me to prepare a plan to fix the highest-risk items first?
+```
+
+Do not let the AI invent these items. They must come from the status snapshot.
+
+---
+
+# 6. Pay Trade status categories the agent must understand
+
+The status engine should check:
+
+## Compliance
+
+```txt
+notices not generated
+notices generated but not sent
+notices failed to send
+late payment notices
+missing trustee details
+missing contracted party details
+missing supporting records
+project trust setup incomplete
+retention trust setup incomplete
+```
+
+## Reconciliation
+
+```txt
+monthly reconciliation not completed
+reconciliation overdue
+unmatched bank transactions
+unmatched trust payments
+unmatched receipts
+claims paid but not reconciled
+Xero bank transfer not linked
+```
+
+## Payments
+
+```txt
+payments awaiting approval
+payments prepared but not confirmed
+ABA file generated but not actioned
+payment created in Pay Trade but not synced to Xero
+payment synced to Xero but not confirmed in Pay Trade
+payment attempted but failed
+```
+
+## Contracts
+
+```txt
+contract missing amount
+contract missing contracting party
+contract missing contracted party
+contract missing project
+contract missing retention terms
+claimed amount exceeds contract amount
+hourly-rate contract requiring user confirmation
+variation missing approval
+```
+
+## Claims
+
+```txt
+claim imported from Xero but not reviewed
+claim has retention mismatch
+claim has net retention but trust requires grossed-up retention
+claim missing invoice/bill attachment
+claim missing due date
+claim missing payment schedule data
+```
+
+## Contacts
+
+```txt
+contact missing email
+contact missing phone
+contact missing ABN/ACN
+contact missing address
+contact missing role
+contact appears duplicated
+contact not linked to business profile
+```
+
+## Sync
+
+```txt
+Xero connection failed
+Xero token expired
+Xero project tracking item not mapped
+Xero bill import failed
+Xero payment sync failed
+Procore sync failed
+duplicate imported record
+external record deleted or changed
+```
+
+---
+
+# 7. Toolkit catalogue
+
+Every Pay Trade process needs a toolkit. Each tool should be registered in a central tool registry.
+
+Example registry table:
+
+```ts
+ai_tool_registry {
+  id: string
+  name: string
+  description: string
+  category: string
+  input_schema: jsonb
+  output_schema: jsonb
+  risk_level: "read" | "draft" | "write" | "external" | "financial" | "destructive"
+  requires_approval: boolean
+  required_permissions: string[]
+  reversible: boolean
+  revert_strategy: "snapshot_restore" | "inverse_operation" | "soft_delete_restore" | "compensating_action" | "not_reversible"
+  enabled: boolean
+}
+```
+
+Each tool should have:
+
+```txt
+clear name
+clear description
+strict input schema
+strict output schema
+permission check
+risk level
+approval requirement
+audit logging
+idempotency key
+revert strategy
+```
+
+OpenAI’s tools/function calling works best when tools are tightly described and application-side code validates and executes the result, not when the model is given vague write access. ([OpenAI Developers][2])
+
+---
+
+# 8. Suggested Pay Trade toolkits
+
+## System toolkit
+
+```txt
+getSystemStatusSnapshot
+getCurrentPageContext
+getBusinessProfileSummary
+getProjectTrustSummary
+getUserPermissions
+```
+
+## Compliance toolkit
+
+```txt
+listComplianceIssues
+getNoticeRequirements
+generateNoticeDraft
+validateNoticeDraft
+queueNoticeForApproval
+sendApprovedNotice
+markNoticeAsSent
+```
+
+## Reconciliation toolkit
+
+```txt
+getReconciliationStatus
+listUnmatchedTransactions
+suggestTransactionMatches
+prepareMonthlyReconciliation
+validateReconciliation
+queueReconciliationForApproval
+finaliseApprovedReconciliation
+```
+
+## Contracts toolkit
+
+```txt
+listContractsWithIssues
+getContractDetails
+suggestContractFixes
+createContractDraft
+updateContractDraft
+createVariationDraft
+validateContractCompleteness
+```
+
+## Claims toolkit
+
+```txt
+listClaimsWithIssues
+getClaimDetails
+detectRetentionMismatch
+suggestRetentionGrossUp
+createClaimFromXeroBill
+updateClaimDraft
+validateClaimForPayment
+```
+
+## Payments toolkit
+
+```txt
+listPaymentTodoItems
+preparePayment
+validatePaymentAgainstTrustRules
+queuePaymentForApproval
+generateABAFileDraft
+confirmPayment
+syncPaymentToXero
+```
+
+## Contacts toolkit
+
+```txt
+listContactsMissingDetails
+suggestContactMerge
+updateContactDraft
+validateContactDetails
+```
+
+## Sync toolkit
+
+```txt
+getXeroSyncStatus
+retryXeroSync
+explainXeroSyncFailure
+getProcoreSyncStatus
+retryProcoreSync
+```
+
+## File toolkit
+
+```txt
+requestFileUpload
+parseUploadedClaimSchedule
+parseUploadedContract
+parseUploadedPaymentSchedule
+extractNoticeDataFromFile
+attachFileToRecord
+```
+
+OpenAI supports file inputs and file search patterns, but Pay Trade should still store uploaded files in its own file system/storage and pass only the relevant file or extracted text to the model as needed. ([OpenAI Developers][3])
+
+---
+
+# 9. Tool risk levels and approval rules
+
+Use strict approval levels.
+
+| Risk level  | Example                                       | Approval rule                                                            |
+| ----------- | --------------------------------------------- | ------------------------------------------------------------------------ |
+| Read        | Check status, list missing contacts           | No approval needed                                                       |
+| Draft       | Draft notice, draft contract update           | No approval, but label as draft                                          |
+| Write       | Update contact, update contract draft         | Approval required unless user explicitly requested and permission allows |
+| External    | Send notice, sync to Xero, email contact      | Always approval required                                                 |
+| Financial   | Generate ABA, confirm payment, trust transfer | Always approval required                                                 |
+| Destructive | Delete, reverse, archive, overwrite           | Always approval required                                                 |
+
+The agent may prepare work, but should not send notices, confirm payments, sync financial data, finalise reconciliations, delete records, or alter trust-critical data without explicit approval. OpenAI’s agent guardrail guidance specifically recommends human review before sensitive side effects such as edits, cancellations, shell commands or sensitive tool actions. ([OpenAI Developers][4])
+
+---
+
+# 10. Short-term and long-term memory
+
+## Short-term memory
+
+Used for the current conversation and active task.
+
+Store:
+
+```txt
+current conversation
+current page context
+active plan
+completed steps
+pending steps
+tool outputs
+approval state
+upload requests
+warnings
+stop/resume checkpoint
+```
+
+Suggested table:
+
+```ts
+ai_conversations {
+  id
+  business_profile_id
+  user_id
+  current_route
+  title
+  created_at
+  updated_at
+}
+
+ai_runs {
+  id
+  conversation_id
+  openai_response_id
+  status: "running" | "paused" | "stopped" | "completed" | "failed"
+  active_plan_id
+  started_at
+  ended_at
+  stopped_at
+  resumable_state
+  last_sequence_number
+}
+```
+
+OpenAI’s agent state surface can include history, last agent, response ID, interruptions and resumable state, which maps well to your stop/resume and approval requirements. ([OpenAI Developers][5])
+
+## Long-term memory
+
+Used for stable business and user context.
+
+Store only useful, non-sensitive operational preferences, such as:
+
+```txt
+preferred notice tone
+preferred payment workflow
+usual Xero tracking category
+preferred reconciliation review process
+known business setup notes
+user prefers draft-before-send mode
+user usually wants trust issues prioritised first
+```
+
+Do not store:
+
+```txt
+unverified legal conclusions
+temporary system states
+private credentials
+one-off mistakes
+sensitive personal data unless required and permitted
+```
+
+Suggested table:
+
+```ts
+ai_memory {
+  id
+  business_profile_id
+  user_id nullable
+  memory_type: "user_preference" | "business_context" | "workflow_preference" | "compliance_note"
+  content
+  source_event_id
+  confidence
+  created_at
+  updated_at
+  expires_at nullable
+}
+```
+
+---
+
+# 11. Agent plan and task model
+
+When the user sends a message, the agent should first classify the request.
+
+```ts
+requestType =
+  | "question"
+  | "explain"
+  | "status_review"
+  | "prepare_draft"
+  | "perform_action"
+  | "investigate_issue"
+  | "file_required"
+  | "approval_required"
+```
+
+For multi-step work, create a visible plan:
+
+```ts
+ai_plans {
+  id
+  conversation_id
+  user_goal
+  status: "draft" | "active" | "paused" | "completed" | "failed" | "stopped"
+  risk_level
+  created_by: "ai"
+  approved_by_user: boolean
+}
+
+ai_plan_steps {
+  id
+  plan_id
+  step_number
+  title
+  description
+  status: "pending" | "running" | "waiting_for_user" | "waiting_for_approval" | "completed" | "failed" | "skipped"
+  tool_name nullable
+  started_at nullable
+  completed_at nullable
+  output_summary nullable
+  expandable_details jsonb
+}
+```
+
+Example plan:
+
+```txt
+Plan: Fix current compliance issues
+
+1. Check all unsent and failed notices.
+2. Identify which notices can be generated automatically.
+3. Prepare notice drafts for user review.
+4. Check whether any notices require missing contact details.
+5. Request missing details or file uploads if needed.
+6. Queue completed notices for approval.
+7. After approval, send notices and record evidence.
+8. Self-review the completed work.
+```
+
+---
+
+# 12. Breadcrumbs and expandable work steps
+
+Every tool call should create a visible breadcrumb.
+
+Example:
+
+```txt
+✓ Checked project trust status
+✓ Found 2 unsent notices
+✓ Drafted payment notice for Claim PT-1042
+⚠ Waiting for approval before sending notice
+```
+
+Each breadcrumb should expand to show:
+
+```txt
+tool used
+input summary
+records inspected
+records changed
+result
+duration
+cost estimate
+approval status
+revert availability
+```
+
+Suggested table:
+
+```ts
+ai_run_steps {
+  id
+  run_id
+  plan_step_id
+  step_type: "reasoning_summary" | "tool_call" | "approval" | "upload" | "self_review" | "warning"
+  title
+  status
+  visible_summary
+  details_json
+  started_at
+  completed_at
+}
+```
+
+Avoid exposing hidden chain-of-thought. Show a useful operational summary instead:
+
+```txt
+I checked the reconciliation records, compared them with imported Xero payments, and found three unmatched transactions.
+```
+
+---
+
+# 13. Upload component above chat input
+
+When the agent needs a file, it should call:
+
+```txt
+requestFileUpload
+```
+
+The UI should display an upload card above the chat input.
+
+Example:
+
+```txt
+Upload required
+
+I need the subcontractor payment schedule to continue.
+Accepted file types: PDF, CSV, XLSX
+Purpose: Extract claim line items and retention details
+
+[Upload file]
+```
+
+After upload:
+
+```txt
+File uploaded: payment_schedule_may.pdf
+Status: Processing
+```
+
+Then:
+
+```txt
+Status: Parsed successfully
+Extracted:
+- Claim amount
+- Retention amount
+- Due date
+- Contract reference
+```
+
+The upload request should be linked to the active run and plan step:
+
+```ts
+ai_upload_requests {
+  id
+  run_id
+  plan_step_id
+  requested_file_type
+  reason
+  accepted_mime_types
+  status: "waiting" | "uploaded" | "processing" | "processed" | "failed"
+  uploaded_file_id nullable
+}
+```
+
+---
+
+# 14. Approval component above chat input
+
+When approvals are outstanding, show an expandable approval card above the chat input.
+
+Example:
+
+```txt
+Approval required
+
+The agent has prepared 2 notices and 1 Xero sync action.
+
+[Review approvals]
+```
+
+Expanded view:
+
+```txt
+1. Send payment notice to ABC Plumbing
+Risk: External communication
+Records affected: Claim PT-1042, Contact ABC Plumbing
+[Approve] [Reject] [Edit first]
+
+2. Sync payment to Xero
+Risk: External accounting system update
+Records affected: Payment PAY-883
+[Approve] [Reject]
+```
+
+Suggested table:
+
+```ts
+ai_approvals {
+  id
+  run_id
+  plan_step_id
+  tool_call_id
+  approval_type
+  risk_level
+  title
+  description
+  affected_records jsonb
+  proposed_action jsonb
+  status: "pending" | "approved" | "rejected" | "expired"
+  requested_at
+  decided_at nullable
+  decided_by nullable
+}
+```
+
+If an approval is approved, the agent resumes from the saved state. If rejected, the agent records the rejection and updates the plan.
+
+---
+
+# 15. Audit trail and “active user — AI”
+
+When the AI performs a task on behalf of a user, the activity should be recorded as:
+
+```txt
+Philip Taylor — AI
+```
+
+Do not create a fake user account called AI. Instead, record the real user and mark the actor mode.
+
+Suggested audit structure:
+
+```ts
+activity_log {
+  id
+  business_profile_id
+  actor_user_id
+  actor_mode: "human" | "ai_delegate" | "system"
+  actor_display_name: "Philip Taylor — AI"
+  ai_run_id nullable
+  ai_tool_call_id nullable
+  action_type
+  entity_type
+  entity_id
+  before_snapshot jsonb nullable
+  after_snapshot jsonb nullable
+  created_at
+}
+```
+
+This gives you:
+
+```txt
+who authorised it
+which AI run performed it
+what changed
+when it changed
+how to reverse it
+```
+
+---
+
+# 16. Revert system
+
+Every AI write action should belong to an action batch.
+
+```ts
+ai_action_batches {
+  id
+  run_id
+  plan_step_id
+  status: "open" | "committed" | "reverted" | "partially_reverted" | "not_revertible"
+  created_at
+  committed_at
+  reverted_at nullable
+}
+```
+
+Each database write should store:
+
+```ts
+ai_action_events {
+  id
+  batch_id
+  entity_type
+  entity_id
+  operation: "create" | "update" | "delete" | "external_send" | "external_sync"
+  before_snapshot jsonb
+  after_snapshot jsonb
+  revert_strategy
+  revert_status
+}
+```
+
+Revert types:
+
+```txt
+create → soft delete or hard delete if safe
+update → restore before_snapshot
+delete → restore if soft deleted
+external send → not truly reversible; create compensating record
+payment confirmation → not auto-revert unless business rules allow
+Xero sync → create reversal/update task, not silent undo
+notice sent → cannot unsend; record correction/voiding action if applicable
+```
+
+Important rule:
+
+**The UI must not promise “undo” for actions that cannot legally or technically be undone.**
+
+Use labels:
+
+```txt
+Revert available
+Partial revert available
+Compensating action available
+Not reversible
+```
+
+---
+
+# 17. Stop and resume behaviour
+
+When the user presses stop:
+
+1. The frontend sends:
+
+```txt
+POST /api/ai/runs/:runId/stop
+```
+
+2. Backend cancels or pauses the active model response.
+3. Backend stops scheduling new tool calls.
+4. Current atomic database transaction is allowed to finish or safely roll back.
+5. The run is marked:
+
+```txt
+status = "stopped"
+```
+
+6. The agent records:
+
+```txt
+completed steps
+current step
+pending steps
+last safe checkpoint
+part-done warnings
+records changed so far
+whether resume is possible
+```
+
+OpenAI’s Responses API supports background responses, cancellation of in-flight responses, and streaming with a sequence cursor for reconnect/resume-style interfaces; use this pattern for long-running agent work rather than relying on a single fragile request. ([OpenAI Developers][6])
+
+Example stopped message:
+
+```txt
+Stopped.
+
+Completed:
+✓ Checked compliance status
+✓ Found 2 unsent notices
+✓ Drafted 1 notice
+
+Not completed:
+- Draft second notice
+- Request approval
+- Send approved notices
+
+Warning:
+One draft notice was created but not sent. It is safe and waiting for review.
+
+[Resume] [Discard plan] [Revert AI draft]
+```
+
+---
+
+# 18. Part-done work warnings
+
+Any incomplete work that could cause confusion or compliance risk should be highlighted until resolved.
+
+Examples:
+
+```txt
+notice drafted but not sent
+payment prepared but not approved
+ABA file generated but not used
+claim imported but not reviewed
+contact partially updated
+Xero sync failed halfway
+reconciliation prepared but not finalised
+```
+
+Suggested table:
+
+```ts
+ai_unresolved_work_items {
+  id
+  run_id
+  severity: "critical" | "warning" | "info"
+  title
+  description
+  affected_records jsonb
+  resolution_options jsonb
+  status: "open" | "resolved" | "dismissed"
+}
+```
+
+Show these above the chat input and optionally in the Pay Trade dashboard.
+
+---
+
+# 19. Self-review
+
+After completing a task, the agent should run a self-review step.
+
+Self-review should check:
+
+```txt
+Did I complete the user’s requested goal?
+Which plan steps were completed?
+Which steps were skipped and why?
+Did any tool fail?
+Did any approval remain pending?
+Did I create any unresolved work?
+Were all affected records logged?
+Is a revert available?
+Should the user be warned about anything?
+```
+
+Example output:
+
+```txt
+Self-review
+
+Goal: Prepare and queue all missing notices for this project.
+
+Result:
+Completed with one exception.
+
+Completed:
+- Checked notice requirements
+- Found 3 required notices
+- Drafted 2 notices
+- Queued 2 notices for approval
+
+Could not complete:
+- 1 notice could not be drafted because the contracted party email is missing.
+
+Recommended next step:
+Add the missing email for ABC Plumbing, then I can prepare the final notice.
+```
+
+Use a separate reviewer instruction or reviewer agent for this. OpenAI’s tracing and agent result surfaces can also be used to inspect tool calls, handoffs, guardrails, usage and run history for debugging and audits. ([OpenAI GitHub][7])
+
+---
+
+# 20. Cost and duration summary
+
+Every run should store usage and cost data.
+
+```ts
+ai_usage_events {
+  id
+  run_id
+  model
+  input_tokens
+  output_tokens
+  cached_tokens
+  reasoning_tokens nullable
+  tool_calls_count
+  started_at
+  completed_at
+  duration_ms
+  estimated_cost
+  currency
+}
+```
+
+UI hover/click summary:
+
+```txt
+Agent run summary
+
+Duration: 1m 42s
+Model: GPT-5.5
+Tool calls: 8
+Records checked: 24
+Records updated: 2
+Approvals requested: 1
+Estimated AI cost: $0.14
+```
+
+Use Pay Trade brand styling and icons:
+
+```txt
+Shield icon: compliance check
+Document icon: notice/document generation
+Bank icon: trust/payment action
+Sync icon: Xero/Procore sync
+Checklist icon: plan step
+Warning triangle: unresolved issue
+Clock icon: duration
+Coin/cost icon: usage
+Stop square: stop action
+Play/resume icon: resume action
+```
+
+Use your existing Pay Trade colour tokens rather than hardcoding new colours.
+
+---
+
+# 21. Agent instructions
+
+The main Pay Trade agent should have strict operating instructions.
+
+```txt
+You are the Pay Trade AI Agent.
+
+You help users administer Pay Trade workflows, including project trust records, retention trust records, claims, payments, notices, reconciliations, contacts, contracts, Xero sync and Procore sync.
+
+You must not guess system facts. Use Pay Trade tools to inspect records.
+
+You must not provide legal advice as a final authority. You may explain Pay Trade workflows and flag possible compliance issues, but trustees and users remain responsible for legal and regulatory compliance.
+
+Before taking multi-step action, create a visible plan.
+
+For read-only tasks, you may proceed without approval.
+
+For drafts, you may create draft records if the tool allows it.
+
+For external, financial, destructive, compliance-finalising, notice-sending, Xero-syncing or payment-confirming actions, pause and request approval.
+
+Record all tool actions as the active user delegated to AI.
+
+After completing work, self-review against the user’s original request and identify unresolved issues.
+
+If stopped, record exactly what has been completed, what remains, and what is safe or unsafe to resume.
+
+Never claim that a task was completed unless the relevant tool returned success.
+```
+
+---
+
+# 22. Replit build sequence
+
+Give Replit this build order.
+
+## Phase 1 — UI shell
+
+Build:
+
+```txt
+collapsible left nav
+AI messenger column
+resizable/collapsible panel
+message list
+message input
+send/stop button state
+empty state
+status summary card
+```
+
+Do not connect write tools yet.
+
+## Phase 2 — Read-only agent
+
+Build:
+
+```txt
+/api/ai/chat
+/api/ai/status-snapshot
+system status snapshot
+page context injection
+read-only tool registry
+streaming response UI
+```
+
+The agent can answer questions and inspect system status, but cannot write.
+
+## Phase 3 — Plans and breadcrumbs
+
+Build:
+
+```txt
+ai_conversations
+ai_runs
+ai_plans
+ai_plan_steps
+ai_run_steps
+expandable step UI
+visible breadcrumbs
+```
+
+## Phase 4 — Approvals and uploads
+
+Build:
+
+```txt
+ai_approvals
+approval card above input
+approval approve/reject flow
+ai_upload_requests
+upload card above input
+file parsing pipeline
+```
+
+## Phase 5 — Write tools
+
+Add low-risk draft tools first:
+
+```txt
+create notice draft
+update contact draft
+create contract draft
+prepare reconciliation draft
+```
+
+Then add higher-risk tools behind approvals:
+
+```txt
+send notice
+sync to Xero
+confirm payment
+generate ABA
+finalise reconciliation
+```
+
+## Phase 6 — Audit and revert
+
+Build:
+
+```txt
+activity_log actor_mode = ai_delegate
+ai_action_batches
+ai_action_events
+revert tool
+partial revert UI
+unresolved work warnings
+```
+
+## Phase 7 — Stop/resume and long-running jobs
+
+Build:
+
+```txt
+run stop endpoint
+OpenAI response cancellation
+background/streaming support
+resume from saved run state
+last safe checkpoint
+part-done work warning system
+```
+
+## Phase 8 — Self-review, cost and observability
+
+Build:
+
+```txt
+self-review step
+cost summary
+duration tracking
+tool-call tracking
+admin/debug view for AI runs
+```
+
+---
+
+# 23. Replit prompt version
+
+You could paste this into Replit:
+
+```txt
+Build a Pay Trade AI Agent system.
+
+The agent must be a controlled backend-orchestrated assistant, not a direct database writer. It should work like a Replit-style AI messenger inside Pay Trade.
+
+Create a collapsible left navigation menu. Add a resizable AI messenger column between the left nav and the main page. The messenger must be page-aware, receiving validated page context from the backend, including route, businessProfileId, projectId, trustAccountId, selected record IDs, filters and active record.
+
+On load, call /api/ai/status-snapshot. This endpoint must deterministically check Pay Trade system status, including compliance issues, unsent notices, failed notices, late payments, overdue reconciliations, missing contact details, missing contract details, claims with retention issues, payment todo items and sync failures. The AI must summarise this snapshot and ask what the user wants help with. The AI must never invent status items.
+
+Create a backend AI orchestration layer with:
+- ai_conversations
+- ai_runs
+- ai_plans
+- ai_plan_steps
+- ai_run_steps
+- ai_tool_registry
+- ai_tool_calls
+- ai_approvals
+- ai_upload_requests
+- ai_action_batches
+- ai_action_events
+- ai_unresolved_work_items
+- ai_usage_events
+
+Create a central tool registry. Every tool must have a name, description, input schema, output schema, risk level, permission requirements, approval requirement, idempotency key and revert strategy.
+
+The agent must create a visible plan before any multi-step task. Each plan step must appear in the AI panel and be expandable to show what the agent did, which tool it used, what records were inspected or changed, duration, cost and approval/revert status.
+
+When a file is required, show an upload component above the message input. When approval is required, show an approval component above the message input. The agent must pause while waiting for uploads or approvals.
+
+The send arrow must become a stop button while the agent is running. If stopped, the backend must stop the run, save completed steps, pending steps, active step, affected records, last safe checkpoint and unresolved work warnings. The user must be able to resume, discard or revert AI-created draft work where possible.
+
+All AI actions must be recorded as the active user delegated to AI, e.g. "Philip Taylor — AI", using actor_user_id plus actor_mode = "ai_delegate". Do not create a fake AI user.
+
+Every AI write must belong to an action batch with before/after snapshots. Revert must be available for safe database actions. External sends, payment confirmations, Xero syncs and notices already sent must not be falsely labelled as reversible; instead show compensating action options.
+
+The agent must self-review every completed run against the original user task and identify completed steps, skipped steps, failed steps, unresolved issues, approvals still pending and whether any revert is available.
+
+Use strict guardrails:
+- read-only checks can run without approval
+- draft creation can run if the user requested it
+- sending notices, confirming payments, finalising reconciliations, syncing to Xero/Procore, deleting records, changing trust-critical data or generating/confirming ABA/payment actions must require explicit approval
+
+The system should use OpenAI through the backend only. The frontend must not expose the OpenAI API key. Use streaming for live progress and support background/resumable runs for longer tasks.
+```
+
+---
+
+The main thing I would add to your original plan is this: **build the audit/revert/approval model before giving the agent powerful write tools.** For Pay Trade, that is more important than the chat UI itself because the agent will be operating around trust accounting, payments, notices, Xero sync and compliance records.
+
+[1]: https://developers.openai.com/api/docs/guides/agents "Agents SDK | OpenAI API"
+[2]: https://developers.openai.com/api/docs/guides/function-calling "Function calling | OpenAI API"
+[3]: https://developers.openai.com/api/docs/guides/file-inputs "File inputs | OpenAI API"
+[4]: https://developers.openai.com/api/docs/guides/agents/guardrails-approvals "Guardrails and human review | OpenAI API"
+[5]: https://developers.openai.com/api/docs/guides/agents/results "Results and state | OpenAI API"
+[6]: https://developers.openai.com/api/docs/guides/background "Background mode | OpenAI API"
+[7]: https://openai.github.io/openai-agents-python/tracing/ "Tracing - OpenAI Agents SDK"
