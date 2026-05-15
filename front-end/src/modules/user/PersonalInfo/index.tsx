@@ -64,13 +64,13 @@ function AiLiveFollowToggle() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submitEnable = async () => {
+  const submitEnable = async (): Promise<boolean> => {
     // Trim whitespace defensively — copy/paste from a secret manager
     // sometimes appends a newline that breaks the strict server compare.
     const trimmed = password.trim();
     if (!trimmed) {
       setError("Access password is required.");
-      return;
+      return false;
     }
     setBusy(true);
     setError(null);
@@ -83,12 +83,19 @@ function AiLiveFollowToggle() {
           enabledAt: res.data?.aiLiveFollowEnabledAt ?? new Date().toISOString(),
         })
       );
-      setShowPwModal(false);
+      // Reset local form state. We return `true` so BaseModal runs its own
+      // closeModal() lifecycle — that's what strips the `modal-is-open`
+      // class + `--pico-scrollbar-width` CSS var off <html>. If we just
+      // setShowPwModal(false) here, the modal unmounts but the global
+      // overlay/lock stays on, blocking every click on the page until a
+      // hard refresh.
       setPassword("");
+      setShowPassword(false);
       showSuccessToast(res.message || "AI assistant enabled.");
-    } else {
-      setError(res.message || "Unable to enable AI assistant.");
+      return true;
     }
+    setError(res.message || "Unable to enable AI assistant.");
+    return false;
   };
 
   const onToggle = async () => {
@@ -200,9 +207,13 @@ function AiLiveFollowToggle() {
           }}
           firstButtonName="Cancel"
           secondButtonName={busy ? "Enabling…" : "Enable"}
-          onConfirm={() => {
-            submitEnable();
-            return false; // keep modal open until success/failure resolved
+          onConfirm={async () => {
+            // Returning the boolean lets BaseModal run its own
+            // closeModal() lifecycle on success, which clears the
+            // <html> modal-is-open class and the scrollbar CSS var.
+            // Returning false keeps the modal open so the user can
+            // see the inline error and retry.
+            return (await submitEnable()) as unknown as void;
           }}
         >
           <div style={{ padding: "var(--space-s) 0" }}>
@@ -225,7 +236,7 @@ function AiLiveFollowToggle() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    submitEnable();
+                    void submitEnable();
                   }
                 }}
               />
