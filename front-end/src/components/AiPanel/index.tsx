@@ -215,9 +215,33 @@ export default function AiPanel() {
   const [showThreadList, setShowThreadList] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [openContextChipId, setOpenContextChipId] = useState<string | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Tracks the in-flight stream so the user can stop it mid-answer.
   const abortRef = useRef<AbortController | null>(null);
+
+  // Close any open context popover when the user clicks elsewhere or
+  // presses Escape. The popover is intentionally lightweight — no portal,
+  // just a positioned div within the message group.
+  useEffect(() => {
+    if (!openContextChipId) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest(`.${styles.contextChipWrap}`)) return;
+      setOpenContextChipId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenContextChipId(null);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openContextChipId]);
 
   // Ref keeps latest width for the mouseup persist handler.
   const widthRef = useRef(width);
@@ -786,22 +810,114 @@ export default function AiPanel() {
             </section>
           )}
 
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`${styles.msg} ${
-                m.role === "user" ? styles.msgUser : styles.msgAi
-              }`}
-            >
-              <div className={styles.msgBubble}>
-                {m.role === "assistant" ? (
-                  <MarkdownMessage text={m.content} />
-                ) : (
-                  m.content
-                )}
+          {messages.map((m) => {
+            const ctx = m.role === "user" ? m.pageContext : null;
+            const chipLabel =
+              ctx && (ctx.pageLabel || ctx.route)
+                ? ctx.pageLabel || ctx.route
+                : null;
+            const detailRows: { key: string; label: string; value: string }[] =
+              [];
+            if (ctx?.route) {
+              detailRows.push({ key: "route", label: "Route", value: ctx.route });
+            }
+            if (ctx?.entity) {
+              detailRows.push({
+                key: "entity",
+                label: "Entity",
+                value: ctx.entityId
+                  ? `${ctx.entity} #${ctx.entityId}`
+                  : ctx.entity,
+              });
+            }
+            if (ctx?.entityIds) {
+              Object.entries(ctx.entityIds).forEach(([k, v]) => {
+                if (k === "entityId" && ctx.entityId === v) return;
+                detailRows.push({ key: k, label: k, value: String(v) });
+              });
+            }
+            const popoverId = `ai-ctx-pop-${m.id}`;
+            const isOpen = openContextChipId === m.id;
+            return (
+              <div
+                key={m.id}
+                className={`${styles.msg} ${
+                  m.role === "user" ? styles.msgUser : styles.msgAi
+                }`}
+              >
+                <div className={styles.msgGroup}>
+                  <div className={styles.msgBubble}>
+                    {m.role === "assistant" ? (
+                      <MarkdownMessage text={m.content} />
+                    ) : (
+                      m.content
+                    )}
+                  </div>
+                  {chipLabel && (
+                    <span
+                      className={`${styles.contextChipWrap}${
+                        isOpen ? ` ${styles.contextChipWrapOpen}` : ""
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className={styles.contextChip}
+                        aria-expanded={isOpen}
+                        aria-controls={popoverId}
+                        aria-label={`Show page context for this message (${chipLabel})`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenContextChipId((cur) =>
+                            cur === m.id ? null : m.id,
+                          );
+                        }}
+                      >
+                        <i
+                          className="fa-light fa-location-crosshairs"
+                          aria-hidden="true"
+                        ></i>
+                        <span className={styles.contextChipLabel}>
+                          From: {chipLabel}
+                        </span>
+                      </button>
+                      <div
+                        id={popoverId}
+                        role="dialog"
+                        aria-label="Page context details"
+                        className={styles.contextPopover}
+                        hidden={!isOpen && undefined}
+                      >
+                        <div className={styles.contextPopoverTitle}>
+                          Page context sent with this message
+                        </div>
+                        {detailRows.length === 0 ? (
+                          <div className={styles.contextPopoverRow}>
+                            <span className={styles.contextPopoverValue}>
+                              {chipLabel}
+                            </span>
+                          </div>
+                        ) : (
+                          detailRows.map((row) => (
+                            <div
+                              key={row.key}
+                              className={styles.contextPopoverRow}
+                            >
+                              <span className={styles.contextPopoverLabel}>
+                                {row.label}
+                              </span>
+                              <span className={styles.contextPopoverValue}>
+                                {row.value}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {sending && streamingText && (
             <div className={`${styles.msg} ${styles.msgAi}`}>

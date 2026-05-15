@@ -380,6 +380,123 @@
   border-bottom-right-radius: 4px;
 }
 
+.msgGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  max-width: 85%;
+}
+
+.msgAi .msgGroup {
+  align-items: flex-start;
+}
+
+.msgGroup .msgBubble {
+  max-width: 100%;
+}
+
+.contextChipWrap {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.contextChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: var(--step--2);
+  background: var(--wind-light);
+  color: var(--ocean);
+  border: 1px solid var(--shade-light);
+  border-radius: 999px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.contextChip:hover,
+.contextChip:focus-visible,
+.contextChipWrapOpen .contextChip {
+  background: var(--wind-lighter);
+  border-color: var(--ocean);
+}
+
+.contextChip i {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.contextChipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contextPopover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  display: none;
+  min-width: 220px;
+  max-width: min(320px, 90vw);
+  padding: 8px 10px;
+  background: var(--pico-background-color, #fff);
+  border: 1px solid var(--shade-light);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  font-size: var(--step--2);
+  color: var(--cave);
+  text-align: left;
+  white-space: normal;
+}
+
+.msgAi .contextPopover {
+  right: auto;
+  left: 0;
+}
+
+/* Show on explicit open (click/tap) and on hover/focus of the chip
+   wrapper — gives parity between desktop hover and touch tap. */
+.contextChipWrapOpen .contextPopover,
+.contextChipWrap:hover .contextPopover,
+.contextChipWrap:focus-within .contextPopover {
+  display: block;
+}
+
+.contextPopoverTitle {
+  font-weight: 600;
+  color: var(--cave);
+  margin-bottom: 6px;
+  font-size: var(--step--2);
+}
+
+.contextPopoverRow {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  word-break: break-all;
+}
+
+.contextPopoverLabel {
+  flex-shrink: 0;
+  color: var(--cave-lighter);
+  text-transform: capitalize;
+  min-width: 56px;
+}
+
+.contextPopoverValue {
+  color: var(--cave);
+  font-weight: 500;
+}
+
 .msgAi .msgBubble {
   background: var(--wind-lighter);
   color: var(--cave);
