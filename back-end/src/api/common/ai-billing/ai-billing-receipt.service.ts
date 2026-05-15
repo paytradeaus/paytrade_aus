@@ -221,13 +221,20 @@ export class AiBillingReceiptService {
   private async lookupCardLast4(
     p: AiCreditPurchase,
   ): Promise<string | null> {
+    // Task #187 — prefer the value persisted at charge time on the
+    // purchase row. Fall back to a live Stripe lookup so older rows
+    // (pre-migration) still render the card number.
+    if (p.card_last4) return p.card_last4;
     if (!p.stripe_payment_method_id) return null;
     try {
       const stripe = getStripeInstance(!!p.is_sandbox);
       const pm = await stripe.paymentMethods.retrieve(
         p.stripe_payment_method_id,
       );
-      return (pm as any)?.card?.last4 ?? null;
+      if (pm && pm.type === 'card' && pm.card) {
+        return pm.card.last4 ?? null;
+      }
+      return null;
     } catch (err) {
       this.logger.log(
         `Could not resolve card last-4 for purchase ${p.id}: ${err}`,

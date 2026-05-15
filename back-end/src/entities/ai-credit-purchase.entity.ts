@@ -59,6 +59,12 @@ export class AiCreditPurchase {
   @Column({ type: 'varchar', length: 120, nullable: true })
   stripe_payment_method_id: string | null;
 
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  card_brand: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  card_last4: string | null;
+
   @Column({ type: 'text', nullable: true })
   failure_reason: string | null;
 

@@ -751,6 +751,21 @@ export class AiBillingService {
 
       if (intent.status === 'succeeded') {
         purchase.status = 'succeeded';
+        // Best-effort capture of card brand + last-4 so the emailed
+        // receipt (Task #168/#187) can show the actual card customers
+        // used instead of "—". Stripe failures are swallowed; the
+        // receipt template falls back gracefully.
+        try {
+          const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+          if (pm && pm.type === 'card' && pm.card) {
+            purchase.card_brand = pm.card.brand ?? null;
+            purchase.card_last4 = pm.card.last4 ?? null;
+          }
+        } catch (pmErr) {
+          this.logger.log(
+            `Could not resolve card details for purchase ${purchase.id}: ${pmErr}`,
+          );
+        }
         await this.purchaseRepo.save(purchase);
 
         const result = await this.dataSource.transaction(async (manager) =>
