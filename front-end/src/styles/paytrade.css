@@ -383,19 +383,20 @@ body #fader {
 }
 
 /* Sidebar collapse/expand toggle.
-   Positioned as a small chevron pill at the column divider on the
-   right edge of the sidebar, vertically centred. Sitting on the
-   divider (rather than the sidebar's bottom-left) keeps it clear of
-   the Cookiebot widget that lives at the page's bottom-left, and
-   matches the column-divider affordance the user requested. */
+   Header-mounted icon button sitting at the top of the sidebar, above
+   the "Add new" picker — mirrors the SystemOne pattern where a
+   sidebar-toggle icon lives in the panel's own header rather than on
+   the column divider (the previous divider position was unreliable to
+   click and overlapped surrounding columns). When collapsed to the
+   72px rail, the same button centres at the top of the rail and
+   becomes the only way back to the full nav. */
 .pt_nav_collapse_btn {
   position: absolute;
-  top: 50%;
-  right: -10px;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 36px;
-  border-radius: 10px;
+  top: var(--space-s);
+  right: var(--space-s);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   border: 1px solid var(--wind);
   background: var(--wind-lightest);
   color: var(--ocean);
@@ -404,13 +405,23 @@ body #fader {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 14px;
   padding: 0;
   outline: none;
   /* Override global `button { box-shadow: inset … var(--coral) }` which
      paints a coral inner glow on every <button>. */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: background 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* In the 72px rail, centre the toggle horizontally so it sits as a
+   compact icon at the top of the rail (matches the SystemOne
+   reference where the collapsed rail leads with the toggle). */
+.pt_left.pt_left_collapsed .pt_nav_collapse_btn {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
 }
 
 .pt_nav_collapse_btn:hover {
@@ -423,12 +434,20 @@ body #fader {
 .pt_nav_collapse_btn:focus-visible,
 .pt_nav_collapse_btn:active {
   outline: none;
-  box-shadow: none;
-  border: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .pt_nav_collapse_btn i {
   margin: 0;
+}
+
+/* Push the side menu down so it doesn't sit underneath the
+   header-mounted toggle button. The more-specific `.pt_left`
+   ancestor selector is required because a later, broader
+   `.pt_sidemenu { padding: 0 var(--space-xs) 0 0 }` rule would
+   otherwise reset our top offset back to zero. */
+.pt_left .pt_sidemenu {
+  padding-top: calc(var(--space-s) + 32px + var(--space-2xs));
 }
 
 .pt_dashboard .paytradeffectwrap {
@@ -4543,10 +4562,8 @@ a.pt_linksbox {
     left: -300px;
     width: 300px;
     /* Constrain to viewport so the absolutely-positioned
-       `.pt_nav_collapse_btn` (bottom: 12px) anchors to the actual
-       visible bottom of the sidebar, not 1.5× viewport heights
-       down where it would render as a free-floating overlay that
-       appears to ride up the side menu as the main page scrolls. */
+       `.pt_nav_collapse_btn` anchors to the actual visible top-right
+       of the sidebar rather than a viewport-overflowing container. */
     height: 100vh;
     z-index: 2;
     padding: var(--space-s) 0 var(--space-s) var(--space-s);
@@ -4637,23 +4654,21 @@ a.pt_linksbox {
 
   /* The expand-rail control is the only way back to the full nav on
      tablets in this mode (the hamburger is hidden), so keep it
-     visible and enlarge the hit target so it's tappable on touch.
-     The more-specific selector also overrides the coarse-pointer
-     hide rule below for this state. */
+     visible at the header position with a comfortable 36px touch
+     target. */
   .pt_dashboard.nav-collapsed .pt_nav_collapse_btn,
   .pt_dashboard .pt_nav_collapse_btn {
     display: inline-flex;
-    /* Slightly larger touch target on tablets while keeping the
-       column-divider position from the desktop rule above. */
-    width: 22px;
-    height: 44px;
-    font-size: 12px;
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
   }
 }
 
-/* Touch / coarse-pointer phones (<768px): hide the hairline expand/
-   collapse button on the rail since it's too small to tap reliably
-   and the mobile drawer hamburger is the primary nav entry point. */
+/* Touch / coarse-pointer phones (<768px): the off-canvas mobile
+   drawer is the primary nav entry point and the sidebar isn't
+   visible by default, so the header toggle isn't relevant. Hide it
+   to avoid stacking with the drawer's own close affordance. */
 @media (hover: none) and (pointer: coarse) and (max-width: 767px) {
   .pt_nav_collapse_btn {
     display: none;

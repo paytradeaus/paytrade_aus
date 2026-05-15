@@ -6,9 +6,6 @@
   max-height: 100vh;
   background: var(--pico-card-background-color, var(--wind-lightest));
   border-left: 1px solid var(--shade-light);
-  /* Allow the column-divider chevron pill (positioned at left: -10px on
-     both rail and open states) to overflow the panel's left edge so it
-     visibly straddles the divider with the main content. */
   overflow: visible;
   z-index: 4;
 }
@@ -17,10 +14,9 @@
   width: 48px !important;
   min-width: 48px !important;
   align-items: center;
-  /* The collapse/expand control is now a divider pill (.railIcon) that
-     positions itself absolutely on the left edge, vertically centred —
-     mirroring the sidebar's pattern — so the rail body itself doesn't
-     need any internal alignment for it. */
+  /* `.railIcon` (the expand toggle) is the only child in this state
+     and sits as a header-mounted icon at the top of the rail, so the
+     column starts content from the top. */
   justify-content: flex-start;
   padding: var(--space-s) 0;
   gap: var(--space-s);
@@ -831,61 +827,33 @@ a.contextChip:hover {
   cursor: not-allowed;
 }
 
-.footIconBtn {
-  background: transparent;
-  border: none;
-  color: var(--cave-lighter);
-  padding: 2px 4px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  box-shadow: none;
-}
-
-.footIconBtn:hover {
-  background: var(--shade-light);
-  color: var(--ocean);
-  box-shadow: none;
-}
-
-.footIconBtn i {
+/* Rail-state expand button — header-mounted icon at the top of the
+   collapsed rail (mirrors the SystemOne pattern where the toggle
+   lives in the panel's own header). The open-state collapse action
+   is now a regular `.iconBtn` inside `.headerActions`, so this only
+   needs to handle the rail (icon-only) state. */
+.railIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   margin: 0;
-}
-
-/* Column-divider chevron pill — mirrors `.pt_nav_collapse_btn` on the
-   left sidebar. Sits half-outside the panel's left edge, vertically
-   centred, so the affordance reads as "open/close this column". The
-   `.railIcon` class is used in rail state, `.dividerCollapseBtn` in
-   open state — same look, different action (expand vs collapse). */
-.railIcon,
-.dividerCollapseBtn {
-  position: absolute;
-  top: 50%;
-  left: -10px;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--wind);
   background: var(--wind-lightest);
   color: var(--ocean);
   cursor: pointer;
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
+  font-size: 14px;
   padding: 0;
-  margin: 0;
   outline: none;
   /* Override global `button { box-shadow: inset … var(--coral) }`. */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
-  transition: background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+  transition: background 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.railIcon:hover,
-.dividerCollapseBtn:hover {
+.railIcon:hover {
   background: var(--ocean);
   color: var(--wind-lightest);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
@@ -893,15 +861,11 @@ a.contextChip:hover {
 
 .railIcon:focus,
 .railIcon:focus-visible,
-.railIcon:active,
-.dividerCollapseBtn:focus,
-.dividerCollapseBtn:focus-visible,
-.dividerCollapseBtn:active {
+.railIcon:active {
   outline: none;
 }
 
-.railIcon i,
-.dividerCollapseBtn i {
+.railIcon i {
   margin: 0;
 }
 

@@ -870,21 +870,6 @@ export default function AiPanel() {
           aria-orientation="vertical"
           aria-label="Resize AI assistant"
         />
-        {!isMobile && (
-          <button
-            type="button"
-            className={styles.dividerCollapseBtn}
-            title="Collapse AI assistant to rail"
-            aria-label="Collapse AI assistant to rail"
-            onClick={() => {
-              dispatch(setAiPanelState("rail"));
-              persistUiPreferences({ aiPanelState: "rail" });
-            }}
-          >
-            <i className="fa-solid fa-chevron-right"></i>
-          </button>
-        )}
-
         <div className={styles.header}>
           <button
             type="button"
@@ -910,6 +895,20 @@ export default function AiPanel() {
             )}
           </h5>
           <div className={styles.headerActions}>
+            {!isMobile && (
+              <button
+                type="button"
+                className={styles.iconBtn}
+                title="Collapse AI assistant to rail"
+                aria-label="Collapse AI assistant to rail"
+                onClick={() => {
+                  dispatch(setAiPanelState("rail"));
+                  persistUiPreferences({ aiPanelState: "rail" });
+                }}
+              >
+                <i className="fa-light fa-sidebar-flip"></i>
+              </button>
+            )}
             <button
               type="button"
               className={styles.iconBtn}
@@ -1527,20 +1526,6 @@ export default function AiPanel() {
                   : "Credit unavailable"}
             </span>
             <div className={styles.composerActionsRight}>
-              {!isMobile && (
-                <button
-                  type="button"
-                  className={styles.footIconBtn}
-                  title="Collapse AI assistant to rail"
-                  aria-label="Collapse AI assistant to rail"
-                  onClick={() => {
-                    dispatch(setAiPanelState("rail"));
-                    persistUiPreferences({ aiPanelState: "rail" });
-                  }}
-                >
-                  <i className="fa-solid fa-chevron-right"></i>
-                </button>
-              )}
               {sending ? (
                 <button
                   type="button"
