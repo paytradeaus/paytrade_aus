@@ -125,10 +125,11 @@ export class AiBillingResolver {
   ): Promise<AiBillingOverviewResponse> {
     const decoded = await this.decode(ctx);
     this.assertCompanyAccess(decoded, company_id);
-    const [balance, settings, sub] = await Promise.all([
+    const [balance, settings, sub, savedCard] = await Promise.all([
       this.billing.getBalance(company_id),
       this.billing.getSettings(company_id),
       this.subscriptionRepo.findOne({ where: { company_id } }),
+      this.billing.getSavedCard(company_id),
     ]);
     let planCredit = 0;
     let planName: string | undefined;
@@ -149,6 +150,7 @@ export class AiBillingResolver {
         balance < Number(settings.low_balance_trigger_usd ?? 0),
       last_allocation_period: undefined,
       settings: settingsToResp(settings),
+      saved_card: savedCard ?? undefined,
     };
   }
 

@@ -15,6 +15,26 @@ import StripeCardModal, { openStripeCardModal } from "./StripeCardModal";
 const fmtUsd = (v: any) =>
   typeof v === "number" ? `$${v.toFixed(2)}` : `$${Number(v ?? 0).toFixed(2)}`;
 
+const CARD_BRAND_LABELS: Record<string, string> = {
+  visa: "Visa",
+  mastercard: "Mastercard",
+  amex: "American Express",
+  discover: "Discover",
+  diners: "Diners Club",
+  jcb: "JCB",
+  unionpay: "UnionPay",
+  unknown: "Card",
+};
+
+const formatCardBrand = (brand?: string | null) => {
+  if (!brand) return "Card";
+  const key = String(brand).toLowerCase();
+  return (
+    CARD_BRAND_LABELS[key] ??
+    key.charAt(0).toUpperCase() + key.slice(1)
+  );
+};
+
 export default function AiBillingPanel() {
   const { decodeTokenData }: any = useTokenDetails();
   const decoded = decodeTokenData?.() ?? {};
@@ -148,7 +168,7 @@ export default function AiBillingPanel() {
       </section>
 
       <h3 style={{ marginTop: 24 }}>One-off top-up</h3>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <label>USD</label>
         <input
           type="number"
@@ -158,7 +178,21 @@ export default function AiBillingPanel() {
           style={{ width: 100 }}
         />
         <button onClick={onManualTopup}>Top up now</button>
-        <button onClick={onCapturePaymentMethod}>Add/replace card</button>
+        <button onClick={onCapturePaymentMethod}>
+          {overview?.saved_card ? "Replace card" : "Add card"}
+        </button>
+        {overview?.saved_card ? (
+          <span style={{ color: "#444" }}>
+            {formatCardBrand(overview.saved_card.brand)} ••••{" "}
+            {overview.saved_card.last4} — exp{" "}
+            {String(overview.saved_card.exp_month).padStart(2, "0")}/
+            {String(overview.saved_card.exp_year).slice(-2)}
+          </span>
+        ) : overview?.settings?.stripe_payment_method_id ? (
+          <span style={{ color: "#666" }}>Card on file</span>
+        ) : (
+          <span style={{ color: "#666" }}>No card on file</span>
+        )}
       </div>
 
       <h3 style={{ marginTop: 24 }}>Auto top-up settings</h3>

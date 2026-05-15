@@ -23,6 +23,12 @@ export const fetchAiBillingOverview = async (companyId: number) => {
             last_topup_failure_reason
             is_sandbox
           }
+          saved_card {
+            brand
+            last4
+            exp_month
+            exp_year
+          }
         }
       }
     `,

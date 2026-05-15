@@ -547,6 +547,38 @@ export class AiBillingService {
     return { stripe, customerId: customer.id, sub };
   }
 
+  async getSavedCard(
+    companyId: number,
+  ): Promise<{
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  } | null> {
+    const settings = await this.settingsRepo.findOne({
+      where: { company_id: companyId },
+    });
+    if (!settings?.stripe_payment_method_id) return null;
+    try {
+      const stripe = getStripeInstance(!!settings.is_sandbox);
+      const pm = await stripe.paymentMethods.retrieve(
+        settings.stripe_payment_method_id,
+      );
+      if (!pm?.card) return null;
+      return {
+        brand: pm.card.brand ?? 'card',
+        last4: pm.card.last4 ?? '',
+        exp_month: Number(pm.card.exp_month ?? 0),
+        exp_year: Number(pm.card.exp_year ?? 0),
+      };
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch saved card for company ${companyId}: ${err}`,
+      );
+      return null;
+    }
+  }
+
   async createSetupIntent(
     companyId: number,
     isSandbox = false,

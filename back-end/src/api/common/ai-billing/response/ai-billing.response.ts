@@ -14,6 +14,14 @@ export class AiBillingSettingsResponse {
 }
 
 @ObjectType()
+export class SavedCardResponse {
+  @Field() brand: string;
+  @Field() last4: string;
+  @Field(() => Int) exp_month: number;
+  @Field(() => Int) exp_year: number;
+}
+
+@ObjectType()
 export class AiBillingOverviewResponse {
   @Field(() => Int) company_id: number;
   @Field(() => Float) balance_usd: number;
@@ -23,6 +31,8 @@ export class AiBillingOverviewResponse {
   @Field() is_below_trigger: boolean;
   @Field({ nullable: true }) last_allocation_period?: string;
   @Field(() => AiBillingSettingsResponse) settings: AiBillingSettingsResponse;
+  @Field(() => SavedCardResponse, { nullable: true })
+  saved_card?: SavedCardResponse;
 }
 
 @ObjectType()
