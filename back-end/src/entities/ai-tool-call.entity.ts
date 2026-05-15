@@ -19,7 +19,6 @@ export type AiToolCallStatus = 'success' | 'error' | 'denied' | 'replay';
   {
     unique: true,
     where: '"idempotency_key" IS NOT NULL AND "status" = \'success\'',
-    synchronize: false,
   },
 )
 export class AiToolCall {

@@ -13,6 +13,7 @@ import subscribeRouteBackDetails from "./slices/subscribeRouteBackDetails";
 import reconciliationDetails from "./slices/reconciliationDetails";
 import clientSuppliersDetails from "./slices/clientSuppliersDetails";
 import auditReportReducer from "./slices/auditDetails";
+import uiPreferencesReducer from "./slices/uiPreferences";
 // Configure the store
 const store = configureStore({
   reducer: {
@@ -29,6 +30,7 @@ const store = configureStore({
     appTheme: applicationThemeDetails,
     retainedDataFromSubscription: subscribeRouteBackDetails,
     auditReport: auditReportReducer,
+    uiPreferences: uiPreferencesReducer,
   },
 });
 

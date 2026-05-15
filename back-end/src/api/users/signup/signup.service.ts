@@ -579,6 +579,8 @@ export class SignupService {
       .addSelect('s.signature_type', 'signature_type')
       .addSelect('r.company_id', 'company_id')
       .addSelect('u.email_preferences::JSONB', 'email_preferences')
+      .addSelect('u.ai_live_follow_enabled', 'ai_live_follow_enabled')
+      .addSelect('u.ui_preferences::JSONB', 'ui_preferences')
       .distinct(true)
       .leftJoin(FileAttachments, 'f', 'u.profile_id = f.id')
       .leftJoin(
@@ -1265,6 +1267,119 @@ export class SignupService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async getUiPreferencesByUserId(user_id: number) {
+    const u = await this.userDetails.findOne({
+      where: { user_id },
+      select: {
+        user_id: true,
+        ai_live_follow_enabled: true,
+        ai_live_follow_enabled_at: true,
+        ui_preferences: true,
+      },
+    });
+    const stored: Record<string, any> = u?.ui_preferences || {};
+    const { navCollapsed, aiPanelState, aiPanelWidth, ...extra } = stored;
+    return {
+      navCollapsed: !!navCollapsed,
+      aiPanelState:
+        aiPanelState === 'rail' || aiPanelState === 'hidden'
+          ? aiPanelState
+          : 'open',
+      aiPanelWidth:
+        typeof aiPanelWidth === 'number' && aiPanelWidth > 0
+          ? Math.round(aiPanelWidth)
+          : 360,
+      aiLiveFollowEnabled: !!u?.ai_live_follow_enabled,
+      aiLiveFollowEnabledAt: u?.ai_live_follow_enabled_at || null,
+      extra: Object.keys(extra).length ? extra : null,
+    };
+  }
+
+  async updateUiPreferencesForUser(
+    user_id: number,
+    input: {
+      navCollapsed?: boolean;
+      aiPanelState?: string;
+      aiPanelWidth?: number;
+      extra?: Record<string, any>;
+    },
+  ) {
+    const user = await this.userDetails.findOne({ where: { user_id } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const merged: Record<string, any> = { ...(user.ui_preferences || {}) };
+    if (typeof input.navCollapsed === 'boolean') {
+      merged.navCollapsed = input.navCollapsed;
+    }
+    if (typeof input.aiPanelState === 'string') {
+      const allowed = ['open', 'rail', 'hidden'];
+      if (!allowed.includes(input.aiPanelState)) {
+        throw new Error(
+          `Invalid aiPanelState: must be one of ${allowed.join(', ')}`,
+        );
+      }
+      merged.aiPanelState = input.aiPanelState;
+    }
+    if (typeof input.aiPanelWidth === 'number') {
+      merged.aiPanelWidth = Math.max(240, Math.min(720, input.aiPanelWidth));
+    }
+    if (input.extra && typeof input.extra === 'object') {
+      Object.assign(merged, input.extra);
+    }
+    user.ui_preferences = merged;
+    user.updated_by = user_id;
+    user.updated_on = moment.tz('UTC');
+    user.updated_group = 'USER';
+    await this.userDetails.save(user);
+    return this.getUiPreferencesByUserId(user_id);
+  }
+
+  async setAiLiveFollowForUser(
+    user_id: number,
+    enabled: boolean,
+    password: string | undefined,
+  ) {
+    const user = await this.userDetails.findOne({ where: { user_id } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    if (enabled) {
+      const expected = process.env.AI_LIVE_FOLLOW_ACCESS_PASSWORD;
+      if (!expected) {
+        throw new Error(
+          'AI live follow is not currently available. Please contact an administrator.',
+        );
+      }
+      if (!password || password !== expected) {
+        throw new Error('Incorrect access password.');
+      }
+      user.ai_live_follow_enabled = true;
+      user.ai_live_follow_enabled_at = moment.tz('UTC');
+    } else {
+      user.ai_live_follow_enabled = false;
+    }
+    user.updated_by = user_id;
+    user.updated_on = moment.tz('UTC');
+    user.updated_group = 'USER';
+    await this.userDetails.save(user);
+    return this.getUiPreferencesByUserId(user_id);
+  }
+
+  async listAiLiveFollowUsers() {
+    return this.userDetails.find({
+      where: { ai_live_follow_enabled: true },
+      select: {
+        user_id: true,
+        email_id: true,
+        first_name: true,
+        last_name: true,
+        ai_live_follow_enabled_at: true,
+      },
+      order: { ai_live_follow_enabled_at: 'DESC' },
+    });
   }
 
   async updateUserEmail(email_id: string, new_email_id: string) {

@@ -41,12 +41,198 @@ import BaseModal from "@/components/BaseModal";
 import UpdateSignature from "../BusinessProfile/UpdateSignature";
 import { isEqual } from "lodash";
 import { setUpdatedCompany } from "@/redux/slices/companyDetails";
+import { setAiLiveFollow as setAiLiveFollowReducer } from "@/redux/slices/uiPreferences";
+import { setAiLiveFollow as setAiLiveFollowApi } from "@/network/uiPreferences";
 
 declare global {
   interface Window {
     CookieConsent: any;
   }
 }
+
+function AiLiveFollowToggle() {
+  const dispatch = useAppDispatch();
+  const enabled = useAppSelector(
+    (state: RootState) => state.uiPreferences.aiLiveFollowEnabled
+  );
+  const enabledAt = useAppSelector(
+    (state: RootState) => state.uiPreferences.aiLiveFollowEnabledAt
+  );
+  const [password, setPassword] = useState("");
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submitEnable = async () => {
+    if (!password) {
+      setError("Access password is required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await setAiLiveFollowApi(true, password);
+    setBusy(false);
+    if (res.ok) {
+      dispatch(
+        setAiLiveFollowReducer({
+          enabled: true,
+          enabledAt: res.data?.aiLiveFollowEnabledAt ?? new Date().toISOString(),
+        })
+      );
+      setShowPwModal(false);
+      setPassword("");
+      showSuccessToast(res.message || "AI live follow enabled.");
+    } else {
+      setError(res.message || "Unable to enable AI live follow.");
+    }
+  };
+
+  const onToggle = async () => {
+    if (enabled) {
+      // Disable — no password required.
+      setBusy(true);
+      const res = await setAiLiveFollowApi(false);
+      setBusy(false);
+      if (res.ok) {
+        dispatch(setAiLiveFollowReducer({ enabled: false }));
+        showSuccessToast(res.message || "AI live follow disabled.");
+      } else {
+        showErrorToast(res.message || "Unable to disable AI live follow.");
+      }
+    } else {
+      setShowPwModal(true);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: "var(--wind-lightest, #f7f9fc)",
+        border: "1px solid var(--shade-light)",
+        borderRadius: "var(--radius-outer, 8px)",
+        padding: "var(--space-s, 16px)",
+        marginBottom: "var(--space-m, 20px)",
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+      >
+        <i
+          className="fa-light fa-message-bot"
+          style={{ color: "var(--ocean)", fontSize: 20 }}
+        ></i>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <strong style={{ display: "block", color: "var(--cave)" }}>
+            Allow AI live follow{" "}
+            <span
+              style={{
+                fontSize: 10,
+                background: "var(--ocean)",
+                color: "#fff",
+                padding: "2px 5px",
+                borderRadius: 3,
+                marginLeft: 4,
+                verticalAlign: "middle",
+              }}
+            >
+              PILOT
+            </span>
+          </strong>
+          <span
+            style={{
+              fontSize: "var(--step--1, 13px)",
+              color: "var(--cave-lighter)",
+            }}
+          >
+            Lets the AI assistant follow what you&apos;re doing in the app to
+            offer in-context help. Off by default. Requires a one-time access
+            password.
+            {enabled && enabledAt ? (
+              <>
+                {" "}
+                Enabled {new Date(enabledAt).toLocaleString()}.
+              </>
+            ) : null}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={busy}
+          className={enabled ? "secondary" : "contrast"}
+          style={{
+            padding: "6px 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: busy ? "not-allowed" : "pointer",
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? (
+            <>
+              <i className="fa-light fa-spinner-third fa-spin"></i>&nbsp;Working…
+            </>
+          ) : enabled ? (
+            "Disable"
+          ) : (
+            "Enable…"
+          )}
+        </button>
+      </div>
+
+      {showPwModal && (
+        <BaseModal
+          modalId="ai-live-follow-pw"
+          displayModal={showPwModal}
+          onClose={() => {
+            if (busy) return;
+            setShowPwModal(false);
+            setPassword("");
+            setError(null);
+          }}
+          firstButtonName="Cancel"
+          secondButtonName={busy ? "Enabling…" : "Enable"}
+          onConfirm={() => {
+            submitEnable();
+            return false; // keep modal open until success/failure resolved
+          }}
+        >
+          <div style={{ padding: "var(--space-s) 0" }}>
+            <h4 style={{ marginTop: 0 }}>Enable AI live follow</h4>
+            <p style={{ color: "var(--cave-lighter)", marginTop: 4 }}>
+              This pilot feature is gated. Please enter the access password
+              issued to pilot participants.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="Access password"
+              disabled={busy}
+              style={{ width: "100%" }}
+            />
+            {error && (
+              <p
+                style={{
+                  color: "#dc3545",
+                  fontSize: 13,
+                  marginTop: 8,
+                }}
+              >
+                {error}
+              </p>
+            )}
+          </div>
+        </BaseModal>
+      )}
+    </div>
+  );
+}
+
 export default function PersonalInfo() {
   // const { setLoader }: any = useLoaderContext();
   const queryParams = useSearchParams();
@@ -704,6 +890,7 @@ export default function PersonalInfo() {
                       )}
                     </button>
                   </div>
+                  <AiLiveFollowToggle />
                   <div className="grid">
                     <input
                       type="button"

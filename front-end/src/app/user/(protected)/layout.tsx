@@ -3,7 +3,10 @@ import { InactivityDetector } from "@/components/InactivityDetector/InactivityDe
 import Footer from "@/components/MemberFooter";
 import Navbar from "@/components/MemberNavbar";
 import Sidebar from "@/components/SideBar";
+import AiPanel from "@/components/AiPanel";
 import XeroReauthBanner from "@/modules/user/UserIntegrations/XeroReauthBanner";
+import { hydrateUiPreferences } from "@/redux/slices/uiPreferences";
+import { fetchUiPreferences } from "@/network/uiPreferences";
 import { showErrorToast } from "@/components/Toaster";
 import { useLoaderContext } from "@/context/useLoader";
 import { useIsClient, useTokenDetails } from "@/hooks";
@@ -24,6 +27,19 @@ export default function UserLayout({
   const responsiveSidebar = useAppSelector(
     (state: { memberSidebar: { displayResponsiveSidebar: boolean } }) =>
       state.memberSidebar.displayResponsiveSidebar
+  );
+
+  const navCollapsed = useAppSelector(
+    (state: RootState) => state.uiPreferences.navCollapsed
+  );
+  const aiPanelState = useAppSelector(
+    (state: RootState) => state.uiPreferences.aiPanelState
+  );
+  const aiPanelWidth = useAppSelector(
+    (state: RootState) => state.uiPreferences.aiPanelWidth
+  );
+  const uiPrefsHydrated = useAppSelector(
+    (state: RootState) => state.uiPreferences.hydrated
   );
 
   // Get userMode from Redux
@@ -162,8 +178,29 @@ export default function UserLayout({
     dispatch(setAppUserDetails({}));
   };
 
+  useEffect(() => {
+    if (uiPrefsHydrated) return;
+    let cancelled = false;
+    (async () => {
+      const prefs = await fetchUiPreferences();
+      if (cancelled) return;
+      // Always mark hydrated so we don't keep re-fetching on route
+      // changes — even if the request returned null we have the
+      // localStorage-seeded defaults.
+      dispatch(hydrateUiPreferences(prefs || {}));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uiPrefsHydrated, dispatch]);
+
   // Ensure all hooks are called before any conditional logic
   if (!isClient) return null; // Avoid mismatches during hydration
+
+  // Compute the AI column width for the dashboard grid. "hidden" → 0,
+  // "rail" → fixed 48px, "open" → user-resized width.
+  const aiColPx =
+    aiPanelState === "hidden" ? 0 : aiPanelState === "rail" ? 48 : aiPanelWidth;
 
   return (
     <div>
@@ -177,7 +214,14 @@ export default function UserLayout({
         } `}
       ></div>
       <div className="pt_wrap">
-        <div className="pt_dashboard">
+        <div
+          className={`pt_dashboard${navCollapsed ? " nav-collapsed" : ""}`}
+          style={
+            {
+              "--ai-panel-w": `${aiColPx}px`,
+            } as Record<string, string>
+          }
+        >
           <Sidebar />
           <div className="pt_right">
             {userMode === "Onboarding" && (
@@ -192,6 +236,7 @@ export default function UserLayout({
             <main>{children}</main>
             <Footer />
           </div>
+          <AiPanel />
         </div>
       </div>
       <InactivityDetector />

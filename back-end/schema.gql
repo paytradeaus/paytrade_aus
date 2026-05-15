@@ -1420,6 +1420,22 @@ type AiAnswerResponse {
   suggestions: [String!]
 }
 
+"""Standard response wrapper for the admin AI live-follow audit listing."""
+type AiLiveFollowAuditResponse {
+  data: [AiLiveFollowAuditRow!]
+  message: String!
+  status: String!
+}
+
+"""A single user row for the admin "AI live follow audit" listing."""
+type AiLiveFollowAuditRow {
+  ai_live_follow_enabled_at: DateTime
+  email_id: String!
+  first_name: String
+  last_name: String
+  user_id: Int!
+}
+
 """Access token returned when an admin successfully logs in as a user"""
 type AllowAdminToLoginAsUser {
   """JWT access token for the impersonated user"""
@@ -15444,6 +15460,19 @@ type Mutation {
   ): sentNoticeMailResponse!
 
   """
+  Toggle the "Allow AI live follow" flag for the current user. Enabling requires the AI_LIVE_FOLLOW_ACCESS_PASSWORD secret.
+  """
+  setAiLiveFollow(
+    """Whether AI live follow should be enabled for this user."""
+    enabled: Boolean!
+
+    """
+    Temporary access password (required only when enabling). Validated against the AI_LIVE_FOLLOW_ACCESS_PASSWORD env secret.
+    """
+    password: String
+  ): UiPreferencesResponse!
+
+  """
   Set a selected payment method as the default card for future subscription charges.
   """
   setAsDefaultByPaymentMethodId(
@@ -15933,6 +15962,14 @@ type Mutation {
     """ID of the project or contract to update."""
     id: String!
   ): StringResponse!
+
+  """
+  Persist per-user UI shell preferences. Merges on top of existing values.
+  """
+  updateUiPreferences(
+    """Subset of UI preferences to merge for the current user."""
+    input: UpdateUiPreferencesInput!
+  ): UiPreferencesResponse!
 
   """
   Updates the authenticated user's profile information. 
@@ -18670,6 +18707,11 @@ type Query {
   ): GetFileDetailsResponse!
 
   """
+  Returns the current user's UI shell preferences and AI live-follow flag.
+  """
+  getUiPreferences: UiPreferencesResponse!
+
+  """
   Returns the count of unmapped active Xero bank accounts eligible for bulk-create in PayTrade.
   """
   getUnmappedActiveXeroAccountsCount(
@@ -18863,6 +18905,9 @@ type Query {
     """Paytrade payment_claim_id to scope sync logs to."""
     payment_claim_id: Float!
   ): GetClaimSyncLogsResponse!
+
+  """Admin audit listing of users with AI live follow enabled."""
+  listAiLiveFollowUsers: AiLiveFollowAuditResponse!
 
   """Fetches a list of all admins."""
   listAllAdmins(
@@ -19640,6 +19685,11 @@ type SideMenuResponse {
 
 """Represents a user registration (signup) record."""
 type SignupRes {
+  """
+  Whether this user has the "Allow AI live follow" setting enabled. Defaults to false.
+  """
+  ai_live_follow_enabled: Boolean
+
   """Name of the business the user is associated with, if any."""
   company_name: String
 
@@ -19701,6 +19751,11 @@ type SignupRes {
 
   """Type of signature (e.g., digital, handwritten)."""
   signature_type: String
+
+  """
+  Per-user UI shell preferences (left-nav collapsed flag, AI panel state/width). Free-form JSON bag — see UiPreferencesPayload for the canonical shape.
+  """
+  ui_preferences: JSONObject
 
   """Full address of the user."""
   user_address: String!
@@ -20650,6 +20705,42 @@ type TriggerNoticesData {
 
   """Preview of generated QBCC notices."""
   qbcc_notice_previews: [qbccNoticeFileAndMailDetails!]
+}
+
+"""
+Per-user UI shell + AI live-follow preferences returned to the frontend layout.
+"""
+type UiPreferencesPayload {
+  """
+  Whether this user has the "Allow AI live follow" pilot setting enabled. Default false.
+  """
+  aiLiveFollowEnabled: Boolean!
+
+  """
+  Timestamp when the AI live-follow flag was last enabled (UTC). Used for the admin audit view.
+  """
+  aiLiveFollowEnabledAt: DateTime
+
+  """
+  AI messenger column state: "open" | "rail" | "hidden". On narrow viewports the frontend may force "hidden".
+  """
+  aiPanelState: String!
+
+  """Saved AI messenger column width in pixels (when "open")."""
+  aiPanelWidth: Int!
+
+  """Free-form bag for additional UI preferences."""
+  extra: JSONObject
+
+  """Whether the left nav is rendered collapsed."""
+  navCollapsed: Boolean!
+}
+
+"""Standard response wrapper for the user UI preferences payload."""
+type UiPreferencesResponse {
+  data: UiPreferencesPayload
+  message: String!
+  status: String!
 }
 
 """Response for unmatched transaction payments."""
@@ -21814,6 +21905,29 @@ type UpdateSupportTicketResponse {
 
   """Indicates whether the operation was successful."""
   status: String!
+}
+
+"""
+UI shell preferences for the AI panel & collapsible left navigation. Stored verbatim under user_details.ui_preferences. Future shell controls can extend the JSON without a schema change.
+"""
+input UpdateUiPreferencesInput {
+  """
+  AI messenger column state: "open" (full panel), "rail" (thin collapsed rail), or "hidden".
+  """
+  aiPanelState: String
+
+  """Width in pixels of the AI messenger column when state="open"."""
+  aiPanelWidth: Float
+
+  """
+  Free-form bag for additional UI preferences. Merged on top of existing values.
+  """
+  extra: JSONObject
+
+  """
+  Whether the left navigation should render in collapsed (icons-only) mode.
+  """
+  navCollapsed: Boolean
 }
 
 """

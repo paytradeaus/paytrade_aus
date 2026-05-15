@@ -23,6 +23,11 @@ import { CheckCompanyExistenceResponse } from './response/check-company-existenc
 import { CompanyWithLogoResponse } from './response/company-with-logo.response';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { UpdateSignupInput } from './dto/update-signup.input';
+import { UpdateUiPreferencesInput } from './dto/update-ui-preferences.input';
+import {
+  AiLiveFollowAuditResponse,
+  UiPreferencesResponse,
+} from './response/ui-preferences.response';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { UpdateCompanySignupInput } from './dto/update-company-signup.input';
 import { handleError } from 'src/api/common/error-handler';
@@ -820,6 +825,143 @@ export class SignupResolver {
         `Errored inside the client with message: ${error.message}`,
       );
       return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.BASIC_USER,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Query(() => UiPreferencesResponse, {
+    name: 'getUiPreferences',
+    description:
+      'Returns the current user\'s UI shell preferences and AI live-follow flag.',
+  })
+  async getUiPreferences(@Context() context): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const data = await this.signupService.getUiPreferencesByUserId(
+        decoded?.userId,
+      );
+      return framedResponse('SUCCESS', 'UI preferences retrieved', data);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching UI preferences: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', error?.message || String(error));
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.BASIC_USER,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Mutation(() => UiPreferencesResponse, {
+    name: 'updateUiPreferences',
+    description:
+      'Persist per-user UI shell preferences. Merges on top of existing values.',
+  })
+  async updateUiPreferences(
+    @Context() context,
+    @Args('input', {
+      description: 'Subset of UI preferences to merge for the current user.',
+    })
+    input: UpdateUiPreferencesInput,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const data = await this.signupService.updateUiPreferencesForUser(
+        decoded?.userId,
+        input,
+      );
+      return framedResponse('SUCCESS', 'UI preferences updated', data);
+    } catch (error) {
+      this.logger.error(
+        `Error updating UI preferences: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', error?.message || String(error));
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.BASIC_USER,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Mutation(() => UiPreferencesResponse, {
+    name: 'setAiLiveFollow',
+    description:
+      'Toggle the "Allow AI live follow" flag for the current user. Enabling requires the AI_LIVE_FOLLOW_ACCESS_PASSWORD secret.',
+  })
+  async setAiLiveFollow(
+    @Context() context,
+    @Args('enabled', {
+      description: 'Whether AI live follow should be enabled for this user.',
+    })
+    enabled: boolean,
+    @Args('password', {
+      nullable: true,
+      description:
+        'Temporary access password (required only when enabling). Validated against the AI_LIVE_FOLLOW_ACCESS_PASSWORD env secret.',
+    })
+    password?: string,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const data = await this.signupService.setAiLiveFollowForUser(
+        decoded?.userId,
+        !!enabled,
+        password,
+      );
+      return framedResponse(
+        'SUCCESS',
+        enabled
+          ? 'AI live follow enabled for this user.'
+          : 'AI live follow disabled for this user.',
+        data,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error toggling AI live follow: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', error?.message || String(error));
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.RESTRICTED_PORTAL_ADMIN)
+  @Query(() => AiLiveFollowAuditResponse, {
+    name: 'listAiLiveFollowUsers',
+    description:
+      'Admin audit listing of users with AI live follow enabled.',
+  })
+  async listAiLiveFollowUsers(): Promise<any> {
+    try {
+      const rows = await this.signupService.listAiLiveFollowUsers();
+      return framedResponse(
+        'SUCCESS',
+        `Found ${rows.length} user(s) with AI live follow enabled.`,
+        rows,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error listing AI live follow users: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', error?.message || String(error));
     }
   }
 

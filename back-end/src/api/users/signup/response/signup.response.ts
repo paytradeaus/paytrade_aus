@@ -107,6 +107,20 @@ export class SignupRes {
       'User email preferences stored as a JSON object where each key is the type of email and the value is a boolean indicating opt-in status.',
   })
   email_preferences: Record<string, boolean>;
+
+  @Field({
+    nullable: true,
+    description:
+      'Whether this user has the "Allow AI live follow" setting enabled. Defaults to false.',
+  })
+  ai_live_follow_enabled?: boolean;
+
+  @Field(() => GraphQLJSONObject, {
+    nullable: true,
+    description:
+      'Per-user UI shell preferences (left-nav collapsed flag, AI panel state/width). Free-form JSON bag — see UiPreferencesPayload for the canonical shape.',
+  })
+  ui_preferences?: Record<string, any>;
 }
 
 @ObjectType({

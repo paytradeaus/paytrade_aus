@@ -152,6 +152,15 @@ export class UserDetails {
   @Column({ type: 'json', nullable: true })
   email_preferences: Record<string, any>;
 
+  @Column({ default: false })
+  ai_live_follow_enabled: boolean;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  ai_live_follow_enabled_at: Date;
+
+  @Column({ type: 'json', nullable: true })
+  ui_preferences: Record<string, any>;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

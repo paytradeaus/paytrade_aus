@@ -1,4 +1,6 @@
 import { setDisplayResponsiveSidebar } from "@/redux/slices/sidebar";
+import { setNavCollapsed } from "@/redux/slices/uiPreferences";
+import { persistUiPreferences } from "@/network/uiPreferences";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import Link from "next/link";
@@ -19,6 +21,9 @@ export default function Sidebar() {
   const { decodeTokenData } = useTokenDetails();
   const responsiveSidebar = useAppSelector(
     (state) => state.memberSidebar.displayResponsiveSidebar
+  );
+  const navCollapsed = useAppSelector(
+    (state: RootState) => state.uiPreferences.navCollapsed
   );
   const updatedCompany: any = useAppSelector(
     (state: RootState) => state?.companyStore?.updatedcompany
@@ -66,8 +71,29 @@ export default function Sidebar() {
   return (
     <Fragment>
       <div
-        className={`${responsiveSidebar ? "pt_left pt_left_open" : "pt_left"}`}
+        className={`${responsiveSidebar ? "pt_left pt_left_open" : "pt_left"}${
+          navCollapsed ? " pt_left_collapsed" : ""
+        }`}
       >
+        <button
+          type="button"
+          className="pt_nav_collapse_btn"
+          aria-label={
+            navCollapsed ? "Expand navigation" : "Collapse navigation"
+          }
+          title={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+          onClick={() => {
+            const next = !navCollapsed;
+            dispatch(setNavCollapsed(next));
+            persistUiPreferences({ navCollapsed: next });
+          }}
+        >
+          <i
+            className={`fa-light ${
+              navCollapsed ? "fa-chevron-right" : "fa-chevron-left"
+            }`}
+          ></i>
+        </button>
         <div className="mobilenavtop">
           <Link href={AppRoutes.HOME} className="logo"></Link>
           <div
@@ -159,9 +185,12 @@ export default function Sidebar() {
                         className={`contrast ${
                           pathname == sidebarRow?.routePath ? "active" : ""
                         }`}
+                        title={navCollapsed ? sidebarRow?.name : undefined}
                       >
                         <i className={sidebarRow?.icon}></i>
-                        <span>{sidebarRow?.name}</span>
+                        <span className="pt_sidemenu_label">
+                          {sidebarRow?.name}
+                        </span>
                       </a>
                     </Link>
                   </li>
@@ -185,9 +214,12 @@ export default function Sidebar() {
                           : ""
                       }`}
                       htmlFor={sidebarRow?.name}
+                      title={navCollapsed ? sidebarRow?.name : undefined}
                     >
                       <i className={sidebarRow?.icon}></i>
-                      <span>{sidebarRow?.name}</span>
+                      <span className="pt_sidemenu_label">
+                        {sidebarRow?.name}
+                      </span>
                     </label>
 
                     <ul className="cd-accordion__sub">
