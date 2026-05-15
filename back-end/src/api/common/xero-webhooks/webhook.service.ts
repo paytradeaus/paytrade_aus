@@ -3690,7 +3690,22 @@ export class XeroWebhookService {
             return false;
           }
 
+          // Past-due-date check is only meaningful for new claims that
+          // are still expected to be paid in the future. For historical
+          // catch-up imports of bills/invoices that have already been
+          // PAID (or are no longer Authorised/Submitted), the due date
+          // being in the past is the entire point — refusing the import
+          // for that reason blocks every legitimate back-fill of paid
+          // records. Skip the check for any non-Authorised status, and
+          // for AUTHORISED records that are already fully paid.
+          const _statusForDueCheck = String(invoice?.status || '').toUpperCase();
+          const _isPaidLike = _statusForDueCheck === 'PAID'
+            || _statusForDueCheck === 'VOIDED'
+            || _statusForDueCheck === 'DELETED'
+            || (Number(invoice?.amountDue ?? 0) === 0
+                && Number(invoice?.amountPaid ?? 0) > 0);
           if (
+            !_isPaidLike &&
             invoice.dueDate &&
             moment
               .tz(invoice.dueDate, 'UTC')
@@ -4611,7 +4626,19 @@ export class XeroWebhookService {
                 return false;
               }
 
+              // See "Past-due-date check" note further up — same
+              // exception applies to the update path: skip the check
+              // for already-PAID / voided / fully-paid bills so
+              // historical catch-up imports aren't blocked by a due
+              // date that is in the past by design.
+              const _statusForDueCheck2 = String(invoice?.status || '').toUpperCase();
+              const _isPaidLike2 = _statusForDueCheck2 === 'PAID'
+                || _statusForDueCheck2 === 'VOIDED'
+                || _statusForDueCheck2 === 'DELETED'
+                || (Number(invoice?.amountDue ?? 0) === 0
+                    && Number(invoice?.amountPaid ?? 0) > 0);
               if (
+                !_isPaidLike2 &&
                 invoice.dueDate &&
                 moment
                   .tz(invoice.dueDate, 'UTC')
@@ -13525,7 +13552,19 @@ export class XeroWebhookService {
    */
   async manualXeroResync(
     decoded: any,
-    input: { company_id: number; type: string; id: string },
+    input: {
+      company_id: number;
+      type: string;
+      id: string;
+      // When invoked by the two-sided manual sync dispatcher
+      // (`dispatchManualSync` → writeTwoSidedTriggerLog), the
+      // dispatcher already writes its own enriched trigger row
+      // (templates 518/519/520) carrying the preflight snapshot,
+      // direction and outcome. Suppress this method's own legacy
+      // template-499 trigger row in that case so the sync log table
+      // shows ONE trigger row per user click instead of two.
+      _suppressLegacyTrigger?: boolean;
+    },
   ): Promise<{
     success: boolean;
     message: string;
@@ -13535,6 +13574,7 @@ export class XeroWebhookService {
     const company_id = Number(input?.company_id);
     const rawType = String(input?.type || '').trim().toLowerCase();
     const rawId = String(input?.id || '').trim();
+    const suppressLegacyTrigger = !!input?._suppressLegacyTrigger;
 
     const allowedTypes = new Set([
       'invoice_bill',
@@ -13601,6 +13641,11 @@ export class XeroWebhookService {
       extraHistory?: string[];
       reference_id?: string | null;
     }): Promise<number | null> => {
+      // Two-sided dispatcher writes its own enriched trigger row —
+      // suppress the legacy 499 to avoid the duplicate "Manual sync
+      // (two-sided) — Failed" + "Manual sync — Succeeded" pair the
+      // user was seeing in the sync log table for every click.
+      if (suppressLegacyTrigger) return null;
       try {
         const log = await this.xeroService.insertXeroSyncLogs(decoded, {
           id: null,
@@ -18062,12 +18107,18 @@ export class XeroWebhookService {
       company_id,
       type: rawType,
       id: xero_id,
+      _suppressLegacyTrigger: true,
     } as any);
-    // Always write the enriched two-sided audit log on top of the
-    // legacy template-499 trigger log emitted by manualXeroResync —
-    // this one carries the preflight snapshot, reviewed flag, chosen
-    // direction and outcome (templates 518/519). The original 499
-    // entry remains for backward compatibility.
+    // Always write the enriched two-sided audit log carrying the
+    // preflight snapshot, reviewed flag, chosen direction and outcome
+    // (templates 518/519/520). For the import direction the legacy
+    // template-499 trigger row that manualXeroResync would normally
+    // write is suppressed via _suppressLegacyTrigger above, so the
+    // sync log table shows ONE enriched trigger row per click instead
+    // of two ("Manual sync (two-sided)" + "Manual sync"). For
+    // non-import directions (push/link/blocked) writeTwoSidedTriggerLog
+    // still emits its own legacy 499 for back-compat, since those
+    // paths never go through manualXeroResync.
     await this.writeTwoSidedTriggerLog(decoded, {
       company_id,
       type: rawType,

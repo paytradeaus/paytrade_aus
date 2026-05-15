@@ -3442,27 +3442,43 @@ function ManualXeroSyncDialog({
                           {/* Canonical "View" eye action — same
                               markup as the sync-log table action
                               (gridActions style: "primary",
-                              icon: "fa-light fa-eye"), so this row
-                              renders the identical red round eye
-                              button you see on every other PayTrade
-                              table. */}
+                              icon: "fa-light fa-eye"). Wrapped in a
+                              flex-centered div because the canonical
+                              `mr_zero_point_five` right margin is
+                              designed for an action *row* with
+                              multiple buttons; with a single button
+                              that margin drags the visual centre to
+                              the left of the cell, which is what the
+                              user was seeing. The flex wrapper
+                              centres the button regardless of the
+                              cell width. */}
                           <td data-label="Actions" className="text_center">
-                            <a
-                              data-tooltip="View"
-                              data-placement="left"
-                              onClick={(e: any) => e?.preventDefault()}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              }}
                             >
-                              <button
-                                type="button"
-                                className="primary mr_zero_point_five"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCatchupRowDetail(r);
-                                }}
+                              <a
+                                data-tooltip="View"
+                                data-placement="left"
+                                onClick={(e: any) => e?.preventDefault()}
+                                style={{ margin: 0 }}
                               >
-                                <i className="fa-light fa-eye"></i>
-                              </button>
-                            </a>
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  style={{ margin: 0 }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCatchupRowDetail(r);
+                                  }}
+                                >
+                                  <i className="fa-light fa-eye"></i>
+                                </button>
+                              </a>
+                            </div>
                           </td>
                         </tr>
                       );
