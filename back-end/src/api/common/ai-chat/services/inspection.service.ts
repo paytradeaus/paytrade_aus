@@ -9,6 +9,8 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
+import { VariationDetails } from 'src/entities/variation-details.entity';
+import { NoticeDetails } from 'src/entities/notices-details.entity';
 
 export interface ClaimSummary {
   paymentClaimId: number;
@@ -68,6 +70,29 @@ export interface TrustAccountBalance {
   projectIds: number[] | null;
 }
 
+export interface VariationIssueSummary {
+  variationId: number;
+  variationName: string;
+  status: string;
+  projectId: number | null;
+  contractId: number | null;
+  variationAmount: number;
+  ageDays: number;
+  issues: string[];
+}
+
+export interface OverdueNoticeSummary {
+  noticeId: number;
+  noticeType: string | null;
+  status: string;
+  projectId: number | null;
+  contractId: number | null;
+  clientSupplierId: number | null;
+  noticeDate: string | null;
+  ageDays: number;
+  issues: string[];
+}
+
 export interface XeroSyncStatusSummary {
   connected: boolean;
   tenantName: string | null;
@@ -117,6 +142,10 @@ export class AiChatInspectionService {
     private readonly xeroIntegrationRepo: Repository<XeroIntegrationDetails>,
     @InjectRepository(XeroSyncLogs)
     private readonly xeroSyncLogRepo: Repository<XeroSyncLogs>,
+    @InjectRepository(VariationDetails)
+    private readonly variationRepo: Repository<VariationDetails>,
+    @InjectRepository(NoticeDetails)
+    private readonly noticeRepo: Repository<NoticeDetails>,
   ) {}
 
   private async assertMembership(
@@ -503,5 +532,120 @@ export class AiChatInspectionService {
         : null,
       notes,
     };
+  }
+
+  async listVariationsWithIssues(
+    userId: number,
+    companyId: number,
+    limit = 25,
+  ): Promise<VariationIssueSummary[]> {
+    await this.assertMembership(userId, companyId);
+    const rows = await this.variationRepo
+      .createQueryBuilder('v')
+      .where('v.company_id = :cid', { cid: companyId })
+      .andWhere(
+        "v.variation_status NOT IN ('Archived','Deleted','Agreed','Refused')",
+      )
+      .andWhere('v.is_archived = false')
+      .orderBy('v.updated_on', 'DESC')
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .getMany();
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const out: VariationIssueSummary[] = [];
+    for (const v of rows) {
+      const issues: string[] = [];
+      const amount = Number(v.variation_amount ?? 0);
+      const created = v.created_on ? new Date(v.created_on) : null;
+      const ageDays = created
+        ? Math.max(
+            0,
+            Math.floor((today.getTime() - created.getTime()) / 86400000),
+          )
+        : 0;
+      const status = v.variation_status ?? 'Draft';
+      if (status === 'Draft') {
+        issues.push(
+          `Pending — still in Draft${ageDays > 0 ? ` for ${ageDays} day${ageDays === 1 ? '' : 's'}` : ''}.`,
+        );
+      } else if (status === 'In Review') {
+        issues.push(
+          `Pending — awaiting decision (In Review${ageDays > 7 ? ` for ${ageDays} days` : ''}).`,
+        );
+      }
+      if (!amount || amount === 0) {
+        issues.push('Variation amount is missing or zero.');
+      }
+      if (!v.variation_name || String(v.variation_name).trim() === '') {
+        issues.push('Variation name is missing.');
+      }
+      if (issues.length === 0) continue;
+      out.push({
+        variationId: v.variation_id,
+        variationName: v.variation_name,
+        status,
+        projectId: v.project_id ?? null,
+        contractId: v.contract_id ?? null,
+        variationAmount: amount,
+        ageDays,
+        issues,
+      });
+    }
+    return out;
+  }
+
+  async listOverdueNotices(
+    userId: number,
+    companyId: number,
+    limit = 25,
+    overdueAfterDays = 7,
+  ): Promise<OverdueNoticeSummary[]> {
+    await this.assertMembership(userId, companyId);
+    const rows = await this.noticeRepo
+      .createQueryBuilder('n')
+      .where('n.company_id = :cid', { cid: companyId })
+      .andWhere("n.status IN ('Draft','Not Sent','Sending')")
+      .orderBy('n.notice_date', 'ASC')
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .getMany();
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const threshold = Math.max(0, overdueAfterDays);
+    const out: OverdueNoticeSummary[] = [];
+    for (const n of rows) {
+      const noticeDate = n.notice_date ? new Date(n.notice_date) : null;
+      const ageDays = noticeDate
+        ? Math.max(
+            0,
+            Math.floor((today.getTime() - noticeDate.getTime()) / 86400000),
+          )
+        : 0;
+      const issues: string[] = [];
+      if (n.status === 'Sending') {
+        issues.push(
+          `Stuck in Sending${ageDays > 0 ? ` for ${ageDays} day${ageDays === 1 ? '' : 's'}` : ''}.`,
+        );
+      } else if (noticeDate && ageDays > threshold) {
+        issues.push(
+          `Overdue — status "${n.status}" and dated ${ageDays} day${ageDays === 1 ? '' : 's'} ago.`,
+        );
+      } else {
+        continue;
+      }
+      out.push({
+        noticeId: Number(n.notice_id),
+        noticeType: n.notice_type ?? null,
+        status: n.status,
+        projectId: n.project_id ?? null,
+        contractId: n.contract_id ?? null,
+        clientSupplierId: n.client_supplier_id ?? null,
+        noticeDate: noticeDate ? noticeDate.toISOString().slice(0, 10) : null,
+        ageDays,
+        issues,
+      });
+    }
+    return out;
   }
 }

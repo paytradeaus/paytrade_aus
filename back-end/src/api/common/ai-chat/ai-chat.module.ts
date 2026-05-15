@@ -17,6 +17,8 @@ import { PaymentClaims, BankAccounts } from 'src/entities/banking.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
+import { VariationDetails } from 'src/entities/variation-details.entity';
+import { NoticeDetails } from 'src/entities/notices-details.entity';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 
 import { AiSupportModule } from '../ai-support/ai-support.module';
@@ -42,6 +44,8 @@ import { ListProjectsWithIssuesTool } from './tools/list-projects-with-issues.to
 import { GetRetentionsHeldTool } from './tools/get-retentions-held.tool';
 import { GetTrustAccountBalancesTool } from './tools/get-trust-account-balances.tool';
 import { GetXeroSyncStatusTool } from './tools/get-xero-sync-status.tool';
+import { ListVariationsWithIssuesTool } from './tools/list-variations-with-issues.tool';
+import { ListOverdueNoticesTool } from './tools/list-overdue-notices.tool';
 
 /**
  * Task #162 — Read-only AI Chat Agent.
@@ -73,6 +77,8 @@ import { GetXeroSyncStatusTool } from './tools/get-xero-sync-status.tool';
       RetentionDetails,
       XeroIntegrationDetails,
       XeroSyncLogs,
+      VariationDetails,
+      NoticeDetails,
     ]),
     JwtModule.register({
       secret: jwtConstants.secret,
@@ -104,6 +110,8 @@ import { GetXeroSyncStatusTool } from './tools/get-xero-sync-status.tool';
     GetRetentionsHeldTool,
     GetTrustAccountBalancesTool,
     GetXeroSyncStatusTool,
+    ListVariationsWithIssuesTool,
+    ListOverdueNoticesTool,
   ],
   exports: [AiChatService, AiChatEventsService, AiChatRunsService],
 })
@@ -120,6 +128,8 @@ export class AiChatModule implements OnApplicationBootstrap {
     private readonly retentionsHeld: GetRetentionsHeldTool,
     private readonly trustBalances: GetTrustAccountBalancesTool,
     private readonly xeroStatus: GetXeroSyncStatusTool,
+    private readonly listVariations: ListVariationsWithIssuesTool,
+    private readonly listOverdueNotices: ListOverdueNoticesTool,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -132,6 +142,8 @@ export class AiChatModule implements OnApplicationBootstrap {
       await this.registry.register(this.retentionsHeld);
       await this.registry.register(this.trustBalances);
       await this.registry.register(this.xeroStatus);
+      await this.registry.register(this.listVariations);
+      await this.registry.register(this.listOverdueNotices);
       this.logger.log(
         `AiChatModule registered ${this.registry.list().length} total tool(s).`,
       );
