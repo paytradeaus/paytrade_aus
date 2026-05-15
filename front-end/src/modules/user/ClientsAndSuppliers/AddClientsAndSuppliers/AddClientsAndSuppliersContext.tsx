@@ -30,6 +30,26 @@ import {
   viewXeroSyncLog,
 } from "../../UserIntegrations/integration.functions";
 import { CreateClaimInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
+import BaseModal from "@/components/BaseModal";
+
+// Task #155 — Shape of the per-item summary surfaced in the polished
+// "items waiting for this contact" modal.
+type PendingPromptItem = {
+  invoice_id: string;
+  status: string; // created | skipped | failed
+  reason?: string | null;
+  contract_id?: number | null;
+};
+
+type PendingPromptData = {
+  headline: string;
+  totalRetried: number;
+  created: number;
+  backlog: number;
+  items: PendingPromptItem[];
+};
+
+type PendingPromptChoice = "process" | "review" | "cancel";
 
 const AddClientsAndSuppliersContext: any = createContext(null);
 
@@ -52,9 +72,33 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
   const [initialProjectAccountCodeOverrides, setInitialProjectAccountCodeOverrides] =
     useState<any[]>([]);
 
+  // Task #155 — State + resolver for the polished "items waiting" modal
+  // that replaces the old window.confirm dialog. handleFormSubmit awaits
+  // the user's choice via showPendingPrompt() before continuing.
+  const [pendingPrompt, setPendingPrompt] = useState<PendingPromptData | null>(
+    null,
+  );
+  const pendingPromptResolverRef = useRef<
+    ((choice: PendingPromptChoice) => void) | null
+  >(null);
+
   const fileInputRef = useRef<any>(null); // Reference to the file input
   const router = useRouter();
   const dispatch = useAppDispatch();
+
+  function showPendingPrompt(data: PendingPromptData) {
+    return new Promise<PendingPromptChoice>((resolve) => {
+      pendingPromptResolverRef.current = resolve;
+      setPendingPrompt(data);
+    });
+  }
+
+  function resolvePendingPrompt(choice: PendingPromptChoice) {
+    const resolver = pendingPromptResolverRef.current;
+    pendingPromptResolverRef.current = null;
+    setPendingPrompt(null);
+    if (resolver) resolver(choice);
+  }
 
   const deletedAccountDetailsId: any = useAppSelector(
     (state: any) => state?.clientsSuppliers?.deletedAccountDetails
@@ -308,20 +352,27 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
         dispatch(setAccountDetailsData(""));
         formik.resetForm();
 
-        // Task #154 — Backend may have replayed queued smart-create
+        // Task #154 / #155 — Backend may have replayed queued smart-create
         // attempts that were waiting for this contact's email. If so,
-        // surface a quick prompt summarising what just happened and let
-        // the user jump to the sync log to review the per-item outcome.
-        // "Process now" is implicit (already executed server-side); this
-        // dialog represents the "Review first / Not now" choice.
+        // surface a polished modal (replacing the old window.confirm) that
+        // summarises what just happened and offers three actions:
+        //   • Process now  — confirm the auto-replay (no-op on the client,
+        //                    backend already processed it)
+        //   • Review first — jump to the Xero sync log
+        //   • Not now      — dismiss
         try {
           const pr = clientsResponse?.pending_resolutions;
           if (pr?.email_just_added) {
             const totalRetried = Number(pr?.smart_creates_attempted || 0);
-            const created = Array.isArray(pr?.smart_creates)
-              ? pr.smart_creates.filter((r: any) => r?.status === "created")
-                  .length
-              : 0;
+            const items: PendingPromptItem[] = Array.isArray(pr?.smart_creates)
+              ? pr.smart_creates.map((r: any) => ({
+                  invoice_id: String(r?.invoice_id ?? ""),
+                  status: String(r?.status ?? ""),
+                  reason: r?.reason ?? null,
+                  contract_id: r?.contract_id ?? null,
+                }))
+              : [];
+            const created = items.filter((r) => r.status === "created").length;
             // Task #154 — Always prompt when an email was just added on a
             // previously-flagged contact, even if there were zero queued
             // smart-create attempts. The blocked_notices_count covers the
@@ -336,25 +387,31 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
                 backlog > 0
                   ? `${backlog} item${backlog === 1 ? " was" : "s were"} waiting for this contact's email.`
                   : `Items waiting for this contact's email have been processed.`;
-              const detail =
-                totalRetried > 0
-                  ? `${created} of ${totalRetried} smart-create retr${totalRetried === 1 ? "y" : "ies"} succeeded.\n\n`
-                  : "\n";
-              const ok = window.confirm(
-                `${headline}\n${detail}` +
-                  `OK — Review the results in the Xero sync log.\n` +
-                  `Cancel — Not now.`,
-              );
-              if (ok) {
+              // Drop the loader so the user can interact with the modal.
+              setLoader(false);
+              setLoaderInfo("");
+              const choice = await showPendingPrompt({
+                headline,
+                totalRetried,
+                created,
+                backlog,
+                items,
+              });
+              if (choice === "review") {
                 router.push("/user/integrations/xero");
                 return;
               }
+              // For "process" and "cancel" we continue with the normal
+              // post-save flow below. Re-arm the loader so any subsequent
+              // smart-contract retry / routeBack feels consistent.
+              setLoader(true);
+              setLoaderInfo(`${mode} ${entity}...`);
             }
           }
         } catch (prErr) {
           // Non-blocking — supplier save already succeeded.
           console.error(
-            "Task #154 — failed to surface pending_resolutions prompt:",
+            "Task #155 — failed to surface pending_resolutions prompt:",
             prErr,
           );
         }
@@ -473,6 +530,93 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
       }}
     >
       {children}
+      {pendingPrompt && (
+        <BaseModal
+          modalId="pending-resolutions-prompt"
+          displayModal={!!pendingPrompt}
+          title="Items waiting for this contact"
+          firstButtonName="Not now"
+          middleButtonName="Review first"
+          secondButtonName="Process now"
+          firstBtnClassTypes="secondary"
+          middleBtnClassTypes="secondary"
+          secondBtnClassTypes="primary"
+          onClose={() => resolvePendingPrompt("cancel")}
+          closeOnMiddleButtonClick
+          onMiddleButtonClick={() => resolvePendingPrompt("review")}
+          onConfirm={() => {
+            resolvePendingPrompt("process");
+            return true;
+          }}
+        >
+          <div style={{ marginBottom: "var(--space-s)" }}>
+            <p style={{ marginBottom: "var(--space-xs)" }}>
+              {pendingPrompt.headline}
+            </p>
+            {pendingPrompt.totalRetried > 0 && (
+              <p style={{ marginBottom: "var(--space-xs)" }}>
+                <strong>{pendingPrompt.created}</strong> of{" "}
+                <strong>{pendingPrompt.totalRetried}</strong> smart-create
+                retr{pendingPrompt.totalRetried === 1 ? "y" : "ies"} succeeded.
+              </p>
+            )}
+          </div>
+          {pendingPrompt.items.length > 0 && (
+            <div
+              style={{
+                maxHeight: "240px",
+                overflowY: "auto",
+                border: "1px solid var(--pico-muted-border-color, #e5e7eb)",
+                borderRadius: "var(--pico-border-radius, 8px)",
+                padding: "var(--space-xs) var(--space-s)",
+                marginBottom: "var(--space-s)",
+              }}
+            >
+              <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                {pendingPrompt.items.map((item, idx) => {
+                  const statusColor =
+                    item.status === "created"
+                      ? "#16a34a"
+                      : item.status === "failed"
+                        ? "#dc2626"
+                        : "#a16207";
+                  return (
+                    <li
+                      key={`${item.invoice_id}-${idx}`}
+                      style={{ marginBottom: "0.35rem" }}
+                    >
+                      <span style={{ fontFamily: "monospace" }}>
+                        {item.invoice_id || "(unknown id)"}
+                      </span>{" "}
+                      —{" "}
+                      <strong style={{ color: statusColor }}>
+                        {item.status}
+                      </strong>
+                      {item.reason ? (
+                        <span style={{ color: "var(--pico-muted-color)" }}>
+                          {" "}
+                          — {item.reason}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          <p
+            style={{
+              fontSize: "0.9em",
+              color: "var(--pico-muted-color)",
+              marginBottom: 0,
+            }}
+          >
+            Choose <strong>Review first</strong> to open the Xero sync log,
+            or <strong>Process now</strong> to acknowledge — these items have
+            already been re-attempted in the background.
+          </p>
+        </BaseModal>
+      )}
     </AddClientsAndSuppliersContext.Provider>
   );
 };

@@ -53,6 +53,12 @@ interface BaseModalProps {
   disableMiddleButton?: boolean;
   middleBtnClassTypes?: string;
   onMiddleButtonClick?: () => void;
+  // When true, clicking the middle button runs the same close lifecycle
+  // as the first/close button (removes `modal-is-open`, scrollbar CSS
+  // var, etc.) before invoking `onMiddleButtonClick`. Without this flag
+  // the modal is treated as still open and the global classes can
+  // remain stuck on <html> if the consumer unmounts the modal manually.
+  closeOnMiddleButtonClick?: boolean;
 }
 
 // BaseModal component definition
@@ -85,6 +91,7 @@ export default function BaseModal({
   disableMiddleButton = false,
   middleBtnClassTypes = "secondary",
   onMiddleButtonClick,
+  closeOnMiddleButtonClick = false,
 }: Readonly<BaseModalProps>) {
   const router = useRouter();
 
@@ -302,6 +309,36 @@ export default function BaseModal({
                 type="button"
                 onClick={(e: any) => {
                   e?.preventDefault?.();
+                  if (closeOnMiddleButtonClick) {
+                    // Run the close lifecycle (removes html modal-is-open
+                    // class + scrollbar CSS var) before invoking the
+                    // consumer callback so global modal state can't get
+                    // stuck if the consumer unmounts the modal.
+                    const modal = document.getElementById(
+                      modalId || baseModalConstants.TYPE,
+                    ) as HTMLDialogElement | null;
+                    if (modal && !isSubmitting) {
+                      setIsSubmitting(true);
+                      const { documentElement: html } = document;
+                      html.classList.add(baseModalConstants.closingClass);
+                      setTimeout(() => {
+                        html.classList.remove(
+                          baseModalConstants.closingClass,
+                          baseModalConstants.isOpenClass,
+                        );
+                        html.style.removeProperty(
+                          baseModalConstants.scrollbarWidthCssVar,
+                        );
+                        try {
+                          modal.close();
+                        } catch {
+                          /* dialog may already be detached */
+                        }
+                        setIsSubmitting(false);
+                      }, baseModalConstants.animationDuration);
+                      setVisibleModal(null);
+                    }
+                  }
                   onMiddleButtonClick?.();
                 }}
                 disabled={disableMiddleButton || isSubmitting}
