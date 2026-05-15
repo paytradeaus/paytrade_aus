@@ -1963,6 +1963,222 @@ function ManualXeroSyncDialog({
   const [catchupRowDetail, setCatchupRowDetail] = useState<CatchupRow | null>(
     null,
   );
+
+  // ─── Catch-up table → DynamicTable plumbing ─────────────────────────
+  // The catch-up preview table renders through the system-wide
+  // `<DynamicTable>` so it inherits the same wrapper chain
+  // (`pt_table` / `table-wrapper` / `dataTable compact stripe nowrap
+  // hover order-column`), action-cell CSS, and eye-button styling as
+  // every other table in the app (Sync Log, Projects, Bank Accounts…).
+  // Per-cell content is rich JSX, so we pre-compute each cell as a
+  // ReactNode on the row object and render via simple key lookup —
+  // DynamicTable returns `rowData[key]` verbatim when no formatter
+  // flags are set, and React happily renders a ReactNode there.
+  const catchupHeaders = useMemo(
+    () => [
+      { title: "PayTrade", restrictSorting: true },
+      { title: "Status", restrictSorting: true },
+      { title: "Xero", restrictSorting: true },
+      { title: "Settings", restrictSorting: true, alignCenter: true },
+    ],
+    [],
+  );
+  const catchupRenderRowList = useMemo(
+    () => [
+      { key: "_ptCell" },
+      { key: "_statusCell" },
+      { key: "_xeroCell" },
+      { key: "_settingsCell", alignCenter: true },
+    ],
+    [],
+  );
+  // Single "View" eye action — same shape as the Sync Log table's
+  // canonical view action so it inherits identical styling.
+  const catchupActions = useMemo(
+    () => [
+      {
+        label: "View",
+        icon: "fa-light fa-eye",
+        style: "primary",
+        onClick: (rowData: any) => setCatchupRowDetail(rowData),
+        displayByDefault: true,
+      },
+    ],
+    [],
+  );
+  const isCatchupRowEligible = (cls: string) =>
+    cls !== "already_in_sync" && cls !== "blocked";
+  const catchupGridData = useMemo(() => {
+    if (!catchupResult || !Array.isArray(catchupResult.rows)) return [];
+    return catchupResult.rows.map((r: any) => {
+      const rs = catchupRowStatus[r.key];
+      const cls = r.classification;
+      const status = catchupStatusMap[cls] || {
+        label: cls,
+        color: "inherit",
+      };
+      const eligible = isCatchupRowEligible(cls);
+      // Row-state badge (replaces the old `data-row-state` <tr> tint —
+      // shown inline at the top of the Status cell so the cue stays
+      // visible without needing custom row CSS).
+      const stateBadge =
+        rs?.status === "running" ? (
+          <span style={{ color: "#0b5394", fontWeight: 600, marginRight: 6 }}>
+            ⟳ Running…
+          </span>
+        ) : rs?.status === "passed" ? (
+          <span style={{ color: "green", fontWeight: 600, marginRight: 6 }}>
+            ✓
+          </span>
+        ) : rs?.status === "failed" ? (
+          <span style={{ color: "red", fontWeight: 600, marginRight: 6 }}>
+            ⨯
+          </span>
+        ) : null;
+
+      const ptCell = r.pt_id ? (
+        <>
+          <div>{r.pt_summary || r.label}</div>
+          {(r.project_name || r.contract_name) && (
+            <small>
+              {r.project_name}
+              {r.project_name && r.contract_name ? " · " : ""}
+              {r.contract_name}
+            </small>
+          )}
+          <br />
+          <small>PT {r.pt_id}</small>
+        </>
+      ) : (
+        <em>— no PayTrade row in window —</em>
+      );
+
+      const statusCell = (
+        <>
+          <div>
+            {stateBadge}
+            <span style={{ color: status.color }}>{status.label}</span>
+          </div>
+          {r.hint && (
+            <div>
+              <small>
+                <em>{r.hint}</em>
+              </small>
+            </div>
+          )}
+          {rs?.message && (
+            <div>
+              <small
+                style={{ color: rs.status === "failed" ? "red" : "green" }}
+              >
+                {rs.status === "running"
+                  ? "Running…"
+                  : rs.status === "passed"
+                  ? `✓ ${rs.message}`
+                  : `⨯ ${rs.message}`}
+                {rs.syncLogId ? (
+                  <>
+                    {" — "}
+                    <a
+                      href={`/user/integrations/xero/syncLogDetails/${rs.syncLogId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      sync log #{rs.syncLogId}
+                    </a>
+                  </>
+                ) : null}
+              </small>
+            </div>
+          )}
+        </>
+      );
+
+      const xeroCell = r.xero_id ? (
+        <>
+          <div>{r.xero_summary || r.label}</div>
+          {(r.project_name || r.contract_name) && (
+            <small>
+              {r.project_name}
+              {r.project_name && r.contract_name ? " · " : ""}
+              {r.contract_name}
+            </small>
+          )}
+          {r.xero_tracking_option_name ? (
+            <div>
+              <small>
+                Tracking: {r.xero_tracking_option_name}
+                {r.xero_tracking_option_id ? (
+                  <>
+                    {" "}
+                    <code>({r.xero_tracking_option_id})</code>
+                  </>
+                ) : null}
+              </small>
+            </div>
+          ) : (
+            <div>
+              <small style={{ color: "orange" }}>
+                No tracking option set on Xero record
+              </small>
+            </div>
+          )}
+          {r.xero_tracking_option_name &&
+            !r.project_name &&
+            !r.contract_name && (
+              <div>
+                <small style={{ color: "orange" }}>
+                  No matching PayTrade project/contract
+                </small>
+              </div>
+            )}
+          {r.blocking_issues && r.blocking_issues.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              {r.blocking_issues.map((iss: string, idx: number) => (
+                <div key={idx}>
+                  <small style={{ color: "orange" }}>⚠ {iss}</small>
+                </div>
+              ))}
+            </div>
+          )}
+          <br />
+          <small>Xero {r.xero_id}</small>
+        </>
+      ) : (
+        <em>— no Xero row in window —</em>
+      );
+
+      const sm: "ok" | "warning" | "fail" | undefined = r.settings_match;
+      const settingsMap = {
+        ok: { label: "✓ Match", color: "green" },
+        warning: { label: "⚠ Review", color: "orange" },
+        fail: { label: "✗ Will fail", color: "red" },
+      } as const;
+      const settingsCell = sm ? (
+        <span
+          style={{ color: settingsMap[sm].color, fontWeight: 600 }}
+          title="See Settings match in row details"
+        >
+          {settingsMap[sm].label}
+        </span>
+      ) : (
+        <span>—</span>
+      );
+
+      return {
+        ...r,
+        // DynamicTable's checkbox column reads `checked`. Ineligible
+        // rows are reflected as unchecked; if the user toggles their
+        // box, our onGridCheckboxChange filters them back out and the
+        // next render snaps `checked` back to false.
+        checked: eligible && catchupSelected.has(r.key),
+        _ptCell: ptCell,
+        _statusCell: statusCell,
+        _xeroCell: xeroCell,
+        _settingsCell: settingsCell,
+      };
+    });
+  }, [catchupResult, catchupSelected, catchupRowStatus]);
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
   // this dialog.
@@ -3443,256 +3659,37 @@ function ManualXeroSyncDialog({
                   {catchupSelected.size} selected
                 </span>
               </div>
-              {/* Canonical PayTrade table classes; row state via
-                  `data-row-state` attr styled in CSS. The wrapper
-                  is constrained to the dialog content width so the
-                  table scrolls inside the dialog (rather than
-                  pushing the action column off the right edge), and
-                  picks up matching left/right padding from the
-                  dialog body. */}
-              <div
-                className="table-responsive tablesorter-default pt_table"
-                style={{
-                  margin: "0 0 10px 0",
-                  maxWidth: "100%",
-                  overflowX: "auto",
-                  boxSizing: "border-box",
+              {/* System-wide table — renders through `<DynamicTable>`
+                  so it inherits the same `pt_table` / `table-wrapper`
+                  shell, action-cell CSS and eye-button sizing as the
+                  Sync Log table directly below. Row checkbox / View
+                  action / sort affordances all come from DynamicTable;
+                  per-cell rich JSX is precomputed on each row in the
+                  `catchupGridData` useMemo above. */}
+              <DynamicTable
+                headers={catchupHeaders}
+                gridData={catchupGridData}
+                renderRowList={catchupRenderRowList}
+                gridActions={catchupActions}
+                enableCheckbox
+                checkBoxId="key"
+                disableCheckBox={catchupRunning}
+                alignActionsDataCenter
+                hidePagination
+                onGridCheckboxChange={(rows: any[]) => {
+                  // Filter out ineligible rows (already_in_sync /
+                  // blocked) — they can never be sync'd, so dropping
+                  // them from the selection set means the next render
+                  // will reset their `checked` flag to false.
+                  const next = new Set<string>();
+                  for (const row of rows || []) {
+                    if (row?.key && isCatchupRowEligible(row.classification)) {
+                      next.add(String(row.key));
+                    }
+                  }
+                  setCatchupSelected(next);
                 }}
-              >
-                <table className="dataTable compact stripe hover order-column">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>PayTrade</th>
-                      <th>Status</th>
-                      <th>Xero</th>
-                      <th>Settings</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {catchupResult.rows.map((r: any) => {
-                      const rs = catchupRowStatus[r.key];
-                      const cls = r.classification;
-                      const status = catchupStatusMap[cls] || {
-                        label: cls,
-                        color: "inherit",
-                      };
-                      const isSelected = catchupSelected.has(r.key);
-                      const disabledRow =
-                        catchupRunning ||
-                        cls === "already_in_sync" ||
-                        cls === "blocked";
-                      const rowState =
-                        rs?.status === "running"
-                          ? "running"
-                          : rs?.status === "passed"
-                          ? "passed"
-                          : rs?.status === "failed"
-                          ? "failed"
-                          : isSelected
-                          ? "selected"
-                          : undefined;
-                      return (
-                        <tr key={r.key} data-row-state={rowState}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={disabledRow}
-                              onChange={() => toggleCatchupRow(r.key)}
-                            />
-                          </td>
-                          <td>
-                            {r.pt_id ? (
-                              <>
-                                <div>{r.pt_summary || r.label}</div>
-                                {(r.project_name || r.contract_name) && (
-                                  <small>
-                                    {r.project_name}
-                                    {r.project_name && r.contract_name
-                                      ? " · "
-                                      : ""}
-                                    {r.contract_name}
-                                  </small>
-                                )}
-                                <br />
-                                <small>PT {r.pt_id}</small>
-                              </>
-                            ) : (
-                              <em>— no PayTrade row in window —</em>
-                            )}
-                          </td>
-                          <td>
-                            <span style={{ color: status.color }}>
-                              {status.label}
-                            </span>
-                            {r.hint && (
-                              <div>
-                                <small>
-                                  <em>{r.hint}</em>
-                                </small>
-                              </div>
-                            )}
-                            {rs?.message && (
-                              <div>
-                                <small
-                                  style={{
-                                    color:
-                                      rs.status === "failed" ? "red" : "green",
-                                  }}
-                                >
-                                  {rs.status === "running"
-                                    ? "Running…"
-                                    : rs.status === "passed"
-                                    ? `✓ ${rs.message}`
-                                    : `⨯ ${rs.message}`}
-                                  {rs.syncLogId ? (
-                                    <>
-                                      {" — "}
-                                      <a
-                                        href={`/user/integrations/xero/syncLogDetails/${rs.syncLogId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        sync log #{rs.syncLogId}
-                                      </a>
-                                    </>
-                                  ) : null}
-                                </small>
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            {r.xero_id ? (
-                              <>
-                                <div>{r.xero_summary || r.label}</div>
-                                {(r.project_name || r.contract_name) && (
-                                  <small>
-                                    {r.project_name}
-                                    {r.project_name && r.contract_name
-                                      ? " · "
-                                      : ""}
-                                    {r.contract_name}
-                                  </small>
-                                )}
-                                {r.xero_tracking_option_name ? (
-                                  <div>
-                                    <small>
-                                      Tracking: {r.xero_tracking_option_name}
-                                      {r.xero_tracking_option_id ? (
-                                        <>
-                                          {" "}
-                                          <code>
-                                            ({r.xero_tracking_option_id})
-                                          </code>
-                                        </>
-                                      ) : null}
-                                    </small>
-                                  </div>
-                                ) : (
-                                  <div>
-                                    <small style={{ color: "orange" }}>
-                                      No tracking option set on Xero record
-                                    </small>
-                                  </div>
-                                )}
-                                {r.xero_tracking_option_name &&
-                                  !r.project_name &&
-                                  !r.contract_name && (
-                                    <div>
-                                      <small style={{ color: "orange" }}>
-                                        No matching PayTrade project/contract
-                                      </small>
-                                    </div>
-                                  )}
-                                {r.blocking_issues &&
-                                  r.blocking_issues.length > 0 && (
-                                    <div style={{ marginTop: 4 }}>
-                                      {r.blocking_issues.map((iss: string, idx: number) => (
-                                        <div key={idx}>
-                                          <small style={{ color: "orange" }}>
-                                            ⚠ {iss}
-                                          </small>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                <br />
-                                <small>Xero {r.xero_id}</small>
-                              </>
-                            ) : (
-                              <em>— no Xero row in window —</em>
-                            )}
-                          </td>
-                          <td>
-                            {(() => {
-                              const sm: "ok" | "warning" | "fail" | undefined =
-                                r.settings_match;
-                              if (!sm) return <span>—</span>;
-                              const map = {
-                                ok: { label: "✓ Match", color: "green" },
-                                warning: { label: "⚠ Review", color: "orange" },
-                                fail: { label: "✗ Will fail", color: "red" },
-                              } as const;
-                              const m = map[sm];
-                              return (
-                                <span
-                                  style={{ color: m.color, fontWeight: 600 }}
-                                  title="See Settings match in row details"
-                                >
-                                  {m.label}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          {/* Canonical "View" eye action — same
-                              markup as the sync-log table action
-                              (gridActions style: "primary",
-                              icon: "fa-light fa-eye"). Wrapped in a
-                              flex-centered div because the canonical
-                              `mr_zero_point_five` right margin is
-                              designed for an action *row* with
-                              multiple buttons; with a single button
-                              that margin drags the visual centre to
-                              the left of the cell, which is what the
-                              user was seeing. The flex wrapper
-                              centres the button regardless of the
-                              cell width. */}
-                          <td data-label="Actions" className="text_center">
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                              }}
-                            >
-                              <a
-                                data-tooltip="View"
-                                data-placement="left"
-                                onClick={(e: any) => e?.preventDefault()}
-                                style={{ margin: 0 }}
-                              >
-                                <button
-                                  type="button"
-                                  className="primary"
-                                  style={{ margin: 0 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setCatchupRowDetail(r);
-                                  }}
-                                >
-                                  <i className="fa-light fa-eye"></i>
-                                </button>
-                              </a>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              />
               {(catchupRunning || catchupProgress.done > 0) && (
                 <div
                   style={{
