@@ -100,6 +100,34 @@ export async function setAiLiveFollow(
   }
 }
 
+export async function recordAiLiveFollowContext(input: {
+  route: string;
+  pageLabel?: string;
+  entityIds?: Record<string, string>;
+}): Promise<{ status: string; message?: string; recordedRoute?: string } | null> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation RecordAiLiveFollowContext($input: RecordAiLiveFollowContextInput!) {
+          recordAiLiveFollowContext(input: $input) {
+            status
+            message
+            recordedRoute
+          }
+        }
+      `,
+      variables: { input },
+      fetchPolicy: "no-cache",
+    });
+    return res?.data?.recordAiLiveFollowContext || null;
+  } catch (err: any) {
+    // Best-effort tracker — never surface to the user.
+    // eslint-disable-next-line no-console
+    console.warn("recordAiLiveFollowContext failed:", err?.message || err);
+    return null;
+  }
+}
+
 export async function fetchAiLiveFollowAudit(): Promise<
   Array<{
     user_id: number;

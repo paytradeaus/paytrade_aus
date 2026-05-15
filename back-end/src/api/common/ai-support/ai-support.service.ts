@@ -23,12 +23,22 @@ const PAID_LIMIT = 20;
 const PAID_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 const MAX_QUESTION_LENGTH = 500;
+const LIVE_FOLLOW_TTL_MS = 10 * 60 * 1000;
+const LIVE_FOLLOW_MAX_ENTRIES = 1000;
+
+interface LiveFollowContext {
+  route: string;
+  pageLabel?: string;
+  entityIds?: Record<string, string>;
+  recordedAt: number;
+}
 
 @Injectable()
 export class AiSupportService {
   private logger = new PaytradeLogger('AI_SUPPORT');
   private openai: OpenAI | null = null;
   private systemGuideContent: string = '';
+  private liveFollowContexts = new Map<number, LiveFollowContext>();
 
   constructor(
     @InjectRepository(AiSupportUsage)
@@ -226,6 +236,123 @@ export class AiSupportService {
     return { status: 'SUCCESS', results: paged, totalCount };
   }
 
+  async recordLiveFollowContext(
+    userId: number,
+    input: { route: string; pageLabel?: string; entityIds?: Record<string, string> },
+  ): Promise<{ status: string; message?: string; recordedRoute?: string }> {
+    if (!userId) {
+      return { status: 'ERROR', message: 'Not authenticated.' };
+    }
+    const route = (input?.route || '').toString().trim().slice(0, 500);
+    if (!route) {
+      return { status: 'ERROR', message: 'route is required.' };
+    }
+
+    const user = await this.userDetails.findOne({
+      where: { user_id: userId },
+      select: { user_id: true, ai_live_follow_enabled: true },
+    });
+    if (!user || !user.ai_live_follow_enabled) {
+      return {
+        status: 'IGNORED',
+        message: 'AI live follow is not enabled for this user.',
+      };
+    }
+
+    let entityIds: Record<string, string> | undefined;
+    if (input?.entityIds && typeof input.entityIds === 'object') {
+      entityIds = {};
+      let count = 0;
+      for (const [k, v] of Object.entries(input.entityIds)) {
+        if (count >= 10) break;
+        if (typeof k !== 'string' || !k.trim()) continue;
+        const sv = v == null ? '' : String(v);
+        entityIds[k.slice(0, 60)] = sv.slice(0, 120);
+        count++;
+      }
+      if (!Object.keys(entityIds).length) entityIds = undefined;
+    }
+
+    const pageLabel = input?.pageLabel
+      ? String(input.pageLabel).slice(0, 200)
+      : undefined;
+
+    if (this.liveFollowContexts.size > LIVE_FOLLOW_MAX_ENTRIES) {
+      const cutoff = Date.now() - LIVE_FOLLOW_TTL_MS;
+      for (const [uid, ctx] of this.liveFollowContexts.entries()) {
+        if (ctx.recordedAt < cutoff) this.liveFollowContexts.delete(uid);
+      }
+    }
+
+    this.liveFollowContexts.set(userId, {
+      route,
+      pageLabel,
+      entityIds,
+      recordedAt: Date.now(),
+    });
+
+    this.logger.log(
+      `Live-follow context recorded for user=${userId} route="${route}"` +
+        (pageLabel ? ` label="${pageLabel}"` : '') +
+        (entityIds ? ` entities=${JSON.stringify(entityIds)}` : ''),
+    );
+
+    return { status: 'SUCCESS', recordedRoute: route };
+  }
+
+  private sanitiseContextValue(v: string): string {
+    // Strip control chars + newlines so user-controlled URL/label text
+    // can't break out of the system prompt structure or inject
+    // instructions on a new line.
+    return v.replace(/[\u0000-\u001F\u007F]+/g, ' ').trim();
+  }
+
+  clearLiveFollowContext(userId: number) {
+    this.liveFollowContexts.delete(userId);
+  }
+
+  private async getLiveFollowContextForPrompt(
+    userId: number,
+  ): Promise<string | null> {
+    const ctx = this.liveFollowContexts.get(userId);
+    if (!ctx) return null;
+    if (Date.now() - ctx.recordedAt > LIVE_FOLLOW_TTL_MS) {
+      this.liveFollowContexts.delete(userId);
+      return null;
+    }
+    // Re-check the flag at read time so disabling live-follow takes
+    // effect immediately, even for context cached before the toggle.
+    const user = await this.userDetails.findOne({
+      where: { user_id: userId },
+      select: { user_id: true, ai_live_follow_enabled: true },
+    });
+    if (!user?.ai_live_follow_enabled) {
+      this.liveFollowContexts.delete(userId);
+      return null;
+    }
+    const route = this.sanitiseContextValue(ctx.route);
+    const lines: string[] = [
+      'USER LIVE CONTEXT (the user is currently viewing this page in PayTrade — use it to ground your answer when relevant, but do not read or modify any data):',
+      `- Route: ${route}`,
+    ];
+    if (ctx.pageLabel) {
+      const label = this.sanitiseContextValue(ctx.pageLabel);
+      if (label) lines.push(`- Page: ${label}`);
+    }
+    if (ctx.entityIds && Object.keys(ctx.entityIds).length) {
+      const pairs = Object.entries(ctx.entityIds)
+        .map(
+          ([k, v]) =>
+            `${this.sanitiseContextValue(k)}=${this.sanitiseContextValue(v)}`,
+        )
+        .filter((s) => s.length > 1);
+      if (pairs.length) {
+        lines.push(`- Visible record IDs: ${pairs.join(', ')}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
   async askQuestion(userId: number, question: string) {
     if (!this.openai) {
       return { status: 'ERROR', answer: null, message: 'AI support is not available at this time.', remainingQuota: 0, communityPostId: null };
@@ -274,7 +401,12 @@ export class AiSupportService {
     await this.aiSupportUsage.save(usage);
 
     try {
-      const answer = await this.callOpenAI(sanitised, relevanceCheck.needsWebSearch);
+      const liveContext = await this.getLiveFollowContextForPrompt(userId);
+      const answer = await this.callOpenAI(
+        sanitised,
+        relevanceCheck.needsWebSearch,
+        liveContext,
+      );
 
       let communityPostId: string | null = null;
       try {
@@ -528,8 +660,13 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
     }
   }
 
-  private async callOpenAI(question: string, useWebSearch: boolean = false): Promise<string> {
-    const systemPrompt = `You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
+  private async callOpenAI(
+    question: string,
+    useWebSearch: boolean = false,
+    liveContext: string | null = null,
+  ): Promise<string> {
+    const liveContextBlock = liveContext ? `\n\n${liveContext}\n` : '';
+    const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
 
 IMPORTANT RULES:
 - Only answer questions related to PayTrade, construction industry payments, project trust accounts, BIF Act, QBCC compliance, and related topics.

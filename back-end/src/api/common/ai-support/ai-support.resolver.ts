@@ -6,10 +6,12 @@ import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { AiSupportService } from './ai-support.service';
 import { AskAiSupportInput, SearchSupportInput } from './dto/ai-support.dto';
+import { RecordAiLiveFollowContextInput } from './dto/live-follow-context.input';
 import {
   AiAnswerResponse,
   SearchSupportResponse,
 } from './response/ai-support.response';
+import { RecordAiLiveFollowContextResponse } from './response/live-follow-context.response';
 
 @Resolver()
 export class AiSupportResolver {
@@ -78,6 +80,31 @@ export class AiSupportResolver {
         remainingQuota: 0,
         communityPostId: null,
       };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => RecordAiLiveFollowContextResponse, {
+    name: 'recordAiLiveFollowContext',
+    description:
+      'Record the route + visible record IDs the user is currently viewing so the AI assistant can ground its next answer. No-op when the user has not enabled AI live follow.',
+  })
+  async recordAiLiveFollowContext(
+    @Args('input') input: RecordAiLiveFollowContextInput,
+    @Context() context: any,
+  ): Promise<RecordAiLiveFollowContextResponse> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded || !decoded.userId) {
+        return { status: 'ERROR', message: 'Not authenticated.' };
+      }
+      return await this.aiSupportService.recordLiveFollowContext(
+        decoded.userId,
+        input,
+      );
+    } catch (error) {
+      this.logger.error(`recordAiLiveFollowContext error: ${error.message}`);
+      return { status: 'ERROR', message: 'Failed to record live-follow context.' };
     }
   }
 }

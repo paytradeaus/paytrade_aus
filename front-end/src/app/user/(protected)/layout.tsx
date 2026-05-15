@@ -4,6 +4,7 @@ import Footer from "@/components/MemberFooter";
 import Navbar from "@/components/MemberNavbar";
 import Sidebar from "@/components/SideBar";
 import AiPanel from "@/components/AiPanel";
+import AiLiveFollowTracker from "@/components/AiLiveFollowTracker";
 import XeroReauthBanner from "@/modules/user/UserIntegrations/XeroReauthBanner";
 import { hydrateUiPreferences } from "@/redux/slices/uiPreferences";
 import { fetchUiPreferences } from "@/network/uiPreferences";
@@ -239,6 +240,7 @@ export default function UserLayout({
           <AiPanel />
         </div>
       </div>
+      <AiLiveFollowTracker />
       <InactivityDetector />
     </div>
   );
