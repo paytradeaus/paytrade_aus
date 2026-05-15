@@ -70,6 +70,7 @@ import { PaymentDetailsSubscriber } from './subscribers/payment-details.subscrib
 import { RetentionDetailsSubscriber } from './subscribers/retention-details.subscriber';
 import { SubPaymentsSubscriber } from './subscribers/sub-payments.subscriber';
 import { NoticesModule } from './api/users/notices/notices.module';
+import { AiStatusSnapshotModule } from './api/users/ai-status-snapshot/ai-status-snapshot.module';
 import { CompliancesModule } from './api/users/compliances/compliances.module';
 import { NoticeMail } from './entities/notice-mail.enitity';
 import { ReconciliationReportSubscriber } from './subscribers/reconciliation-report.subscriber';
@@ -319,6 +320,7 @@ import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-nee
     FileAttachmentsModule,
     PaymentGatewayModule,
     NoticesModule,
+    AiStatusSnapshotModule,
     AdminCompliancesModule,
     AdminDashboardModule,
     StripeWebhookModule,

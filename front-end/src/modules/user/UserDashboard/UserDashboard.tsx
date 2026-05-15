@@ -9,6 +9,7 @@ import {
   FetchAllUnmatchedPaymentsOfACompany,
   FetchAllUnsentNoticesOfACompany,
   FetchIntegrationIssuesForDashboard,
+  GetAiStatusSnapshot,
   getProjectListsForCompany,
   ListAllSubPayments,
   setDontShowAgain,
@@ -20,7 +21,7 @@ import { RootState, useAppSelector } from "@/redux/store";
 import { useTokenDetails } from "@/hooks";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import { ADD, buttonType, PAYMENT_TYPES } from "@/shared/constant/general";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { queryParamsData } from "../BankAccounts/bankAccount.constant";
 import BaseModal from "@/components/BaseModal";
@@ -40,6 +41,9 @@ export default function UserDashboard() {
   const [compliancesList, setCompliancesList] = useState([]);
   const [howToGuidesList, setHowToGuidesList] = useState<any>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const showAllIssuesModal = searchParams?.get("view") === "all-issues";
+  const closeAllIssuesModal = () => router.push(AppRoutes.USER_DASHBOARD);
   // Create a placeholder component to wrap with the HOC
   const BlogContent = () => null;
 
@@ -83,6 +87,30 @@ export default function UserDashboard() {
     warningCount: 0,
     failedCount: 0,
   });
+  interface StatusIssue {
+    id: string;
+    title: string;
+    severity: 'critical' | 'warning' | 'info';
+    category: string;
+  }
+  interface StatusSnapshotState {
+    data: StatusIssue[];
+    allIssues: StatusIssue[];
+    loader: boolean;
+    critical: number;
+    warning: number;
+    info: number;
+    total: number;
+  }
+  const [statusSnapshot, setStatusSnapshot] = useState<StatusSnapshotState>({
+    data: [],
+    allIssues: [],
+    loader: false,
+    critical: 0,
+    warning: 0,
+    info: 0,
+    total: 0,
+  });
 
   useEffect(() => {
     initialInvoke();
@@ -120,6 +148,7 @@ export default function UserDashboard() {
     getProjectsLists();
     getUnmatchedTransactionsList();
     getSyncLogSummaryList();
+    getStatusSnapshotList();
     getFetchBankAccountsLists(AccountType.CASH_ACCOUNT);
     getFetchBankAccountsLists(AccountType.PROJECT_TRUST_ACCOUNT);
     getFetchBankAccountsLists(AccountType.RETENTION_TRUST_ACCOUNT);
@@ -306,6 +335,42 @@ export default function UserDashboard() {
         data: [],
         loader: false,
       });
+    }
+  }
+
+  async function getStatusSnapshotList() {
+    try {
+      const companyId = getCompanyIdFromStorage();
+      if (!companyId) return;
+      setStatusSnapshot((s) => ({ ...s, loader: true }));
+      const response = await GetAiStatusSnapshot(Number(companyId));
+      if (response) {
+        const severityRank: Record<string, number> = {
+          critical: 0,
+          warning: 1,
+          info: 2,
+        };
+        const allIssues: StatusIssue[] = (response?.categories ?? [])
+          .flatMap((c: any) => c?.issues ?? [])
+          .sort(
+            (a: StatusIssue, b: StatusIssue) =>
+              (severityRank[a.severity] ?? 99) -
+              (severityRank[b.severity] ?? 99),
+          );
+        setStatusSnapshot({
+          data: response?.topIssues ?? [],
+          allIssues,
+          loader: false,
+          critical: response?.summary?.critical ?? 0,
+          warning: response?.summary?.warning ?? 0,
+          info: response?.summary?.info ?? 0,
+          total: response?.summary?.total ?? 0,
+        });
+      } else {
+        setStatusSnapshot({ data: [], allIssues: [], loader: false, critical: 0, warning: 0, info: 0, total: 0 });
+      }
+    } catch (err: any) {
+      setStatusSnapshot({ data: [], allIssues: [], loader: false, critical: 0, warning: 0, info: 0, total: 0 });
     }
   }
 
@@ -624,6 +689,45 @@ export default function UserDashboard() {
 
       <div className="grid">
         <DashboardBox
+          title={"System status summary"}
+          boxButtonName={"View all issues"}
+          boxButtonLink={`${AppRoutes.USER_DASHBOARD}?view=all-issues`}
+          cardData={statusSnapshot.data ?? []}
+          boxTotalCount={statusSnapshot?.total || ""}
+          enableLoader={statusSnapshot?.loader}
+          enableWithOverLink
+          mappingKeys={{
+            leftMainContentOne: "title",
+            statusRightMainContentOne: "severity",
+            HeaderRightContent: "category",
+          }}
+          statusClassFn={(cardObj) => {
+            const sev = cardObj?.severity;
+            if (sev === "critical") return "invalid";
+            if (sev === "warning") return "warning-status";
+            return "valid";
+          }}
+          subHeaderContent={
+            statusSnapshot?.total > 0 ? (
+              <div style={{ display: "flex", gap: "12px", fontSize: "12px" }}>
+                <span style={{ color: "#e53935" }}>
+                  <i className="fa-solid fa-circle-xmark" style={{ marginRight: "4px" }}></i>
+                  {statusSnapshot.critical} Critical
+                </span>
+                <span style={{ color: "#ef6c00" }}>
+                  <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: "4px" }}></i>
+                  {statusSnapshot.warning} Warnings
+                </span>
+                <span style={{ color: "#1976d2" }}>
+                  <i className="fa-solid fa-circle-info" style={{ marginRight: "4px" }}></i>
+                  {statusSnapshot.info} Info
+                </span>
+              </div>
+            ) : null
+          }
+        />
+
+        <DashboardBox
           title={"Sync log summary"}
           boxButtonName={"View sync log"}
           boxButtonLink={AppRoutes.USER_XERO}
@@ -668,6 +772,58 @@ export default function UserDashboard() {
           }
         />
       </div>
+
+      {showAllIssuesModal && (
+        <BaseModal
+          modalId="all_issues"
+          displayModal={showAllIssuesModal}
+          onClose={closeAllIssuesModal}
+          title={`System status — all issues (${statusSnapshot.total})`}
+          firstButtonName="Close"
+          hideSecondButton
+        >
+          <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+            {statusSnapshot.loader && <p>Loading…</p>}
+            {!statusSnapshot.loader && statusSnapshot.allIssues.length === 0 && (
+              <p>You are up to date. Nice work.</p>
+            )}
+            {!statusSnapshot.loader && statusSnapshot.allIssues.length > 0 && (
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {statusSnapshot.allIssues.map((issue) => (
+                  <li
+                    key={issue.id}
+                    style={{
+                      padding: "10px 12px",
+                      borderBottom: "1px solid #eee",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{issue.title}</div>
+                      <div style={{ fontSize: "12px", color: "#666" }}>
+                        {issue.category}
+                      </div>
+                    </div>
+                    <b
+                      className={
+                        issue.severity === "critical"
+                          ? "invalid"
+                          : issue.severity === "warning"
+                            ? "warning-status"
+                            : "valid"
+                      }
+                    >
+                      {issue.severity}
+                    </b>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </BaseModal>
+      )}
 
       {decodeTokenData?.showPopup &&
         showProductGuide &&

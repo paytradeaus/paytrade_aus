@@ -338,3 +338,75 @@ export async function FetchIntegrationIssuesForDashboard(
     return null;
   }
 }
+
+export async function GetAiStatusSnapshot(
+  company_id: number,
+  force_refresh = false
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetAiStatusSnapshot($payload: GetAiStatusSnapshotInput!) {
+          getAiStatusSnapshot(payload: $payload) {
+            status
+            message
+            data {
+              companyId
+              generatedAt
+              summary {
+                critical
+                warning
+                info
+                total
+              }
+              categories {
+                category
+                totalFound
+                truncated
+                issues {
+                  id
+                  category
+                  severity
+                  title
+                  description
+                  affectedRecordType
+                  affectedRecordId
+                  projectId
+                  suggestedAction
+                  agentCanHelp
+                  requiresApproval
+                  detectedAt
+                }
+              }
+              topIssues {
+                id
+                category
+                severity
+                title
+                description
+                affectedRecordType
+                affectedRecordId
+                projectId
+                suggestedAction
+                agentCanHelp
+                requiresApproval
+                detectedAt
+              }
+            }
+          }
+        }
+      `,
+      variables: { payload: { company_id, force_refresh } },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getAiStatusSnapshot?.status === ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getAiStatusSnapshot?.data;
+    }
+    return null;
+  } catch (error: any) {
+    return null;
+  }
+}
