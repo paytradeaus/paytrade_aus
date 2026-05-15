@@ -693,7 +693,7 @@ export default function UserDashboard() {
           boxButtonName={"View all issues"}
           boxButtonLink={`${AppRoutes.USER_DASHBOARD}?view=all-issues`}
           cardData={statusSnapshot.data ?? []}
-          boxTotalCount={statusSnapshot?.total || ""}
+          boxTotalCount={statusSnapshot?.total || undefined}
           enableLoader={statusSnapshot?.loader}
           enableWithOverLink
           mappingKeys={{
