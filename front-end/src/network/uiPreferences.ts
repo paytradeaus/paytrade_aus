@@ -128,6 +128,109 @@ export async function recordAiLiveFollowContext(input: {
   }
 }
 
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  ts: string;
+  status?: string | null;
+}
+
+const AI_CHAT_FIELDS = `
+  id
+  role
+  content
+  ts
+  status
+`;
+
+export async function fetchAiChatHistory(): Promise<AiChatMessage[]> {
+  try {
+    const res = await client.query({
+      query: gql`
+        query GetAiChatHistory {
+          getAiChatHistory {
+            status
+            message
+            history { ${AI_CHAT_FIELDS} }
+          }
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    if (res?.data?.getAiChatHistory?.status === "SUCCESS") {
+      return res.data.getAiChatHistory.history || [];
+    }
+    return [];
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("fetchAiChatHistory failed:", err?.message || err);
+    return [];
+  }
+}
+
+export async function sendAiChatMessage(
+  message: string
+): Promise<{
+  status: string;
+  message?: string | null;
+  history: AiChatMessage[];
+  remainingQuota?: number | null;
+}> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation SendAiChatMessage($input: SendAiChatMessageInput!) {
+          sendAiChatMessage(input: $input) {
+            status
+            message
+            remainingQuota
+            history { ${AI_CHAT_FIELDS} }
+          }
+        }
+      `,
+      variables: { input: { message } },
+    });
+    const payload = res?.data?.sendAiChatMessage;
+    return {
+      status: payload?.status || "ERROR",
+      message: payload?.message,
+      history: payload?.history || [],
+      remainingQuota: payload?.remainingQuota,
+    };
+  } catch (err: any) {
+    return {
+      status: "ERROR",
+      message: err?.message || "Unable to send message",
+      history: [],
+    };
+  }
+}
+
+export async function clearAiChatHistory(): Promise<AiChatMessage[]> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation ClearAiChatHistory {
+          clearAiChatHistory {
+            status
+            message
+            history { ${AI_CHAT_FIELDS} }
+          }
+        }
+      `,
+    });
+    if (res?.data?.clearAiChatHistory?.status === "SUCCESS") {
+      return res.data.clearAiChatHistory.history || [];
+    }
+    return [];
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("clearAiChatHistory failed:", err?.message || err);
+    return [];
+  }
+}
+
 export async function fetchAiLiveFollowAudit(): Promise<
   Array<{
     user_id: number;

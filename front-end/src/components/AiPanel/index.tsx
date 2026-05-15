@@ -7,13 +7,45 @@ import {
   setAiPanelWidth,
 } from "@/redux/slices/uiPreferences";
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
-import { persistUiPreferences } from "@/network/uiPreferences";
+import {
+  AiChatMessage,
+  clearAiChatHistory,
+  fetchAiChatHistory,
+  persistUiPreferences,
+  sendAiChatMessage,
+} from "@/network/uiPreferences";
 import styles from "./aiPanel.module.css";
+
+const SUGGESTIONS: { label: string; prompt: string }[] = [
+  {
+    label: "Fix critical issues",
+    prompt: "What critical issues should I fix first in PayTrade today?",
+  },
+  {
+    label: "Review payments",
+    prompt: "Help me review payments that need attention.",
+  },
+  {
+    label: "Reconcile trusts",
+    prompt: "How do I reconcile my trust account in PayTrade?",
+  },
+  {
+    label: "Draft notices",
+    prompt: "Help me draft a payment schedule notice.",
+  },
+];
 
 export default function AiPanel() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((s: RootState) => s.uiPreferences.aiPanelState);
   const width = useAppSelector((s: RootState) => s.uiPreferences.aiPanelWidth);
+
+  const [messages, setMessages] = useState<AiChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Ref keeps latest width for the mouseup persist handler.
   const widthRef = useRef(width);
@@ -92,6 +124,68 @@ export default function AiPanel() {
     },
     [onMouseMove, onMouseUp]
   );
+
+  // Load chat history once when panel first opens.
+  useEffect(() => {
+    if (state !== "open" || historyLoaded) return;
+    let cancelled = false;
+    fetchAiChatHistory().then((h) => {
+      if (cancelled) return;
+      setMessages(h);
+      setHistoryLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state, historyLoaded]);
+
+  // Auto-scroll to bottom whenever messages change.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, sending]);
+
+  const submitMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || sending) return;
+      setErrorBanner(null);
+      setSending(true);
+
+      // Optimistic user message so it appears immediately.
+      const optimistic: AiChatMessage = {
+        id: `tmp-${Date.now()}`,
+        role: "user",
+        content: trimmed,
+        ts: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      setInput("");
+
+      const res = await sendAiChatMessage(trimmed);
+      if (res.history && res.history.length > 0) {
+        setMessages(res.history);
+      }
+      if (res.status !== "SUCCESS" && res.message) {
+        setErrorBanner(res.message);
+      }
+      setSending(false);
+    },
+    [sending]
+  );
+
+  const onComposerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitMessage(input);
+  };
+
+  const onClear = async () => {
+    if (sending) return;
+    setMessages([]);
+    setErrorBanner(null);
+    await clearAiChatHistory();
+  };
 
   // Mobile/tablet: use a floating action button + full-screen sheet
   // instead of the desktop rail/inline layouts. The rail state doesn't
@@ -172,6 +266,8 @@ export default function AiPanel() {
     persistUiPreferences({ aiPanelState: "hidden" });
   };
 
+  const showGreeting = messages.length === 0;
+
   return (
     <>
       {isMobile && (
@@ -203,6 +299,17 @@ export default function AiPanel() {
             AI Assistant<span className={styles.beta}>BETA</span>
           </h5>
           <div className={styles.headerActions}>
+            {messages.length > 0 && (
+              <button
+                type="button"
+                className={styles.iconBtn}
+                title="Clear chat"
+                aria-label="Clear chat history"
+                onClick={onClear}
+              >
+                <i className="fa-light fa-trash"></i>
+              </button>
+            )}
             {!isMobile && (
               <button
                 type="button"
@@ -229,90 +336,81 @@ export default function AiPanel() {
           </div>
         </div>
 
-      <div className={styles.body}>
-        <section
-          className={styles.section}
-          aria-label="System status placeholder"
-        >
-          <div className={styles.sectionTitle}>
-            <span>System Status</span>
-            <span style={{ fontWeight: 400, textTransform: "none" }}>
-              <small>Today</small>
-            </span>
-          </div>
-          <div className={styles.statusRow}>
-            <span className={styles.statusPill}>— Critical</span>
-            <span className={styles.statusPill}>— Warnings</span>
-            <span className={styles.statusPill}>— Info</span>
-          </div>
-        </section>
+        <div className={styles.body} ref={scrollRef}>
+          {showGreeting && (
+            <section className={styles.greeting} aria-label="AI greeting">
+              Hi! I&apos;m your Pay&nbsp;Trade assistant. Ask me anything about
+              BIF, QBCC, payment claims, retentions, or how to use PayTrade.
+              <div className={styles.suggestRow}>
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    type="button"
+                    key={s.label}
+                    className={styles.suggestChip}
+                    onClick={() => submitMessage(s.prompt)}
+                    disabled={sending}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-        <section
-          className={styles.section}
-          aria-label="Outstanding approvals placeholder"
-        >
-          <div className={styles.sectionTitle}>
-            <span>Outstanding Approvals</span>
-            <span className={styles.sectionTitleCount}>—</span>
-          </div>
-          <div className={styles.placeholderRow}>
-            <strong>No outstanding approvals</strong>
-            <span>Items awaiting your review will appear here.</span>
-          </div>
-        </section>
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`${styles.msg} ${
+                m.role === "user" ? styles.msgUser : styles.msgAi
+              }`}
+            >
+              <div className={styles.msgBubble}>{m.content}</div>
+            </div>
+          ))}
 
-        <section
-          className={styles.section}
-          aria-label="Uploads requested placeholder"
-        >
-          <div className={styles.sectionTitle}>
-            <span>Uploads Requested</span>
-            <span className={styles.sectionTitleCount}>—</span>
-          </div>
-          <div className={styles.placeholderRow}>
-            <strong>Nothing to upload right now</strong>
-            <span>Documents the AI needs from you will appear here.</span>
-          </div>
-        </section>
+          {sending && (
+            <div className={`${styles.msg} ${styles.msgAi}`}>
+              <div className={`${styles.msgBubble} ${styles.msgTyping}`}>
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+              </div>
+            </div>
+          )}
 
-        <section className={styles.greeting} aria-label="AI greeting">
-          Hi! I&apos;m your Pay&nbsp;Trade assistant. Once enabled, I&apos;ll
-          review your dashboard and surface what needs your attention. Chat
-          isn&apos;t connected yet — this panel is currently a preview.
-          <div className={styles.suggestRow}>
-            <span className={styles.suggestChip}>Fix critical issues</span>
-            <span className={styles.suggestChip}>Review payments</span>
-            <span className={styles.suggestChip}>Reconcile trusts</span>
-            <span className={styles.suggestChip}>Draft notices</span>
-          </div>
-        </section>
-      </div>
-
-      <div className={styles.composer}>
-        <div className={styles.composerRow}>
-          <input
-            className={styles.composerInput}
-            placeholder="Ask me anything about Pay Trade…"
-            disabled
-            aria-disabled="true"
-            aria-label="AI assistant message (disabled — coming soon)"
-          />
-          <button
-            type="button"
-            className={styles.sendBtn}
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-            aria-label="Send (coming soon)"
-          >
-            <i className="fa-light fa-arrow-up"></i>
-          </button>
+          {errorBanner && (
+            <div className={styles.errorBanner} role="alert">
+              {errorBanner}
+            </div>
+          )}
         </div>
-        <div className={styles.composerFoot}>
-          <span>AI is ready — pilot</span>
-          <span>GPT-4o</span>
-        </div>
-      </div>
+
+        <form className={styles.composer} onSubmit={onComposerSubmit}>
+          <div className={styles.composerRow}>
+            <input
+              className={styles.composerInput}
+              placeholder="Ask me anything about Pay Trade…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={sending}
+              aria-label="AI assistant message"
+              maxLength={500}
+            />
+            <button
+              type="submit"
+              className={styles.sendBtn}
+              disabled={sending || !input.trim()}
+              title="Send"
+              aria-label="Send message"
+            >
+              <i className="fa-light fa-arrow-up"></i>
+            </button>
+          </div>
+          <div className={styles.composerFoot}>
+            <span>{sending ? "Thinking…" : "AI is ready — pilot"}</span>
+            <span>GPT-4o</span>
+          </div>
+        </form>
       </aside>
     </>
   );

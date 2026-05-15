@@ -1420,6 +1420,34 @@ type AiAnswerResponse {
   suggestions: [String!]
 }
 
+"""A single message in the AI assistant chat thread."""
+type AiChatMessage {
+  """Message text."""
+  content: String!
+
+  """Stable id for the message (uuid)."""
+  id: String!
+
+  """"user" or "assistant"."""
+  role: String!
+
+  """
+  For assistant messages: optional status (e.g. SUCCESS, OFF_TOPIC, RATE_LIMITED, ERROR).
+  """
+  status: String
+
+  """ISO-8601 UTC timestamp."""
+  ts: String!
+}
+
+"""Standard wrapper for AI chat responses."""
+type AiChatResponse {
+  history: [AiChatMessage!]
+  message: String
+  remainingQuota: Int
+  status: String!
+}
+
 """Standard response wrapper for the admin AI live-follow audit listing."""
 type AiLiveFollowAuditResponse {
   data: [AiLiveFollowAuditRow!]
@@ -9503,6 +9531,24 @@ input GetActivityLogInput {
   user_id: Float
 }
 
+"""Input for fetching the deterministic AI status snapshot."""
+input GetAiStatusSnapshotInput {
+  """Company id (business profile) to scope the snapshot."""
+  company_id: Int!
+
+  """
+  Optional: bypass the cache (e.g. after a known mutation). Defaults to false.
+  """
+  force_refresh: Boolean
+}
+
+"""GraphQL response wrapper for the AI status snapshot."""
+type GetAiStatusSnapshotResponse {
+  data: StatusSnapshotGql
+  message: String
+  status: String!
+}
+
 """Input payload for fetching audit reports with filters and pagination."""
 input GetAllAuditReportInput {
   """Type of bank account."""
@@ -14352,6 +14398,9 @@ type Mutation {
   """
   cleanupPhantomXeroBankAccounts: StringResponse!
 
+  """Clear the persisted AI chat history for the current user."""
+  clearAiChatHistory: AiChatResponse!
+
   """
   Completes a draft bank account with the required missing fields and activates it.
   """
@@ -15415,6 +15464,11 @@ type Mutation {
     """The id of the Failed retention-transfer sync log to retry."""
     sync_log_id: String!
   ): GetXeroPaymentsResponse!
+
+  """
+  Send a message to the AI assistant and persist the exchange to the user history.
+  """
+  sendAiChatMessage(input: SendAiChatMessageInput!): AiChatResponse!
 
   """Sends a system email to specified clients."""
   sendSystemEmailToTheClients(
@@ -18118,6 +18172,14 @@ type Query {
     Id: String!
   ): PTAdminGroupResponse!
 
+  """Return the persisted AI assistant chat history for the current user."""
+  getAiChatHistory: AiChatResponse!
+
+  """
+  Returns a deterministic snapshot of issues across compliance, notices, reconciliation, payments, contracts, claims, contacts and Xero sync for the requested company. No LLM involvement; cached briefly per company.
+  """
+  getAiStatusSnapshot(payload: GetAiStatusSnapshotInput!): GetAiStatusSnapshotResponse!
+
   """
   Fetch all audit reports based on filter criteria for the given bank accounts.
   """
@@ -19516,6 +19578,11 @@ type SearchTicket {
   id: String!
 }
 
+input SendAiChatMessageInput {
+  """User message to send to the AI assistant."""
+  message: String!
+}
+
 """Input for sending a system email"""
 input SendSystemEmailInput {
   """List of attachment IDs associated with the email"""
@@ -19853,6 +19920,53 @@ type StatementResponse {
 
   """Statement field value."""
   value: String!
+}
+
+"""A single deterministic status issue."""
+type StatusIssueGql {
+  affectedRecordId: String
+  affectedRecordType: String!
+  agentCanHelp: Boolean!
+
+  """Issue category."""
+  category: String!
+  description: String!
+  detectedAt: String!
+
+  """Stable id `<category>:<record_type>:<id>:<check>`."""
+  id: String!
+  projectId: Int
+  requiresApproval: Boolean!
+
+  """critical | warning | info"""
+  severity: String!
+  suggestedAction: String!
+  title: String!
+}
+
+"""Per-category block of issues."""
+type StatusSnapshotCategoryBlockGql {
+  category: String!
+  issues: [StatusIssueGql!]!
+  totalFound: Int!
+  truncated: Boolean!
+}
+
+"""Deterministic AI status snapshot for a company."""
+type StatusSnapshotGql {
+  categories: [StatusSnapshotCategoryBlockGql!]!
+  companyId: Int!
+  generatedAt: String!
+  summary: StatusSnapshotSummaryGql!
+  topIssues: [StatusIssueGql!]!
+}
+
+"""Severity counters across the snapshot."""
+type StatusSnapshotSummaryGql {
+  critical: Int!
+  info: Int!
+  total: Int!
+  warning: Int!
 }
 
 """

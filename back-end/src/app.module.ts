@@ -106,6 +106,7 @@ import { KeepAliveModule } from './libs/@keep-alive/keep-alive.module';
 import { SeoKeywordsModule } from './api/admin/seo-keywords/seo-keywords.module';
 import { CommunityBotModule } from './api/common/community-bot/community-bot.module';
 import { AiSupportModule } from './api/common/ai-support/ai-support.module';
+import { AiChatModule } from './api/common/ai-chat/ai-chat.module';
 import { AiToolsModule } from './api/common/ai-tools/ai-tools.module';
 import { AdminMenuSeederModule } from './libs/@seeders/admin-menu-seeder.module';
 import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module';
@@ -339,6 +340,7 @@ import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-nee
     SeoKeywordsModule,
     CommunityBotModule,
     AiSupportModule,
+    AiChatModule,
     AiToolsModule,
     AdminMenuSeederModule,
     ComplianceSeederModule,
