@@ -696,6 +696,10 @@ dialog.full-screen-popup > article.full-screen-popup {
   margin: 0 !important;
   display: flex !important;
   flex-direction: column !important;
+  /* Match the lightish-blue page background used elsewhere in the app
+     (e.g. the integrations dashboard) so the dialog feels like part of
+     the system rather than a stark white sheet floating over it. */
+  background-color: var(--wind-light) !important;
 }
 dialog.full-screen-popup > article.full-screen-popup > header,
 dialog.full-screen-popup > article.full-screen-popup > footer {
