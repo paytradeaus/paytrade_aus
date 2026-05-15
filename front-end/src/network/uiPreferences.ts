@@ -189,15 +189,35 @@ export async function fetchAiChatHistory(): Promise<AiChatMessage[]> {
   }
 }
 
+export interface AiChatThreadSummary {
+  id: string;
+  title: string;
+  messageCount: number;
+  lastMessageAt?: string | null;
+  createdAt: string;
+}
+
+const AI_CHAT_THREAD_FIELDS = `
+  id
+  title
+  messageCount
+  lastMessageAt
+  createdAt
+`;
+
 export async function sendAiChatMessage(
   message: string,
-  pageContext?: AiChatPageContext
+  options?: { threadId?: string | null; pageContext?: AiChatPageContext }
 ): Promise<{
   status: string;
   message?: string | null;
+  threadId?: string | null;
+  threadTitle?: string | null;
   history: AiChatMessage[];
   remainingQuota?: number | null;
 }> {
+  const threadId = options?.threadId;
+  const pageContext = options?.pageContext;
   try {
     const res = await client.mutate({
       mutation: gql`
@@ -206,16 +226,26 @@ export async function sendAiChatMessage(
             status
             message
             remainingQuota
+            threadId
+            threadTitle
             history { ${AI_CHAT_FIELDS} }
           }
         }
       `,
-      variables: { input: { message, pageContext: pageContext || null } },
+      variables: {
+        input: {
+          message,
+          threadId: threadId || undefined,
+          pageContext: pageContext || null,
+        },
+      },
     });
     const payload = res?.data?.sendAiChatMessage;
     return {
       status: payload?.status || "ERROR",
       message: payload?.message,
+      threadId: payload?.threadId,
+      threadTitle: payload?.threadTitle,
       history: payload?.history || [],
       remainingQuota: payload?.remainingQuota,
     };
@@ -233,6 +263,8 @@ export interface StreamAiChatCallbacks {
   onDone: (result: {
     status: string;
     message?: string | null;
+    threadId?: string | null;
+    threadTitle?: string | null;
     history: AiChatMessage[];
     remainingQuota?: number | null;
   }) => void;
@@ -241,9 +273,23 @@ export interface StreamAiChatCallbacks {
 
 export async function streamAiChatMessage(
   message: string,
-  pageContext: AiChatPageContext | undefined,
-  cb: StreamAiChatCallbacks,
+  cbOrOptions:
+    | StreamAiChatCallbacks
+    | {
+        threadId?: string;
+        pageContext?: AiChatPageContext;
+        onDelta: any;
+        onDone: any;
+        onError: any;
+      }
 ): Promise<void> {
+  const cb: StreamAiChatCallbacks =
+    typeof (cbOrOptions as any).onDelta === "function"
+      ? (cbOrOptions as StreamAiChatCallbacks)
+      : (cbOrOptions as any);
+  const threadId = (cbOrOptions as any).threadId;
+  const pageContext = (cbOrOptions as any).pageContext;
+
   let token = "";
   if (typeof window !== "undefined") {
     token = localStorage.getItem("accessToken") || "";
@@ -256,7 +302,7 @@ export async function streamAiChatMessage(
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message, pageContext }),
+      body: JSON.stringify({ message, threadId, pageContext }),
     });
   } catch (err: any) {
     cb.onError(err?.message || "Unable to send message");
@@ -287,6 +333,8 @@ export async function streamAiChatMessage(
       cb.onDone({
         status: data?.status || "ERROR",
         message: data?.message || null,
+        threadId: data?.threadId || null,
+        threadTitle: data?.threadTitle || null,
         history: Array.isArray(data?.history) ? data.history : [],
         remainingQuota:
           typeof data?.remainingQuota === "number" ? data.remainingQuota : null,
@@ -329,6 +377,136 @@ export async function streamAiChatMessage(
     }
   } catch (err: any) {
     cb.onError(err?.message || "Stream interrupted");
+  }
+}
+export async function listAiChatThreads(): Promise<AiChatThreadSummary[]> {
+  try {
+    const res = await client.query({
+      query: gql`
+        query ListAiChatThreads {
+          listAiChatThreads {
+            status
+            message
+            threads { ${AI_CHAT_THREAD_FIELDS} }
+          }
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    if (res?.data?.listAiChatThreads?.status === "SUCCESS") {
+      return res.data.listAiChatThreads.threads || [];
+    }
+    return [];
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("listAiChatThreads failed:", err?.message || err);
+    return [];
+  }
+}
+
+export async function getAiChatThread(
+  threadId: string
+): Promise<{ threadId: string; threadTitle: string; history: AiChatMessage[] } | null> {
+  try {
+    const res = await client.query({
+      query: gql`
+        query GetAiChatThread($threadId: ID!) {
+          getAiChatThread(threadId: $threadId) {
+            status
+            message
+            threadId
+            threadTitle
+            history { ${AI_CHAT_FIELDS} }
+          }
+        }
+      `,
+      variables: { threadId },
+      fetchPolicy: "no-cache",
+    });
+    const payload = res?.data?.getAiChatThread;
+    if (payload?.status === "SUCCESS") {
+      return {
+        threadId: payload.threadId,
+        threadTitle: payload.threadTitle || "New chat",
+        history: payload.history || [],
+      };
+    }
+    return null;
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("getAiChatThread failed:", err?.message || err);
+    return null;
+  }
+}
+
+export async function createAiChatThread(): Promise<AiChatThreadSummary | null> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation CreateAiChatThread {
+          createAiChatThread {
+            status
+            message
+            thread { ${AI_CHAT_THREAD_FIELDS} }
+          }
+        }
+      `,
+    });
+    const payload = res?.data?.createAiChatThread;
+    if (payload?.status === "SUCCESS") return payload.thread || null;
+    return null;
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("createAiChatThread failed:", err?.message || err);
+    return null;
+  }
+}
+
+export async function renameAiChatThread(
+  threadId: string,
+  title: string
+): Promise<AiChatThreadSummary | null> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation RenameAiChatThread($input: RenameAiChatThreadInput!) {
+          renameAiChatThread(input: $input) {
+            status
+            message
+            thread { ${AI_CHAT_THREAD_FIELDS} }
+          }
+        }
+      `,
+      variables: { input: { threadId, title } },
+    });
+    const payload = res?.data?.renameAiChatThread;
+    if (payload?.status === "SUCCESS") return payload.thread || null;
+    return null;
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("renameAiChatThread failed:", err?.message || err);
+    return null;
+  }
+}
+
+export async function deleteAiChatThread(threadId: string): Promise<boolean> {
+  try {
+    const res = await client.mutate({
+      mutation: gql`
+        mutation DeleteAiChatThread($input: ThreadIdInput!) {
+          deleteAiChatThread(input: $input) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { input: { threadId } },
+    });
+    return res?.data?.deleteAiChatThread?.status === "SUCCESS";
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.warn("deleteAiChatThread failed:", err?.message || err);
+    return false;
   }
 }
 

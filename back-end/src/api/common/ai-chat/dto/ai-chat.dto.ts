@@ -1,4 +1,4 @@
-import { Field, Int, InputType } from '@nestjs/graphql';
+import { Field, ID, Int, InputType } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 
 @InputType({
@@ -50,9 +50,31 @@ export class SendAiChatMessageInput {
   @Field({ description: 'User message to send to the AI assistant.' })
   message: string;
 
+  @Field(() => ID, {
+    nullable: true,
+    description:
+      'Thread to append the message to. If omitted, a new thread is created and titled from the first message.',
+  })
+  threadId?: string;
+
   @Field(() => AiChatPageContextInput, {
     nullable: true,
     description: 'Optional structured page-context hint for the assistant.',
   })
   pageContext?: AiChatPageContextInput;
+}
+
+@InputType()
+export class RenameAiChatThreadInput {
+  @Field(() => ID)
+  threadId: string;
+
+  @Field({ description: 'New title (max 200 chars). Empty resets to "New chat".' })
+  title: string;
+}
+
+@InputType()
+export class ThreadIdInput {
+  @Field(() => ID)
+  threadId: string;
 }

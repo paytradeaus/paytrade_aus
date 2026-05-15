@@ -13,9 +13,16 @@ import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import {
   AiChatMessage,
   AiChatPageContext,
+  AiChatThreadSummary,
   clearAiChatHistory,
+  createAiChatThread,
+  deleteAiChatThread,
   fetchAiChatHistory,
+  getAiChatThread,
+  listAiChatThreads,
   persistUiPreferences,
+  renameAiChatThread,
+  sendAiChatMessage,
   streamAiChatMessage,
 } from "@/network/uiPreferences";
 import { AppRoutes } from "@/shared/constant/appRoutes";
@@ -127,6 +134,24 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   },
 ];
 
+function formatThreadDate(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function AiPanel() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((s: RootState) => s.uiPreferences.aiPanelState);
@@ -140,12 +165,18 @@ export default function AiPanel() {
   const showFollowingBadge =
     liveFollowEnabled && !!liveFollowPageLabel && liveFollowPageLabel.length > 0;
 
+  const [threads, setThreads] = useState<AiChatThreadSummary[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [activeThreadTitle, setActiveThreadTitle] = useState<string>("New chat");
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [showThreadList, setShowThreadList] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Ref keeps latest width for the mouseup persist handler.
@@ -154,9 +185,7 @@ export default function AiPanel() {
     widthRef.current = width;
   }, [width]);
 
-  // Detect small screens so we can swap the desktop three-column UX for
-  // a floating button + full-screen sheet. The breakpoint matches the
-  // CSS media query that hides the inline panel.
+  // Detect small screens for mobile sheet swap.
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -167,7 +196,6 @@ export default function AiPanel() {
       mq.addEventListener("change", update);
       return () => mq.removeEventListener("change", update);
     }
-    // Safari < 14 fallback
     mq.addListener(update);
     return () => mq.removeListener(update);
   }, []);
@@ -226,19 +254,49 @@ export default function AiPanel() {
     [onMouseMove, onMouseUp]
   );
 
-  // Load chat history once when panel first opens.
+  const refreshThreadList = useCallback(async () => {
+    const ts = await listAiChatThreads();
+    setThreads(ts);
+    return ts;
+  }, []);
+
+  const openThread = useCallback(async (threadId: string) => {
+    setMessages([]);
+    setErrorBanner(null);
+    const data = await getAiChatThread(threadId);
+    if (data) {
+      setActiveThreadId(data.threadId);
+      setActiveThreadTitle(data.threadTitle);
+      setMessages(data.history);
+    }
+    setShowThreadList(false);
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    setActiveThreadId(null);
+    setActiveThreadTitle("New chat");
+    setMessages([]);
+    setErrorBanner(null);
+    setShowThreadList(false);
+    setInput("");
+  }, []);
+
+  // Load threads + most-recent thread on first open.
   useEffect(() => {
     if (state !== "open" || historyLoaded) return;
     let cancelled = false;
-    fetchAiChatHistory().then((h) => {
+    (async () => {
+      const ts = await refreshThreadList();
       if (cancelled) return;
-      setMessages(h);
-      setHistoryLoaded(true);
-    });
+      if (ts.length > 0) {
+        await openThread(ts[0].id);
+      }
+      if (!cancelled) setHistoryLoaded(true);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [state, historyLoaded]);
+  }, [state, historyLoaded, refreshThreadList, openThread]);
 
   // Auto-scroll to bottom whenever messages change.
   useEffect(() => {
@@ -295,17 +353,24 @@ export default function AiPanel() {
       setMessages((prev) => [...prev, optimistic]);
       setInput("");
 
-      await streamAiChatMessage(trimmed, pageContext, {
+      await streamAiChatMessage(trimmed, {
+        threadId: activeThreadId || undefined,
+        pageContext,
         onDelta: (chunk) => {
           setStreamingText((prev) => prev + chunk);
         },
-        onDone: (res) => {
+        onDone: (res: any) => {
           if (res.history && res.history.length > 0) {
             setMessages(res.history);
+          }
+          if (res.threadId) {
+            setActiveThreadId(res.threadId);
+            if (res.threadTitle) setActiveThreadTitle(res.threadTitle);
           }
           if (res.status !== "SUCCESS" && res.message) {
             setErrorBanner(res.message);
           }
+          refreshThreadList();
           setStreamingText("");
           setSending(false);
         },
@@ -316,7 +381,7 @@ export default function AiPanel() {
         },
       });
     },
-    [sending, buildPageContext]
+    [sending, activeThreadId, refreshThreadList, buildPageContext]
   );
 
   const onComposerSubmit = (e: React.FormEvent) => {
@@ -324,16 +389,42 @@ export default function AiPanel() {
     submitMessage(input);
   };
 
-  const onClear = async () => {
+  const onDeleteThread = async (threadId: string) => {
     if (sending) return;
-    setMessages([]);
-    setErrorBanner(null);
-    await clearAiChatHistory();
+    if (!window.confirm("Delete this conversation? This cannot be undone.")) return;
+    const ok = await deleteAiChatThread(threadId);
+    if (!ok) return;
+    const remaining = await refreshThreadList();
+    if (activeThreadId === threadId) {
+      if (remaining.length > 0) {
+        await openThread(remaining[0].id);
+      } else {
+        startNewChat();
+      }
+    }
   };
 
-  // Mobile/tablet: use a floating action button + full-screen sheet
-  // instead of the desktop rail/inline layouts. The rail state doesn't
-  // make sense on a phone, so we collapse it into "show the FAB".
+  const beginRename = (t: AiChatThreadSummary) => {
+    setRenamingId(t.id);
+    setRenameDraft(t.title);
+  };
+
+  const commitRename = async () => {
+    if (!renamingId) return;
+    const id = renamingId;
+    const title = renameDraft.trim();
+    setRenamingId(null);
+    if (!title) return;
+    const updated = await renameAiChatThread(id, title);
+    if (updated) {
+      setThreads((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t))
+      );
+      if (activeThreadId === id) setActiveThreadTitle(updated.title);
+    }
+  };
+
+  // Mobile/tablet: floating button + full-screen sheet.
   if (isMobile) {
     if (state !== "open") {
       return (
@@ -439,21 +530,31 @@ export default function AiPanel() {
         />
 
         <div className={styles.header}>
-          <h5>
-            AI Assistant<span className={styles.beta}>BETA</span>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            title={showThreadList ? "Hide chat list" : "Show chat list"}
+            aria-label={showThreadList ? "Hide chat list" : "Show chat list"}
+            aria-pressed={showThreadList}
+            onClick={() => setShowThreadList((v) => !v)}
+          >
+            <i className="fa-light fa-bars"></i>
+          </button>
+          <h5 className={styles.headerTitle} title={activeThreadTitle}>
+            {activeThreadTitle || "AI Assistant"}
+            <span className={styles.beta}>BETA</span>
           </h5>
           <div className={styles.headerActions}>
-            {messages.length > 0 && (
-              <button
-                type="button"
-                className={styles.iconBtn}
-                title="Clear chat"
-                aria-label="Clear chat history"
-                onClick={onClear}
-              >
-                <i className="fa-light fa-trash"></i>
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.iconBtn}
+              title="New chat"
+              aria-label="Start a new chat"
+              onClick={startNewChat}
+              disabled={sending}
+            >
+              <i className="fa-light fa-pen-to-square"></i>
+            </button>
             {!isMobile && (
               <button
                 type="button"
@@ -492,6 +593,97 @@ export default function AiPanel() {
               Following: {liveFollowPageLabel}
             </span>
           </Link>
+        )}
+
+        {showThreadList && (
+          <div className={styles.threadList} aria-label="Chat list">
+            <div className={styles.threadListHeader}>
+              <span>Your chats</span>
+              <button
+                type="button"
+                className={styles.newChatBtn}
+                onClick={async () => {
+                  startNewChat();
+                  // Optionally pre-create an empty thread so it shows in the list
+                  const t = await createAiChatThread();
+                  if (t) {
+                    setActiveThreadId(t.id);
+                    setActiveThreadTitle(t.title);
+                    refreshThreadList();
+                  }
+                }}
+                disabled={sending}
+              >
+                <i className="fa-light fa-plus"></i> New chat
+              </button>
+            </div>
+            {threads.length === 0 && (
+              <div className={styles.threadEmpty}>
+                No conversations yet. Ask a question to start one.
+              </div>
+            )}
+            {threads.map((t) => {
+              const isActive = t.id === activeThreadId;
+              const isRenaming = renamingId === t.id;
+              return (
+                <div
+                  key={t.id}
+                  className={`${styles.threadItem} ${
+                    isActive ? styles.threadItemActive : ""
+                  }`}
+                >
+                  {isRenaming ? (
+                    <input
+                      autoFocus
+                      className={styles.threadRenameInput}
+                      value={renameDraft}
+                      maxLength={200}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.threadItemBtn}
+                      onClick={() => openThread(t.id)}
+                      title={t.title}
+                    >
+                      <span className={styles.threadTitle}>{t.title}</span>
+                      <span className={styles.threadMeta}>
+                        {formatThreadDate(t.lastMessageAt || t.createdAt)}
+                      </span>
+                    </button>
+                  )}
+                  {!isRenaming && (
+                    <div className={styles.threadActions}>
+                      <button
+                        type="button"
+                        className={styles.threadActionBtn}
+                        title="Rename"
+                        aria-label="Rename conversation"
+                        onClick={() => beginRename(t)}
+                      >
+                        <i className="fa-light fa-pen"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.threadActionBtn}
+                        title="Delete"
+                        aria-label="Delete conversation"
+                        onClick={() => onDeleteThread(t.id)}
+                      >
+                        <i className="fa-light fa-trash"></i>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
 
         <div className={styles.body} ref={scrollRef}>

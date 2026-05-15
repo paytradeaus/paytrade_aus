@@ -453,3 +453,148 @@
     cursor: pointer;
   }
 }
+
+/* ---------------------------------------------------------------- */
+/* Thread list (added for Task #176 — multiple chat threads)         */
+/* ---------------------------------------------------------------- */
+
+.headerTitle {
+  margin: 0;
+  font-size: var(--step-0);
+  color: var(--ocean);
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadList {
+  border-bottom: 1px solid var(--shade-light);
+  background: var(--pico-card-background-color, var(--wind-lightest));
+  max-height: 45vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.threadListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2xs) var(--space-s);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--cave-lighter);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--shade-light);
+}
+
+.newChatBtn {
+  background: var(--ocean);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: var(--step--1);
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.newChatBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.threadEmpty {
+  padding: var(--space-s);
+  font-size: var(--step--1);
+  color: var(--cave-lighter);
+  text-align: center;
+}
+
+.threadItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px var(--space-s);
+  border-bottom: 1px solid var(--shade-light);
+}
+
+.threadItem:hover {
+  background: var(--shade-light);
+}
+
+.threadItemActive {
+  background: var(--wind-lighter);
+}
+
+.threadItemBtn {
+  flex: 1 1 auto;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.threadTitle {
+  font-size: var(--step--1);
+  color: var(--cave);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadMeta {
+  font-size: var(--step--2);
+  color: var(--cave-lighter);
+}
+
+.threadActions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.threadItem:hover .threadActions,
+.threadItemActive .threadActions {
+  opacity: 1;
+}
+
+.threadActionBtn {
+  background: transparent;
+  border: none;
+  color: var(--cave-lighter);
+  padding: 4px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.threadActionBtn:hover {
+  background: var(--shade-light);
+  color: var(--cave);
+}
+
+.threadRenameInput {
+  flex: 1 1 auto;
+  font-size: var(--step--1);
+  padding: 4px 6px;
+  border: 1px solid var(--shade-light);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--cave);
+  min-width: 0;
+}

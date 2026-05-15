@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomUUID } from 'crypto';
 import { UserDetails } from 'src/entities/user-details.entity';
+import { AiChatThread } from 'src/entities/ai-chat-thread.entity';
+import { AiChatMessage } from 'src/entities/ai-chat-message.entity';
 import { AiSupportService } from '../ai-support/ai-support.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
-const MAX_HISTORY = 50;
+const MESSAGE_INPUT_MAX = 500;
+const TITLE_MAX = 200;
 
 export interface ChatPageContext {
   route?: string;
@@ -17,13 +19,21 @@ export interface ChatPageContext {
   companyId?: number;
 }
 
-interface StoredMessage {
+interface ChatMessageDto {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   ts: string;
   status?: string;
   pageContext?: ChatPageContext;
+}
+
+interface ChatThreadSummaryDto {
+  id: string;
+  title: string;
+  messageCount: number;
+  lastMessageAt?: string;
+  createdAt: string;
 }
 
 @Injectable()
@@ -33,13 +43,27 @@ export class AiChatService {
   constructor(
     @InjectRepository(UserDetails)
     private readonly userDetails: Repository<UserDetails>,
+    @InjectRepository(AiChatThread)
+    private readonly threads: Repository<AiChatThread>,
+    @InjectRepository(AiChatMessage)
+    private readonly messages: Repository<AiChatMessage>,
     private readonly aiSupportService: AiSupportService,
   ) {}
 
-  private async loadUser(userId: number): Promise<UserDetails> {
-    const user = await this.userDetails.findOne({ where: { user_id: userId } });
-    if (!user) throw new Error('User not found');
-    return user;
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  private toMessageDto(m: AiChatMessage): ChatMessageDto {
+    return {
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      ts: (m.created_on instanceof Date ? m.created_on : new Date(m.created_on))
+        .toISOString(),
+      status: m.status || undefined,
+      pageContext: this.sanitisePageContext(m.page_context as ChatPageContext | undefined),
+    };
   }
 
   private sanitisePageContext(
@@ -75,28 +99,107 @@ export class AiChatService {
     return Object.keys(out).length ? out : undefined;
   }
 
-  private readHistory(user: UserDetails): StoredMessage[] {
-    const prefs: Record<string, any> = user.ui_preferences || {};
-    const raw = Array.isArray(prefs.aiChat) ? prefs.aiChat : [];
-    return raw
-      .filter(
-        (m: any) =>
-          m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'assistant'),
-      )
-      .map((m: any) => ({
-        id: typeof m.id === 'string' ? m.id : randomUUID(),
-        role: m.role,
-        content: m.content,
-        ts: typeof m.ts === 'string' ? m.ts : new Date().toISOString(),
-        status: typeof m.status === 'string' ? m.status : undefined,
-        pageContext: this.sanitisePageContext(m.pageContext),
-      }));
+  private toThreadSummary(t: AiChatThread): ChatThreadSummaryDto {
+    return {
+      id: t.id,
+      title: t.title,
+      messageCount: t.message_count,
+      lastMessageAt: t.last_message_at
+        ? (t.last_message_at instanceof Date
+            ? t.last_message_at
+            : new Date(t.last_message_at)
+          ).toISOString()
+        : undefined,
+      createdAt: (t.created_on instanceof Date
+        ? t.created_on
+        : new Date(t.created_on)
+      ).toISOString(),
+    };
   }
 
-  private async writeHistory(user: UserDetails, history: StoredMessage[]) {
-    const trimmed = history.slice(-MAX_HISTORY);
+  /** Derive a short title from the user's first message. */
+  private deriveTitle(rawText: string): string {
+    const cleaned = (rawText || '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) return 'New chat';
+    const firstSentence = cleaned.split(/(?<=[.?!])\s/)[0] || cleaned;
+    const candidate = firstSentence.length > 60
+      ? `${firstSentence.slice(0, 57).trimEnd()}…`
+      : firstSentence;
+    return candidate.slice(0, TITLE_MAX);
+  }
+
+  /** Look up a thread + verify it belongs to the requesting user. */
+  private async loadOwnedThread(
+    userId: number,
+    threadId: string,
+  ): Promise<AiChatThread | null> {
+    if (!threadId) return null;
+    const thread = await this.threads.findOne({ where: { id: threadId } });
+    if (!thread || thread.user_id !== userId) return null;
+    return thread;
+  }
+
+  /**
+   * One-time lazy migration of the legacy single-bucket `ui_preferences.aiChat`
+   * history into a dedicated thread, so existing users don't appear to lose
+   * their conversation when threads ship.
+   */
+  private async migrateLegacyHistoryIfNeeded(userId: number): Promise<void> {
+    const existing = await this.threads.count({ where: { user_id: userId } });
+    if (existing > 0) return;
+
+    const user = await this.userDetails.findOne({ where: { user_id: userId } });
+    if (!user) return;
+    const prefs: Record<string, any> = user.ui_preferences || {};
+    const raw = Array.isArray(prefs.aiChat) ? prefs.aiChat : [];
+    const valid = raw.filter(
+      (m: any) =>
+        m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'assistant'),
+    );
+    if (valid.length === 0) return;
+
+    const firstUser = valid.find((m: any) => m.role === 'user');
+    const title = this.deriveTitle(firstUser?.content || 'Previous chat');
+
+    const thread = await this.threads.save(
+      this.threads.create({
+        user_id: userId,
+        company_id: null,
+        title,
+        message_count: valid.length,
+      }),
+    );
+
+    let lastTs: Date | null = null;
+    for (const m of valid) {
+      let ts: Date;
+      if (typeof m.ts === 'string' && m.ts) {
+        const parsed = new Date(m.ts);
+        ts = isNaN(parsed.getTime()) ? new Date() : parsed;
+      } else {
+        ts = new Date();
+      }
+      const saved = await this.messages.save(
+        this.messages.create({
+          thread_id: thread.id,
+          role: m.role,
+          content: String(m.content),
+          status: typeof m.status === 'string' ? m.status : null,
+          page_context: this.sanitisePageContext(m.pageContext) || null,
+        }),
+      );
+      // Preserve original timestamp ordering for display.
+      const updateData: Partial<AiChatMessage> = { created_on: ts };
+      await this.messages.update({ id: saved.id }, updateData);
+      lastTs = ts;
+    }
+    if (lastTs) {
+      await this.threads.update({ id: thread.id }, { last_message_at: lastTs });
+    }
+
+    // Clear the legacy bucket so we don't migrate twice on the next call.
     const merged: Record<string, any> = { ...(user.ui_preferences || {}) };
-    merged.aiChat = trimmed;
+    delete merged.aiChat;
     user.ui_preferences = merged;
     user.updated_by = user.user_id;
     user.updated_on = new Date();
@@ -104,26 +207,85 @@ export class AiChatService {
     await this.userDetails.save(user);
   }
 
-  async getHistory(userId: number): Promise<StoredMessage[]> {
-    const user = await this.loadUser(userId);
-    return this.readHistory(user);
+  // ---------------------------------------------------------------------------
+  // Thread operations
+  // ---------------------------------------------------------------------------
+
+  async listThreads(userId: number): Promise<ChatThreadSummaryDto[]> {
+    await this.migrateLegacyHistoryIfNeeded(userId);
+    const rows = await this.threads.find({
+      where: { user_id: userId },
+      order: { last_message_at: 'DESC', created_on: 'DESC' },
+      take: 100,
+    });
+    return rows.map((r) => this.toThreadSummary(r));
   }
 
-  async clearHistory(userId: number): Promise<StoredMessage[]> {
-    const user = await this.loadUser(userId);
-    await this.writeHistory(user, []);
-    return [];
+  async createThread(userId: number, title?: string): Promise<ChatThreadSummaryDto> {
+    const cleaned = (title || '').trim().slice(0, TITLE_MAX);
+    const t = await this.threads.save(
+      this.threads.create({
+        user_id: userId,
+        company_id: null,
+        title: cleaned || 'New chat',
+        message_count: 0,
+      }),
+    );
+    return this.toThreadSummary(t);
   }
+
+  async renameThread(
+    userId: number,
+    threadId: string,
+    title: string,
+  ): Promise<ChatThreadSummaryDto | null> {
+    const thread = await this.loadOwnedThread(userId, threadId);
+    if (!thread) return null;
+    const cleaned = (title || '').trim().slice(0, TITLE_MAX);
+    thread.title = cleaned || 'New chat';
+    const saved = await this.threads.save(thread);
+    return this.toThreadSummary(saved);
+  }
+
+  async deleteThread(userId: number, threadId: string): Promise<boolean> {
+    const thread = await this.loadOwnedThread(userId, threadId);
+    if (!thread) return false;
+    await this.messages.delete({ thread_id: thread.id });
+    await this.threads.delete({ id: thread.id });
+    return true;
+  }
+
+  async getThreadMessages(
+    userId: number,
+    threadId: string,
+  ): Promise<{ thread: ChatThreadSummaryDto; messages: ChatMessageDto[] } | null> {
+    const thread = await this.loadOwnedThread(userId, threadId);
+    if (!thread) return null;
+    const rows = await this.messages.find({
+      where: { thread_id: thread.id },
+      order: { created_on: 'ASC' },
+    });
+    return {
+      thread: this.toThreadSummary(thread),
+      messages: rows.map((r) => this.toMessageDto(r)),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Send a message into a thread (creating one on the fly if needed).
+  // ---------------------------------------------------------------------------
 
   async sendMessage(
     userId: number,
     rawMessage: string,
+    threadId?: string | null,
     rawPageContext?: ChatPageContext,
     onDelta?: (chunk: string) => void,
   ): Promise<{
     status: string;
     message?: string;
-    history: StoredMessage[];
+    thread?: ChatThreadSummaryDto;
+    history: ChatMessageDto[];
     remainingQuota?: number;
   }> {
     const text = (rawMessage || '').trim();
@@ -131,28 +293,57 @@ export class AiChatService {
       return {
         status: 'ERROR',
         message: 'Please enter a message.',
-        history: await this.getHistory(userId),
+        history: [],
       };
     }
 
     const pageContext = this.sanitisePageContext(rawPageContext);
-    const user = await this.loadUser(userId);
-    const history = this.readHistory(user);
 
-    const userMsg: StoredMessage = {
-      id: randomUUID(),
-      role: 'user',
-      content: text.slice(0, 500),
-      ts: new Date().toISOString(),
-      pageContext,
-    };
-    history.push(userMsg);
+    await this.migrateLegacyHistoryIfNeeded(userId);
 
+    // Resolve the target thread.
+    let thread: AiChatThread | null = null;
+    if (threadId) {
+      thread = await this.loadOwnedThread(userId, threadId);
+      if (!thread) {
+        return {
+          status: 'ERROR',
+          message: 'That conversation could not be found.',
+          history: [],
+        };
+      }
+    }
+    const isNewThread = !thread;
+    if (!thread) {
+      thread = await this.threads.save(
+        this.threads.create({
+          user_id: userId,
+          company_id: null,
+          title: this.deriveTitle(text),
+          message_count: 0,
+        }),
+      );
+    }
+
+    const trimmedInput = text.slice(0, MESSAGE_INPUT_MAX);
+
+    // Persist user message (with pageContext attached).
+    await this.messages.save(
+      this.messages.create({
+        thread_id: thread.id,
+        role: 'user',
+        content: trimmedInput,
+        status: null,
+        page_context: pageContext || null,
+      }),
+    );
+
+    // Call the support service.
     let answer: any;
     try {
       answer = await this.aiSupportService.askQuestion(
         userId,
-        text,
+        trimmedInput,
         pageContext,
         onDelta,
       );
@@ -170,24 +361,73 @@ export class AiChatService {
       (answer?.answer && String(answer.answer)) ||
       answer?.message ||
       'Sorry, I could not generate an answer.';
+    const assistantStatus: string = answer?.status || 'SUCCESS';
 
-    const assistantMsg: StoredMessage = {
-      id: randomUUID(),
-      role: 'assistant',
-      content: assistantContent,
-      ts: new Date().toISOString(),
-      status: answer?.status || 'SUCCESS',
+    const assistantMsg = await this.messages.save(
+      this.messages.create({
+        thread_id: thread.id,
+        role: 'assistant',
+        content: assistantContent,
+        status: assistantStatus,
+      }),
+    );
+
+    // Update thread metadata. Auto-title if this was a brand-new thread or
+    // the title is still the placeholder.
+    const updates: Partial<AiChatThread> = {
+      message_count: (thread.message_count || 0) + 2,
+      last_message_at: assistantMsg.created_on,
     };
-    history.push(assistantMsg);
+    if (isNewThread || !thread.title || thread.title === 'New chat') {
+      updates.title = this.deriveTitle(trimmedInput);
+    }
+    await this.threads.update({ id: thread.id }, updates);
+    Object.assign(thread, updates);
 
-    await this.writeHistory(user, history);
+    const allMessages = await this.messages.find({
+      where: { thread_id: thread.id },
+      order: { created_on: 'ASC' },
+    });
 
     return {
-      status: answer?.status || 'SUCCESS',
+      status: assistantStatus,
       message: answer?.message || undefined,
-      history: this.readHistory(await this.loadUser(userId)),
+      thread: this.toThreadSummary(thread),
+      history: allMessages.map((m) => this.toMessageDto(m)),
       remainingQuota:
         typeof answer?.remainingQuota === 'number' ? answer.remainingQuota : undefined,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Back-compat shims for the original single-bucket API.
+  // ---------------------------------------------------------------------------
+
+  /** @deprecated Returns the most recent thread's messages. */
+  async getHistory(userId: number): Promise<ChatMessageDto[]> {
+    await this.migrateLegacyHistoryIfNeeded(userId);
+    const latest = await this.threads.findOne({
+      where: { user_id: userId },
+      order: { last_message_at: 'DESC', created_on: 'DESC' },
+    });
+    if (!latest) return [];
+    const rows = await this.messages.find({
+      where: { thread_id: latest.id },
+      order: { created_on: 'ASC' },
+    });
+    return rows.map((r) => this.toMessageDto(r));
+  }
+
+  /** @deprecated Deletes the most recent thread (if any). */
+  async clearHistory(userId: number): Promise<ChatMessageDto[]> {
+    const latest = await this.threads.findOne({
+      where: { user_id: userId },
+      order: { last_message_at: 'DESC', created_on: 'DESC' },
+    });
+    if (latest) {
+      await this.messages.delete({ thread_id: latest.id });
+      await this.threads.delete({ id: latest.id });
+    }
+    return [];
   }
 }
