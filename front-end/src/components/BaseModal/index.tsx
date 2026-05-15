@@ -297,7 +297,19 @@ export default function BaseModal({
             </div>
           ))}
 
-        {children}
+        {/* In full-screen mode the article is a flex column with the
+            header pinned at top and the footer pinned at bottom; the
+            consumer's children need to live inside ONE scrolling
+            wrapper so they share a single scrollbar (rather than each
+            direct child becoming its own flex item with its own
+            scrollbar) and so the article's natural flex distribution
+            doesn't shuffle their vertical positions when the content
+            shape changes between tabs. */}
+        {fullScreenPopup ? (
+          <div className="full-screen-popup-body">{children}</div>
+        ) : (
+          children
+        )}
         {!hideFooter && (
           <footer>
             {!hideFirstButton && (

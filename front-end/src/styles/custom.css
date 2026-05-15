@@ -705,13 +705,30 @@ dialog.full-screen-popup > article.full-screen-popup > header,
 dialog.full-screen-popup > article.full-screen-popup > footer {
   flex: 0 0 auto;
 }
-/* Pico wraps modal body content in the article element directly (no
-   <main>), so we target the direct children between header and footer
-   and let them flex-grow + scroll. */
-dialog.full-screen-popup > article.full-screen-popup > *:not(header):not(footer) {
+/* Single scrolling region for the body. Consumer children live inside
+   `.full-screen-popup-body` (added by BaseModal in fullscreen mode) so
+   the dialog has exactly ONE scrollbar instead of one per direct
+   child of the article. */
+dialog.full-screen-popup > article.full-screen-popup > .full-screen-popup-body {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
+  /* Give scrolled content a touch of breathing room from the header
+     and footer borders. */
+  padding-top: var(--space-2xs);
+}
+/* Sticky strip — consumers (e.g. Manual Xero sync tab switcher) can
+   wrap a header element with this class to keep it pinned to the top
+   of the scrolling body when long content scrolls underneath. */
+dialog.full-screen-popup
+  > article.full-screen-popup
+  > .full-screen-popup-body
+  .full-screen-popup-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--wind-light);
+  padding-bottom: var(--space-2xs);
 }
 
 /* Add payment custom style  */

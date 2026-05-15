@@ -1980,6 +1980,12 @@ function ManualXeroSyncDialog({
       { title: "Status", restrictSorting: true },
       { title: "Xero", restrictSorting: true },
       { title: "Settings", restrictSorting: true, alignCenter: true },
+      // DynamicTable renders the gridActions cell as a final <td> with
+      // no matching <th>; add an explicit "Actions" header so the eye
+      // button has a labelled column like every other table in the
+      // system. The renderRowList isn't extended, so no phantom body
+      // cell is added — only the header row gets one extra column.
+      { title: "Actions", restrictSorting: true, alignCenter: true },
     ],
     [],
   );
@@ -2663,8 +2669,10 @@ function ManualXeroSyncDialog({
     >
       {/* Mode tabs — canonical TabSwitch (filterbutton) used by the
           rest of the system (bank-account-overview etc.) so this
-          dialog matches every other tab affordance in PayTrade. */}
-      <div className="grid pt_topfilters">
+          dialog matches every other tab affordance in PayTrade.
+          `full-screen-popup-sticky` keeps it pinned to the top of the
+          fullscreen body so the tabs don't scroll out of view. */}
+      <div className="grid pt_topfilters full-screen-popup-sticky">
         <div className="pt_filters">
           <TabSwitch
             tabOptions={[
@@ -3478,7 +3486,19 @@ function ManualXeroSyncDialog({
                 disabled={catchupBusy || catchupRunning}
               />
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <div>
+              {/* Invisible label spacer so the Discover cell has the
+                  same label-then-input vertical structure as the
+                  From/To FormikControl cells next to it — without it
+                  the button anchors to the top of its grid cell and
+                  reads as visually misaligned (sitting "low" relative
+                  to the date inputs). */}
+              <label
+                aria-hidden="true"
+                style={{ visibility: "hidden", display: "block" }}
+              >
+                &nbsp;
+              </label>
               <CustomButton
                 buttonName={catchupBusy ? "Discovering…" : "Discover"}
                 iconClassName="fa-light fa-magnifying-glass"
@@ -3763,6 +3783,7 @@ function ManualXeroSyncDialog({
         <BaseModal
           modalId="manualXeroSyncRowDetail"
           displayModal={!!catchupRowDetail}
+          fullScreenPopup
           title={`Catch-up row details${
             catchupRowDetail.label ? ` — ${catchupRowDetail.label}` : ""
           }`}
