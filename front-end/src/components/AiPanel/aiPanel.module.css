@@ -14,6 +14,9 @@
   width: 48px !important;
   min-width: 48px !important;
   align-items: center;
+  /* Push the single maximise icon to the bottom of the rail to mirror
+     the sidebar's collapse button placement. */
+  justify-content: flex-end;
   padding: var(--space-s) 0;
   gap: var(--space-s);
 }
@@ -846,11 +849,11 @@ a.contextChip:hover {
 }
 
 .railIcon {
-  font-size: 18px;
+  font-size: 14px;
   color: var(--ocean);
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   border-radius: var(--radius);
@@ -858,13 +861,22 @@ a.contextChip:hover {
   align-items: center;
   justify-content: center;
   padding: 0;
-  /* Override global `button { box-shadow: inset … var(--coral) }`. */
-  box-shadow: none;
+  margin: 0 8px;
+  /* Override global `button { box-shadow: inset … var(--coral) }` which
+     would otherwise paint a coral inner glow on every <button>. */
+  box-shadow: none !important;
 }
 
 .railIcon:hover {
   background: var(--shade-light);
-  box-shadow: none;
+  box-shadow: none !important;
+}
+
+.railIcon:focus,
+.railIcon:focus-visible,
+.railIcon:active {
+  outline: none;
+  box-shadow: none !important;
 }
 
 .railIcon i {

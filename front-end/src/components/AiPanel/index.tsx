@@ -832,18 +832,6 @@ export default function AiPanel() {
             persistUiPreferences({ aiPanelState: "open" });
           }}
         >
-          <i className="fa-light fa-message-bot"></i>
-        </button>
-        <button
-          type="button"
-          className={styles.railIcon}
-          title="Hide AI assistant"
-          aria-label="Hide AI assistant"
-          onClick={() => {
-            dispatch(setAiPanelState("hidden"));
-            persistUiPreferences({ aiPanelState: "hidden" });
-          }}
-        >
           <i className="fa-light fa-table-columns"></i>
         </button>
       </aside>
