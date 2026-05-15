@@ -11,6 +11,7 @@ import PayApps from "../PayApps";
 import PaymentLists from "../PaymentsList";
 import NoticesList from "../Notices";
 import RetentionLists from "../RetentionList";
+import { useReportAiContext } from "@/hooks/useReportAiContext";
 
 export default function ContractOverview() {
   const { fetchContractDetails, activeTab, setLoader, bankDetailsData }: any =
@@ -44,6 +45,24 @@ export default function ContractOverview() {
     }
     setLoader(false);
   }
+
+  useReportAiContext({
+    summary: contractData?.contract_name
+      ? `Contract: ${contractData.contract_name}` +
+        (contractData?.contract_status
+          ? `, status: ${contractData.contract_status}`
+          : "")
+      : undefined,
+    facts: contractData?.contract_name
+      ? {
+          contract: contractData.contract_name,
+          status: contractData?.contract_status,
+          project: contractData?.project_name,
+          client_supplier: contractData?.client_supplier_name,
+          contract_value: contractData?.initial_contract_sum,
+        }
+      : undefined,
+  });
 
   return (
     <div className="container-fluid">

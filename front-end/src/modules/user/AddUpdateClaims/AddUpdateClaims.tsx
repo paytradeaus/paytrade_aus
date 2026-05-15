@@ -24,6 +24,7 @@ import PaymentsFormSection from "./PaymentsFormSection";
 import PaymentHistory from "./PaymentHistory";
 import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 import { fetchViewPayments } from "../AddUpdatePayments/Payment.functions";
+import { useReportAiContext } from "@/hooks/useReportAiContext";
 
 /**
  * Redistribute backend per-line GST so the line-item rows reconcile with the
@@ -190,6 +191,27 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
   useEffect(() => {
     initialInvoke();
   }, []);
+
+  useReportAiContext({
+    summary:
+      viewMode && claimData?.payment_claim_id
+        ? `Claim ${claimData?.claim_reference || claimData?.payment_claim_id}` +
+          (claimStatus ? `, status: ${claimStatus}` : "") +
+          (claimData?.claim_type ? ` (${claimData.claim_type})` : "")
+        : undefined,
+    facts:
+      viewMode && claimData?.payment_claim_id
+        ? {
+            claim_reference: claimData?.claim_reference,
+            claim_status: claimStatus,
+            claim_type: claimData?.claim_type,
+            claim_amount: claimData?.claim_amount,
+            project: claimData?.project_name,
+            contract: claimData?.contract_name,
+            client_supplier: claimData?.client_supplier_name,
+          }
+        : undefined,
+  });
 
   function initialInvoke() {
     if (viewMode) {

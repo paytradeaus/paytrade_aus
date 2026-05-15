@@ -18,6 +18,7 @@ import { overviewModeType } from "../../PaymentsList/PaymentList.constants";
 import NoticesList from "../../Notices";
 import { useProjectOverviewContext } from "./ProjectOverviewContext";
 import PayApps from "../../PayApps";
+import { useReportAiContext } from "@/hooks/useReportAiContext";
 
 export default function ProjectOverview() {
   const { activeTab }: any = useProjectOverviewContext();
@@ -42,6 +43,23 @@ export default function ProjectOverview() {
       }
     }
   }
+
+  useReportAiContext({
+    summary: projectData?.project_name
+      ? `Project: ${projectData.project_name}` +
+        (projectData?.project_status
+          ? `, status: ${projectData.project_status}`
+          : "")
+      : undefined,
+    facts: projectData?.project_name
+      ? {
+          project: projectData.project_name,
+          status: projectData?.project_status,
+          client: projectData?.client_name,
+          contract_count: projectData?.contract_count,
+        }
+      : undefined,
+  });
 
   return (
     <div className="container-fluid">

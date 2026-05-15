@@ -104,6 +104,8 @@ export async function recordAiLiveFollowContext(input: {
   route: string;
   pageLabel?: string;
   entityIds?: Record<string, string>;
+  summary?: string;
+  facts?: Record<string, string>;
 }): Promise<{ status: string; message?: string; recordedRoute?: string } | null> {
   try {
     const res = await client.mutate({

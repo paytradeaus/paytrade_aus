@@ -40,7 +40,14 @@ interface LiveFollowContext {
   route: string;
   pageLabel?: string;
   entityIds?: Record<string, string>;
+  summary?: string;
+  facts?: Record<string, string>;
 }
+
+const LIVE_FOLLOW_MAX_FACTS = 10;
+const LIVE_FOLLOW_FACT_KEY_LEN = 60;
+const LIVE_FOLLOW_FACT_VAL_LEN = 200;
+const LIVE_FOLLOW_SUMMARY_LEN = 300;
 
 @Injectable()
 export class AiSupportService implements OnModuleInit, OnModuleDestroy {
@@ -299,7 +306,13 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
 
   async recordLiveFollowContext(
     userId: number,
-    input: { route: string; pageLabel?: string; entityIds?: Record<string, string> },
+    input: {
+      route: string;
+      pageLabel?: string;
+      entityIds?: Record<string, string>;
+      summary?: string;
+      facts?: Record<string, string>;
+    },
   ): Promise<{ status: string; message?: string; recordedRoute?: string }> {
     if (!userId) {
       return { status: 'ERROR', message: 'Not authenticated.' };
@@ -338,6 +351,28 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
       ? String(input.pageLabel).slice(0, 200)
       : undefined;
 
+    const summary = input?.summary
+      ? String(input.summary).slice(0, LIVE_FOLLOW_SUMMARY_LEN)
+      : undefined;
+
+    let facts: Record<string, string> | undefined;
+    if (input?.facts && typeof input.facts === 'object') {
+      facts = {};
+      let count = 0;
+      for (const [k, v] of Object.entries(input.facts)) {
+        if (count >= LIVE_FOLLOW_MAX_FACTS) break;
+        if (typeof k !== 'string' || !k.trim()) continue;
+        const sv = v == null ? '' : String(v);
+        if (!sv.trim()) continue;
+        facts[k.slice(0, LIVE_FOLLOW_FACT_KEY_LEN)] = sv.slice(
+          0,
+          LIVE_FOLLOW_FACT_VAL_LEN,
+        );
+        count++;
+      }
+      if (!Object.keys(facts).length) facts = undefined;
+    }
+
     if (!this.redis) {
       this.logger.warn(
         `Live-follow context not persisted for user=${userId} — Redis unavailable`,
@@ -348,11 +383,38 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
-    const payload: LiveFollowContext = { route, pageLabel, entityIds };
+    // Merge with the existing entry when the user is still on the same
+    // route (e.g. URL-only tracker fired first, then the page reported
+    // facts). Replace outright when the route has changed so stale facts
+    // from the previous page never bleed into the new one.
+    let existing: LiveFollowContext | null = null;
+    try {
+      const raw = await this.redis.get(this.liveFollowKey(userId));
+      if (raw) {
+        try {
+          existing = JSON.parse(raw) as LiveFollowContext;
+        } catch {
+          existing = null;
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to read existing live-follow context for user=${userId}: ${err?.message}`,
+      );
+    }
+    const sameRoute = existing && existing.route === route;
+    const merged: LiveFollowContext = {
+      route,
+      pageLabel: pageLabel ?? (sameRoute ? existing!.pageLabel : undefined),
+      entityIds: entityIds ?? (sameRoute ? existing!.entityIds : undefined),
+      summary: summary ?? (sameRoute ? existing!.summary : undefined),
+      facts: facts ?? (sameRoute ? existing!.facts : undefined),
+    };
+
     try {
       await this.redis.set(
         this.liveFollowKey(userId),
-        JSON.stringify(payload),
+        JSON.stringify(merged),
         'EX',
         LIVE_FOLLOW_TTL_SECONDS,
       );
@@ -368,8 +430,12 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(
       `Live-follow context recorded for user=${userId} route="${route}"` +
-        (pageLabel ? ` label="${pageLabel}"` : '') +
-        (entityIds ? ` entities=${JSON.stringify(entityIds)}` : ''),
+        (merged.pageLabel ? ` label="${merged.pageLabel}"` : '') +
+        (merged.entityIds
+          ? ` entities=${JSON.stringify(merged.entityIds)}`
+          : '') +
+        (merged.summary ? ` summary="${merged.summary}"` : '') +
+        (merged.facts ? ` facts=${JSON.stringify(merged.facts)}` : ''),
     );
 
     return { status: 'SUCCESS', recordedRoute: route };
@@ -446,6 +512,21 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         .filter((s) => s.length > 1);
       if (pairs.length) {
         lines.push(`- Visible record IDs: ${pairs.join(', ')}`);
+      }
+    }
+    if (ctx.summary) {
+      const summary = this.sanitiseContextValue(ctx.summary);
+      if (summary) lines.push(`- On-screen summary: ${summary}`);
+    }
+    if (ctx.facts && Object.keys(ctx.facts).length) {
+      const pairs = Object.entries(ctx.facts)
+        .map(
+          ([k, v]) =>
+            `${this.sanitiseContextValue(k)}: ${this.sanitiseContextValue(v)}`,
+        )
+        .filter((s) => s.length > 2);
+      if (pairs.length) {
+        lines.push(`- On-screen facts: ${pairs.join('; ')}`);
       }
     }
     return lines.join('\n');
