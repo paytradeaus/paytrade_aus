@@ -355,6 +355,115 @@ export function openAiEventStream(
   };
 }
 
+export interface AiConversationSummary {
+  id: string;
+  title: string;
+  lastMessageAt: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  ts: string;
+  status?: string | null;
+  pageContext?: {
+    route?: string;
+    pageLabel?: string;
+    entity?: string;
+    entityId?: string;
+    entityIds?: Record<string, string>;
+    companyId?: number;
+    path?: string;
+  } | null;
+  runId?: string | null;
+}
+
+export interface AiConversationDetail {
+  id: string;
+  title: string;
+  companyId: number | null;
+  messages: AiConversationMessage[];
+}
+
+async function authedJson<T>(
+  url: string,
+  init?: RequestInit,
+): Promise<T | null> {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    };
+    if (init?.body) headers["Content-Type"] = "application/json";
+    const res = await fetch(`${getApiBase()}${url}`, {
+      ...init,
+      headers: { ...headers, ...((init?.headers as Record<string, string>) || {}) },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function listAiConversations(
+  companyId?: number | null,
+): Promise<AiConversationSummary[]> {
+  const cid = companyId ?? getActiveCompanyId();
+  const qs = cid ? `?companyId=${cid}` : "";
+  const json = await authedJson<{
+    status: string;
+    conversations: AiConversationSummary[];
+  }>(`/api/ai/conversations${qs}`);
+  if (json?.status === "SUCCESS") return json.conversations || [];
+  return [];
+}
+
+export async function getAiConversation(
+  id: string,
+): Promise<AiConversationDetail | null> {
+  const json = await authedJson<{
+    status: string;
+    conversation: { id: string; title: string; companyId: number | null };
+    messages: AiConversationMessage[];
+  }>(`/api/ai/conversations/${encodeURIComponent(id)}`);
+  if (json?.status !== "SUCCESS") return null;
+  return {
+    id: json.conversation.id,
+    title: json.conversation.title || "New chat",
+    companyId: json.conversation.companyId,
+    messages: json.messages || [],
+  };
+}
+
+export async function renameAiConversation(
+  id: string,
+  title: string,
+): Promise<{ id: string; title: string } | null> {
+  const json = await authedJson<{
+    status: string;
+    conversation: { id: string; title: string };
+  }>(`/api/ai/conversations/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+  if (json?.status === "SUCCESS") return json.conversation;
+  return null;
+}
+
+export async function deleteAiConversation(id: string): Promise<boolean> {
+  const json = await authedJson<{ status: string; deleted: boolean }>(
+    `/api/ai/conversations/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  return !!json?.deleted;
+}
+
 function emptySummary(): AiChatRunSummary {
   return {
     amountChargedUsd: 0,

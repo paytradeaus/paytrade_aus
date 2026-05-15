@@ -130,6 +130,20 @@ export class AiChatOrchestratorService {
       model: this.llm.defaultModel,
     });
 
+    // Persist the user's prompt up-front so it appears in the
+    // conversation list / replay even if the run later fails.
+    try {
+      await this.runs.appendMessage({
+        conversationId: conversation.id,
+        runId: run.id,
+        role: 'user',
+        content: input.userMessage,
+        pageContext: input.pageContext ?? null,
+      });
+    } catch (e: any) {
+      this.logger.warn(`appendMessage(user) failed: ${e?.message || e}`);
+    }
+
     const abort = new AbortController();
     this.runs.registerAbortController(run.id, abort);
     this.events.emit(input.userId, {
@@ -338,6 +352,23 @@ export class AiChatOrchestratorService {
         }
       } catch (err: any) {
         this.logger.error(`consumeCredit failed: ${err?.message || err}`);
+      }
+    }
+
+    // Persist the assistant's final answer so the user can see it
+    // when they reopen the conversation. We store whatever text we
+    // streamed even on stop/fail — partial answers are still useful.
+    if (assistantTextBuffer.trim().length > 0) {
+      try {
+        await this.runs.appendMessage({
+          conversationId: conversation.id,
+          runId: run.id,
+          role: 'assistant',
+          content: assistantTextBuffer,
+          status: finalStatus === 'completed' ? null : finalStatus.toUpperCase(),
+        });
+      } catch (e: any) {
+        this.logger.warn(`appendMessage(assistant) failed: ${e?.message || e}`);
       }
     }
 

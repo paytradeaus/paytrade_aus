@@ -16,21 +16,18 @@ import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import {
   AiChatMessage,
   AiChatPageContext,
-  AiChatThreadSummary,
-  clearAiChatHistory,
-  createAiChatThread,
-  deleteAiChatThread,
-  fetchAiChatHistory,
-  getAiChatThread,
-  listAiChatThreads,
   persistUiPreferences,
-  renameAiChatThread,
 } from "@/network/uiPreferences";
 import {
   AiChatRunSummary,
   AiChatStreamEvent,
+  AiConversationSummary,
+  deleteAiConversation,
   fetchAiStatusSnapshot,
   AiStatusSnapshotResponse,
+  getAiConversation,
+  listAiConversations,
+  renameAiConversation,
   sendAiChatStreaming,
   stopAiChatRun,
 } from "@/network/aiChat";
@@ -232,7 +229,7 @@ export default function AiPanel() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [threads, setThreads] = useState<AiChatThreadSummary[]>([]);
+  const [threads, setThreads] = useState<AiConversationSummary[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeThreadTitle, setActiveThreadTitle] = useState<string>("New chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -370,7 +367,7 @@ export default function AiPanel() {
   );
 
   const refreshThreadList = useCallback(async () => {
-    const ts = await listAiChatThreads();
+    const ts = await listAiConversations();
     setThreads(ts);
     return ts;
   }, []);
@@ -378,11 +375,20 @@ export default function AiPanel() {
   const openThread = useCallback(async (threadId: string) => {
     setMessages([]);
     setErrorBanner(null);
-    const data = await getAiChatThread(threadId);
+    const data = await getAiConversation(threadId);
     if (data) {
-      setActiveThreadId(data.threadId);
-      setActiveThreadTitle(data.threadTitle);
-      setMessages(data.history as ChatMessage[]);
+      setActiveThreadId(data.id);
+      setActiveThreadTitle(data.title);
+      setConversationId(data.id);
+      const hydrated: ChatMessage[] = (data.messages || []).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        ts: m.ts,
+        status: m.status ?? null,
+        pageContext: (m.pageContext as AiChatPageContext | null) ?? null,
+      }));
+      setMessages(hydrated);
     }
     setShowThreadList(false);
   }, []);
@@ -512,6 +518,10 @@ export default function AiPanel() {
         if (event.type === "run_started") {
           setActiveRunId(event.runId);
           setConversationId(event.conversationId);
+          // First message in a brand-new chat: track the new
+          // conversation as the active thread so the sidebar
+          // highlights it once the list refreshes.
+          setActiveThreadId((cur) => cur ?? event.conversationId);
         } else if (event.type === "text_delta") {
           setMessages((prev) =>
             prev.map((m) =>
@@ -608,7 +618,7 @@ export default function AiPanel() {
   const onDeleteThread = async (threadId: string) => {
     if (sending) return;
     if (!window.confirm("Delete this conversation? This cannot be undone.")) return;
-    const ok = await deleteAiChatThread(threadId);
+    const ok = await deleteAiConversation(threadId);
     if (!ok) return;
     const remaining = await refreshThreadList();
     if (activeThreadId === threadId) {
@@ -620,7 +630,7 @@ export default function AiPanel() {
     }
   };
 
-  const beginRename = (t: AiChatThreadSummary) => {
+  const beginRename = (t: AiConversationSummary) => {
     setRenamingId(t.id);
     setRenameDraft(t.title);
   };
@@ -631,7 +641,7 @@ export default function AiPanel() {
     const title = renameDraft.trim();
     setRenamingId(null);
     if (!title) return;
-    const updated = await renameAiChatThread(id, title);
+    const updated = await renameAiConversation(id, title);
     if (updated) {
       setThreads((prev) =>
         prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t))
@@ -843,15 +853,11 @@ export default function AiPanel() {
               <button
                 type="button"
                 className={styles.newChatBtn}
-                onClick={async () => {
+                onClick={() => {
+                  // Conversations are created server-side on the
+                  // first persisted message, so we just clear local
+                  // state here and let the next send seed it.
                   startNewChat();
-                  // Optionally pre-create an empty thread so it shows in the list
-                  const t = await createAiChatThread();
-                  if (t) {
-                    setActiveThreadId(t.id);
-                    setActiveThreadTitle(t.title);
-                    refreshThreadList();
-                  }
                 }}
                 disabled={sending}
               >

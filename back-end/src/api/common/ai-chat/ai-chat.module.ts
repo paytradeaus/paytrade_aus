@@ -7,6 +7,7 @@ import { UserDetails } from 'src/entities/user-details.entity';
 import { AiChatThread } from 'src/entities/ai-chat-thread.entity';
 import { AiChatMessage } from 'src/entities/ai-chat-message.entity';
 import { AiConversation } from 'src/entities/ai-conversation.entity';
+import { AiConversationMessage } from 'src/entities/ai-conversation-message.entity';
 import { AiRun } from 'src/entities/ai-run.entity';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
@@ -61,6 +62,7 @@ import { GetXeroSyncStatusTool } from './tools/get-xero-sync-status.tool';
       AiChatThread,
       AiChatMessage,
       AiConversation,
+      AiConversationMessage,
       AiRun,
       ClientSuppliersDetails,
       ContractDetails,

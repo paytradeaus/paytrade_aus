@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   HttpCode,
   HttpException,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Get,
   Query,
@@ -247,6 +249,134 @@ export class AiChatController {
         // already closed
       }
     });
+  }
+
+  @Public()
+  @Get('conversations')
+  async listConversations(
+    @Headers('authorization') authHeader: string | undefined,
+    @Query('companyId') companyIdRaw: string | undefined,
+  ) {
+    const decoded = this.requireAuth(authHeader);
+    const userId = Number(decoded.userId);
+    if (!userId) throw new ForbiddenException('Authorization required');
+
+    let companyId: number | null = null;
+    if (companyIdRaw != null && companyIdRaw !== '') {
+      const n = Number(companyIdRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new HttpException(
+          'Invalid companyId',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      assertCompanyAccess(decoded, n);
+      companyId = n;
+    }
+    // Build the set of business profiles this caller currently has
+    // access to so the listing can't leak conversations tied to a
+    // profile they no longer belong to. Admins see everything.
+    let allowedCompanyIds: number[] | null = null;
+    if (companyId == null && !decoded.isAdmin) {
+      const seen = new Set<number>();
+      for (const r of decoded.companySpecificRoles ?? []) {
+        const cid = Number(r?.companyId);
+        if (Number.isFinite(cid) && cid > 0) seen.add(cid);
+      }
+      allowedCompanyIds = Array.from(seen);
+    }
+    const conversations = await this.runs.listConversationsForUser(
+      userId,
+      companyId,
+      50,
+      allowedCompanyIds,
+    );
+    return { status: 'SUCCESS', conversations };
+  }
+
+  @Public()
+  @Get('conversations/:id')
+  async getConversation(
+    @Headers('authorization') authHeader: string | undefined,
+    @Param('id') id: string,
+  ) {
+    const decoded = this.requireAuth(authHeader);
+    const userId = Number(decoded.userId);
+    if (!userId) throw new ForbiddenException('Authorization required');
+    const conv = await this.runs.findConversationForUser(id, userId);
+    if (!conv) {
+      throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+    }
+    // Re-check business-profile access at read time so revoked users
+    // can no longer open a conversation that was originally created
+    // under a profile they've since lost access to.
+    if (conv.company_id != null) {
+      assertCompanyAccess(decoded, conv.company_id);
+    }
+    const messages = await this.runs.getConversationMessages(conv.id);
+    return {
+      status: 'SUCCESS',
+      conversation: {
+        id: conv.id,
+        title: conv.title || 'New chat',
+        companyId: conv.company_id ?? null,
+      },
+      messages,
+    };
+  }
+
+  @Public()
+  @Patch('conversations/:id')
+  async renameConversation(
+    @Headers('authorization') authHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() body: { title?: string } | undefined,
+  ) {
+    const decoded = this.requireAuth(authHeader);
+    const userId = Number(decoded.userId);
+    if (!userId) throw new ForbiddenException('Authorization required');
+    const title = (body?.title || '').trim();
+    if (!title) {
+      throw new HttpException('title is required', HttpStatus.BAD_REQUEST);
+    }
+    const existing = await this.runs.findConversationForUser(id, userId);
+    if (!existing) {
+      throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+    }
+    if (existing.company_id != null) {
+      assertCompanyAccess(decoded, existing.company_id);
+    }
+    const conv = await this.runs.renameConversation(id, userId, title);
+    if (!conv) {
+      throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+    }
+    return {
+      status: 'SUCCESS',
+      conversation: { id: conv.id, title: conv.title || 'New chat' },
+    };
+  }
+
+  @Public()
+  @Delete('conversations/:id')
+  async deleteConversation(
+    @Headers('authorization') authHeader: string | undefined,
+    @Param('id') id: string,
+  ) {
+    const decoded = this.requireAuth(authHeader);
+    const userId = Number(decoded.userId);
+    if (!userId) throw new ForbiddenException('Authorization required');
+    const existing = await this.runs.findConversationForUser(id, userId);
+    if (!existing) {
+      throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+    }
+    if (existing.company_id != null) {
+      assertCompanyAccess(decoded, existing.company_id);
+    }
+    const ok = await this.runs.deleteConversation(id, userId);
+    if (!ok) {
+      throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+    }
+    return { status: 'SUCCESS', deleted: true };
   }
 
   private requireAuth(authHeader: string | undefined): DecodedJwtPayload {
