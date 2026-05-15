@@ -4526,13 +4526,19 @@ a.pt_linksbox {
   .pt_left {
     grid-area: 1 / 1 / 2 / 2;
     position: fixed;
+    top: 0;
     z-index: 99999 !important;
     background: var(--shade-light);
     backdrop-filter: blur(20px);
     will-change: transform;
     left: -300px;
     width: 300px;
-    height: 150vh;
+    /* Constrain to viewport so the absolutely-positioned
+       `.pt_nav_collapse_btn` (bottom: 12px) anchors to the actual
+       visible bottom of the sidebar, not 1.5× viewport heights
+       down where it would render as a free-floating overlay that
+       appears to ride up the side menu as the main page scrolls. */
+    height: 100vh;
     z-index: 2;
     padding: var(--space-s) 0 var(--space-s) var(--space-s);
   }
