@@ -12,7 +12,6 @@ import {
   xeroSynListRenderData,
 } from "../integration.constant";
 import CustomButton from "@/components/CustomButton/CustomButton";
-import TabSwitch from "@/components/TabSwitch";
 import {
   buttonType,
   filterByDurationDates,
@@ -1756,12 +1755,6 @@ function ManualXeroSyncDialog({
   const [catchupRowDetail, setCatchupRowDetail] = useState<CatchupRow | null>(
     null,
   );
-  // Task #152 — active tab inside the row-detail dialog. Mirrors the
-  // bank-account-overview TabSwitch pattern so PT and Xero details
-  // each get the full dialog width instead of being squeezed into
-  // half-width columns.
-  const [catchupDetailTab, setCatchupDetailTab] = useState<string>("pt");
-
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
   // this dialog.
@@ -3626,143 +3619,96 @@ function ManualXeroSyncDialog({
                 : "Xero bill is DELETED — sync will skip claim creation and instead record the deletion against any existing PT link so the two sides stay aligned."
               : "";
 
-            // Status "chip" coloured by classification — picks up the
-            // same `data-row-state` colours we use on the table so the
-            // dialog header reads at a glance.
-            const stateForChip =
-              cls === "blocked" || cls === "amounts_disagree"
-                ? "failed"
-                : cls === "already_in_sync"
-                ? "passed"
-                : "selected";
-
             return (
               <div className="pt_overviewinfo mb_one">
-                <div className="pt_infolist listData">
-                  <div className="table-container">
-                    <table className="responsive-table">
-                      <tbody>
-                        {/* Row 1 — Status (full width) */}
-                        <tr>
-                          <td className="setPro">
-                            <div
-                              className="pt_infolistdata"
-                              data-row-state={stateForChip}
-                            >
-                              <h6>Status</h6>
-                              <span style={{ color: status.color }}>
-                                {status.label}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {/* Row 2 — Why this needs sync (full width) */}
-                        <tr>
-                          <td className="setPro">
-                            <div className="pt_infolistdata">
-                              <h6>Why this needs sync</h6>
-                              <span>{why || "—"}</span>
-                              {multiStepNote ? (
-                                <div style={{ marginTop: 6 }}>
-                                  <small>
-                                    <em>{multiStepNote}</em>
-                                  </small>
-                                </div>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                        {catchupRowDetail.hint ? (
+                <div className="grid">
+                  <div className="pt_infolist listData">
+                    <div className="table-container">
+                      <table className="responsive-table">
+                        <tbody>
                           <tr>
                             <td className="setPro">
                               <div className="pt_infolistdata">
-                                <h6>Hint</h6>
-                                <span>{catchupRowDetail.hint}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null}
-                        {/* Row 3 — Settings match (full width). The
-                            chip on the table summarises this; the
-                            full per-line breakdown lives here so
-                            operators can see exactly which Xero
-                            line code(s) drove the verdict. */}
-                        {catchupRowDetail.validation_checks &&
-                        catchupRowDetail.validation_checks.length > 0 ? (
-                          <tr>
-                            <td className="setPro">
-                              <div
-                                className="pt_infolistdata"
-                                data-row-state={
-                                  catchupRowDetail.settings_match === "fail"
-                                    ? "failed"
-                                    : catchupRowDetail.settings_match ===
-                                      "warning"
-                                    ? "running"
-                                    : catchupRowDetail.settings_match === "ok"
-                                    ? "passed"
-                                    : undefined
-                                }
-                              >
-                                <h6>Settings match</h6>
-                                <span>
-                                  {catchupRowDetail.validation_checks.map(
-                                    (chk: string, i: number) => (
-                                      <div key={i}>{chk}</div>
-                                    ),
-                                  )}
+                                <h6>Status</h6>
+                                <span style={{ color: status.color }}>
+                                  {status.label}
                                 </span>
                               </div>
                             </td>
-                          </tr>
-                        ) : null}
-                        {catchupRowDetail.blocking_issues &&
-                        catchupRowDetail.blocking_issues.length > 0 ? (
-                          <tr>
                             <td className="setPro">
-                              <div
-                                className="pt_infolistdata"
-                                data-row-state="failed"
-                              >
-                                <h6>Blocking issues</h6>
-                                <span>
-                                  {catchupRowDetail.blocking_issues.map(
-                                    (iss: string, i: number) => (
-                                      <div key={i}>⚠ {iss}</div>
-                                    ),
-                                  )}
-                                </span>
+                              <div className="pt_infolistdata">
+                                <h6>Why this needs sync</h6>
+                                <span>{why || "—"}</span>
+                                {multiStepNote ? (
+                                  <div style={{ marginTop: 6 }}>
+                                    <small>
+                                      <em>{multiStepNote}</em>
+                                    </small>
+                                  </div>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
+                          {catchupRowDetail.hint ? (
+                            <tr>
+                              <td className="setPro" colSpan={2}>
+                                <div className="pt_infolistdata">
+                                  <h6>Hint</h6>
+                                  <span>{catchupRowDetail.hint}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                          {catchupRowDetail.validation_checks &&
+                          catchupRowDetail.validation_checks.length > 0 ? (
+                            <tr>
+                              <td className="setPro" colSpan={2}>
+                                <div className="pt_infolistdata">
+                                  <h6>Settings match</h6>
+                                  <span>
+                                    {catchupRowDetail.validation_checks.map(
+                                      (chk: string, i: number) => (
+                                        <div key={i}>{chk}</div>
+                                      ),
+                                    )}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                          {catchupRowDetail.blocking_issues &&
+                          catchupRowDetail.blocking_issues.length > 0 ? (
+                            <tr>
+                              <td className="setPro" colSpan={2}>
+                                <div className="pt_infolistdata">
+                                  <h6>Blocking issues</h6>
+                                  <span>
+                                    {catchupRowDetail.blocking_issues.map(
+                                      (iss: string, i: number) => (
+                                        <div key={i}>⚠ {iss}</div>
+                                      ),
+                                    )}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })()}
-          {/* Task #152 — tabbed PayTrade / Xero detail panes, mirroring
-              the bank-account-overview tab pattern (TabSwitch +
-              filterbutton). One pane visible at a time so operators
-              aren't comparing two cramped half-width tables. */}
-          <div className="grid pt_topfilters">
-            <div className="pt_filters">
-              <TabSwitch
-                tabOptions={[
-                  { label: "PayTrade side", value: "pt" },
-                  { label: "Xero side", value: "xero" },
-                ]}
-                tabValue={catchupDetailTab}
-                onChange={(v: string) => setCatchupDetailTab(v)}
-              />
-            </div>
-          </div>
+          {/* Side-by-side PayTrade / Xero detail panes — both sides
+              visible at once so operators can compare the two
+              records directly without switching tabs. */}
           <div className="pt_overviewinfo">
-            <div className="pt_infolist listData">
-              {catchupDetailTab === "pt" ? (
-                catchupRowDetail.pt_id ? (
+            <div className="grid">
+              <div className="pt_infolist listData">
+                <h6>PayTrade side</h6>
+                {catchupRowDetail.pt_id ? (
                   <div className="table-container">
                     <table className="responsive-table">
                       <tbody>
@@ -3795,41 +3741,45 @@ function ManualXeroSyncDialog({
                   <p>
                     <em>— no PayTrade row in window —</em>
                   </p>
-                )
-              ) : catchupRowDetail.xero_id ? (
-                <div className="table-container">
-                  <table className="responsive-table">
-                    <tbody>
-                      {(
-                        catchupRowDetail.xero_details || [
-                          {
-                            label: "ID",
-                            value: String(catchupRowDetail.xero_id),
-                          },
-                        ]
-                      ).map(
-                        (
-                          d: { label: string; value: string },
-                          i: number,
-                        ) => (
-                          <tr key={i}>
-                            <td className="setPro">
-                              <div className="pt_infolistdata">
-                                <h6>{d.label}</h6>
-                                <span>{d.value || "—"}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p>
-                  <em>— no Xero row in window —</em>
-                </p>
-              )}
+                )}
+              </div>
+              <div className="pt_infolist listData">
+                <h6>Xero side</h6>
+                {catchupRowDetail.xero_id ? (
+                  <div className="table-container">
+                    <table className="responsive-table">
+                      <tbody>
+                        {(
+                          catchupRowDetail.xero_details || [
+                            {
+                              label: "ID",
+                              value: String(catchupRowDetail.xero_id),
+                            },
+                          ]
+                        ).map(
+                          (
+                            d: { label: string; value: string },
+                            i: number,
+                          ) => (
+                            <tr key={i}>
+                              <td className="setPro">
+                                <div className="pt_infolistdata">
+                                  <h6>{d.label}</h6>
+                                  <span>{d.value || "—"}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p>
+                    <em>— no Xero row in window —</em>
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </BaseModal>
