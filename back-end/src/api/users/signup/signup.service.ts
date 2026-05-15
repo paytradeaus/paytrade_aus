@@ -1347,13 +1347,21 @@ export class SignupService {
       throw new Error('User not found');
     }
     if (enabled) {
-      const expected = process.env.AI_LIVE_FOLLOW_ACCESS_PASSWORD;
+      // Trim env-var on both sides — secrets pasted via the dashboard
+      // commonly carry a trailing newline / surrounding whitespace, which
+      // would silently fail the strict `!==` compare below. Also trim the
+      // submitted password defensively (mobile keyboards / clipboards
+      // sometimes append whitespace) so a paste from the same secret
+      // store always matches.
+      const expectedRaw = process.env.AI_LIVE_FOLLOW_ACCESS_PASSWORD;
+      const expected = (expectedRaw || '').trim();
       if (!expected) {
         throw new Error(
           'AI live follow is not currently available. Please contact an administrator.',
         );
       }
-      if (!password || password !== expected) {
+      const submitted = (password || '').trim();
+      if (!submitted || submitted !== expected) {
         throw new Error('Incorrect access password.');
       }
       user.ai_live_follow_enabled = true;

@@ -60,17 +60,21 @@ function AiLiveFollowToggle() {
   );
   const [password, setPassword] = useState("");
   const [showPwModal, setShowPwModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submitEnable = async () => {
-    if (!password) {
+    // Trim whitespace defensively — copy/paste from a secret manager
+    // sometimes appends a newline that breaks the strict server compare.
+    const trimmed = password.trim();
+    if (!trimmed) {
       setError("Access password is required.");
       return;
     }
     setBusy(true);
     setError(null);
-    const res = await setAiLiveFollowApi(true, password);
+    const res = await setAiLiveFollowApi(true, trimmed);
     setBusy(false);
     if (res.ok) {
       dispatch(
@@ -185,11 +189,13 @@ function AiLiveFollowToggle() {
       {showPwModal && (
         <BaseModal
           modalId="ai-live-follow-pw"
+          title="Enable AI assistant"
           displayModal={showPwModal}
           onClose={() => {
             if (busy) return;
             setShowPwModal(false);
             setPassword("");
+            setShowPassword(false);
             setError(null);
           }}
           firstButtonName="Cancel"
@@ -200,23 +206,59 @@ function AiLiveFollowToggle() {
           }}
         >
           <div style={{ padding: "var(--space-s) 0" }}>
-            <h4 style={{ marginTop: 0 }}>Enable AI assistant</h4>
-            <p style={{ color: "var(--cave-lighter)", marginTop: 4 }}>
+            <p style={{ color: "var(--cave-lighter)", marginTop: 0 }}>
               This pilot feature is gated. Please enter the access password
               issued to pilot participants.
             </p>
-            <input
-              type="password"
-              autoFocus
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="Access password"
-              disabled={busy}
-              style={{ width: "100%" }}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                autoFocus
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="Access password"
+                disabled={busy}
+                style={{ width: "100%", paddingRight: 40 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitEnable();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
+                title={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((v) => !v)}
+                disabled={busy}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  padding: 4,
+                  margin: 0,
+                  cursor: busy ? "not-allowed" : "pointer",
+                  color: "var(--cave-lighter)",
+                  lineHeight: 1,
+                  width: "auto",
+                }}
+              >
+                <i
+                  className={`fa-light ${
+                    showPassword ? "fa-eye-slash" : "fa-eye"
+                  }`}
+                ></i>
+              </button>
+            </div>
             {error && (
               <p
                 style={{
