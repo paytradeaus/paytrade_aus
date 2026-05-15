@@ -3690,75 +3690,13 @@ export class XeroWebhookService {
             return false;
           }
 
-          // Past-due-date check is only meaningful for new claims that
-          // are still expected to be paid in the future. For historical
-          // catch-up imports of bills/invoices that have already been
-          // PAID (or are no longer Authorised/Submitted), the due date
-          // being in the past is the entire point — refusing the import
-          // for that reason blocks every legitimate back-fill of paid
-          // records. Skip the check for any non-Authorised status, and
-          // for AUTHORISED records that are already fully paid.
-          const _statusForDueCheck = String(invoice?.status || '').toUpperCase();
-          const _isPaidLike = _statusForDueCheck === 'PAID'
-            || _statusForDueCheck === 'VOIDED'
-            || _statusForDueCheck === 'DELETED'
-            || (Number(invoice?.amountDue ?? 0) === 0
-                && Number(invoice?.amountPaid ?? 0) > 0);
-          if (
-            !_isPaidLike &&
-            invoice.dueDate &&
-            moment
-              .tz(invoice.dueDate, 'UTC')
-              .utc()
-              .isBefore(moment.tz('UTC').startOf('day').utc())
-          ) {
-            await this.xeroService.insertXeroSyncLogs(decoded, {
-              id: data?.sync_id || null,
-              api_name: 'createClaimInPaytrade',
-              api_payload: {
-                sync_run_type,
-                invoice_id: invoice?.invoiceID,
-                tenant_id,
-                project_id: contractDetails?.project_id,
-                contract_id: contractDetails?.contract_id,
-                client_supplier_id: xeroContactDetails?.pt_contact_id,
-                type:
-                  invoice?.type === Invoice.TypeEnum.ACCPAY
-                    ? 'bill'
-                    : 'invoice',
-              },
-              integration_id: xeroDetails.integration_id,
-              log_template_id: sync_run_type === 'webhook' ? 352 : 455,
-              dynamic_values: {},
-              project_id: xeroProjectDetails?.id,
-              contract_id: xeroContractDetails?.id,
-              reference: {
-                xeroId: xeroInvoice?.id,
-                paytradeId: null,
-              },
-              reference_id: xeroInvoice?.id,
-              history: [
-                `API triggered from invoice ${sync_run_type}`,
-                'Import failed',
-              ],
-              important_checks: {
-                'Import data format validation': 'Failed',
-                'Import tracking id validation': 'Ok',
-                'Import account type validation': 'Ok',
-                'Import tax type validation': 'Ok',
-                'Client/Supplier mapping validation': 'Ok',
-                'Contract mapping validation': 'Ok',
-                'Project mapping validation': 'Ok',
-              },
-              error_message: `The due date is in the past`,
-              xero_records: [invoice],
-              paytrade_records: [],
-              new_records: null,
-              updated_records: null,
-              synced_records: null,
-            });
-            return false;
-          }
+          // Past-due-date check removed: a bill or invoice with a due
+          // date in the past is a legitimate record (overdue or
+          // already paid) and downstream PayTrade logic handles
+          // overdue state correctly. Refusing the import on that
+          // basis blocked legitimate ingest of both historical paid
+          // records and currently-overdue unpaid records, which the
+          // user has confirmed should always import.
 
           let isS75eligible = false,
             claimNotPaidCount = 0;
@@ -4626,72 +4564,9 @@ export class XeroWebhookService {
                 return false;
               }
 
-              // See "Past-due-date check" note further up — same
-              // exception applies to the update path: skip the check
-              // for already-PAID / voided / fully-paid bills so
-              // historical catch-up imports aren't blocked by a due
-              // date that is in the past by design.
-              const _statusForDueCheck2 = String(invoice?.status || '').toUpperCase();
-              const _isPaidLike2 = _statusForDueCheck2 === 'PAID'
-                || _statusForDueCheck2 === 'VOIDED'
-                || _statusForDueCheck2 === 'DELETED'
-                || (Number(invoice?.amountDue ?? 0) === 0
-                    && Number(invoice?.amountPaid ?? 0) > 0);
-              if (
-                !_isPaidLike2 &&
-                invoice.dueDate &&
-                moment
-                  .tz(invoice.dueDate, 'UTC')
-                  .utc()
-                  .isBefore(moment.tz('UTC').startOf('day').utc())
-              ) {
-                await this.xeroService.insertXeroSyncLogs(decoded, {
-                  id: data?.sync_id || null,
-                  api_name: 'createClaimInPaytrade',
-                  api_payload: {
-                    sync_run_type,
-                    invoice_id: invoice?.invoiceID,
-                    tenant_id,
-                    project_id: contractDetails?.project_id,
-                    contract_id: contractDetails?.contract_id,
-                    client_supplier_id: xeroContactDetails?.pt_contact_id,
-                    type:
-                      invoice?.type === Invoice.TypeEnum.ACCPAY
-                        ? 'bill'
-                        : 'invoice',
-                  },
-                  integration_id: xeroDetails.integration_id,
-                  log_template_id: sync_run_type === 'webhook' ? 352 : 455,
-                  dynamic_values: {},
-                  project_id: xeroProjectDetails?.id,
-                  contract_id: xeroContractDetails?.id,
-                  reference: {
-                    xeroId: xeroInvoice?.id,
-                    paytradeId: null,
-                  },
-                  reference_id: xeroInvoice?.id,
-                  history: [
-                    `API triggered from invoice ${sync_run_type}`,
-                    'Import failed',
-                  ],
-                  important_checks: {
-                    'Import data format validation': 'Failed',
-                    'Import tracking id validation': 'Ok',
-                    'Import account type validation': 'Ok',
-                    'Import tax type validation': 'Ok',
-                    'Client/Supplier mapping validation': 'Ok',
-                    'Contract mapping validation': 'Ok',
-                    'Project mapping validation': 'Ok',
-                  },
-                  error_message: `The due date is in the past`,
-                  xero_records: [invoice],
-                  paytrade_records: [],
-                  new_records: null,
-                  updated_records: null,
-                  synced_records: null,
-                });
-                return false;
-              }
+              // Past-due-date check removed for the same reason as the
+              // create path above — overdue is a legitimate state and
+              // import should proceed with the original past dates.
 
               let isS75eligible = false,
                 claimNotPaidCount = 0;
