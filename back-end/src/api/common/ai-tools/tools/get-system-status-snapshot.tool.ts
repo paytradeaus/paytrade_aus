@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { AiBillingConsumer } from '../../ai-billing/ai-billing-consumer.helper';
 import { AiTool, AiToolContext, AiToolError } from '../ai-tool.interface';
 import { objectSchema } from '../simple-schema';
+import { buildToolIdempotencyKey } from './idempotency';
 import {
   SystemStatusService,
   SystemStatusSnapshot,
@@ -36,7 +38,22 @@ export class GetSystemStatusSnapshotTool
     membership: { type: 'object' },
   });
 
-  constructor(private readonly statusService: SystemStatusService) {}
+  constructor(
+    private readonly statusService: SystemStatusService,
+    private readonly billingConsumer: AiBillingConsumer,
+  ) {}
+
+  /**
+   * Read-only tool: no AI provider call, so the raw cost is $0. Wired
+   * through the billing consumer anyway so every tool exercises the
+   * same charge path (Task #167).
+   */
+  protected rawProviderCostUsd(
+    _input: SnapshotInput,
+    _output: SystemStatusSnapshot,
+  ): number {
+    return 0;
+  }
 
   async execute(
     input: SnapshotInput,
@@ -52,6 +69,20 @@ export class GetSystemStatusSnapshotTool
     // fallback / hint only — the wrapped domain service still
     // re-validates membership.
     const companyId = context.companyId ?? input.companyId ?? null;
-    return this.statusService.getSnapshotForUser(context.userId, companyId);
+    const result = await this.statusService.getSnapshotForUser(
+      context.userId,
+      companyId,
+    );
+    if (companyId != null) {
+      await this.billingConsumer.consumeOrTopup({
+        companyId,
+        rawCostUsd: this.rawProviderCostUsd(input, result),
+        aiRunId: context.aiRunId ?? null,
+        toolCallId: context.idempotencyKey ?? null,
+        idempotencyKey: buildToolIdempotencyKey(this.name, context),
+        notes: `tool:${this.name}`,
+      });
+    }
+    return result;
   }
 }

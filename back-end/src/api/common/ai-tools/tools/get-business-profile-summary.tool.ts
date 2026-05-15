@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { AiBillingConsumer } from '../../ai-billing/ai-billing-consumer.helper';
 import { AiTool, AiToolContext, AiToolError } from '../ai-tool.interface';
 import { objectSchema } from '../simple-schema';
+import { buildToolIdempotencyKey } from './idempotency';
 import {
   BusinessProfileService,
   BusinessProfileSummary,
@@ -39,7 +41,22 @@ export class GetBusinessProfileSummaryTool
     address: { type: 'string' },
   });
 
-  constructor(private readonly profileService: BusinessProfileService) {}
+  constructor(
+    private readonly profileService: BusinessProfileService,
+    private readonly billingConsumer: AiBillingConsumer,
+  ) {}
+
+  /**
+   * Read-only tool: no AI provider call, so the raw cost is $0. Wired
+   * through the billing consumer anyway so every tool exercises the
+   * same charge path (Task #167).
+   */
+  protected rawProviderCostUsd(
+    _input: SummaryInput,
+    _output: BusinessProfileSummary,
+  ): number {
+    return 0;
+  }
 
   async execute(
     input: SummaryInput,
@@ -58,6 +75,18 @@ export class GetBusinessProfileSummaryTool
         'invalid_input',
       );
     }
-    return this.profileService.getSummaryForUser(context.userId, companyId);
+    const result = await this.profileService.getSummaryForUser(
+      context.userId,
+      companyId,
+    );
+    await this.billingConsumer.consumeOrTopup({
+      companyId,
+      rawCostUsd: this.rawProviderCostUsd(input, result),
+      aiRunId: context.aiRunId ?? null,
+      toolCallId: context.idempotencyKey ?? null,
+      idempotencyKey: buildToolIdempotencyKey(this.name, context),
+      notes: `tool:${this.name}`,
+    });
+    return result;
   }
 }

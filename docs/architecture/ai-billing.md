@@ -31,6 +31,33 @@ The migration is **idempotent**: every `CREATE TABLE` and `ALTER TABLE` is wrapp
 - `chargeTopup({ companyId, creditsUsd, trigger, isSandbox })` — applies Stripe processing fee via `computeStripeFee`, charges PaymentIntent off-session, records the purchase row, calls the receipt handler on success, and inserts a `topup` ledger entry.
 - `evaluateAutoTopup(companyId)` — returns the next charge amount when settings are enabled, balance is below trigger, the company has a stored card, and the current calendar month has not exhausted the cap.
 
+### `AiBillingConsumer.consumeOrTopup(...)` — Task #167
+A thin helper exported alongside `AiBillingService` that packages the
+**consume → on insufficient, evaluate auto-top-up → charge → retry** pattern
+so every AiTool wrapper does not have to re-implement it:
+
+1. Calls `consumeCredit(input)`.
+2. On `insufficient_credit`, calls `evaluateAutoTopup(companyId)`. If auto top-up is disabled / capped / has no stored card, throws `OutOfCreditsError` with the post-attempt balance and required amount so the UI can render an actionable "out of credits" message.
+3. Otherwise calls `chargeTopup({ trigger: 'auto_topup', isSandbox })` and retries `consumeCredit` once. If the Stripe charge fails or the retry still returns insufficient, throws `OutOfCreditsError`.
+4. `rawCostUsd === 0` short-circuits cleanly so read-only tools (no AI provider call yet) wire in uniformly.
+
+Each AiTool wrapper is expected to call this helper after the underlying provider
+call returns its cost, e.g.:
+
+```ts
+await this.consumer.consumeOrTopup({
+  companyId: context.companyId!,
+  rawCostUsd: providerCostUsd,
+  aiRunId: context.aiRunId,
+  toolCallId: context.idempotencyKey ?? this.name,
+  idempotencyKey: `${context.aiRunId ?? ''}:${context.idempotencyKey ?? this.name}`,
+  notes: `tool:${this.name}`,
+});
+```
+
+The idempotency key is unique per `(ai_run_id, tool_call_id)` so retries of the
+same model turn debit the balance only once.
+
 ## Schedules — `AiBillingCron`
 
 - `OnApplicationBootstrap` runs a catch-up monthly allocation so first-of-month deploys never miss it.

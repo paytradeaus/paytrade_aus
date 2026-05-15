@@ -10,6 +10,8 @@ import { CompanyDetails } from 'src/entities/company-details.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 
+import { AiBillingModule } from '../ai-billing/ai-billing.module';
+
 import { AiToolRegistryService } from './ai-tool-registry.service';
 import { AiPromptAuditService } from './ai-prompt-audit.service';
 import { AiActivityLogHelper } from './ai-activity-log.helper';
@@ -34,6 +36,7 @@ import { GetBusinessProfileSummaryTool } from './tools/get-business-profile-summ
       UserDetails,
       CompanyUserRoles,
     ]),
+    AiBillingModule,
   ],
   providers: [
     AiToolRegistryService,

@@ -21,6 +21,7 @@ import { AiBillingService } from './ai-billing.service';
 import { AiBillingResolver } from './ai-billing.resolver';
 import { AiBillingCron } from './ai-billing.cron';
 import { AiBillingReceiptService } from './ai-billing-receipt.service';
+import { AiBillingConsumer } from './ai-billing-consumer.helper';
 
 @Module({
   imports: [
@@ -46,8 +47,9 @@ import { AiBillingReceiptService } from './ai-billing-receipt.service';
     AiBillingResolver,
     AiBillingCron,
     AiBillingReceiptService,
+    AiBillingConsumer,
   ],
-  exports: [AiBillingService],
+  exports: [AiBillingService, AiBillingConsumer],
 })
 export class AiBillingModule implements OnApplicationBootstrap {
   constructor(

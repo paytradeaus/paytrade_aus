@@ -57,6 +57,7 @@ export class AiToolError extends Error {
       | 'not_found'
       | 'unknown_tool'
       | 'tool_disabled'
+      | 'out_of_credits'
       | 'internal_error' = 'internal_error',
   ) {
     super(message);
