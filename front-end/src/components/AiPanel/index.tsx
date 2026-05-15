@@ -1192,16 +1192,34 @@ export default function AiPanel() {
                     const pillIcon = wasStopped
                       ? "fa-light fa-circle-stop"
                       : "fa-light fa-triangle-exclamation";
-                    const pillLabel = wasStopped
+                    const persistedReason =
+                      typeof m.errorReason === "string" &&
+                      m.errorReason.trim().length > 0
+                        ? m.errorReason.trim()
+                        : null;
+                    const genericLabel = wasStopped
                       ? "Stopped — answer may be incomplete"
                       : wasRateLimited
                         ? "Rate limited — please try again shortly"
                         : "Error — answer could not be generated";
-                    const pillTitle = wasStopped
+                    const reasonPrefix = wasStopped
+                      ? "Stopped"
+                      : wasRateLimited
+                        ? "Rate limited"
+                        : "Error";
+                    const pillLabel =
+                      !wasStopped && persistedReason
+                        ? `${reasonPrefix} — ${persistedReason}`
+                        : genericLabel;
+                    const genericTitle = wasStopped
                       ? "You stopped this answer before it finished. It may be incomplete."
                       : wasRateLimited
                         ? "The assistant is rate limited. Wait a moment and retry."
                         : "Something went wrong while generating this answer.";
+                    const pillTitle =
+                      !wasStopped && persistedReason
+                        ? persistedReason
+                        : genericTitle;
                     return (
                       <div className={styles.stoppedRow}>
                         <span

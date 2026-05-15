@@ -145,6 +145,7 @@ export interface AiChatMessage {
   content: string;
   ts: string;
   status?: string | null;
+  errorReason?: string | null;
   pageContext?: AiChatPageContext | null;
 }
 
@@ -154,6 +155,7 @@ const AI_CHAT_FIELDS = `
   content
   ts
   status
+  errorReason
   pageContext {
     route
     pageLabel

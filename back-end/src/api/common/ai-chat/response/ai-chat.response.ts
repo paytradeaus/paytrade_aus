@@ -46,6 +46,13 @@ export class AiChatMessage {
   })
   status?: string;
 
+  @Field({
+    nullable: true,
+    description:
+      'For assistant messages with a non-success status: a short, human-friendly reason for the failure (e.g. "Daily AI quota reached", "Upstream timeout — try again shortly").',
+  })
+  errorReason?: string;
+
   @Field(() => AiChatPageContext, {
     nullable: true,
     description:

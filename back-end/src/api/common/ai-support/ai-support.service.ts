@@ -608,23 +608,51 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
     abortSignal?: AbortSignal,
   ) {
     if (!this.openai) {
-      return { status: 'ERROR', answer: null, message: 'AI support is not available at this time.', remainingQuota: 0, communityPostId: null };
+      return {
+        status: 'ERROR',
+        answer: null,
+        message: 'AI support is not available at this time.',
+        errorReason: 'AI support is not configured on this server',
+        remainingQuota: 0,
+        communityPostId: null,
+      };
     }
 
     const sanitised = this.sanitiseInput(question);
     if (!sanitised) {
-      return { status: 'ERROR', answer: null, message: 'Please enter a valid question (max 500 characters).', remainingQuota: 0, communityPostId: null };
+      return {
+        status: 'ERROR',
+        answer: null,
+        message: 'Please enter a valid question (max 500 characters).',
+        errorReason: 'Question was empty or longer than 500 characters',
+        remainingQuota: 0,
+        communityPostId: null,
+      };
     }
 
     const hash = this.hashQuestion(sanitised);
     const isDuplicate = await this.checkDuplicate(userId, hash);
     if (isDuplicate) {
-      return { status: 'ERROR', answer: null, message: 'You already asked this question recently. Please wait a few minutes before asking the same question again.', remainingQuota: 0, communityPostId: null };
+      return {
+        status: 'ERROR',
+        answer: null,
+        message: 'You already asked this question recently. Please wait a few minutes before asking the same question again.',
+        errorReason: 'Same question already asked in the last few minutes',
+        remainingQuota: 0,
+        communityPostId: null,
+      };
     }
 
     const rateCheck = await this.checkRateLimit(userId);
     if (!rateCheck.allowed) {
-      return { status: 'RATE_LIMITED', answer: null, message: rateCheck.message, remainingQuota: 0, communityPostId: null };
+      return {
+        status: 'RATE_LIMITED',
+        answer: null,
+        message: rateCheck.message,
+        errorReason: rateCheck.message || 'AI usage limit reached for this period',
+        remainingQuota: 0,
+        communityPostId: null,
+      };
     }
 
     const relevanceCheck = await this.checkRelevance(sanitised);
@@ -638,6 +666,9 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         status: 'OFF_TOPIC',
         answer: null,
         message: relevanceCheck.reason,
+        errorReason:
+          relevanceCheck.reason ||
+          'Question was outside the topics this assistant can help with',
         remainingQuota: rateCheck.limit - rateCheck.used,
         communityPostId: null,
         category: relevanceCheck.category || null,
@@ -728,8 +759,104 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
       };
     } catch (error) {
       this.logger.error(`AI support error: ${error.message}`);
-      return { status: 'ERROR', answer: null, message: 'Something went wrong. Please try again later.', remainingQuota: 0, communityPostId: null };
+      const { message, errorReason } = this.classifyAskError(error);
+      return {
+        status: 'ERROR',
+        answer: null,
+        message,
+        errorReason,
+        remainingQuota: 0,
+        communityPostId: null,
+      };
     }
+  }
+
+  /**
+   * Translate an upstream/library exception into a short, user-friendly
+   * `{ message, errorReason }` pair so the UI can show people *why* an
+   * answer failed (Task #218) instead of a generic "Error" pill.
+   */
+  private classifyAskError(error: any): { message: string; errorReason: string } {
+    const raw = String(error?.message || '').toLowerCase();
+    const status: number | undefined =
+      typeof error?.status === 'number'
+        ? error.status
+        : typeof error?.response?.status === 'number'
+          ? error.response.status
+          : undefined;
+    const code: string | undefined =
+      typeof error?.code === 'string'
+        ? error.code
+        : typeof error?.error?.code === 'string'
+          ? error.error.code
+          : undefined;
+
+    if (code === 'insufficient_quota' || raw.includes('insufficient_quota')) {
+      return {
+        message: 'The AI service has run out of quota. Please try again later.',
+        errorReason: 'AI provider quota exhausted on the server',
+      };
+    }
+    if (
+      code === 'context_length_exceeded' ||
+      raw.includes('context length') ||
+      raw.includes('maximum context')
+    ) {
+      return {
+        message:
+          'Your question (or the context attached to it) is too long. Please shorten it and try again.',
+        errorReason: 'Question and page context exceeded the AI model context limit',
+      };
+    }
+    if (status === 429 || code === 'rate_limit_exceeded' || raw.includes('rate limit')) {
+      return {
+        message:
+          'The AI service is busy. Please wait a moment and try again.',
+        errorReason: 'AI provider rate limit hit — try again in a moment',
+      };
+    }
+    if (status === 401 || status === 403) {
+      return {
+        message: 'AI support is misconfigured. Please contact support.',
+        errorReason: 'AI provider rejected our credentials',
+      };
+    }
+    if (
+      raw.includes('timeout') ||
+      raw.includes('timed out') ||
+      code === 'etimedout' ||
+      code === 'econnaborted'
+    ) {
+      return {
+        message:
+          'The AI service took too long to respond. Please try again.',
+        errorReason: 'Upstream AI request timed out',
+      };
+    }
+    if (
+      raw.includes('econnreset') ||
+      raw.includes('econnrefused') ||
+      raw.includes('network') ||
+      raw.includes('fetch failed')
+    ) {
+      return {
+        message:
+          'We could not reach the AI service. Please try again shortly.',
+        errorReason: 'Could not reach the AI provider (network error)',
+      };
+    }
+    if (typeof status === 'number' && status >= 500) {
+      return {
+        message:
+          'The AI service returned an error. Please try again shortly.',
+        errorReason: `AI provider returned ${status}`,
+      };
+    }
+    return {
+      message: 'Something went wrong. Please try again later.',
+      errorReason:
+        'The AI service returned an unexpected error. Please try again shortly.',
+    };
   }
 
   private sanitiseInput(input: string): string | null {

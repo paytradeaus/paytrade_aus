@@ -25,6 +25,9 @@ export class AiChatMessage {
   @Column({ type: 'varchar', length: 40, nullable: true })
   status: string | null;
 
+  @Column({ type: 'varchar', length: 240, nullable: true })
+  error_reason: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   page_context: Record<string, any> | null;
 

@@ -25,6 +25,7 @@ interface ChatMessageDto {
   content: string;
   ts: string;
   status?: string;
+  errorReason?: string;
   pageContext?: ChatPageContext;
 }
 
@@ -62,6 +63,7 @@ export class AiChatService {
       ts: (m.created_on instanceof Date ? m.created_on : new Date(m.created_on))
         .toISOString(),
       status: m.status || undefined,
+      errorReason: m.error_reason || undefined,
       pageContext: this.sanitisePageContext(m.page_context as ChatPageContext | undefined),
     };
   }
@@ -355,6 +357,8 @@ export class AiChatService {
         status: 'ERROR',
         answer: null,
         message: 'Something went wrong. Please try again later.',
+        errorReason:
+          'Internal error while contacting the AI service. Please try again shortly.',
         remainingQuota: 0,
       };
     }
@@ -364,6 +368,10 @@ export class AiChatService {
       answer?.message ||
       'Sorry, I could not generate an answer.';
     const assistantStatus: string = answer?.status || 'SUCCESS';
+    const assistantErrorReason: string | null =
+      assistantStatus !== 'SUCCESS' && typeof answer?.errorReason === 'string'
+        ? answer.errorReason.slice(0, 240)
+        : null;
 
     const assistantMsg = await this.messages.save(
       this.messages.create({
@@ -371,6 +379,7 @@ export class AiChatService {
         role: 'assistant',
         content: assistantContent,
         status: assistantStatus,
+        error_reason: assistantErrorReason,
       }),
     );
 
