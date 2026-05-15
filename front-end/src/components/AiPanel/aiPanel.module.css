@@ -270,6 +270,43 @@
   font-size: 0.75rem;
 }
 
+.stoppedRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.stoppedAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--wind-light);
+  color: var(--ocean);
+  border: 1px solid var(--shade-light);
+  cursor: pointer;
+  line-height: 1.4;
+  font-family: inherit;
+}
+
+.stoppedAction:hover:not(:disabled) {
+  background: var(--ocean);
+  color: #fff;
+  border-color: var(--ocean);
+}
+
+.stoppedAction:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.stoppedAction i {
+  font-size: 0.75rem;
+}
+
 /* Markdown rendering inside assistant bubbles. The bubble keeps
    white-space: pre-wrap for plain text/streaming, but block-level
    markdown elements override that so they lay out normally. */

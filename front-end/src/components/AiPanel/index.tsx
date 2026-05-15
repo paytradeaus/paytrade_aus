@@ -924,7 +924,7 @@ export default function AiPanel() {
             </section>
           )}
 
-          {messages.map((m) => {
+          {messages.map((m, idx) => {
             const ctx = m.role === "user" ? m.pageContext : null;
             const chipLabel =
               ctx && (ctx.pageLabel || ctx.route)
@@ -1053,18 +1053,63 @@ export default function AiPanel() {
                       </div>
                     </span>
                   )}
-                  {wasStopped && (
-                    <span
-                      className={styles.stoppedPill}
-                      title="You stopped this answer before it finished. It may be incomplete."
-                    >
-                      <i
-                        className="fa-light fa-circle-stop"
-                        aria-hidden="true"
-                      ></i>
-                      Stopped — answer may be incomplete
-                    </span>
-                  )}
+                  {wasStopped && (() => {
+                    let priorUserMsg: AiChatMessage | undefined;
+                    for (let i = idx - 1; i >= 0; i--) {
+                      if (messages[i].role === "user") {
+                        priorUserMsg = messages[i];
+                        break;
+                      }
+                    }
+                    return (
+                      <div className={styles.stoppedRow}>
+                        <span
+                          className={styles.stoppedPill}
+                          title="You stopped this answer before it finished. It may be incomplete."
+                        >
+                          <i
+                            className="fa-light fa-circle-stop"
+                            aria-hidden="true"
+                          ></i>
+                          Stopped — answer may be incomplete
+                        </span>
+                        {priorUserMsg && (
+                          <button
+                            type="button"
+                            className={styles.stoppedAction}
+                            disabled={sending}
+                            title="Re-ask the original question"
+                            aria-label="Retry original question"
+                            onClick={() => submitMessage(priorUserMsg!.content)}
+                          >
+                            <i
+                              className="fa-light fa-rotate-right"
+                              aria-hidden="true"
+                            ></i>
+                            Retry
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={styles.stoppedAction}
+                          disabled={sending}
+                          title="Ask the assistant to continue from where it stopped"
+                          aria-label="Continue the previous answer"
+                          onClick={() =>
+                            submitMessage(
+                              "Please continue your previous answer from where you stopped. Do not repeat what you already said.",
+                            )
+                          }
+                        >
+                          <i
+                            className="fa-light fa-forward"
+                            aria-hidden="true"
+                          ></i>
+                          Continue
+                        </button>
+                      </div>
+                    );
+                  })()}
                   {m.navBreadcrumbs && m.navBreadcrumbs.length > 0 && (
                     <div>
                       {m.navBreadcrumbs.map((b, i) => (
