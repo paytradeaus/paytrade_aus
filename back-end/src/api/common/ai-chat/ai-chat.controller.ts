@@ -22,7 +22,7 @@ export class AiChatController {
   @Post('stream')
   async stream(
     @Headers('authorization') authHeader: string,
-    @Body() body: { message?: string },
+    @Body() body: { message?: string; pageContext?: any },
     @Res() res: Response,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -65,6 +65,7 @@ export class AiChatController {
       const result = await this.aiChatService.sendMessage(
         userId,
         body?.message || '',
+        body?.pageContext,
         (chunk: string) => {
           if (closed) return;
           send('delta', { content: chunk });

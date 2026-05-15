@@ -1,6 +1,8 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { getCookie } from "cookies-next";
 import {
   AI_PANEL_MAX_WIDTH,
   AI_PANEL_MIN_WIDTH,
@@ -10,13 +12,101 @@ import {
 import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
 import {
   AiChatMessage,
+  AiChatPageContext,
   clearAiChatHistory,
   fetchAiChatHistory,
   persistUiPreferences,
   streamAiChatMessage,
 } from "@/network/uiPreferences";
 import { AppRoutes } from "@/shared/constant/appRoutes";
+import { applicationStorage } from "@/shared/constant/general";
 import styles from "./aiPanel.module.css";
+
+const NUMERIC_RE = /^\d+$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const ID_KEY_BY_PARENT: Record<string, string> = {
+  projects: "projectId",
+  contracts: "contractId",
+  claims: "claimId",
+  variations: "variationId",
+  notices: "noticeId",
+  "bank-accounts": "bankAccountId",
+  "clients-suppliers": "contactId",
+  payments: "paymentId",
+  "trust-accounting": "trustRecordId",
+  invoices: "invoiceId",
+  bills: "billId",
+};
+
+const ENTITY_BY_PARENT: Record<string, string> = {
+  projects: "project",
+  contracts: "contract",
+  claims: "claim",
+  variations: "variation",
+  notices: "notice",
+  "bank-accounts": "bankAccount",
+  "clients-suppliers": "contact",
+  payments: "payment",
+  "trust-accounting": "trustRecord",
+  invoices: "invoice",
+  bills: "bill",
+};
+
+function derivePageContext(
+  pathname: string | null,
+  searchParams: URLSearchParams | null,
+): {
+  pageLabel: string;
+  entityIds: Record<string, string>;
+  entity?: string;
+  entityId?: string;
+} {
+  if (!pathname) return { pageLabel: "/", entityIds: {} };
+  const segments = pathname.split("/").filter(Boolean);
+  const entityIds: Record<string, string> = {};
+  const labelParts: string[] = [];
+  let entity: string | undefined;
+  let entityId: string | undefined;
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const isId = NUMERIC_RE.test(seg) || UUID_RE.test(seg);
+    if (isId) {
+      const parent = segments[i - 1];
+      const key = (parent && ID_KEY_BY_PARENT[parent]) || `${parent || "id"}Id`;
+      if (!entityIds[key]) entityIds[key] = seg;
+      const mappedEntity = parent ? ENTITY_BY_PARENT[parent] : undefined;
+      if (mappedEntity && !entity) {
+        entity = mappedEntity;
+        entityId = seg;
+      }
+      labelParts.push(seg);
+    } else {
+      labelParts.push(seg);
+    }
+  }
+
+  // Fall back to last meaningful segment as entity name when no id present.
+  if (!entity) {
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      if (!NUMERIC_RE.test(seg) && !UUID_RE.test(seg)) {
+        if (ENTITY_BY_PARENT[seg]) entity = ENTITY_BY_PARENT[seg];
+        break;
+      }
+    }
+  }
+
+  void searchParams; // currently unused for label, route already includes querystring
+  return {
+    pageLabel: labelParts.join(" / ") || "/",
+    entityIds,
+    entity,
+    entityId,
+  };
+}
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
   {
@@ -157,6 +247,33 @@ export default function AiPanel() {
     }
   }, [messages, sending, streamingText]);
 
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const buildPageContext = useCallback((): AiChatPageContext | undefined => {
+    if (!pathname) return undefined;
+    const search = searchParams?.toString() || "";
+    const route = search ? `${pathname}?${search}` : pathname;
+    const { pageLabel, entityIds, entity, entityId } = derivePageContext(
+      pathname,
+      searchParams ?? null,
+    );
+    let companyId: number | undefined;
+    try {
+      const raw = getCookie(applicationStorage.COMPANY_ID);
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) companyId = n;
+    } catch {
+      // best-effort only
+    }
+    const ctx: AiChatPageContext = { route, pageLabel };
+    if (entity) ctx.entity = entity;
+    if (entityId) ctx.entityId = entityId;
+    if (Object.keys(entityIds).length) ctx.entityIds = entityIds;
+    if (companyId !== undefined) ctx.companyId = companyId;
+    return ctx;
+  }, [pathname, searchParams]);
+
   const submitMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -165,17 +282,20 @@ export default function AiPanel() {
       setSending(true);
       setStreamingText("");
 
+      const pageContext = buildPageContext();
+
       // Optimistic user message so it appears immediately.
       const optimistic: AiChatMessage = {
         id: `tmp-${Date.now()}`,
         role: "user",
         content: trimmed,
         ts: new Date().toISOString(),
+        pageContext,
       };
       setMessages((prev) => [...prev, optimistic]);
       setInput("");
 
-      await streamAiChatMessage(trimmed, {
+      await streamAiChatMessage(trimmed, pageContext, {
         onDelta: (chunk) => {
           setStreamingText((prev) => prev + chunk);
         },
@@ -196,7 +316,7 @@ export default function AiPanel() {
         },
       });
     },
-    [sending]
+    [sending, buildPageContext]
   );
 
   const onComposerSubmit = (e: React.FormEvent) => {

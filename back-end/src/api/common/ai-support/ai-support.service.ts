@@ -532,9 +532,63 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
     return lines.join('\n');
   }
 
+  /** Build a system-prompt block from the per-message page-context hint
+   *  sent by the AI panel. Distinct from the live-follow flow: this
+   *  context is only present when the user explicitly sends a chat
+   *  message and is never cached server-side. */
+  private buildPerMessagePageContextBlock(ctx?: {
+    route?: string;
+    pageLabel?: string;
+    entity?: string;
+    entityId?: string;
+    entityIds?: Record<string, string>;
+    companyId?: number;
+  }): string | null {
+    if (!ctx) return null;
+    const parts: string[] = [];
+    const route = ctx.route ? this.sanitiseContextValue(ctx.route) : '';
+    const pageLabel = ctx.pageLabel
+      ? this.sanitiseContextValue(ctx.pageLabel)
+      : '';
+    const entity = ctx.entity ? this.sanitiseContextValue(ctx.entity) : '';
+    const entityId = ctx.entityId ? this.sanitiseContextValue(ctx.entityId) : '';
+    if (route) parts.push(`- Route: ${route}`);
+    if (pageLabel) parts.push(`- Page: ${pageLabel}`);
+    if (entity) {
+      parts.push(
+        `- Primary entity: ${entity}${entityId ? ` (id ${entityId})` : ''}`,
+      );
+    }
+    if (ctx.entityIds && Object.keys(ctx.entityIds).length) {
+      const pairs = Object.entries(ctx.entityIds)
+        .map(
+          ([k, v]) =>
+            `${this.sanitiseContextValue(k)}=${this.sanitiseContextValue(v)}`,
+        )
+        .filter((s) => s.length > 1);
+      if (pairs.length) parts.push(`- Visible record IDs: ${pairs.join(', ')}`);
+    }
+    if (typeof ctx.companyId === 'number' && Number.isFinite(ctx.companyId)) {
+      parts.push(`- Company id: ${ctx.companyId}`);
+    }
+    if (!parts.length) return null;
+    return [
+      'CURRENT PAGE CONTEXT (the user is asking from this page in PayTrade — use it to ground your answer when relevant, but do not assume access to that record\'s data unless told otherwise):',
+      ...parts,
+    ].join('\n');
+  }
+
   async askQuestion(
     userId: number,
     question: string,
+    pageContext?: {
+      route?: string;
+      pageLabel?: string;
+      entity?: string;
+      entityId?: string;
+      entityIds?: Record<string, string>;
+      companyId?: number;
+    },
     onDelta?: (chunk: string) => void,
   ) {
     if (!this.openai) {
@@ -585,10 +639,15 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const liveContext = await this.getLiveFollowContextForPrompt(userId);
+      const perMessageContext = this.buildPerMessagePageContextBlock(pageContext);
+      const combinedContext =
+        [liveContext, perMessageContext]
+          .filter((s): s is string => Boolean(s))
+          .join('\n\n') || null;
       const answer = await this.callOpenAI(
         sanitised,
         relevanceCheck.needsWebSearch,
-        liveContext,
+        combinedContext,
         onDelta,
       );
 

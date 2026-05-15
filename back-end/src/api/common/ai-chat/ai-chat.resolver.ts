@@ -58,7 +58,11 @@ export class AiChatResolver {
       return { status: 'ERROR', message: 'Please log in.', history: [] };
     }
     try {
-      const result = await this.aiChatService.sendMessage(userId, input.message);
+      const result = await this.aiChatService.sendMessage(
+        userId,
+        input.message,
+        input.pageContext,
+      );
       return {
         status: result.status,
         message: result.message,

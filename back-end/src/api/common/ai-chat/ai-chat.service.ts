@@ -8,12 +8,22 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 
 const MAX_HISTORY = 50;
 
+export interface ChatPageContext {
+  route?: string;
+  pageLabel?: string;
+  entity?: string;
+  entityId?: string;
+  entityIds?: Record<string, string>;
+  companyId?: number;
+}
+
 interface StoredMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   ts: string;
   status?: string;
+  pageContext?: ChatPageContext;
 }
 
 @Injectable()
@@ -32,6 +42,39 @@ export class AiChatService {
     return user;
   }
 
+  private sanitisePageContext(
+    raw: ChatPageContext | undefined,
+  ): ChatPageContext | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const trim = (v: unknown, max = 200): string | undefined => {
+      if (typeof v !== 'string') return undefined;
+      const t = v.trim();
+      return t ? t.slice(0, max) : undefined;
+    };
+    const out: ChatPageContext = {};
+    const route = trim(raw.route, 500);
+    if (route) out.route = route;
+    const pageLabel = trim(raw.pageLabel);
+    if (pageLabel) out.pageLabel = pageLabel;
+    const entity = trim(raw.entity, 80);
+    if (entity) out.entity = entity;
+    const entityId = trim(raw.entityId, 80);
+    if (entityId) out.entityId = entityId;
+    if (raw.entityIds && typeof raw.entityIds === 'object') {
+      const ids: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw.entityIds)) {
+        const ck = trim(k, 60);
+        const cv = trim(typeof v === 'number' ? String(v) : v, 80);
+        if (ck && cv) ids[ck] = cv;
+      }
+      if (Object.keys(ids).length) out.entityIds = ids;
+    }
+    if (typeof raw.companyId === 'number' && Number.isFinite(raw.companyId)) {
+      out.companyId = raw.companyId;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+
   private readHistory(user: UserDetails): StoredMessage[] {
     const prefs: Record<string, any> = user.ui_preferences || {};
     const raw = Array.isArray(prefs.aiChat) ? prefs.aiChat : [];
@@ -46,6 +89,7 @@ export class AiChatService {
         content: m.content,
         ts: typeof m.ts === 'string' ? m.ts : new Date().toISOString(),
         status: typeof m.status === 'string' ? m.status : undefined,
+        pageContext: this.sanitisePageContext(m.pageContext),
       }));
   }
 
@@ -74,6 +118,7 @@ export class AiChatService {
   async sendMessage(
     userId: number,
     rawMessage: string,
+    rawPageContext?: ChatPageContext,
     onDelta?: (chunk: string) => void,
   ): Promise<{
     status: string;
@@ -90,6 +135,7 @@ export class AiChatService {
       };
     }
 
+    const pageContext = this.sanitisePageContext(rawPageContext);
     const user = await this.loadUser(userId);
     const history = this.readHistory(user);
 
@@ -98,12 +144,18 @@ export class AiChatService {
       role: 'user',
       content: text.slice(0, 500),
       ts: new Date().toISOString(),
+      pageContext,
     };
     history.push(userMsg);
 
     let answer: any;
     try {
-      answer = await this.aiSupportService.askQuestion(userId, text, onDelta);
+      answer = await this.aiSupportService.askQuestion(
+        userId,
+        text,
+        pageContext,
+        onDelta,
+      );
     } catch (err: any) {
       this.logger.error(`askQuestion failed for user=${userId}: ${err?.message}`);
       answer = {

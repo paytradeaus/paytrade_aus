@@ -130,12 +130,22 @@ export async function recordAiLiveFollowContext(input: {
   }
 }
 
+export interface AiChatPageContext {
+  route?: string;
+  pageLabel?: string;
+  entity?: string;
+  entityId?: string;
+  entityIds?: Record<string, string>;
+  companyId?: number;
+}
+
 export interface AiChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   ts: string;
   status?: string | null;
+  pageContext?: AiChatPageContext | null;
 }
 
 const AI_CHAT_FIELDS = `
@@ -144,6 +154,14 @@ const AI_CHAT_FIELDS = `
   content
   ts
   status
+  pageContext {
+    route
+    pageLabel
+    entity
+    entityId
+    entityIds
+    companyId
+  }
 `;
 
 export async function fetchAiChatHistory(): Promise<AiChatMessage[]> {
@@ -172,7 +190,8 @@ export async function fetchAiChatHistory(): Promise<AiChatMessage[]> {
 }
 
 export async function sendAiChatMessage(
-  message: string
+  message: string,
+  pageContext?: AiChatPageContext
 ): Promise<{
   status: string;
   message?: string | null;
@@ -191,7 +210,7 @@ export async function sendAiChatMessage(
           }
         }
       `,
-      variables: { input: { message } },
+      variables: { input: { message, pageContext: pageContext || null } },
     });
     const payload = res?.data?.sendAiChatMessage;
     return {
@@ -222,6 +241,7 @@ export interface StreamAiChatCallbacks {
 
 export async function streamAiChatMessage(
   message: string,
+  pageContext: AiChatPageContext | undefined,
   cb: StreamAiChatCallbacks,
 ): Promise<void> {
   let token = "";
@@ -236,7 +256,7 @@ export async function streamAiChatMessage(
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, pageContext }),
     });
   } catch (err: any) {
     cb.onError(err?.message || "Unable to send message");
