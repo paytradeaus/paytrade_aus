@@ -4,14 +4,13 @@ import React, { useEffect, useState } from "react";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import { useTokenDetails } from "@/hooks";
 import {
-  attachAiBillingPaymentMethod,
-  createAiBillingSetupIntent,
   fetchAiBillingOverview,
   fetchAiCreditLedger,
   fetchAiCreditPurchases,
   triggerManualTopup,
   updateAiBillingSettings,
 } from "./aiBilling.functions";
+import StripeCardModal, { openStripeCardModal } from "./StripeCardModal";
 
 const fmtUsd = (v: any) =>
   typeof v === "number" ? `$${v.toFixed(2)}` : `$${Number(v ?? 0).toFixed(2)}`;
@@ -36,6 +35,7 @@ export default function AiBillingPanel() {
   const [topupAmount, setTopupAmount] = useState<number>(20);
   const [monthlyCap, setMonthlyCap] = useState<number>(200);
   const [billingEmail, setBillingEmail] = useState<string>("");
+  const [cardClientSecret, setCardClientSecret] = useState<string | null>(null);
 
   const reload = async () => {
     if (!companyId) return;
@@ -86,25 +86,13 @@ export default function AiBillingPanel() {
 
   const onCapturePaymentMethod = async () => {
     try {
-      const intent = await createAiBillingSetupIntent(
+      const clientSecret = await openStripeCardModal(
         companyId,
         !!overview?.settings?.is_sandbox
       );
-      // Production wires this to Stripe Elements; this fallback prompts for the
-      // PM id so QA + admin can attach a manually-created PM in the meantime.
-      const pmId = window.prompt(
-        "Enter Stripe Payment Method ID (pm_…) — Stripe Elements UI is integrated separately."
-      );
-      if (!pmId) return;
-      await attachAiBillingPaymentMethod(
-        companyId,
-        pmId,
-        !!overview?.settings?.is_sandbox
-      );
-      showSuccessToast("Payment method attached");
-      reload();
+      setCardClientSecret(clientSecret);
     } catch (err: any) {
-      showErrorToast(err?.message ?? "Failed to capture payment method");
+      showErrorToast(err?.message ?? "Failed to start card capture");
     }
   };
 
@@ -290,6 +278,19 @@ export default function AiBillingPanel() {
           ) : null}
         </tbody>
       </table>
+
+      {cardClientSecret ? (
+        <StripeCardModal
+          companyId={companyId}
+          isSandbox={!!overview?.settings?.is_sandbox}
+          clientSecret={cardClientSecret}
+          onClose={() => setCardClientSecret(null)}
+          onAttached={() => {
+            setCardClientSecret(null);
+            reload();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
