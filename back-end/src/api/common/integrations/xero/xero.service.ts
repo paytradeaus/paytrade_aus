@@ -1598,6 +1598,11 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     const statuses = ['Succeeded', 'Warning', 'Failed', 'Archived'];
     const statusMap = new Map<string, any>();
     if (id) {
+      // NOTE: GROUP BY uses the full CASE expression rather than the
+      // `sync_status` alias because Postgres resolves the alias to the
+      // real `t.sync_status` column when one exists (alias ≠ column),
+      // which leaves `l.archived_at` ungrouped and throws
+      // "l.archived_at must appear in the GROUP BY clause".
       const combinedTableQuery = `
         WITH combined_table AS (
             SELECT
@@ -1606,7 +1611,9 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
                    ELSE CAST(t.sync_status AS text) END AS sync_status,
               COUNT(l.*) AS status_count
             FROM xero_sync_logs l INNER JOIN xero_log_templates t on l.log_template_id = t.id
-            GROUP BY l.integration_id, sync_status
+            GROUP BY l.integration_id,
+                     CASE WHEN l.archived_at IS NOT NULL THEN 'Archived'
+                          ELSE CAST(t.sync_status AS text) END
           )
           SELECT c.*, i.company_id, i.integration_status
           FROM combined_table c 
