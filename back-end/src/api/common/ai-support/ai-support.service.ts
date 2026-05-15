@@ -532,7 +532,11 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
     return lines.join('\n');
   }
 
-  async askQuestion(userId: number, question: string) {
+  async askQuestion(
+    userId: number,
+    question: string,
+    onDelta?: (chunk: string) => void,
+  ) {
     if (!this.openai) {
       return { status: 'ERROR', answer: null, message: 'AI support is not available at this time.', remainingQuota: 0, communityPostId: null };
     }
@@ -585,6 +589,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         sanitised,
         relevanceCheck.needsWebSearch,
         liveContext,
+        onDelta,
       );
 
       let communityPostId: string | null = null;
@@ -843,6 +848,7 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
     question: string,
     useWebSearch: boolean = false,
     liveContext: string | null = null,
+    onDelta?: (chunk: string) => void,
   ): Promise<string> {
     const liveContextBlock = liveContext ? `\n\n${liveContext}\n` : '';
     const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
@@ -879,6 +885,45 @@ ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideCon
         },
       ];
       this.logger.log(`Using web search for question: "${question.substring(0, 80)}"`);
+    }
+
+    if (onDelta) {
+      requestOptions.stream = true;
+      let assembled = '';
+      try {
+        const stream: any = await this.openai.responses.create(requestOptions);
+        for await (const event of stream as AsyncIterable<any>) {
+          const type = event?.type || '';
+          if (type === 'response.output_text.delta') {
+            const delta: string =
+              typeof event.delta === 'string'
+                ? event.delta
+                : typeof event.delta?.text === 'string'
+                  ? event.delta.text
+                  : '';
+            if (delta) {
+              assembled += delta;
+              try {
+                onDelta(delta);
+              } catch {
+                /* swallow consumer errors */
+              }
+            }
+          } else if (type === 'response.completed') {
+            const finalText = event?.response?.output_text;
+            if (typeof finalText === 'string' && finalText.length > assembled.length) {
+              assembled = finalText;
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.error(`OpenAI streaming error: ${err?.message}`);
+        if (!assembled) throw err;
+      }
+      return (
+        assembled ||
+        'I was unable to generate a response. Please contact our support team for help.'
+      );
     }
 
     const response = await this.openai.responses.create(requestOptions);

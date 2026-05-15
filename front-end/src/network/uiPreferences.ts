@@ -209,6 +209,109 @@ export async function sendAiChatMessage(
   }
 }
 
+export interface StreamAiChatCallbacks {
+  onDelta: (chunk: string) => void;
+  onDone: (result: {
+    status: string;
+    message?: string | null;
+    history: AiChatMessage[];
+    remainingQuota?: number | null;
+  }) => void;
+  onError: (message: string) => void;
+}
+
+export async function streamAiChatMessage(
+  message: string,
+  cb: StreamAiChatCallbacks,
+): Promise<void> {
+  let token = "";
+  if (typeof window !== "undefined") {
+    token = localStorage.getItem("accessToken") || "";
+  }
+  let response: Response;
+  try {
+    response = await fetch("/ai-chat/stream", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ message }),
+    });
+  } catch (err: any) {
+    cb.onError(err?.message || "Unable to send message");
+    return;
+  }
+
+  if (!response.ok || !response.body) {
+    cb.onError(`Request failed (${response.status})`);
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let doneEmitted = false;
+
+  const handleEvent = (eventName: string, dataLine: string) => {
+    let data: any = null;
+    try {
+      data = JSON.parse(dataLine);
+    } catch {
+      return;
+    }
+    if (eventName === "delta" && typeof data?.content === "string") {
+      cb.onDelta(data.content);
+    } else if (eventName === "done") {
+      doneEmitted = true;
+      cb.onDone({
+        status: data?.status || "ERROR",
+        message: data?.message || null,
+        history: Array.isArray(data?.history) ? data.history : [],
+        remainingQuota:
+          typeof data?.remainingQuota === "number" ? data.remainingQuota : null,
+      });
+    } else if (eventName === "error") {
+      cb.onError(data?.message || "Something went wrong.");
+    }
+  };
+
+  const flushBlock = (block: string) => {
+    let eventName = "message";
+    const dataParts: string[] = [];
+    block.split("\n").forEach((line) => {
+      if (line.startsWith("event:")) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        dataParts.push(line.slice(5).trim());
+      }
+    });
+    if (dataParts.length > 0) {
+      handleEvent(eventName, dataParts.join("\n"));
+    }
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        if (block.trim().length > 0) flushBlock(block);
+      }
+    }
+    if (buffer.trim().length > 0) flushBlock(buffer);
+    if (!doneEmitted) {
+      cb.onError("Stream ended unexpectedly.");
+    }
+  } catch (err: any) {
+    cb.onError(err?.message || "Stream interrupted");
+  }
+}
+
 export async function clearAiChatHistory(): Promise<AiChatMessage[]> {
   try {
     const res = await client.mutate({

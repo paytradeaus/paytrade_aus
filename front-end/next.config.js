@@ -114,6 +114,10 @@ module.exports = {
         destination: `${BACKEND_URL}/files/:path*`,
       },
       {
+        source: '/ai-chat/:path*',
+        destination: `${BACKEND_URL}/ai-chat/:path*`,
+      },
+      {
         source: '/socket.io/',
         destination: `${BACKEND_URL}/socket.io/`,
       },

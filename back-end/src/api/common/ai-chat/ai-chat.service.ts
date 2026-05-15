@@ -74,6 +74,7 @@ export class AiChatService {
   async sendMessage(
     userId: number,
     rawMessage: string,
+    onDelta?: (chunk: string) => void,
   ): Promise<{
     status: string;
     message?: string;
@@ -102,7 +103,7 @@ export class AiChatService {
 
     let answer: any;
     try {
-      answer = await this.aiSupportService.askQuestion(userId, text);
+      answer = await this.aiSupportService.askQuestion(userId, text, onDelta);
     } catch (err: any) {
       this.logger.error(`askQuestion failed for user=${userId}: ${err?.message}`);
       answer = {

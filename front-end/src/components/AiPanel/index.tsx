@@ -13,7 +13,7 @@ import {
   clearAiChatHistory,
   fetchAiChatHistory,
   persistUiPreferences,
-  sendAiChatMessage,
+  streamAiChatMessage,
 } from "@/network/uiPreferences";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import styles from "./aiPanel.module.css";
@@ -53,6 +53,7 @@ export default function AiPanel() {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -154,7 +155,7 @@ export default function AiPanel() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, sending]);
+  }, [messages, sending, streamingText]);
 
   const submitMessage = useCallback(
     async (text: string) => {
@@ -162,6 +163,7 @@ export default function AiPanel() {
       if (!trimmed || sending) return;
       setErrorBanner(null);
       setSending(true);
+      setStreamingText("");
 
       // Optimistic user message so it appears immediately.
       const optimistic: AiChatMessage = {
@@ -173,14 +175,26 @@ export default function AiPanel() {
       setMessages((prev) => [...prev, optimistic]);
       setInput("");
 
-      const res = await sendAiChatMessage(trimmed);
-      if (res.history && res.history.length > 0) {
-        setMessages(res.history);
-      }
-      if (res.status !== "SUCCESS" && res.message) {
-        setErrorBanner(res.message);
-      }
-      setSending(false);
+      await streamAiChatMessage(trimmed, {
+        onDelta: (chunk) => {
+          setStreamingText((prev) => prev + chunk);
+        },
+        onDone: (res) => {
+          if (res.history && res.history.length > 0) {
+            setMessages(res.history);
+          }
+          if (res.status !== "SUCCESS" && res.message) {
+            setErrorBanner(res.message);
+          }
+          setStreamingText("");
+          setSending(false);
+        },
+        onError: (msg) => {
+          setErrorBanner(msg);
+          setStreamingText("");
+          setSending(false);
+        },
+      });
     },
     [sending]
   );
@@ -392,7 +406,13 @@ export default function AiPanel() {
             </div>
           ))}
 
-          {sending && (
+          {sending && streamingText && (
+            <div className={`${styles.msg} ${styles.msgAi}`}>
+              <div className={styles.msgBubble}>{streamingText}</div>
+            </div>
+          )}
+
+          {sending && !streamingText && (
             <div className={`${styles.msg} ${styles.msgAi}`}>
               <div className={`${styles.msgBubble} ${styles.msgTyping}`}>
                 <span className={styles.dot} />
