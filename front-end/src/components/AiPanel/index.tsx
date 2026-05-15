@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AI_PANEL_MAX_WIDTH,
   AI_PANEL_MIN_WIDTH,
@@ -20,6 +20,34 @@ export default function AiPanel() {
   useEffect(() => {
     widthRef.current = width;
   }, [width]);
+
+  // Detect small screens so we can swap the desktop three-column UX for
+  // a floating button + full-screen sheet. The breakpoint matches the
+  // CSS media query that hides the inline panel.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 1280px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    if (mq.addEventListener) {
+      mq.addEventListener("change", update);
+      return () => mq.removeEventListener("change", update);
+    }
+    // Safari < 14 fallback
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+
+  // Lock body scroll while the full-screen sheet is open on mobile.
+  useEffect(() => {
+    if (!isMobile || state !== "open") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobile, state]);
 
   const dragRef = useRef<{ active: boolean; startX: number; startW: number }>({
     active: false,
@@ -64,6 +92,28 @@ export default function AiPanel() {
     },
     [onMouseMove, onMouseUp]
   );
+
+  // Mobile/tablet: use a floating action button + full-screen sheet
+  // instead of the desktop rail/inline layouts. The rail state doesn't
+  // make sense on a phone, so we collapse it into "show the FAB".
+  if (isMobile) {
+    if (state !== "open") {
+      return (
+        <button
+          type="button"
+          className={styles.hideToggle}
+          title="Show AI assistant"
+          aria-label="Show AI assistant"
+          onClick={() => {
+            dispatch(setAiPanelState("open"));
+            persistUiPreferences({ aiPanelState: "open" });
+          }}
+        >
+          <i className="fa-light fa-message-bot"></i>
+        </button>
+      );
+    }
+  }
 
   if (state === "hidden") {
     return (
@@ -117,52 +167,67 @@ export default function AiPanel() {
     );
   }
 
-  return (
-    <aside
-      className={styles.aiPanel}
-      aria-label="AI assistant"
-      data-state="open"
-      style={{ width: `${width}px`, minWidth: `${width}px` }}
-    >
-      <div
-        className={styles.resizer}
-        onMouseDown={onResizerDown}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize AI assistant"
-      />
+  const closeOnMobile = () => {
+    dispatch(setAiPanelState("hidden"));
+    persistUiPreferences({ aiPanelState: "hidden" });
+  };
 
-      <div className={styles.header}>
-        <h5>
-          AI Assistant<span className={styles.beta}>BETA</span>
-        </h5>
-        <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            title="Collapse to rail"
-            aria-label="Collapse AI assistant to rail"
-            onClick={() => {
-              dispatch(setAiPanelState("rail"));
-              persistUiPreferences({ aiPanelState: "rail" });
-            }}
-          >
-            <i className="fa-light fa-chevrons-right"></i>
-          </button>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            title="Hide AI assistant"
-            aria-label="Hide AI assistant"
-            onClick={() => {
-              dispatch(setAiPanelState("hidden"));
-              persistUiPreferences({ aiPanelState: "hidden" });
-            }}
-          >
-            <i className="fa-light fa-xmark"></i>
-          </button>
+  return (
+    <>
+      {isMobile && (
+        <button
+          type="button"
+          className={styles.mobileBackdrop}
+          aria-label="Close AI assistant"
+          onClick={closeOnMobile}
+        />
+      )}
+      <aside
+        className={`${styles.aiPanel}${isMobile ? ` ${styles.aiPanelMobile}` : ""}`}
+        aria-label="AI assistant"
+        data-state="open"
+        style={
+          isMobile ? undefined : { width: `${width}px`, minWidth: `${width}px` }
+        }
+      >
+        <div
+          className={styles.resizer}
+          onMouseDown={onResizerDown}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize AI assistant"
+        />
+
+        <div className={styles.header}>
+          <h5>
+            AI Assistant<span className={styles.beta}>BETA</span>
+          </h5>
+          <div className={styles.headerActions}>
+            {!isMobile && (
+              <button
+                type="button"
+                className={styles.iconBtn}
+                title="Collapse to rail"
+                aria-label="Collapse AI assistant to rail"
+                onClick={() => {
+                  dispatch(setAiPanelState("rail"));
+                  persistUiPreferences({ aiPanelState: "rail" });
+                }}
+              >
+                <i className="fa-light fa-chevrons-right"></i>
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.iconBtn}
+              title="Hide AI assistant"
+              aria-label="Hide AI assistant"
+              onClick={closeOnMobile}
+            >
+              <i className="fa-light fa-xmark"></i>
+            </button>
+          </div>
         </div>
-      </div>
 
       <div className={styles.body}>
         <section
@@ -248,6 +313,7 @@ export default function AiPanel() {
           <span>GPT-4o</span>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

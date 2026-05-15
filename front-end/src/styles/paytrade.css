@@ -4538,6 +4538,64 @@ a.pt_linksbox {
   }
 }
 
+/* Tablet (≥768px and <1280px): when the user has chosen the collapsed
+   rail nav, render it inline as a 72px rail instead of forcing the
+   off-canvas mobile drawer. The hamburger isn't useful in that case,
+   so keep it hidden and let users toggle between rail/full from the
+   on-rail collapse button. */
+@media (min-width: 768px) and (max-width: 1280px) {
+  .pt_dashboard.nav-collapsed {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .pt_dashboard.nav-collapsed .pt_left {
+    position: relative;
+    left: 0;
+    width: calc(72px - var(--space-xs));
+    height: calc(100vh - var(--space-l) - var(--space-m));
+    background: transparent;
+    backdrop-filter: none;
+    padding: var(--space-s) var(--space-2xs);
+    z-index: 5;
+  }
+
+  .pt_dashboard.nav-collapsed .pt_sidemenu {
+    width: auto;
+    padding-right: 0;
+  }
+
+  .pt_dashboard.nav-collapsed .mobilenavtop {
+    display: none;
+  }
+
+  .pt_dashboard.nav-collapsed .menuopen {
+    display: none;
+  }
+
+  /* The expand-rail control is the only way back to the full nav on
+     tablets in this mode (the hamburger is hidden), so keep it
+     visible and enlarge the hit target so it's tappable on touch.
+     The more-specific selector also overrides the coarse-pointer
+     hide rule below for this state. */
+  .pt_dashboard.nav-collapsed .pt_nav_collapse_btn,
+  .pt_dashboard .pt_nav_collapse_btn {
+    display: inline-flex;
+    right: -14px;
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+}
+
+/* Touch / coarse-pointer phones (<768px): hide the hairline expand/
+   collapse button on the rail since it's too small to tap reliably
+   and the mobile drawer hamburger is the primary nav entry point. */
+@media (hover: none) and (pointer: coarse) and (max-width: 767px) {
+  .pt_nav_collapse_btn {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .pt_quicklinks .grid {
     grid-template-columns: repeat(1, 1fr);
