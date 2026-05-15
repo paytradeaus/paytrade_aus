@@ -8,6 +8,7 @@ import { AiCreditLedger } from 'src/entities/ai-credit-ledger.entity';
 import { AiCreditPurchase } from 'src/entities/ai-credit-purchase.entity';
 import { CommonSettings } from 'src/entities/common-settings.entity';
 import { CompanyDetails } from 'src/entities/company-details.entity';
+import { EmailTemplates } from 'src/entities/email-templates.entity';
 import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 import { SubscriptionPlanDetails } from 'src/entities/subscription-plan-details.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
@@ -33,6 +34,7 @@ import { AiBillingConsumer } from './ai-billing-consumer.helper';
       AiCreditPurchase,
       CommonSettings,
       CompanyDetails,
+      EmailTemplates,
       SubscriptionDetails,
       SubscriptionPlanDetails,
       UserDetails,

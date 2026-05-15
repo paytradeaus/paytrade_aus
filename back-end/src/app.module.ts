@@ -114,6 +114,7 @@ import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates
 import { ActivityLogTemplatesSeederModule } from './libs/@seeders/activity-log-templates-seeder.module';
 import { NoticesAutoSendSchemaSeederModule } from './libs/@seeders/notices-auto-send-schema-seeder.module';
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
+import { EmailTemplatesSeederModule } from './libs/@seeders/email-templates-seeder.module';
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
 import { ActivityLogTemplatePlaceholderSeederModule } from './libs/@seeders/activity-log-template-placeholder-seeder.module';
 import { AbaGuidesSeederModule } from './libs/@seeders/aba-guides-seeder.module';
@@ -350,6 +351,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     ActivityLogTemplatesSeederModule,
     NoticesAutoSendSchemaSeederModule,
     NoticeTemplatesSeederModule,
+    EmailTemplatesSeederModule,
     EmailTemplateUrlCleanupSeederModule,
     ActivityLogTemplatePlaceholderSeederModule,
     AbaGuidesSeederModule,

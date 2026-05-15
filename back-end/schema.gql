@@ -1477,6 +1477,80 @@ type AiBillingSettingsResponse {
   topup_amount_usd: Float!
 }
 
+"""A single message in the AI assistant chat thread."""
+type AiChatMessage {
+  """Message text."""
+  content: String!
+
+  """Stable id for the message (uuid)."""
+  id: String!
+
+  """
+  For user messages: the page-context hint that was active for this turn (route, entity, ids).
+  """
+  pageContext: AiChatPageContext
+
+  """"user" or "assistant"."""
+  role: String!
+
+  """
+  For assistant messages: optional status (e.g. SUCCESS, OFF_TOPIC, RATE_LIMITED, ERROR).
+  """
+  status: String
+
+  """ISO-8601 UTC timestamp."""
+  ts: String!
+}
+
+"""
+Snapshot of the page-context hint that was active when an AI chat message was sent.
+"""
+type AiChatPageContext {
+  companyId: Int
+  entity: String
+  entityId: String
+  entityIds: JSON
+  pageLabel: String
+  route: String
+}
+
+"""
+Structured page-context hint sent with each AI chat message so the assistant knows what the user is currently viewing.
+"""
+input AiChatPageContextInput {
+  """The company id the user currently has selected in the workspace."""
+  companyId: Int
+
+  """
+  Primary entity type the user is viewing (e.g. "claim", "contract", "invoice").
+  """
+  entity: String
+
+  """Primary entity id (string for safe transport of numeric or uuid ids)."""
+  entityId: String
+
+  """
+  Map of all visible record ids derived from the URL, e.g. { projectId: "12", claimId: "45" }.
+  """
+  entityIds: JSON
+
+  """
+  Human-friendly label of the page (e.g. "projects / 123 / claims / 456").
+  """
+  pageLabel: String
+
+  """Path/route the user is currently on (e.g. "/projects/123/claims/456")."""
+  route: String
+}
+
+"""Standard wrapper for AI chat responses."""
+type AiChatResponse {
+  history: [AiChatMessage!]
+  message: String
+  remainingQuota: Int
+  status: String!
+}
+
 type AiCreditLedgerEntry {
   amount_usd: Float!
   balance_after: Float!
@@ -9591,6 +9665,24 @@ input GetActivityLogInput {
   user_id: Float
 }
 
+"""Input for fetching the deterministic AI status snapshot."""
+input GetAiStatusSnapshotInput {
+  """Company id (business profile) to scope the snapshot."""
+  company_id: Int!
+
+  """
+  Optional: bypass the cache (e.g. after a known mutation). Defaults to false.
+  """
+  force_refresh: Boolean
+}
+
+"""GraphQL response wrapper for the AI status snapshot."""
+type GetAiStatusSnapshotResponse {
+  data: StatusSnapshotGql
+  message: String
+  status: String!
+}
+
 """Input payload for fetching audit reports with filters and pagination."""
 input GetAllAuditReportInput {
   """Type of bank account."""
@@ -14448,6 +14540,9 @@ type Mutation {
   """
   cleanupPhantomXeroBankAccounts: StringResponse!
 
+  """Clear the persisted AI chat history for the current user."""
+  clearAiChatHistory: AiChatResponse!
+
   """
   Completes a draft bank account with the required missing fields and activates it.
   """
@@ -15515,6 +15610,11 @@ type Mutation {
     sync_log_id: String!
   ): GetXeroPaymentsResponse!
   runAiCreditMonthlyAllocation(period: String): Boolean!
+
+  """
+  Send a message to the AI assistant and persist the exchange to the user history.
+  """
+  sendAiChatMessage(input: SendAiChatMessageInput!): AiChatResponse!
 
   """Sends a system email to specified clients."""
   sendSystemEmailToTheClients(
@@ -18222,8 +18322,16 @@ type Query {
     Id: String!
   ): PTAdminGroupResponse!
   getAiBillingOverview(company_id: Int!): AiBillingOverviewResponse!
+
+  """Return the persisted AI assistant chat history for the current user."""
+  getAiChatHistory: AiChatResponse!
   getAiCreditLedger(company_id: Int!, limit: Int): [AiCreditLedgerEntry!]!
   getAiCreditPurchases(company_id: Int!): [AiCreditPurchaseResponse!]!
+
+  """
+  Returns a deterministic snapshot of issues across compliance, notices, reconciliation, payments, contracts, claims, contacts and Xero sync for the requested company. No LLM involvement; cached briefly per company.
+  """
+  getAiStatusSnapshot(payload: GetAiStatusSnapshotInput!): GetAiStatusSnapshotResponse!
   getAiUserCostMultiplier: Float!
 
   """
@@ -19641,6 +19749,14 @@ type SearchTicket {
   id: String!
 }
 
+input SendAiChatMessageInput {
+  """User message to send to the AI assistant."""
+  message: String!
+
+  """Optional structured page-context hint for the assistant."""
+  pageContext: AiChatPageContextInput
+}
+
 """Input for sending a system email"""
 input SendSystemEmailInput {
   """List of attachment IDs associated with the email"""
@@ -19978,6 +20094,53 @@ type StatementResponse {
 
   """Statement field value."""
   value: String!
+}
+
+"""A single deterministic status issue."""
+type StatusIssueGql {
+  affectedRecordId: String
+  affectedRecordType: String!
+  agentCanHelp: Boolean!
+
+  """Issue category."""
+  category: String!
+  description: String!
+  detectedAt: String!
+
+  """Stable id `<category>:<record_type>:<id>:<check>`."""
+  id: String!
+  projectId: Int
+  requiresApproval: Boolean!
+
+  """critical | warning | info"""
+  severity: String!
+  suggestedAction: String!
+  title: String!
+}
+
+"""Per-category block of issues."""
+type StatusSnapshotCategoryBlockGql {
+  category: String!
+  issues: [StatusIssueGql!]!
+  totalFound: Int!
+  truncated: Boolean!
+}
+
+"""Deterministic AI status snapshot for a company."""
+type StatusSnapshotGql {
+  categories: [StatusSnapshotCategoryBlockGql!]!
+  companyId: Int!
+  generatedAt: String!
+  summary: StatusSnapshotSummaryGql!
+  topIssues: [StatusIssueGql!]!
+}
+
+"""Severity counters across the snapshot."""
+type StatusSnapshotSummaryGql {
+  critical: Int!
+  info: Int!
+  total: Int!
+  warning: Int!
 }
 
 """
