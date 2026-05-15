@@ -245,6 +245,7 @@ export const AdminListSubscriptionPlans = async (
                 is_sandbox
                 stripe_product_id
                 trial_period
+                monthly_ai_credit
                 unformatted_monthly_price
                 unformatted_yearly_price
                 yearly_bill_cycle

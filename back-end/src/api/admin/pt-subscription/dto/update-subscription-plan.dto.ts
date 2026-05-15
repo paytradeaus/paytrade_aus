@@ -36,6 +36,13 @@ export class UpdateSubscriptionPlanInput {
   })
   trial_period: number;
 
+  @Field({
+    nullable: true,
+    description:
+      'Monthly AI credit allotment (USD) granted to each company on this plan. Credits do not roll over.',
+  })
+  monthly_ai_credit: number;
+
   @Field(() => [String], {
     nullable: true,
     description: 'IDs of the items associated with the subscription plan.',

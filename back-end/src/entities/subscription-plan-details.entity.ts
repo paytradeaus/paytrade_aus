@@ -58,6 +58,15 @@ export class SubscriptionPlanDetails {
   @Column({ type: 'decimal', default: 0 })
   trial_period: number;
 
+  /**
+   * Task #161 — Dollar value of AI credits granted to every active business
+   * profile on this plan at the start of each calendar month. Does not roll
+   * over. Edited by admins via the plan management UI; surfaced to users on
+   * pricing/upgrade screens and the AI Billing panel.
+   */
+  @Column({ type: 'decimal', precision: 13, scale: 2, default: 0 })
+  monthly_ai_credit: number;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

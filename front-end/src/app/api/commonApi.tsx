@@ -553,6 +553,7 @@ export async function fetchGetAllSubscriptionPlanListForUser(is_sandbox: boolean
                 stripe_price_id
                 stripe_product_id
                 trial_period
+                monthly_ai_credit
                 unformatted_price
               }
               monthly_plan_list {
@@ -584,6 +585,7 @@ export async function fetchGetAllSubscriptionPlanListForUser(is_sandbox: boolean
                 stripe_price_id
                 stripe_product_id
                 trial_period
+                monthly_ai_credit
                 unformatted_price
               }
               yearly_plan_list {
@@ -615,6 +617,7 @@ export async function fetchGetAllSubscriptionPlanListForUser(is_sandbox: boolean
                 stripe_price_id
                 stripe_product_id
                 trial_period
+                monthly_ai_credit
                 unformatted_price
               }
             }

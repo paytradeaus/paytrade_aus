@@ -484,6 +484,21 @@ export default function BillingSummary() {
                   {selectedPlanForSub?.planPrice ||
                     handlePlanDuration(subscriptionData)}
                 </h5>
+                {Number(
+                  selectedPlanForSub?.monthly_ai_credit ??
+                    subscriptionData?.monthly_ai_credit ??
+                    0,
+                ) > 0 && (
+                  <p style={{ fontSize: "0.85rem", color: "var(--ocean)" }}>
+                    Includes $
+                    {Number(
+                      selectedPlanForSub?.monthly_ai_credit ??
+                        subscriptionData?.monthly_ai_credit ??
+                        0,
+                    ).toFixed(2)}
+                    /mo AI credits (no rollover)
+                  </p>
+                )}
                 <hr />
                 <p>
                   <b>What you'll pay today</b>

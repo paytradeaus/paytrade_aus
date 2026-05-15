@@ -64,6 +64,7 @@ export async function getSubscriptionDetailsByCompanyId(): Promise<any> {
               subscription_id
               trial_end
               trial_period
+              monthly_ai_credit
               trial_start
               unformatted_annual_price_amount
               is_demo

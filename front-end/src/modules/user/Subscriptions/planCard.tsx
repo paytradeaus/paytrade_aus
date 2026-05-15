@@ -84,6 +84,11 @@ const PlanCard: React.FC<any> = ({
         {description}
       </p>
       <h5>{price}</h5>
+      {Number(overallData?.monthly_ai_credit ?? 0) > 0 && (
+        <p style={{ fontSize: "0.85rem", marginTop: "-0.25rem", color: "var(--ocean)" }}>
+          Includes ${Number(overallData.monthly_ai_credit).toFixed(2)}/mo AI credits
+        </p>
+      )}
       {isCurrentPlan ? (
         <button className="contrast" disabled>
           {buttonText}

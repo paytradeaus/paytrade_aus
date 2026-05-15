@@ -37,6 +37,7 @@ export async function AdminListSubscribedUsers(data: any): Promise<any> {
                 subscription_status
                 trial_end
                 trial_period
+                monthly_ai_credit
                 trial_start
                 unformatted_subscribed_amount
               }

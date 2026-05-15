@@ -19,6 +19,7 @@ const pdfDataRow = [
   "yearly_price",
   "description",
   "trial_period",
+  "monthly_ai_credit",
   "plan_status",
   "plan_items",
 ];

@@ -61,3 +61,4 @@ Per-feature deep-dives live under `docs/architecture/`. Pull only the ones relev
 - [Manual Xero re-sync by ID](docs/architecture/manual-xero-resync.md) — Task #65: self-service single-record recovery tool.
 - [UI status lookup (NULL vs empty string)](docs/architecture/ui-status-lookup.md) — `ui_status_and_action_buttons` lookup coercion.
 - [AI Tool Registry & Audit Foundation](docs/architecture/ai-tool-registry.md) — Task #159: `ai_tool_registry`, `ai_tool_calls`, `ai_prompt_audit`, `activity_log_new.actor_mode` / `ai_run_id`, the `AiTool` wrapper-around-a-domain-service rule.
+- [AI Billing, Credits & Stripe Top-up](docs/architecture/ai-billing.md) — Task #161: admin cost multiplier, monthly per-plan credit allotments (no rollover), Stripe payment-method capture, auto/manual top-ups with monthly cap and fee pass-through, ledger + balances + purchases tables, receipt emails, admin purchases page.

@@ -21,6 +21,10 @@ export const validationSchema = Yup.object().shape(
     plan_type: Yup.string().required("plan type is required"),
 
     trial_period: Yup.string().notRequired(),
+    monthly_ai_credit: Yup.number()
+      .typeError("AI credit must be a number")
+      .min(0, "AI credit cannot be negative")
+      .notRequired(),
 
     yearly_price: Yup.string().when(["plan_type"], (otherFieldData: any) => {
       if (otherFieldData[0] !== "Free") {

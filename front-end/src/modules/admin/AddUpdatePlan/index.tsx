@@ -91,6 +91,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
       monthly_price: "",
       yearly_price: "",
       trial_period: "",
+      monthly_ai_credit: 0,
       isPlanNameExist: false,
       item_specification: [],
       tab_type: "details",
@@ -133,6 +134,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
               ? formatDollars(patchData?.yearly_price)
               : "",
           trial_period: patchData?.trial_period || 0,
+          monthly_ai_credit: Number(patchData?.monthly_ai_credit ?? 0),
           plan_status: patchData?.plan_status || "",
           tab_type: "details",
           is_sandbox: patchData?.is_sandbox || false,
@@ -407,6 +409,7 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
         plan_status: formik?.values?.plan_status,
         description: formik?.values?.description || null,
         trial_period: formik?.values?.trial_period || 0,
+        monthly_ai_credit: Number(formik?.values?.monthly_ai_credit ?? 0),
         item_specification: itemSpecification,
         ...(!editMode && { is_sandbox: formik?.values?.is_sandbox || false }),
       };
@@ -886,6 +889,28 @@ export default function AddUpdateSubscriptionPlan({ editMode, viewMode }: any) {
                               }
                             />
                           )}
+
+                          <FormikControl
+                            label={"Monthly AI credit (USD)"}
+                            name={"monthly_ai_credit"}
+                            placeholder={"e.g. 5.00"}
+                            value={formik.values?.monthly_ai_credit}
+                            onChange={(e: any) =>
+                              formik.setFieldValue(
+                                "monthly_ai_credit",
+                                e.target.value === "" ? 0 : Number(e.target.value),
+                              )
+                            }
+                            error={formik.errors?.monthly_ai_credit}
+                            showError={
+                              formik.touched.monthly_ai_credit &&
+                              formik.errors.monthly_ai_credit
+                            }
+                            disabled={viewMode}
+                            onBlur={formik.handleBlur("monthly_ai_credit")}
+                            control={InputType.TEXT_FIELD}
+                            hint={"Granted to every active business profile on this plan at the start of each calendar month. Does not roll over."}
+                          />
 
                           <FormikControl
                             id="is_sandbox"

@@ -33,6 +33,7 @@ import { PaymentGatewayService } from 'src/api/common/payment-gateway/payment-ga
 import { EmailService } from 'src/libs/@email-services/email.service';
 import { EmailTemplates } from 'src/entities/email-templates.entity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { Group } from 'src/entities/user-details.entity';
 import { Role } from 'src/api/auth/role-guard/role.enum';
 import { SortingOrder } from '../pt-admin/dto/add-admin.dto';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
@@ -273,13 +274,14 @@ export class PtSubscriptionService {
               throw `You already have an active Free plan. Please deactivate the existing plan before adding a new one.`;
           }
 
-          let productData = {
+          let productData: Partial<SubscriptionPlanDetails> & Record<string, unknown> = {
             trial_period: data.trial_period ?? 0,
+            monthly_ai_credit: data.monthly_ai_credit ?? 0,
             created_by: decoded?.userId,
-            created_on: moment.tz('UTC'),
-            created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+            created_on: moment.tz('UTC') as unknown as Date,
+            created_group: (decoded?.isAdmin ? 'ADMIN' : 'USER') as Group,
             is_sandbox: isSandbox,
-          } as any;
+          };
           if (data.plan_type === 'Paid') {
             const stripe = getStripeInstance(isSandbox);
             let productObj: any = {
@@ -475,12 +477,15 @@ export class PtSubscriptionService {
             throw new Error(`This Subscription Plan cannot be edited.`);
           }
 
-          let productData = {
+          let productData: Partial<SubscriptionPlanDetails> & Record<string, unknown> = {
             trial_period: data.trial_period ?? 0,
+            ...(data.monthly_ai_credit !== undefined
+              ? { monthly_ai_credit: data.monthly_ai_credit }
+              : {}),
             updated_by: decoded?.userId,
-            updated_on: moment.tz('UTC'),
-            updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
-          } as any;
+            updated_on: moment.tz('UTC') as unknown as Date,
+            updated_group: (decoded?.isAdmin ? 'ADMIN' : 'USER') as Group,
+          };
 
           if (
             subscriptionPlanDetails.plan_type === 'Paid' &&
@@ -522,6 +527,9 @@ export class PtSubscriptionService {
               description: productData.description,
               plan_status: productData.plan_status,
               trial_period: productData.trial_period,
+              ...(productData.monthly_ai_credit !== undefined
+                ? { monthly_ai_credit: productData.monthly_ai_credit }
+                : {}),
               updated_by: productData.updated_by,
               updated_on: productData.updated_on,
               updated_group: productData.updated_group,
@@ -1702,6 +1710,7 @@ export class PtSubscriptionService {
         'pd.plan_type as plan_type',
         'pd.plan_status as plan_status',
         'pd.trial_period as trial_period',
+        'pd.monthly_ai_credit as monthly_ai_credit',
         'ppm.price_id as price_id',
         'ppm.stripe_price_id as stripe_price_id',
         'ppm.price_name as price_name',
@@ -1767,6 +1776,7 @@ export class PtSubscriptionService {
           price: formatCurrency(result.price),
           unformatted_price: result.price,
           trial_period: result.trial_period,
+          monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
           is_active: result.is_active,
           is_deleted: result.is_deleted,
           plan_items: result?.plan_items?.map((plan) => {
@@ -1798,6 +1808,7 @@ export class PtSubscriptionService {
         'pd.plan_type as plan_type',
         'pd.plan_status as plan_status',
         'pd.trial_period as trial_period',
+        'pd.monthly_ai_credit as monthly_ai_credit',
         'ppm.price_id as price_id',
         'ppm.stripe_price_id as stripe_price_id',
         'ppm.price_name as price_name',
@@ -1865,6 +1876,7 @@ export class PtSubscriptionService {
           price: formatCurrency(result.price),
           unformatted_price: result.price,
           trial_period: result.trial_period,
+          monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
           is_active: result.is_active,
           is_deleted: result.is_deleted,
           plan_items: result?.plan_items?.map((plan) => {
@@ -1895,6 +1907,7 @@ export class PtSubscriptionService {
         'pd.plan_type as plan_type',
         'pd.plan_status as plan_status',
         'pd.trial_period as trial_period',
+        'pd.monthly_ai_credit as monthly_ai_credit',
         'ppy.price_id as price_id',
         'ppy.stripe_price_id as stripe_price_id',
         'ppy.price_name as price_name',
@@ -1962,6 +1975,7 @@ export class PtSubscriptionService {
           price: formatCurrency(result.price),
           unformatted_price: result.price,
           trial_period: result.trial_period,
+          monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
           is_active: result.is_active,
           is_deleted: result.is_deleted,
           plan_items: result?.plan_items?.map((plan) => {
