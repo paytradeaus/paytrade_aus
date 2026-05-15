@@ -972,8 +972,22 @@ export default function AiPanel() {
             }
             const popoverId = `ai-ctx-pop-${m.id}`;
             const isOpen = openContextChipId === m.id;
+            const persistedStatus =
+              m.role === "assistant" && typeof m.status === "string"
+                ? m.status.toUpperCase()
+                : null;
             const wasStopped =
-              m.role === "assistant" && m.status === "STOPPED";
+              m.role === "assistant" &&
+              (persistedStatus === "STOPPED" || m.runStatus === "stopped");
+            const wasRateLimited =
+              m.role === "assistant" && persistedStatus === "RATE_LIMITED";
+            const wasErrored =
+              m.role === "assistant" &&
+              !wasStopped &&
+              (persistedStatus === "ERROR" ||
+                wasRateLimited ||
+                m.runStatus === "failed");
+            const showRetryRow = wasStopped || wasErrored;
             const navigateRoute =
               ctx?.route &&
               ctx.route.startsWith("/") &&
@@ -1088,7 +1102,7 @@ export default function AiPanel() {
                       </div>
                     </span>
                   )}
-                  {wasStopped && (() => {
+                  {showRetryRow && (() => {
                     let priorUserMsg: AiChatMessage | undefined;
                     for (let i = idx - 1; i >= 0; i--) {
                       if (messages[i].role === "user") {
@@ -1096,17 +1110,30 @@ export default function AiPanel() {
                         break;
                       }
                     }
+                    const pillIcon = wasStopped
+                      ? "fa-light fa-circle-stop"
+                      : "fa-light fa-triangle-exclamation";
+                    const pillLabel = wasStopped
+                      ? "Stopped — answer may be incomplete"
+                      : wasRateLimited
+                        ? "Rate limited — please try again shortly"
+                        : "Error — answer could not be generated";
+                    const pillTitle = wasStopped
+                      ? "You stopped this answer before it finished. It may be incomplete."
+                      : wasRateLimited
+                        ? "The assistant is rate limited. Wait a moment and retry."
+                        : "Something went wrong while generating this answer.";
                     return (
                       <div className={styles.stoppedRow}>
                         <span
                           className={styles.stoppedPill}
-                          title="You stopped this answer before it finished. It may be incomplete."
+                          title={pillTitle}
                         >
                           <i
-                            className="fa-light fa-circle-stop"
+                            className={pillIcon}
                             aria-hidden="true"
                           ></i>
-                          Stopped — answer may be incomplete
+                          {pillLabel}
                         </span>
                         {priorUserMsg && (
                           <button
@@ -1140,24 +1167,26 @@ export default function AiPanel() {
                             Edit
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className={styles.stoppedAction}
-                          disabled={sending}
-                          title="Ask the assistant to continue from where it stopped"
-                          aria-label="Continue the previous answer"
-                          onClick={() =>
-                            submitMessage(
-                              "Please continue your previous answer from where you stopped. Do not repeat what you already said.",
-                            )
-                          }
-                        >
-                          <i
-                            className="fa-light fa-forward"
-                            aria-hidden="true"
-                          ></i>
-                          Continue
-                        </button>
+                        {wasStopped && (
+                          <button
+                            type="button"
+                            className={styles.stoppedAction}
+                            disabled={sending}
+                            title="Ask the assistant to continue from where it stopped"
+                            aria-label="Continue the previous answer"
+                            onClick={() =>
+                              submitMessage(
+                                "Please continue your previous answer from where you stopped. Do not repeat what you already said.",
+                              )
+                            }
+                          >
+                            <i
+                              className="fa-light fa-forward"
+                              aria-hidden="true"
+                            ></i>
+                            Continue
+                          </button>
+                        )}
                       </div>
                     );
                   })()}
