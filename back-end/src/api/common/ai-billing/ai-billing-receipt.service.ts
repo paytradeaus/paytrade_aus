@@ -19,6 +19,19 @@ const TRIGGER_LABELS: Record<string, string> = {
   admin: 'Admin-initiated top-up',
 };
 
+// Task #188 — Australian tax-invoice supplier details. Only used for AUD
+// charges so the receipt renders a GST-compliant tax invoice instead of the
+// generic "tax invoice on request" disclaimer from Task #168.
+const SUPPLIER_LEGAL_NAME = 'Pay Trade Pty Ltd';
+const SUPPLIER_ABN = '46 665 189 015';
+const SUPPLIER_CONTACT_EMAIL = 'support@paytrade.app';
+// Registered office address for the AUD tax invoice. Defaults to the
+// Sydney registered office on file; can be overridden per-environment via
+// PAYTRADE_SUPPLIER_ADDRESS without a code deploy if it ever moves.
+const SUPPLIER_ADDRESS =
+  process.env.PAYTRADE_SUPPLIER_ADDRESS ||
+  'Level 1, 5 Martin Place, Sydney NSW 2000, Australia';
+
 /**
  * Task #161 / #168 — Generates a receipt PDF for a successful AI credit
  * top-up, uploads it to Cloudflare R2, persists the public URL on the
@@ -156,10 +169,37 @@ export class AiBillingReceiptService {
     const receiptUrlBlock = receiptUrl
       ? `<p style="margin-top:18px;"><a href="${receiptUrl}" style="display:inline-block;background:#0d3b66;color:#fff;text-decoration:none;padding:10px 18px;border-radius:4px;font-size:13px;">Download PDF receipt</a></p>`
       : '';
-    // GST disclaimer only applies for AUD-denominated charges.
+    // Task #188 — For AUD charges expand the prior "tax invoice on request"
+    // disclaimer (Task #168) into an actual GST-compliant tax invoice block:
+    // supplier name + ABN, invoice number/date, and a GST-exclusive subtotal
+    // with the GST line broken out (1/11th of the GST-inclusive total). The
+    // generic receipt is unchanged for non-AUD currencies.
+    const totalIncGst = Number(p.amount_charged_usd ?? 0);
+    const gstAmount = totalIncGst / 11;
+    const subtotalExGst = totalIncGst - gstAmount;
+    const invoiceNumber = `PT-${p.id.slice(0, 8).toUpperCase()}`;
+    const invoiceDate = p.created_on
+      ? new Date(p.created_on).toUTCString()
+      : new Date().toUTCString();
     const gstDisclaimerBlock =
       currency === 'AUD'
-        ? `<p style="margin-top:14px;font-size:11px;color:#777;">All amounts are shown in AUD and are GST-inclusive where applicable. A tax invoice is available on request — contact <a href="mailto:support@paytrade.app" style="color:#0d3b66;">support@paytrade.app</a>.</p>`
+        ? [
+            '<div style="margin-top:20px;padding:14px 16px;border:1px solid #d8dde3;border-radius:6px;background:#fafbfc;">',
+            '<p style="margin:0 0 8px;font-size:13px;font-weight:bold;color:#0d3b66;letter-spacing:0.5px;">TAX INVOICE</p>',
+            '<p style="margin:0 0 4px;font-size:12px;color:#555;line-height:1.5;">',
+            `<strong>${SUPPLIER_LEGAL_NAME}</strong><br>`,
+            `ABN ${SUPPLIER_ABN}<br>`,
+            `${SUPPLIER_ADDRESS}<br>`,
+            `<a href="mailto:${SUPPLIER_CONTACT_EMAIL}" style="color:#0d3b66;">${SUPPLIER_CONTACT_EMAIL}</a>`,
+            '</p>',
+            `<p style="margin:8px 0 4px;font-size:12px;color:#555;">Invoice <strong>${invoiceNumber}</strong> · ${invoiceDate}</p>`,
+            '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-top:8px;font-size:12px;color:#333;">',
+            `<tr><td style="padding:4px 0;width:65%;">Subtotal (ex GST)</td><td style="padding:4px 0;text-align:right;">${fmt(subtotalExGst)} AUD</td></tr>`,
+            `<tr><td style="padding:4px 0;">GST (10%)</td><td style="padding:4px 0;text-align:right;">${fmt(gstAmount)} AUD</td></tr>`,
+            `<tr><td style="padding:6px 0;border-top:1px solid #d8dde3;font-weight:bold;">Total (incl GST)</td><td style="padding:6px 0;border-top:1px solid #d8dde3;text-align:right;font-weight:bold;">${fmt(totalIncGst)} AUD</td></tr>`,
+            '</table>',
+            '</div>',
+          ].join('')
         : '';
 
     return {
