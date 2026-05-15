@@ -574,6 +574,7 @@ export default function AiPanel() {
       }
     },
     [],
+  );
 
   const onComposerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
