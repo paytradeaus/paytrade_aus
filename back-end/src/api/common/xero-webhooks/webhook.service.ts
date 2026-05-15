@@ -15001,6 +15001,14 @@ export class XeroWebhookService {
       // glance WHY a Xero record qualifies as importable before
       // ever opening the line items.
       validation_checks?: string[];
+      // Task #152 — single derived flag the FE renders as a column
+      // chip on the catch-up table so operators can tell at a glance
+      // which rows match the configured Xero settings without
+      // opening the row-detail dialog. Computed from validation_checks
+      // (`ok` = all ✓, `warning` = at least one ⚠ but no ✗, `fail` =
+      // any ✗ — typically a missing/unresolvable account code which
+      // WILL block inbound import).
+      settings_match?: 'ok' | 'warning' | 'fail';
     };
     const rows: Row[] = [];
 
@@ -15737,9 +15745,9 @@ export class XeroWebhookService {
             if (expectedAccountCode) {
               if (lineCodes.length === 0) {
                 checks.push(
-                  `✗ No account codes set on Xero lines (your configured ${
+                  `✗ No account codes set on Xero lines — inbound import WILL FAIL (your configured ${
                     isBillCheck ? 'Bill' : 'Invoice'
-                  } Code is ${expectedAccountCode})`,
+                  } Code is ${expectedAccountCode}; PayTrade can't resolve which PT line item to create without one)`,
                 );
               } else if (
                 lineCodes.every((c) => c === String(expectedAccountCode))
@@ -15749,20 +15757,34 @@ export class XeroWebhookService {
                     isBillCheck ? 'Bill' : 'Invoice'
                   } Code (${expectedAccountCode})`,
                 );
+              } else if (isBillCheck) {
+                // Inbound bills: a non-matching account code only
+                // succeeds if the supplier has a per-account override
+                // mapping it to a PayTrade bill code. Without that the
+                // run-sync will fail with "supplier bill code
+                // unresolved". The blocking_issues check below is the
+                // authoritative gate; here we just flag the risk.
+                checks.push(
+                  `✗ Line account code(s) ${lineCodes.join(
+                    ', ',
+                  )} differ from your configured Bill Code (${expectedAccountCode}) — inbound import will FAIL unless the supplier has a per-account override mapping these codes`,
+                );
               } else {
+                // Outbound invoices: PayTrade pushes its own configured
+                // code to Xero, so a mismatch here just means the
+                // existing Xero record uses a different code; the link
+                // will still be created on import.
                 checks.push(
                   `⚠ Line account code(s) ${lineCodes.join(
                     ', ',
-                  )} differ from your configured ${
-                    isBillCheck ? 'Bill' : 'Invoice'
-                  } Code (${expectedAccountCode}) — sync still works but each line keeps its own Xero account code`,
+                  )} differ from your configured Invoice Code (${expectedAccountCode}) — import still links the records but the Xero invoice keeps its own line account codes`,
                 );
               }
             } else {
               checks.push(
-                `⚠ No ${
+                `✗ No ${
                   isBillCheck ? 'Bill' : 'Invoice'
-                } Code configured in PayTrade Xero settings`,
+                } Code configured in PayTrade Xero settings — fix in Xero settings before running sync`,
               );
             }
             const lineTaxes = Array.from(
@@ -15803,6 +15825,17 @@ export class XeroWebhookService {
             }
             if (checks.length > 0) {
               r.validation_checks = checks;
+              // Task #152 — derive a single chip state for the table.
+              // Any ✗ → fail (run-sync will block / error);
+              // any ⚠ (without a ✗) → warning (operator should review);
+              // otherwise → ok.
+              const hasFail = checks.some((c) => c.startsWith('✗'));
+              const hasWarn = checks.some((c) => c.startsWith('⚠'));
+              r.settings_match = hasFail
+                ? 'fail'
+                : hasWarn
+                ? 'warning'
+                : 'ok';
             }
 
             // Task #151 follow-up — cheap in-memory pre-checks. We

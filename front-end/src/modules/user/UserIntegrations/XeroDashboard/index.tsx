@@ -12,6 +12,7 @@ import {
   xeroSynListRenderData,
 } from "../integration.constant";
 import CustomButton from "@/components/CustomButton/CustomButton";
+import TabSwitch from "@/components/TabSwitch";
 import {
   buttonType,
   filterByDurationDates,
@@ -1755,6 +1756,11 @@ function ManualXeroSyncDialog({
   const [catchupRowDetail, setCatchupRowDetail] = useState<CatchupRow | null>(
     null,
   );
+  // Task #152 — active tab inside the row-detail dialog. Mirrors the
+  // bank-account-overview TabSwitch pattern so PT and Xero details
+  // each get the full dialog width instead of being squeezed into
+  // half-width columns.
+  const [catchupDetailTab, setCatchupDetailTab] = useState<string>("pt");
 
   // PT-side picker is meaningful only for these types; bank_transfer and
   // manual_journal don't have a direct user-creatable PT counterpart in
@@ -3265,11 +3271,7 @@ function ManualXeroSyncDialog({
                   styled in CSS rather than inline backgrounds. */}
               <div
                 className="table-responsive tablesorter-default pt_table"
-                style={{
-                  margin: "0 0 10px 0",
-                  maxHeight: "360px",
-                  overflowY: "auto",
-                }}
+                style={{ margin: "0 0 10px 0" }}
               >
                 <table className="dataTable compact stripe hover order-column">
                   <thead>
@@ -3278,6 +3280,12 @@ function ManualXeroSyncDialog({
                       <th>PayTrade</th>
                       <th>Status</th>
                       <th>Xero</th>
+                      {/* Task #152 — at-a-glance flag for whether the
+                          Xero record's line account / tax codes line
+                          up with the operator's configured Xero
+                          settings. Operators asked to see this
+                          without opening the row-detail dialog. */}
+                      <th>Settings</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -3437,19 +3445,35 @@ function ManualXeroSyncDialog({
                             )}
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className="primary mr_zero_point_five"
-                              title="View row details"
-                              aria-label="View row details"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setCatchupRowDetail(r);
-                              }}
-                            >
-                              <i className="fa-light fa-eye"></i>
-                            </button>
+                            {(() => {
+                              const sm: "ok" | "warning" | "fail" | undefined =
+                                r.settings_match;
+                              if (!sm) return <span>—</span>;
+                              const map = {
+                                ok: { label: "✓ Match", color: "green" },
+                                warning: { label: "⚠ Review", color: "orange" },
+                                fail: { label: "✗ Will fail", color: "red" },
+                              } as const;
+                              const m = map[sm];
+                              return (
+                                <span
+                                  style={{ color: m.color, fontWeight: 600 }}
+                                  title="See Settings match in row details"
+                                >
+                                  {m.label}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td>
+                            <CustomButton
+                              buttonName=""
+                              iconClassName="fa-light fa-eye"
+                              buttonType={buttonType.CONTRAST_SMALL}
+                              actionType="button"
+                              styles={{ margin: 0 }}
+                              onClick={() => setCatchupRowDetail(r)}
+                            />
                           </td>
                         </tr>
                       );
@@ -3572,32 +3596,85 @@ function ManualXeroSyncDialog({
                 "Sync is blocked for this row. See the hint below for how to resolve before retrying.",
             };
             const why = whyMap[cls] || "";
+
+            // Task #152 — surface the multi-step behaviour for
+            // PAID / VOIDED / DELETED Xero bills/invoices. The
+            // operator asked: if I run sync on a paid bill, will it
+            // create the claim AND the payment? Answer: yes, the
+            // import does claim-create first, then walks any Xero
+            // payments attached to the invoice and creates matching
+            // PT payments (with bank-account transfer detection).
+            const xeroStatusDetail = (
+              catchupRowDetail.xero_details || []
+            ).find(
+              (d: { label: string; value: string }) =>
+                d.label === "Status",
+            );
+            const xeroStatus = String(
+              xeroStatusDetail?.value || "",
+            ).toUpperCase();
+            const isMultiStep =
+              cls === "needs_import" &&
+              (xeroStatus === "PAID" ||
+                xeroStatus === "VOIDED" ||
+                xeroStatus === "DELETED");
+            const multiStepNote = isMultiStep
+              ? xeroStatus === "PAID"
+                ? "Xero bill is PAID — sync will run the full chain: (1) create the PayTrade claim, (2) walk Xero payments attached to the bill and create matching PT payments (detecting bank-account transfers)."
+                : xeroStatus === "VOIDED"
+                ? "Xero bill is VOIDED — sync will create the PT claim and immediately mark it as voided to mirror the Xero state."
+                : "Xero bill is DELETED — sync will skip claim creation and instead record the deletion against any existing PT link so the two sides stay aligned."
+              : "";
+
+            // Status "chip" coloured by classification — picks up the
+            // same `data-row-state` colours we use on the table so the
+            // dialog header reads at a glance.
+            const stateForChip =
+              cls === "blocked" || cls === "amounts_disagree"
+                ? "failed"
+                : cls === "already_in_sync"
+                ? "passed"
+                : "selected";
+
             return (
               <div className="pt_overviewinfo mb_one">
-                <div className="grid">
                 <div className="pt_infolist listData">
                   <div className="table-container">
                     <table className="responsive-table">
                       <tbody>
+                        {/* Row 1 — Status (full width) */}
                         <tr>
                           <td className="setPro">
-                            <div className="pt_infolistdata">
+                            <div
+                              className="pt_infolistdata"
+                              data-row-state={stateForChip}
+                            >
                               <h6>Status</h6>
                               <span style={{ color: status.color }}>
                                 {status.label}
                               </span>
                             </div>
                           </td>
+                        </tr>
+                        {/* Row 2 — Why this needs sync (full width) */}
+                        <tr>
                           <td className="setPro">
                             <div className="pt_infolistdata">
                               <h6>Why this needs sync</h6>
                               <span>{why || "—"}</span>
+                              {multiStepNote ? (
+                                <div style={{ marginTop: 6 }}>
+                                  <small>
+                                    <em>{multiStepNote}</em>
+                                  </small>
+                                </div>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
                         {catchupRowDetail.hint ? (
                           <tr>
-                            <td className="setPro" colSpan={2}>
+                            <td className="setPro">
                               <div className="pt_infolistdata">
                                 <h6>Hint</h6>
                                 <span>{catchupRowDetail.hint}</span>
@@ -3605,12 +3682,29 @@ function ManualXeroSyncDialog({
                             </td>
                           </tr>
                         ) : null}
+                        {/* Row 3 — Settings match (full width). The
+                            chip on the table summarises this; the
+                            full per-line breakdown lives here so
+                            operators can see exactly which Xero
+                            line code(s) drove the verdict. */}
                         {catchupRowDetail.validation_checks &&
                         catchupRowDetail.validation_checks.length > 0 ? (
                           <tr>
-                            <td className="setPro" colSpan={2}>
-                              <div className="pt_infolistdata">
-                                <h6>Settings match (why this is importable)</h6>
+                            <td className="setPro">
+                              <div
+                                className="pt_infolistdata"
+                                data-row-state={
+                                  catchupRowDetail.settings_match === "fail"
+                                    ? "failed"
+                                    : catchupRowDetail.settings_match ===
+                                      "warning"
+                                    ? "running"
+                                    : catchupRowDetail.settings_match === "ok"
+                                    ? "passed"
+                                    : undefined
+                                }
+                              >
+                                <h6>Settings match</h6>
                                 <span>
                                   {catchupRowDetail.validation_checks.map(
                                     (chk: string, i: number) => (
@@ -3625,8 +3719,11 @@ function ManualXeroSyncDialog({
                         {catchupRowDetail.blocking_issues &&
                         catchupRowDetail.blocking_issues.length > 0 ? (
                           <tr>
-                            <td className="setPro" colSpan={2}>
-                              <div className="pt_infolistdata">
+                            <td className="setPro">
+                              <div
+                                className="pt_infolistdata"
+                                data-row-state="failed"
+                              >
                                 <h6>Blocking issues</h6>
                                 <span>
                                   {catchupRowDetail.blocking_issues.map(
@@ -3643,15 +3740,29 @@ function ManualXeroSyncDialog({
                     </table>
                   </div>
                 </div>
-                </div>
               </div>
             );
           })()}
+          {/* Task #152 — tabbed PayTrade / Xero detail panes, mirroring
+              the bank-account-overview tab pattern (TabSwitch +
+              filterbutton). One pane visible at a time so operators
+              aren't comparing two cramped half-width tables. */}
+          <div className="grid pt_topfilters">
+            <div className="pt_filters">
+              <TabSwitch
+                tabOptions={[
+                  { label: "PayTrade side", value: "pt" },
+                  { label: "Xero side", value: "xero" },
+                ]}
+                tabValue={catchupDetailTab}
+                onChange={(v: string) => setCatchupDetailTab(v)}
+              />
+            </div>
+          </div>
           <div className="pt_overviewinfo">
-            <div className="grid">
-              <div className="pt_infolist listData">
-                <h6>PayTrade side</h6>
-                {catchupRowDetail.pt_id ? (
+            <div className="pt_infolist listData">
+              {catchupDetailTab === "pt" ? (
+                catchupRowDetail.pt_id ? (
                   <div className="table-container">
                     <table className="responsive-table">
                       <tbody>
@@ -3684,45 +3795,41 @@ function ManualXeroSyncDialog({
                   <p>
                     <em>— no PayTrade row in window —</em>
                   </p>
-                )}
-              </div>
-              <div className="pt_infolist listData">
-                <h6>Xero side</h6>
-                {catchupRowDetail.xero_id ? (
-                  <div className="table-container">
-                    <table className="responsive-table">
-                      <tbody>
-                        {(
-                          catchupRowDetail.xero_details || [
-                            {
-                              label: "ID",
-                              value: String(catchupRowDetail.xero_id),
-                            },
-                          ]
-                        ).map(
-                          (
-                            d: { label: string; value: string },
-                            i: number,
-                          ) => (
-                            <tr key={i}>
-                              <td className="setPro">
-                                <div className="pt_infolistdata">
-                                  <h6>{d.label}</h6>
-                                  <span>{d.value || "—"}</span>
-                                </div>
-                              </td>
-                            </tr>
-                          ),
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p>
-                    <em>— no Xero row in window —</em>
-                  </p>
-                )}
-              </div>
+                )
+              ) : catchupRowDetail.xero_id ? (
+                <div className="table-container">
+                  <table className="responsive-table">
+                    <tbody>
+                      {(
+                        catchupRowDetail.xero_details || [
+                          {
+                            label: "ID",
+                            value: String(catchupRowDetail.xero_id),
+                          },
+                        ]
+                      ).map(
+                        (
+                          d: { label: string; value: string },
+                          i: number,
+                        ) => (
+                          <tr key={i}>
+                            <td className="setPro">
+                              <div className="pt_infolistdata">
+                                <h6>{d.label}</h6>
+                                <span>{d.value || "—"}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>
+                  <em>— no Xero row in window —</em>
+                </p>
+              )}
             </div>
           </div>
         </BaseModal>

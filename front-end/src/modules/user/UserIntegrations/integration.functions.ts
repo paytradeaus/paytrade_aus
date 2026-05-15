@@ -4504,6 +4504,12 @@ export interface CatchupRow {
   // panel at the top of the row-detail dialog so the operator
   // can see WHY a Xero record qualifies as importable.
   validation_checks?: string[];
+  // Task #152 — derived chip state shown as a column on the catch-up
+  // table. `fail` means run-sync will block / error (typically a
+  // missing or unresolvable account code on a Xero bill);
+  // `warning` means operator should review (mismatch on outbound, or
+  // tax code drift); `ok` means all configured codes line up.
+  settings_match?: "ok" | "warning" | "fail";
 }
 
 export const manualXeroCatchupDiscover = async (variables: {

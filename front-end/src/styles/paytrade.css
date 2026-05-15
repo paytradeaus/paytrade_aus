@@ -1118,7 +1118,11 @@ nav .megamenu .megamenuinner :where(a, [role="link"]):hover {
 
 .pt_sidemenu {
   width: 250px;
-  height: calc(100vh - var(--space-s) - var(--space-s));
+  /* Reserve room for the absolute-positioned `.pt_nav_collapse_btn`
+     (24px tall + 12px bottom + a small gap) so a long menu can
+     scroll inside the sidebar without overlapping the rail
+     collapse button. */
+  height: calc(100vh - var(--space-s) - var(--space-s) - 48px);
   overflow-y: auto;
   position: fixed;
   padding: 0 var(--space-xs) 0 0;
@@ -2380,6 +2384,31 @@ small a {
 }
 .pt_table tr[data-row-state="selected"] > td {
   background: #eaf3ff;
+}
+
+/* Task #152 — same row-state colour scale applied to the row-detail
+   dialog's `pt_infolistdata` cells (Status / Settings match /
+   Blocking issues) so the dialog header reads at a glance with the
+   same visual language as the table rows behind it. */
+.pt_infolistdata[data-row-state="running"] {
+  background: #fff8e1;
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.pt_infolistdata[data-row-state="passed"] {
+  background: #f3fbf3;
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.pt_infolistdata[data-row-state="failed"] {
+  background: #fff5f5;
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.pt_infolistdata[data-row-state="selected"] {
+  background: #eaf3ff;
+  border-radius: var(--radius);
+  padding: 6px 10px;
 }
 
 .pt_formtable {
@@ -4537,8 +4566,12 @@ a.pt_linksbox {
        `.pt_nav_collapse_btn` (bottom: 12px) anchors to the actual
        visible bottom of the sidebar, not 1.5× viewport heights
        down where it would render as a free-floating overlay that
-       appears to ride up the side menu as the main page scrolls. */
+       appears to ride up the side menu as the main page scrolls.
+       The accordion menu is moved into its own scroll container
+       below (`.pt_sidemenu`) so a long menu never spills past the
+       viewport — it scrolls inside the sidebar instead. */
     height: 100vh;
+    overflow: hidden;
     z-index: 2;
     padding: var(--space-s) 0 var(--space-s) var(--space-s);
   }
