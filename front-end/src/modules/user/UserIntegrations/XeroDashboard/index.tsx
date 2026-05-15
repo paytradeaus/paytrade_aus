@@ -3257,11 +3257,8 @@ function ManualXeroSyncDialog({
                   {catchupSelected.size} selected
                 </span>
               </div>
-              {/* Task #151 — uses the canonical PayTrade table look
-                  (same wrapper + table classes as the sync-log table
-                  on this page). Row state (running/passed/failed/
-                  selected) is conveyed via a `data-row-state` attr
-                  styled in CSS rather than inline backgrounds. */}
+              {/* Canonical PayTrade table classes; row state via
+                  `data-row-state` attr styled in CSS. */}
               <div
                 className="table-responsive tablesorter-default pt_table"
                 style={{ margin: "0 0 10px 0" }}
@@ -3273,11 +3270,6 @@ function ManualXeroSyncDialog({
                       <th>PayTrade</th>
                       <th>Status</th>
                       <th>Xero</th>
-                      {/* Task #152 — at-a-glance flag for whether the
-                          Xero record's line account / tax codes line
-                          up with the operator's configured Xero
-                          settings. Operators asked to see this
-                          without opening the row-detail dialog. */}
                       <th>Settings</th>
                       <th>Action</th>
                     </tr>
@@ -3458,9 +3450,9 @@ function ManualXeroSyncDialog({
                               );
                             })()}
                           </td>
-                          <td>
+                          <td title="View row details">
                             <CustomButton
-                              buttonName=""
+                              buttonName="View"
                               iconClassName="fa-light fa-eye"
                               buttonType={buttonType.CONTRAST_SMALL}
                               actionType="button"
@@ -3590,13 +3582,8 @@ function ManualXeroSyncDialog({
             };
             const why = whyMap[cls] || "";
 
-            // Task #152 — surface the multi-step behaviour for
-            // PAID / VOIDED / DELETED Xero bills/invoices. The
-            // operator asked: if I run sync on a paid bill, will it
-            // create the claim AND the payment? Answer: yes, the
-            // import does claim-create first, then walks any Xero
-            // payments attached to the invoice and creates matching
-            // PT payments (with bank-account transfer detection).
+            // Multi-step note for PAID / VOIDED / DELETED Xero
+            // bills — sync runs claim-create then walks payments.
             const xeroStatusDetail = (
               catchupRowDetail.xero_details || []
             ).find(
