@@ -8,6 +8,7 @@ export interface UiPreferencesState {
   aiPanelWidth: number;
   aiLiveFollowEnabled: boolean;
   aiLiveFollowEnabledAt: string | null;
+  aiLiveFollowPageLabel: string | null;
   hydrated: boolean;
 }
 
@@ -57,6 +58,7 @@ const initialState: UiPreferencesState = (() => {
         : AI_PANEL_DEFAULT_WIDTH,
     aiLiveFollowEnabled: false,
     aiLiveFollowEnabledAt: null,
+    aiLiveFollowPageLabel: null,
     hydrated: false,
   };
 })();
@@ -114,6 +116,15 @@ const slice = createSlice({
       if (action.payload.enabledAt !== undefined) {
         state.aiLiveFollowEnabledAt = action.payload.enabledAt;
       }
+      if (!action.payload.enabled) {
+        state.aiLiveFollowPageLabel = null;
+      }
+    },
+    setAiLiveFollowPageLabel: (
+      state,
+      action: PayloadAction<string | null>
+    ) => {
+      state.aiLiveFollowPageLabel = action.payload;
     },
   },
 });
@@ -124,6 +135,7 @@ export const {
   setAiPanelState,
   setAiPanelWidth,
   setAiLiveFollow,
+  setAiLiveFollowPageLabel,
 } = slice.actions;
 
 export default slice.reducer;

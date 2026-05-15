@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   AI_PANEL_MAX_WIDTH,
   AI_PANEL_MIN_WIDTH,
@@ -14,6 +15,7 @@ import {
   persistUiPreferences,
   sendAiChatMessage,
 } from "@/network/uiPreferences";
+import { AppRoutes } from "@/shared/constant/appRoutes";
 import styles from "./aiPanel.module.css";
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
@@ -39,6 +41,14 @@ export default function AiPanel() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((s: RootState) => s.uiPreferences.aiPanelState);
   const width = useAppSelector((s: RootState) => s.uiPreferences.aiPanelWidth);
+  const liveFollowEnabled = useAppSelector(
+    (s: RootState) => s.uiPreferences.aiLiveFollowEnabled
+  );
+  const liveFollowPageLabel = useAppSelector(
+    (s: RootState) => s.uiPreferences.aiLiveFollowPageLabel
+  );
+  const showFollowingBadge =
+    liveFollowEnabled && !!liveFollowPageLabel && liveFollowPageLabel.length > 0;
 
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -335,6 +345,20 @@ export default function AiPanel() {
             </button>
           </div>
         </div>
+
+        {showFollowingBadge && (
+          <Link
+            href={AppRoutes.USER_PROFILE}
+            className={styles.followingBadge}
+            title="AI is following your current page. Click to manage live-follow."
+            aria-label={`AI is following ${liveFollowPageLabel}. Click to manage live-follow setting.`}
+          >
+            <i className="fa-light fa-eye" aria-hidden="true"></i>
+            <span className={styles.followingBadgeLabel}>
+              Following: {liveFollowPageLabel}
+            </span>
+          </Link>
+        )}
 
         <div className={styles.body} ref={scrollRef}>
           {showGreeting && (

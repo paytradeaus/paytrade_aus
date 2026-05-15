@@ -75,6 +75,38 @@
   background: var(--shade-light);
 }
 
+.followingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 var(--space-s) var(--space-2xs);
+  padding: 3px 8px;
+  font-size: var(--step--2);
+  background: var(--wind-light);
+  color: var(--ocean);
+  border: 1px solid var(--shade-light);
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+  max-width: calc(100% - 2 * var(--space-s));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.followingBadge:hover {
+  background: var(--wind-lighter);
+}
+
+.followingBadge i {
+  font-size: 10px;
+}
+
+.followingBadgeLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .beta {
   display: inline-block;
   font-size: 9px;

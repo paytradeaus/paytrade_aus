@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { RootState, useAppSelector } from "@/redux/store";
+import { RootState, useAppDispatch, useAppSelector } from "@/redux/store";
+import { setAiLiveFollowPageLabel } from "@/redux/slices/uiPreferences";
 import { recordAiLiveFollowContext } from "@/network/uiPreferences";
 
 const NUMERIC_RE = /^\d+$/;
@@ -50,6 +51,7 @@ function deriveContext(pathname: string): {
 }
 
 export default function AiLiveFollowTracker() {
+  const dispatch = useAppDispatch();
   const enabled = useAppSelector(
     (s: RootState) => s.uiPreferences.aiLiveFollowEnabled,
   );
@@ -63,6 +65,7 @@ export default function AiLiveFollowTracker() {
     // Privacy: do nothing — not even derive context — when the flag is off.
     if (!enabled) {
       lastSentRef.current = null;
+      dispatch(setAiLiveFollowPageLabel(null));
       return;
     }
     if (!pathname) return;
@@ -73,12 +76,13 @@ export default function AiLiveFollowTracker() {
     lastSentRef.current = route;
 
     const { pageLabel, entityIds } = deriveContext(pathname);
+    dispatch(setAiLiveFollowPageLabel(pageLabel));
     void recordAiLiveFollowContext({
       route,
       pageLabel,
       entityIds: Object.keys(entityIds).length ? entityIds : undefined,
     });
-  }, [enabled, hydrated, pathname, searchParams]);
+  }, [dispatch, enabled, hydrated, pathname, searchParams]);
 
   return null;
 }
