@@ -10,8 +10,12 @@ import { AiConversation } from 'src/entities/ai-conversation.entity';
 import { AiRun } from 'src/entities/ai-run.entity';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
+import { ProjectDetails } from 'src/entities/project-details.entity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
-import { PaymentClaims } from 'src/entities/banking.entity';
+import { PaymentClaims, BankAccounts } from 'src/entities/banking.entity';
+import { RetentionDetails } from 'src/entities/retention-details.entity';
+import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
+import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 
 import { AiSupportModule } from '../ai-support/ai-support.module';
@@ -33,12 +37,19 @@ import { ListClaimsWithIssuesTool } from './tools/list-claims-with-issues.tool';
 import { GetClaimDetailsTool } from './tools/get-claim-details.tool';
 import { ListContactsMissingDetailsTool } from './tools/list-contacts-missing-details.tool';
 import { RequestUserViewNavigationTool } from './tools/request-user-view-navigation.tool';
+import { ListProjectsWithIssuesTool } from './tools/list-projects-with-issues.tool';
+import { GetRetentionsHeldTool } from './tools/get-retentions-held.tool';
+import { GetTrustAccountBalancesTool } from './tools/get-trust-account-balances.tool';
+import { GetXeroSyncStatusTool } from './tools/get-xero-sync-status.tool';
 
 /**
  * Task #162 — Read-only AI Chat Agent.
+ * Task #201 — Expanded read-only inspection tools (projects, retentions,
+ * trust accounts, Xero sync status), each gated by the same
+ * company-membership checks.
  *
  * Wires the SSE controller, orchestrator, runs/events services, the
- * OpenAI LLM provider, the inspection helper, and the four new
+ * OpenAI LLM provider, the inspection helper, and the registered
  * read-only tools. The legacy GraphQL chat (`AiChatResolver` +
  * `AiChatService` over `AiSupportService`) is left in place so
  * existing callers don't break while the frontend migrates.
@@ -53,8 +64,13 @@ import { RequestUserViewNavigationTool } from './tools/request-user-view-navigat
       AiRun,
       ClientSuppliersDetails,
       ContractDetails,
+      ProjectDetails,
       CompanyUserRoles,
       PaymentClaims,
+      BankAccounts,
+      RetentionDetails,
+      XeroIntegrationDetails,
+      XeroSyncLogs,
     ]),
     JwtModule.register({
       secret: jwtConstants.secret,
@@ -82,6 +98,10 @@ import { RequestUserViewNavigationTool } from './tools/request-user-view-navigat
     GetClaimDetailsTool,
     ListContactsMissingDetailsTool,
     RequestUserViewNavigationTool,
+    ListProjectsWithIssuesTool,
+    GetRetentionsHeldTool,
+    GetTrustAccountBalancesTool,
+    GetXeroSyncStatusTool,
   ],
   exports: [AiChatService, AiChatEventsService, AiChatRunsService],
 })
@@ -94,6 +114,10 @@ export class AiChatModule implements OnApplicationBootstrap {
     private readonly getClaim: GetClaimDetailsTool,
     private readonly listContacts: ListContactsMissingDetailsTool,
     private readonly requestNav: RequestUserViewNavigationTool,
+    private readonly listProjects: ListProjectsWithIssuesTool,
+    private readonly retentionsHeld: GetRetentionsHeldTool,
+    private readonly trustBalances: GetTrustAccountBalancesTool,
+    private readonly xeroStatus: GetXeroSyncStatusTool,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -102,6 +126,10 @@ export class AiChatModule implements OnApplicationBootstrap {
       await this.registry.register(this.getClaim);
       await this.registry.register(this.listContacts);
       await this.registry.register(this.requestNav);
+      await this.registry.register(this.listProjects);
+      await this.registry.register(this.retentionsHeld);
+      await this.registry.register(this.trustBalances);
+      await this.registry.register(this.xeroStatus);
       this.logger.log(
         `AiChatModule registered ${this.registry.list().length} total tool(s).`,
       );
