@@ -2659,6 +2659,7 @@ function ManualXeroSyncDialog({
       secondButtonName={secondButtonLabel}
       disableSecondButton={runDisabled}
       onConfirm={mode === "catchup" ? handleRunBatch : handleConfirm}
+      fullScreenPopup
     >
       {/* Mode tabs — canonical TabSwitch (filterbutton) used by the
           rest of the system (bank-account-overview etc.) so this

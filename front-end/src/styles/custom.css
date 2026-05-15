@@ -678,6 +678,38 @@ small i {
   margin: 0 !important;
 }
 
+/* Full-screen popup — used by long-table dialogs (e.g. Manual Xero
+   sync catch-up preview) where the default centred popup width crops
+   wide content. The dialog fills ~95vw × 95vh and the article body
+   scrolls internally so the header/footer stay anchored. */
+dialog.full-screen-popup {
+  width: 95vw !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 2.5vh 2.5vw !important;
+}
+dialog.full-screen-popup > article.full-screen-popup {
+  width: 100% !important;
+  max-width: none !important;
+  height: 95vh !important;
+  max-height: 95vh !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+dialog.full-screen-popup > article.full-screen-popup > header,
+dialog.full-screen-popup > article.full-screen-popup > footer {
+  flex: 0 0 auto;
+}
+/* Pico wraps modal body content in the article element directly (no
+   <main>), so we target the direct children between header and footer
+   and let them flex-grow + scroll. */
+dialog.full-screen-popup > article.full-screen-popup > *:not(header):not(footer) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* Add payment custom style  */
 
 .payment-table-style {

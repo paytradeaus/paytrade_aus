@@ -38,6 +38,10 @@ interface BaseModalProps {
   restrictOncloseFunctionInHeader?: boolean;
   onHeaderIconClose?: () => void;
   halfScreenPopup?: boolean; // New optional boolean for half-screen popup styling
+  // When true, the modal expands to ~95vw × 95vh with the body scrolling
+  // internally — for dialogs (e.g. Manual Xero sync catch-up) where the
+  // default centred popup width crops a long table.
+  fullScreenPopup?: boolean;
   customOptionsForModal?: Array<any>;
   isPaymentType?: boolean; // for payment options modal
   firstBtnClassTypes?: string;
@@ -79,6 +83,7 @@ export default function BaseModal({
   restrictOncloseFunctionInHeader,
   onHeaderIconClose = () => {},
   halfScreenPopup = false,
+  fullScreenPopup = false,
   customOptionsForModal,
   isPaymentType = false,
   firstBtnClassTypes = "secondary",
@@ -219,7 +224,11 @@ export default function BaseModal({
   }, []);
 
   // Apply dynamic classes
-  const modalClass = halfScreenPopup ? "half-screen-popup" : "";
+  const modalClass = fullScreenPopup
+    ? "full-screen-popup"
+    : halfScreenPopup
+    ? "half-screen-popup"
+    : "";
 
   return (
     <dialog
