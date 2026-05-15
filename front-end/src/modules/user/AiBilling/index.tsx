@@ -320,25 +320,53 @@ export default function AiBillingPanel() {
           </tr>
         </thead>
         <tbody>
-          {purchases.map((p: any) => (
-            <tr key={p.id}>
-              <td>{new Date(p.created_on).toLocaleString()}</td>
-              <td>{p.trigger_type}</td>
-              <td align="right">{fmtUsd(p.credits_purchased_usd)}</td>
-              <td align="right">{fmtUsd(p.stripe_fee_usd)}</td>
-              <td align="right">{fmtUsd(p.amount_charged_usd)}</td>
-              <td>{p.status}</td>
-              <td>
-                {p.receipt_pdf_url ? (
-                  <a href={p.receipt_pdf_url} target="_blank" rel="noreferrer">
-                    PDF
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </td>
-            </tr>
-          ))}
+          {purchases.map((p: any) => {
+            const currency = String(p.currency ?? "usd").toUpperCase();
+            const isAud = currency === "AUD";
+            const total = Number(p.amount_charged_usd ?? 0);
+            const gst = isAud ? total / 11 : 0;
+            const subtotal = total - gst;
+            return (
+              <tr key={p.id}>
+                <td>{new Date(p.created_on).toLocaleString()}</td>
+                <td>{p.trigger_type}</td>
+                <td align="right">{fmtUsd(p.credits_purchased_usd)}</td>
+                <td align="right">{fmtUsd(p.stripe_fee_usd)}</td>
+                <td align="right">
+                  {fmtUsd(total)}
+                  {isAud ? (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#555",
+                        marginTop: 2,
+                        lineHeight: 1.4,
+                        textAlign: "right",
+                      }}
+                    >
+                      <div>Subtotal (ex GST): {fmtUsd(subtotal)} AUD</div>
+                      <div>GST (10%): {fmtUsd(gst)} AUD</div>
+                      <div>Total (incl GST): {fmtUsd(total)} AUD</div>
+                    </div>
+                  ) : null}
+                </td>
+                <td>{p.status}</td>
+                <td>
+                  {p.receipt_pdf_url ? (
+                    <a
+                      href={p.receipt_pdf_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      PDF
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              </tr>
+            );
+          })}
           {purchases.length === 0 ? (
             <tr>
               <td colSpan={7}>No top-ups yet.</td>
