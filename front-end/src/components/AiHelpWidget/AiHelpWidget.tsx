@@ -2,10 +2,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTokenDetails } from "@/hooks";
+import { searchSupport } from "@/modules/general/AiSupport/aiSupport.functions";
 import {
-  searchSupport,
-  askAiSupport,
-} from "@/modules/general/AiSupport/aiSupport.functions";
+  streamAiChatMessage,
+  AiChatPageContext,
+  StreamAiChatCallbacks,
+} from "@/network/uiPreferences";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import { buttonType } from "@/shared/constant/general";
 import { showErrorToast, showInfoToast } from "@/components/Toaster";
@@ -43,12 +45,11 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
   const [isAskingAi, setIsAskingAi] = useState(false);
   const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
   const [aiError, setAiError] = useState("");
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [communityPostId, setCommunityPostId] = useState<string | null>(null);
   const [showAiSection, setShowAiSection] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -59,7 +60,7 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
   useEffect(() => {
     if (!isOpen) return;
     function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsOpen(false);
+      if (e.key === "Escape") handleClose();
     }
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
@@ -68,6 +69,11 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
   useEffect(() => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      try {
+        abortRef.current?.abort();
+      } catch {
+        /* noop */
+      }
     };
   }, []);
 
@@ -160,42 +166,72 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
     setIsAskingAi(true);
     setAiError("");
     setAiAnswer("");
-    setAiSuggestions([]);
-    setCommunityPostId(null);
 
+    const pageContext: AiChatPageContext | undefined = context
+      ? { route: typeof window !== "undefined" ? window.location.pathname : "", pageLabel: context }
+      : undefined;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const callbacks: StreamAiChatCallbacks & { pageContext?: AiChatPageContext } = {
+      pageContext,
+      signal: controller.signal,
+      onDelta: (chunk) => {
+        setAiAnswer((prev) => prev + chunk);
+      },
+      onDone: (res) => {
+        if (typeof res.remainingQuota === "number") {
+          setRemainingQuota(res.remainingQuota);
+        }
+        if (res.status && res.status !== "SUCCESS" && res.message) {
+          setAiError(res.message);
+        }
+        setIsAskingAi(false);
+        abortRef.current = null;
+      },
+      onError: (msg) => {
+        setAiError(msg || "Something went wrong. Please try again.");
+        setIsAskingAi(false);
+        abortRef.current = null;
+      },
+      onAborted: () => {
+        // The backend persists whatever was streamed so far. Keep the
+        // partial answer visible and let the user ask again immediately.
+        setIsAskingAi(false);
+        abortRef.current = null;
+      },
+    };
+
+    await streamAiChatMessage(question, callbacks);
+  }
+
+  function handleStopAi() {
+    if (!isAskingAi) return;
     try {
-      const result = await askAiSupport(question);
-
-      if (result.status === "SUCCESS") {
-        setAiAnswer(result.answer || "");
-        setRemainingQuota(result.remainingQuota);
-        setCommunityPostId(result.communityPostId);
-      } else if (result.status === "OFF_TOPIC") {
-        setAiError(
-          result.message ||
-            "We don't think this is a topic we can help with. Please contact support for further assistance."
-        );
-        setAiSuggestions(
-          Array.isArray(result.suggestions) ? result.suggestions : []
-        );
-      } else if (result.status === "RATE_LIMITED") {
-        setAiError(result.message || "Rate limit reached.");
-      } else {
-        setAiError(result.message || "Something went wrong.");
-      }
-    } catch (err: any) {
-      setAiError("Something went wrong. Please try again.");
-    } finally {
-      setIsAskingAi(false);
+      abortRef.current?.abort();
+    } catch {
+      /* noop */
     }
   }
 
   function handleClose() {
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* noop */
+    }
     setIsOpen(false);
   }
 
   function resetState() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* noop */
+    }
+    abortRef.current = null;
     setSearchQuery("");
     setSearchResults([]);
     setTotalCount(0);
@@ -205,8 +241,6 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
     setAiAnswer("");
     setIsAskingAi(false);
     setAiError("");
-    setAiSuggestions([]);
-    setCommunityPostId(null);
     setShowAiSection(false);
   }
 
@@ -378,6 +412,7 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                         onChange={(e) => setAiQuestion(e.target.value)}
                         maxLength={500}
                         rows={3}
+                        disabled={isAskingAi}
                       />
                       <div className={styles.aiMeta}>
                         <span>{aiQuestion.length}/500</span>
@@ -388,71 +423,29 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                           </span>
                         )}
                       </div>
-                      <CustomButton
-                        actionType="button"
-                        buttonName={
-                          isAskingAi ? "Thinking..." : "Get AI Answer"
-                        }
-                        buttonType={buttonType.SECONDARY}
-                        onClick={handleAskAi}
-                        disabled={isAskingAi || !aiQuestion.trim()}
-                        iconClassName={
-                          isAskingAi
-                            ? "fa-light fa-spinner-third fa-spin"
-                            : "fa-light fa-sparkles"
-                        }
-                      />
+                      {isAskingAi ? (
+                        <CustomButton
+                          actionType="button"
+                          buttonName="Stop"
+                          buttonType={buttonType.SECONDARY}
+                          onClick={handleStopAi}
+                          iconClassName="fa-light fa-stop"
+                        />
+                      ) : (
+                        <CustomButton
+                          actionType="button"
+                          buttonName="Get AI Answer"
+                          buttonType={buttonType.SECONDARY}
+                          onClick={handleAskAi}
+                          disabled={!aiQuestion.trim()}
+                          iconClassName="fa-light fa-sparkles"
+                        />
+                      )}
 
                       {aiError && (
                         <div className={styles.aiError}>
                           <i className="fa-light fa-triangle-exclamation" />{" "}
                           {aiError}
-                          {aiSuggestions.length > 0 && (
-                            <div style={{ marginTop: "0.75rem" }}>
-                              <div
-                                style={{
-                                  fontSize: "0.85rem",
-                                  fontWeight: 600,
-                                  marginBottom: "0.5rem",
-                                }}
-                              >
-                                Try one of these:
-                              </div>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: "0.5rem",
-                                }}
-                              >
-                                {aiSuggestions.map((s, i) => (
-                                  <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => {
-                                      setAiQuestion(s);
-                                      setAiError("");
-                                      setAiSuggestions([]);
-                                    }}
-                                    style={{
-                                      padding: "0.4rem 0.75rem",
-                                      borderRadius: "999px",
-                                      border:
-                                        "1px solid var(--muted-border-color)",
-                                      background:
-                                        "var(--card-background-color)",
-                                      color: "inherit",
-                                      cursor: "pointer",
-                                      fontSize: "0.85rem",
-                                      textAlign: "left",
-                                    }}
-                                  >
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
 
@@ -460,6 +453,18 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                         <div className={styles.aiAnswer}>
                           <div className={styles.aiAnswerHeader}>
                             <i className="fa-light fa-robot" /> PayTrade AI
+                            {isAskingAi && (
+                              <span
+                                style={{
+                                  marginLeft: "0.5rem",
+                                  fontSize: "0.8rem",
+                                  opacity: 0.7,
+                                }}
+                              >
+                                <i className="fa-light fa-spinner-third fa-spin" />{" "}
+                                streaming…
+                              </span>
+                            )}
                           </div>
                           <div
                             className={styles.aiAnswerBody}
@@ -473,19 +478,6 @@ export default function AiHelpWidget({ context }: AiHelpWidgetProps) {
                             AI-generated response. Please verify important
                             details with PayTrade support.
                           </div>
-                          {communityPostId && (
-                            <div className={styles.communityNote}>
-                              <i className="fa-light fa-comments" /> This Q&A
-                              has been shared in the{" "}
-                              <Link
-                                href={AppRoutes.COMMUNITY}
-                                onClick={handleClose}
-                              >
-                                community
-                              </Link>
-                              .
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
