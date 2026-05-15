@@ -1,7 +1,7 @@
 "use client";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { getCookie } from "cookies-next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -25,9 +25,15 @@ import {
   listAiChatThreads,
   persistUiPreferences,
   renameAiChatThread,
-  sendAiChatMessage,
-  streamAiChatMessage,
 } from "@/network/uiPreferences";
+import {
+  AiChatRunSummary,
+  AiChatStreamEvent,
+  fetchAiStatusSnapshot,
+  AiStatusSnapshotResponse,
+  sendAiChatStreaming,
+  stopAiChatRun,
+} from "@/network/aiChat";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { applicationStorage } from "@/shared/constant/general";
 import styles from "./aiPanel.module.css";
@@ -155,20 +161,20 @@ const MarkdownMessage = memo(function MarkdownMessage({
 
 const SUGGESTIONS: { label: string; prompt: string }[] = [
   {
-    label: "Fix critical issues",
-    prompt: "What critical issues should I fix first in PayTrade today?",
+    label: "What needs my attention?",
+    prompt: "Look at my system status snapshot and tell me what I should fix first.",
   },
   {
-    label: "Review payments",
-    prompt: "Help me review payments that need attention.",
+    label: "Claims with issues",
+    prompt: "Show me payment claims that have problems or are overdue.",
   },
   {
-    label: "Reconcile trusts",
-    prompt: "How do I reconcile my trust account in PayTrade?",
+    label: "Contacts missing email",
+    prompt: "Which contacts are missing an email address?",
   },
   {
-    label: "Draft notices",
-    prompt: "Help me draft a payment schedule notice.",
+    label: "Walk me through retentions",
+    prompt: "How does PayTrade handle cash retentions on a progress claim?",
   },
 ];
 
@@ -190,23 +196,46 @@ function formatThreadDate(iso?: string | null): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+interface ChatMessage extends AiChatMessage {
+  pending?: boolean;
+  navBreadcrumbs?: { route: string; reason?: string }[];
+  toolChips?: string[];
+  runSummary?: AiChatRunSummary | null;
+  runStatus?: "completed" | "stopped" | "failed";
+}
+
+function uid(prefix = "m"): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+function formatCost(amount: number, multiplier: number): string {
+  if (!amount) return "$0.00";
+  return `$${amount.toFixed(amount >= 1 ? 2 : 4)}${
+    multiplier && multiplier !== 1 ? ` (×${multiplier.toFixed(2)})` : ""
+  }`;
+}
+
 export default function AiPanel() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((s: RootState) => s.uiPreferences.aiPanelState);
   const width = useAppSelector((s: RootState) => s.uiPreferences.aiPanelWidth);
   const liveFollowEnabled = useAppSelector(
-    (s: RootState) => s.uiPreferences.aiLiveFollowEnabled
+    (s: RootState) => s.uiPreferences.aiLiveFollowEnabled,
   );
   const liveFollowPageLabel = useAppSelector(
-    (s: RootState) => s.uiPreferences.aiLiveFollowPageLabel
+    (s: RootState) => s.uiPreferences.aiLiveFollowPageLabel,
   );
   const showFollowingBadge =
-    liveFollowEnabled && !!liveFollowPageLabel && liveFollowPageLabel.length > 0;
+    liveFollowEnabled &&
+    !!liveFollowPageLabel &&
+    liveFollowPageLabel.length > 0;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [threads, setThreads] = useState<AiChatThreadSummary[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeThreadTitle, setActiveThreadTitle] = useState<string>("New chat");
-  const [messages, setMessages] = useState<AiChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -218,6 +247,9 @@ export default function AiPanel() {
   const [openContextChipId, setOpenContextChipId] = useState<string | null>(
     null,
   );
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [snapshotChip, setSnapshotChip] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Tracks the in-flight stream so the user can stop it mid-answer.
   const abortRef = useRef<AbortController | null>(null);
@@ -243,7 +275,6 @@ export default function AiPanel() {
     };
   }, [openContextChipId]);
 
-  // Ref keeps latest width for the mouseup persist handler.
   const widthRef = useRef(width);
   useEffect(() => {
     widthRef.current = width;
@@ -264,7 +295,6 @@ export default function AiPanel() {
     return () => mq.removeListener(update);
   }, []);
 
-  // Lock body scroll while the full-screen sheet is open on mobile.
   useEffect(() => {
     if (!isMobile || state !== "open") return;
     const prev = document.body.style.overflow;
@@ -274,25 +304,24 @@ export default function AiPanel() {
     };
   }, [isMobile, state]);
 
+  // Resizer
   const dragRef = useRef<{ active: boolean; startX: number; startW: number }>({
     active: false,
     startX: 0,
     startW: width,
   });
-
   const onMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!dragRef.current.active) return;
       const delta = dragRef.current.startX - e.clientX;
       const next = Math.max(
         AI_PANEL_MIN_WIDTH,
-        Math.min(AI_PANEL_MAX_WIDTH, dragRef.current.startW + delta)
+        Math.min(AI_PANEL_MAX_WIDTH, dragRef.current.startW + delta),
       );
       dispatch(setAiPanelWidth(next));
     },
-    [dispatch]
+    [dispatch],
   );
-
   const onMouseUp = useCallback(() => {
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
@@ -301,7 +330,6 @@ export default function AiPanel() {
     document.removeEventListener("mouseup", onMouseUp);
     persistUiPreferences({ aiPanelWidth: widthRef.current });
   }, [onMouseMove]);
-
   const onResizerDown = (e: React.MouseEvent) => {
     e.preventDefault();
     dragRef.current = { active: true, startX: e.clientX, startW: width };
@@ -309,13 +337,12 @@ export default function AiPanel() {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   };
-
   useEffect(
     () => () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     },
-    [onMouseMove, onMouseUp]
+    [onMouseMove, onMouseUp],
   );
 
   const refreshThreadList = useCallback(async () => {
@@ -331,7 +358,7 @@ export default function AiPanel() {
     if (data) {
       setActiveThreadId(data.threadId);
       setActiveThreadTitle(data.threadTitle);
-      setMessages(data.history);
+      setMessages(data.history as ChatMessage[]);
     }
     setShowThreadList(false);
   }, []);
@@ -343,6 +370,7 @@ export default function AiPanel() {
     setErrorBanner(null);
     setShowThreadList(false);
     setInput("");
+    setConversationId(null);
   }, []);
 
   // Load threads + most-recent thread on first open.
@@ -362,15 +390,35 @@ export default function AiPanel() {
     };
   }, [state, historyLoaded, refreshThreadList, openThread]);
 
-  // Auto-scroll to bottom whenever messages change.
+  // Refresh status snapshot chip when panel opens.
+  useEffect(() => {
+    if (state !== "open") return;
+    let cancelled = false;
+    fetchAiStatusSnapshot().then((snap: AiStatusSnapshotResponse | null) => {
+      if (cancelled) return;
+      if (snap?.summary) {
+        const { critical = 0, warning = 0, total = 0 } = snap.summary;
+        if (total > 0) {
+          setSnapshotChip(
+            `${critical} critical · ${warning} warning · ${total} total`,
+          );
+        } else {
+          setSnapshotChip(null);
+        }
+      } else {
+        setSnapshotChip(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state, messages.length]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, sending, streamingText]);
-
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const buildPageContext = useCallback((): AiChatPageContext | undefined => {
     if (!pathname) return undefined;
@@ -396,84 +444,125 @@ export default function AiPanel() {
     return ctx;
   }, [pathname, searchParams]);
 
+  // Note: incoming navigation_request push events are handled globally
+  // by `AiLiveFollowTracker` so they work even when the panel is closed.
+
   const submitMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || sending) return;
       setErrorBanner(null);
       setSending(true);
-      setStreamingText("");
+      setActiveRunId(null);
 
       const pageContext = buildPageContext();
 
-      // Optimistic user message so it appears immediately.
-      const optimistic: AiChatMessage = {
-        id: `tmp-${Date.now()}`,
+      const userMsg: ChatMessage = {
+        id: uid("u"),
         role: "user",
         content: trimmed,
         ts: new Date().toISOString(),
         pageContext,
       };
-      setMessages((prev) => [...prev, optimistic]);
+      const assistantId = uid("a");
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        ts: new Date().toISOString(),
+        pending: true,
+        navBreadcrumbs: [],
+        toolChips: [],
+      };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setInput("");
+
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }));
 
       const controller = new AbortController();
       abortRef.current = controller;
 
-      await streamAiChatMessage(trimmed, {
-        threadId: activeThreadId || undefined,
-        pageContext,
-        signal: controller.signal,
-        onDelta: (chunk) => {
-          setStreamingText((prev) => prev + chunk);
-        },
-        onDone: (res: any) => {
-          if (res.history && res.history.length > 0) {
-            setMessages(res.history);
+      const onEvent = (event: AiChatStreamEvent) => {
+        if (event.type === "run_started") {
+          setActiveRunId(event.runId);
+          setConversationId(event.conversationId);
+        } else if (event.type === "text_delta") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: m.content + event.text }
+                : m,
+            ),
+          );
+        } else if (event.type === "tool_call_started") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    toolChips: [...(m.toolChips ?? []), event.toolName],
+                  }
+                : m,
+            ),
+          );
+          if (event.toolName === "requestUserViewNavigation") {
+            const args = event.arguments || {};
+            if (typeof args.route === "string") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        navBreadcrumbs: [
+                          ...(m.navBreadcrumbs ?? []),
+                          { route: args.route, reason: args.reason },
+                        ],
+                      }
+                    : m,
+                ),
+              );
+            }
           }
-          if (res.threadId) {
-            setActiveThreadId(res.threadId);
-            if (res.threadTitle) setActiveThreadTitle(res.threadTitle);
-          }
-          if (res.status !== "SUCCESS" && res.message) {
-            setErrorBanner(res.message);
-          }
+        } else if (event.type === "run_completed") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    pending: false,
+                    runSummary: event.summary,
+                    runStatus: event.status,
+                    content:
+                      m.content ||
+                      event.errorMessage ||
+                      "(no response from the assistant)",
+                  }
+                : m,
+            ),
+          );
+          if (event.errorMessage) setErrorBanner(event.errorMessage);
+          setActiveRunId(null);
+          setSending(false);
+          abortRef.current = null;
+          // Best-effort sync of legacy thread sidebar.
           refreshThreadList();
-          setStreamingText("");
-          setSending(false);
-          abortRef.current = null;
-        },
-        onError: (msg) => {
-          setErrorBanner(msg);
-          setStreamingText("");
-          setSending(false);
-          abortRef.current = null;
-        },
-        onAborted: () => {
-          // The backend persists whatever was streamed so far as the
-          // assistant message. Refresh history to pick up the canonical
-          // record (with stable id + status), and clear the streaming
-          // bubble so it isn't shown twice.
-          setStreamingText("");
-          setSending(false);
-          abortRef.current = null;
-          fetchAiChatHistory().then((h) => {
-            if (h && h.length > 0) setMessages(h);
-          });
-        },
+        }
+      };
+
+      const route = pathname || undefined;
+      await sendAiChatStreaming({
+        message: trimmed,
+        history: history.slice(-12),
+        conversationId,
+        pageContext: pageContext ?? (route ? { path: route } : undefined),
+        signal: controller.signal,
+        onEvent,
       });
     },
-    [sending, activeThreadId, refreshThreadList, buildPageContext]
+    [messages, sending, conversationId, pathname, refreshThreadList, buildPageContext],
   );
-
-  const onStop = useCallback(() => {
-    if (!sending) return;
-    try {
-      abortRef.current?.abort();
-    } catch {
-      /* noop */
-    }
-  }, [sending]);
 
   // Make sure we don't leave a stream running if the panel unmounts.
   useEffect(
@@ -484,8 +573,7 @@ export default function AiPanel() {
         /* noop */
       }
     },
-    []
-  );
+    [],
 
   const onComposerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -524,6 +612,22 @@ export default function AiPanel() {
         prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t))
       );
       if (activeThreadId === id) setActiveThreadTitle(updated.title);
+    }
+  };
+
+  const onStop = async () => {
+    if (!sending) return;
+    if (activeRunId) {
+      try {
+        await stopAiChatRun(activeRunId);
+      } catch {
+        /* noop */
+      }
+    }
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* noop */
     }
   };
 
@@ -646,6 +750,15 @@ export default function AiPanel() {
           <h5 className={styles.headerTitle} title={activeThreadTitle}>
             {activeThreadTitle || "AI Assistant"}
             <span className={styles.beta}>BETA</span>
+            {snapshotChip && (
+              <span
+                className={styles.statusChip}
+                title="Open issues found by status snapshot"
+              >
+                <i className="fa-light fa-triangle-exclamation"></i>{" "}
+                {snapshotChip}
+              </span>
+            )}
           </h5>
           <div className={styles.headerActions}>
             <button
@@ -792,8 +905,9 @@ export default function AiPanel() {
         <div className={styles.body} ref={scrollRef}>
           {showGreeting && (
             <section className={styles.greeting} aria-label="AI greeting">
-              Hi! I&apos;m your Pay&nbsp;Trade assistant. Ask me anything about
-              BIF, QBCC, payment claims, retentions, or how to use PayTrade.
+              Hi! I&apos;m your Pay&nbsp;Trade assistant. I can answer
+              questions and look at your data — read-only. I cannot
+              change anything for you.
               <div className={styles.suggestRow}>
                 {SUGGESTIONS.map((s) => (
                   <button
@@ -951,6 +1065,54 @@ export default function AiPanel() {
                       Stopped — answer may be incomplete
                     </span>
                   )}
+                  {m.navBreadcrumbs && m.navBreadcrumbs.length > 0 && (
+                    <div>
+                      {m.navBreadcrumbs.map((b, i) => (
+                        <div key={i} className={styles.navBreadcrumb}>
+                          {liveFollowEnabled
+                            ? `Took you to ${b.route}`
+                            : `Suggested ${b.route}`}
+                          {b.reason ? ` — ${b.reason}` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {m.toolChips && m.toolChips.length > 0 && (
+                    <div>
+                      {m.toolChips.map((t, i) => (
+                        <span key={`${t}-${i}`} className={styles.toolChip}>
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {m.runSummary && !m.pending && (
+                    <div>
+                      <span
+                        className={styles.runChip}
+                        title={`${m.runSummary.totalTokens} tokens · ${m.runSummary.toolCallCount} tool call(s) · ${m.runSummary.durationMs}ms`}
+                      >
+                        <span
+                          className={`${styles.runChipDot} ${
+                            m.runStatus === "failed"
+                              ? styles.runChipDotFailed
+                              : m.runStatus === "stopped"
+                                ? styles.runChipDotStopped
+                                : ""
+                          }`}
+                        />
+                        {m.runStatus === "stopped"
+                          ? "Stopped"
+                          : m.runStatus === "failed"
+                            ? "Failed"
+                            : "Done"}{" "}
+                        · {formatCost(
+                          m.runSummary.amountChargedUsd,
+                          m.runSummary.multiplier,
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -990,17 +1152,17 @@ export default function AiPanel() {
               onChange={(e) => setInput(e.target.value)}
               disabled={sending}
               aria-label="AI assistant message"
-              maxLength={500}
+              maxLength={4000}
             />
             {sending ? (
               <button
                 type="button"
-                className={styles.sendBtn}
+                className={styles.stopBtn}
                 onClick={onStop}
                 title="Stop"
-                aria-label="Stop generating"
+                aria-label="Stop AI response"
               >
-                <i className="fa-light fa-stop"></i>
+                <i className="fa-light fa-stop"></i> Stop
               </button>
             ) : (
               <button
@@ -1015,7 +1177,13 @@ export default function AiPanel() {
             )}
           </div>
           <div className={styles.composerFoot}>
-            <span>{sending ? "Thinking…" : "AI is ready — pilot"}</span>
+            <span>
+              {sending
+                ? "Streaming…"
+                : liveFollowEnabled
+                  ? "Read-only · live-follow on"
+                  : "Read-only"}
+            </span>
             <span>GPT-4o</span>
           </div>
         </form>
