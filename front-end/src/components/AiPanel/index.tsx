@@ -175,6 +175,44 @@ const SUGGESTIONS: { label: string; prompt: string }[] = [
   },
 ];
 
+// Capability examples shown in the "What can I ask?" panel.
+// Each entry maps to a backend AI tool exposed by the orchestrator so users
+// can quickly discover what the assistant is able to look at.
+const CAPABILITY_EXAMPLES: { label: string; prompt: string }[] = [
+  {
+    label: "What needs my attention right now?",
+    prompt: "Look at my system status snapshot and tell me what I should fix first.",
+  },
+  {
+    label: "Show payment claims with issues",
+    prompt: "Show me payment claims that have problems or are overdue.",
+  },
+  {
+    label: "Which contacts are missing details?",
+    prompt: "Which contacts are missing an email address or other key details?",
+  },
+  {
+    label: "Which projects need attention?",
+    prompt: "List my projects that have configuration or compliance issues.",
+  },
+  {
+    label: "How much retention am I holding?",
+    prompt: "Summarise the cash retentions I am currently holding.",
+  },
+  {
+    label: "What are my trust account balances?",
+    prompt: "Show me my PTA and RTA trust account balances.",
+  },
+  {
+    label: "Is my Xero connected?",
+    prompt: "Check the Xero sync status for my company and flag anything broken.",
+  },
+  {
+    label: "Take me to a screen",
+    prompt: "Take me to the page where I can review my outstanding payment claims.",
+  },
+];
+
 function formatThreadDate(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -247,6 +285,7 @@ export default function AiPanel() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [snapshotChip, setSnapshotChip] = useState<string | null>(null);
+  const [showCapabilities, setShowCapabilities] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composerInputRef = useRef<HTMLInputElement | null>(null);
   // True when the current composer value was loaded via the Up-arrow
@@ -274,6 +313,16 @@ export default function AiPanel() {
       }
     });
   }, []);
+
+  // Drop a capability example into the composer so the user can tweak it
+  // before sending. Closes the capabilities panel after picking one.
+  const fillExample = useCallback(
+    (text: string) => {
+      editMessage(text);
+      setShowCapabilities(false);
+    },
+    [editMessage],
+  );
 
   // Close any open context popover when the user clicks elsewhere or
   // presses Escape. The popover is intentionally lightweight — no portal,
@@ -799,6 +848,25 @@ export default function AiPanel() {
             <button
               type="button"
               className={styles.iconBtn}
+              title={
+                showCapabilities
+                  ? "Hide what I can do"
+                  : "What can I ask the assistant?"
+              }
+              aria-label={
+                showCapabilities
+                  ? "Hide AI assistant capabilities"
+                  : "Show AI assistant capabilities"
+              }
+              aria-expanded={showCapabilities}
+              aria-controls="ai-capabilities-panel"
+              onClick={() => setShowCapabilities((v) => !v)}
+            >
+              <i className="fa-light fa-circle-question"></i>
+            </button>
+            <button
+              type="button"
+              className={styles.iconBtn}
               title="New chat"
               aria-label="Start a new chat"
               onClick={startNewChat}
@@ -1278,6 +1346,52 @@ export default function AiPanel() {
             </div>
           )}
         </div>
+
+        {showCapabilities && (
+          <div
+            id="ai-capabilities-panel"
+            className={styles.capabilitiesPanel}
+            role="region"
+            aria-label="What you can ask the AI assistant"
+          >
+            <div className={styles.capabilitiesHead}>
+              <span className={styles.capabilitiesTitle}>
+                What can I ask?
+              </span>
+              <button
+                type="button"
+                className={styles.capabilitiesClose}
+                title="Hide"
+                aria-label="Hide capabilities"
+                onClick={() => setShowCapabilities(false)}
+              >
+                <i className="fa-light fa-xmark"></i>
+              </button>
+            </div>
+            <p className={styles.capabilitiesIntro}>
+              Click an example to drop it into the message box, then tweak
+              and send.
+            </p>
+            <div className={styles.capabilitiesList}>
+              {CAPABILITY_EXAMPLES.map((ex) => (
+                <button
+                  type="button"
+                  key={ex.label}
+                  className={styles.capabilityItem}
+                  onClick={() => fillExample(ex.prompt)}
+                  disabled={sending}
+                  title={ex.prompt}
+                >
+                  <i
+                    className="fa-light fa-arrow-up-right-from-square"
+                    aria-hidden="true"
+                  ></i>
+                  <span>{ex.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <form className={styles.composer} onSubmit={onComposerSubmit}>
           <div className={styles.composerRow}>
