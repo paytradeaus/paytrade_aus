@@ -3422,7 +3422,7 @@ function ManualXeroSyncDialog({
                                 {r.blocking_issues &&
                                   r.blocking_issues.length > 0 && (
                                     <div style={{ marginTop: 4 }}>
-                                      {r.blocking_issues.map((iss, idx) => (
+                                      {r.blocking_issues.map((iss: string, idx: number) => (
                                         <div key={idx}>
                                           <small style={{ color: "orange" }}>
                                             ⚠ {iss}
