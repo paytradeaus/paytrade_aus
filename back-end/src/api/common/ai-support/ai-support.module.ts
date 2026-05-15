@@ -12,6 +12,7 @@ import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { MasterTypes } from 'src/entities/master-types.entity';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
+import { AiToolsModule } from '../ai-tools/ai-tools.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal
       UserDetails,
       MasterTypes,
     ]),
+    AiToolsModule,
   ],
   providers: [AiSupportService, AiSupportResolver, JwtInternalService],
   exports: [AiSupportService],

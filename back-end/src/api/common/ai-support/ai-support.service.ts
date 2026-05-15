@@ -17,6 +17,20 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { Role } from 'src/api/auth/role-guard/role.enum';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AiToolRegistryService } from '../ai-tools/ai-tool-registry.service';
+import { AiToolContext, AiToolError } from '../ai-tools/ai-tool.interface';
+
+/**
+ * Mapping from frontend `pageContext.entity` value to the AI tool the
+ * model should be allowed to call so it can fetch a brief, read-only
+ * summary of the focused record (Task #186).
+ */
+const PAGE_ENTITY_TO_TOOL: Record<string, string> = {
+  claim: 'getClaimSummary',
+  contract: 'getContractSummary',
+  project: 'getProjectSummary',
+};
+const MAX_TOOL_TURNS = 3;
 
 const FREE_LIMIT = 2;
 const FREE_WINDOW_MS = 60 * 60 * 1000;
@@ -76,6 +90,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
     private userDetails: Repository<UserDetails>,
     @InjectRepository(MasterTypes)
     private masterTypes: Repository<MasterTypes>,
+    private readonly aiToolRegistry: AiToolRegistryService,
   ) {
     if (process.env.OPENAI_API_KEY) {
       this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -573,7 +588,7 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
     }
     if (!parts.length) return null;
     return [
-      'CURRENT PAGE CONTEXT (the user is asking from this page in PayTrade — use it to ground your answer when relevant, but do not assume access to that record\'s data unless told otherwise):',
+      "CURRENT PAGE CONTEXT (the user is asking from this page in PayTrade — use it to ground your answer when relevant). If a matching record-lookup tool is offered, you may call it to fetch the focused record's read-only details before answering.",
       ...parts,
     ].join('\n');
   }
@@ -645,12 +660,34 @@ export class AiSupportService implements OnModuleInit, OnModuleDestroy {
         [liveContext, perMessageContext]
           .filter((s): s is string => Boolean(s))
           .join('\n\n') || null;
+      const toolContext: AiToolContext = {
+        userId,
+        companyId: pageContext?.companyId ?? rateCheck.companyId ?? null,
+        aiRunId: usage?.id != null ? String(usage.id) : null,
+        pageContext: pageContext
+          ? {
+              path: pageContext.route,
+              entity: pageContext.entity,
+              entityId: pageContext.entityId,
+            }
+          : undefined,
+      };
+      // Only offer record-lookup tools when the page context actually
+      // identifies a focused record (entity AND entityId). This avoids
+      // exposing the tool on list/landing pages where the model has no
+      // valid id to pass.
+      const offerRecordToolsFor =
+        pageContext?.entity && pageContext?.entityId
+          ? pageContext.entity
+          : null;
       const aiResult = await this.callOpenAI(
         sanitised,
         relevanceCheck.needsWebSearch,
         combinedContext,
         onDelta,
         abortSignal,
+        offerRecordToolsFor,
+        toolContext,
       );
       const answer = aiResult.text;
       const wasAborted = aiResult.aborted;
@@ -914,15 +951,110 @@ Set needs_web_search to true ONLY if the question asks about recent legal update
     }
   }
 
+  private buildRecordToolDefs(pageEntity: string | null): any[] {
+    if (!pageEntity) return [];
+    const toolName = PAGE_ENTITY_TO_TOOL[pageEntity];
+    if (!toolName) return [];
+    const tool = this.aiToolRegistry.get(toolName);
+    if (!tool || tool.enabled === false) return [];
+    return [
+      {
+        type: 'function',
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.inputSchema?.jsonSchema ?? {
+          type: 'object',
+          properties: {},
+        },
+      },
+    ];
+  }
+
+  /**
+   * Resolve any function-call items the model emitted by routing them
+   * through the AI tool registry. Returns the
+   * `function_call_output` items to feed back as the next-turn input.
+   * Unknown / disallowed tools are answered with an error JSON so the
+   * model can react gracefully.
+   */
+  private async resolveFunctionCalls(
+    output: any[],
+    allowedToolNames: Set<string>,
+    toolContext: AiToolContext,
+  ): Promise<{ items: any[]; called: number }> {
+    const items: any[] = [];
+    let called = 0;
+    for (const item of output || []) {
+      if (item?.type !== 'function_call') continue;
+      const callId = item.call_id || item.id;
+      const name = item.name;
+      let parsedArgs: Record<string, unknown> = {};
+      try {
+        parsedArgs =
+          typeof item.arguments === 'string'
+            ? JSON.parse(item.arguments || '{}')
+            : item.arguments || {};
+      } catch {
+        parsedArgs = {};
+      }
+      let outputJson: string;
+      if (!allowedToolNames.has(name)) {
+        outputJson = JSON.stringify({
+          error: `Tool "${name}" is not available for this request.`,
+        });
+      } else {
+        try {
+          const result = await this.aiToolRegistry.execute(
+            name,
+            parsedArgs,
+            { ...toolContext, idempotencyKey: callId ?? null },
+          );
+          outputJson = JSON.stringify(result);
+        } catch (err: any) {
+          const code =
+            err instanceof AiToolError ? err.code : 'internal_error';
+          outputJson = JSON.stringify({
+            error: err?.message || 'Tool call failed.',
+            code,
+          });
+          this.logger.warn(
+            `AI tool "${name}" failed for user=${toolContext.userId}: ${err?.message}`,
+          );
+        }
+      }
+      items.push({
+        type: 'function_call_output',
+        call_id: callId,
+        output: outputJson,
+      });
+      // Count every emitted function_call (success or error) so the
+      // model gets a follow-up turn to interpret the error output and
+      // produce a graceful response, rather than the loop exiting early
+      // and the user seeing a generic fallback string.
+      called++;
+    }
+    return { items, called };
+  }
+
   private async callOpenAI(
     question: string,
     useWebSearch: boolean = false,
     liveContext: string | null = null,
     onDelta?: (chunk: string) => void,
     abortSignal?: AbortSignal,
+    pageEntity: string | null = null,
+    toolContext: AiToolContext = {},
   ): Promise<{ text: string; aborted: boolean }> {
+    const recordTools = this.buildRecordToolDefs(pageEntity);
+    const allowedToolNames = new Set(recordTools.map((t) => t.name));
+    const hasRecordTools = recordTools.length > 0;
     const liveContextBlock = liveContext ? `\n\n${liveContext}\n` : '';
-    const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.
+    const recordToolsBlock = hasRecordTools
+      ? `\n\nRECORD-LOOKUP TOOLS AVAILABLE:\n- You may call ${recordTools
+          .map((t) => `\`${t.name}\``)
+          .join(', ')} to fetch a brief, read-only summary of the record the user is currently viewing. Call it at most once per turn, only when the user's question is about that record. Treat the response as the source of truth for that record's data.`
+      : '';
+    const systemPrompt = `${liveContextBlock}You are PayTrade AI, a helpful support assistant for PayTrade — an Australian construction industry platform for project trust accounts, payment management, compliance and BIF Act obligations.${recordToolsBlock}
 
 IMPORTANT RULES:
 - Only answer questions related to PayTrade, construction industry payments, project trust accounts, BIF Act, QBCC compliance, and related topics.
@@ -942,21 +1074,77 @@ RESPONSE FORMAT:
 
 ${this.systemGuideContent ? `\nPAYTRADE SYSTEM KNOWLEDGE:\n${this.systemGuideContent.substring(0, 50000)}` : ''}`;
 
+    const tools: any[] = [];
+    if (useWebSearch) {
+      tools.push({
+        type: 'web_search_preview',
+        search_context_size: 'medium',
+      });
+      this.logger.log(`Using web search for question: "${question.substring(0, 80)}"`);
+    }
+    if (hasRecordTools) {
+      tools.push(...recordTools);
+      this.logger.log(
+        `Offering record tools [${recordTools.map((t) => t.name).join(', ')}] for question: "${question.substring(0, 80)}"`,
+      );
+    }
+
+    // Tool-call loop. We deliberately drop streaming when record tools
+    // are offered because the model may need to call a function and
+    // re-prompt before producing the final text. The total budget is
+    // small (MAX_TOOL_TURNS) so latency is bounded.
+    if (hasRecordTools) {
+      let nextInput: any = question;
+      let assembled = '';
+      let previousResponseId: string | undefined;
+      for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
+        if (abortSignal?.aborted) break;
+        const opts: any = {
+          model: 'gpt-4o',
+          instructions: systemPrompt,
+          input: nextInput,
+          tools,
+        };
+        if (previousResponseId) opts.previous_response_id = previousResponseId;
+        const response = await this.openai.responses.create(
+          opts,
+          abortSignal ? { signal: abortSignal } : undefined,
+        );
+        previousResponseId = response.id;
+        assembled = response.output_text || assembled;
+        const { items, called } = await this.resolveFunctionCalls(
+          (response as any).output || [],
+          allowedToolNames,
+          toolContext,
+        );
+        if (!called) break;
+        if (turn === MAX_TOOL_TURNS) {
+          this.logger.warn(
+            `AI tool-call loop hit MAX_TOOL_TURNS=${MAX_TOOL_TURNS}; stopping.`,
+          );
+          break;
+        }
+        nextInput = items;
+      }
+      const finalText =
+        assembled ||
+        'I was unable to generate a response. Please contact our support team for help.';
+      if (onDelta) {
+        try {
+          onDelta(finalText);
+        } catch {
+          /* swallow consumer errors */
+        }
+      }
+      return { text: finalText, aborted: !!abortSignal?.aborted };
+    }
+
     const requestOptions: any = {
       model: 'gpt-4o',
       instructions: systemPrompt,
       input: question,
     };
-
-    if (useWebSearch) {
-      requestOptions.tools = [
-        {
-          type: 'web_search_preview',
-          search_context_size: 'medium',
-        },
-      ];
-      this.logger.log(`Using web search for question: "${question.substring(0, 80)}"`);
-    }
+    if (tools.length) requestOptions.tools = tools;
 
     if (onDelta) {
       requestOptions.stream = true;

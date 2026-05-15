@@ -9,6 +9,11 @@ import { ActivityLogNew } from 'src/entities/activity-log-new.entity';
 import { CompanyDetails } from 'src/entities/company-details.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
+import { ContractDetails } from 'src/entities/contract-details.entity';
+import { ProjectDetails } from 'src/entities/project-details.entity';
+import { PaymentClaims } from 'src/entities/banking.entity';
+import { PaymentDetails } from 'src/entities/payment-details.entity';
+import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 
 import { AiBillingModule } from '../ai-billing/ai-billing.module';
 
@@ -19,10 +24,14 @@ import { AiActivityLogHelper } from './ai-activity-log.helper';
 import { SystemStatusService } from './services/system-status.service';
 import { BusinessProfileService } from './services/business-profile.service';
 import { PageContextService } from './services/page-context.service';
+import { RecordSummaryService } from './services/record-summary.service';
 
 import { GetSystemStatusSnapshotTool } from './tools/get-system-status-snapshot.tool';
 import { GetCurrentPageContextTool } from './tools/get-current-page-context.tool';
 import { GetBusinessProfileSummaryTool } from './tools/get-business-profile-summary.tool';
+import { GetClaimSummaryTool } from './tools/get-claim-summary.tool';
+import { GetContractSummaryTool } from './tools/get-contract-summary.tool';
+import { GetProjectSummaryTool } from './tools/get-project-summary.tool';
 
 /** Wires the registry, audit log, activity-log helper and the read-only example tools. */
 @Module({
@@ -35,6 +44,11 @@ import { GetBusinessProfileSummaryTool } from './tools/get-business-profile-summ
       CompanyDetails,
       UserDetails,
       CompanyUserRoles,
+      ContractDetails,
+      ProjectDetails,
+      PaymentClaims,
+      PaymentDetails,
+      ClientSuppliersDetails,
     ]),
     AiBillingModule,
   ],
@@ -45,9 +59,13 @@ import { GetBusinessProfileSummaryTool } from './tools/get-business-profile-summ
     SystemStatusService,
     BusinessProfileService,
     PageContextService,
+    RecordSummaryService,
     GetSystemStatusSnapshotTool,
     GetCurrentPageContextTool,
     GetBusinessProfileSummaryTool,
+    GetClaimSummaryTool,
+    GetContractSummaryTool,
+    GetProjectSummaryTool,
   ],
   exports: [
     AiToolRegistryService,
@@ -56,6 +74,7 @@ import { GetBusinessProfileSummaryTool } from './tools/get-business-profile-summ
     SystemStatusService,
     BusinessProfileService,
     PageContextService,
+    RecordSummaryService,
   ],
 })
 export class AiToolsModule implements OnApplicationBootstrap {
@@ -66,6 +85,9 @@ export class AiToolsModule implements OnApplicationBootstrap {
     private readonly snapshotTool: GetSystemStatusSnapshotTool,
     private readonly pageContextTool: GetCurrentPageContextTool,
     private readonly profileTool: GetBusinessProfileSummaryTool,
+    private readonly claimTool: GetClaimSummaryTool,
+    private readonly contractTool: GetContractSummaryTool,
+    private readonly projectTool: GetProjectSummaryTool,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -73,6 +95,9 @@ export class AiToolsModule implements OnApplicationBootstrap {
       await this.registry.register(this.snapshotTool);
       await this.registry.register(this.pageContextTool);
       await this.registry.register(this.profileTool);
+      await this.registry.register(this.claimTool);
+      await this.registry.register(this.contractTool);
+      await this.registry.register(this.projectTool);
       this.logger.log(
         `Registered ${this.registry.list().length} AI tool(s).`,
       );
