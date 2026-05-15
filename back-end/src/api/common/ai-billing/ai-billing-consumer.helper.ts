@@ -8,6 +8,7 @@ import {
   AiBillingService,
   ConsumeCreditInput,
   ConsumeCreditResult,
+  InsufficientCreditError,
 } from './ai-billing.service';
 
 export interface ConsumeOrTopupInput extends ConsumeCreditInput {
@@ -90,10 +91,15 @@ export class AiBillingConsumer {
 
     const first = await this.billing.consumeCredit(input);
     if (first.ok) return first;
+    const firstFail = first as InsufficientCreditError;
 
     const auto = await this.billing.evaluateAutoTopup(input.companyId);
     if (!auto) {
-      throw new OutOfCreditsError(first.balanceUsd, first.required, first.message);
+      throw new OutOfCreditsError(
+        firstFail.balanceUsd,
+        firstFail.required,
+        firstFail.message,
+      );
     }
 
     // Resolve sandbox mode from persisted settings when the caller did not
@@ -124,20 +130,25 @@ export class AiBillingConsumer {
         `Auto top-up failed for company ${input.companyId}: ${err}`,
       );
       throw new OutOfCreditsError(
-        first.balanceUsd,
-        first.required,
-        `AI credit balance ($${first.balanceUsd.toFixed(2)}) is insufficient ` +
-          `for this request ($${first.required.toFixed(2)}) and the automatic ` +
+        firstFail.balanceUsd,
+        firstFail.required,
+        `AI credit balance ($${firstFail.balanceUsd.toFixed(2)}) is insufficient ` +
+          `for this request ($${firstFail.required.toFixed(2)}) and the automatic ` +
           `top-up could not complete. Please top up manually to continue.`,
       );
     }
 
     const retry = await this.billing.consumeCredit(input);
     if (retry.ok) return retry;
+    const retryFail = retry as InsufficientCreditError;
 
     // Top-up succeeded yet the second consume still failed (e.g. cap hit
     // mid-flight, or the credited amount was less than required). Treat
     // as out-of-credits so the UI surfaces a clean message.
-    throw new OutOfCreditsError(retry.balanceUsd, retry.required, retry.message);
+    throw new OutOfCreditsError(
+      retryFail.balanceUsd,
+      retryFail.required,
+      retryFail.message,
+    );
   }
 }
