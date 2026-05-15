@@ -3200,7 +3200,12 @@ export class XeroWebhookService {
             integration_id: xeroDetails.integration_id,
             type: invoice.type,
             status: _currentStatus,
-            skipTokenRefresh: true, // V-Step 2 already refreshed the token
+            // Always re-refresh the token inside fetchAndCacheXeroPdf.
+            // The earlier V-Step 2 refresh can be invalidated by
+            // concurrent Xero calls reseating the in-memory token
+            // (this is what caused the persistent 401s on the manual
+            // catch-up path). The redundant refresh is cheap and
+            // protected by the Redis token-refresh lock.
           })
           .catch((err: any) => {
             this.logger.error(
@@ -5323,21 +5328,41 @@ export class XeroWebhookService {
           this.logger.log(JSON.stringify({ addedJob: addedJob?.name }));
           return true;
         } else {
-          const processPayment = await this.checkAndProcessPayment(
-            {
-              tenant_id,
-              resource_id: invoice?.invoiceID,
-              data,
-              sync_run_type,
-            },
-            decoded,
-          );
-          this.logger.log(JSON.stringify({ processPayment }));
-          if (processPayment) {
-            return processPayment;
-          } else {
-            return false;
+          // ─── Stage 2 — Payment walk (best-effort) ────────────────
+          // Stage 1 (invoice/bill import — including any required
+          // smart-contract creation) has already succeeded by the
+          // time we reach here, otherwise we would have returned
+          // earlier with a specific child sync log row.
+          //
+          // The payment walk is a *separate* stage that mirrors how
+          // Xero itself emits PAYMENT events independently from
+          // INVOICE events. It writes its own per-payment sync log
+          // entries inside `checkAndProcessPayment`, so any payment-
+          // side problem (missing PT bank-account mapping, payment
+          // already reconciled in PT, etc.) surfaces as its own row
+          // in the sync log table — *not* as a failure of the
+          // invoice import that just succeeded. This prevents a
+          // legitimate smart-contract creation + bill import from
+          // being retroactively reported as "Failed" because of a
+          // downstream payment hiccup, which is what previously
+          // poisoned every catch-up of a PAID bill.
+          try {
+            const processPayment = await this.checkAndProcessPayment(
+              {
+                tenant_id,
+                resource_id: invoice?.invoiceID,
+                data,
+                sync_run_type,
+              },
+              decoded,
+            );
+            this.logger.log(JSON.stringify({ processPayment }));
+          } catch (paymentErr: any) {
+            this.logger.error(
+              `[BILL_TRACE] Stage 2 (payment walk) threw for invoice ${invoice?.invoiceID} — ${paymentErr?.message || paymentErr}. Stage 1 (invoice import) already succeeded; trigger row will report success and any payment-side issues are written as their own sync log entries by checkAndProcessPayment.`,
+            );
           }
+          return true;
         }
       }
       this.logger.debug(`[BILL_TRACE] validateAndProcessWebhookInvoice returning false (no xeroInvoice or end of method)`);
