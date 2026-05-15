@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import { TrackingOption, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import {
@@ -660,24 +661,29 @@ export class XeroProjectsService {
         return false;
       }
 
-      if (
-        !project_name ||
-        !project_role ||
-        !project_date ||
-        !project_description ||
-        !site_address ||
-        !country ||
-        !region ||
-        !place_id ||
-        !latitude ||
-        !longitude ||
-        !head_contract_sum ||
-        !retention_type ||
-        !number_of_units ||
-        !pta_eligibility ||
-        !rta_eligibility ||
-        !project_status
-      ) {
+      const _missing: string[] = [];
+      if (!project_name) _missing.push('Project name');
+      if (!project_role) _missing.push('Project role');
+      if (!project_date) _missing.push('Project date');
+      if (!project_description) _missing.push('Project description');
+      if (!site_address) _missing.push('Site address');
+      if (!country) _missing.push('Country');
+      if (!region) _missing.push('Region');
+      if (!place_id) _missing.push('Place ID');
+      if (!latitude) _missing.push('Latitude');
+      if (!longitude) _missing.push('Longitude');
+      if (!head_contract_sum) _missing.push('Head contract sum');
+      if (!retention_type) _missing.push('Retention type');
+      if (!number_of_units) _missing.push('Number of units');
+      if (!pta_eligibility) _missing.push('PTA eligibility');
+      if (!rta_eligibility) _missing.push('RTA eligibility');
+      if (!project_status) _missing.push('Project status');
+      if (_missing.length > 0) {
+        const _missingFieldsLog = buildMissingFieldsLog(
+          'project',
+          project?.name,
+          _missing,
+        );
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id || null,
           api_name: 'createProjectInPaytrade',
@@ -699,7 +705,12 @@ export class XeroProjectsService {
             `API triggered from project ${checkExistenceInDb?.project_name}`,
             'Import failed',
           ],
-          error_message: `Missing mandatory fields`,
+          important_checks: {
+            'Import data format validation': 'Failed',
+          },
+          error_message: _missingFieldsLog.error_message,
+          notification: _missingFieldsLog.notification,
+          information_required: _missingFieldsLog.information_required,
           xero_records: [project],
           paytrade_records: [],
           new_records: null,

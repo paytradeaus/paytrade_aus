@@ -1,4 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import { Address, Contact, Phone, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -936,6 +937,12 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       });
       const _emailMissing = !client_email_id;
       if (_otherMissing.length > 0) {
+        const _missingFieldsLog = buildMissingFieldsLog(
+          'contact',
+          contact?.name,
+          _otherMissing,
+          _emailMissing ? { extraNote: '(email also missing)' } : undefined,
+        );
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id || null,
           api_name: 'createContactInPaytrade',
@@ -958,7 +965,9 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
           important_checks: {
             'Import data format validation': 'Failed',
           },
-          error_message: `Missing mandatory fields: ${_otherMissing.join(', ')}${_emailMissing ? ' (email also missing)' : ''}`,
+          error_message: _missingFieldsLog.error_message,
+          notification: _missingFieldsLog.notification,
+          information_required: _missingFieldsLog.information_required,
           xero_records: [contact],
           paytrade_records: [],
           new_records: null,

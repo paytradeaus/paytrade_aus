@@ -3785,7 +3785,7 @@
   {
     "id": 368,
     "sync_type": "Contact webhook",
-    "description": "<p>Contact webhook in xero failed</p>",
+    "description": "<p>Xero sent a contact update, but Pay Trade could not import it because some required fields are blank in Xero. See the error message below for the exact field list, then update the contact in Xero and click Retry import.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -3798,7 +3798,7 @@
   {
     "id": 369,
     "sync_type": "Contact webhook",
-    "description": "<p>Contact webhook in xero failed</p>",
+    "description": "<p>Xero sent a contact whose name already exists in Pay Trade but is not yet mapped to a Xero contact. Open the matching Pay Trade contact and link it to the Xero record before retrying the import.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -3811,7 +3811,7 @@
   {
     "id": 370,
     "sync_type": "Contact webhook",
-    "description": "<p>Contact webhook in xero failed</p>",
+    "description": "<p>Xero sent a contact whose name already exists in Pay Trade and is already mapped to a different Xero contact. Resolve the duplicate in Xero (rename or merge the contact) before retrying the import.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,

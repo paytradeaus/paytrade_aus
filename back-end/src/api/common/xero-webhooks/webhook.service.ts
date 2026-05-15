@@ -1,4 +1,5 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../integrations/xero/utils/xero-missing-fields.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { jwtConstants } from 'src/api/auth/constants';
@@ -1073,6 +1074,15 @@ export class XeroWebhookService {
       });
     const _emailMissing = !client_email_id;
     if (_otherMissing.length > 0) {
+      // Build human-readable {error_message, notification, information_required}
+      // so the sync-log details screen explains *which* fields are missing
+      // and *where* in Xero the admin should fix them.
+      const _missingFieldsLog = buildMissingFieldsLog(
+        'contact',
+        contact?.name,
+        _otherMissing,
+        _emailMissing ? { extraNote: '(email also missing)' } : undefined,
+      );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
         api_name: 'createContactInPaytradeThroughWebhook',
@@ -1096,7 +1106,9 @@ export class XeroWebhookService {
         important_checks: {
           'Import data format validation': 'Failed',
         },
-        error_message: `Missing mandatory fields: ${_otherMissing.join(', ')}${_emailMissing ? ' (email also missing)' : ''}`,
+        error_message: _missingFieldsLog.error_message,
+        notification: _missingFieldsLog.notification,
+        information_required: _missingFieldsLog.information_required,
         xero_records: [contact],
         paytrade_records: [],
         new_records: null,

@@ -4225,6 +4225,9 @@ input CreateXeroSyncLogInput {
   """Important checks done during sync"""
   important_checks: JSONObject
 
+  """Long-form per-field guidance shown in the Information Required box."""
+  information_required: String
+
   """Integration ID associated with this sync"""
   integration_id: Float!
 
@@ -4233,6 +4236,9 @@ input CreateXeroSyncLogInput {
 
   """New records created during sync"""
   new_records: JSONObject
+
+  """Short call-to-action shown in the sync-log details Notification box."""
+  notification: String
 
   """Records fetched from Paytrade"""
   paytrade_records: JSONObject

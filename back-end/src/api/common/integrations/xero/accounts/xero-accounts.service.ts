@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import { Account, AccountType, CurrencyCode, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import {
@@ -578,26 +579,39 @@ export class XeroAccountsService {
       }
     }
 
-    if (
-      !account_type ||
-      !account_name ||
-      !financial_institution ||
-      !account_number ||
-      !bsb_number ||
-      !opening_date ||
-      !delegate_powers ||
-      (account_type === 'Project Trust Account' &&
-        (!associated_cash_account_id ||
-          !trustee_id ||
-          !project_ids ||
-          !client_supplier_id ||
-          !contract_date ||
-          !contract_practical_completion_date ||
-          !first_sub_contract_date ||
-          !contract_value)) ||
-      (account_type === 'Retention Trust Account' &&
-        (!associated_cash_account_id || !trustee_id || !project_ids))
-    ) {
+    // Build the missing-field list with user-facing labels so the
+    // sync-log message is actionable instead of just "Missing mandatory
+    // fields" with no clue what's missing.
+    const _missing: string[] = [];
+    if (!account_type) _missing.push('Account type');
+    if (!account_name) _missing.push('Account name');
+    if (!financial_institution) _missing.push('Financial institution');
+    if (!account_number) _missing.push('Account number');
+    if (!bsb_number) _missing.push('BSB number');
+    if (!opening_date) _missing.push('Opening date');
+    if (!delegate_powers) _missing.push('Delegate powers');
+    if (account_type === 'Project Trust Account') {
+      if (!associated_cash_account_id) _missing.push('Associated cash account');
+      if (!trustee_id) _missing.push('Trustee');
+      if (!project_ids) _missing.push('Projects');
+      if (!client_supplier_id) _missing.push('Client / supplier');
+      if (!contract_date) _missing.push('Contract date');
+      if (!contract_practical_completion_date)
+        _missing.push('Practical completion date');
+      if (!first_sub_contract_date) _missing.push('First sub-contract date');
+      if (!contract_value) _missing.push('Contract value');
+    }
+    if (account_type === 'Retention Trust Account') {
+      if (!associated_cash_account_id) _missing.push('Associated cash account');
+      if (!trustee_id) _missing.push('Trustee');
+      if (!project_ids) _missing.push('Projects');
+    }
+    if (_missing.length > 0) {
+      const _missingFieldsLog = buildMissingFieldsLog(
+        'account',
+        account?.name,
+        _missing,
+      );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
         api_name: 'createAccountInPaytrade',
@@ -621,7 +635,9 @@ export class XeroAccountsService {
         important_checks: {
           'Import data format validation': 'Failed',
         },
-        error_message: `Missing mandatory fields`,
+        error_message: _missingFieldsLog.error_message,
+        notification: _missingFieldsLog.notification,
+        information_required: _missingFieldsLog.information_required,
         xero_records: [account],
         paytrade_records: [],
         new_records: null,

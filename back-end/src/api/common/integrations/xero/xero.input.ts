@@ -69,6 +69,20 @@ export class CreateXeroSyncLogInput {
   @Field({ nullable: true, description: 'Error message if sync failed' })
   error_message?: string;
 
+  @Field({
+    nullable: true,
+    description:
+      'Short call-to-action shown in the sync-log details Notification box.',
+  })
+  notification?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Long-form per-field guidance shown in the Information Required box.',
+  })
+  information_required?: string;
+
   @Field(() => GraphQLJSONObject, {
     nullable: true,
     description: 'Records fetched from Xero',

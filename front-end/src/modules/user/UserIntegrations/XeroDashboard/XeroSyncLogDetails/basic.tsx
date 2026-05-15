@@ -1573,6 +1573,7 @@ export default function SyncLogDetailsBasic() {
                             margin: 0,
                           }}
                           onClick={() => resolveHandle()}
+                          title="Re-runs Pay Trade's resolution flow for this error code (e.g. re-imports the record from Xero now that the missing fields are filled in). Use this after fixing the underlying data in Xero."
                         >
                           <i
                             className="fa-light fa-refresh"
@@ -1581,7 +1582,9 @@ export default function SyncLogDetailsBasic() {
                               marginLeft: "10px",
                             }}
                           ></i>
-                          {resolveInprogress ? "Inprogress..." : "Resolve"}
+                          {resolveInprogress
+                            ? "Resolving..."
+                            : "Resolve & retry import"}
                         </button>
                         {isRetryable && (
                           <button
@@ -1707,6 +1710,7 @@ export default function SyncLogDetailsBasic() {
                                         paddingRight: "10px",
                                       }}
                                       onClick={() => resolveHandle()}
+                                      title="Re-runs this validation check after you've fixed the underlying data."
                                     >
                                       <i
                                         className="fa-light fa-refresh"
@@ -1716,8 +1720,8 @@ export default function SyncLogDetailsBasic() {
                                         }}
                                       ></i>
                                       {resolveInprogress
-                                        ? "Inprogress..."
-                                        : "Resolve"}
+                                        ? "Re-running..."
+                                        : "Re-run check"}
                                     </button>
                                   )}
                                   {syncLogDetailsData?.important_checks[val] ==

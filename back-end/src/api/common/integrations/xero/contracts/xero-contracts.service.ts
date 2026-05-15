@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import { TrackingOption, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import {
@@ -694,22 +695,28 @@ export class XeroContractsService {
         return false;
       }
 
-      if (
-        !contract_name ||
-        !client_supplier_role ||
-        !contract_status ||
-        !contract_date ||
-        !project_id ||
-        !project_role ||
-        !client_supplier_id ||
-        !client_supplier_type ||
-        !related_entity ||
-        !retention_type ||
-        !payment_terms ||
-        !initial_contract_sum ||
-        !contract_start_date ||
-        !defect_liability_end_date
-      ) {
+      const _missing: string[] = [];
+      if (!contract_name) _missing.push('Contract name');
+      if (!client_supplier_role) _missing.push('Client / supplier role');
+      if (!contract_status) _missing.push('Contract status');
+      if (!contract_date) _missing.push('Contract date');
+      if (!project_id) _missing.push('Project');
+      if (!project_role) _missing.push('Project role');
+      if (!client_supplier_id) _missing.push('Client / supplier');
+      if (!client_supplier_type) _missing.push('Client / supplier type');
+      if (!related_entity) _missing.push('Related entity');
+      if (!retention_type) _missing.push('Retention type');
+      if (!payment_terms) _missing.push('Payment terms');
+      if (!initial_contract_sum) _missing.push('Initial contract sum');
+      if (!contract_start_date) _missing.push('Contract start date');
+      if (!defect_liability_end_date)
+        _missing.push('Defect liability end date');
+      if (_missing.length > 0) {
+        const _missingFieldsLog = buildMissingFieldsLog(
+          'contract',
+          contract?.name,
+          _missing,
+        );
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: sync_id || null,
           api_name: 'createContractInPaytrade',
@@ -731,7 +738,12 @@ export class XeroContractsService {
             `API triggered from contract ${checkExistenceInDb?.contract_name}`,
             'Import failed',
           ],
-          error_message: `Missing mandatory fields`,
+          important_checks: {
+            'Import data format validation': 'Failed',
+          },
+          error_message: _missingFieldsLog.error_message,
+          notification: _missingFieldsLog.notification,
+          information_required: _missingFieldsLog.information_required,
           xero_records: [contract],
           paytrade_records: [],
           new_records: null,

@@ -1,4 +1,5 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import {
   Account,
   AccountType,
@@ -2690,7 +2691,15 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               important_checks: {
                 'Import data format validation': 'Failed',
               },
-              error_message: `Missing mandatory fields`,
+              error_message: buildMissingFieldsLog('account', account?.name, [])
+                .error_message,
+              notification: buildMissingFieldsLog('account', account?.name, [])
+                .notification,
+              information_required: buildMissingFieldsLog(
+                'account',
+                account?.name,
+                [],
+              ).information_required,
               xero_records: [account],
               paytrade_records: [],
               new_records: null,
@@ -5371,24 +5380,29 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             rta_eligibility,
             project_status,
           } = data.payload || {};
-          if (
-            !project_name ||
-            !project_role ||
-            !project_date ||
-            !project_description ||
-            !site_address ||
-            !country ||
-            !region ||
-            !place_id ||
-            !latitude ||
-            !longitude ||
-            !head_contract_sum ||
-            !retention_type ||
-            !number_of_units ||
-            !pta_eligibility ||
-            !rta_eligibility ||
-            !project_status
-          ) {
+          const _missing: string[] = [];
+          if (!project_name) _missing.push('Project name');
+          if (!project_role) _missing.push('Project role');
+          if (!project_date) _missing.push('Project date');
+          if (!project_description) _missing.push('Project description');
+          if (!site_address) _missing.push('Site address');
+          if (!country) _missing.push('Country');
+          if (!region) _missing.push('Region');
+          if (!place_id) _missing.push('Place ID');
+          if (!latitude) _missing.push('Latitude');
+          if (!longitude) _missing.push('Longitude');
+          if (!head_contract_sum) _missing.push('Head contract sum');
+          if (!retention_type) _missing.push('Retention type');
+          if (!number_of_units) _missing.push('Number of units');
+          if (!pta_eligibility) _missing.push('PTA eligibility');
+          if (!rta_eligibility) _missing.push('RTA eligibility');
+          if (!project_status) _missing.push('Project status');
+          if (_missing.length > 0) {
+            const _missingFieldsLog = buildMissingFieldsLog(
+              'project',
+              project?.name,
+              _missing,
+            );
             const addSyncLogResponse =
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: sync_id || null,
@@ -5413,7 +5427,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   'Import tracking id validation': 'Ok',
                   'Import data format validation': 'Failed',
                 },
-                error_message: `Missing mandatory fields`,
+                error_message: _missingFieldsLog.error_message,
+                notification: _missingFieldsLog.notification,
+                information_required: _missingFieldsLog.information_required,
                 xero_records: [project],
                 paytrade_records: [],
                 new_records: null,
@@ -6411,22 +6427,28 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             contract_start_date,
             defect_liability_end_date,
           } = data.payload || {};
-          if (
-            !contract_name ||
-            !client_supplier_role ||
-            !contract_status ||
-            !contract_date ||
-            !project_id ||
-            !project_role ||
-            !client_supplier_id ||
-            !client_supplier_type ||
-            !related_entity ||
-            !retention_type ||
-            !payment_terms ||
-            !initial_contract_sum ||
-            !contract_start_date ||
-            !defect_liability_end_date
-          ) {
+          const _missing: string[] = [];
+          if (!contract_name) _missing.push('Contract name');
+          if (!client_supplier_role) _missing.push('Client / supplier role');
+          if (!contract_status) _missing.push('Contract status');
+          if (!contract_date) _missing.push('Contract date');
+          if (!project_id) _missing.push('Project');
+          if (!project_role) _missing.push('Project role');
+          if (!client_supplier_id) _missing.push('Client / supplier');
+          if (!client_supplier_type) _missing.push('Client / supplier type');
+          if (!related_entity) _missing.push('Related entity');
+          if (!retention_type) _missing.push('Retention type');
+          if (!payment_terms) _missing.push('Payment terms');
+          if (!initial_contract_sum) _missing.push('Initial contract sum');
+          if (!contract_start_date) _missing.push('Contract start date');
+          if (!defect_liability_end_date)
+            _missing.push('Defect liability end date');
+          if (_missing.length > 0) {
+            const _missingFieldsLog = buildMissingFieldsLog(
+              'contract',
+              contract?.name,
+              _missing,
+            );
             const addSyncLogResponse =
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: sync_id || null,
@@ -6454,7 +6476,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   'Import tracking id validation': 'Ok',
                   'Import data format validation': 'Failed',
                 },
-                error_message: `Missing mandatory fields`,
+                error_message: _missingFieldsLog.error_message,
+                notification: _missingFieldsLog.notification,
+                information_required: _missingFieldsLog.information_required,
                 xero_records: [contract],
                 paytrade_records: [],
                 new_records: null,
