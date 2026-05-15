@@ -696,10 +696,12 @@ dialog.full-screen-popup > article.full-screen-popup {
   margin: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  /* Match the lightish-blue page background used elsewhere in the app
-     (e.g. the integrations dashboard) so the dialog feels like part of
-     the system rather than a stark white sheet floating over it. */
-  background-color: var(--wind-light) !important;
+  /* Match the system surface used elsewhere in the app (e.g. the
+     integrations dashboard) so the dialog feels like part of the
+     system rather than a stark sheet floating over it. Use
+     --theme-light (not --wind-light) so the popup re-themes to
+     cave-light in dark mode instead of staying glaring blue. */
+  background-color: var(--theme-light) !important;
 }
 dialog.full-screen-popup > article.full-screen-popup > header,
 dialog.full-screen-popup > article.full-screen-popup > footer {
@@ -727,8 +729,52 @@ dialog.full-screen-popup
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--wind-light);
+  background: var(--theme-light);
   padding-bottom: var(--space-2xs);
+  /* 1px shadow under the sticky strip so the pinned tab/filter row
+     reads as a discrete layer when content scrolls beneath it. */
+  box-shadow: 0 1px 0 0 var(--pico-muted-border-color, rgba(0, 0, 0, 0.08));
+}
+/* Row-detail layout reflow — the catch-up row-detail dialog reuses
+   `.pt_overviewinfo > .grid` which was originally laid out for a
+   ~600px modal (single column). At 95vw that leaves the right half
+   of the dialog empty, so let the inner panels go side-by-side once
+   there's room for them. */
+dialog.full-screen-popup .pt_overviewinfo > .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  column-gap: var(--space-s);
+  row-gap: var(--space-s);
+}
+/* Mobile / small-tablet collapse — go edge-to-edge, drop the rounded
+   corners and outer breathing room so we don't waste 5% on padding,
+   and force the catch-up filter rows (record-type / From / To /
+   Discover) into a single column so nothing overflows horizontally. */
+@media (max-width: 768px) {
+  dialog.full-screen-popup {
+    width: 100vw !important;
+    padding: 0 !important;
+  }
+  dialog.full-screen-popup > article.full-screen-popup {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: var(--space-xs) !important;
+  }
+  dialog.full-screen-popup .pt_overviewinfo > .grid {
+    grid-template-columns: 1fr;
+  }
+  /* Pico's `.grid` keeps equal columns at every breakpoint; force
+     vertical stacking inside the fullscreen popup so wide filter rows
+     (e.g. Manual Xero sync catch-up: type / From / To / Discover) fit
+     a phone screen without horizontal overflow. */
+  dialog.full-screen-popup
+    > article.full-screen-popup
+    > .full-screen-popup-body
+    .grid {
+    grid-template-columns: 1fr !important;
+    row-gap: var(--space-2xs);
+  }
 }
 
 /* Add payment custom style  */
