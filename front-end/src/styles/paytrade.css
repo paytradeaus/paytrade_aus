@@ -2366,6 +2366,22 @@ small a {
   min-width: 0;
 }
 
+/* Task #151 — Xero catch-up table row-state cues. Conveyed via a
+   data attribute rather than inline backgrounds so the bespoke
+   styling matches the rest of the system. */
+.pt_table tr[data-row-state="running"] > td {
+  background: #fff8e1;
+}
+.pt_table tr[data-row-state="passed"] > td {
+  background: #f3fbf3;
+}
+.pt_table tr[data-row-state="failed"] > td {
+  background: #fff5f5;
+}
+.pt_table tr[data-row-state="selected"] > td {
+  background: #eaf3ff;
+}
+
 .pt_formtable {
   padding: 0 var(--space-xs);
 }

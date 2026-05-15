@@ -15660,6 +15660,151 @@ export class XeroWebhookService {
               detail('Resolved PT contract', r.contract_name),
             ];
 
+            // Task #151 follow-up — push per-line-item rows into
+            // xero_details so operators can see WHAT the Xero record
+            // is billing for. Without this, the row-detail dialog
+            // hid the most useful piece of information for deciding
+            // whether the record can be imported safely.
+            const lineItemsForDetail: any[] = Array.isArray(inv.lineItems)
+              ? inv.lineItems
+              : [];
+            if (lineItemsForDetail.length > 0) {
+              r.xero_details.push({ label: '— Line items —', value: '' });
+              lineItemsForDetail.forEach((li: any, idx: number) => {
+                const tracking =
+                  Array.isArray(li?.tracking) && li.tracking.length
+                    ? li.tracking
+                        .map((t: any) =>
+                          t?.option
+                            ? t.option
+                            : t?.trackingOptionID || '',
+                        )
+                        .filter(Boolean)
+                        .join(', ')
+                    : '';
+                const parts: string[] = [];
+                if (li?.description) parts.push(String(li.description));
+                if (li?.quantity != null && li?.unitAmount != null) {
+                  parts.push(
+                    `qty ${li.quantity} × ${fmtMoney(li.unitAmount)}`,
+                  );
+                }
+                if (li?.lineAmount != null) {
+                  parts.push(`= ${fmtMoney(li.lineAmount)}`);
+                }
+                if (li?.accountCode) parts.push(`Acct ${li.accountCode}`);
+                if (li?.taxType) parts.push(`Tax ${li.taxType}`);
+                if (tracking) parts.push(`Tracking ${tracking}`);
+                r.xero_details.push({
+                  label: `Line ${idx + 1}`,
+                  value: parts.join(' • ') || '—',
+                });
+              });
+            }
+
+            // Task #151 follow-up — validation against the operator's
+            // configured Xero settings (Invoice Code / Bill Code and
+            // matching Tax Codes). Tells the operator at a glance
+            // whether each Xero line will land on the expected
+            // account / tax code or not.
+            const isBillCheck =
+              String(inv.type || '').toUpperCase() === 'ACCPAY';
+            const expectedAccountCode = isBillCheck
+              ? integrationCfg?.bill_code
+              : integrationCfg?.invoice_code;
+            const expectedTaxCode = isBillCheck
+              ? integrationCfg?.bill_tax_code
+              : integrationCfg?.invoice_tax_code;
+            const checks: string[] = [];
+            const lineCodes = Array.from(
+              new Set(
+                lineItemsForDetail
+                  .map((li: any) =>
+                    li?.accountCode ? String(li.accountCode) : '',
+                  )
+                  .filter((c: string) => c),
+              ),
+            );
+            if (expectedAccountCode) {
+              if (lineCodes.length === 0) {
+                checks.push(
+                  `✗ No account codes set on Xero lines (your configured ${
+                    isBillCheck ? 'Bill' : 'Invoice'
+                  } Code is ${expectedAccountCode})`,
+                );
+              } else if (
+                lineCodes.every((c) => c === String(expectedAccountCode))
+              ) {
+                checks.push(
+                  `✓ All line account codes match your configured ${
+                    isBillCheck ? 'Bill' : 'Invoice'
+                  } Code (${expectedAccountCode})`,
+                );
+              } else {
+                checks.push(
+                  `⚠ Line account code(s) ${lineCodes.join(
+                    ', ',
+                  )} differ from your configured ${
+                    isBillCheck ? 'Bill' : 'Invoice'
+                  } Code (${expectedAccountCode}) — sync still works but each line keeps its own Xero account code`,
+                );
+              }
+            } else {
+              checks.push(
+                `⚠ No ${
+                  isBillCheck ? 'Bill' : 'Invoice'
+                } Code configured in PayTrade Xero settings`,
+              );
+            }
+            const lineTaxes = Array.from(
+              new Set(
+                lineItemsForDetail
+                  .map((li: any) =>
+                    li?.taxType ? String(li.taxType) : '',
+                  )
+                  .filter((t: string) => t),
+              ),
+            );
+            if (!expectedTaxCode) {
+              checks.push(
+                `⚠ No ${
+                  isBillCheck ? 'Bill' : 'Invoice'
+                } Tax Code configured in PayTrade Xero settings`,
+              );
+            } else if (lineTaxes.length === 0) {
+              checks.push(
+                `⚠ No tax codes set on Xero lines (your configured ${
+                  isBillCheck ? 'Bill' : 'Invoice'
+                } Tax Code is ${expectedTaxCode})`,
+              );
+            } else if (lineTaxes.every((t) => t === String(expectedTaxCode))) {
+              checks.push(
+                `✓ All line tax codes match your configured ${
+                  isBillCheck ? 'Bill' : 'Invoice'
+                } Tax Code (${expectedTaxCode})`,
+              );
+            } else {
+              checks.push(
+                `⚠ Line tax code(s) ${lineTaxes.join(
+                  ', ',
+                )} differ from your configured ${
+                  isBillCheck ? 'Bill' : 'Invoice'
+                } Tax Code (${expectedTaxCode})`,
+              );
+            }
+            if (checks.length > 0) {
+              r.xero_details.push({
+                label: '— Validation against your settings —',
+                value: '',
+              });
+              checks.forEach((c, idx) => {
+                r.xero_details.push({
+                  label: `Check ${idx + 1}`,
+                  value: c,
+                });
+              });
+            }
+
             // Task #151 follow-up — cheap in-memory pre-checks. We
             // only flag failures the run-sync would hit deterministi-
             // cally on the PT side: contact mapping, missing line
