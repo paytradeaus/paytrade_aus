@@ -252,13 +252,18 @@ export default function AiPanel() {
   const [snapshotChip, setSnapshotChip] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composerInputRef = useRef<HTMLInputElement | null>(null);
+  // True when the current composer value was loaded via the Up-arrow
+  // shortcut, so Down/Escape can clear it without interfering with the
+  // user's own typing.
+  const upArrowLoadedRef = useRef(false);
   // Tracks the in-flight stream so the user can stop it mid-answer.
   const abortRef = useRef<AbortController | null>(null);
 
   // Load a previous user message into the composer so the user can tweak
   // the wording before re-sending instead of just retrying verbatim.
-  const editMessage = useCallback((text: string) => {
+  const editMessage = useCallback((text: string, fromShortcut = false) => {
     setInput(text);
+    upArrowLoadedRef.current = fromShortcut;
     requestAnimationFrame(() => {
       const el = composerInputRef.current;
       if (el) {
@@ -1275,7 +1280,34 @@ export default function AiPanel() {
               className={styles.composerInput}
               placeholder="Ask me anything about Pay Trade…"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                // User typing/clearing manually invalidates the up-arrow
+                // shortcut state so Down/Escape no longer clears their input.
+                upArrowLoadedRef.current = false;
+                setInput(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                // Power-user shortcut: when the composer is empty, Up loads
+                // the most recent user message for editing (terminal/Slack
+                // style). Down/Escape clears it again, but only if it was
+                // loaded via Up — so it doesn't wipe text the user typed.
+                if (e.key === "ArrowUp") {
+                  if (input.length > 0) return;
+                  for (let i = messages.length - 1; i >= 0; i--) {
+                    if (messages[i].role === "user") {
+                      e.preventDefault();
+                      editMessage(messages[i].content, true);
+                      break;
+                    }
+                  }
+                } else if (e.key === "ArrowDown" || e.key === "Escape") {
+                  if (upArrowLoadedRef.current && input.length > 0) {
+                    e.preventDefault();
+                    setInput("");
+                    upArrowLoadedRef.current = false;
+                  }
+                }
+              }}
               disabled={sending}
               aria-label="AI assistant message"
               maxLength={4000}
