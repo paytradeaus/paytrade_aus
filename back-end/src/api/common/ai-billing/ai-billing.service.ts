@@ -630,6 +630,38 @@ export class AiBillingService {
     return settings;
   }
 
+  /**
+   * Detach the saved Stripe payment method from the company's AI billing
+   * settings. Best-effort detach in Stripe (so admin/user can recover from a
+   * card that was already removed Stripe-side without erroring), then clear
+   * `stripe_payment_method_id` and force `auto_topup_enabled` off so we
+   * never attempt an auto charge against a missing card.
+   */
+  async detachPaymentMethod(
+    companyId: number,
+    actorUserId?: number,
+  ): Promise<AiBillingSettings> {
+    const settings = await this.getSettings(companyId);
+    const existingPmId = settings.stripe_payment_method_id;
+    if (existingPmId) {
+      try {
+        const stripe = getStripeInstance(!!settings.is_sandbox);
+        await stripe.paymentMethods.detach(existingPmId);
+      } catch (err: any) {
+        // If the PM is already detached or unknown to Stripe, log and
+        // continue so we still clear the local reference.
+        this.logger.warn(
+          `Stripe detach failed for company ${companyId} pm=${existingPmId}: ${err?.message ?? err}`,
+        );
+      }
+    }
+    settings.stripe_payment_method_id = null;
+    settings.auto_topup_enabled = false;
+    settings.updated_by = actorUserId ?? null;
+    await this.settingsRepo.save(settings);
+    return settings;
+  }
+
   // ────────────────────────────────────────────────────────────────────────
   //  Top-ups (manual + auto)
   // ────────────────────────────────────────────────────────────────────────

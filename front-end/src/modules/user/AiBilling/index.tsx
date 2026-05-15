@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import { useTokenDetails } from "@/hooks";
 import {
+  detachAiBillingPaymentMethod,
   fetchAiBillingOverview,
   fetchAiCreditLedger,
   fetchAiCreditPurchases,
@@ -104,6 +105,25 @@ export default function AiBillingPanel() {
     }
   };
 
+  const onRemovePaymentMethod = async () => {
+    const confirmed =
+      typeof window !== "undefined" &&
+      window.confirm(
+        "Remove the saved card on file?\n\n" +
+          "• The card will be detached from Stripe and cleared from your AI billing settings.\n" +
+          "• Automatic top-up will be turned off so we don't try to charge a missing card.\n" +
+          "• You can add a new card any time using 'Add/replace card'."
+      );
+    if (!confirmed) return;
+    try {
+      await detachAiBillingPaymentMethod(companyId);
+      showSuccessToast("Card removed and auto top-up turned off");
+      reload();
+    } catch (err: any) {
+      showErrorToast(err?.message ?? "Failed to remove card");
+    }
+  };
+
   const onCapturePaymentMethod = async () => {
     try {
       const clientSecret = await openStripeCardModal(
@@ -181,6 +201,15 @@ export default function AiBillingPanel() {
         <button onClick={onCapturePaymentMethod}>
           {overview?.saved_card ? "Replace card" : "Add card"}
         </button>
+        {overview?.settings?.stripe_payment_method_id ? (
+          <button
+            onClick={onRemovePaymentMethod}
+            style={{ color: "#b00020" }}
+            title="Detach the saved card and turn off auto top-up"
+          >
+            Remove card
+          </button>
+        ) : null}
         {overview?.saved_card ? (
           <span style={{ color: "#444" }}>
             {formatCardBrand(overview.saved_card.brand)} ••••{" "}
@@ -194,6 +223,11 @@ export default function AiBillingPanel() {
           <span style={{ color: "#666" }}>No card on file</span>
         )}
       </div>
+      {overview?.settings?.stripe_payment_method_id ? (
+        <div style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+          A card is on file. Removing it will also disable automatic top-up.
+        </div>
+      ) : null}
 
       <h3 style={{ marginTop: 24 }}>Auto top-up settings</h3>
       <div style={{ display: "grid", gap: 8, maxWidth: 480 }}>

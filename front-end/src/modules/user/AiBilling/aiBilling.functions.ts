@@ -156,6 +156,22 @@ export const attachAiBillingPaymentMethod = async (
   return res.data?.attachAiBillingPaymentMethod;
 };
 
+export const detachAiBillingPaymentMethod = async (companyId: number) => {
+  const res = await client.mutate({
+    mutation: gql`
+      mutation DetachAiBillingPaymentMethod($company_id: Int!) {
+        detachAiBillingPaymentMethod(company_id: $company_id) {
+          company_id
+          stripe_payment_method_id
+          auto_topup_enabled
+        }
+      }
+    `,
+    variables: { company_id: companyId },
+  });
+  return res.data?.detachAiBillingPaymentMethod;
+};
+
 export const triggerManualTopup = async (
   companyId: number,
   creditsUsd: number,

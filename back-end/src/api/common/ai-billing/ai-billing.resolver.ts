@@ -240,6 +240,21 @@ export class AiBillingResolver {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Mutation(() => AiBillingSettingsResponse)
+  async detachAiBillingPaymentMethod(
+    @Context() ctx: any,
+    @Args('company_id', { type: () => Int }) company_id: number,
+  ): Promise<AiBillingSettingsResponse> {
+    const decoded = await this.decode(ctx);
+    this.assertCompanyAccess(decoded, company_id);
+    const updated = await this.billing.detachPaymentMethod(
+      company_id,
+      decoded?.userId,
+    );
+    return settingsToResp(updated);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Mutation(() => TopupResultResponse)
   async manualAiCreditTopup(
     @Context() ctx: any,
