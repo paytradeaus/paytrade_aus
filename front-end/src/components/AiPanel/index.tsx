@@ -840,6 +840,12 @@ export default function AiPanel() {
             const isOpen = openContextChipId === m.id;
             const wasStopped =
               m.role === "assistant" && m.status === "STOPPED";
+            const navigateRoute =
+              ctx?.route &&
+              ctx.route.startsWith("/") &&
+              !ctx.route.startsWith("//")
+                ? ctx.route
+                : null;
             return (
               <div
                 key={m.id}
@@ -861,27 +867,44 @@ export default function AiPanel() {
                         isOpen ? ` ${styles.contextChipWrapOpen}` : ""
                       }`}
                     >
-                      <button
-                        type="button"
-                        className={styles.contextChip}
-                        aria-expanded={isOpen}
-                        aria-controls={popoverId}
-                        aria-label={`Show page context for this message (${chipLabel})`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenContextChipId((cur) =>
-                            cur === m.id ? null : m.id,
-                          );
-                        }}
-                      >
-                        <i
-                          className="fa-light fa-location-crosshairs"
-                          aria-hidden="true"
-                        ></i>
-                        <span className={styles.contextChipLabel}>
-                          From: {chipLabel}
-                        </span>
-                      </button>
+                      {navigateRoute ? (
+                        <Link
+                          href={navigateRoute}
+                          className={styles.contextChip}
+                          aria-label={`Go to the page used for this message (${chipLabel})`}
+                          title={`Go to ${navigateRoute}`}
+                        >
+                          <i
+                            className="fa-light fa-location-crosshairs"
+                            aria-hidden="true"
+                          ></i>
+                          <span className={styles.contextChipLabel}>
+                            From: {chipLabel}
+                          </span>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.contextChip}
+                          aria-expanded={isOpen}
+                          aria-controls={popoverId}
+                          aria-label={`Show page context for this message (${chipLabel})`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenContextChipId((cur) =>
+                              cur === m.id ? null : m.id,
+                            );
+                          }}
+                        >
+                          <i
+                            className="fa-light fa-location-crosshairs"
+                            aria-hidden="true"
+                          ></i>
+                          <span className={styles.contextChipLabel}>
+                            From: {chipLabel}
+                          </span>
+                        </button>
+                      )}
                       <div
                         id={popoverId}
                         role="dialog"
