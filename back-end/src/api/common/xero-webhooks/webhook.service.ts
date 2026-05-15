@@ -14992,6 +14992,15 @@ export class XeroWebhookService {
       // any blocking_issues are still selectable — operator chooses
       // whether to attempt the sync anyway.
       blocking_issues?: string[];
+      // Task #151 follow-up — per-line validation against the
+      // operator's configured Xero settings (Invoice/Bill account
+      // code + tax code). Each entry is a short human-readable line
+      // prefixed with ✓ (match), ⚠ (mismatch) or ✗ (missing). FE
+      // renders these in a dedicated "Settings match" panel at the
+      // top of the row-detail dialog so the operator can see at a
+      // glance WHY a Xero record qualifies as importable before
+      // ever opening the line items.
+      validation_checks?: string[];
     };
     const rows: Row[] = [];
 
@@ -15793,16 +15802,7 @@ export class XeroWebhookService {
               );
             }
             if (checks.length > 0) {
-              r.xero_details.push({
-                label: '— Validation against your settings —',
-                value: '',
-              });
-              checks.forEach((c, idx) => {
-                r.xero_details.push({
-                  label: `Check ${idx + 1}`,
-                  value: c,
-                });
-              });
+              r.validation_checks = checks;
             }
 
             // Task #151 follow-up — cheap in-memory pre-checks. We

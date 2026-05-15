@@ -3605,6 +3605,23 @@ function ManualXeroSyncDialog({
                             </td>
                           </tr>
                         ) : null}
+                        {catchupRowDetail.validation_checks &&
+                        catchupRowDetail.validation_checks.length > 0 ? (
+                          <tr>
+                            <td className="setPro" colSpan={2}>
+                              <div className="pt_infolistdata">
+                                <h6>Settings match (why this is importable)</h6>
+                                <span>
+                                  {catchupRowDetail.validation_checks.map(
+                                    (chk: string, i: number) => (
+                                      <div key={i}>{chk}</div>
+                                    ),
+                                  )}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
                         {catchupRowDetail.blocking_issues &&
                         catchupRowDetail.blocking_issues.length > 0 ? (
                           <tr>

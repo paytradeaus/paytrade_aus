@@ -4498,6 +4498,12 @@ export interface CatchupRow {
   // under the Xero side cell. Rows with issues are still
   // selectable; the operator chooses whether to attempt sync.
   blocking_issues?: string[];
+  // Task #151 follow-up — per-line validation against the
+  // operator's configured Xero settings (Invoice/Bill account
+  // code + tax code). Rendered as a dedicated "Settings match"
+  // panel at the top of the row-detail dialog so the operator
+  // can see WHY a Xero record qualifies as importable.
+  validation_checks?: string[];
 }
 
 export const manualXeroCatchupDiscover = async (variables: {
