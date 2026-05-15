@@ -19343,11 +19343,21 @@ input RecordAiLiveFollowContextInput {
   """
   entityIds: JSON
 
+  """
+  Optional map of human-readable facts about the page contents (e.g. { project: "Acme Tower", status: "Active" }). Reported by pages via useReportAiContext.
+  """
+  facts: JSON
+
   """Optional human-readable label for the page (e.g. "Projects · 123")."""
   pageLabel: String
 
   """Pathname the user is currently viewing (e.g. /user/projects/123)."""
   route: String!
+
+  """
+  Optional one-line human summary of what is on screen (e.g. "Project: Acme Tower, status: Active"). Reported by pages via useReportAiContext.
+  """
+  summary: String
 }
 
 type RecordAiLiveFollowContextResponse {
