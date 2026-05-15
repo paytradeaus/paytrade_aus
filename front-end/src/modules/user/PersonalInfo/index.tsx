@@ -81,9 +81,9 @@ function AiLiveFollowToggle() {
       );
       setShowPwModal(false);
       setPassword("");
-      showSuccessToast(res.message || "AI live follow enabled.");
+      showSuccessToast(res.message || "AI assistant enabled.");
     } else {
-      setError(res.message || "Unable to enable AI live follow.");
+      setError(res.message || "Unable to enable AI assistant.");
     }
   };
 
@@ -95,9 +95,9 @@ function AiLiveFollowToggle() {
       setBusy(false);
       if (res.ok) {
         dispatch(setAiLiveFollowReducer({ enabled: false }));
-        showSuccessToast(res.message || "AI live follow disabled.");
+        showSuccessToast(res.message || "AI assistant disabled.");
       } else {
-        showErrorToast(res.message || "Unable to disable AI live follow.");
+        showErrorToast(res.message || "Unable to disable AI assistant.");
       }
     } else {
       setShowPwModal(true);
@@ -123,7 +123,7 @@ function AiLiveFollowToggle() {
         ></i>
         <div style={{ flex: 1, minWidth: 200 }}>
           <strong style={{ display: "block", color: "var(--cave)" }}>
-            Allow AI live follow{" "}
+            Enable AI assistant{" "}
             <span
               style={{
                 fontSize: 10,
@@ -144,9 +144,11 @@ function AiLiveFollowToggle() {
               color: "var(--cave-lighter)",
             }}
           >
-            Lets the AI assistant follow what you&apos;re doing in the app to
-            offer in-context help. Off by default. Requires a one-time access
-            password.
+            Turns on the in-app AI assistant panel and lets it follow what
+            you&apos;re doing to offer in-context help. Off by default for
+            existing users while we test. Requires a one-time access
+            password to enable; you can switch it off again any time without
+            a password.
             {enabled && enabledAt ? (
               <>
                 {" "}
@@ -198,7 +200,7 @@ function AiLiveFollowToggle() {
           }}
         >
           <div style={{ padding: "var(--space-s) 0" }}>
-            <h4 style={{ marginTop: 0 }}>Enable AI live follow</h4>
+            <h4 style={{ marginTop: 0 }}>Enable AI assistant</h4>
             <p style={{ color: "var(--cave-lighter)", marginTop: 4 }}>
               This pilot feature is gated. Please enter the access password
               issued to pilot participants.

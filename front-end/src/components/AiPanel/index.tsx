@@ -33,6 +33,8 @@ import {
 } from "@/network/aiChat";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { applicationStorage } from "@/shared/constant/general";
+import { fetchAiBillingOverview } from "@/modules/user/AiBilling/aiBilling.functions";
+import { useTokenDetails } from "@/hooks";
 import styles from "./aiPanel.module.css";
 
 const NUMERIC_RE = /^\d+$/;
@@ -257,6 +259,9 @@ export default function AiPanel() {
   const liveFollowEnabled = useAppSelector(
     (s: RootState) => s.uiPreferences.aiLiveFollowEnabled,
   );
+  const uiPrefsHydrated = useAppSelector(
+    (s: RootState) => s.uiPreferences.hydrated,
+  );
   const liveFollowPageLabel = useAppSelector(
     (s: RootState) => s.uiPreferences.aiLiveFollowPageLabel,
   );
@@ -286,6 +291,8 @@ export default function AiPanel() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [snapshotChip, setSnapshotChip] = useState<string | null>(null);
   const [showCapabilities, setShowCapabilities] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const { decodeTokenData }: any = useTokenDetails();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composerInputRef = useRef<HTMLInputElement | null>(null);
   // True when the current composer value was loaded via the Up-arrow
@@ -313,6 +320,47 @@ export default function AiPanel() {
       }
     });
   }, []);
+
+  // Pull the user's current AI credit balance for the composer footer so
+  // they can see at a glance how much they have left. Refetched once on
+  // mount, when the conversation changes, and immediately *after* a send
+  // finishes — never while sending is in-flight, to avoid double fetches.
+  // On any failure or invalid company id we clear the cached value so the
+  // footer falls back to the read-only label rather than showing stale
+  // numbers.
+  const prevSendingRef = useRef(false);
+  useEffect(() => {
+    const justFinishedSending = prevSendingRef.current && !sending;
+    prevSendingRef.current = sending;
+    if (sending && !justFinishedSending) return;
+    const cid = Number(
+      decodeTokenData?.company_id ??
+        (typeof window !== "undefined"
+          ? localStorage.getItem("companyId")
+          : null),
+    );
+    if (!Number.isFinite(cid) || cid <= 0) {
+      setCreditBalance(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const overview = await fetchAiBillingOverview(cid);
+        if (cancelled) return;
+        if (overview && typeof overview.balance_usd === "number") {
+          setCreditBalance(overview.balance_usd);
+        } else {
+          setCreditBalance(null);
+        }
+      } catch {
+        if (!cancelled) setCreditBalance(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [decodeTokenData?.company_id, sending, conversationId]);
 
   // Drop a capability example into the composer so the user can tweak it
   // before sending. Closes the capabilities panel after picking one.
@@ -722,6 +770,14 @@ export default function AiPanel() {
     }
   };
 
+  // Gate the entire panel (including mobile launcher) behind the user's
+  // "Enable AI assistant" toggle in Personal Info. Until they've explicitly
+  // enabled it (with the one-time access password) nothing AI-related
+  // renders. We wait for UI-preferences hydration so we don't briefly flash
+  // the panel/launcher on first load before the real preference arrives.
+  if (!uiPrefsHydrated) return null;
+  if (!liveFollowEnabled) return null;
+
   // Mobile/tablet: floating button + full-screen sheet.
   if (isMobile) {
     if (state !== "open") {
@@ -788,7 +844,7 @@ export default function AiPanel() {
             persistUiPreferences({ aiPanelState: "hidden" });
           }}
         >
-          <i className="fa-light fa-xmark"></i>
+          <i className="fa-light fa-sidebar"></i>
         </button>
       </aside>
     );
@@ -892,7 +948,7 @@ export default function AiPanel() {
                   persistUiPreferences({ aiPanelState: "rail" });
                 }}
               >
-                <i className="fa-light fa-chevrons-right"></i>
+                <i className="fa-light fa-sidebar-flip"></i>
               </button>
             )}
             <button
@@ -1419,7 +1475,10 @@ export default function AiPanel() {
         )}
 
         <form className={styles.composer} onSubmit={onComposerSubmit}>
-          <div className={styles.composerRow}>
+          <div
+            className={styles.composerRow}
+            onClick={() => composerInputRef.current?.focus()}
+          >
             <input
               ref={composerInputRef}
               className={styles.composerInput}
@@ -1483,11 +1542,12 @@ export default function AiPanel() {
             <span>
               {sending
                 ? "Streaming…"
-                : liveFollowEnabled
-                  ? "Read-only · live-follow on"
-                  : "Read-only"}
+                : creditBalance !== null
+                  ? `Read-only · Credit available: $${creditBalance.toFixed(
+                      creditBalance >= 1 ? 2 : 4,
+                    )}`
+                  : "Read-only assistant"}
             </span>
-            <span>GPT-4o</span>
           </div>
         </form>
       </aside>

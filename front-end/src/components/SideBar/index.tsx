@@ -90,7 +90,7 @@ export default function Sidebar() {
         >
           <i
             className={`fa-light ${
-              navCollapsed ? "fa-chevron-right" : "fa-chevron-left"
+              navCollapsed ? "fa-sidebar" : "fa-sidebar-flip"
             }`}
           ></i>
         </button>

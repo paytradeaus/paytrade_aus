@@ -768,26 +768,43 @@ a.contextChip:hover {
 }
 
 .sendBtn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   border: none;
-  background: var(--cave);
+  background: var(--ocean);
   color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: not-allowed;
+  cursor: pointer;
   flex-shrink: 0;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.sendBtn:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.sendBtn:disabled {
+  background: var(--shade-light);
+  color: var(--cave-lightest);
+  cursor: not-allowed;
+}
+
+.composerRow {
+  cursor: text;
 }
 
 .composerFoot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   font-size: var(--step--2);
   color: var(--cave-lighter);
   padding: 0 4px;
+  min-height: 14px;
 }
 
 .railIcon {
