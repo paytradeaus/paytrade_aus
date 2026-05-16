@@ -122,8 +122,13 @@ import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
 import { RetentionReversalFunctions } from 'src/api/users/banking/payments/retentions/retention-reversal-functions';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { XeroWaitQueueService } from '../../xero-webhooks/waitQueue/webhookWait.service';
-import { XeroWaitQueueWorker } from '../../xero-webhooks/waitQueue/webhookWait.worker';
-import { XeroWaitQueueEvent } from '../../xero-webhooks/waitQueue/webhookWait.QueueEvents';
+// XeroWaitQueueWorker and XeroWaitQueueEvent are intentionally NOT imported
+// here. They are owned by XeroWebhookModule (the only place they should be
+// registered as providers). Registering @Processor + @QueueEventsListener
+// classes in two NestJS modules instantiates them twice, which produces
+// two Worker instances racing on the same BullMQ queue and can cause one
+// or both to silently fail to consume jobs (root cause of jobs being
+// "added" + "QueueEvents fired" but never reaching Worker.process()).
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
@@ -262,8 +267,9 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
     RetentionReversalFunctions,
     EmailQueueProducer,
     XeroWaitQueueService,
-    XeroWaitQueueWorker,
-    XeroWaitQueueEvent,
+    // XeroWaitQueueWorker + XeroWaitQueueEvent intentionally omitted —
+    // see import-block comment above. They are registered exactly once
+    // in XeroWebhookModule.
   ],
   exports: [
     XeroRefreshTokenService,
