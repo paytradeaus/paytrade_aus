@@ -5717,20 +5717,31 @@ export class NoticesService {
           where: { bank_account_id: payment_details.payment_to_account },
         });
 
+        const toBank = toBankAccount?.financial_institution
+          ? await useRepo(this.bankDetails).findOne({
+              where: { id: toBankAccount.financial_institution },
+            })
+          : null;
+
         if (payment_details.cash_retention === true) {
           if (retention_details) {
             retention_amount = retention_details.amount;
           }
         }
-        const retentiomBankAccount = await useRepo(
-          this.bankAccountsRepo,
-        ).findOne({
-          where: { bank_account_id: payment_details.retention_account },
-        });
 
-        let bank = await useRepo(this.bankDetails).findOne({
-          where: { id: retentiomBankAccount.financial_institution },
-        });
+        const hasRetention = retention_amount > 0;
+
+        const retentiomBankAccount = hasRetention
+          ? await useRepo(this.bankAccountsRepo).findOne({
+              where: { bank_account_id: payment_details.retention_account },
+            })
+          : null;
+
+        const bank = retentiomBankAccount?.financial_institution
+          ? await useRepo(this.bankDetails).findOne({
+              where: { id: retentiomBankAccount.financial_institution },
+            })
+          : null;
 
         pdfData = {
           paytradeLogo: logoBase64 ? logoBase64 : null,
@@ -5739,16 +5750,18 @@ export class NoticesService {
             claim_date: convertToLocalDate(claimDate),
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
+            account_finins: toBank?.institution_name || '',
             account_name: toBankAccount.account_name,
             bsb: toBankAccount.bsb_number,
             acc_number: toBankAccount.account_number,
-            ret_account_finins: bank.institution_name,
-            ret_account_name: retentiomBankAccount.account_name,
-            ret_bsb: retentiomBankAccount.bsb_number,
-            ret_acc_number: retentiomBankAccount.account_number,
+            ret_account_finins: bank?.institution_name || '',
+            ret_account_name: retentiomBankAccount?.account_name || '',
+            ret_bsb: retentiomBankAccount?.bsb_number || '',
+            ret_acc_number: retentiomBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
-            retention_amount:
-              retention_amount == 0 ? '0.00' : formatCurrency(retention_amount),
+            retention_amount: hasRetention
+              ? formatCurrency(retention_amount)
+              : null,
           },
 
           fromDetails: {
