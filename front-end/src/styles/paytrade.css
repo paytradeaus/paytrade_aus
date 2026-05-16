@@ -4815,3 +4815,20 @@ a.pt_linksbox {
   margin-left: 0;
   margin-right: 0;
 }
+
+/* The inner `.pt_sidemenu` carries `position: fixed; width: 250px;`
+   from the original full-width sidebar layout (defined in both
+   paytrade.css and custom.css). When collapsed, that fixed 250px box
+   ignores the 72px rail set on `.pt_left.pt_left_collapsed` and
+   floats over the main content as a stray indented column.
+   The existing `.pt_dashboard.nav-collapsed .pt_sidemenu { width: auto }`
+   override is scoped to `@media (min-width: 768px) and (max-width: 1280px)`
+   so on desktop (>1280px) it never applies. Force the menu back into
+   the rail at every breakpoint. */
+.pt_left.pt_left_collapsed .pt_sidemenu {
+  position: relative;
+  width: 100%;
+  height: auto;
+  padding-right: 0;
+  overflow-y: visible;
+}
