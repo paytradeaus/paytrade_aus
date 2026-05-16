@@ -26,7 +26,7 @@ import { useTokenDetails } from "@/hooks";
 import { deleteAttachment, multipleFileUploadApi } from "@/app/api/commonApi";
 import { useLoaderContext } from "@/context/useLoader";
 import { formatDate, getCompanyIdFromStorage } from "@/utils";
-import { getFileUrl } from "@/utils/fileUrl";
+import { getFileUrl, getFileUrlWithVersion } from "@/utils/fileUrl";
 import { RootState, useAppSelector } from "@/redux/store";
 import { tabTypes } from "../AddUpdatePayments/Payments.constants";
 
@@ -140,8 +140,13 @@ export default function UpdatePremiumNotices({
 
   function handleViewFile(displayFile: any) {
     if (displayFile?.file_path) {
+      // Use the version-stamped URL so regenerated notices bypass any
+      // stale Cloudflare cache (Cloudflare keyed the old PDF without a
+      // querystring; the new fileAttachment row has a different `id`,
+      // so the URL now carries `?v=<id>` and CF treats it as a fresh
+      // object).
       window.open(
-        getFileUrl(displayFile?.file_path),
+        getFileUrlWithVersion(displayFile),
         "_blank" // Opens in new tab
       );
     } else if (
