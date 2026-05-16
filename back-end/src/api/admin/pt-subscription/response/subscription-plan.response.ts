@@ -454,6 +454,12 @@ export class SubscribedUsers {
 
   @Field({ nullable: true, description: 'Trial period in days.' })
   trial_period: number;
+
+  @Field({
+    nullable: true,
+    description: 'Monthly AI credit allotment included with the plan (NZD).',
+  })
+  monthly_ai_credit: number;
 }
 
 @ObjectType({ description: 'List of subscribed users.' })

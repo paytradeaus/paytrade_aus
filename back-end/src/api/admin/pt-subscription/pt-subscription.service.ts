@@ -2149,6 +2149,7 @@ export class PtSubscriptionService {
         'pd.plan_name as plan_name',
         'pd.plan_status as plan_status',
         'pd.trial_period as trial_period',
+        'pd.monthly_ai_credit as monthly_ai_credit',
         'pd.associated_price_ids as associated_price_ids',
         'pp.stripe_price_id as stripe_price_id',
         'pp.price_name as price_name',
@@ -2324,6 +2325,7 @@ export class PtSubscriptionService {
           bill_cycle: result.bill_cycle,
           plan_price: result.plan_price,
           trial_period: result.trial_period,
+          monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
         };
       }),
     };

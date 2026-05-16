@@ -20355,6 +20355,9 @@ type SubscribedUsers {
   """Unique ID of the subscription record."""
   id: String!
 
+  """Monthly AI credit allotment included with the plan (NZD)."""
+  monthly_ai_credit: Float
+
   """Payment method ID used for the subscription."""
   payment_method_id: String
 
