@@ -136,6 +136,7 @@ import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-nee
 import { AiCostMultiplierSeederModule } from './libs/@seeders/ai-cost-multiplier-seeder.module';
 import { AiSchemaBackfillSeederModule } from './libs/@seeders/ai-schema-backfill-seeder.module';
 import { AiChatFoundationSeederModule } from './libs/@seeders/ai-chat-foundation-seeder.module';
+import { BackfillCompany1012InitialPaymentSeederModule } from './libs/@seeders/backfill-company-1012-initial-payment-seeder.module';
 import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
 
 @Module({
@@ -377,6 +378,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     AiCostMultiplierSeederModule,
     AiSchemaBackfillSeederModule,
     AiChatFoundationSeederModule,
+    BackfillCompany1012InitialPaymentSeederModule,
     AiBillingModule,
   ],
   providers: [
