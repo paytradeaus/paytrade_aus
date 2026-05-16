@@ -126,11 +126,17 @@ export default function Subscriptions() {
               className="pt_box pt_faqs pt_paymentmethods"
               style={{ marginTop: cardPlans.length > 0 ? "" : "2rem" }}
             >
-              <details>
-                <summary>View detailed plan features</summary>
-                <PlanFeaturesGrid />
-              </details>
-              <hr />
+              {(subscriptionPlanTypes?.free_plan ||
+                (subscriptionPlanTypes?.monthly_plan_list?.length ?? 0) > 0 ||
+                (subscriptionPlanTypes?.yearly_plan_list?.length ?? 0) > 0) && (
+                <>
+                  <details>
+                    <summary>View detailed plan features</summary>
+                    <PlanFeaturesGrid />
+                  </details>
+                  <hr />
+                </>
+              )}
 
               {(subscriptionData?.payment_method_id ||
                 subscriptionData?.coupon_id) && (

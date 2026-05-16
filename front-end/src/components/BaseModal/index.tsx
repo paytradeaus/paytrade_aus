@@ -57,6 +57,11 @@ interface BaseModalProps {
   disableMiddleButton?: boolean;
   middleBtnClassTypes?: string;
   onMiddleButtonClick?: () => void;
+  // Optional content rendered at the LEFT of the sticky footer, before
+  // the action buttons. Used by dialogs that want to surface a status
+  // line (e.g. Manual Xero sync run summary) inside the sticky button
+  // row so the operator always sees it without scrolling.
+  footerLeftContent?: React.ReactNode;
   // When true, clicking the middle button runs the same close lifecycle
   // as the first/close button (removes `modal-is-open`, scrollbar CSS
   // var, etc.) before invoking `onMiddleButtonClick`. Without this flag
@@ -96,6 +101,7 @@ export default function BaseModal({
   disableMiddleButton = false,
   middleBtnClassTypes = "secondary",
   onMiddleButtonClick,
+  footerLeftContent,
   closeOnMiddleButtonClick = false,
 }: Readonly<BaseModalProps>) {
   const router = useRouter();
@@ -312,6 +318,19 @@ export default function BaseModal({
         )}
         {!hideFooter && (
           <footer>
+            {footerLeftContent && (
+              <div
+                style={{
+                  flex: 1,
+                  marginRight: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  minWidth: 0,
+                }}
+              >
+                {footerLeftContent}
+              </div>
+            )}
             {!hideFirstButton && (
               <button
                 className={firstBtnClassTypes}

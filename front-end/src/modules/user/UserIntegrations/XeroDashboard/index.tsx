@@ -2654,6 +2654,53 @@ function ManualXeroSyncDialog({
       ? "Running…"
       : "Run sync";
 
+  // Catch-up sync summary — rendered in the sticky footer (left of the
+  // action buttons) via BaseModal's `footerLeftContent` slot so the
+  // operator always sees Run progress / Synced / Failed / Skipped
+  // counts without scrolling, even on a long catch-up table.
+  const catchupSummaryNode =
+    mode === "catchup" && (catchupRunning || catchupProgress.done > 0)
+      ? (() => {
+          const actionable = (catchupResult?.rows || []).filter(
+            (r: any) =>
+              r.classification === "needs_link" ||
+              r.classification === "needs_push" ||
+              r.classification === "needs_import" ||
+              r.classification === "amounts_disagree",
+          ).length;
+          const skipped = Math.max(
+            0,
+            actionable - catchupProgress.total,
+          );
+          const isFinal =
+            !catchupRunning &&
+            catchupProgress.done === catchupProgress.total &&
+            catchupProgress.total > 0;
+          return (
+            <span style={{ fontSize: "12px", opacity: 0.85 }}>
+              {isFinal ? "Run complete — " : "Progress: "}
+              {catchupProgress.done}/{catchupProgress.total} —{" "}
+              <span style={{ color: "#137333" }}>
+                ✓ Synced {catchupProgress.pass}
+              </span>
+              {" · "}
+              <span style={{ color: "#a50e0e" }}>
+                ⨯ Failed {catchupProgress.fail}
+              </span>
+              {" · "}
+              <span style={{ color: "#666" }}>
+                ◌ Skipped {skipped}
+              </span>
+              {skipped > 0 && (
+                <span style={{ marginLeft: "6px", opacity: 0.7 }}>
+                  (actionable rows the operator left unselected)
+                </span>
+              )}
+            </span>
+          );
+        })()
+      : null;
+
   if (!open) return null;
   return (
     <BaseModal
@@ -2665,6 +2712,7 @@ function ManualXeroSyncDialog({
       secondButtonName={secondButtonLabel}
       disableSecondButton={runDisabled}
       onConfirm={mode === "catchup" ? handleRunBatch : handleConfirm}
+      footerLeftContent={catchupSummaryNode}
       fullScreenPopup
     >
       {/* Mode tabs — canonical TabSwitch (filterbutton) used by the
@@ -3720,55 +3768,11 @@ function ManualXeroSyncDialog({
                   setCatchupSelected(next);
                 }}
               />
-              {(catchupRunning || catchupProgress.done > 0) && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    fontSize: "12px",
-                    opacity: 0.85,
-                  }}
-                >
-                  {(() => {
-                    const actionable = (catchupResult?.rows || []).filter(
-                      (r: any) =>
-                        r.classification === "needs_link" ||
-                        r.classification === "needs_push" ||
-                        r.classification === "needs_import" ||
-                        r.classification === "amounts_disagree",
-                    ).length;
-                    const skipped = Math.max(
-                      0,
-                      actionable - catchupProgress.total,
-                    );
-                    const isFinal =
-                      !catchupRunning &&
-                      catchupProgress.done === catchupProgress.total &&
-                      catchupProgress.total > 0;
-                    return (
-                      <>
-                        {isFinal ? "Run complete — " : "Progress: "}
-                        {catchupProgress.done}/{catchupProgress.total} —{" "}
-                        <span style={{ color: "#137333" }}>
-                          ✓ Synced {catchupProgress.pass}
-                        </span>
-                        {" · "}
-                        <span style={{ color: "#a50e0e" }}>
-                          ⨯ Failed {catchupProgress.fail}
-                        </span>
-                        {" · "}
-                        <span style={{ color: "#666" }}>
-                          ◌ Skipped {skipped}
-                        </span>
-                        {skipped > 0 && (
-                          <span style={{ marginLeft: "6px", opacity: 0.7 }}>
-                            (actionable rows the operator left unselected)
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
+              {/* Catch-up summary moved into BaseModal's sticky footer
+                  via `footerLeftContent` so the operator can always see
+                  Run progress / Synced / Failed / Skipped counts
+                  alongside the Close / Run sync buttons without
+                  scrolling. See `catchupSummaryNode` above. */}
             </>
           )}
         </div>
