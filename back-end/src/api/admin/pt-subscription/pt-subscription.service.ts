@@ -1517,6 +1517,7 @@ export class PtSubscriptionService {
         'ppy.is_deleted as yearly_is_deleted',
         'pi.plan_items as plan_items',
         'pd.is_sandbox as is_sandbox',
+        'pd.monthly_ai_credit as monthly_ai_credit',
       ])
       .leftJoin(
         SubscriptionPricingPlan,
@@ -1678,6 +1679,7 @@ export class PtSubscriptionService {
           monthly_is_deleted: result.monthly_is_deleted,
           yearly_is_deleted: result.yearly_is_deleted,
           is_sandbox: result.is_sandbox,
+          monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
           plan_items: result?.plan_items?.map((plan) => {
             return {
               id: plan.id,
@@ -2029,6 +2031,7 @@ export class PtSubscriptionService {
         'ppy.is_deleted as yearly_is_deleted',
         'pi.plan_items as plan_items',
         'pd.is_sandbox as is_sandbox',
+        'pd.monthly_ai_credit as monthly_ai_credit',
       ])
       .leftJoin(
         SubscriptionPricingPlan,
@@ -2101,6 +2104,7 @@ export class PtSubscriptionService {
       yearly_is_active: result.yearly_is_active,
       monthly_is_deleted: result.monthly_is_deleted,
       yearly_is_deleted: result.yearly_is_deleted,
+      monthly_ai_credit: Number(result.monthly_ai_credit ?? 0),
       plan_items: result?.plan_items?.map((plan) => {
         return {
           id: plan.id,

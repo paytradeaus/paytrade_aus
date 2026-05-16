@@ -234,6 +234,48 @@ export class PaymentClaimsService {
             for (let invoice of data.invoices) {
               invoice.payment_claim_id = payment_claim_id;
               invoice.created_by = created_by;
+              // Defensive: ensure decimal qty/unit/gst aren't truncated
+              // by any upstream mapper (e.g. Xero importer) before insert.
+              invoice.quantity = Number(invoice.quantity ?? 0);
+              invoice.unit_price = Number(invoice.unit_price ?? 0);
+              invoice.gst = Number(invoice.gst ?? 0);
+              invoice.total_amount_including_gst = Number(
+                invoice.total_amount_including_gst ?? 0,
+              );
+            }
+
+            // Reconciliation guard: claim_amount header must equal
+            // Σ(qty × unit_price) + Σ gst (+ retention_amount_with_gst when
+            // retention is folded into the header). Tolerates $0.10 of
+            // round-off across many lines. Throws on real divergence so
+            // we never silently persist a header/lines mismatch like the
+            // Xero importer did historically (claim 100044).
+            const linesSubtotal = data.invoices.reduce(
+              (s: number, ln: any) =>
+                s + Number(ln.quantity || 0) * Number(ln.unit_price || 0),
+              0,
+            );
+            const linesGst = data.invoices.reduce(
+              (s: number, ln: any) => s + Number(ln.gst || 0),
+              0,
+            );
+            const expectedHeader =
+              linesSubtotal + linesGst + Number(data.retention_amount_with_gst || 0);
+            const headerDelta = Math.abs(
+              Number(data.claim_amount || 0) - expectedHeader,
+            );
+            if (headerDelta > 0.1) {
+              this.logger.error(
+                `[CLAIM_RECONCILE_FAIL] payment_claim_id=${payment_claim_id} ` +
+                  `header=${data.claim_amount} expected=${expectedHeader.toFixed(2)} ` +
+                  `(linesSubtotal=${linesSubtotal} linesGst=${linesGst} ` +
+                  `retentionWithGst=${data.retention_amount_with_gst || 0}) ` +
+                  `delta=${headerDelta.toFixed(2)}`,
+              );
+              throw new Error(
+                `Claim amount ${data.claim_amount} does not match line items ` +
+                  `(expected ${expectedHeader.toFixed(2)}, delta ${headerDelta.toFixed(2)})`,
+              );
             }
 
             //Creation of invoices.

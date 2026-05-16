@@ -123,6 +123,7 @@ import { XeroRetentionModeSchemaSeederModule } from './libs/@seeders/xero-retent
 import { XeroContactGstSchemaSeederModule } from './libs/@seeders/xero-contact-gst-schema-seeder.module';
 import { XeroRetentionJournalsSchemaSeederModule } from './libs/@seeders/xero-retention-journals-schema-seeder.module';
 import { XeroPaymentSplitSchemaSeederModule } from './libs/@seeders/xero-payment-split-schema-seeder.module';
+import { PaymentClaimInvoicesQuantityScaleSeederModule } from './libs/@seeders/payment-claim-invoices-quantity-scale-seeder.module';
 import { XeroRetentionRecheckSchemaSeederModule } from './libs/@seeders/xero-retention-recheck-schema-seeder.module';
 import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-billing-type-schema-seeder.module';
 import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
@@ -363,6 +364,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroContactGstSchemaSeederModule,
     XeroRetentionJournalsSchemaSeederModule,
     XeroPaymentSplitSchemaSeederModule,
+    PaymentClaimInvoicesQuantityScaleSeederModule,
     XeroRetentionRecheckSchemaSeederModule,
     ContractBillingTypeSchemaSeederModule,
     XeroVariableBillCodeSchemaSeederModule,

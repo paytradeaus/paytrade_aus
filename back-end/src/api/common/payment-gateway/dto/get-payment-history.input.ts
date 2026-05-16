@@ -66,4 +66,12 @@ export class GetPaymentHistoryInput {
     description: 'Sorting order: ASC or DESC',
   })
   sorting_order?: 'ASC' | 'DESC';
+
+  @Field({
+    nullable: true,
+    description:
+      'When true, only return transactions tied to sandbox/demo plans. ' +
+      'When omitted/false, sandbox transactions are excluded from the result.',
+  })
+  is_sandbox?: boolean;
 }

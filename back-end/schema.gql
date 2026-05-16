@@ -11192,6 +11192,11 @@ input GetPaymentHistoryInput {
   """End date for filtering payment history"""
   end_date: DateTime
 
+  """
+  When true, only return transactions tied to sandbox/demo plans. When omitted/false, sandbox transactions are excluded from the result.
+  """
+  is_sandbox: Boolean
+
   """Page number for pagination"""
   page_number: Float = null
 
@@ -11981,6 +11986,9 @@ type GetSubscriptionDetails {
 
   """Last four digits of the card used"""
   last_four_digits: String
+
+  """Monthly AI credit allotment (USD) granted to companies on this plan."""
+  monthly_ai_credit: Float
 
   """Name on the card used for subscription payments"""
   name_on_card: String
@@ -20496,6 +20504,9 @@ type SubscriptionPlan {
 
   """Whether this is a sandbox/test plan."""
   is_sandbox: Boolean
+
+  """Monthly AI credit allotment (USD) granted to companies on this plan."""
+  monthly_ai_credit: Float
 
   """Billing cycle of the monthly plan."""
   monthly_bill_cycle: String

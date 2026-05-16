@@ -204,6 +204,13 @@ export class SubscriptionPlan {
 
   @Field({ nullable: true, description: 'Whether this is a sandbox/test plan.' })
   is_sandbox?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Monthly AI credit allotment (USD) granted to companies on this plan.',
+  })
+  monthly_ai_credit?: number;
 }
 
 @ObjectType({ description: 'Response containing subscription plan details.' })

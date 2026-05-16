@@ -3090,7 +3090,23 @@ export class XeroInvoicesService {
       invoices,
       associated_retention_sub_payment_id,
       retention_id,
-      claim_amount: Number(invoiceDetails.total || 0) + retentionAmount,
+      // Derive claim_amount from the mapped line items (qty × unit + gst)
+      // rather than trusting `invoiceDetails.total`, which historically has
+      // been observed to be the unit price + tax (line gross-of-quantity)
+      // rather than the true qty-weighted total in some Xero responses.
+      // The line-item Σ is the canonical PayTrade definition of the claim
+      // header amount and matches what `payment_claim_invoices` will hold.
+      claim_amount:
+        (invoices || []).reduce(
+          (sum: number, ln: any) =>
+            sum + Number(ln.quantity || 0) * Number(ln.unit_price || 0),
+          0,
+        ) +
+        (invoices || []).reduce(
+          (sum: number, ln: any) => sum + Number(ln.gst || 0),
+          0,
+        ) +
+        retentionAmount,
       cash_retention: cashRetention,
       retention_percentage: retentionPercentage,
       retention_amount: retainedAmountExcludingGST,
@@ -3186,28 +3202,38 @@ export class XeroInvoicesService {
 
   mapItemsDirectly(items: any[], lineAmountTypes: LineAmountTypes) {
     return items.map((item) => {
+      // Coerce raw Xero values to JS numbers explicitly. Xero may send
+      // numeric strings (e.g. "0.2") which silently round-trip OK in JS
+      // arithmetic but, when fed into INSERT VALUES without explicit
+      // Number() casting, can be coerced to integer by some downstream
+      // mappers. Forcing Number() here preserves the decimal payload all
+      // the way to the numeric DB column.
+      const rawQty = Number(item.quantity ?? 0);
+      const rawUnit = Number(item.unitAmount ?? 0);
+      const rawTax = Number(item.taxAmount ?? 0);
+
       const unitAmount =
         lineAmountTypes === LineAmountTypes.Inclusive
-          ? item.unitAmount - item.taxAmount
-          : item.unitAmount;
+          ? rawUnit - rawTax
+          : rawUnit;
 
       const gst = [LineAmountTypes.Inclusive, LineAmountTypes.Exclusive].includes(
         lineAmountTypes,
       )
-        ? parseFloat(Math.abs(Number(item.taxAmount || 0)).toFixed(2))
+        ? parseFloat(Math.abs(rawTax).toFixed(2))
         : 0.0;
 
       const totalAmountIncludingGst =
         lineAmountTypes === LineAmountTypes.Inclusive
-          ? item.unitAmount * item.quantity
-          : item.unitAmount * item.quantity + (item.taxAmount || 0);
+          ? rawUnit * rawQty
+          : rawUnit * rawQty + rawTax;
 
       return {
         unit_price: parseFloat(Number(unitAmount).toFixed(2)),
         gst,
         total_amount_including_gst: parseFloat(totalAmountIncludingGst.toFixed(2)),
         description: item.description,
-        quantity: item.quantity,
+        quantity: rawQty,
       };
     });
   }

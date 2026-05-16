@@ -1314,11 +1314,26 @@ export class PaymentGatewayService {
       .addSelect('subscription.company_id', 'company_id')
       .addSelect('company.company_name', 'company_name')
       .leftJoin('payment.subscriptionDetails', 'subscription')
+      .leftJoin('payment.planDetails', 'planDetails')
       .leftJoin(
         CompanyDetails,
         'company',
         'subscription.company_id = company.company_id',
       );
+
+    // Hide sandbox-plan transactions from the live Billing screen.
+    // Sandbox subscriptions write to the same `subscription_transactions`
+    // table but reference a `subscription_plan_details` row whose
+    // `is_sandbox = true` (e.g. the $300 demo invoices observed under
+    // company_id=1012). Filter them out unless the caller explicitly
+    // asks for sandbox via `data.is_sandbox = true`.
+    if (data.is_sandbox === true) {
+      queryBuilder.andWhere('planDetails.is_sandbox = :sb', { sb: true });
+    } else {
+      queryBuilder.andWhere(
+        '(planDetails.is_sandbox IS NULL OR planDetails.is_sandbox = false)',
+      );
+    }
 
     if (data.company_id) {
       queryBuilder.andWhere(`subscription.company_id = :companyId`, {
@@ -1492,6 +1507,7 @@ export class PaymentGatewayService {
       .addSelect('plan.plan_type', 'plan_type')
       .addSelect('plan.plan_status', 'plan_status')
       .addSelect('plan.trial_period', 'trial_period')
+      .addSelect('plan.monthly_ai_credit', 'monthly_ai_credit')
       .addSelect('pricing.bill_cycle', 'bill_cycle')
       .addSelect('pi.plan_items', 'plan_items')
       .addSelect('coupon.coupon_name', 'coupon_name')

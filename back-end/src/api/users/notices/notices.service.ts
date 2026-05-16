@@ -7783,14 +7783,19 @@ export class NoticesService {
       );
 
       if (
-        (planValue === 'Manual' || (hasDelegationAuthority && isExpired)) &&
+        hasDelegationAuthority &&
+        isExpired &&
         !subscriptionDetails?.is_free_plan_eligible
       ) {
         subscription_plan = 'Basic';
         this.logger.log(
-          `[SUBSCRIPTION_CHECK] Result: 'Basic' (planValue='${planValue}' is Manual or delegation expired, not free plan eligible)`
+          `[SUBSCRIPTION_CHECK] Result: 'Basic' (delegation authority expired, not free plan eligible)`
         );
       } else {
+        // NOTE: planValue === 'Manual' previously fell through to 'Basic',
+        // but on plans like Pro Audit "Manual" means the notice workflow is
+        // manual-approval (still a paid feature), not "no notices". Treat
+        // any non-empty planValue as paid here.
         if (
           hasDelegationAuthority &&
           account_details?.delegate_powers === 'Yes'

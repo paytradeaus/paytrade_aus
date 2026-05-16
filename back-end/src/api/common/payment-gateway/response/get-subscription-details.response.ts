@@ -265,6 +265,13 @@ export class GetSubscriptionDetails {
     description: 'Whether this company is a demo/sandbox account',
   })
   is_demo?: boolean;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      'Monthly AI credit allotment (USD) granted to companies on this plan.',
+  })
+  monthly_ai_credit?: number;
 }
 
 @ObjectType({
