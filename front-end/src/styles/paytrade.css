@@ -4762,3 +4762,56 @@ a.pt_linksbox {
 .pt_scrollable::-webkit-scrollbar-thumb:hover {
   background-color: var(--river);
 }
+
+/* ---------------------------------------------------------------- *
+ * Collapsed sidebar rail — hardened layout
+ * ----------------------------------------------------------------
+ * When the user clicks the "<" toggle the sidebar must collapse to
+ * a flush 72px icon rail in grid column 1, with the main content
+ * occupying the rest of the row. Earlier rules in this file
+ * (a) hardcode `.pt_dashboard { grid-template-columns: 0px 1fr; }`
+ * inside `@media (max-width: 1280px)` which kills the
+ * `--nav-col-w: 72px` variable, and (b) leave 16px / 8px horizontal
+ * padding on `.pt_left` so the inner box overflows the 72px track
+ * and the centred icons drift right onto the main content.
+ *
+ * The rules below are intentionally placed at end-of-file so they
+ * win source-order ties, and they use `.pt_dashboard.nav-collapsed`
+ * (specificity 0,2,0) and `.pt_left.pt_left_collapsed` (0,2,0) so
+ * they out-rank the single-class media-query overrides without
+ * needing `!important`. Effect: rail is the same flush 72px column
+ * at every viewport ≥ the mobile-drawer threshold.
+ * ---------------------------------------------------------------- */
+
+.pt_dashboard.nav-collapsed {
+  grid-template-columns: 72px 1fr var(--ai-panel-w, 0px);
+}
+
+@media (max-width: 1280px) {
+  .pt_dashboard.nav-collapsed {
+    grid-template-columns: 72px 1fr;
+  }
+}
+
+.pt_left.pt_left_collapsed {
+  position: relative;
+  left: 0;
+  width: 72px;
+  box-sizing: border-box;
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+/* Re-centre icons inside the now-flush 72px rail. The earlier
+   `text-align: center` / `justify-content: center` rules already
+   centre the glyphs; we just neutralise any inherited left/right
+   inset on accordion labels and links so a stray padding rule from
+   an unrelated component can't pull them off-axis. */
+.pt_left.pt_left_collapsed .cd-accordion__label,
+.pt_left.pt_left_collapsed .cd-accordion__item > a,
+.pt_left.pt_left_collapsed .pt_sidemenu li a {
+  margin-left: 0;
+  margin-right: 0;
+}
