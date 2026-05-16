@@ -35,7 +35,7 @@ export class FileServeController {
       res.set({
         'Content-Type': contentType,
         'Content-Length': fileBuffer.length,
-        'Cache-Control': 'public, max-age=31536000',
+        'Cache-Control': 'private, no-cache, must-revalidate',
         'Cross-Origin-Resource-Policy': 'cross-origin',
         'Access-Control-Allow-Origin': '*',
       });
