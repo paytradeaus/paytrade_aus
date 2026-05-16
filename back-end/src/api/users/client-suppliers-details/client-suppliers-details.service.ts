@@ -621,6 +621,13 @@ export class ClientSuppliersDetailsService {
       relations: ['accountDetails'],
     });
 
+    if (!result) {
+      this.logger.warn(
+        `viewClientSuppliersDetails: no client_supplier found for id=${id}`,
+      );
+      return null;
+    }
+
     result.created_on = result.created_on
       ? new Date(result.created_on)
       : new Date(0);

@@ -5713,12 +5713,17 @@ export class NoticesService {
       if (notice.notice_type == 'Supplier Payment Remittance Advice Notice') {
         let retention_amount = 0;
 
-        const fromAccountId =
-          payment_details.payment_from_account ?? notice.bank_account_id;
-
-        const toBankAccount = fromAccountId
+        // QBCC remittance advice: top block shows the BENEFICIARY's bank
+        // (where the EFT was deposited), so use payment_to_account.
+        // Null-guarded AND tenant-scoped to prevent TypeORM `WHERE IS NULL`
+        // or a forged FK from returning another company's bank row
+        // (the old bug that leaked BuilderSmile data).
+        const toBankAccount = payment_details.payment_to_account
           ? await useRepo(this.bankAccountsRepo).findOne({
-              where: { bank_account_id: fromAccountId },
+              where: {
+                bank_account_id: payment_details.payment_to_account,
+                company_id: company.company_id,
+              },
             })
           : null;
 
@@ -5736,11 +5741,19 @@ export class NoticesService {
 
         const hasRetention = retention_amount > 0;
 
-        const retentiomBankAccount = hasRetention
-          ? await useRepo(this.bankAccountsRepo).findOne({
-              where: { bank_account_id: payment_details.retention_account },
-            })
-          : null;
+        // Retention lookup must also be tenant-scoped, and must be guarded
+        // on retention_account being non-null (not just on amount > 0)
+        // because a non-zero amount with a null FK would otherwise leak
+        // bank_accounts row 1 via TypeORM IS NULL.
+        const retentiomBankAccount =
+          hasRetention && payment_details.retention_account
+            ? await useRepo(this.bankAccountsRepo).findOne({
+                where: {
+                  bank_account_id: payment_details.retention_account,
+                  company_id: company.company_id,
+                },
+              })
+            : null;
 
         const bank = retentiomBankAccount?.financial_institution
           ? await useRepo(this.bankDetails).findOne({
@@ -5805,12 +5818,14 @@ export class NoticesService {
             retention_details.retained_amount - payment_details.total_amount;
         }
 
-        const retFromAccountId =
-          payment_details.payment_from_account ?? notice.bank_account_id;
-
-        const toBankAccount = retFromAccountId
+        // QBCC: top block = beneficiary's bank (payment_to_account).
+        // Null-guarded + tenant-scoped to prevent cross-tenant leak.
+        const toBankAccount = payment_details.payment_to_account
           ? await useRepo(this.bankAccountsRepo).findOne({
-              where: { bank_account_id: retFromAccountId },
+              where: {
+                bank_account_id: payment_details.payment_to_account,
+                company_id: company.company_id,
+              },
             })
           : null;
 
@@ -5853,18 +5868,23 @@ export class NoticesService {
       ) {
         let retention_amount = 0;
 
-        const prwFromAccountId =
-          payment_details.payment_from_account ?? notice.bank_account_id;
-
-        const toBankAccount = prwFromAccountId
+        // QBCC: top block = beneficiary's bank (payment_to_account).
+        // Null-guarded + tenant-scoped to prevent cross-tenant leak.
+        const toBankAccount = payment_details.payment_to_account
           ? await useRepo(this.bankAccountsRepo).findOne({
-              where: { bank_account_id: prwFromAccountId },
+              where: {
+                bank_account_id: payment_details.payment_to_account,
+                company_id: company.company_id,
+              },
             })
           : null;
 
         const retentiomBankAccount = payment_details.retention_account
           ? await useRepo(this.bankAccountsRepo).findOne({
-              where: { bank_account_id: payment_details.retention_account },
+              where: {
+                bank_account_id: payment_details.retention_account,
+                company_id: company.company_id,
+              },
             })
           : null;
 

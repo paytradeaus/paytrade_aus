@@ -199,6 +199,57 @@ export class PaymentsService {
           if (payment_type === '3rd Party' || payment_type === 'Pay - Zero') {
             data.payment_date = moment.tz(decoded?.timezone || 'UTC').toDate();
           }
+
+          // Validate any caller-supplied payment_to_account belongs to this
+          // tenant. Without this an attacker (or a buggy client) could pass
+          // any bank_account_id and have it rendered on the remittance PDF.
+          if (data.payment_to_account) {
+            const ownedBank = await transactionalEntityManager.findOne(
+              BankAccounts,
+              {
+                where: {
+                  bank_account_id: data.payment_to_account,
+                  company_id,
+                },
+              },
+            );
+            if (!ownedBank) {
+              this.logger.warn(
+                `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — not owned by company ${company_id}; clearing.`,
+              );
+              data.payment_to_account = null;
+            }
+          }
+
+          // Auto-resolve payment_to_account from the supplier's bank account
+          // when the caller didn't provide one (or it was rejected above).
+          // Without this, the field stays NULL and downstream PDFs (Supplier
+          // Payment Remittance Advice etc.) can't render the beneficiary's
+          // bank details — the QBCC template requires them in the top block.
+          // Scoped by company_id for defence-in-depth.
+          if (!data.payment_to_account && client_supplier_id) {
+            const supplierBank = await transactionalEntityManager.findOne(
+              BankAccounts,
+              {
+                where: {
+                  client_supplier_id,
+                  company_id,
+                  status: 'Open' as any,
+                },
+                order: {
+                  added_by_client_supplier: 'DESC',
+                  created_on: 'DESC',
+                },
+              },
+            );
+            if (supplierBank) {
+              data.payment_to_account = supplierBank.bank_account_id;
+              this.logger.log(
+                `[addPayment] Auto-resolved payment_to_account=${supplierBank.bank_account_id} from supplier ${client_supplier_id} (company ${company_id})`,
+              );
+            }
+          }
+
           const createPaymentDetails = await transactionalEntityManager.save(
             this.paymentsRepo.create(data),
           );
