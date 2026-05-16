@@ -22929,6 +22929,11 @@ type ViewClientSuppliers {
   """Longitude coordinate."""
   longitude: String
 
+  """
+  True when the contact was imported from Xero without an email and still needs one to be added (Task #154).
+  """
+  needs_email: Boolean
+
   """Payment terms agreed with client/supplier."""
   payment_terms: Float
 

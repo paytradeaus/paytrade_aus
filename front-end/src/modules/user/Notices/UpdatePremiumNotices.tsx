@@ -140,15 +140,7 @@ export default function UpdatePremiumNotices({
 
   function handleViewFile(displayFile: any) {
     if (displayFile?.file_path) {
-      // Use the version-stamped URL so regenerated notices bypass any
-      // stale Cloudflare cache (Cloudflare keyed the old PDF without a
-      // querystring; the new fileAttachment row has a different `id`,
-      // so the URL now carries `?v=<id>` and CF treats it as a fresh
-      // object).
-      window.open(
-        getFileUrlWithVersion(displayFile),
-        "_blank" // Opens in new tab
-      );
+      window.open(getFileUrlWithVersion(displayFile), "_blank");
     } else if (
       displayFile &&
       typeof displayFile?.file === "string" &&
@@ -159,8 +151,15 @@ export default function UpdatePremiumNotices({
         .then((res) => {
           window.open(URL.createObjectURL(res), "_blank");
         });
-    } else {
+    } else if (
+      typeof Blob !== "undefined" &&
+      (displayFile instanceof Blob || displayFile instanceof File)
+    ) {
       window.open(URL.createObjectURL(displayFile), "_blank");
+    } else {
+      showErrorToast(
+        "No example template is available for this notice type yet."
+      );
     }
   }
 
