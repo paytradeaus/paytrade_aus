@@ -5713,9 +5713,14 @@ export class NoticesService {
       if (notice.notice_type == 'Supplier Payment Remittance Advice Notice') {
         let retention_amount = 0;
 
-        const toBankAccount = await useRepo(this.bankAccountsRepo).findOne({
-          where: { bank_account_id: payment_details.payment_to_account },
-        });
+        const fromAccountId =
+          payment_details.payment_from_account ?? notice.bank_account_id;
+
+        const toBankAccount = fromAccountId
+          ? await useRepo(this.bankAccountsRepo).findOne({
+              where: { bank_account_id: fromAccountId },
+            })
+          : null;
 
         const toBank = toBankAccount?.financial_institution
           ? await useRepo(this.bankDetails).findOne({
@@ -5751,9 +5756,9 @@ export class NoticesService {
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
             account_finins: toBank?.institution_name || '',
-            account_name: toBankAccount.account_name,
-            bsb: toBankAccount.bsb_number,
-            acc_number: toBankAccount.account_number,
+            account_name: toBankAccount?.account_name || '',
+            bsb: toBankAccount?.bsb_number || '',
+            acc_number: toBankAccount?.account_number || '',
             ret_account_finins: bank?.institution_name || '',
             ret_account_name: retentiomBankAccount?.account_name || '',
             ret_bsb: retentiomBankAccount?.bsb_number || '',
@@ -5800,9 +5805,14 @@ export class NoticesService {
             retention_details.retained_amount - payment_details.total_amount;
         }
 
-        const toBankAccount = await useRepo(this.bankAccountsRepo).findOne({
-          where: { bank_account_id: payment_details.payment_to_account },
-        });
+        const retFromAccountId =
+          payment_details.payment_from_account ?? notice.bank_account_id;
+
+        const toBankAccount = retFromAccountId
+          ? await useRepo(this.bankAccountsRepo).findOne({
+              where: { bank_account_id: retFromAccountId },
+            })
+          : null;
 
         pdfData = {
           paytradeLogo: logoBase64 ? logoBase64 : null,
@@ -5810,9 +5820,9 @@ export class NoticesService {
             claim_date: convertToLocalDate(claimDate),
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
-            account_name: toBankAccount.account_name,
-            bsb: toBankAccount.bsb_number,
-            acc_number: toBankAccount.account_number,
+            account_name: toBankAccount?.account_name || '',
+            bsb: toBankAccount?.bsb_number || '',
+            acc_number: toBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
             retention_amount:
               retention_amount == 0 ? '0.00' : formatCurrency(retention_amount),
@@ -5843,15 +5853,20 @@ export class NoticesService {
       ) {
         let retention_amount = 0;
 
-        const toBankAccount = await useRepo(this.bankAccountsRepo).findOne({
-          where: { bank_account_id: payment_details.payment_to_account },
-        });
+        const prwFromAccountId =
+          payment_details.payment_from_account ?? notice.bank_account_id;
 
-        const retentiomBankAccount = await useRepo(
-          this.bankAccountsRepo,
-        ).findOne({
-          where: { bank_account_id: payment_details.retention_account },
-        });
+        const toBankAccount = prwFromAccountId
+          ? await useRepo(this.bankAccountsRepo).findOne({
+              where: { bank_account_id: prwFromAccountId },
+            })
+          : null;
+
+        const retentiomBankAccount = payment_details.retention_account
+          ? await useRepo(this.bankAccountsRepo).findOne({
+              where: { bank_account_id: payment_details.retention_account },
+            })
+          : null;
 
         if (payment_details.cash_retention === true) {
           if (retention_details) {
@@ -5865,12 +5880,12 @@ export class NoticesService {
             claim_date: convertToLocalDate(claimDate),
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
-            account_name: toBankAccount.account_name,
-            bsb: toBankAccount.bsb_number,
-            acc_number: toBankAccount.account_number,
-            ret_account_name: retentiomBankAccount.account_name,
-            ret_bsb: retentiomBankAccount.bsb_number,
-            ret_acc_number: retentiomBankAccount.account_number,
+            account_name: toBankAccount?.account_name || '',
+            bsb: toBankAccount?.bsb_number || '',
+            acc_number: toBankAccount?.account_number || '',
+            ret_account_name: retentiomBankAccount?.account_name || '',
+            ret_bsb: retentiomBankAccount?.bsb_number || '',
+            ret_acc_number: retentiomBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
             retention_amount:
               retention_amount == 0 ? null : formatCurrency(retention_amount),
