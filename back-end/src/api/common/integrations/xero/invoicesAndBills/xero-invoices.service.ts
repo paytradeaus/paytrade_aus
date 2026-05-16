@@ -3476,6 +3476,11 @@ export class XeroInvoicesService {
     const totalOriginal = (invoice?.subTotal ?? 0) + (invoice?.totalTax ?? 0);
 
     return items.map((item) => {
+      // `qty` is needed by both the retention allocation and the GST-rate
+      // derivation below; hoist it to the top so both blocks share one
+      // safe-coerced value (Number(undefined) → NaN, hence the ?? 1).
+      const qty = Number(item.quantity ?? 1) || 1;
+
       const unitAmount =
         lineAmountTypes === LineAmountTypes.Inclusive
           ? item.unitAmount - item.taxAmount
@@ -3489,8 +3494,17 @@ export class XeroInvoicesService {
       // Protect against division by zero to prevent Infinity/NaN values
       const itemRatio = totalOriginal !== 0 ? lineAmount / totalOriginal : 0;
 
-      const unitRetention = retentionUnitOnly * itemRatio;
-      const taxRetention = retentionTaxOnly * itemRatio;
+      // `retentionUnitOnly`/`retentionTaxOnly` are TOTAL retention amounts
+      // (line-level), so `unitRetention`/`taxRetention` here are also the
+      // line's share of retention. To merge into the per-unit `unitAmount`
+      // we must convert the line share back to per-unit by dividing by
+      // quantity — otherwise for qty≠1 the merged unit gets retention
+      // applied qty-times when later multiplied by qty (under-applied for
+      // qty<1, over-applied for qty>1).
+      const unitRetentionLine = retentionUnitOnly * itemRatio;
+      const taxRetentionLine = retentionTaxOnly * itemRatio;
+      const unitRetention = unitRetentionLine / qty;
+      const taxRetention = taxRetentionLine / qty;
 
       const newUnitAmount = unitAmount + unitRetention;
 
@@ -3541,12 +3555,28 @@ export class XeroInvoicesService {
         LineAmountTypes.Inclusive,
         LineAmountTypes.Exclusive,
       ].includes(lineAmountTypes);
+      // Xero's `taxAmount` on a line is the LINE total tax (qty-weighted),
+      // and `unitAmount` is per-unit. Dividing taxAmount/unitAmount only
+      // yields the true GST rate when qty=1; for fractional/decimal qty
+      // (e.g. claim 100044: qty=0.2, unitAmount=10000, taxAmount=200) it
+      // produces 0.02 instead of 0.10, which then mis-derives downstream
+      // line totals. Use the LINE ex-GST base (unitAmount × qty) as the
+      // denominator so any quantity works. (`qty` is hoisted at the top.)
+      const lineExGstOriginal = unitAmount * qty;
       const workLineRate =
-        isInvoiceTaxable && unitAmount > 0
-          ? (Number(item.taxAmount) || 0) / unitAmount
+        isInvoiceTaxable && lineExGstOriginal > 0
+          ? (Number(item.taxAmount) || 0) / lineExGstOriginal
           : 0;
-      const newTaxAmount = workLineRate > 0 ? newUnitAmount * workLineRate : 0;
-      const newAmountIncludingGST = newUnitAmount + newTaxAmount;
+      // PT line shape:
+      //   unit_price                    = per-unit ex-GST (newUnitAmount)
+      //   gst                           = line-total GST  (qty-weighted)
+      //   total_amount_including_gst    = line ex-GST × qty + line GST
+      // The reconciliation guard in addPaymentClaim re-derives the header
+      // as Σ(qty × unit_price) + Σ gst, so we MUST emit gst and
+      // total_amount_including_gst as line totals (not per-unit) here.
+      const lineExGstMerged = newUnitAmount * qty;
+      const newTaxAmount = workLineRate > 0 ? lineExGstMerged * workLineRate : 0;
+      const newAmountIncludingGST = lineExGstMerged + newTaxAmount;
 
       this.logger.log(JSON.stringify({
         newUnitAmount,
