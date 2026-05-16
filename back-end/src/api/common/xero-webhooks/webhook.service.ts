@@ -5214,8 +5214,16 @@ export class XeroWebhookService {
           eventType &&
           eventType !== 'CREATE' &&
           xeroDetails?.wait_time &&
-          xeroDetails?.wait_time > 0
+          xeroDetails?.wait_time > 0 &&
+          sync_run_type !== 'manual'
         ) {
+          // Webhook / scheduled-fallback path: defer the payment walk by
+          // `wait_time` seconds via the BullMQ wait-queue worker. Manual
+          // sync (sync_run_type === 'manual') deliberately falls through
+          // to the inline Stage 2 path below — it is user-initiated and
+          // must produce payments + payment_details in the same request,
+          // and we cannot rely on the wait-queue worker firing in every
+          // deployment topology.
           const addedJob =
             await this.xeroWaitQueueService.addDelayInXeroWebhookJob({
               tenant_id,
