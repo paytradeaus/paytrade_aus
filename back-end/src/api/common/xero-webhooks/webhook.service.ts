@@ -5418,6 +5418,146 @@ export class XeroWebhookService {
         },
       });
 
+      // Fail-fast: only fully mapped Xero entities should sync. The CREATE
+      // path (createClaimInPaytrade) already enforces this at L1538/L2541/
+      // L2593/L2647; the UPDATE/payment path historically did not, so an
+      // orphan xero_*_details row (auto-discovered Xero entity with no PT
+      // mapping yet) would slip past these lookups and surface a misleading
+      // downstream error like "Mismatch in claim type". Mirror the CREATE
+      // path's templates here so the user sees an honest "not mapped" log.
+      if (xeroContactDetails && !xeroContactDetails.pt_contact_id) {
+        this.logger.error(
+          `[checkAndProcessPayment] Contact found in xero_contact_details but pt_contact_id is null for invoice ${invoice?.invoiceID}. Aborting sync — write template ${sync_run_type === 'webhook' ? 265 : 425}.`,
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 265 : 425,
+          dynamic_values: {},
+          project_id: null,
+          contract_id: null,
+          reference: { xeroId: invoice?.invoiceID, paytradeId: null },
+          reference_id: invoice?.invoiceID,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Failed',
+            'Contract mapping validation': 'Ok',
+            'Project mapping validation': 'Ok',
+          },
+          error_message: `Contact details not mapped`,
+          xero_records: [{ ...invoice, xeroContactDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
+      if (xeroProjectDetails && !xeroProjectDetails.pt_project_id) {
+        this.logger.error(
+          `[checkAndProcessPayment] Project found in xero_project_details but pt_project_id is null for invoice ${invoice?.invoiceID}. Aborting sync — write template ${sync_run_type === 'webhook' ? 269 : 429}.`,
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            project_id: xeroProjectDetails?.project_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 269 : 429,
+          dynamic_values: {},
+          project_id: null,
+          contract_id: null,
+          reference: { xeroId: invoice?.invoiceID, paytradeId: null },
+          reference_id: invoice?.invoiceID,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contract mapping validation': 'Ok',
+            'Project mapping validation': 'Failed',
+          },
+          error_message: `Project details not mapped`,
+          xero_records: [{ ...invoice, xeroProjectDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
+      if (xeroContractDetails && !xeroContractDetails.pt_contract_id) {
+        this.logger.error(
+          `[checkAndProcessPayment] Contract found in xero_contract_details but pt_contract_id is null for invoice ${invoice?.invoiceID}. Aborting sync — write template ${sync_run_type === 'webhook' ? 268 : 428}.`,
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type:
+              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 268 : 428,
+          dynamic_values: {},
+          project_id: xeroProjectDetails?.id || null,
+          contract_id: null,
+          reference: { xeroId: invoice?.invoiceID, paytradeId: null },
+          reference_id: invoice?.invoiceID,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contract mapping validation': 'Failed',
+            'Project mapping validation': 'Ok',
+          },
+          error_message: `Contract details not mapped`,
+          xero_records: [{ ...invoice, xeroContractDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
       const contractDetails = await this.contractDetails.findOne({
         where: { contract_id: xeroContractDetails?.pt_contract_id },
       });
@@ -12239,6 +12379,56 @@ export class XeroWebhookService {
           integration_id: xeroDetails.integration_id,
         },
       });
+
+      // Fail-fast: only fully mapped Xero contacts should sync. An orphan
+      // xero_contact_details row (auto-discovered Xero contact with no PT
+      // mapping yet) would otherwise cause a null deref on pt_contact_id
+      // below and surface a misleading runtime error to the user.
+      if (!xeroContactDetails || !xeroContactDetails.pt_contact_id) {
+        this.logger.error(
+          `[createOverPaymentAndRefunds] Contact ${contact_id} ${
+            xeroContactDetails ? 'has no pt_contact_id mapping' : 'not found in xero_contact_details'
+          } on integration ${xeroDetails?.integration_id}. Aborting overpayment/refund sync — write template ${sync_run_type === 'webhook' ? 265 : 425}.`,
+        );
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: sync_id || null,
+          api_name: 'checkAndCreateOverPaymentAndRefunds',
+          api_payload: {
+            sync_run_type,
+            contact_id,
+            tenant_id: xeroDetails.tenant_id,
+            overpayment_id: overpayment?.overpaymentID,
+            is_under_payment,
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: sync_run_type === 'webhook' ? 265 : 425,
+          dynamic_values: {},
+          project_id: null,
+          contract_id: null,
+          reference: { xeroId: overpayment?.overpaymentID, paytradeId: null },
+          reference_id: overpayment?.overpaymentID,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Import failed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Failed',
+            'Contract mapping validation': 'Ok',
+            'Project mapping validation': 'Ok',
+          },
+          error_message: `Contact details not mapped`,
+          xero_records: [{ overpayment, xeroContactDetails }],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
 
       const clientSuppliersDetails = await this.clientSuppliersDetails.findOne({
         where: { client_supplier_id: xeroContactDetails.pt_contact_id },
