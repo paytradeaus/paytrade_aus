@@ -52,11 +52,19 @@ export class XeroResolver {
   }
 
   public refreshTokenReAuthenticate({ error }: { error: any }) {
+    if (typeof error !== 'string') return false;
+    // Match every refresh-token-dead string variant produced by
+    // `handleAxiosError` (back-end/src/api/common/error-handler.ts) and
+    // by raw Xero SDK errors. Keeping this list in sync with
+    // `error-handler.ts` is critical — otherwise schedulers/webhook
+    // fallbacks log a fresh ERROR every tick for a company that has
+    // simply disconnected from Xero (see prod log review 2026-05-16).
     return (
-      typeof error === 'string' &&
-      (error === 'Refresh token invalid or expired. Need to re-authenticate.' ||
-        error === `AuthenticationUnsuccessful` ||
-        error?.includes('TokenExpired: token expired'))
+      error === 'Refresh token invalid or expired. Need to re-authenticate.' ||
+      error === 'AuthenticationUnsuccessful' ||
+      error === 'Unauthorized: Refresh token is invalid or expired.' ||
+      error.includes('TokenExpired: token expired') ||
+      error.includes('invalid_grant')
     );
   }
 

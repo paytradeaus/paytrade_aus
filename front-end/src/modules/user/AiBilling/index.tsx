@@ -39,12 +39,11 @@ const formatCardBrand = (brand?: string | null) => {
 export default function AiBillingPanel() {
   const { decodeTokenData }: any = useTokenDetails();
   const decoded = decodeTokenData?.() ?? {};
-  const companyId = Number(
-    decoded?.company_id ??
-      (typeof window !== "undefined"
-        ? localStorage.getItem("companyId")
-        : 0) ?? 0
-  );
+  // IMPORTANT: only use the JWT's pinned company_id. The legacy
+  // localStorage `companyId` can drift from the JWT after a sudo /
+  // company switch and the BE assertCompanyAccess will then 403 with
+  // "Forbidden: company mismatch" (see prod log review 2026-05-17).
+  const companyId = Number(decoded?.company_id ?? 0);
 
   const [overview, setOverview] = useState<any>(null);
   const [ledger, setLedger] = useState<any[]>([]);

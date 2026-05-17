@@ -333,12 +333,12 @@ export default function AiPanel() {
     const justFinishedSending = prevSendingRef.current && !sending;
     prevSendingRef.current = sending;
     if (sending && !justFinishedSending) return;
-    const cid = Number(
-      decodeTokenData?.company_id ??
-        (typeof window !== "undefined"
-          ? localStorage.getItem("companyId")
-          : null),
-    );
+    // IMPORTANT: only use the JWT's pinned company_id. The legacy
+    // localStorage `companyId` value can drift from the JWT (e.g. after
+    // a sudo / company switch) and produces a guaranteed "Forbidden:
+    // company mismatch" on every poll — see prod log review for the
+    // 8 hits on 2026-05-17 01:27–05:00 UTC.
+    const cid = Number(decodeTokenData?.company_id ?? 0);
     if (!Number.isFinite(cid) || cid <= 0) {
       setCreditBalance(null);
       return;

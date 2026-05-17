@@ -832,7 +832,14 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
 
     this.logger.log(`${PREFIX} starting backfill of cached Xero PDFs`);
 
-    let lastId = 0;
+    // `xib.id` is a uuid PK — pagination cursor must therefore be a
+    // uuid string, NOT a number. The previous numeric `lastId = 0`
+    // caused Postgres to reject the comparison with
+    // `invalid input syntax for type uuid: "0"` on the very first
+    // iteration, so the whole backfill bailed out without making
+    // progress. Seed with the all-zero uuid (lexicographically smallest
+    // valid uuid) and advance with the entity id as-is.
+    let lastId = '00000000-0000-0000-0000-000000000000';
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const qb = this.xeroInvoicesBillsRepo
@@ -856,7 +863,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       const entities = rows.entities;
       const raws = rows.raw;
       if (!entities.length) break;
-      lastId = Number(entities[entities.length - 1].id) || lastId;
+      lastId = String(entities[entities.length - 1].id) || lastId;
 
       for (let i = 0; i < entities.length; i++) {
         const row = entities[i];
@@ -7438,7 +7445,30 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           try {
             await this.xeroService.refreshTokenSet(companyId, this.xero);
           } catch (refreshErr) {
-            this.logger.error(`${PREFIX} Token refresh failed for company ${companyId}: ${refreshErr?.message || refreshErr}`);
+            // Classify dead-refresh-token failures so we don't log a
+            // fresh ERROR every 15 minutes for a company that has
+            // simply disconnected. `handleAxiosError` normalises the
+            // Xero body to the bare `AuthenticationUnsuccessful`
+            // string that `refreshTokenReAuthenticate` recognises.
+            const normalised = await handleAxiosError(refreshErr);
+            const isDeadToken =
+              this.xeroResolver.refreshTokenReAuthenticate({
+                error: normalised,
+              });
+            if (isDeadToken) {
+              this.logger.warn(
+                `${PREFIX} Skipping company ${companyId} — needs reauth (${normalised})`,
+              );
+              // Best-effort: light up the reauth banner / daily
+              // reminder email. Never block the scheduler tick.
+              try {
+                await this.markIntegrationNeedsReauth(companyId);
+              } catch (_) {}
+            } else {
+              this.logger.error(
+                `${PREFIX} Token refresh failed for company ${companyId}: ${refreshErr?.message || refreshErr}`,
+              );
+            }
             continue;
           }
 
