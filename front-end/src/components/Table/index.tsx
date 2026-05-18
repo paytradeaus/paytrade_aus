@@ -437,7 +437,10 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
                   className={hoverOnRowClick ? "cu-pointer" : ""}
                 >
                   {enableCheckbox && (
-                    <td style={{ width: "0" }}>
+                    <td
+                      style={{ width: "0" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         checked={
@@ -449,9 +452,11 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
                               )
                             : false
                         }
-                        onChange={() =>
-                          handleCheckboxChange(rowData, renderDataIndex)
-                        }
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleCheckboxChange(rowData, renderDataIndex);
+                        }}
                         disabled={disableCheckBox}
                       />
                     </td>
