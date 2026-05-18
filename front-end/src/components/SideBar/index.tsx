@@ -14,6 +14,7 @@ import BaseModal from "../BaseModal";
 import { Roles } from "@/shared/constant/role";
 import _ from "lodash";
 import { useTokenDetails } from "@/hooks";
+import { getInvitationListsForCompany } from "@/modules/user/MultipleUserAccess/multipleUserAccess.function";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -33,6 +34,7 @@ export default function Sidebar() {
   const [currentPath, setCurrentPath] = useState("");
   const dispatch = useAppDispatch();
   const [displayPaymentsModal, setDisplayPaymentsModal] = useState(false);
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
 
   useEffect(() => {
     if (decodeTokenData?.companySpecificRoles?.length) {
@@ -48,6 +50,35 @@ export default function Sidebar() {
       setCurrentPath(pathname);
       dispatch(setDisplayResponsiveSidebar(false));
     }
+  }, [pathname]);
+
+  // Surface pending received invitations as a sidebar item so invitees
+  // (whose CompanyUserRoles status is Inactive on the invited company)
+  // have a discoverable way to accept/decline. The item only renders
+  // when the user actually has un-actioned invites.
+  useEffect(() => {
+    let cancelled = false;
+    const loadPendingInvites = async () => {
+      try {
+        const res = await getInvitationListsForCompany({
+          companyId: null,
+          pageNumber: 1,
+          pageSize: 50,
+          type: "Received",
+          search: "",
+        });
+        if (cancelled) return;
+        const list = res?.invitation_list || [];
+        const pending = list.filter((row: any) => !row?.user_action).length;
+        setPendingInviteCount(pending);
+      } catch {
+        if (!cancelled) setPendingInviteCount(0);
+      }
+    };
+    loadPendingInvites();
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   function displaySubscriptions() {
@@ -177,6 +208,47 @@ export default function Sidebar() {
                   <br />
                 </ul>
               </details>
+              {pendingInviteCount > 0 && (
+                <li className="cd-accordion__item">
+                  <Link
+                    href={AppRoutes.RECEIVED_REQUESTS}
+                    passHref
+                    legacyBehavior
+                  >
+                    <a
+                      className={`contrast ${
+                        pathname == AppRoutes.RECEIVED_REQUESTS ? "active" : ""
+                      }`}
+                      title={
+                        navCollapsed
+                          ? `Pending invitations (${pendingInviteCount})`
+                          : undefined
+                      }
+                    >
+                      <i className="fa-light fa-envelope-open-text"></i>
+                      <span className="pt_sidemenu_label">
+                        Pending invitations
+                      </span>
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          background: "#d93025",
+                          color: "#fff",
+                          borderRadius: 10,
+                          padding: "0 6px",
+                          fontSize: 11,
+                          lineHeight: "16px",
+                          display: "inline-block",
+                          minWidth: 16,
+                          textAlign: "center",
+                        }}
+                      >
+                        {pendingInviteCount}
+                      </span>
+                    </a>
+                  </Link>
+                </li>
+              )}
               {userSidebar?.map((sidebarRow: any, index: number) =>
                 !sidebarRow?.nestedList ? (
                   <li className="cd-accordion__item" key={index}>

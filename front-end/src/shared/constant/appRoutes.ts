@@ -210,6 +210,7 @@ export const AppRoutes = {
 
   USER_ACCESS: "/user/company/user-access",
   INVITATION: "/user/company/invitations",
+  RECEIVED_REQUESTS: "/user/company/received-requests",
   COMPANY_EDIT_USER: "/user/company/user-access/edit",
   COMPANY_ADD_USER: "/user/company/user-access/add",
 
