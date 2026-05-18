@@ -5785,6 +5785,9 @@ type FetchAllPaymentClaims {
   """UI metadata for claim list buttons."""
   claim_list_buttons: JSONObject
 
+  """User-supplied reference for the payment claim."""
+  claim_reference: String
+
   """Type of the payment claim."""
   claim_type: String!
 

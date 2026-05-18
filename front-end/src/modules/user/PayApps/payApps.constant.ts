@@ -216,30 +216,36 @@ const paymentsModalOptions = [
 ];
 
 export const ExcelColumnNames = [
+  { value: "claim_reference", label: "Reference" },
   { value: "cash_retention_type", label: "Type" },
   { value: "claim_type", label: "Billable" },
   { value: "project_name", label: "Project" },
   { value: "contract_name", label: "Contract" },
+  { value: "client_supplier_name", label: "Client / Supplier" },
   { value: "due_date", label: "Due Date" },
   { value: "claim_amount", label: "Total Claim (Gross of GST)" },
   { value: "list_status", label: "Status" },
 ];
 
 export const ReceivableExcelColumnNames = [
+  { value: "claim_reference", label: "Reference" },
   { value: "cash_retention_type", label: "Type" },
   { value: "claim_type", label: "Receivable" },
   { value: "project_name", label: "Project" },
   { value: "contract_name", label: "Contract" },
+  { value: "client_supplier_name", label: "Client / Supplier" },
   { value: "due_date", label: "Due Date" },
   { value: "claim_amount", label: "Total Claim (Gross of GST)" },
   { value: "list_status", label: "Status" },
 ];
 
 export const PdfheaderNames = (selectedPaymentType: any) => [
+  "Reference",
   "Type",
   selectedPaymentType === "Billable" ? "Billable" : "Receivable",
   "Project",
   "Contract",
+  "Client / Supplier",
   "Due Date",
   "Total Claim (Gross of GST)",
   "status",
@@ -255,6 +261,7 @@ export const payAppsheaderNames = (selectedPaymentType: any) => [
         : "Received/sent date",
     dataKey: "claim_date",
   },
+  { title: "Reference", dataKey: "claim_reference" },
   { title: "Type", dataKey: "cash_retention_type" },
   {
     title:
@@ -267,6 +274,7 @@ export const payAppsheaderNames = (selectedPaymentType: any) => [
   },
   { title: "Project", dataKey: "project_name" },
   { title: "Contract", dataKey: "contract_name" },
+  { title: "Client / Supplier", dataKey: "client_supplier_name" },
   { title: "Due Date", dataKey: "due_date" },
   { title: "Total Claim (Gross of GST)", dataKey: "claim_amount" },
   { title: "Status", dataKey: "list_status" },
@@ -274,10 +282,12 @@ export const payAppsheaderNames = (selectedPaymentType: any) => [
 ];
 
 export const pdfDataRow: any[] = [
+  "claim_reference",
   "cash_retention_type",
   "claim_type",
   "project_name",
   "contract_name",
+  "client_supplier_name",
   "due_date",
   "claim_amount",
   "status",
@@ -285,10 +295,12 @@ export const pdfDataRow: any[] = [
 
 export const paymentRenderData = [
   { key: "claim_date", typeOfDate: true },
+  { key: "claim_reference" },
   { key: "cash_retention_type" },
   { key: "claim_type" },
   { key: "project_name" },
   { key: "contract_name" },
+  { key: "client_supplier_name" },
   { key: "due_date" },
   { key: "claim_amount" },
   { key: "status", enableStatusIcons: true },

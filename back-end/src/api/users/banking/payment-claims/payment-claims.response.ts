@@ -379,6 +379,12 @@ export class FetchAllPaymentClaims {
   })
   list_status?: string;
 
+  @Field({
+    nullable: true,
+    description: 'User-supplied reference for the payment claim.',
+  })
+  claim_reference?: string;
+
   @Field({ nullable: true, description: 'Date when the claim was made.' })
   claim_date?: Date;
 

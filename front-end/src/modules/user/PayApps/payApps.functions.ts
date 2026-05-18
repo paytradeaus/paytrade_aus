@@ -7,6 +7,7 @@ export interface PaymentClaim {
   claim_amount: number;
   list_status: string | null;
   cash_retention_type: string | null;
+  claim_reference: string | null;
   client_supplier_name: string | null;
   contract_name: string | null;
   project_name: string | null;
@@ -38,6 +39,7 @@ export const fetchAllPaymentClaims = async (
                 cash_retention_type
                 claim_amount
                 claim_list_buttons
+                claim_reference
                 claim_type
                 claim_date
                 client_supplier_id
