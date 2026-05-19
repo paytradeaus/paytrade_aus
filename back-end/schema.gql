@@ -1941,14 +1941,23 @@ type BatchMatchResult {
 
 """Data for batch suggested matches."""
 type BatchSuggestedMatchesData {
+  """Count of bulk matches found."""
+  bulk_match_count: Float
+
   """Count of exact matches found."""
   exact_match_count: Float!
 
-  """List of suggested matches."""
+  """List of suggested matches (1-to-1 and bulk)."""
   matches: [SuggestedMatchItem!]!
 
   """Count of near matches found."""
   near_match_count: Float!
+
+  """Count of split matches found."""
+  split_match_count: Float
+
+  """Split matches: one sub-payment ↔ many bank lines."""
+  split_matches: [SplitMatchItem!]
 
   """Total unmatched transactions."""
   total_unmatched: Float!
@@ -14564,6 +14573,15 @@ type Mutation {
     transaction_ids: [String!]!
   ): BatchMatchResponse!
 
+  """Commit one or more SPLIT matches (one sub-payment ↔ many bank lines)."""
+  batchMatchSplitTransactions(
+    """List of sub-payment IDs (one per split pair)."""
+    sub_payment_ids: [Float!]!
+
+    """List of transaction-ID arrays, one per sub-payment."""
+    transaction_ids: [[String!]!]!
+  ): BatchMatchResponse!
+
   """
   Unmatch multiple transactions from their linked payments in a single operation.
   """
@@ -20235,6 +20253,39 @@ type SmartMatchPreferenceResponse {
   status: String!
 }
 
+"""A split suggestion: one sub-payment matched by several bank lines."""
+type SplitMatchItem {
+  """Difference amount (sub_payment - Σ legs). 0 for exact."""
+  difference_amount: Float!
+
+  """True when the bank-line candidate pool exceeded the auto-search cap."""
+  review_needed: Boolean
+
+  """The sub-payment being split-matched."""
+  sub_payment: SuggestedMatchPayment!
+
+  """Bank-line legs that together equal the sub-payment."""
+  transactions: [SplitTransactionLeg!]!
+}
+
+"""A single bank-line leg inside a SPLIT suggestion."""
+type SplitTransactionLeg {
+  """Bank account ID."""
+  bank_account_id: Float
+
+  """Transaction description."""
+  description: String
+
+  """Transaction UUID."""
+  id: String!
+
+  """Transaction amount (signed)."""
+  txn_amount: Float!
+
+  """Transaction date (ISO)."""
+  txn_date: DateTime!
+}
+
 """Key-value pair representing a statement field."""
 type StatementResponse {
   """Statement field name."""
@@ -20723,14 +20774,22 @@ type SubscriptionPricingPlanResponse {
 
 """A transaction with its suggested match."""
 type SuggestedMatchItem {
-  """Difference amount (txn - payment). 0 for exact."""
+  """Difference amount (txn - payment(s)). 0 for exact."""
   difference_amount: Float!
 
-  """Match quality: exact, near, or none."""
+  """Match quality: exact, near, bulk, or none."""
   match_quality: String!
 
-  """Best matching payment."""
+  """
+  True when the candidate pool exceeded the auto-search cap and a wider goal-seek review is recommended.
+  """
+  review_needed: Boolean
+
+  """Best matching payment (exact/near/none)."""
   suggested_payment: SuggestedMatchPayment
+
+  """Bulk match legs (one bank line ↔ many sub-payments)."""
+  suggested_payments: [SuggestedMatchPayment!]
 
   """Transaction UUID."""
   transaction_id: String!

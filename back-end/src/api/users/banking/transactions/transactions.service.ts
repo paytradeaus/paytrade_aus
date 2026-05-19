@@ -1001,8 +1001,11 @@ export class TransactionsService {
           }, 0);
           //  console.log('totalTxnAmount', totalTxnAmount);
 
-          // Compare the sums and throw error if they are not equal
-          if (totalPaymentAmount !== totalTxnAmount) {
+          // Compare the sums with a sub-cent epsilon so that suggestions
+          // produced by the Smart Match engine (which uses the same
+          // tolerance) are not rejected by binary floating-point drift
+          // when summing many legs in bulk/split commits.
+          if (Math.abs(totalPaymentAmount - totalTxnAmount) > 0.005) {
             throw new Error(
               'Total payment amount does not match total transaction amount.',
             );
@@ -3168,6 +3171,79 @@ export class TransactionsService {
     };
   }
 
+  /**
+   * Shape a raw sub-payment row from `fetchBatchSuggestedMatches` into
+   * the public `SuggestedMatchPayment` GraphQL contract. Extracted so
+   * the 1-to-1, bulk and split passes all emit identical structures.
+   */
+  private shapeSuggestedPayment(p: any) {
+    return {
+      id: p.id,
+      sub_payment_id: p.sub_payment_id,
+      payment_id: p.payment_id,
+      sub_payment_type: p.sub_payment_type,
+      amount: parseFloat(p.amount),
+      payment_type: p.payment_type,
+      payment_date: p.payment_date,
+      claim_type: p.claim_type,
+      client_supplier_name: p.client_supplier_name,
+      payment_from_account_name: p.payment_from_account_name,
+      payment_to_account_name: p.payment_to_account_name,
+      project_name: p.project_name,
+      contract_name: p.contract_name,
+      claim_amount: p.claim_amount ? parseFloat(p.claim_amount) : null,
+      payment_claim_id: p.payment_claim_id,
+      payment_from_account: p.payment_from_account,
+      payment_to_account: p.payment_to_account,
+      retention_account: p.retention_account,
+    };
+  }
+
+  /**
+   * Bounded subset-sum search. Returns the subset whose summed
+   * `valueOf(item)` is closest to `target` within `tolerance`, or
+   * `null` if no subset qualifies. Pool size is capped by the caller
+   * (default 8 in the bulk/split passes), giving a worst-case 2^8=256
+   * subsets per call — trivially fast.
+   *
+   * Prefers (a) smaller subsets, then (b) tighter difference, so a
+   * 2-leg exact match beats a 5-leg near match.
+   */
+  private findSubsetSum<T>(
+    items: T[],
+    valueOf: (t: T) => number,
+    target: number,
+    tolerance: number,
+  ): T[] | null {
+    if (!items?.length) return null;
+    const n = items.length;
+    if (n > 16) return null; // safety net — caller should cap at 8
+    const targetAbs = Math.abs(target);
+    let best: { subset: T[]; diff: number } | null = null;
+
+    for (let mask = 1; mask < 1 << n; mask++) {
+      let sum = 0;
+      const subset: T[] = [];
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i)) {
+          subset.push(items[i]);
+          sum += valueOf(items[i]);
+        }
+      }
+      if (subset.length < 2) continue;
+      const diff = Math.abs(Math.abs(sum) - targetAbs);
+      if (diff > tolerance) continue;
+      if (
+        !best ||
+        subset.length < best.subset.length ||
+        (subset.length === best.subset.length && diff < best.diff)
+      ) {
+        best = { subset, diff };
+      }
+    }
+    return best?.subset ?? null;
+  }
+
   async fetchBatchSuggestedMatches(
     bank_account_id: number,
     company_id: number,
@@ -3251,7 +3327,11 @@ export class TransactionsService {
       const parsedTolerance = parseFloat(process.env.SMART_MATCH_TOLERANCE || '5.00');
       const NEAR_MATCH_TOLERANCE = isNaN(parsedTolerance) ? 5.00 : parsedTolerance;
       const consumedSubPaymentIds = new Set<number>();
+      const consumedTxnIds = new Set<string>();
 
+      // ------------------------------------------------------------
+      // Pass 1 — 1-to-1 exact / near matches (existing behaviour).
+      // ------------------------------------------------------------
       for (const txn of unmatchedTxns) {
         const txnAmount = parseFloat(txn.txn_amount);
         let bestMatch = null;
@@ -3282,6 +3362,7 @@ export class TransactionsService {
 
         if (bestMatch) {
           consumedSubPaymentIds.add(bestMatch.sub_payment_id);
+          consumedTxnIds.add(txn.id);
         }
 
         if (bestQuality === 'exact') exactCount++;
@@ -3292,31 +3373,158 @@ export class TransactionsService {
           txn_amount: txnAmount,
           match_quality: bestQuality,
           difference_amount: bestMatch ? parseFloat((txnAmount - parseFloat(bestMatch.amount)).toFixed(2)) : 0,
+          review_needed: false,
           suggested_payment: bestMatch
-            ? {
-                id: bestMatch.id,
-                sub_payment_id: bestMatch.sub_payment_id,
-                payment_id: bestMatch.payment_id,
-                sub_payment_type: bestMatch.sub_payment_type,
-                amount: parseFloat(bestMatch.amount),
-                payment_type: bestMatch.payment_type,
-                payment_date: bestMatch.payment_date,
-                claim_type: bestMatch.claim_type,
-                client_supplier_name: bestMatch.client_supplier_name,
-                payment_from_account_name: bestMatch.payment_from_account_name,
-                payment_to_account_name: bestMatch.payment_to_account_name,
-                project_name: bestMatch.project_name,
-                contract_name: bestMatch.contract_name,
-                claim_amount: bestMatch.claim_amount ? parseFloat(bestMatch.claim_amount) : null,
-                payment_claim_id: bestMatch.payment_claim_id,
-                payment_from_account: bestMatch.payment_from_account,
-                payment_to_account: bestMatch.payment_to_account,
-                retention_account: bestMatch.retention_account,
-              }
+            ? this.shapeSuggestedPayment(bestMatch)
             : null,
+          suggested_payments: null,
         };
 
         matches.push(matchItem);
+      }
+
+      // ------------------------------------------------------------
+      // Pass 2 — BULK match (one bank line ↔ many sub-payments).
+      // For each still-unmatched bank line, look for a subset of
+      // remaining sub-payments (same sign, within ±DATE_WINDOW_DAYS)
+      // that sums to the bank amount within NEAR_MATCH_TOLERANCE.
+      // ------------------------------------------------------------
+      const DATE_WINDOW_DAYS = 3;
+      const CANDIDATE_CAP = 8;
+      let bulkCount = 0;
+      let splitCount = 0;
+      const dayMs = 86400000;
+
+      const remainingTxns = unmatchedTxns.filter((t) => !consumedTxnIds.has(t.id));
+      const remainingPayments = unmatchedPayments.filter(
+        (p) => !consumedSubPaymentIds.has(p.sub_payment_id),
+      );
+
+      for (let i = 0; i < matches.length; i++) {
+        const mi = matches[i];
+        if (mi.match_quality !== 'none') continue;
+        const txn = remainingTxns.find((t) => t.id === mi.transaction_id);
+        if (!txn) continue;
+        const txnAmount = parseFloat(txn.txn_amount);
+        const txnTime = new Date(txn.txn_date).getTime();
+
+        // Same-sign candidates within the date window AND still unconsumed.
+        const sameDirection = remainingPayments.filter((p) => {
+          if (consumedSubPaymentIds.has(p.sub_payment_id)) return false;
+          const amt = parseFloat(p.amount);
+          if ((amt < 0) !== (txnAmount < 0)) return false;
+          if (Math.abs(amt) > Math.abs(txnAmount) + NEAR_MATCH_TOLERANCE) return false;
+          if (!p.payment_date) return false;
+          const days = Math.abs(new Date(p.payment_date).getTime() - txnTime) / dayMs;
+          return days <= DATE_WINDOW_DAYS;
+        });
+
+        // Cap the search pool to the CANDIDATE_CAP nearest-by-date entries.
+        // If the pool was larger, flag the row as `review_needed` so the
+        // UI can offer a wider goal-seek pass.
+        const poolWasLarge = sameDirection.length > CANDIDATE_CAP;
+        const candidates = sameDirection
+          .map((p) => ({
+            p,
+            dayDiff: Math.abs(new Date(p.payment_date).getTime() - txnTime) / dayMs,
+          }))
+          .sort((a, b) => a.dayDiff - b.dayDiff)
+          .slice(0, CANDIDATE_CAP)
+          .map((c) => c.p);
+
+        if (candidates.length < 2) {
+          if (poolWasLarge) mi.review_needed = true;
+          continue;
+        }
+
+        const subset = this.findSubsetSum(
+          candidates,
+          (c) => parseFloat(c.amount),
+          txnAmount,
+          NEAR_MATCH_TOLERANCE,
+        );
+
+        if (subset && subset.length >= 2) {
+          for (const c of subset) consumedSubPaymentIds.add(c.sub_payment_id);
+          consumedTxnIds.add(txn.id);
+          const subsetSum = subset.reduce((s, c) => s + parseFloat(c.amount), 0);
+          mi.match_quality = 'bulk';
+          mi.difference_amount = parseFloat((txnAmount - subsetSum).toFixed(2));
+          mi.suggested_payments = subset.map((c) => this.shapeSuggestedPayment(c));
+          mi.suggested_payment = null;
+          mi.review_needed = poolWasLarge && Math.abs(txnAmount - subsetSum) > EPSILON;
+          bulkCount++;
+        } else if (poolWasLarge) {
+          mi.review_needed = true;
+        }
+      }
+
+      // ------------------------------------------------------------
+      // Pass 3 — SPLIT match (one sub-payment ↔ many bank lines).
+      // For each still-unmatched sub-payment, look for a subset of
+      // remaining bank lines (same sign, within ±DATE_WINDOW_DAYS).
+      // Only suggested when ALL legs are present in the unmatched pool;
+      // the engine never emits a partial split.
+      // ------------------------------------------------------------
+      const splitMatches: any[] = [];
+      const stillUnmatchedPayments = unmatchedPayments.filter(
+        (p) => !consumedSubPaymentIds.has(p.sub_payment_id),
+      );
+
+      for (const payment of stillUnmatchedPayments) {
+        if (!payment.payment_date) continue;
+        const paymentAmount = parseFloat(payment.amount);
+        const paymentTime = new Date(payment.payment_date).getTime();
+
+        const sameDirection = unmatchedTxns.filter((t) => {
+          if (consumedTxnIds.has(t.id)) return false;
+          const amt = parseFloat(t.txn_amount);
+          if ((amt < 0) !== (paymentAmount < 0)) return false;
+          if (Math.abs(amt) > Math.abs(paymentAmount) + NEAR_MATCH_TOLERANCE) return false;
+          const days = Math.abs(new Date(t.txn_date).getTime() - paymentTime) / dayMs;
+          return days <= DATE_WINDOW_DAYS;
+        });
+
+        if (sameDirection.length < 2) continue;
+
+        const poolWasLarge = sameDirection.length > CANDIDATE_CAP;
+        const candidates = sameDirection
+          .map((t) => ({
+            t,
+            dayDiff: Math.abs(new Date(t.txn_date).getTime() - paymentTime) / dayMs,
+          }))
+          .sort((a, b) => a.dayDiff - b.dayDiff)
+          .slice(0, CANDIDATE_CAP)
+          .map((c) => c.t);
+
+        const subset = this.findSubsetSum(
+          candidates,
+          (c) => parseFloat(c.txn_amount),
+          paymentAmount,
+          NEAR_MATCH_TOLERANCE,
+        );
+
+        if (subset && subset.length >= 2) {
+          for (const t of subset) consumedTxnIds.add(t.id);
+          consumedSubPaymentIds.add(payment.sub_payment_id);
+          const subsetSum = subset.reduce(
+            (s, c) => s + parseFloat(c.txn_amount),
+            0,
+          );
+          splitMatches.push({
+            sub_payment: this.shapeSuggestedPayment(payment),
+            transactions: subset.map((c) => ({
+              id: c.id,
+              txn_date: c.txn_date,
+              txn_amount: parseFloat(c.txn_amount),
+              description: c.description,
+              bank_account_id: c.bank_account_id,
+            })),
+            difference_amount: parseFloat((paymentAmount - subsetSum).toFixed(2)),
+            review_needed: poolWasLarge && Math.abs(paymentAmount - subsetSum) > EPSILON,
+          });
+          splitCount++;
+        }
       }
 
       return framedResponse(
@@ -3324,9 +3532,12 @@ export class TransactionsService {
         'Batch suggested matches fetched successfully.',
         {
           matches,
+          split_matches: splitMatches,
           total_unmatched: unmatchedTxns.length,
           exact_match_count: exactCount,
           near_match_count: nearCount,
+          bulk_match_count: bulkCount,
+          split_match_count: splitCount,
         },
       );
     } catch (error) {
@@ -3438,6 +3649,120 @@ export class TransactionsService {
     } catch (error) {
       this.logger.error(
         `Errored during batch match: ${error.message}`,
+      );
+      throw new Error(error);
+    }
+  }
+
+  /**
+   * Commit one or more SPLIT matches (one sub-payment ↔ many bank
+   * lines). The data model already supports this through
+   * `matchTxnsToPayments(transaction_ids[], [sub_payment_id])` — this
+   * method just iterates split pairs, validates company ownership and
+   * wraps each pair in its own try/catch so a single bad pair doesn't
+   * abort the whole batch.
+   */
+  async batchMatchSplitTransactions(
+    splitPairs: Array<{ sub_payment_id: number; transaction_ids: string[] }>,
+    userID: number,
+    callerCompanyId?: number,
+  ) {
+    try {
+      this.logger.log(
+        `Handling split batch match for ${splitPairs.length} pair(s)`,
+      );
+
+      const results = [];
+      let succeeded = 0;
+      let failed = 0;
+      const allPaymentIds: number[] = [];
+
+      for (const pair of splitPairs) {
+        try {
+          if (callerCompanyId) {
+            const foreignTxns = await this.transactionDetailsRepo
+              .createQueryBuilder('t')
+              .select('t.id', 'id')
+              .where('t.id IN (:...ids)', { ids: pair.transaction_ids })
+              .andWhere('t.company_id != :companyId', { companyId: callerCompanyId })
+              .getRawMany();
+            if (foreignTxns.length > 0) {
+              failed++;
+              results.push({
+                transaction_id: pair.transaction_ids.join(','),
+                success: false,
+                error: 'One or more transactions do not belong to the caller company.',
+              });
+              continue;
+            }
+            const foreignPayments = await this.subPaymentsRepo
+              .createQueryBuilder('sp')
+              .innerJoin('sp.payment', 'p')
+              .select('sp.sub_payment_id', 'sub_payment_id')
+              .where('sp.sub_payment_id = :id', { id: pair.sub_payment_id })
+              .andWhere('p.company_id != :companyId', { companyId: callerCompanyId })
+              .getRawMany();
+            if (foreignPayments.length > 0) {
+              failed++;
+              results.push({
+                transaction_id: pair.transaction_ids.join(','),
+                success: false,
+                error: 'Sub-payment does not belong to the caller company.',
+              });
+              continue;
+            }
+          }
+
+          const response = await this.matchTxnsToPayments(
+            pair.transaction_ids,
+            [pair.sub_payment_id],
+            userID,
+          );
+
+          if (response?.status === 'SUCCESS') {
+            succeeded++;
+            const responseData = response?.data as Record<string, unknown>;
+            if (responseData?.payment_Ids) {
+              allPaymentIds.push(...(responseData.payment_Ids as number[]));
+            }
+            results.push({
+              transaction_id: pair.transaction_ids.join(','),
+              success: true,
+              error: null,
+            });
+          } else {
+            failed++;
+            results.push({
+              transaction_id: pair.transaction_ids.join(','),
+              success: false,
+              error: response?.message || 'Split match failed',
+            });
+          }
+        } catch (err) {
+          failed++;
+          results.push({
+            transaction_id: pair.transaction_ids.join(','),
+            success: false,
+            error: err.message,
+          });
+        }
+      }
+
+      const uniquePaymentIds = [...new Set(allPaymentIds)];
+
+      return framedResponse(
+        succeeded > 0 ? 'SUCCESS' : 'ERROR',
+        `Split batch match complete: ${succeeded} succeeded, ${failed} failed.`,
+        {
+          results,
+          succeeded,
+          failed,
+          payment_ids: uniquePaymentIds,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored during split batch match: ${error.message}`,
       );
       throw new Error(error);
     }

@@ -652,6 +652,7 @@ async function FetchBatchSuggestedMatches(data: {
                 txn_amount
                 match_quality
                 difference_amount
+                review_needed
                 suggested_payment {
                   id
                   sub_payment_id
@@ -672,10 +673,63 @@ async function FetchBatchSuggestedMatches(data: {
                   payment_to_account
                   retention_account
                 }
+                suggested_payments {
+                  id
+                  sub_payment_id
+                  payment_id
+                  sub_payment_type
+                  amount
+                  payment_type
+                  payment_date
+                  claim_type
+                  client_supplier_name
+                  payment_from_account_name
+                  payment_to_account_name
+                  project_name
+                  contract_name
+                  claim_amount
+                  payment_claim_id
+                  payment_from_account
+                  payment_to_account
+                  retention_account
+                }
+              }
+              split_matches {
+                difference_amount
+                review_needed
+                sub_payment {
+                  id
+                  sub_payment_id
+                  payment_id
+                  sub_payment_type
+                  amount
+                  payment_type
+                  payment_date
+                  claim_type
+                  client_supplier_name
+                  payment_from_account_name
+                  payment_to_account_name
+                  project_name
+                  contract_name
+                  claim_amount
+                  payment_claim_id
+                  payment_from_account
+                  payment_to_account
+                  retention_account
+                }
+                transactions {
+                  id
+                  txn_date
+                  txn_amount
+                  description
+                  bank_account_id
+                }
               }
               total_unmatched
               exact_match_count
               near_match_count
+              bulk_match_count
+              split_match_count
             }
             message
             status
@@ -758,6 +812,64 @@ async function BatchMatchExactTransactions(data: {
     }
   } catch (error: any) {
     showErrorToast("Failed to batch match transactions");
+    return null;
+  }
+}
+
+async function BatchMatchSplitTransactions(data: {
+  sub_payment_ids: number[];
+  transaction_ids: string[][];
+}): Promise<any> {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation BatchMatchSplitTransactions(
+          $subPaymentIds: [Float!]!
+          $transactionIds: [[String!]!]!
+        ) {
+          batchMatchSplitTransactions(
+            sub_payment_ids: $subPaymentIds
+            transaction_ids: $transactionIds
+          ) {
+            data {
+              results {
+                transaction_id
+                success
+                error
+              }
+              succeeded
+              failed
+              payment_ids
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        subPaymentIds: data.sub_payment_ids,
+        transactionIds: data.transaction_ids,
+      },
+    });
+
+    if (
+      response?.data?.batchMatchSplitTransactions?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        response?.data?.batchMatchSplitTransactions?.message ||
+          "Split match completed"
+      );
+      return response?.data?.batchMatchSplitTransactions?.data;
+    }
+    if (
+      response?.data?.batchMatchSplitTransactions?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.batchMatchSplitTransactions?.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast("Failed to commit split matches");
     return null;
   }
 }
@@ -865,6 +977,7 @@ export {
   DeletePayments,
   FetchBatchSuggestedMatches,
   BatchMatchExactTransactions,
+  BatchMatchSplitTransactions,
   QuickAdjustAndMatch,
   GetSmartMatchPreference,
   SetSmartMatchPreference,

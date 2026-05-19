@@ -1187,6 +1187,95 @@ export class TransactionsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN, Role.STANDARD_USER)
+  @Mutation(() => BatchMatchResponse, {
+    name: 'batchMatchSplitTransactions',
+    description:
+      'Commit one or more SPLIT matches (one sub-payment ↔ many bank lines).',
+  })
+  async batchMatchSplitTransactions(
+    @Context() context,
+    @Args('sub_payment_ids', {
+      type: () => [Number],
+      description: 'List of sub-payment IDs (one per split pair).',
+    })
+    sub_payment_ids: number[],
+    @Args('transaction_ids', {
+      type: () => [[String]],
+      description: 'List of transaction-ID arrays, one per sub-payment.',
+    })
+    transaction_ids: string[][],
+  ) {
+    try {
+      this.logger.log(
+        `Request received for split batch match of ${sub_payment_ids.length} pair(s).`,
+      );
+
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      if (!decoded?.companyId) {
+        return framedResponse(
+          'ERROR',
+          'Company context is required for split batch matching.',
+        );
+      }
+
+      if (sub_payment_ids.length !== transaction_ids.length) {
+        return framedResponse(
+          'ERROR',
+          'sub_payment_ids and transaction_ids arrays must have the same length.',
+        );
+      }
+
+      const splitPairs = sub_payment_ids.map((spid, idx) => ({
+        sub_payment_id: spid,
+        transaction_ids: transaction_ids[idx],
+      }));
+
+      const result =
+        await this.transactionsService.batchMatchSplitTransactions(
+          splitPairs,
+          decoded.userId,
+          decoded.companyId,
+        );
+
+      const batchPaymentIds = (result?.data as Record<string, unknown>)?.payment_ids as number[] | undefined;
+      if (batchPaymentIds && batchPaymentIds.length > 0) {
+        for (const payment_id of batchPaymentIds) {
+          const paymentDetails =
+            await this.paymentsService.fetchPaymentDetails(payment_id);
+          if (paymentDetails?.project_id) {
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Project Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+            await this.complianceService
+              .fetchComplianceResultsOfAProject({
+                project_id: paymentDetails.project_id,
+                bank_account_type: 'Retention Trust Account',
+                failedFilter: false,
+              })
+              .catch(() => {});
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Errored during split batch match: ${error.message}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored during split batch match: ${error.message}`,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN, Role.STANDARD_USER)
   @Mutation(() => QuickAdjustMatchResponse, {
     name: 'quickAdjustAndMatch',
     description:

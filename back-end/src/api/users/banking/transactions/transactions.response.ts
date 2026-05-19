@@ -450,20 +450,62 @@ export class SuggestedMatchItem {
   @Field(() => Float, { description: 'Transaction amount (signed).' })
   txn_amount: number;
 
-  @Field({ description: 'Match quality: exact, near, or none.' })
+  @Field({ description: 'Match quality: exact, near, bulk, or none.' })
   match_quality: string;
 
-  @Field(() => Float, { description: 'Difference amount (txn - payment). 0 for exact.' })
+  @Field(() => Float, { description: 'Difference amount (txn - payment(s)). 0 for exact.' })
   difference_amount: number;
 
-  @Field(() => SuggestedMatchPayment, { nullable: true, description: 'Best matching payment.' })
+  @Field({ nullable: true, description: 'True when the candidate pool exceeded the auto-search cap and a wider goal-seek review is recommended.' })
+  review_needed: boolean;
+
+  @Field(() => SuggestedMatchPayment, { nullable: true, description: 'Best matching payment (exact/near/none).' })
   suggested_payment: SuggestedMatchPayment;
+
+  @Field(() => [SuggestedMatchPayment], { nullable: true, description: 'Bulk match legs (one bank line ↔ many sub-payments).' })
+  suggested_payments: SuggestedMatchPayment[];
+}
+
+@ObjectType({ description: 'A single bank-line leg inside a SPLIT suggestion.' })
+export class SplitTransactionLeg {
+  @Field({ description: 'Transaction UUID.' })
+  id: string;
+
+  @Field({ description: 'Transaction date (ISO).' })
+  txn_date: Date;
+
+  @Field(() => Float, { description: 'Transaction amount (signed).' })
+  txn_amount: number;
+
+  @Field({ nullable: true, description: 'Transaction description.' })
+  description: string;
+
+  @Field(() => Float, { nullable: true, description: 'Bank account ID.' })
+  bank_account_id: number;
+}
+
+@ObjectType({ description: 'A split suggestion: one sub-payment matched by several bank lines.' })
+export class SplitMatchItem {
+  @Field(() => SuggestedMatchPayment, { description: 'The sub-payment being split-matched.' })
+  sub_payment: SuggestedMatchPayment;
+
+  @Field(() => [SplitTransactionLeg], { description: 'Bank-line legs that together equal the sub-payment.' })
+  transactions: SplitTransactionLeg[];
+
+  @Field(() => Float, { description: 'Difference amount (sub_payment - Σ legs). 0 for exact.' })
+  difference_amount: number;
+
+  @Field({ nullable: true, description: 'True when the bank-line candidate pool exceeded the auto-search cap.' })
+  review_needed: boolean;
 }
 
 @ObjectType({ description: 'Data for batch suggested matches.' })
 export class BatchSuggestedMatchesData {
-  @Field(() => [SuggestedMatchItem], { description: 'List of suggested matches.' })
+  @Field(() => [SuggestedMatchItem], { description: 'List of suggested matches (1-to-1 and bulk).' })
   matches: SuggestedMatchItem[];
+
+  @Field(() => [SplitMatchItem], { nullable: true, description: 'Split matches: one sub-payment ↔ many bank lines.' })
+  split_matches: SplitMatchItem[];
 
   @Field({ description: 'Total unmatched transactions.' })
   total_unmatched: number;
@@ -473,6 +515,12 @@ export class BatchSuggestedMatchesData {
 
   @Field({ description: 'Count of near matches found.' })
   near_match_count: number;
+
+  @Field({ nullable: true, description: 'Count of bulk matches found.' })
+  bulk_match_count: number;
+
+  @Field({ nullable: true, description: 'Count of split matches found.' })
+  split_match_count: number;
 }
 
 @ObjectType({ description: 'Response for batch suggested matches.' })

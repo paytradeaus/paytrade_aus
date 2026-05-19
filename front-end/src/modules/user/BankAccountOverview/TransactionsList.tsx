@@ -30,6 +30,7 @@ import {
   FetchAllTransactions,
   FetchBatchSuggestedMatches,
   BatchMatchExactTransactions,
+  BatchMatchSplitTransactions,
   QuickAdjustAndMatch,
   GetSmartMatchPreference,
   SetSmartMatchPreference,
@@ -103,6 +104,9 @@ export default function Transactions() {
   const [smartMatchEnabled, setSmartMatchEnabled] = useState(false);
   const [suggestedMatches, setSuggestedMatches] = useState<any>(null);
   const [matchesMap, setMatchesMap] = useState<Record<string, any>>({});
+  const [splitsMap, setSplitsMap] = useState<
+    Record<string, { group: any; index: number; total: number }>
+  >({});
   const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
   const [smartMatchLoading, setSmartMatchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -422,6 +426,7 @@ export default function Transactions() {
     if (!smartMatchEnabled || transactionTab !== "To Review") {
       setSuggestedMatches(null);
       setMatchesMap({});
+      setSplitsMap({});
       return;
     }
     const bankAccId = getBankAccountId();
@@ -439,6 +444,18 @@ export default function Transactions() {
           map[m.transaction_id] = m;
         });
         setMatchesMap(map);
+
+        const splitMap: Record<
+          string,
+          { group: any; index: number; total: number }
+        > = {};
+        data.split_matches?.forEach((group: any) => {
+          const total = group.transactions?.length || 0;
+          group.transactions?.forEach((leg: any, idx: number) => {
+            splitMap[leg.id] = { group, index: idx + 1, total };
+          });
+        });
+        setSplitsMap(splitMap);
       }
     } catch {
     } finally {
@@ -497,6 +514,46 @@ export default function Transactions() {
     }
   }
 
+  async function handleBulkMatch(txnId: string, subPaymentIds: number[]) {
+    setActionLoading(txnId);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: [txnId],
+        sub_payment_ids: [subPaymentIds],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(1, 10);
+        setRefreshOverview(new Date().getTime());
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSplitMatch(
+    triggeringTxnId: string,
+    subPaymentId: number,
+    transactionIds: string[]
+  ) {
+    setActionLoading(triggeringTxnId);
+    try {
+      const result = await BatchMatchSplitTransactions({
+        sub_payment_ids: [subPaymentId],
+        transaction_ids: [transactionIds],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(1, 10);
+        setRefreshOverview(new Date().getTime());
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleBatchMatchAllExact() {
     if (!suggestedMatches?.matches) return;
     const exactMatches = suggestedMatches.matches.filter(
@@ -533,40 +590,43 @@ export default function Transactions() {
   function getMatchBadge(txnId: string) {
     if (smartMatchLoading) return null;
     const match = matchesMap[txnId];
-    if (!match) {
+    const split = splitsMap[txnId];
+
+    const toggle = (e: any) => {
+      e.stopPropagation();
+      setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
+    };
+
+    if (match?.match_quality === "bulk") {
+      const legCount = match.suggested_payments?.length || 0;
       return (
-        <span className="smallbutton rivertext">—</span>
+        <span className="valid smallbutton" onClick={toggle}>
+          Bulk · {legCount} payments
+        </span>
       );
     }
-    if (match.match_quality === "exact") {
+    if (match?.match_quality === "exact") {
       return (
-        <span
-          className="valid smallbutton"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
-          }}
-        >
+        <span className="valid smallbutton" onClick={toggle}>
           Exact Match
         </span>
       );
     }
-    if (match.match_quality === "near") {
+    if (match?.match_quality === "near") {
       return (
-        <span
-          className="contrast smallbutton"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
-          }}
-        >
+        <span className="contrast smallbutton" onClick={toggle}>
           Near Match (${Math.abs(match.difference_amount).toFixed(2)})
         </span>
       );
     }
-    return (
-      <span className="smallbutton rivertext">—</span>
-    );
+    if (split) {
+      return (
+        <span className="contrast smallbutton" onClick={toggle}>
+          Split · {split.index} of {split.total}
+        </span>
+      );
+    }
+    return <span className="smallbutton rivertext">—</span>;
   }
 
   function handleResetFilters() {
@@ -757,11 +817,176 @@ export default function Transactions() {
   const renderExpandedRow = (row: any) => {
     if (!smartMatchEnabled || expandedTxnId !== row?.id) return null;
     const match = matchesMap[row?.id];
+    const split = splitsMap[row?.id];
+    const isLoading = actionLoading === row?.id;
+
+    // BULK: one bank line ↔ many sub-payments
+    if (match?.match_quality === "bulk" && match.suggested_payments?.length) {
+      const legs = match.suggested_payments;
+      const totalAmt = legs.reduce(
+        (acc: number, p: any) => acc + Math.abs(Number(p.amount) || 0),
+        0
+      );
+      return (
+        <tr className="pt_expandtable">
+          <td colSpan={10} className="pt_records">
+            <div className="pt_expandtable">
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                Bulk match — {legs.length} sub-payments totalling $
+                {convertPositiveDecimalTwoDigit(totalAmt)}
+                {match.review_needed && (
+                  <span className="contrast smallbutton" style={{ marginLeft: 8 }}>
+                    Review needed
+                  </span>
+                )}
+              </div>
+              <table style={{ width: "100%", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Payment Type</th>
+                    <th>Client / Supplier</th>
+                    <th>Project / Contract</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.map((p: any) => (
+                    <tr key={p.sub_payment_id}>
+                      <td>{p.payment_type || "—"}</td>
+                      <td>{p.client_supplier_name || "—"}</td>
+                      <td>
+                        {p.project_name || "—"}
+                        {p.contract_name ? ` / ${p.contract_name}` : ""}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        ${convertPositiveDecimalTwoDigit(Math.abs(p.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <CustomButton
+                  buttonType={buttonType.PRIMARY}
+                  actionType="button"
+                  buttonName={isLoading ? "Matching..." : "Match Bulk"}
+                  iconClassName="fa-light fa-check-double"
+                  onClick={() =>
+                    handleBulkMatch(
+                      row.id,
+                      legs.map((p: any) => p.sub_payment_id)
+                    )
+                  }
+                  disabled={isLoading}
+                />
+                <Link
+                  href={`${AppRoutes.USER_MATCH_TRANSACTIONS}?bankAccountId=${getBankAccountId}`}
+                  className="smallbutton secondary"
+                >
+                  Full Match Screen &rarr;
+                </Link>
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    // SPLIT: one sub-payment ↔ many bank lines (this row is one leg)
+    if (split) {
+      const { group, total } = split;
+      const sp = group.sub_payment;
+      const legs = group.transactions || [];
+      return (
+        <tr className="pt_expandtable">
+          <td colSpan={10} className="pt_records">
+            <div className="pt_expandtable">
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                Split match — 1 payment split across {total} bank lines
+                {group.review_needed && (
+                  <span className="contrast smallbutton" style={{ marginLeft: 8 }}>
+                    Review needed
+                  </span>
+                )}
+              </div>
+              <div className="pt_records" style={{ marginBottom: 8 }}>
+                <div>
+                  <small className="rivertext">Payment Type</small>
+                  <div>{sp.payment_type || "—"}</div>
+                  <small className="rivertext">
+                    {sp.client_supplier_name || ""}
+                  </small>
+                </div>
+                <div>
+                  <small className="rivertext">Total Amount</small>
+                  <div>
+                    ${convertPositiveDecimalTwoDigit(Math.abs(sp.amount))}
+                  </div>
+                </div>
+                <div>
+                  <small className="rivertext">Details</small>
+                  <div>
+                    {sp.project_name || "—"}
+                    {sp.contract_name ? ` / ${sp.contract_name}` : ""}
+                  </div>
+                </div>
+              </div>
+              <table style={{ width: "100%", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.map((leg: any) => (
+                    <tr
+                      key={leg.id}
+                      style={leg.id === row.id ? { fontWeight: 600 } : {}}
+                    >
+                      <td>{formatDate(leg.txn_date)}</td>
+                      <td>{leg.description || "—"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        ${convertPositiveDecimalTwoDigit(Math.abs(leg.txn_amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <CustomButton
+                  buttonType={buttonType.PRIMARY}
+                  actionType="button"
+                  buttonName={isLoading ? "Matching..." : "Match Split"}
+                  iconClassName="fa-light fa-code-branch"
+                  onClick={() =>
+                    handleSplitMatch(
+                      row.id,
+                      sp.sub_payment_id,
+                      legs.map((l: any) => l.id)
+                    )
+                  }
+                  disabled={isLoading}
+                />
+                <Link
+                  href={`${AppRoutes.USER_MATCH_TRANSACTIONS}?bankAccountId=${getBankAccountId}`}
+                  className="smallbutton secondary"
+                >
+                  Full Match Screen &rarr;
+                </Link>
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    // EXACT / NEAR (1-to-1)
     if (!match || !match.suggested_payment) return null;
 
     const sp = match.suggested_payment;
     const isExact = match.match_quality === "exact";
-    const isLoading = actionLoading === row?.id;
 
     return (
       <tr className="pt_expandtable">
@@ -909,6 +1134,10 @@ export default function Transactions() {
                   ({suggestedMatches.exact_match_count} exact
                   {suggestedMatches.near_match_count > 0 &&
                     `, ${suggestedMatches.near_match_count} near`}
+                  {suggestedMatches.bulk_match_count > 0 &&
+                    `, ${suggestedMatches.bulk_match_count} bulk`}
+                  {suggestedMatches.split_match_count > 0 &&
+                    `, ${suggestedMatches.split_match_count} split`}
                   )
                 </span>
               )}
@@ -1097,8 +1326,9 @@ export default function Transactions() {
           if (
             smartMatchEnabled &&
             transactionTab === "To Review" &&
-            matchesMap[rowData?.id] &&
-            matchesMap[rowData?.id].match_quality !== "none"
+            ((matchesMap[rowData?.id] &&
+              matchesMap[rowData?.id].match_quality !== "none") ||
+              splitsMap[rowData?.id])
           ) {
             setExpandedTxnId(
               expandedTxnId === rowData?.id ? null : rowData?.id
