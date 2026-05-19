@@ -889,7 +889,16 @@ export default function AddEditContracts(props: any) {
     if (status == "completed") {
       handleComplete(values);
       return;
-    } else if (!skipStatusInfo && selectedClientSuplierType == "Supplier") {
+    } else if (
+      !skipStatusInfo &&
+      selectedClientSuplierType == "Supplier" &&
+      // Only warn about saving as Draft when the contract is actually
+      // going to land in Draft — i.e. it's a brand-new supplier
+      // contract, or an edit of one that's still in Draft. Editing an
+      // already-In Progress / Completed supplier contract should just
+      // update in place without the misleading "save as draft" prompt.
+      (!isEdit || contractData?.contract_status === "Draft")
+    ) {
       setDisplayStatusInfo(true);
       return true;
     }
@@ -903,7 +912,14 @@ export default function AddEditContracts(props: any) {
         contract_date: getCurrentUtcTime(),
         client_supplier_role: formik?.values?.ClientSupplierRole,
         contract_status:
-          selectedClientSuplierType === "Client" || !noticeEligible
+          // On edit, preserve the existing status unless the user
+          // explicitly transitions it (e.g. via "Completed - Send
+          // notices"). Forcing it back to "Draft" here previously
+          // caused an In Progress / Completed supplier contract to
+          // silently regress whenever the user edited a field.
+          isEdit && contractData?.contract_status
+            ? contractData.contract_status
+            : selectedClientSuplierType === "Client" || !noticeEligible
             ? "In Progress"
             : "Draft",
         retention_type: formik?.values?.RetentionType,
@@ -2151,7 +2167,7 @@ export default function AddEditContracts(props: any) {
           secondButtonName="Proceed"
         >
           <h4>
-            This will save as draft. You won't be able to use this account in
+            This will save as draft. You won't be able to use this contract in
             the system until marked as completed.
           </h4>
         </BaseModal>
