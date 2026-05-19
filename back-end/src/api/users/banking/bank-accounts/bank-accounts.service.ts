@@ -177,6 +177,14 @@ export class BankAccountsService {
       const data =
         await this.bankAccountsValidator.validateAddBankAccountDetails(payload);
 
+      // `mark_notices_as_sent` is a transient input flag consumed by
+      // `handleTriggerAccountNotices` — it is NOT a column on the
+      // BankAccounts entity. Strip it from `data` before any TypeORM
+      // write, otherwise the query builder throws:
+      //   Property "mark_notices_as_sent" was not found in "BankAccounts"
+      const markNoticesAsSent = !!(data as any)?.mark_notices_as_sent;
+      delete (data as any).mark_notices_as_sent;
+
       /*
       Notices needs to be sent after the successful addition of bank account either manually or automatically based upon the subscription plan.
       Need to check whether the status needs to be updated as 'Open' as soon as the notices are sent.(As per document).
@@ -246,7 +254,7 @@ export class BankAccountsService {
               decoded,
               {
                 bank_account_id,
-                mark_notices_as_sent: !!data?.mark_notices_as_sent,
+                mark_notices_as_sent: markNoticesAsSent,
               },
               transactionalEntityManager
             );
@@ -528,6 +536,13 @@ export class BankAccountsService {
       const { bank_account_id } = data;
       delete data.bank_account_id;
       delete data.company_id;
+      // `mark_notices_as_sent` is a transient input flag consumed by
+      // `handleTriggerAccountNotices` — it is NOT a column on the
+      // BankAccounts entity. Strip it from `data` before any TypeORM
+      // write, otherwise the query builder throws:
+      //   Property "mark_notices_as_sent" was not found in "BankAccounts"
+      const markNoticesAsSent = !!(data as any)?.mark_notices_as_sent;
+      delete (data as any).mark_notices_as_sent;
 
       const accountDetails = await this.bankAccountsRepo.findOne({
         where: { bank_account_id },
@@ -570,7 +585,7 @@ export class BankAccountsService {
               decoded,
               {
                 bank_account_id: bank_account_id,
-                mark_notices_as_sent: !!data?.mark_notices_as_sent,
+                mark_notices_as_sent: markNoticesAsSent,
               },
               transactionalEntityManager,
             );
