@@ -40,13 +40,13 @@ const trustTrainingGridHeaders = [
     restrictSorting: true,
   },
   {
-    title: "Client/Supplier Name",
-    dataKey: "account_name",
+    title: "Account Number",
+    dataKey: "account_number",
     restrictSorting: true,
   },
   {
-    title: "Number",
-    dataKey: "account_number",
+    title: "BSB Number",
+    dataKey: "bsb_number",
     restrictSorting: true,
   },
 ];
@@ -58,13 +58,13 @@ const OverallTrustTrainingGridHeaders = [
     restrictSorting: true,
   },
   {
-    title: "Client/Supplier Name",
-    dataKey: "account_name",
+    title: "Account Number",
+    dataKey: "account_number",
     restrictSorting: true,
   },
   {
-    title: "Number",
-    dataKey: "account_number",
+    title: "BSB Number",
+    dataKey: "bsb_number",
     restrictSorting: true,
   },
   { title: "", restrictSorting: true, alignCenter: true },
@@ -73,8 +73,8 @@ const OverallTrustTrainingGridHeaders = [
 const trustTrainingRenderData = (isViewMode: any) => {
   return [
     { key: "account_type", trim: isViewMode ? 30 : 25 },
-    { key: "account_name", trim: isViewMode ? 50 : 25 },
-    { key: "account_number", trim: 25 },
+    { key: "account_number", trim: isViewMode ? 50 : 25 },
+    { key: "bsb_number", trim: 25 },
   ];
 };
 
