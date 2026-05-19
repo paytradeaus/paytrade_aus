@@ -15491,8 +15491,13 @@ export class XeroWebhookService {
         //     `needs_push` so the operator can recover PT-origin
         //     records that never made it to Xero.
 
-        const inferType = (this.xeroPaymentsService as any).inferTrustMovementType?.bind(
-          this.xeroPaymentsService,
+        // `inferTrustMovementType` is a static method on
+        // XeroPaymentsService — call it via the constructor, not the
+        // instance. Input shape is { fromIsTrust, isRtaTrust, refText }
+        // (NOT bank-account ids — the caller derives those from the
+        // pre-loaded trust↔cash pair map and account-type lookup).
+        const inferType = (XeroPaymentsService as any).inferTrustMovementType?.bind(
+          XeroPaymentsService,
         );
 
         // ---- PT side: unlinked PT trust movements in window ----
@@ -15591,27 +15596,55 @@ export class XeroWebhookService {
         }
         const trustPairs = await (async () => {
           // Lazy-load PT bank account pair table — one query.
+          // `bank_accounts.bank_account_id` is the integer surrogate
+          // referenced by `xero_bank_account_details.pt_bank_account_id`,
+          // and `account_type` is the human-readable enum value
+          // ('Project Trust Account' / 'Retention Trust Account' / 'Cash Account').
           try {
             const sql = `
-              SELECT b.id AS trust_id, b.associated_cash_account_id AS cash_id
-              FROM bank_account_details b
+              SELECT b.bank_account_id AS trust_id,
+                     b.associated_cash_account_id AS cash_id,
+                     b.account_type AS trust_account_type
+              FROM bank_accounts b
               WHERE b.company_id = $1
-                AND b.account_type IN ('PTA','RTA')
+                AND b.account_type IN ('Project Trust Account', 'Retention Trust Account')
                 AND b.associated_cash_account_id IS NOT NULL
             `;
             const r = await this.paymentDetails.query(sql, [company_id]);
             return (r || []).map((row: any) => ({
               trust_id: Number(row.trust_id),
               cash_id: Number(row.cash_id),
+              trust_account_type: String(row.trust_account_type || ''),
             }));
           } catch {
-            return [] as Array<{ trust_id: number; cash_id: number }>;
+            return [] as Array<{
+              trust_id: number;
+              cash_id: number;
+              trust_account_type: string;
+            }>;
           }
         })();
         const trustPairSet = new Set<string>();
+        // Map a (fromPt → toPt) directed key to { trustOnFrom, isRtaTrust }
+        // so we can compute `fromIsTrust` + `isRtaTrust` for the inferer
+        // in O(1) without re-querying account types per transfer.
+        const trustPairMeta = new Map<
+          string,
+          { trustOnFrom: boolean; isRtaTrust: boolean }
+        >();
         for (const pair of trustPairs) {
+          const isRta =
+            pair.trust_account_type === 'Retention Trust Account';
           trustPairSet.add(`${pair.trust_id}:${pair.cash_id}`);
           trustPairSet.add(`${pair.cash_id}:${pair.trust_id}`);
+          trustPairMeta.set(`${pair.trust_id}:${pair.cash_id}`, {
+            trustOnFrom: true,
+            isRtaTrust: isRta,
+          });
+          trustPairMeta.set(`${pair.cash_id}:${pair.trust_id}`, {
+            trustOnFrom: false,
+            isRtaTrust: isRta,
+          });
         }
 
         // Xero accountingApi.getBankTransfers does NOT page (it returns
@@ -15710,11 +15743,12 @@ export class XeroWebhookService {
           // Suggest payment_type for the import action.
           let suggestedType: string | null = null;
           try {
-            if (inferType && fromPt != null && toPt != null) {
+            const meta = trustPairMeta.get(`${fromPt}:${toPt}`);
+            if (inferType && meta) {
               suggestedType =
                 inferType({
-                  fromPtBankAccountId: fromPt,
-                  toPtBankAccountId: toPt,
+                  fromIsTrust: meta.trustOnFrom,
+                  isRtaTrust: meta.isRtaTrust,
                   refText: reference,
                 })?.payment_type || null;
             }
