@@ -46,6 +46,7 @@ import { PtContentsService } from 'src/api/admin/pt-contents/pt-contents.service
 import { EmailService } from 'src/libs/@email-services/email.service';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { NoticeGenDocService } from './notice-gen-doc.service';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { paytradeLogo, qbccLogo } from './doc-images-base64';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { ProjectDetails } from 'src/entities/project-details.entity';
@@ -5683,7 +5684,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             account_number: bankAccount.account_number,
             sign: subscription?.signature ? subscription.signature : ' ',
             opening_date: convertToLocalDate(bankAccount.opening_date),
@@ -5708,7 +5709,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             dateO: convertToLocalDate(bankAccount.opening_date),
             account_number: bankAccount.account_number,
             notice_date: convertToLocalDate(notice.created_on),
@@ -5732,7 +5733,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             account_number: bankAccount.account_number,
             notice_date: convertToLocalDate(notice.created_on),
           },
@@ -5755,7 +5756,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             dateO: convertToLocalDate(bankAccount.opening_date),
             account_number: bankAccount.account_number,
             notice_date: convertToLocalDate(notice.created_on),
@@ -5779,7 +5780,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             account_number: bankAccount.account_number,
             notice_date: convertToLocalDate(notice.created_on),
           },
@@ -5801,7 +5802,7 @@ export class NoticesService {
             user_name: userLoggedIn.first_name + ' ' + userLoggedIn.last_name,
             account_name: bankAccount.account_name,
             bank_name: bank.institution_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             account_number: bankAccount.account_number,
             sign: subscription?.signature ? subscription.signature : ' ',
             opening_date: convertToLocalDate(bankAccount.opening_date),
@@ -5870,11 +5871,11 @@ export class NoticesService {
             payment_date: convertToLocalDate(payment_details.payment_date),
             account_finins: toBank?.institution_name || '',
             account_name: toBankAccount?.account_name || '',
-            bsb: toBankAccount?.bsb_number || '',
+            bsb: padBsb6(toBankAccount?.bsb_number) || '',
             acc_number: toBankAccount?.account_number || '',
             ret_account_finins: bank?.institution_name || '',
             ret_account_name: retentiomBankAccount?.account_name || '',
-            ret_bsb: retentiomBankAccount?.bsb_number || '',
+            ret_bsb: padBsb6(retentiomBankAccount?.bsb_number) || '',
             ret_acc_number: retentiomBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
             retention_amount: hasRetention
@@ -5936,7 +5937,7 @@ export class NoticesService {
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
             account_name: toBankAccount?.account_name || '',
-            bsb: toBankAccount?.bsb_number || '',
+            bsb: padBsb6(toBankAccount?.bsb_number) || '',
             acc_number: toBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
             retention_amount:
@@ -6001,10 +6002,10 @@ export class NoticesService {
             claim_id: payment_claim_details.payment_claim_id,
             payment_date: convertToLocalDate(payment_details.payment_date),
             account_name: toBankAccount?.account_name || '',
-            bsb: toBankAccount?.bsb_number || '',
+            bsb: padBsb6(toBankAccount?.bsb_number) || '',
             acc_number: toBankAccount?.account_number || '',
             ret_account_name: retentiomBankAccount?.account_name || '',
-            ret_bsb: retentiomBankAccount?.bsb_number || '',
+            ret_bsb: padBsb6(retentiomBankAccount?.bsb_number) || '',
             ret_acc_number: retentiomBankAccount?.account_number || '',
             payment_amount: formatCurrency(payment_details.total_amount),
             retention_amount:
@@ -6104,7 +6105,7 @@ export class NoticesService {
           },
           trustAcct: {
             name: trustAccount?.account_name,
-            bsb: trustAccount?.bsb_number,
+            bsb: padBsb6(trustAccount?.bsb_number),
             dateO: trustAccount?.account_name
               ? convertToLocalDate(trustAccount?.opening_date)
               : '',
@@ -6222,7 +6223,7 @@ export class NoticesService {
 
           trustAcct: {
             name: bankAccount.account_name,
-            bsb: bankAccount.bsb_number,
+            bsb: padBsb6(bankAccount.bsb_number),
             dateO: bankAccount.account_name
               ? convertToLocalDate(bankAccount.opening_date)
               : '',
@@ -6381,7 +6382,7 @@ export class NoticesService {
           },
           trustAcct: {
             name: trustAccount?.account_name,
-            bsb: trustAccount?.bsb_number,
+            bsb: padBsb6(trustAccount?.bsb_number),
             dateO: trustAccount?.account_name
               ? convertToLocalDate(trustAccount?.opening_date)
               : '',
@@ -6390,7 +6391,7 @@ export class NoticesService {
           },
           retnAcct: {
             name: retentionAccount?.account_name,
-            bsb: retentionAccount?.bsb_number,
+            bsb: padBsb6(retentionAccount?.bsb_number),
             dateO: retentionAccount?.account_name
               ? convertToLocalDate(retentionAccount?.opening_date)
               : '',
@@ -6600,7 +6601,7 @@ export class NoticesService {
 
           retnAcct: {
             name: retentionAccount?.account_name,
-            bsb: retentionAccount?.bsb_number,
+            bsb: padBsb6(retentionAccount?.bsb_number),
             dateO: retentionAccount?.account_name
               ? convertToLocalDate(retentionAccount?.opening_date)
               : '',
@@ -6730,7 +6731,7 @@ export class NoticesService {
           },
           trustAcct: {
             name: trustAccount?.account_name,
-            bsb: trustAccount?.bsb_number,
+            bsb: padBsb6(trustAccount?.bsb_number),
             dateO: trustAccount?.account_name
               ? convertToLocalDate(trustAccount?.opening_date)
               : '',
@@ -6839,7 +6840,7 @@ export class NoticesService {
           },
           retnAcct: {
             name: retentionAccount?.account_name,
-            bsb: retentionAccount?.bsb_number,
+            bsb: padBsb6(retentionAccount?.bsb_number),
             dateO: retentionAccount?.account_name
               ? convertToLocalDate(retentionAccount?.opening_date)
               : '',
@@ -6975,7 +6976,7 @@ export class NoticesService {
               ? companyAdmin.first_name + ' ' + companyAdmin.last_name
               : ' ',
             name: contracted_person ? trustAccount?.account_name : ' ',
-            bsb: contracted_person ? trustAccount?.bsb_number : '',
+            bsb: contracted_person ? padBsb6(trustAccount?.bsb_number) : '',
             dateO: contracted_person
               ? convertToLocalDate(trustAccount?.opening_date)
               : '',
