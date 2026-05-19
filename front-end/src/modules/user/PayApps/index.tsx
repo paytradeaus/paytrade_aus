@@ -27,6 +27,13 @@ import {
   tabOptions,
   toggleOptions,
 } from "./payApps.constant";
+import ColumnSettingsMenu, {
+  ColumnOption,
+  buildEffectiveOrder,
+} from "@/components/ColumnSettingsMenu";
+import { useAppSelector } from "@/redux/store";
+import { setTablePreference } from "@/redux/slices/uiPreferences";
+import { persistUiPreferences } from "@/network/uiPreferences";
 import {
   buttonType,
   filterByDuration,
@@ -65,6 +72,13 @@ export default function PayApps({ overViewDetails = {} }: any) {
     data: overviewData,
   } = overViewDetails;
   const dispatch = useAppDispatch();
+  // Per-user table prefs for the Claims grid (column order + visibility).
+  // Persisted to user_details.ui_preferences.extra.tablePreferences.payApps.
+  const PAY_APPS_TABLE_KEY = "payApps";
+  const tablePref = useAppSelector(
+    (s: any) => s?.uiPreferences?.tablePreferences?.[PAY_APPS_TABLE_KEY]
+  ) as { columnOrder?: string[]; hiddenColumns?: string[] } | undefined;
+  const persistTimerRef = useRef<any>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const claimType = useSearchParams().get("claim-type");
   const retentionType = useSearchParams().get("retention-type");
@@ -171,6 +185,14 @@ export default function PayApps({ overViewDetails = {} }: any) {
     if (isCookiePresent) {
       deleteCookie("redirectAfterLogin");
     }
+  }, []);
+
+  // Defensive: cancel any pending column-prefs persist on unmount so a
+  // delayed write can't fire after the component has gone away.
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
   }, []);
 
   const truncateText = (text: any, maxLength = 25) => {
@@ -590,6 +612,113 @@ export default function PayApps({ overViewDetails = {} }: any) {
     setActivityDate(selectedValue); // Perform any other actions based on the selected value
   };
 
+  // ─── Column preferences (reorder + show/hide, persisted per user) ───────
+  // Canonical column list for the Claims grid. dataKey matches the header
+  // dataKey returned by payAppsheaderNames; renderKey is the key used by
+  // paymentRenderData (Status uses "list_status" in the header but "status"
+  // in the render row). Labels here are what the column-settings menu shows
+  // — kept stable regardless of Billable/Receivable toggle so the user's
+  // saved order doesn't get confusing labels.
+  const CLAIM_COLUMN_DEFS: Array<{
+    dataKey: string;
+    renderKey: string;
+    label: string;
+  }> = [
+    { dataKey: "claim_date", renderKey: "claim_date", label: "Received/Sent Date" },
+    { dataKey: "claim_reference", renderKey: "claim_reference", label: "Reference" },
+    { dataKey: "cash_retention_type", renderKey: "cash_retention_type", label: "Type" },
+    { dataKey: "claim_type", renderKey: "claim_type", label: "Billable/Receivable" },
+    { dataKey: "project_name", renderKey: "project_name", label: "Project" },
+    { dataKey: "contract_name", renderKey: "contract_name", label: "Contract" },
+    { dataKey: "client_supplier_name", renderKey: "client_supplier_name", label: "Client / Supplier" },
+    { dataKey: "due_date", renderKey: "due_date", label: "Due Date" },
+    { dataKey: "claim_amount", renderKey: "claim_amount", label: "Total Claim (Gross of GST)" },
+    { dataKey: "list_status", renderKey: "status", label: "Status" },
+  ];
+
+  const allClaimsColumns: ColumnOption[] = CLAIM_COLUMN_DEFS.map((c) => ({
+    dataKey: c.dataKey,
+    label: c.label,
+  }));
+
+  const savedOrder: string[] = Array.isArray(tablePref?.columnOrder)
+    ? (tablePref!.columnOrder as string[])
+    : [];
+  const savedHidden: string[] = Array.isArray(tablePref?.hiddenColumns)
+    ? (tablePref!.hiddenColumns as string[])
+    : [];
+
+  // Build the effective header list: take the *current* header objects
+  // (titles depend on selectedPaymentType), filter out hidden columns,
+  // reorder to match the user's saved order, then append the trailing
+  // "Actions" header so the row-action icons always sit on the right.
+  const currentHeaders = payAppsheaderNames(selectedPaymentType);
+  const headerByKey = new Map<string, any>(
+    currentHeaders
+      .filter((h: any) => h?.dataKey)
+      .map((h: any) => [h.dataKey, h])
+  );
+  const renderByKey = new Map<string, any>(
+    paymentRenderData.map((r: any) => [r.key, r])
+  );
+
+  const orderedDefs = buildEffectiveOrder(allClaimsColumns, savedOrder);
+  const hiddenSet = new Set(savedHidden);
+  const visibleDefs = orderedDefs.filter((c) => !hiddenSet.has(c.dataKey));
+
+  // Effective table headers: visible data columns (in saved order) + the
+  // unchangeable trailing Actions header from the original list.
+  const trailingActions = currentHeaders.find(
+    (h: any) => !h?.dataKey || h?.title === "Actions"
+  );
+  const effectiveHeaders = [
+    ...visibleDefs
+      .map((c) => headerByKey.get(c.dataKey))
+      .filter(Boolean),
+    ...(trailingActions ? [trailingActions] : []),
+  ];
+
+  // Effective render row list, mapped via renderKey (Status uses "status").
+  const effectiveRenderRowList = visibleDefs
+    .map((c) => {
+      const def = CLAIM_COLUMN_DEFS.find((d) => d.dataKey === c.dataKey);
+      return def ? renderByKey.get(def.renderKey) : null;
+    })
+    .filter(Boolean);
+
+  // Debounced persist — avoid spamming the server on every drag tick.
+  const handleColumnPrefsChange = ({
+    order,
+    hidden,
+  }: {
+    order: string[];
+    hidden: string[];
+  }) => {
+    dispatch(
+      setTablePreference({
+        tableKey: PAY_APPS_TABLE_KEY,
+        pref: { columnOrder: order, hiddenColumns: hidden },
+      })
+    );
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      persistUiPreferences({
+        extra: {
+          tablePreferences: {
+            [PAY_APPS_TABLE_KEY]: {
+              columnOrder: order,
+              hiddenColumns: hidden,
+            },
+          },
+        },
+      });
+    }, 600);
+  };
+
+  const handleColumnPrefsReset = () => {
+    handleColumnPrefsChange({ order: [], hidden: [] });
+  };
+
   return (
     <div className="container-fluid">
       <div className="pt_title">
@@ -642,6 +771,13 @@ export default function PayApps({ overViewDetails = {} }: any) {
           </div>
           <div className="pt_pageactions">
             <div className="actionbuttons">
+              <ColumnSettingsMenu
+                allColumns={allClaimsColumns}
+                order={savedOrder}
+                hidden={savedHidden}
+                onChange={handleColumnPrefsChange}
+                onReset={handleColumnPrefsReset}
+              />
               <GridExportActions
                 resetFilterFunction={() => {
                   resetFilters();
@@ -874,7 +1010,7 @@ export default function PayApps({ overViewDetails = {} }: any) {
           </div>
 
           <DynamicTable
-            headers={payAppsheaderNames(selectedPaymentType)}
+            headers={effectiveHeaders}
             gridData={
               paymentclaimGridData.length > 0 ? paymentclaimGridData : []
             }
@@ -884,7 +1020,7 @@ export default function PayApps({ overViewDetails = {} }: any) {
             hoverOnRowClick
             showLoader={loading}
             loaderColSpan={10}
-            renderRowList={paymentRenderData}
+            renderRowList={effectiveRenderRowList}
             currentPage={currentPage}
             entriesPerPage={entriesPerPage}
             onEntriesPerPageChange={setEntriesPerPage}

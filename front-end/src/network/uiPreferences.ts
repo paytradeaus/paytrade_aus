@@ -8,6 +8,10 @@ export interface UiPreferencesPayload {
   aiPanelWidth: number;
   aiLiveFollowEnabled: boolean;
   aiLiveFollowEnabledAt: string | null;
+  // Free-form JSON bag persisted via UpdateUiPreferencesInput.extra.
+  // We use it to store per-table preferences under
+  // extra.tablePreferences[tableKey] = { columnOrder, hiddenColumns, filters }.
+  extra: Record<string, any> | null;
 }
 
 const UI_PREFS_FIELDS = `
@@ -16,6 +20,7 @@ const UI_PREFS_FIELDS = `
   aiPanelWidth
   aiLiveFollowEnabled
   aiLiveFollowEnabledAt
+  extra
 `;
 
 export async function fetchUiPreferences(): Promise<UiPreferencesPayload | null> {
@@ -47,6 +52,7 @@ export async function persistUiPreferences(input: {
   navCollapsed?: boolean;
   aiPanelState?: "open" | "rail" | "hidden";
   aiPanelWidth?: number;
+  extra?: Record<string, any>;
 }): Promise<UiPreferencesPayload | null> {
   try {
     const res = await client.mutate({

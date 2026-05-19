@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@apollo/client": "^3.11.8",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@lottiefiles/lottie-player": "^2.0.12",
     "@reduxjs/toolkit": "^2.2.7",
     "@sentry/nextjs": "^10.10.0",

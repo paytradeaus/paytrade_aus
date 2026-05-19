@@ -2,6 +2,20 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export type AiPanelState = "open" | "rail" | "hidden";
 
+// Per-table user preferences. Keyed by an arbitrary table identifier
+// (e.g. "payApps"). Persisted under user_details.ui_preferences.extra
+// .tablePreferences.<tableKey>.
+export interface TablePreference {
+  // Ordered list of column dataKeys. Columns not present in this list
+  // (because they were added in a later release) fall back to their
+  // natural position at the end.
+  columnOrder?: string[];
+  // dataKeys of columns the user has hidden via the column settings menu.
+  hiddenColumns?: string[];
+  // Free-form per-table filter bag (multi-status, client/supplier ids, etc.).
+  filters?: Record<string, any>;
+}
+
 export interface UiPreferencesState {
   navCollapsed: boolean;
   aiPanelState: AiPanelState;
@@ -9,6 +23,8 @@ export interface UiPreferencesState {
   aiLiveFollowEnabled: boolean;
   aiLiveFollowEnabledAt: string | null;
   aiLiveFollowPageLabel: string | null;
+  // Per-table prefs keyed by table id. Hydrated from extra.tablePreferences.
+  tablePreferences: Record<string, TablePreference>;
   hydrated: boolean;
 }
 
@@ -59,6 +75,7 @@ const initialState: UiPreferencesState = (() => {
     aiLiveFollowEnabled: false,
     aiLiveFollowEnabledAt: null,
     aiLiveFollowPageLabel: null,
+    tablePreferences: {},
     hydrated: false,
   };
 })();
@@ -89,8 +106,39 @@ const slice = createSlice({
       if (p.aiLiveFollowEnabledAt !== undefined) {
         state.aiLiveFollowEnabledAt = p.aiLiveFollowEnabledAt;
       }
+      // Hydrate per-table prefs from extra.tablePreferences. The server
+      // returns extra as a free-form JSON object; we only trust the
+      // tablePreferences key here.
+      const extra = (action.payload as any)?.extra as
+        | Record<string, any>
+        | undefined;
+      const tp = extra?.tablePreferences;
+      if (tp && typeof tp === "object") {
+        const next: Record<string, TablePreference> = {};
+        for (const key of Object.keys(tp)) {
+          const v = tp[key] || {};
+          next[key] = {
+            columnOrder: Array.isArray(v.columnOrder) ? v.columnOrder : [],
+            hiddenColumns: Array.isArray(v.hiddenColumns)
+              ? v.hiddenColumns
+              : [],
+            filters: v.filters && typeof v.filters === "object" ? v.filters : {},
+          };
+        }
+        state.tablePreferences = next;
+      }
       state.hydrated = true;
       writeLocal(state);
+    },
+    setTablePreference: (
+      state,
+      action: PayloadAction<{ tableKey: string; pref: TablePreference }>
+    ) => {
+      const { tableKey, pref } = action.payload;
+      state.tablePreferences[tableKey] = {
+        ...(state.tablePreferences[tableKey] || {}),
+        ...pref,
+      };
     },
     setNavCollapsed: (state, action: PayloadAction<boolean>) => {
       state.navCollapsed = action.payload;
@@ -136,6 +184,7 @@ export const {
   setAiPanelWidth,
   setAiLiveFollow,
   setAiLiveFollowPageLabel,
+  setTablePreference,
 } = slice.actions;
 
 export default slice.reducer;
