@@ -116,4 +116,18 @@ export class TempSaveTransactions {
 
   @Column({ type: 'boolean', default: false })
   is_similar: boolean;
+
+  // Task #233 — Authoritative closing balance read from the uploaded
+  // CSV's preamble (e.g. NAB's `Closing balance: AUD 0.00 CR`). When
+  // present, `addSelectedTransactions` uses this as the suggested
+  // current balance instead of guessing from the transaction rows.
+  @Column({ type: 'decimal', precision: 55, scale: 2, nullable: true })
+  csv_closing_balance: number | null;
+
+  // Task #233 — Original 0-based row index in the uploaded CSV. Used
+  // as a deterministic tie-breaker when multiple transactions share
+  // the same `txn_date`, so we can pick the truly-last row instead of
+  // relying on Postgres' indeterminate same-key ordering.
+  @Column({ type: 'integer', nullable: true })
+  csv_row_index: number | null;
 }

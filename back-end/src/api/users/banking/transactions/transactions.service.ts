@@ -2555,7 +2555,7 @@ export class TransactionsService {
       // columns, `="..."` formula-escaped cells). Normalise to the
       // canonical PT template columns first so the rest of the
       // pipeline can stay format-agnostic.
-      const csvContent = this.normaliseBankCsv(
+      const { csv: csvContent, csvClosingBalance } = this.normaliseBankCsv(
         fileBuffer.toString('utf-8'),
       );
       const records = parse(csvContent, { columns: true });
@@ -2565,7 +2565,7 @@ export class TransactionsService {
         .delete()
         .execute();
 
-      await this.storeInTemporaryTable(records);
+      await this.storeInTemporaryTable(records, csvClosingBalance);
 
       const filteredrecords = await this.filterEntries(bank_account_id);
 
@@ -2601,8 +2601,8 @@ export class TransactionsService {
    * `txn_date,txn_amount,description,balance`) it is returned
    * unchanged.
    */
-  normaliseBankCsv(raw: string): string {
-    if (!raw) return raw;
+  normaliseBankCsv(raw: string): { csv: string; csvClosingBalance: number | null } {
+    if (!raw) return { csv: raw, csvClosingBalance: null };
 
     // Strip BOM and Excel locale directive ("sep=,"). The directive
     // can also declare a non-comma delimiter (e.g. "sep=;" in some
@@ -2618,6 +2618,49 @@ export class TransactionsService {
     // Rebuild the working text so the fallback (no-header) path also
     // returns the sep=-stripped content.
     const stripped = lines.join('\n');
+
+    // Task #233 — Capture the authoritative "Closing balance" from the
+    // CSV preamble (NAB / CBA / Westpac business exports all include
+    // it). Format examples seen in the wild:
+    //   `Closing balance: ,"AUD 0.00 CR"`
+    //   `Closing Balance,,1234.56`
+    //   `Closing balance:,AUD -200.00 DR`
+    // Strip currency code, commas, parentheses, and CR/DR suffix; treat
+    // "DR" (debit / overdrawn) and parens as negative.
+    // Only scan the preamble (label must be at the START of a line,
+    // possibly inside an opening quote). This prevents false matches
+    // when a transaction description happens to contain the phrase
+    // "closing balance". We also bail out of the scan as soon as we
+    // encounter a row that looks like CSV data (starts with a date),
+    // so we never look past the preamble.
+    let csvClosingBalance: number | null = null;
+    const startsWithDate = /^"?\s*\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}\b/;
+    const closingLabelRe = /^"?\s*closing\s*balance\b/i;
+    for (const line of lines) {
+      if (!line) continue;
+      if (startsWithDate.test(line)) break;
+      if (!closingLabelRe.test(line)) continue;
+      // Take everything after the first colon or comma following the
+      // label so we don't pick up the label cell itself.
+      const afterLabel = line.replace(
+        /^"?\s*closing\s*balance[^:,]*[:,]\s*/i,
+        '',
+      );
+      if (afterLabel === line) continue; // label parse failed — skip
+      const cleaned = afterLabel
+        .replace(/"/g, '')
+        .replace(/[A-Za-z]{3}\s*/g, '')
+        .trim();
+      const isDr = /\bDR\b|\(.*\)/i.test(cleaned);
+      const numMatch = cleaned.match(/-?\d[\d,]*(?:\.\d+)?/);
+      if (numMatch) {
+        const n = parseFloat(numMatch[0].replace(/,/g, ''));
+        if (Number.isFinite(n)) {
+          csvClosingBalance = isDr ? -Math.abs(n) : n;
+          break;
+        }
+      }
+    }
 
     // Find the first row that looks like a transaction header. We
     // need a Date-ish column and either an Amount column or both
@@ -2681,7 +2724,7 @@ export class TransactionsService {
     // No recognisable header — let csv-parse raise the existing
     // error, but with BOM + sep= already stripped so it sees a clean
     // payload.
-    if (headerIdx === -1) return stripped;
+    if (headerIdx === -1) return { csv: stripped, csvClosingBalance };
 
     const norm = headerCells.map((c) => c.trim().toLowerCase());
     const colIdx = (re: RegExp) => norm.findIndex((c) => re.test(c));
@@ -2702,7 +2745,7 @@ export class TransactionsService {
       norm.includes('txn_amount') &&
       norm.includes('description') &&
       norm.includes('balance');
-    if (canonical) return text;
+    if (canonical) return { csv: text, csvClosingBalance };
 
     // Unwrap Excel formula escapes: `="value"` → `value`.
     const unwrap = (v: string): string => {
@@ -2766,11 +2809,14 @@ export class TransactionsService {
       );
     }
 
-    return outRows.join('\n');
+    return { csv: outRows.join('\n'), csvClosingBalance };
   }
 
   //storing the csv in a temp entity
-  async storeInTemporaryTable(records) {
+  async storeInTemporaryTable(
+    records,
+    csvClosingBalance: number | null = null,
+  ) {
     try {
       await this.temperoryRepoTransactions
         .createQueryBuilder()
@@ -2819,7 +2865,7 @@ export class TransactionsService {
       }
 
       const tempRecords = [];
-      filteredRecords.map((record) => {
+      filteredRecords.map((record, idx) => {
         const dateRegex = /^\d{2}[-\/]\d{2}[-\/]\d{4}$/;
         let txnDate = new Date(record.txn_date);
         if (dateRegex.test(record.txn_date)) {
@@ -2858,6 +2904,13 @@ export class TransactionsService {
             txn_amount: parseFloat(record.txn_amount),
             balance: parseFloat(record.balance),
             is_processed: false,
+            // Task #233 — Stamp every temp row with the CSV's
+            // authoritative closing balance (when present) and its
+            // original CSV row index, so addSelectedTransactions can
+            // (a) prefer the closing balance over its row-pick heuristic
+            // and (b) break same-date ties deterministically.
+            csv_closing_balance: csvClosingBalance,
+            csv_row_index: idx,
           });
         } else if (validationErrors.length === 1) {
           throw new Error(`Error : ${singleValidationError.join(',')}`);
@@ -2960,16 +3013,19 @@ export class TransactionsService {
     confirm,
   ) {
     try {
-      //Map selected IDs to temporary table entries
+      // Task #233 — Pull selected temp rows. Order primarily by
+      // `txn_date DESC` and break ties with `csv_row_index DESC` so the
+      // truly-latest CSV row (i.e. lowest in a chronological CSV)
+      // surfaces first. Falling back to indeterminate Postgres ordering
+      // was the root cause of the wrong-balance suggestion on
+      // same-date NAB exports.
       const selectedRecords = await this.temperoryRepoTransactions.find({
         where: { id: In(selectedIds) },
-        order: { txn_date: 'DESC' },
+        order: { txn_date: 'DESC', csv_row_index: 'DESC' },
       });
 
       let currentBalance = 0;
       let historicTxn = false;
-
-      // const latestRecord = selectedRecords[0];
 
       const latestDate = selectedRecords[0]?.txn_date;
 
@@ -2984,6 +3040,21 @@ export class TransactionsService {
       const bankAccount = await this.bankAccountsRepo.findOne({
         where: { bank_account_id: AccountId },
       });
+
+      // Task #233 — Compare dates by their full ISO calendar date
+      // (YYYY-MM-DD) instead of `Date#getDate()`, which only returns
+      // day-of-month (1–31) and would mistakenly match rows from other
+      // months that happen to share the same day.
+      const sameCalendarDay = (a: Date | string, b: Date | string): boolean => {
+        try {
+          return (
+            new Date(a).toISOString().slice(0, 10) ===
+            new Date(b).toISOString().slice(0, 10)
+          );
+        } catch {
+          return false;
+        }
+      };
 
       if (latestTxnsfromDB.length) {
         const latestDBDate = latestTxnsfromDB[0]?.txn_date;
@@ -3000,18 +3071,42 @@ export class TransactionsService {
           historicTxn = true;
         }
       } else {
-        const latestDateTransactions = selectedRecords.filter(
-          (record) =>
-            new Date(record.txn_date).getDate() ===
-            new Date(latestDate).getDate(),
-        );
-
-        // The latest record based on txn_date
-        const latestRecord =
-          latestDateTransactions[latestDateTransactions.length - 1];
-
-        if (latestRecord) {
-          currentBalance = latestRecord?.balance;
+        // Task #233 — Prefer the authoritative `Closing balance` parsed
+        // from the CSV preamble (NAB / CBA / Westpac business exports
+        // all include it). Falls through to the row-pick heuristic only
+        // when the file didn't provide one.
+        const csvClosing = selectedRecords.find(
+          (r) => r?.csv_closing_balance != null,
+        )?.csv_closing_balance;
+        if (csvClosing != null) {
+          currentBalance = Number(csvClosing);
+        } else {
+          // Detect statement direction from the CSV row order: walk
+          // selectedRecords sorted by `csv_row_index ASC` and compare
+          // the first vs last txn_date. If dates ascend with row order,
+          // the latest-date row sits at the BOTTOM (highest row index);
+          // if dates descend, it sits at the TOP (lowest row index).
+          // Falls back to "descending" if direction is ambiguous.
+          const byRow = [...selectedRecords]
+            .filter((r) => r?.csv_row_index != null)
+            .sort((a, b) => a.csv_row_index - b.csv_row_index);
+          let pickHighestRowIdx = true; // ascending statement = pick last row
+          if (byRow.length >= 2) {
+            const firstT = new Date(byRow[0].txn_date).getTime();
+            const lastT = new Date(byRow[byRow.length - 1].txn_date).getTime();
+            if (firstT > lastT) pickHighestRowIdx = false;
+          }
+          const latestDateTransactions = selectedRecords
+            .filter((record) => sameCalendarDay(record.txn_date, latestDate))
+            .sort((a, b) =>
+              pickHighestRowIdx
+                ? (b.csv_row_index ?? 0) - (a.csv_row_index ?? 0)
+                : (a.csv_row_index ?? 0) - (b.csv_row_index ?? 0),
+            );
+          const latestRecord = latestDateTransactions[0];
+          if (latestRecord) {
+            currentBalance = latestRecord?.balance;
+          }
         }
       }
 
