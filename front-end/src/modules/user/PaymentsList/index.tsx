@@ -1,9 +1,16 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCookie } from "cookies-next";
 import { useDispatch } from "react-redux";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
+import ColumnSettingsMenu, {
+  ColumnOption,
+  buildEffectiveOrder,
+} from "@/components/ColumnSettingsMenu";
+import { useAppDispatch, useAppSelector } from "@/redux/store";
+import { setTablePreference } from "@/redux/slices/uiPreferences";
+import { persistUiPreferences } from "@/network/uiPreferences";
 import {
   PAYMENT_OPTIONS,
   tabOptions,
@@ -62,6 +69,23 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
     overViewType,
   } = overViewDetails;
   const dispatch = useDispatch();
+  const appDispatch = useAppDispatch();
+  // Per-user table prefs for the Payments grid (column order + visibility).
+  // Persisted to user_details.ui_preferences.extra.tablePreferences.paymentsList.
+  const PAYMENTS_LIST_TABLE_KEY = "paymentsList";
+  const tablePref = useAppSelector(
+    (s: any) => s?.uiPreferences?.tablePreferences?.[PAYMENTS_LIST_TABLE_KEY]
+  ) as { columnOrder?: string[]; hiddenColumns?: string[] } | undefined;
+  const tablePrefRef = useRef<any>(null);
+  const persistTimerRef = useRef<any>(null);
+  useEffect(() => {
+    tablePrefRef.current = tablePref || null;
+  }, [tablePref]);
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, []);
   const router = useRouter();
   const selectedCompanyId = Number(getCookie("companyId")) || 0;
   const searchParams = useSearchParams();
@@ -554,6 +578,119 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
     setActivityDate(selectedValue); // Perform any other actions based on the selected value
   }
 
+  // ----- Column-settings (Customise columns) wiring -----
+  // Data-driven definition of every column the table CAN render. The
+  // trailing "Actions" column is always pinned on the right and is not
+  // user-toggleable.
+  const PAYMENT_COLUMN_DEFS: Array<{
+    dataKey: string;
+    renderKey: string;
+    label: string;
+  }> = [
+    { dataKey: "payment_date", renderKey: "payment_date", label: "Payment Date" },
+    { dataKey: "payment_type", renderKey: "payment_type", label: "Payment Type" },
+    { dataKey: "project_name", renderKey: "project_name", label: "Project" },
+    { dataKey: "contract_name", renderKey: "contract_name", label: "Contract" },
+    {
+      dataKey: "payment_from_account_name",
+      renderKey: "payment_from_account_name",
+      label: "Payment From Account Name",
+    },
+    {
+      dataKey: "payment_to_account_name",
+      renderKey: "payment_to_account_name",
+      label: "Payment To Account Name",
+    },
+    { dataKey: "payment_amount", renderKey: "payment_amount", label: "Payment Amount" },
+    { dataKey: "list_status", renderKey: "list_status", label: "Status" },
+  ];
+
+  const allPaymentColumns: ColumnOption[] = PAYMENT_COLUMN_DEFS.map((c) => ({
+    dataKey: c.dataKey,
+    label: c.label,
+  }));
+
+  const savedOrder: string[] = Array.isArray(tablePref?.columnOrder)
+    ? (tablePref!.columnOrder as string[])
+    : [];
+  const savedHidden: string[] = Array.isArray(tablePref?.hiddenColumns)
+    ? (tablePref!.hiddenColumns as string[])
+    : [];
+
+  const headerByKey = new Map<string, any>(
+    PdfheaderNames.filter((h: any) => h?.dataKey).map((h: any) => [h.dataKey, h])
+  );
+  const renderByKey = new Map<string, any>(
+    paymentRenderData.map((r: any) => [r.key, r])
+  );
+
+  const orderedDefs = buildEffectiveOrder(allPaymentColumns, savedOrder);
+  const hiddenSet = new Set(savedHidden);
+  const visibleDefs = orderedDefs.filter((c) => !hiddenSet.has(c.dataKey));
+
+  const trailingActions = PdfheaderNames.find(
+    (h: any) => !h?.dataKey || h?.title === "Actions"
+  );
+  const effectiveHeaders = [
+    ...visibleDefs.map((c) => headerByKey.get(c.dataKey)).filter(Boolean),
+    ...(trailingActions ? [trailingActions] : []),
+  ];
+  const effectiveRenderRowList = visibleDefs
+    .map((c) => {
+      const def = PAYMENT_COLUMN_DEFS.find((d) => d.dataKey === c.dataKey);
+      return def ? renderByKey.get(def.renderKey) : null;
+    })
+    .filter(Boolean);
+
+  // Debounced persistence: write the merged pref payload to redux
+  // immediately for snappy UI, then push to the server after a short
+  // idle window so rapid drag-reorders coalesce into one network call.
+  const saveTablePrefs = (
+    patch: Partial<{ columnOrder: string[]; hiddenColumns: string[] }>
+  ) => {
+    const current = (tablePrefRef.current || tablePref || {}) as any;
+    const next = {
+      columnOrder: Array.isArray(patch.columnOrder)
+        ? patch.columnOrder
+        : Array.isArray(current.columnOrder)
+        ? current.columnOrder
+        : [],
+      hiddenColumns: Array.isArray(patch.hiddenColumns)
+        ? patch.hiddenColumns
+        : Array.isArray(current.hiddenColumns)
+        ? current.hiddenColumns
+        : [],
+    };
+    tablePrefRef.current = next;
+    appDispatch(
+      setTablePreference({ tableKey: PAYMENTS_LIST_TABLE_KEY, pref: next })
+    );
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      persistUiPreferences({
+        extra: {
+          tablePreferences: { [PAYMENTS_LIST_TABLE_KEY]: next },
+        },
+      }).catch(() => {
+        /* swallow — UI already updated; next change will retry */
+      });
+    }, 400);
+  };
+
+  const handleColumnPrefsChange = ({
+    order,
+    hidden,
+  }: {
+    order: string[];
+    hidden: string[];
+  }) => {
+    saveTablePrefs({ columnOrder: order, hiddenColumns: hidden });
+  };
+
+  const handleColumnPrefsReset = () => {
+    saveTablePrefs({ columnOrder: [], hiddenColumns: [] });
+  };
+
   return (
     <div className="container-fluid">
       <div className="pt_title">
@@ -596,27 +733,32 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
               </div>
             )}
           </div>
-          <div className="pt_pageactions">
-            <div className="actionbuttons">
-              <GridExportActions
-                resetFilterFunction={() => {
-                  resetFilters();
-                }}
-                hideExcelButton={paymentsListData.length > 0 ? false : true}
-                hidePdfButton={paymentsListData.length > 0 ? false : true}
-                hideResetButton={!isAnyFilterActive}
-                handleDownloadExcelFile={() => {
-                  handleDownloadExcelFile();
-                }}
-                disabledOnExcel={disableExcelBtn}
-                exportFromAPI={true}
-                disabledPDF={disablePDFBtn}
-                handleDownloadPrintPDF={() => {
-                  handleDownloadPdfFile();
-                }}
+          <GridExportActions
+            resetFilterFunction={() => {
+              resetFilters();
+            }}
+            hideExcelButton={paymentsListData.length > 0 ? false : true}
+            hidePdfButton={paymentsListData.length > 0 ? false : true}
+            hideResetButton={!isAnyFilterActive}
+            handleDownloadExcelFile={() => {
+              handleDownloadExcelFile();
+            }}
+            disabledOnExcel={disableExcelBtn}
+            exportFromAPI={true}
+            disabledPDF={disablePDFBtn}
+            handleDownloadPrintPDF={() => {
+              handleDownloadPdfFile();
+            }}
+            leadingActions={
+              <ColumnSettingsMenu
+                allColumns={allPaymentColumns}
+                order={savedOrder}
+                hidden={savedHidden}
+                onChange={handleColumnPrefsChange}
+                onReset={handleColumnPrefsReset}
               />
-            </div>
-          </div>
+            }
+          />
         </div>
         <div className="pt_toggles pt_filters">
           <fieldset>
@@ -819,7 +961,7 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
           </div>
 
           <DynamicTable
-            headers={PdfheaderNames}
+            headers={effectiveHeaders}
             gridData={paymentsListData.length > 0 ? paymentsListData : []}
             gridActions={actions}
             onRowClick={(data: any) => {
@@ -828,7 +970,7 @@ export default function PaymentLists({ overViewDetails = {} }: any) {
             showLoader={loading}
             dynamicApiGridIconsKey={"payment_list_buttons"}
             loaderColSpan={10}
-            renderRowList={paymentRenderData}
+            renderRowList={effectiveRenderRowList}
             currentPage={page}
             entriesPerPage={perPage}
             onEntriesPerPageChange={setPerPage}

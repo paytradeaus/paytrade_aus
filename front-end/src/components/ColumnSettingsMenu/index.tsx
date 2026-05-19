@@ -99,6 +99,13 @@ function SortableRow({
           padding: "0 4px",
           color: "#888",
           userSelect: "none",
+          // dnd-kit's sortable attributes include `role="button"`, which
+          // PicoCSS styles with the primary (red) background. Explicitly
+          // neutralise the button look so only the dots are visible.
+          background: "transparent",
+          border: "none",
+          boxShadow: "none",
+          lineHeight: 1,
         }}
       >
         <i className="fa-light fa-grip-vertical" />
@@ -187,10 +194,9 @@ export default function ColumnSettingsMenu({
     <div ref={wrapRef} style={{ position: "relative", display: "inline-block" }}>
       <button
         type="button"
-        className="secondary"
-        title="Customise columns"
+        className="secondary outline"
+        data-tooltip="Customise columns"
         onClick={() => setOpen((v) => !v)}
-        style={{ minWidth: 0 }}
       >
         <i className="fa-light fa-table-columns" />
       </button>

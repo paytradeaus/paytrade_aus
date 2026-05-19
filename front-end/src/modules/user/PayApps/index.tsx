@@ -34,7 +34,6 @@ import ColumnSettingsMenu, {
 import { useAppSelector } from "@/redux/store";
 import { setTablePreference } from "@/redux/slices/uiPreferences";
 import { persistUiPreferences } from "@/network/uiPreferences";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   buttonType,
   filterByDuration,
@@ -918,8 +917,23 @@ export default function PayApps({ overViewDetails = {} }: any) {
               </div>
             )}
           </div>
-          <div className="pt_pageactions">
-            <div className="actionbuttons">
+          <GridExportActions
+            resetFilterFunction={() => {
+              resetFilters();
+            }}
+            hideExcelButton={paymentclaimGridData.length > 0 ? false : true}
+            hidePdfButton={paymentclaimGridData.length > 0 ? false : true}
+            hideResetButton={!isAnyFilterActive}
+            handleDownloadExcelFile={() => {
+              handleDownloadExcelFile();
+            }}
+            disabledOnExcel={disableExcelBtn}
+            exportFromAPI={true}
+            disabledPDF={disablePDFBtn}
+            handleDownloadPrintPDF={() => {
+              handleDownloadPdfFile();
+            }}
+            leadingActions={
               <ColumnSettingsMenu
                 allColumns={allClaimsColumns}
                 order={savedOrder}
@@ -927,25 +941,8 @@ export default function PayApps({ overViewDetails = {} }: any) {
                 onChange={handleColumnPrefsChange}
                 onReset={handleColumnPrefsReset}
               />
-              <GridExportActions
-                resetFilterFunction={() => {
-                  resetFilters();
-                }}
-                hideExcelButton={paymentclaimGridData.length > 0 ? false : true}
-                hidePdfButton={paymentclaimGridData.length > 0 ? false : true}
-                hideResetButton={!isAnyFilterActive}
-                handleDownloadExcelFile={() => {
-                  handleDownloadExcelFile();
-                }}
-                disabledOnExcel={disableExcelBtn}
-                exportFromAPI={true}
-                disabledPDF={disablePDFBtn}
-                handleDownloadPrintPDF={() => {
-                  handleDownloadPdfFile();
-                }}
-              />
-            </div>
-          </div>
+            }
+          />
         </div>
         <div className="pt_filters pt_toggles">
           <fieldset>
@@ -1050,17 +1047,29 @@ export default function PayApps({ overViewDetails = {} }: any) {
 
           {/* Multi-select Status filter. We hide "All" because deselecting
               everything is the multi-select equivalent. Persisted on every
-              change to tablePreferences.payApps.filters.statuses. */}
-          <SearchableSelect
-            isMulti
+              change to tablePreferences.payApps.filters.statuses. Uses the
+              standard themed MULTI_SELECT control so it matches the rest
+              of the Select-a-project / Select-a-contract dropdowns. */}
+          <FormikControl
+            control={InputType.MULTI_SELECT}
             placeholder={"Status"}
             name="Status"
             options={(selectedPaymentType === "Billable"
               ? statusOptions
               : receivableOptions
             ).filter((o: any) => o.value !== "")}
-            onChange={(vals: any) => {
-              const next = Array.isArray(vals) ? vals : [];
+            renderKey="label"
+            valueKey="value"
+            selectedOptions={selectedStatuses.map((s: any) => s.value)}
+            onChange={(values: Array<string | number>) => {
+              const opts = (
+                selectedPaymentType === "Billable"
+                  ? statusOptions
+                  : receivableOptions
+              ).filter((o: any) => o.value !== "");
+              const next = values
+                .map((v) => opts.find((o: any) => o.value === v))
+                .filter(Boolean) as any[];
               setSelectedStatuses(next);
               const fresh = (tablePrefRef.current || tablePref) as any;
               const currentFilters: Record<string, any> =
@@ -1070,20 +1079,24 @@ export default function PayApps({ overViewDetails = {} }: any) {
               currentFilters.statuses = next.map((s: any) => s.value);
               saveTablePrefs({ filters: currentFilters });
             }}
-            multiSelectedData={selectedStatuses}
-            renderKey="label"
-            valueKey="value"
           />
 
           {/* Multi-select Client/Supplier filter. Options come from the
               same combinational-filters resolver as projects/contracts. */}
-          <SearchableSelect
-            isMulti
+          <FormikControl
+            control={InputType.MULTI_SELECT}
             placeholder={"Client / Supplier"}
             name="Client / Supplier"
             options={clientSupplierOptions}
-            onChange={(vals: any) => {
-              const next = Array.isArray(vals) ? vals : [];
+            renderKey="label"
+            valueKey="value"
+            selectedOptions={selectedClientSuppliers.map((c: any) => c.value)}
+            onChange={(values: Array<string | number>) => {
+              const next = values
+                .map((v) =>
+                  clientSupplierOptions.find((o: any) => o.value === v)
+                )
+                .filter(Boolean) as any[];
               setSelectedClientSuppliers(next);
               const fresh = (tablePrefRef.current || tablePref) as any;
               const currentFilters: Record<string, any> =
@@ -1095,9 +1108,6 @@ export default function PayApps({ overViewDetails = {} }: any) {
               );
               saveTablePrefs({ filters: currentFilters });
             }}
-            multiSelectedData={selectedClientSuppliers}
-            renderKey="label"
-            valueKey="value"
           />
 
           <FormikControl
