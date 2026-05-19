@@ -14972,6 +14972,59 @@ export class XeroWebhookService {
         };
       }
 
+      if (rawType === 'trust_movement') {
+        // Task #231 — PT-side picker for trust-movement payments
+        // (Withdrawal, Top Up, Interest Received/Withdrawal, Bank
+        // Charge Applied/Top Up, Top Up Retention). Search the same
+        // payment_details table as 'payment' but restricted to
+        // trust-movement payment_types so the dialog only surfaces
+        // PT-MOV-{id} candidates.
+        const trustTypes = [
+          'Withdrawal',
+          'Top Up',
+          'Interest Received',
+          'Interest Withdrawal',
+          'Bank Charge Applied',
+          'Bank Charge Top Up',
+          'Top Up Retention',
+        ];
+        const qb = this.paymentDetails
+          .createQueryBuilder('p')
+          .where('p.company_id = :company_id', { company_id })
+          .andWhere('p.payment_type IN (:...trustTypes)', { trustTypes });
+        const ors: string[] = [];
+        const params: any = {};
+        if (/^\d+$/.test(hint)) {
+          ors.push('p.payment_id = :pid');
+          params.pid = Number(hint);
+        }
+        if (numericHint) {
+          ors.push('CAST(p.total_amount AS TEXT) ILIKE :amt');
+          params.amt = `%${numericHint}%`;
+        }
+        // Allow searching by the PT-MOV-{id} reference stamp.
+        const movMatch = /pt[-_ ]?mov[-_ ]?(\d+)/i.exec(hint);
+        if (movMatch) {
+          ors.push('p.payment_id = :movPid');
+          params.movPid = Number(movMatch[1]);
+        }
+        ors.push('LOWER(COALESCE(p.memo, \'\')) LIKE :memo');
+        params.memo = `%${lower}%`;
+        if (ors.length) {
+          qb.andWhere('(' + ors.join(' OR ') + ')', params);
+        }
+        qb.orderBy('p.created_on', 'DESC').limit(10);
+        const rows = await qb.getMany();
+        return {
+          success: true,
+          candidates: rows.map((r) => ({
+            id: String(r.payment_id),
+            label: `PT-MOV-${r.payment_id} — ${fmtAmt(r.total_amount)}`,
+            sublabel: `${r.payment_type || ''} • ${fmtDate(r.payment_date)} • ${r.current_status || ''}`,
+          })),
+        };
+      }
+
       // bank_transfer / manual_journal: not user-creatable from PT side via
       // this dialog. Retention transfers come from confirming a payment;
       // retention auto-journals come from gross-up. Direct PT-side
@@ -17711,6 +17764,122 @@ export class XeroWebhookService {
               : 'Not linked yet.',
           });
         }
+      } else if (rawType === 'trust_movement') {
+        // Task #231 — Trust movement preflight. PT side is a row in
+        // payment_details (payment_type ∈ trust set), Xero side is a
+        // BankTransfer, link is xero_payments.bank_transfer_id ↔
+        // pt_payment_id. We surface presence + amount-agreement
+        // diagnostics so the user can confirm before linking.
+        if (pt_id) {
+          const pay = await this.paymentDetails.findOne({
+            where: { company_id, payment_id: Number(pt_id) },
+            relations: ['clientSupplierDetails'],
+          });
+          if (pay) {
+            const isTrust = [
+              'Withdrawal',
+              'Top Up',
+              'Interest Received',
+              'Interest Withdrawal',
+              'Bank Charge Applied',
+              'Bank Charge Top Up',
+              'Top Up Retention',
+            ].includes(String(pay.payment_type || ''));
+            if (!isTrust) {
+              checks.push({
+                label: 'PayTrade payment type',
+                status: 'fail',
+                detail: `PT payment #${pay.payment_id} is "${pay.payment_type}", not a trust movement.`,
+              });
+            } else {
+              ptSide.exists = true;
+              ptSide.id = pay.payment_id;
+              ptSide.uuid = pay.id;
+              ptSide.kind = pay.payment_type;
+              ptSide.amount = Number(pay.total_amount || 0);
+              ptSide.status = pay.current_status;
+              ptSide.summary = `PT-MOV-${pay.payment_id} (${pay.payment_type}) — $${ptSide.amount.toFixed(2)} — ${pay.current_status || ''}`;
+            }
+          } else {
+            checks.push({
+              label: 'PayTrade payment',
+              status: 'fail',
+              detail: `No payment found for id ${pt_id}.`,
+            });
+          }
+        }
+        if (xero_id) {
+          const local = await this.xeroPayments.findOne({
+            where: {
+              integration_id: xeroDetails.integration_id,
+              bank_transfer_id: xero_id,
+            },
+          });
+          if (local) {
+            link.mapped = !!local.pt_payment_id;
+            link.pt_payment_id = local.pt_payment_id;
+          }
+          try {
+            await this.xeroService.refreshTokenSet(company_id, this.xero);
+            const resp = await this.xero.accountingApi.getBankTransfer(
+              xeroDetails.tenant_id,
+              xero_id,
+            );
+            const bt: any = resp?.body?.bankTransfers?.[0];
+            if (bt) {
+              xeroSide.exists = true;
+              xeroSide.id = bt.bankTransferID;
+              xeroSide.amount = Number(bt.amount || 0);
+              xeroSide.date = bt.date;
+              const ref = bt.reference || '';
+              xeroSide.summary = `BankTransfer ${bt.bankTransferID} — $${xeroSide.amount.toFixed(2)} on ${bt.date} — ${ref}`;
+            } else {
+              checks.push({
+                label: 'Xero BankTransfer',
+                status: 'fail',
+                detail: `No Xero BankTransfer found for ${xero_id}.`,
+              });
+            }
+          } catch (e: any) {
+            checks.push({
+              label: 'Live Xero lookup',
+              status: 'warn',
+              detail: e?.message || String(e),
+            });
+          }
+        }
+        if (xeroSide.exists && ptSide.exists) {
+          if (link.mapped && Number(link.pt_payment_id) === Number(ptSide.id)) {
+            checks.push({
+              label: 'Mapping',
+              status: 'ok',
+              detail: `BankTransfer already linked to PT payment #${ptSide.id}.`,
+            });
+          } else if (link.mapped) {
+            checks.push({
+              label: 'Mapping',
+              status: 'warn',
+              detail: `BankTransfer is linked to a different PT payment (#${link.pt_payment_id}).`,
+            });
+          } else {
+            checks.push({
+              label: 'Mapping',
+              status: 'warn',
+              detail: 'BankTransfer and PT payment are not linked.',
+            });
+          }
+          const amtDelta = Math.abs(
+            (xeroSide.amount || 0) - (ptSide.amount || 0),
+          );
+          checks.push({
+            label: 'Amount agreement',
+            status: amtDelta < 0.01 ? 'ok' : 'warn',
+            detail:
+              amtDelta < 0.01
+                ? 'Amounts match.'
+                : `Xero $${(xeroSide.amount || 0).toFixed(2)} ≠ PT $${(ptSide.amount || 0).toFixed(2)} (Δ $${amtDelta.toFixed(2)}).`,
+          });
+        }
       } else {
         // bank_transfer / manual_journal — Xero-side import path only.
         if (pt_id) {
@@ -18159,6 +18328,53 @@ export class XeroWebhookService {
           await this.xeroPayments.save(row);
           bound = true;
           boundDetail = `XeroPayments(${row.id}).pt_payment_id ← ${pt_id}${createdNew ? ' (row created)' : ''}`;
+        } else if (rawType === 'trust_movement') {
+          // Task #231 — bind an existing Xero BankTransfer to an
+          // unlinked PT trust-movement payment. If no xero_payments row
+          // exists yet, create one from a live BankTransfer fetch so
+          // the link is durable across the next scheduler sweep
+          // (which checks bank_transfer_id presence).
+          let row = await this.xeroPayments.findOne({
+            where: { integration_id, bank_transfer_id: xero_id },
+          });
+          if (row && row.pt_payment_id && Number(row.pt_payment_id) !== Number(pt_id)) {
+            return {
+              success: false,
+              message: `Cannot link: BankTransfer ${xero_id} is already linked to PT payment #${row.pt_payment_id}.`,
+              direction,
+            };
+          }
+          if (!row) {
+            const resp = await this.xero.accountingApi.getBankTransfer(
+              tenant_id,
+              xero_id,
+            );
+            const bt: any = resp?.body?.bankTransfers?.[0];
+            if (!bt) {
+              return {
+                success: false,
+                message: `Cannot link: Xero BankTransfer ${xero_id} not found.`,
+                direction,
+              };
+            }
+            row = Object.assign(new XeroPayments(), {
+              integration_id,
+              tenant_id,
+              bank_transfer_id: bt.bankTransferID,
+              bank_transfer_reference: bt.reference || null,
+              date: bt.date,
+              amount: Number(bt.amount || 0),
+              mapped_status: 'Manual',
+              pt_payment_id: Number(pt_id),
+            });
+            createdNew = true;
+          } else {
+            row.pt_payment_id = Number(pt_id);
+            row.mapped_status = row.mapped_status || 'Manual';
+          }
+          await this.xeroPayments.save(row);
+          bound = true;
+          boundDetail = `XeroPayments(${row.id}).pt_payment_id ← ${pt_id} (BankTransfer ${xero_id}${createdNew ? ', row created' : ''})`;
         } else if (rawType === 'contact') {
           let row = await this.xeroContactDetails.findOne({
             where: { integration_id, contact_id: xero_id },
