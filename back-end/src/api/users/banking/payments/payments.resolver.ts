@@ -941,6 +941,32 @@ export class PaymentsResolver {
                 payment_id: paymentDetails.payment_id,
               });
             this.logger.log(`deleteOverPaymentDetails: ${JSON.stringify(deleteOverPaymentDetails)}`);
+          } else if (
+            // Task #231 — Trust movement cancel/un-tick. Xero cannot
+            // delete a BankTransfer, so we post the opposite-direction
+            // reversal so net effect is zero. The service updates the
+            // mapping row to point at the reversal id.
+            isExisted &&
+            this.xeroPaymentsService.isTrustMovementType(
+              paymentDetails?.payment_type,
+            ) &&
+            ['Cancelled', 'Unconfirmed - Unmatched'].includes(
+              String(paymentDetails?.current_status || ''),
+            )
+          ) {
+            try {
+              const reverseRes =
+                await this.xeroPaymentsService.reverseTrustMovement(decoded, {
+                  payment_id: paymentDetails.payment_id,
+                });
+              this.logger.log(
+                `reverseTrustMovement (status change) result for payment ${paymentDetails.payment_id}: ${JSON.stringify(reverseRes)}`,
+              );
+            } catch (err: any) {
+              this.logger.error(
+                `reverseTrustMovement (status change) threw for payment ${paymentDetails.payment_id}: ${err?.message ?? err}`,
+              );
+            }
           }
         }
       }
@@ -1151,6 +1177,52 @@ export class PaymentsResolver {
                   );
                 this.logger.log(`deletePaymentDetails: ${JSON.stringify(deletePaymentDetails)}`);
               }
+            }
+          } else if (
+            // Task #231 — Trust movement edit. Re-sync by reversing
+            // the previous BankTransfer and pushing a fresh one with
+            // the updated amount/date/accounts. Idempotency in
+            // pushTrustMovement protects against double-push when no
+            // material field actually changed.
+            this.xeroPaymentsService.isTrustMovementType(
+              paymentDetails?.payment_type,
+            )
+          ) {
+            try {
+              // Only reverse when the current mapping is a FORWARD
+              // PT-MOV-{id} stamp; if it's already PT-MOV-REV-{id},
+              // the previous edit/cancel already reversed it and a
+              // second reversal would post a duplicate opposite-leg
+              // BankTransfer.
+              const forwardRefStamp = `PT-MOV-${payload.payment_id}`;
+              const currentRef = (isExisted as any)?.bank_transfer_reference;
+              if (isExisted?.bank_transfer_id && currentRef === forwardRefStamp) {
+                const reverseRes =
+                  await this.xeroPaymentsService.reverseTrustMovement(
+                    decoded,
+                    { payment_id: payload.payment_id },
+                  );
+                this.logger.log(
+                  `reverseTrustMovement (edit) result: ${JSON.stringify(reverseRes)}`,
+                );
+              }
+              if (
+                !['Cancelled', 'Unconfirmed - Unmatched'].includes(
+                  String(paymentDetails?.current_status || ''),
+                )
+              ) {
+                const repushRes =
+                  await this.xeroPaymentsService.pushTrustMovement(decoded, {
+                    payment_id: payload.payment_id,
+                  });
+                this.logger.log(
+                  `pushTrustMovement (edit) result: ${JSON.stringify(repushRes)}`,
+                );
+              }
+            } catch (err: any) {
+              this.logger.error(
+                `Trust movement edit re-sync threw for payment ${payload.payment_id}: ${err?.message ?? err}`,
+              );
             }
           } else if (
             [

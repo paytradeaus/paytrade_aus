@@ -7930,4 +7930,136 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       );
     }
   }
+
+  /**
+   * Task #231 — Trust-movement catch-up scheduler.
+   * Every 15 minutes, scan recent Xero BankTransfers per active
+   * integration and dispatch any unmapped ones (i.e. no
+   * `xero_payments.bank_transfer_id` row) to the inbound trust-movement
+   * handler. The handler is anti-echo aware (skips our own PT-MOV
+   * references) and idempotent (collapses races via
+   * `uq_xero_payments_bank_transfer_id`). Covers webhook drops &
+   * Replit cold-start gaps.
+   */
+  @Cron('*/15 * * * *', { timeZone: 'UTC' })
+  async trustMovementCatchupSync() {
+    const PREFIX = '[TRUST_MOV_CATCHUP]';
+    try {
+      const activeIntegrations = await this.integrationDetails.find({
+        where: { integration_status: 'Connected - active' },
+      });
+      if (!activeIntegrations?.length) return;
+
+      for (const integration of activeIntegrations) {
+        const companyId = integration.company_id;
+        try {
+          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+            where: { company_id: companyId, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
+          });
+          if (
+            !xeroDetails?.integration_id ||
+            xeroDetails.integrationDetails?.integration_status !==
+              'Connected - active'
+          ) {
+            continue;
+          }
+
+          try {
+            await this.xeroService.refreshTokenSet(companyId, this.xero);
+          } catch (e: any) {
+            this.logger.warn(
+              `${PREFIX} Company ${companyId}: token refresh failed (${e?.message || e}); skipping.`,
+            );
+            continue;
+          }
+
+          const companyAdmin = await this.userRoles.findOne({
+            where: {
+              company_id: companyId,
+              company_role: In(['PRIMARY ADMIN']),
+              status: 'Active',
+            },
+            relations: ['userDetails'],
+          });
+          if (!companyAdmin?.userDetails?.email_id) continue;
+          const authResponse = await this.authService.getAuthToken(
+            companyAdmin.userDetails.email_id,
+            false,
+          );
+          const decoded = this.jwtService.decode(
+            authResponse.data['access_token'],
+          );
+
+          const since = moment().subtract(2, 'hours').toDate();
+          let transfers: any[] = [];
+          try {
+            const resp = await this.xero.accountingApi.getBankTransfers(
+              xeroDetails.tenant_id,
+              since,
+              undefined,
+              'Date DESC',
+            );
+            transfers = resp?.body?.bankTransfers || [];
+          } catch (e: any) {
+            this.logger.error(
+              `${PREFIX} Company ${companyId}: getBankTransfers failed (${e?.message || e}).`,
+            );
+            continue;
+          }
+          if (!transfers.length) continue;
+
+          const transferIds = transfers
+            .map((bt) => String((bt as any)?.bankTransferID || ''))
+            .filter(Boolean);
+          const known = await this.xeroPaymentsRepo.find({
+            where: {
+              integration_id: xeroDetails.integration_id,
+              bank_transfer_id: In(transferIds),
+            },
+            select: ['bank_transfer_id'],
+          });
+          const knownSet = new Set(known.map((r) => r.bank_transfer_id));
+
+          let processed = 0;
+          let skipped = 0;
+          for (const bt of transfers) {
+            const btId = String((bt as any)?.bankTransferID || '');
+            if (!btId || knownSet.has(btId)) {
+              skipped++;
+              continue;
+            }
+            try {
+              await this.xeroPaymentsService.handleInboundTrustMovementBankTransfer(
+                {
+                  resource_id: btId,
+                  tenant_id: xeroDetails.tenant_id,
+                  sync_run_type: 'scheduler_catchup',
+                },
+                decoded,
+              );
+              processed++;
+            } catch (e: any) {
+              this.logger.error(
+                `${PREFIX} Company ${companyId}: BankTransfer ${btId} handler threw (${e?.message || e}).`,
+              );
+            }
+          }
+          if (processed || transfers.length) {
+            this.logger.log(
+              `${PREFIX} Company ${companyId}: scanned=${transfers.length} processed=${processed} skipped=${skipped}`,
+            );
+          }
+        } catch (companyErr: any) {
+          this.logger.error(
+            `${PREFIX} Company ${companyId}: ${companyErr?.message || companyErr}`,
+          );
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `${PREFIX} Fatal error: ${err?.message || err}`,
+      );
+    }
+  }
 }

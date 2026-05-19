@@ -14267,9 +14267,16 @@ export class XeroWebhookService {
       'invoice_bill',
       'payment',
       'bank_transfer',
+      'trust_movement',
       'contact',
       'manual_journal',
     ]);
+    // Task #231 — trust_movement lookup reuses the bank_transfer branch
+    // (BankTransfers + PT-MOV-{id} reference search) since they share
+    // the same Xero entity. Caller must still dispatch with
+    // type=trust_movement so the resync handler routes to the
+    // anti-echo-aware inbound trust handler.
+    const resolvedType = rawType === 'trust_movement' ? 'bank_transfer' : rawType;
 
     if (!company_id || !rawType) {
       return {
@@ -14289,7 +14296,7 @@ export class XeroWebhookService {
     // date alone (e.g. for transfers created directly in Xero with no
     // PT-RET-… reference). All other types still require a text hint.
     const hasBankTransferFilters =
-      rawType === 'bank_transfer' &&
+      resolvedType === 'bank_transfer' &&
       (accountHint.length >= 2 || (!!dateHint && moment(dateHint).isValid()));
     if ((!hint || hint.length < 2) && !hasBankTransferFilters) {
       return {
@@ -14469,7 +14476,7 @@ export class XeroWebhookService {
       //   (a) PT-side mappings: search xero_payments for matches on
       //       PT payment id, bank_transfer_reference, or PT-RET-{id}.
       //   (b) Recent Xero BankTransfers filtered by reference Contains.
-      if (rawType === 'bank_transfer') {
+      if (resolvedType === 'bank_transfer') {
         const collected = new Map<string, { id: string; label: string; sublabel?: string }>();
         const accountLower = accountHint.toLowerCase();
         const parsedDate = dateHint && moment(dateHint).isValid()
@@ -16643,6 +16650,7 @@ export class XeroWebhookService {
       'invoice_bill',
       'payment',
       'bank_transfer',
+      'trust_movement',
       'contact',
       'manual_journal',
     ]);

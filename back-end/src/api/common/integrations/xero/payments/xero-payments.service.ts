@@ -8216,6 +8216,14 @@ export class XeroPaymentsService {
     if (!existing?.bank_transfer_id) {
       return { success: true, message: 'no outbound trust movement to reverse' };
     }
+    // Idempotency — if the mapping already points at the reversal
+    // stamp, the prior reversal succeeded and there is nothing to do.
+    // Prevents repeated cancel/edit cycles from posting duplicate
+    // opposite-direction BankTransfers and drifting the ledger.
+    const reversalRefStamp = `PT-MOV-REV-${payment_id}`;
+    if ((existing as any)?.bank_transfer_reference === reversalRefStamp) {
+      return { success: true, reversal_id: existing.bank_transfer_id, message: 'already reversed' };
+    }
 
     const pair = await this.resolveTrustMovementPair(paymentDetails);
     if (!pair) return { success: false, message: 'pair no longer resolvable' };
@@ -8519,17 +8527,63 @@ export class XeroPaymentsService {
       return { success: false, message: 'cash account is not the trust\'s associated cash account' };
     }
 
-    // Default direction → payment_type mapping. Users can re-classify
-    // Interest/Bank Charge variants from the PT UI after import; Xero
-    // gives us no signal to disambiguate those from a plain Top Up /
-    // Withdrawal, so we use the safest neutral default.
+    // Direction + reference-keyword → payment_type mapping. Xero gives
+    // us no first-class signal for Interest/Bank Charge variants, but
+    // the user-facing `reference` and `narration`/memo on the
+    // BankTransfer often contains those words. Parse them; fall back
+    // to a safe neutral default (Withdrawal / Top Up / Top Up Retention)
+    // and emit a warn-level sync log so the admin can re-classify.
+    const refTextRaw = `${reference || ''} ${(bt as any)?.narration || ''}`;
+    const refText = refTextRaw.toLowerCase();
+    const hasInterest = /interest/.test(refText);
+    const hasBankCharge = /bank\s*charge|bank\s*fee/.test(refText);
+    const isRtaTrust = String(trustBank.account_type) === 'Retention Trust Account';
     let payment_type: string;
+    let typeAmbiguous = false;
     if (fromIsTrust) {
-      payment_type = 'Withdrawal';
-    } else if (String(trustBank.account_type) === 'Retention Trust Account') {
-      payment_type = 'Top Up Retention';
+      if (hasInterest) {
+        payment_type = 'Interest Withdrawal';
+      } else if (hasBankCharge) {
+        payment_type = 'Bank Charge Applied';
+      } else {
+        payment_type = 'Withdrawal';
+        typeAmbiguous = !refText.trim();
+      }
     } else {
-      payment_type = 'Top Up';
+      if (hasInterest) {
+        payment_type = 'Interest Received';
+      } else if (hasBankCharge) {
+        payment_type = 'Bank Charge Top Up';
+      } else if (isRtaTrust) {
+        payment_type = 'Top Up Retention';
+      } else {
+        payment_type = 'Top Up';
+        typeAmbiguous = !refText.trim();
+      }
+    }
+    if (typeAmbiguous) {
+      try {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'handleInboundTrustMovementBankTransfer',
+          api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 621,
+          dynamic_values: {
+            bank_transfer_id,
+            reason: `Reference "${reference || '(empty)'}" had no Interest/Bank Charge hint — defaulted to ${payment_type}; user can re-classify in PayTrade.`,
+          },
+          reference: { xeroId: bank_transfer_id, paytradeId: null },
+          history: [
+            `Inbound BankTransfer ${bank_transfer_id} type inference is neutral — defaulted to ${payment_type}`,
+            'Re-classify in PayTrade if this should be Interest Received/Withdrawal or Bank Charge Applied/Top Up.',
+          ],
+          important_checks: { 'Type classification': 'Warn' },
+          error_message: null,
+          xero_records: [bt],
+          paytrade_records: [],
+          new_records: null, updated_records: null, synced_records: null,
+        });
+      } catch {}
     }
 
     // Materialise the PT payment + matched sub_payment + xero_payments

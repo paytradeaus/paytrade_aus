@@ -168,15 +168,65 @@ its `type` dropdown — no other FE changes required.
   a single winning insert; the loser swallows the violation and
   exits with `"already mapped (concurrent insert)"`.
 
+## Edit / cancel / delete wiring
+
+`payments.resolver.ts`:
+
+- `addPayment` — fires `pushTrustMovement` when `isTrustMovementType`.
+- `editDetailsOfAPayment` — when `isTrustMovementType`, calls
+  `reverseTrustMovement` (if previously mapped) followed by
+  `pushTrustMovement` so the Xero side reflects the new amount /
+  date / accounts. If the new status is `Cancelled` or
+  `Unconfirmed - Unmatched`, the re-push is skipped.
+- `changeStatusOfAPayment` — when the new `current_status` is
+  `Cancelled` / `Unconfirmed - Unmatched`, calls
+  `reverseTrustMovement` so the previously-pushed BankTransfer is
+  netted out in Xero. Xero has no `deleteBankTransfer`, so we always
+  reverse rather than delete.
+
+## Catch-up scheduler
+
+`xero-scheduler.service.ts → trustMovementCatchupSync()`:
+
+- `@Cron('*/15 * * * *')` per active Xero integration.
+- Lists `getBankTransfers(since = now-2h)`, filters out anything
+  already in `xero_payments.bank_transfer_id`, and delegates each
+  unknown row to `handleInboundTrustMovementBankTransfer` with
+  `sync_run_type='scheduler_catchup'`. Anti-echo + the unique
+  index keep this safely repeatable.
+
+## Inbound `payment_type` resolution
+
+`handleInboundTrustMovementBankTransfer` infers the PT
+`payment_type` from direction + reference text:
+
+| Direction       | Reference keyword | Resulting payment_type   |
+|-----------------|-------------------|--------------------------|
+| Trust → Cash    | `interest`        | `Interest Withdrawal`    |
+| Trust → Cash    | `bank charge/fee` | `Bank Charge Applied`    |
+| Trust → Cash    | (none)            | `Withdrawal` *(ambiguous warn 621 if reference is empty)* |
+| Cash → Trust    | `interest`        | `Interest Received`      |
+| Cash → Trust    | `bank charge/fee` | `Bank Charge Top Up`     |
+| Cash → RTA      | (none)            | `Top Up Retention`       |
+| Cash → PTA      | (none)            | `Top Up` *(ambiguous warn 621 if reference is empty)* |
+
+An empty / hint-less reference produces a 621 warn so the admin
+knows to re-classify in PayTrade if needed.
+
+## Manual re-sync
+
+`webhook.service.ts → manualXeroResync` / `manualXeroResyncLookup`
+/ `manualXeroPreflight`:
+
+- `type='trust_movement'` accepted alongside the existing types.
+- Lookup aliases to the `bank_transfer` branch so the same
+  PT-MOV-{id} reference search and BankTransfer scan are reused.
+- Dispatch routes to `handleInboundTrustMovementBankTransfer` so the
+  anti-echo + materialise paths are exercised exactly as a webhook
+  delivery would.
+
 ## Deferred / out of scope
 
-- **15-minute fallback scheduler** to scan recent Xero BankTransfers
-  and import unmapped trust-pair ones. Day-to-day coverage today is
-  the webhook dispatch + manual `trust_movement` re-sync. Add this
-  later if support tickets show drift.
-- **Edit / delete** of trust-movement payments in the PT UI — wire
-  the existing `reverseTrustMovement` + `pushTrustMovement` into
-  `editDetailsOfAPayment` / `deletePayment` resolver paths when the
-  UI starts allowing those actions.
-- **Frontend manual-resync dropdown** — adding the `trust_movement`
-  option label/value is a one-line FE change deferred to a follow-up.
+- **Frontend "Trust movement" dropdown option** in the manual
+  re-sync admin page (backend already accepts the type; UI follows
+  in Task #234).
