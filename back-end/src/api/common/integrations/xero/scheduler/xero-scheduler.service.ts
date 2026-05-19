@@ -7991,7 +7991,13 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             authResponse.data['access_token'],
           );
 
-          const since = moment().subtract(2, 'hours').toDate();
+          // Catch-up window is 14 days so that a webhook outage,
+          // cold start, or extended downtime self-heals without admin
+          // intervention. The xero_payments unique constraint on
+          // bank_transfer_id keeps repeat scans idempotent, and the
+          // pre-filter against the existing mapping table means we
+          // only re-process truly-missed transfers.
+          const since = moment().subtract(14, 'days').toDate();
           let transfers: any[] = [];
           try {
             const resp = await this.xero.accountingApi.getBankTransfers(

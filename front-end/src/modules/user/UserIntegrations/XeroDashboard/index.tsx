@@ -1883,7 +1883,7 @@ function ManualXeroSyncDialog({
   onSuccess?: () => void;
 }) {
   const [type, setType] = useState<
-    "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal"
+    "invoice_bill" | "payment" | "bank_transfer" | "trust_movement" | "contact" | "manual_journal"
   >("invoice_bill");
   const [id, setId] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
@@ -2755,6 +2755,7 @@ function ManualXeroSyncDialog({
           <option value="invoice_bill">Invoice / Bill</option>
           <option value="payment">Payment</option>
           <option value="bank_transfer">Bank transfer</option>
+          <option value="trust_movement">Trust movement</option>
           <option value="contact">Contact</option>
           <option value="manual_journal">Manual journal</option>
         </select>

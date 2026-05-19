@@ -7943,6 +7943,35 @@ export class XeroPaymentsService {
   // otherwise materialises a new PT payment between the mapped
   // trust account and its associated cash account.
   // ============================================================
+  /**
+   * Task #231 — pure inference of trust-movement payment_type from
+   * direction (cash → trust vs trust → cash), the destination trust's
+   * `account_type`, and the BankTransfer reference/narration text.
+   * Shared by `handleInboundTrustMovementBankTransfer` (importer) and
+   * `manualXeroResyncLookup` (UI candidate listing) so the suggested
+   * type the admin sees matches exactly what the one-click import
+   * will materialise.
+   */
+  static inferTrustMovementType(input: {
+    fromIsTrust: boolean;
+    isRtaTrust: boolean;
+    refText: string;
+  }): { payment_type: string; ambiguous: boolean } {
+    const text = String(input.refText || '').toLowerCase();
+    const hasInterest = /interest/.test(text);
+    const hasBankCharge = /bank\s*charge|bank\s*fee/.test(text);
+    const hasRetention = /retention/.test(text);
+    if (input.fromIsTrust) {
+      if (hasInterest) return { payment_type: 'Interest Withdrawal', ambiguous: false };
+      if (hasBankCharge) return { payment_type: 'Bank Charge Applied', ambiguous: false };
+      return { payment_type: 'Withdrawal', ambiguous: !text.trim() };
+    }
+    if (hasInterest) return { payment_type: 'Interest Received', ambiguous: false };
+    if (hasBankCharge) return { payment_type: 'Bank Charge Top Up', ambiguous: false };
+    if (input.isRtaTrust && hasRetention) return { payment_type: 'Top Up Retention', ambiguous: false };
+    return { payment_type: 'Top Up', ambiguous: !text.trim() || input.isRtaTrust };
+  }
+
   private static readonly TRUST_MOVEMENT_TYPES = new Set<string>([
     'Withdrawal',
     'Top Up',
@@ -8534,42 +8563,14 @@ export class XeroPaymentsService {
     // to a safe neutral default (Withdrawal / Top Up / Top Up Retention)
     // and emit a warn-level sync log so the admin can re-classify.
     const refTextRaw = `${reference || ''} ${(bt as any)?.narration || ''}`;
-    const refText = refTextRaw.toLowerCase();
-    const hasInterest = /interest/.test(refText);
-    const hasBankCharge = /bank\s*charge|bank\s*fee/.test(refText);
-    const hasRetention = /retention/.test(refText);
     const isRtaTrust = String(trustBank.account_type) === 'Retention Trust Account';
-    let payment_type: string;
-    let typeAmbiguous = false;
-    if (fromIsTrust) {
-      if (hasInterest) {
-        payment_type = 'Interest Withdrawal';
-      } else if (hasBankCharge) {
-        payment_type = 'Bank Charge Applied';
-      } else {
-        payment_type = 'Withdrawal';
-        typeAmbiguous = !refText.trim();
-      }
-    } else {
-      // Cash → Trust direction. Default to "Top Up"; only escalate to
-      // "Top Up Retention" when the destination is an RTA AND the
-      // reference text actually mentions retention. RTAs receive
-      // routine Top Ups too — defaulting every cash→RTA transfer to
-      // Top Up Retention would systematically mis-classify them.
-      if (hasInterest) {
-        payment_type = 'Interest Received';
-      } else if (hasBankCharge) {
-        payment_type = 'Bank Charge Top Up';
-      } else if (isRtaTrust && hasRetention) {
-        payment_type = 'Top Up Retention';
-      } else {
-        payment_type = 'Top Up';
-        // Always warn on the cash→RTA neutral path even when a
-        // reference exists, since Top Up vs Top Up Retention is a
-        // judgment call the user may want to override.
-        typeAmbiguous = !refText.trim() || isRtaTrust;
-      }
-    }
+    const inferred = XeroPaymentsService.inferTrustMovementType({
+      fromIsTrust,
+      isRtaTrust,
+      refText: refTextRaw,
+    });
+    const payment_type = inferred.payment_type;
+    const typeAmbiguous = inferred.ambiguous;
     if (typeAmbiguous) {
       try {
         await this.xeroService.insertXeroSyncLogs(decoded, {

@@ -14624,15 +14624,69 @@ export class XeroWebhookService {
               );
             }
           }
+          // Build a lookup of pt_bank_account_id → account_type so we
+          // can infer direction (cash→trust vs trust→cash) and emit a
+          // suggested_payment_type per candidate for trust_movement
+          // lookups (Task #231).
+          const xeroIdToPtType = new Map<string, { ptId: number; type: string }>();
+          if (isTrustMovementLookup) {
+            try {
+              const xbs = await this.xeroBankAccountDetails.find({
+                where: { integration_id },
+              });
+              const ptIds = xbs.map((x) => Number(x.pt_bank_account_id)).filter(Boolean);
+              const ptBanksAll = ptIds.length
+                ? await this.bankAccounts.find({
+                    where: { bank_account_id: In(ptIds) },
+                  })
+                : [];
+              const ptTypeById = new Map<number, string>();
+              for (const b of ptBanksAll) {
+                ptTypeById.set(Number((b as any).bank_account_id), String((b as any).account_type || ''));
+              }
+              for (const xb of xbs) {
+                if (xb.account_id && xb.pt_bank_account_id) {
+                  xeroIdToPtType.set(xb.account_id, {
+                    ptId: Number(xb.pt_bank_account_id),
+                    type: ptTypeById.get(Number(xb.pt_bank_account_id)) || '',
+                  });
+                }
+              }
+            } catch (err: any) {
+              this.logger.log(
+                `[MANUAL_RESYNC_LOOKUP] trust_movement direction map failed: ${err?.message || err}`,
+              );
+            }
+          }
           for (const bt of list) {
             const id = String((bt as any)?.bankTransferID || '');
             if (!id || collected.has(id)) continue;
+            let suggestedType: string | null = null;
+            let suggestedAmbiguous = false;
             // Trust-movement constraints: unlinked + valid trust-pair.
             if (isTrustMovementLookup) {
               if (alreadyLinkedIds.has(id)) continue;
               const fromId = String((bt as any)?.fromBankAccount?.accountID || '');
               const toId = String((bt as any)?.toBankAccount?.accountID || '');
               if (!trustValidPairs.has(`${fromId}|${toId}`)) continue;
+              // Suggested type via shared resolver inference.
+              const TRUST = new Set([
+                'Project Trust Account',
+                'Retention Trust Account',
+              ]);
+              const fromMeta = xeroIdToPtType.get(fromId);
+              const toMeta = xeroIdToPtType.get(toId);
+              const fromIsTrust = !!fromMeta && TRUST.has(fromMeta.type);
+              const trustMeta = fromIsTrust ? fromMeta : toMeta;
+              const isRtaTrust = String(trustMeta?.type || '') === 'Retention Trust Account';
+              const refTextRaw = `${(bt as any)?.reference || ''} ${(bt as any)?.narration || ''}`;
+              const inf = XeroPaymentsService.inferTrustMovementType({
+                fromIsTrust,
+                isRtaTrust,
+                refText: refTextRaw,
+              });
+              suggestedType = inf.payment_type;
+              suggestedAmbiguous = inf.ambiguous;
             }
             const dt = (bt as any)?.date ? moment((bt as any).date) : null;
             if (toDate && dt?.isValid() && dt.toDate() > toDate) continue;
@@ -14679,17 +14733,27 @@ export class XeroWebhookService {
             const accountSummary = (fromName || toName)
               ? `${fromName || '(?)'} → ${toName || '(?)'}`
               : '';
+            const subParts = [
+              fmtDate((bt as any)?.date),
+              num((bt as any)?.amount).toFixed(2),
+              accountSummary,
+            ];
+            if (suggestedType) {
+              subParts.push(
+                `suggested: ${suggestedType}${suggestedAmbiguous ? ' (uncertain)' : ''}`,
+              );
+            }
             collected.set(id, {
               id,
               label: `${originTag} ${ref || `BankTransfer ${id.slice(0, 8)}…`}`,
-              sublabel: [
-                fmtDate((bt as any)?.date),
-                num((bt as any)?.amount).toFixed(2),
-                accountSummary,
-              ]
-                .filter(Boolean)
-                .join(' • '),
-            });
+              sublabel: subParts.filter(Boolean).join(' • '),
+              ...(suggestedType
+                ? {
+                    suggested_payment_type: suggestedType,
+                    suggested_payment_type_ambiguous: suggestedAmbiguous,
+                  }
+                : {}),
+            } as any);
             if (collected.size >= 10) break;
           }
         } catch (err: any) {
