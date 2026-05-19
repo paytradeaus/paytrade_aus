@@ -5494,7 +5494,10 @@
     "sync_status": "Warning",
     "from_xero": true,
     "error_code": "CONTACT_IMPORTED_NEEDS_EMAIL",
-    "associated_log_ids": [611, 612]
+    "associated_log_ids": [
+      611,
+      612
+    ]
   },
   {
     "id": 611,
@@ -5504,7 +5507,10 @@
     "sync_status": "Warning",
     "from_xero": true,
     "error_code": "SCHEDULER_CONTACT_IMPORTED_NEEDS_EMAIL",
-    "associated_log_ids": [610, 612]
+    "associated_log_ids": [
+      610,
+      612
+    ]
   },
   {
     "id": 612,
@@ -5514,7 +5520,10 @@
     "sync_status": "Warning",
     "from_xero": true,
     "error_code": "WH_CONTACT_IMPORTED_NEEDS_EMAIL",
-    "associated_log_ids": [610, 611]
+    "associated_log_ids": [
+      610,
+      611
+    ]
   },
   {
     "id": 613,
@@ -5544,7 +5553,14 @@
     "sync_status": "Succeeded",
     "from_xero": false,
     "error_code": null,
-    "associated_log_ids": [616, 617, 618, 619, 620, 621]
+    "associated_log_ids": [
+      616,
+      617,
+      618,
+      619,
+      620,
+      621
+    ]
   },
   {
     "id": 616,
@@ -5554,7 +5570,9 @@
     "sync_status": "Failed",
     "from_xero": false,
     "error_code": "TRUST_MOV_PUSH_FAILED",
-    "associated_log_ids": [615]
+    "associated_log_ids": [
+      615
+    ]
   },
   {
     "id": 617,
@@ -5564,7 +5582,10 @@
     "sync_status": "Succeeded",
     "from_xero": false,
     "error_code": null,
-    "associated_log_ids": [615, 618]
+    "associated_log_ids": [
+      615,
+      618
+    ]
   },
   {
     "id": 618,
@@ -5574,7 +5595,9 @@
     "sync_status": "Failed",
     "from_xero": false,
     "error_code": "TRUST_MOV_REVERSAL_FAILED",
-    "associated_log_ids": [617]
+    "associated_log_ids": [
+      617
+    ]
   },
   {
     "id": 619,
@@ -5584,7 +5607,11 @@
     "sync_status": "Succeeded",
     "from_xero": true,
     "error_code": null,
-    "associated_log_ids": [615, 617, 620]
+    "associated_log_ids": [
+      615,
+      617,
+      620
+    ]
   },
   {
     "id": 620,
@@ -5594,7 +5621,10 @@
     "sync_status": "Succeeded",
     "from_xero": true,
     "error_code": null,
-    "associated_log_ids": [619, 621]
+    "associated_log_ids": [
+      619,
+      621
+    ]
   },
   {
     "id": 621,
@@ -5604,6 +5634,20 @@
     "sync_status": "Warning",
     "from_xero": true,
     "error_code": "TRUST_MOV_INBOUND_IGNORED",
-    "associated_log_ids": [620]
+    "associated_log_ids": [
+      620
+    ]
+  },
+  {
+    "id": 622,
+    "sync_type": "Trust movements",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "TRUST_MOV_INBOUND_TYPE_AMBIGUOUS",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> imported as PT payment <b>{{payment_id}}</b> ({{payment_type}}) — type inference was <i>ambiguous</i>: {{reason}}. Re-classify in PayTrade if needed.</p>",
+    "associated_log_ids": [
+      620
+    ]
   }
 ]

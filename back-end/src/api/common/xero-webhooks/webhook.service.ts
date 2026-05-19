@@ -18582,8 +18582,8 @@ export class XeroWebhookService {
               tenant_id,
               bank_transfer_id: bt.bankTransferID,
               bank_transfer_reference: bt.reference || null,
-              date: bt.date,
-              amount: Number(bt.amount || 0),
+              payment_date: bt.date,
+              payment_amount: Number(bt.amount || 0),
               mapped_status: 'Manual',
               pt_payment_id: Number(pt_id),
             });

@@ -8251,7 +8251,9 @@ export class XeroPaymentsService {
     // opposite-direction BankTransfers and drifting the ledger.
     const reversalRefStamp = `PT-MOV-REV-${payment_id}`;
     if ((existing as any)?.bank_transfer_reference === reversalRefStamp) {
-      return { success: true, reversal_id: existing.bank_transfer_id, message: 'already reversed' };
+      // Forward mapping was already cleared by a prior successful
+      // reversal — nothing else to do.
+      return { success: true, message: 'already reversed' };
     }
 
     const pair = await this.resolveTrustMovementPair(paymentDetails);
@@ -8310,11 +8312,16 @@ export class XeroPaymentsService {
       return { success: false, message: result.errMsg || 'reversal failed' };
     }
 
+    // Clear the forward `bank_transfer_id` so the mapping row
+    // reflects "no longer present in Xero" semantics — admins and
+    // reports can distinguish unmapped/reversed from currently-linked
+    // forward movements. The reversal stamp is retained in
+    // `bank_transfer_reference` for audit + idempotency on retries.
     await this.xeroPayments
       .createQueryBuilder()
       .update(XeroPayments)
       .set({
-        bank_transfer_id: result.transferId,
+        bank_transfer_id: null as any,
         bank_transfer_reference: reversalRef,
         updated_on: moment.tz('UTC').toDate(),
         updated_by: decoded?.userId ?? null,
@@ -8577,10 +8584,12 @@ export class XeroPaymentsService {
           api_name: 'handleInboundTrustMovementBankTransfer',
           api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
           integration_id: xeroDetails.integration_id,
-          log_template_id: 621,
+          log_template_id: 622,
           dynamic_values: {
             bank_transfer_id,
-            reason: `Reference "${reference || '(empty)'}" had no Interest/Bank Charge hint — defaulted to ${payment_type}; user can re-classify in PayTrade.`,
+            payment_id: null,
+            payment_type,
+            reason: `Reference "${reference || '(empty)'}" had no Interest/Bank Charge hint — defaulted to ${payment_type}`,
           },
           reference: { xeroId: bank_transfer_id, paytradeId: null },
           history: [
