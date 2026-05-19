@@ -8425,7 +8425,14 @@ export class XeroPaymentsService {
       let existing = await this.xeroPayments.findOne({
         where: { integration_id: xeroDetails.integration_id, pt_payment_id: ptPaymentId as any },
       });
-      if (existing && !existing.bank_transfer_id) {
+      // Forward stamp re-attach: only bind the inbound BankTransfer's
+      // id back onto an existing mapping row when this is the FORWARD
+      // PT-MOV-{id} echo. Reversal echoes (PT-MOV-REV-{id}) must NOT
+      // repopulate `bank_transfer_id` — `reverseTrustMovement` deliberately
+      // clears it so the row reflects "no longer present in Xero", and
+      // re-attaching the reversal id here would defeat that invariant
+      // and re-link the mapping to the opposite-direction transfer.
+      if (existing && !existing.bank_transfer_id && !isReversal) {
         try {
           await this.xeroPayments
             .createQueryBuilder()

@@ -15288,14 +15288,19 @@ export class XeroWebhookService {
     const fromStr = String(input?.from_date || '').trim();
     const toStr = String(input?.to_date || '').trim();
 
-    const allowedTypes = new Set(['invoice_bill', 'payment', 'contact']);
+    const allowedTypes = new Set([
+      'invoice_bill',
+      'payment',
+      'contact',
+      'trust_movement',
+    ]);
     if (!company_id || !rawType) {
       return { success: false, message: 'company_id and type are required.' };
     }
     if (!allowedTypes.has(rawType)) {
       return {
         success: false,
-        message: `Catch-up discovery is supported for invoice_bill, payment and contact only. ("${rawType}" is not catch-up-eligible — bank transfers and manual journals are produced as side-effects of other syncs and have no standalone discovery surface.)`,
+        message: `Catch-up discovery is supported for invoice_bill, payment, contact and trust_movement only. ("${rawType}" is not catch-up-eligible — generic bank transfers and manual journals are produced as side-effects of other syncs and have no standalone discovery surface.)`,
       };
     }
     if (!fromStr || !toStr) {
@@ -15466,6 +15471,299 @@ export class XeroWebhookService {
 
     try {
       await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+      if (rawType === 'trust_movement') {
+        // Task #231 — Trust movement catch-up discovery.
+        //
+        // Strategy:
+        //   • Scope: BankTransfers in the date window whose from/to
+        //     accounts resolve to a valid trust↔associated-cash pair
+        //     owned by this company (same invariant the inbound
+        //     resolver enforces).
+        //   • Xero side: paged BankTransfer fetch, anti-echo skip for
+        //     our own PT-MOV-{id} / PT-MOV-REV-{id} stamps (no row),
+        //     and PT-RET-* (retention) which has its own catch-up.
+        //     Each candidate that isn't yet linked to a PT payment is
+        //     classified `needs_import` with the inferred suggested
+        //     payment_type; already-mapped rows are `already_in_sync`.
+        //   • PT side: trust-movement payments in window with no
+        //     forward `bank_transfer_id` mapping → classified
+        //     `needs_push` so the operator can recover PT-origin
+        //     records that never made it to Xero.
+
+        const inferType = (this.xeroPaymentsService as any).inferTrustMovementType?.bind(
+          this.xeroPaymentsService,
+        );
+
+        // ---- PT side: unlinked PT trust movements in window ----
+        const isTrustMovementType = (t: string | null | undefined): boolean => {
+          const s = String(t || '').toLowerCase();
+          return (
+            s === 'withdrawal' ||
+            s === 'top up' ||
+            s === 'interest received' ||
+            s === 'interest withdrawal' ||
+            s === 'bank charge applied' ||
+            s === 'bank charge top up' ||
+            s === 'top up retention'
+          );
+        };
+        const ptPayments = await this.paymentDetails
+          .createQueryBuilder('p')
+          .where('p.company_id = :company_id', { company_id })
+          .andWhere('p.payment_date >= :from AND p.payment_date < :to', {
+            from: fromDate.startOf('day').toDate(),
+            to: toDate.clone().add(1, 'day').startOf('day').toDate(),
+          })
+          .andWhere(
+            "(p.deleted IS NULL OR p.deleted = false) AND (p.status IS NULL OR p.status <> 'cancelled')",
+          )
+          .orderBy('p.payment_date', 'DESC')
+          .limit(PER_SIDE_CAP + 1)
+          .getMany()
+          .catch(() => [] as any[]);
+        if (ptPayments.length > PER_SIDE_CAP) {
+          truncated = true;
+          ptPayments.length = PER_SIDE_CAP;
+        }
+        const eligiblePt = ptPayments.filter((p: any) =>
+          isTrustMovementType(p.payment_type),
+        );
+        const eligibleIds = eligiblePt.map((p: any) => Number(p.payment_id));
+        const ptMappings = eligibleIds.length
+          ? await this.xeroPayments
+              .createQueryBuilder('x')
+              .where('x.integration_id = :integration_id', { integration_id })
+              .andWhere('x.pt_payment_id IN (:...ids)', { ids: eligibleIds })
+              .getMany()
+          : [];
+        const ptIdToMapping = new Map<number, any>();
+        for (const m of ptMappings) {
+          if (m.pt_payment_id) ptIdToMapping.set(Number(m.pt_payment_id), m);
+        }
+        for (const p of eligiblePt) {
+          const ptKey = `pt:${p.payment_id}`;
+          const mapping = ptIdToMapping.get(Number(p.payment_id));
+          const linked = !!mapping?.bank_transfer_id;
+          const ptSummary = `Payment ${p.payment_id} (${p.payment_type}) — $${Number(p.total_amount || 0).toFixed(2)} — ${fmtDate(p.payment_date)}`;
+          if (linked) {
+            rows.push({
+              key: ptKey,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(p.payment_id),
+              xero_id: mapping.bank_transfer_id,
+              label: `PT-MOV-${p.payment_id}`,
+              sublabel: `${p.payment_type} — already linked to BankTransfer ${mapping.bank_transfer_id}`,
+              pt_summary: ptSummary,
+              xero_summary: `BankTransfer ${mapping.bank_transfer_id}`,
+            });
+          } else {
+            rows.push({
+              key: ptKey,
+              classification: 'needs_push',
+              type: rawType,
+              pt_id: String(p.payment_id),
+              xero_id: null,
+              label: `PT payment ${p.payment_id}`,
+              sublabel: `${p.payment_type} — not yet pushed to Xero`,
+              hint: 'Use "Run sync" to create PT-MOV-{id} BankTransfer in Xero.',
+              pt_summary: ptSummary,
+            });
+          }
+        }
+
+        // ---- Xero side: BankTransfers in window ----
+        // Build trust↔associated-cash pair map from PT bank accounts so
+        // we can quickly reject transfers that are not trust-movement
+        // candidates without round-tripping to PT for each one.
+        const xeroBankAccounts = await this.xeroBankAccountDetails.find({
+          where: { integration_id },
+        });
+        const xeroAcctIdToPtBank = new Map<string, number>();
+        for (const xa of xeroBankAccounts) {
+          if (xa.account_id && xa.pt_bank_account_id) {
+            xeroAcctIdToPtBank.set(
+              String(xa.account_id),
+              Number(xa.pt_bank_account_id),
+            );
+          }
+        }
+        const trustPairs = await (async () => {
+          // Lazy-load PT bank account pair table — one query.
+          try {
+            const sql = `
+              SELECT b.id AS trust_id, b.associated_cash_account_id AS cash_id
+              FROM bank_account_details b
+              WHERE b.company_id = $1
+                AND b.account_type IN ('PTA','RTA')
+                AND b.associated_cash_account_id IS NOT NULL
+            `;
+            const r = await this.paymentDetails.query(sql, [company_id]);
+            return (r || []).map((row: any) => ({
+              trust_id: Number(row.trust_id),
+              cash_id: Number(row.cash_id),
+            }));
+          } catch {
+            return [] as Array<{ trust_id: number; cash_id: number }>;
+          }
+        })();
+        const trustPairSet = new Set<string>();
+        for (const pair of trustPairs) {
+          trustPairSet.add(`${pair.trust_id}:${pair.cash_id}`);
+          trustPairSet.add(`${pair.cash_id}:${pair.trust_id}`);
+        }
+
+        // Xero accountingApi.getBankTransfers does NOT page (it returns
+        // all transfers since `ifModifiedSince`). We pass the lower
+        // bound and client-side filter the upper bound against the
+        // BankTransfer `date` field (the only timestamp the type
+        // exposes — `updatedDateUTC` is not on BankTransfer).
+        const btRaw: any[] = [];
+        const btToUpper = toDate.clone().endOf('day').toDate();
+        try {
+          if (!budgetExceeded()) {
+            const resp = await this.xero.accountingApi.getBankTransfers(
+              tenant_id,
+              fromDate.startOf('day').toDate(),
+              undefined,
+              'Date DESC',
+            );
+            const batchAll = resp?.body?.bankTransfers || [];
+            for (const bt of batchAll) {
+              const d = (bt as any)?.date;
+              let withinUpper = true;
+              if (d) {
+                try {
+                  withinUpper = moment(d).toDate() <= btToUpper;
+                } catch {
+                  withinUpper = true;
+                }
+              }
+              if (!withinUpper) continue;
+              btRaw.push(bt);
+              if (btRaw.length >= PER_SIDE_CAP) {
+                truncated = true;
+                break;
+              }
+            }
+          } else {
+            truncated = true;
+          }
+        } catch (e: any) {
+          notes.xero_bank_transfers_error = e?.message || String(e);
+        }
+
+        // Pre-load existing xero_payments rows for the BT ids we found so
+        // we can classify already_in_sync vs needs_import without N
+        // round-trips.
+        const btIds = btRaw.map((bt: any) => bt?.bankTransferID).filter(Boolean);
+        const existingByBtId = new Map<string, any>();
+        if (btIds.length) {
+          const existing = await this.xeroPayments
+            .createQueryBuilder('x')
+            .where('x.integration_id = :integration_id', { integration_id })
+            .andWhere('x.bank_transfer_id IN (:...ids)', { ids: btIds })
+            .getMany();
+          for (const row of existing) {
+            if (row.bank_transfer_id) {
+              existingByBtId.set(String(row.bank_transfer_id), row);
+            }
+          }
+        }
+
+        for (const bt of btRaw) {
+          const xeroId = String(bt?.bankTransferID || '');
+          if (!xeroId) continue;
+          const reference = String(bt?.reference || '');
+          // Skip retention transfers (separate catch-up flow).
+          if (/^PT-RET-(REV-)?\d+$/.test(reference)) continue;
+          // Skip our own outbound trust-movement stamps when already
+          // mapped (anti-echo). If unmapped, fall through and surface
+          // as a recoverable import.
+          const mappedRow = existingByBtId.get(xeroId);
+          const fromAcct = String(bt?.fromBankAccount?.accountID || '');
+          const toAcct = String(bt?.toBankAccount?.accountID || '');
+          const fromPt = xeroAcctIdToPtBank.get(fromAcct);
+          const toPt = xeroAcctIdToPtBank.get(toAcct);
+          const isTrustPair =
+            fromPt != null &&
+            toPt != null &&
+            trustPairSet.has(`${fromPt}:${toPt}`);
+          if (!isTrustPair) continue;
+          const key = `xero:${xeroId}`;
+          if (rows.find((r) => r.key === key)) continue;
+          const xeroSummary = `BankTransfer ${xeroId} — $${Number(bt.amount || 0).toFixed(2)} — ${fmtDate(bt.date)}${reference ? ` — "${reference}"` : ''}`;
+          if (mappedRow?.pt_payment_id) {
+            rows.push({
+              key,
+              classification: 'already_in_sync',
+              type: rawType,
+              pt_id: String(mappedRow.pt_payment_id),
+              xero_id: xeroId,
+              label: `BankTransfer ${xeroId.slice(0, 8)}…`,
+              sublabel: `Already linked to PT payment #${mappedRow.pt_payment_id}`,
+              xero_summary: xeroSummary,
+            });
+            continue;
+          }
+          // Suggest payment_type for the import action.
+          let suggestedType: string | null = null;
+          try {
+            if (inferType && fromPt != null && toPt != null) {
+              suggestedType =
+                inferType({
+                  fromPtBankAccountId: fromPt,
+                  toPtBankAccountId: toPt,
+                  refText: reference,
+                })?.payment_type || null;
+            }
+          } catch {
+            suggestedType = null;
+          }
+          rows.push({
+            key,
+            classification: 'needs_import',
+            type: rawType,
+            pt_id: null,
+            xero_id: xeroId,
+            label: `BankTransfer ${xeroId.slice(0, 8)}…`,
+            sublabel: suggestedType
+              ? `Inbound — would import as "${suggestedType}"`
+              : 'Inbound — type inference ambiguous',
+            hint: 'Use "Run sync" to import as a PT trust-movement payment.',
+            xero_summary: xeroSummary,
+          });
+        }
+
+        notes.trust_movement_pairs_loaded = trustPairs.length;
+        notes.trust_movement_xero_bank_transfers_scanned = btRaw.length;
+        notes.trust_movement_pt_payments_scanned = eligiblePt.length;
+
+        const counts = {
+          total: rows.length,
+          already_in_sync: rows.filter(
+            (r) => r.classification === 'already_in_sync',
+          ).length,
+          needs_link: rows.filter((r) => r.classification === 'needs_link').length,
+          needs_push: rows.filter((r) => r.classification === 'needs_push').length,
+          needs_import: rows.filter((r) => r.classification === 'needs_import').length,
+          blocked: rows.filter((r) => r.classification === 'blocked').length,
+        };
+        return {
+          success: true,
+          type: rawType,
+          company_id,
+          from_date: fromIso,
+          to_date: toIso,
+          rows,
+          counts,
+          notes,
+          truncated,
+          per_side_cap: PER_SIDE_CAP,
+          elapsed_ms: Date.now() - startedAt,
+        };
+      }
 
       if (rawType === 'invoice_bill') {
         // Build the Xero project / contract tracking-option → PT id
@@ -18178,7 +18476,11 @@ export class XeroWebhookService {
       }
 
       // PT-side push support guard
-      const ptPushSupported = new Set(['invoice_bill', 'payment']);
+      const ptPushSupported = new Set([
+        'invoice_bill',
+        'payment',
+        'trust_movement',
+      ]);
       if (recommendedAction === 'push' && !ptPushSupported.has(rawType)) {
         blocked = true;
         blockReason = `Pushing a "${rawType}" from PayTrade is not supported via this dialog. Use the per-record action on its source page.`;
@@ -18375,6 +18677,39 @@ export class XeroWebhookService {
                 : `PT claim ${pt_id} pushed to Xero (per-claim creator).`,
             direction,
             syncLogId: triggerLogId,
+          };
+        }
+        if (rawType === 'trust_movement') {
+          // Task #231 — PT-origin manual recovery: push an unlinked
+          // trust-movement payment to Xero as a PT-MOV-{id} BankTransfer
+          // through the same code path the resolver / scheduler use.
+          const result = await this.xeroPaymentsService.pushTrustMovement(
+            decoded,
+            { payment_id: Number(pt_id) },
+          );
+          const triggerLogId = await this.writeTwoSidedTriggerLog(decoded, {
+            company_id,
+            type: rawType,
+            direction,
+            xero_id,
+            pt_id,
+            integration_id: 0,
+            success: !!result?.success,
+            message: result?.success
+              ? `Trust movement PT payment ${pt_id} pushed to Xero as BankTransfer ${result.bank_transfer_id} (${result.reference}).`
+              : `Push of trust movement PT payment ${pt_id} failed: ${result?.message || 'unknown error'}.`,
+            reviewed,
+            preflightSnapshot,
+            outcome: result?.success ? 'push_dispatched' : 'push_failed',
+          });
+          return {
+            success: !!result?.success,
+            message: result?.success
+              ? `Trust movement PT payment ${pt_id} pushed to Xero.`
+              : `Push of trust movement PT payment ${pt_id} reported failure — ${result?.message || 'see sync log'}.`,
+            direction,
+            syncLogId: triggerLogId,
+            resolvedXeroId: result?.bank_transfer_id || null,
           };
         }
         if (rawType === 'payment') {
