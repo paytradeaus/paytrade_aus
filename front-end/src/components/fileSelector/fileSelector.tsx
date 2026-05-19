@@ -25,11 +25,27 @@ export default function FileSelector(props: IProps) {
     if (files && files.length > 0) {
       const filesToUpload: File[] = Array.from(files);
 
-      // Check for Accepted File Formats
+      // Check for Accepted File Formats.
+      // `acceptedFileFormats` may contain MIME types (e.g. "text/csv") and/or
+      // file extensions (e.g. ".csv"). Browsers report `file.type` as a MIME
+      // string only — and that MIME is unreliable for CSVs (Excel on Windows
+      // reports `application/vnd.ms-excel`, some bank exports come through as
+      // empty string or `application/octet-stream`). So accept the file if
+      // either its MIME or its filename extension matches an entry.
       if (acceptedFileFormats.length > 0) {
-        const invalidFiles = filesToUpload.some(
-          (file) => !acceptedFileFormats.includes(file.type)
-        );
+        const allowed = acceptedFileFormats.map((f) => f.toLowerCase());
+        const allowedMimes = allowed.filter((f) => !f.startsWith("."));
+        const allowedExts = allowed.filter((f) => f.startsWith("."));
+        const invalidFiles = filesToUpload.some((file) => {
+          const mime = (file.type || "").toLowerCase();
+          const name = (file.name || "").toLowerCase();
+          const ext = name.includes(".")
+            ? name.slice(name.lastIndexOf("."))
+            : "";
+          const mimeOk = mime !== "" && allowedMimes.includes(mime);
+          const extOk = ext !== "" && allowedExts.includes(ext);
+          return !mimeOk && !extOk;
+        });
         if (invalidFiles) {
           showErrorToast("Please select correct file format");
           return;
