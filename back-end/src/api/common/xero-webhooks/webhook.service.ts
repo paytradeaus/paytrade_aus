@@ -14477,6 +14477,50 @@ export class XeroWebhookService {
       //       PT payment id, bank_transfer_reference, or PT-RET-{id}.
       //   (b) Recent Xero BankTransfers filtered by reference Contains.
       if (resolvedType === 'bank_transfer') {
+        // Task #231 — when the original rawType was 'trust_movement',
+        // restrict candidates to (a) unlinked transfers only (no
+        // xero_payments.bank_transfer_id row yet) AND (b) transfers
+        // whose from/to Xero accounts resolve to a valid PT
+        // trust↔associated_cash pair. The lookup then becomes a true
+        // date-range scan for unmapped trust movements.
+        const isTrustMovementLookup = rawType === 'trust_movement';
+        let trustValidPairs: Set<string> = new Set();
+        let alreadyLinkedIds: Set<string> = new Set();
+        if (isTrustMovementLookup) {
+          try {
+            const xeroBanks = await this.xeroBankAccountDetails.find({
+              where: { integration_id },
+            });
+            const ptToXero = new Map<number, string>();
+            for (const xb of xeroBanks) {
+              if (xb.pt_bank_account_id && xb.account_id) {
+                ptToXero.set(Number(xb.pt_bank_account_id), xb.account_id);
+              }
+            }
+            const ptBanks = await this.bankAccounts.find({
+              where: { company_id },
+            });
+            const trustList = ptBanks.filter((b) =>
+              ['Project Trust Account', 'Retention Trust Account'].includes(
+                String((b as any).account_type || ''),
+              ),
+            );
+            for (const tb of trustList) {
+              const cashId = Number((tb as any).associated_cash_account_id || 0);
+              if (!cashId) continue;
+              const trustXero = ptToXero.get(Number((tb as any).bank_account_id));
+              const cashXero = ptToXero.get(cashId);
+              if (trustXero && cashXero) {
+                trustValidPairs.add(`${trustXero}|${cashXero}`);
+                trustValidPairs.add(`${cashXero}|${trustXero}`);
+              }
+            }
+          } catch (err: any) {
+            this.logger.log(
+              `[MANUAL_RESYNC_LOOKUP] trust_movement pair preload failed: ${err?.message || err}`,
+            );
+          }
+        }
         const collected = new Map<string, { id: string; label: string; sublabel?: string }>();
         const accountLower = accountHint.toLowerCase();
         const parsedDate = dateHint && moment(dateHint).isValid()
@@ -14509,7 +14553,10 @@ export class XeroWebhookService {
         // account/date-only searches are about Xero-side transfers we
         // don't already track.
         const ptHintNumeric = /^\d+$/.test(hint) ? Number(hint) : null;
-        if (hasHint) {
+        // For trust_movement lookups we want ONLY unmapped Xero
+        // transfers — skip the PT-side query entirely, since every row
+        // it returns has a non-null bank_transfer_id (already linked).
+        if (hasHint && !isTrustMovementLookup) {
           try {
             const qb = this.xeroPayments
               .createQueryBuilder('xp')
@@ -14555,9 +14602,38 @@ export class XeroWebhookService {
           );
           const list = resp?.body?.bankTransfers || [];
           btRawCount = list.length;
+          // For trust_movement lookups, prefetch the set of already-
+          // mapped BankTransfer IDs so we can exclude them in one pass.
+          if (isTrustMovementLookup && list.length) {
+            try {
+              const ids = list
+                .map((bt: any) => String(bt?.bankTransferID || ''))
+                .filter(Boolean);
+              if (ids.length) {
+                const mapped = await this.xeroPayments.find({
+                  where: { integration_id, bank_transfer_id: In(ids) },
+                  select: ['bank_transfer_id'],
+                });
+                alreadyLinkedIds = new Set(
+                  mapped.map((m) => String(m.bank_transfer_id)),
+                );
+              }
+            } catch (err: any) {
+              this.logger.log(
+                `[MANUAL_RESYNC_LOOKUP] trust_movement linked-id preload failed: ${err?.message || err}`,
+              );
+            }
+          }
           for (const bt of list) {
             const id = String((bt as any)?.bankTransferID || '');
             if (!id || collected.has(id)) continue;
+            // Trust-movement constraints: unlinked + valid trust-pair.
+            if (isTrustMovementLookup) {
+              if (alreadyLinkedIds.has(id)) continue;
+              const fromId = String((bt as any)?.fromBankAccount?.accountID || '');
+              const toId = String((bt as any)?.toBankAccount?.accountID || '');
+              if (!trustValidPairs.has(`${fromId}|${toId}`)) continue;
+            }
             const dt = (bt as any)?.date ? moment((bt as any).date) : null;
             if (toDate && dt?.isValid() && dt.toDate() > toDate) continue;
             const ref = String((bt as any)?.reference || '');
@@ -17833,6 +17909,86 @@ export class XeroWebhookService {
               xeroSide.date = bt.date;
               const ref = bt.reference || '';
               xeroSide.summary = `BankTransfer ${bt.bankTransferID} — $${xeroSide.amount.toFixed(2)} on ${bt.date} — ${ref}`;
+
+              // Trust-pair invariant: a real trust movement must move
+              // funds between a trust account (PTA/RTA) and that
+              // trust's `associated_cash_account_id`. Look up the
+              // from/to Xero accounts in xero_bank_account_details,
+              // resolve to PT bank accounts, then verify the pairing.
+              try {
+                const fromXeroId = bt?.fromBankAccount?.accountID;
+                const toXeroId = bt?.toBankAccount?.accountID;
+                const [fromMap, toMap] = await Promise.all([
+                  fromXeroId
+                    ? this.xeroBankAccountDetails.findOne({
+                        where: {
+                          integration_id: xeroDetails.integration_id,
+                          account_id: fromXeroId,
+                        },
+                      })
+                    : Promise.resolve(null),
+                  toXeroId
+                    ? this.xeroBankAccountDetails.findOne({
+                        where: {
+                          integration_id: xeroDetails.integration_id,
+                          account_id: toXeroId,
+                        },
+                      })
+                    : Promise.resolve(null),
+                ]);
+                if (!fromMap?.pt_bank_account_id || !toMap?.pt_bank_account_id) {
+                  checks.push({
+                    label: 'Trust pair: account mappings',
+                    status: 'fail',
+                    detail: `One or both Xero bank accounts are not mapped to PayTrade bank accounts (from=${fromXeroId || '?'} to=${toXeroId || '?'}).`,
+                  });
+                } else {
+                  const [fromBank, toBank] = await Promise.all([
+                    this.bankAccounts.findOne({
+                      where: { bank_account_id: Number(fromMap.pt_bank_account_id) },
+                    }),
+                    this.bankAccounts.findOne({
+                      where: { bank_account_id: Number(toMap.pt_bank_account_id) },
+                    }),
+                  ]);
+                  const trustTypes = new Set([
+                    'Project Trust Account',
+                    'Retention Trust Account',
+                  ]);
+                  const fromIsTrust = trustTypes.has(String(fromBank?.account_type || ''));
+                  const toIsTrust = trustTypes.has(String(toBank?.account_type || ''));
+                  if (fromIsTrust === toIsTrust) {
+                    checks.push({
+                      label: 'Trust pair: direction',
+                      status: 'fail',
+                      detail: 'Trust movement requires exactly one trust (PTA/RTA) leg and one cash leg.',
+                    });
+                  } else {
+                    const trustBank = fromIsTrust ? fromBank : toBank;
+                    const cashBank = fromIsTrust ? toBank : fromBank;
+                    const associated = Number((trustBank as any)?.associated_cash_account_id || 0);
+                    if (!associated || associated !== Number(cashBank?.bank_account_id)) {
+                      checks.push({
+                        label: 'Trust pair: associated cash account',
+                        status: 'fail',
+                        detail: `Cash leg (PT bank #${cashBank?.bank_account_id}) is not the trust's associated_cash_account_id (#${associated || 'not set'}).`,
+                      });
+                    } else {
+                      checks.push({
+                        label: 'Trust pair: associated cash account',
+                        status: 'ok',
+                        detail: `${trustBank?.account_type} #${trustBank?.bank_account_id} ↔ cash #${cashBank?.bank_account_id} pairing is valid.`,
+                      });
+                    }
+                  }
+                }
+              } catch (pairErr: any) {
+                checks.push({
+                  label: 'Trust pair validation',
+                  status: 'warn',
+                  detail: pairErr?.message || String(pairErr),
+                });
+              }
             } else {
               checks.push({
                 label: 'Xero BankTransfer',

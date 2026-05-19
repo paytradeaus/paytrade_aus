@@ -8537,6 +8537,7 @@ export class XeroPaymentsService {
     const refText = refTextRaw.toLowerCase();
     const hasInterest = /interest/.test(refText);
     const hasBankCharge = /bank\s*charge|bank\s*fee/.test(refText);
+    const hasRetention = /retention/.test(refText);
     const isRtaTrust = String(trustBank.account_type) === 'Retention Trust Account';
     let payment_type: string;
     let typeAmbiguous = false;
@@ -8550,15 +8551,23 @@ export class XeroPaymentsService {
         typeAmbiguous = !refText.trim();
       }
     } else {
+      // Cash → Trust direction. Default to "Top Up"; only escalate to
+      // "Top Up Retention" when the destination is an RTA AND the
+      // reference text actually mentions retention. RTAs receive
+      // routine Top Ups too — defaulting every cash→RTA transfer to
+      // Top Up Retention would systematically mis-classify them.
       if (hasInterest) {
         payment_type = 'Interest Received';
       } else if (hasBankCharge) {
         payment_type = 'Bank Charge Top Up';
-      } else if (isRtaTrust) {
+      } else if (isRtaTrust && hasRetention) {
         payment_type = 'Top Up Retention';
       } else {
         payment_type = 'Top Up';
-        typeAmbiguous = !refText.trim();
+        // Always warn on the cash→RTA neutral path even when a
+        // reference exists, since Top Up vs Top Up Retention is a
+        // judgment call the user may want to override.
+        typeAmbiguous = !refText.trim() || isRtaTrust;
       }
     }
     if (typeAmbiguous) {
