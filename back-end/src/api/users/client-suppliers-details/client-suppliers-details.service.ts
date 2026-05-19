@@ -30,6 +30,7 @@ import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-suppl
 import { VariationDetails } from 'src/entities/variation-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { formatCurrencyWithoutDollars } from 'src/libs/@currency-formattor/currency-formattor';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
@@ -711,7 +712,10 @@ export class ClientSuppliersDetailsService {
             account_number: element?.account_number,
             account_name: element?.account_name,
             account_type: element?.account_type,
-            bsb_number: element?.bsb_number,
+            // Pad to 6 digits so the UI shows BSBs like "034064" instead of
+            // 34064. Storage is integer and strips leading zeros; the read
+            // path is the safe place to re-pad. See padBsb6 helper.
+            bsb_number: padBsb6(element?.bsb_number),
           };
         }),
       created_by: result.created_by,

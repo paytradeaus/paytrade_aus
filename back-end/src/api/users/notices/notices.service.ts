@@ -1635,6 +1635,7 @@ export class NoticesService {
         };
 
         if (
+          noticeListWithData.trustAccDelegation === 'Paid' ||
           noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
           userMode === 'Onboarding'
         ) {
@@ -1766,6 +1767,7 @@ export class NoticesService {
         };
 
         if (
+          noticeListWithData.retentionAccDelegation === 'Paid' ||
           noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
           (userMode && userMode == 'Onboarding')
         ) {
@@ -2285,6 +2287,7 @@ export class NoticesService {
           };
 
           if (
+            noticeListWithData.trustAccDelegation === 'Paid' ||
             noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
             (userMode && userMode == 'Onboarding')
           ) {
@@ -2899,6 +2902,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3018,6 +3022,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3137,6 +3142,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3257,6 +3263,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3466,6 +3473,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.retentionAccDelegation === 'Paid' ||
               noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3586,6 +3594,7 @@ export class NoticesService {
             };
 
             if (
+              noticeListWithData.retentionAccDelegation === 'Paid' ||
               noticeListWithData.retentionAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {
@@ -3885,6 +3894,7 @@ export class NoticesService {
               view_preview: true,
             };
             if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
               noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
               (userMode && userMode == 'Onboarding')
             ) {

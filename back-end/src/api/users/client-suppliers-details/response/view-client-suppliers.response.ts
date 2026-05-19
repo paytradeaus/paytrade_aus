@@ -190,8 +190,13 @@ export class AccountDetailsList {
   })
   account_type: BankAccountType;
 
-  @Field({ nullable: true, description: 'BSB number of the bank account.' })
-  bsb_number: number;
+  // BSB returned as String to preserve leading zeros (e.g. "034064").
+  // Storage column is integer (Task #65 follow-up); read path pads via padBsb6.
+  @Field(() => String, {
+    nullable: true,
+    description: 'BSB number of the bank account (6-digit string).',
+  })
+  bsb_number: string;
 }
 
 // Task #41 — Per-(supplier × project) Xero account code override row.
