@@ -24,11 +24,12 @@ export class FetchAllBankAccounts {
   @Field({ nullable: true, description: 'Type of the bank account.' })
   account_type: string;
 
-  @Field({
+  @Field(() => String, {
     nullable: true,
-    description: 'BSB number associated with the bank account.',
+    description:
+      'BSB number associated with the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.',
   })
-  bsb_number: number;
+  bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
   apca_number: number;
@@ -210,11 +211,12 @@ export class FetchBankAccountDetails {
   @Field({ nullable: true, description: 'Bank account number.' })
   account_number: string;
 
-  @Field({
+  @Field(() => String, {
     nullable: true,
-    description: 'BSB number associated with the bank account.',
+    description:
+      'BSB number associated with the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.',
   })
-  bsb_number: number;
+  bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
   apca_number: number;
@@ -309,8 +311,12 @@ export class FetchBankAccountDetailsForEditing {
   @Field({ nullable: true, description: 'Bank account number.' })
   account_number: string;
 
-  @Field({ nullable: true, description: 'BSB number of the bank account.' })
-  bsb_number: number;
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'BSB number of the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.',
+  })
+  bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
   apca_number: number;

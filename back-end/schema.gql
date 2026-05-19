@@ -5232,8 +5232,10 @@ type FetchAllBankAccounts {
   """Unique identifier of the bank account."""
   bank_account_id: Float
 
-  """BSB number associated with the bank account."""
-  bsb_number: Float
+  """
+  BSB number associated with the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.
+  """
+  bsb_number: String
 
   """Timestamp indicating when the bank account was created."""
   created_on: DateTime
@@ -6849,8 +6851,10 @@ type FetchBankAccountDetails {
   """Unique identifier of the bank account."""
   bank_account_id: Float
 
-  """BSB number associated with the bank account."""
-  bsb_number: Float
+  """
+  BSB number associated with the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.
+  """
+  bsb_number: String
 
   """Timestamp indicating when the bank account was created."""
   created_on: DateTime
@@ -6900,8 +6904,10 @@ type FetchBankAccountDetailsForEditing {
   """Unique identifier of the bank account."""
   bank_account_id: Float!
 
-  """BSB number of the bank account."""
-  bsb_number: Float
+  """
+  BSB number of the bank account. Returned as a zero-padded 6-digit string so leading zeros are preserved over the wire.
+  """
+  bsb_number: String
 
   """Client or supplier ID linked to the account."""
   client_supplier_id: Float

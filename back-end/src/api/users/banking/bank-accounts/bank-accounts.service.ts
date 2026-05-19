@@ -41,6 +41,18 @@ import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-q
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
+// Australian BSBs are always 6 digits. The `bsb_number` column is numeric so
+// any leading zero is stripped on write (e.g. NAB BSB "084004" stored as 84004,
+// commonly arriving via the Xero → PT bank-account sync). Zero-pad on read so
+// the frontend always receives the canonical 6-digit value and its
+// "must be 6 digits" validator passes on save.
+function padBsb6(value: number | string | null | undefined): string | null {
+  if (value == null) return null;
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) return null;
+  return digits.padStart(6, '0').slice(0, 6);
+}
+
 @Injectable()
 export class BankAccountsService {
   private logger: PaytradeLogger;
@@ -1054,6 +1066,10 @@ export class BankAccountsService {
       bank_account_details.interest_charges_sum =
         await this.calculateInterestChargesSum(bank_account_id);
 
+      bank_account_details.bsb_number = padBsb6(
+        bank_account_details.bsb_number,
+      );
+
       return framedResponse(
         'SUCCESS',
         `Bank account details fetched successfully.`,
@@ -1158,6 +1174,10 @@ export class BankAccountsService {
             )
             : null;
       }
+
+      bank_account_details.bsb_number = padBsb6(
+        bank_account_details.bsb_number,
+      );
 
       return framedResponse(
         'SUCCESS',
@@ -1389,6 +1409,7 @@ export class BankAccountsService {
 
           const extendedBankAccount = {
             ...bank_account,
+            bsb_number: padBsb6(bank_account.bsb_number) as any,
             projects_count: bank_account.project_ids
               ? bank_account.project_ids.length
               : 0,
