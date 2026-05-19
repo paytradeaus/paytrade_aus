@@ -3050,13 +3050,22 @@ export class XeroWebhookService {
       this.logger.debug(`[BILL_TRACE] V-Step 18 OK: All validations passed`);
 
       this.logger.debug(`[BILL_TRACE] V-Step 18b: Validating contact completeness...`);
-      const contactIssues: string[] = [];
+      // Per Task #154 plan: missing email alone must NOT block an
+      // invoice/bill import. It downgrades to a soft-fail — the
+      // contact is flagged `needs_email = true`, a warning sync log
+      // (template 612 — webhook missing email) is written, and the
+      // claim/payment is allowed to import. Notice sending downstream
+      // checks the `needs_email` flag and suppresses outbound mail
+      // until the user adds an address.
+      //
+      // Address and supplier-bank-account issues remain hard fails
+      // — without them the claim/payment cannot be reconciled or paid.
+      const _emailMissing =
+        !!clientSuppliersDetails && !clientSuppliersDetails.client_email_id;
+      const _otherIssues: string[] = [];
       if (clientSuppliersDetails) {
-        if (!clientSuppliersDetails.client_email_id) {
-          contactIssues.push('Email Address');
-        }
         if (!clientSuppliersDetails.client_supplier_address) {
-          contactIssues.push('Address');
+          _otherIssues.push('Address');
         }
       }
       if (
@@ -3068,21 +3077,28 @@ export class XeroWebhookService {
           where: { client_supplier_id: clientSuppliersDetails.client_supplier_id },
         });
         if (!supplierBankAccounts || supplierBankAccounts.length === 0) {
-          contactIssues.push(`Supplier bank account details`);
+          _otherIssues.push(`Supplier bank account details`);
         } else {
           const hasComplete = supplierBankAccounts.some(
             (acc) => acc.account_number && acc.bsb_number,
           );
           if (!hasComplete) {
-            contactIssues.push(`Supplier bank account BSB number`);
+            _otherIssues.push(`Supplier bank account BSB number`);
           }
         }
       }
 
-      if (contactIssues.length > 0) {
-        const contactName = clientSuppliersDetails?.client_supplier_name || xeroContactDetails?.contact_name || 'Unknown';
-        const issueList = contactIssues.join(', ');
-        this.logger.error(`[BILL_TRACE] V-Step 18b FAILED: Contact '${contactName}' missing: ${issueList}`);
+      const contactName =
+        clientSuppliersDetails?.client_supplier_name ||
+        xeroContactDetails?.contact_name ||
+        'Unknown';
+
+      if (_otherIssues.length > 0) {
+        const issueList = _otherIssues.join(', ');
+        const _emailNote = _emailMissing ? ' (email also missing)' : '';
+        this.logger.error(
+          `[BILL_TRACE] V-Step 18b FAILED: Contact '${contactName}' missing: ${issueList}${_emailNote}`,
+        );
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
@@ -3116,7 +3132,7 @@ export class XeroWebhookService {
             'Client/Supplier mapping validation': 'Ok',
             'Contact completeness validation': 'Failed',
           },
-          error_message: `Contact '${contactName}' is missing required information: ${issueList}. Please update the contact in PayTrade and retry.`,
+          error_message: `Contact '${contactName}' is missing required information: ${issueList}${_emailNote}. Please update the contact in PayTrade and retry.`,
           xero_records: [invoice],
           paytrade_records: [clientSuppliersDetails],
           new_records: null,
@@ -3124,6 +3140,72 @@ export class XeroWebhookService {
           synced_records: null,
         });
         return false;
+      }
+
+      // Email-only soft-fail: flag the contact and write a warning,
+      // then fall through to continue the import.
+      if (_emailMissing && clientSuppliersDetails) {
+        this.logger.warn(
+          `[BILL_TRACE] V-Step 18b WARNING: Contact '${contactName}' missing email — proceeding with import, notices will be suppressed until email is added.`,
+        );
+        try {
+          await this.clientSuppliersDetailsService.markNeedsEmail(
+            clientSuppliersDetails.id,
+            true,
+          );
+        } catch (markErr) {
+          this.logger.warn(
+            `[BILL_TRACE] V-Step 18b: markNeedsEmail failed for contact ${clientSuppliersDetails.id}: ${markErr?.message || markErr}`,
+          );
+        }
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id || null,
+          api_name: 'createClaimInPaytrade',
+          api_payload: {
+            sync_run_type,
+            invoice_id: invoice?.invoiceID,
+            tenant_id,
+            type: invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            contact_id: invoice?.contact?.contactID,
+            client_supplier_id: clientSuppliersDetails?.client_supplier_id,
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id:
+            sync_run_type === 'webhook'
+              ? 612
+              : sync_run_type === 'scheduler'
+              ? 611
+              : 610,
+          dynamic_values: {
+            contact_name: contactName,
+            invoice_id: invoice?.invoiceID,
+          },
+          project_id: xeroProjectDetails?.id,
+          contract_id: xeroContractDetails?.id,
+          reference: {
+            xeroId: xeroContactDetails?.id,
+            paytradeId: clientSuppliersDetails?.id,
+          },
+          reference_id: clientSuppliersDetails?.id,
+          history: [
+            `API triggered from invoice ${sync_run_type}`,
+            'Imported with warning — contact email missing, notices suppressed',
+          ],
+          important_checks: {
+            'Import data format validation': 'Ok',
+            'Import tracking id validation': 'Ok',
+            'Import account type validation': 'Ok',
+            'Import tax type validation': 'Ok',
+            'Client/Supplier mapping validation': 'Ok',
+            'Contact completeness validation': 'Warning',
+          },
+          error_message: `Imported with warning: contact '${contactName}' has no email address. Notices will not be sent until an email is added in PayTrade or Xero.`,
+          xero_records: [invoice],
+          paytrade_records: [clientSuppliersDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
       }
       this.logger.debug(`[BILL_TRACE] V-Step 18b OK: Contact details complete`);
 
