@@ -2,15 +2,7 @@ import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { FileUploadService } from './file-upload.service';
 import { FileUploadResponse } from './response/file-upload.response';
 import { CreateFileUploadInput } from './dto/create-file-upload.input';
-import {
-  createWriteStream,
-  unlink,
-  existsSync,
-  mkdirSync,
-} from 'fs';
-import { tmpdir } from 'os';
 import { GraphQLUpload, Upload } from 'graphql-upload';
-import { join } from 'path';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
 import { RolesGuard } from 'src/api/auth/role-guard/roles.guard';
@@ -231,47 +223,18 @@ export class FileUploadResolver {
         this.logger.log(`fileSize: ${fileSize}`);
         this.logger.log(`maxFileSize: ${maxFileSize}`);
 
-        // Validate CSV headers if needed (using the already-buffered data)
-        if (
-          createFileUploadInput?.attachment_type ===
-          'Transaction_csv_file_attachments'
-        ) {
-          const tempDir = tmpdir();
-          const tempFilePath = join(tempDir, filename);
-
-          // Ensure the temporary directory exists
-          if (!existsSync(tempDir)) {
-            mkdirSync(tempDir);
-          }
-
-          // Write buffer to temp file for CSV validation
-          const { writeFileSync, unlinkSync } = require('fs');
-          writeFileSync(tempFilePath, fileBuffer);
-
-          try {
-            const requiredHeaders = [
-              'txn_amount',
-              'txn_date',
-              'description',
-              'balance',
-            ];
-            await this.fileUploadService.validateCsvHeaders(
-              tempFilePath,
-              requiredHeaders,
-            );
-            // Clean up temp file
-            try { unlinkSync(tempFilePath); } catch {}
-          } catch (error) {
-            // Clean up temp file on error
-            try { unlinkSync(tempFilePath); } catch {}
-            return resolve(
-              framedResponse(
-                'ERROR',
-                `CSV validation failed: ${error.message}`,
-              ),
-            );
-          }
-        }
+        // Bank statement CSVs are intentionally NOT validated here.
+        // The downstream `processUploadedTransactionsCsv` mutation runs
+        // `normaliseBankCsv`, which handles bank-export variations the
+        // strict header check cannot — `sep=,` Excel directive,
+        // preamble metadata rows (NAB "Account Name:", "Opening
+        // balance:" etc.), Excel `="..."` formula-escaping, split
+        // Debit/Credit columns, and header aliases (Date/Narrative/
+        // Running Balance). Re-validating up-front with a hard-coded
+        // PT-template header list would reject every real bank export
+        // and defeat the purpose of the canonicalising parser. The
+        // downstream service returns a clear error if the file truly
+        // can't be parsed.
 
         // Continue with file size validation and upload
         {
