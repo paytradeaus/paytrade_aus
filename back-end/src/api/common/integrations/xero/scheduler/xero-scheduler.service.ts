@@ -2105,9 +2105,16 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 account_id,
                 company_id,
               );
+            // Task #232 — Bank account NAMES are owned by PayTrade and
+            // must never be overwritten by inbound Xero sync. Drop
+            // account_name from both the change-detection trigger and
+            // the edit payload; only BSB / account number may flow
+            // from Xero into the PT bank_accounts record. The PT name
+            // is preserved by passing accountDetails?.account_name as
+            // the EditDetailsOfABankAccountInput requires the field
+            // but editDetailsOfABankAccount will treat an unchanged
+            // value as a no-op.
             if (
-              xeroAccountDetails?.account_name !==
-                accountDetails?.account_name ||
               xeroAccountDetails?.bsb_number !== accountDetails?.bsb_number ||
               xeroAccountDetails?.account_number !==
                 accountDetails?.account_number
@@ -2115,7 +2122,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               const payload: EditDetailsOfABankAccountInput = {
                 company_id,
                 bank_account_id: accountDetails?.bank_account_id,
-                account_name: xeroAccountDetails?.account_name,
+                account_name: accountDetails?.account_name,
                 account_number: xeroAccountDetails?.account_number,
                 bsb_number: xeroAccountDetails?.bsb_number,
                 apca_number: accountDetails?.apca_number,
