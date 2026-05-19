@@ -6590,24 +6590,28 @@ export class XeroInvoicesService {
       }
     }
 
-    // When the *only* blocker is the missing email, queue the
-    // smart-create attempt onto the contact and write a specific warning
-    // log instead of a hard failure. The attempt is replayed automatically
-    // when the user later saves an email via editClientSuppliersDetailsById.
-    if (
-      allIssues.length === 1 &&
-      allIssues[0] === 'Email Address'
-    ) {
-      await this.queueSmartCreateForEmailReplay(clientSuppliersDetails, {
-        invoice_id: data.invoice_id,
-        tenant_id: data.tenant_id,
-        company_id,
-        project_id: projectDetails.project_id,
-        sync_run_type: data.sync_run_type || null,
-        queued_on: new Date().toISOString(),
-      });
+    // Task #154: split email-missing (soft-fail) from other contact issues
+    // (hard-fail). Email-only contacts get marked needs_email=true and a
+    // warning sync log is written, but execution continues so the contract
+    // and downstream claim/payment import succeed. Notice sending is
+    // suppressed below while the contact has no email.
+    const _emailMissing = allIssues.includes('Email Address');
+    const _otherIssues = allIssues.filter((i) => i !== 'Email Address');
+
+    if (_otherIssues.length === 0 && _emailMissing) {
+      try {
+        await this.clientSuppliersDetails.update(
+          { id: clientSuppliersDetails.id },
+          { needs_email: true },
+        );
+      } catch (flagErr) {
+        const msg = flagErr instanceof Error ? flagErr.message : String(flagErr);
+        this.logger.warn(
+          `[SMART_CREATE_CONTRACT] Failed to set needs_email for contact ${contactName} (id=${clientSuppliersDetails.id}): ${msg}`,
+        );
+      }
       this.logger.log(
-        `Smart contract creation queued: contact ${contactName} missing email (invoice ${invoice_id})`,
+        `Smart contract proceeding with email-soft-fail: contact ${contactName} missing email (invoice ${invoice_id}) — notices will be suppressed until email is added`,
       );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         api_name: 'smartCreateContract',
@@ -6620,9 +6624,9 @@ export class XeroInvoicesService {
         },
         project_id: xeroProjectId,
         contract_id: null,
-        // paytradeId must point to the client_suppliers_details
-        // row so the email-edit transition / sync-log resolve UI can
-        // attribute this blocked entry back to the contact.
+        // paytradeId must point to the client_suppliers_details row so
+        // the email-edit transition / sync-log resolve UI can attribute
+        // this warning back to the contact.
         reference: {
           xeroId: checkExistenceInDb?.id,
           paytradeId: clientSuppliersDetails?.id,
@@ -6630,20 +6634,20 @@ export class XeroInvoicesService {
         reference_id: clientSuppliersDetails?.id,
         history: [
           `API triggered from claim ${invoice_id}`,
-          'Smart contract creation queued — waiting for contact email',
+          'Smart contract proceeding — contact email missing, notices suppressed',
         ],
         important_checks: {},
-        error_message: `Blocked: missing client email for '${contactName}'. Queued for replay once an email is saved.`,
+        error_message: `Imported with warning — contact '${contactName}' has no email; notices suppressed until an email is added.`,
         xero_records: [invoiceDetails],
         paytrade_records: [clientSuppliersDetails],
         new_records: null,
         updated_records: null,
         synced_records: null,
       });
-      return null;
+      // fall through — continue smart contract creation
     }
 
-    if (allIssues.length > 0) {
+    if (_otherIssues.length > 0) {
       const issueList = allIssues.join('; ');
       const contactFieldsMissing = allIssues.filter(i =>
         ['Address', 'Email Address'].includes(i)
@@ -6805,7 +6809,7 @@ export class XeroInvoicesService {
         synced_records: null,
       });
 
-      if (derived.clientSupplierType === 'Supplier') {
+      if (derived.clientSupplierType === 'Supplier' && !_emailMissing) {
         try {
           this.logger.log(
             `[SMART_CONTRACT_NOTICES] === BEGIN notice flow for smart contract ${updatedContractId} ===`
@@ -6876,6 +6880,10 @@ export class XeroInvoicesService {
             `[SMART_CONTRACT_NOTICES] Notice generation FAILED for smart contract ${updatedContractId}: ${noticeErrMsg}`
           );
         }
+      } else if (derived.clientSupplierType === 'Supplier' && _emailMissing) {
+        this.logger.log(
+          `[SMART_CONTRACT_NOTICES] Skipping notices — contact '${contactName}' has no email (needs_email=true). Notices will be re-evaluated after email is added.`
+        );
       } else {
         this.logger.log(
           `[SMART_CONTRACT_NOTICES] Skipping notices — clientSupplierType='${derived.clientSupplierType}' (only Supplier triggers S23/TA3 notices)`
