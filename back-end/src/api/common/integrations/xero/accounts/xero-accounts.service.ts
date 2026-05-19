@@ -950,6 +950,16 @@ export class XeroAccountsService {
             bsbDigitsEdit && acctDigitsEdit
               ? `${bsbDigitsEdit.padStart(6, '0')}${acctDigitsEdit}`
               : undefined;
+          // Deliberately do NOT push `name` on an update. PayTrade
+          // enforces its own bank-account-name format (project trust /
+          // retention trust suffixes etc.) which the user often does
+          // not want propagated into Xero, and Xero may carry a
+          // friendlier display name the user does not want overwritten
+          // by PayTrade. The link is keyed on Xero's account_id, so
+          // names can drift independently on each side without
+          // breaking the mapping. Initial creation still sends a name
+          // via `createBankAccount`; only ongoing renames are
+          // suppressed here.
           const updateBankAccountResponse =
             await this.xero.accountingApi.updateAccount(
               xeroDetails.tenant_id,
@@ -957,7 +967,6 @@ export class XeroAccountsService {
               {
                 accounts: [
                   {
-                    name: accountDetails.account_name,
                     ...(bankAccountNumberEdit
                       ? { bankAccountNumber: bankAccountNumberEdit }
                       : {}),
