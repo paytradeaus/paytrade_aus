@@ -1,0 +1,11 @@
+sep=,
+Account Name: , Alba Project Trust
+Account Number: , 084-004 43-681-2608
+Date requested: , 19/05/2026
+Date period: , 20/04/2026 - 19/05/2026
+Opening balance: ,"AUD 0.00 CR"
+Closing balance: ,"AUD 0.00 CR"
+
+Date,Narrative,Currency, Debit,Credit,Running Balance
+"2026-05-13","=""/ Pmt 000318197194 SIGNATURE MU AUTOMATIC DRAWING""","AUD","-130686.93","","=""0.00"""
+"2026-05-13","=""NABCONNECT 318223501 TRANSFER CREDIT""","AUD","","130686.93","=""130686.93"""
