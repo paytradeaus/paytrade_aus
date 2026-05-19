@@ -3847,6 +3847,17 @@ export class NoticesService {
             this.logger.log(
               `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type}`,
             );
+            try {
+              await this.generateNoticeDocument(
+                { id: newNotice?.data?.id },
+                decoded,
+                manager,
+              );
+            } catch (pdfErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+              );
+            }
             await this.updateNoticeStatus(
               {
                 notice_id: newNotice.data.notice_id,
@@ -3976,6 +3987,17 @@ export class NoticesService {
             this.logger.log(
               `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type}`,
             );
+            try {
+              await this.generateNoticeDocument(
+                { id: newNotice?.data?.id },
+                decoded,
+                manager,
+              );
+            } catch (pdfErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+              );
+            }
             await this.updateNoticeStatus(
               {
                 notice_id: newNotice.data.notice_id,
@@ -4121,6 +4143,17 @@ export class NoticesService {
                   this.logger.log(
                     `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} project_id=${projectId}`,
                   );
+                  try {
+                    await this.generateNoticeDocument(
+                      { id: newNotice?.data?.id },
+                      decoded,
+                      manager,
+                    );
+                  } catch (pdfErr) {
+                    this.logger.error(
+                      `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} project_id=${projectId} error=${pdfErr?.message}`,
+                    );
+                  }
                   await this.updateNoticeStatus(
                     {
                       notice_id: newNotice.data.notice_id,

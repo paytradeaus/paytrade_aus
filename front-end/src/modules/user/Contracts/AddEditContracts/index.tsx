@@ -212,7 +212,7 @@ export default function AddEditContracts(props: any) {
       contractData?.contract_status === "In Progress" &&
       isUploadDataPresent)
       ? "Contract attachments added"
-      : "Please upload your signed contract";
+      : "Upload Contract";
 
   const isNoticeSent = contractData?.notice_generated;
 
