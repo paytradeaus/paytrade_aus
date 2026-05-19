@@ -314,7 +314,10 @@ const DynamicTable: React.FC<DynamicTableProps> = ({
   }
 
   function trimData(data: any, finalLimit: number) {
-    return data.toString()?.slice(0, finalLimit).concat("...");
+    const str = data?.toString() ?? "";
+    return str.length > finalLimit
+      ? str.slice(0, finalLimit).concat("...")
+      : str;
   }
 
   /**
