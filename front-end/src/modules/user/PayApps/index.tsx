@@ -34,6 +34,7 @@ import ColumnSettingsMenu, {
 import { useAppSelector } from "@/redux/store";
 import { setTablePreference } from "@/redux/slices/uiPreferences";
 import { persistUiPreferences } from "@/network/uiPreferences";
+import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   buttonType,
   filterByDuration,
@@ -100,6 +101,24 @@ export default function PayApps({ overViewDetails = {} }: any) {
   );
 
   const [selectedStatusName, setSelectedStatusName] = useState<any>(null);
+  // Multi-select status values (array of {label, value}). Empty array =
+  // "All". Persisted to tablePreferences.payApps.filters.statuses.
+  const [selectedStatuses, setSelectedStatuses] = useState<any[]>([]);
+  // Multi-select client/supplier values (array of {label, value}). value
+  // is the client_supplier_id as string. Empty = no filter.
+  const [selectedClientSuppliers, setSelectedClientSuppliers] = useState<
+    any[]
+  >([]);
+  const [clientSupplierOptions, setClientSupplierOptions] = useState<any[]>([]);
+  // Track whether we have already applied the one-time hydration of
+  // filters from the user's saved prefs (we don't want to overwrite a
+  // mid-session change just because tablePref re-emits).
+  const filtersHydratedRef = useRef(false);
+  const filterPersistTimerRef = useRef<any>(null);
+  // Mirror of latest `tablePref` so `saveTablePrefs` can always merge from
+  // the freshest snapshot — protects against last-write-wins when the gear
+  // menu and a filter onChange fire back-to-back before a re-render.
+  const tablePrefRef = useRef<any>(null);
   const [paymentclaimGridData, setPaymentClaimGridData] = useState<any>([]);
 
   const [openModal, setOpenModal] = useState(false);
@@ -152,6 +171,8 @@ export default function PayApps({ overViewDetails = {} }: any) {
     setEmptySearchField(true);
     setSelectedStatus("");
     setSelectedStatusName(null);
+    setSelectedStatuses([]);
+    setSelectedClientSuppliers([]);
     setSelectedContractId(null);
     setSelectedProjectId(null);
     setSelectedProjectName(null);
@@ -161,10 +182,15 @@ export default function PayApps({ overViewDetails = {} }: any) {
     const today = new Date().toISOString().split("T")[0];
     setActivityLogStartDate(today); // Reset start date to today
     setActivityLogEndDate(today); // Reset end date to today
+    // Also clear the persisted multi-select filter slice so a reload
+    // doesn't restore the cleared selections from server prefs.
+    saveTablePrefs({ filters: {} });
   };
 
   const isAnyFilterActive =
     selectedStatusName !== null ||
+    selectedStatuses.length > 0 ||
+    selectedClientSuppliers.length > 0 ||
     selectedContractId !== null ||
     selectedProjectId !== null ||
     selectedProjectName !== null ||
@@ -192,8 +218,66 @@ export default function PayApps({ overViewDetails = {} }: any) {
   useEffect(() => {
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      if (filterPersistTimerRef.current)
+        clearTimeout(filterPersistTimerRef.current);
     };
   }, []);
+
+  // Keep tablePrefRef in sync with the latest snapshot so saveTablePrefs
+  // always merges from the freshest value, not a render-captured stale one.
+  useEffect(() => {
+    tablePrefRef.current = tablePref || null;
+  }, [tablePref]);
+
+  // One-shot hydration of saved filter selections from tablePref.filters.
+  // Status values are resolved against the UNION of Billable + Receivable
+  // option lists (the two lists only differ on "Confirm payment" vs
+  // "Confirm receipt"); if a saved value isn't in either list we synthesize
+  // a {label, value} so it still applies as a filter regardless of which
+  // payment-type tab the user lands on. Client/supplier hydration still
+  // waits for the options list so labels render correctly.
+  useEffect(() => {
+    if (filtersHydratedRef.current) return;
+    if (!tablePref) return;
+    const filters = (tablePref as any).filters as
+      | Record<string, any>
+      | undefined;
+    if (!filters || typeof filters !== "object") {
+      filtersHydratedRef.current = true;
+      return;
+    }
+    const unionStatuses = [...statusOptions, ...receivableOptions];
+    const savedStatuses = Array.isArray(filters.statuses)
+      ? (filters.statuses as string[]).filter(
+          (v) => typeof v === "string" && v.length > 0
+        )
+      : [];
+    if (savedStatuses.length > 0) {
+      const resolved = savedStatuses.map(
+        (v) =>
+          unionStatuses.find((o: any) => o.value === v) || {
+            label: v,
+            value: v,
+          }
+      );
+      setSelectedStatuses(resolved as any[]);
+    }
+    const savedCsIds = Array.isArray(filters.clientSupplierIds)
+      ? (filters.clientSupplierIds as any[]).map((v) => String(v))
+      : [];
+    if (savedCsIds.length === 0) {
+      filtersHydratedRef.current = true;
+    } else if (clientSupplierOptions.length > 0) {
+      const resolved = savedCsIds
+        .map((v) => clientSupplierOptions.find((o: any) => o.value === v))
+        .filter(Boolean);
+      setSelectedClientSuppliers(resolved as any[]);
+      filtersHydratedRef.current = true;
+    }
+    // If savedCsIds.length > 0 but options not yet loaded, leave the
+    // hydration latch open; the effect re-runs when clientSupplierOptions
+    // arrives.
+  }, [tablePref, clientSupplierOptions]);
 
   const truncateText = (text: any, maxLength = 25) => {
     return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
@@ -233,6 +317,24 @@ export default function PayApps({ overViewDetails = {} }: any) {
           })) || []),
         ];
         setContractOptions(contractOptions);
+
+        // Set Client/Supplier list for the multi-select filter. Dedupe by
+        // id so the same party appearing on multiple contracts isn't shown
+        // twice.
+        const seen = new Set<string>();
+        const csOpts: any[] = [];
+        for (const cs of response.clientSuppliers || []) {
+          const id = cs?.client_supplier_id?.toString();
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          csOpts.push({
+            label: cs?.client_supplier_name,
+            value: id,
+            client_supplier_id: id,
+            client_supplier_type: cs?.client_supplier_type,
+          });
+        }
+        setClientSupplierOptions(csOpts);
       }
     })();
   }, [selectedCompanyId, selectedProjectId]); // Add necessary dependencies
@@ -249,6 +351,8 @@ export default function PayApps({ overViewDetails = {} }: any) {
     activityDate,
     activityLogEndDate,
     activityLogStartDate,
+    selectedStatuses,
+    selectedClientSuppliers,
   ]);
 
   useEffect(() => {
@@ -263,6 +367,8 @@ export default function PayApps({ overViewDetails = {} }: any) {
     activityDate,
     activityLogEndDate,
     activityLogStartDate,
+    selectedStatuses,
+    selectedClientSuppliers,
   ]);
   useEffect(() => {
     if (selectedContractId || selectedProjectId) {
@@ -306,6 +412,18 @@ export default function PayApps({ overViewDetails = {} }: any) {
       project_id: overviewData?.project_id || Number(selectedProjectId) || null,
       status:
         activeTab === "Archived" ? "Archived" : selectedStatusName || null,
+      statuses:
+        activeTab === "Archived"
+          ? null
+          : selectedStatuses.length > 0
+          ? selectedStatuses.map((s: any) => s.value).filter(Boolean)
+          : null,
+      client_supplier_ids:
+        selectedClientSuppliers.length > 0
+          ? selectedClientSuppliers
+              .map((c: any) => Number(c.value))
+              .filter((n: any) => Number.isFinite(n) && n > 0)
+          : null,
       sorting_field: sortValues?.sortKey || "",
       sorting_order: sortValues?.direction || "",
       search: searchValue ?? "",
@@ -686,7 +804,56 @@ export default function PayApps({ overViewDetails = {} }: any) {
     })
     .filter(Boolean);
 
-  // Debounced persist — avoid spamming the server on every drag tick.
+  // Unified writer for the PayApps table prefs. Reads current redux state
+  // for the slices the caller didn't touch and persists the *full* pref
+  // payload, so the column-settings writer and the filter writer can't
+  // clobber each other's slice on the server (last-write-wins guard).
+  const saveTablePrefs = (
+    patch: Partial<{
+      columnOrder: string[];
+      hiddenColumns: string[];
+      filters: Record<string, any>;
+    }>
+  ) => {
+    // Always merge from the freshest ref-mirrored snapshot, not the
+    // render-captured `tablePref`, so two writers firing in the same tick
+    // (e.g. gear-menu reorder + filter change) don't clobber each other's
+    // slice via stale closure state.
+    const current = (tablePrefRef.current || tablePref || {}) as any;
+    const next = {
+      columnOrder: Array.isArray(patch.columnOrder)
+        ? patch.columnOrder
+        : Array.isArray(current.columnOrder)
+        ? current.columnOrder
+        : [],
+      hiddenColumns: Array.isArray(patch.hiddenColumns)
+        ? patch.hiddenColumns
+        : Array.isArray(current.hiddenColumns)
+        ? current.hiddenColumns
+        : [],
+      filters:
+        patch.filters && typeof patch.filters === "object"
+          ? patch.filters
+          : current.filters && typeof current.filters === "object"
+          ? current.filters
+          : {},
+    };
+    // Keep the ref in sync immediately so a subsequent same-tick call
+    // sees this write's effects without waiting for the redux re-render.
+    tablePrefRef.current = next;
+    dispatch(
+      setTablePreference({ tableKey: PAY_APPS_TABLE_KEY, pref: next })
+    );
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      persistUiPreferences({
+        extra: {
+          tablePreferences: { [PAY_APPS_TABLE_KEY]: next },
+        },
+      });
+    }, 600);
+  };
+
   const handleColumnPrefsChange = ({
     order,
     hidden,
@@ -694,29 +861,11 @@ export default function PayApps({ overViewDetails = {} }: any) {
     order: string[];
     hidden: string[];
   }) => {
-    dispatch(
-      setTablePreference({
-        tableKey: PAY_APPS_TABLE_KEY,
-        pref: { columnOrder: order, hiddenColumns: hidden },
-      })
-    );
-    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-    persistTimerRef.current = setTimeout(() => {
-      persistUiPreferences({
-        extra: {
-          tablePreferences: {
-            [PAY_APPS_TABLE_KEY]: {
-              columnOrder: order,
-              hiddenColumns: hidden,
-            },
-          },
-        },
-      });
-    }, 600);
+    saveTablePrefs({ columnOrder: order, hiddenColumns: hidden });
   };
 
   const handleColumnPrefsReset = () => {
-    handleColumnPrefsChange({ order: [], hidden: [] });
+    saveTablePrefs({ columnOrder: [], hiddenColumns: [] });
   };
 
   return (
@@ -899,17 +1048,54 @@ export default function PayApps({ overViewDetails = {} }: any) {
             />
           )}
 
-          <FormikControl
-            placeholder={"Select a status"}
+          {/* Multi-select Status filter. We hide "All" because deselecting
+              everything is the multi-select equivalent. Persisted on every
+              change to tablePreferences.payApps.filters.statuses. */}
+          <SearchableSelect
+            isMulti
+            placeholder={"Status"}
             name="Status"
-            options={
-              selectedPaymentType === "Billable"
-                ? statusOptions
-                : receivableOptions
-            }
-            onChange={handleStatusChange}
-            control={InputType.SELECT}
-            value={selectedStatusName}
+            options={(selectedPaymentType === "Billable"
+              ? statusOptions
+              : receivableOptions
+            ).filter((o: any) => o.value !== "")}
+            onChange={(vals: any) => {
+              const next = Array.isArray(vals) ? vals : [];
+              setSelectedStatuses(next);
+              const fresh = (tablePrefRef.current || tablePref) as any;
+              const currentFilters: Record<string, any> =
+                fresh?.filters && typeof fresh.filters === "object"
+                  ? { ...fresh.filters }
+                  : {};
+              currentFilters.statuses = next.map((s: any) => s.value);
+              saveTablePrefs({ filters: currentFilters });
+            }}
+            multiSelectedData={selectedStatuses}
+            renderKey="label"
+            valueKey="value"
+          />
+
+          {/* Multi-select Client/Supplier filter. Options come from the
+              same combinational-filters resolver as projects/contracts. */}
+          <SearchableSelect
+            isMulti
+            placeholder={"Client / Supplier"}
+            name="Client / Supplier"
+            options={clientSupplierOptions}
+            onChange={(vals: any) => {
+              const next = Array.isArray(vals) ? vals : [];
+              setSelectedClientSuppliers(next);
+              const fresh = (tablePrefRef.current || tablePref) as any;
+              const currentFilters: Record<string, any> =
+                fresh?.filters && typeof fresh.filters === "object"
+                  ? { ...fresh.filters }
+                  : {};
+              currentFilters.clientSupplierIds = next.map(
+                (c: any) => c.value
+              );
+              saveTablePrefs({ filters: currentFilters });
+            }}
+            multiSelectedData={selectedClientSuppliers}
             renderKey="label"
             valueKey="value"
           />

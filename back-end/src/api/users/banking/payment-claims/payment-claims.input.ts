@@ -1,4 +1,4 @@
-import { Field, Float, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import {
   BeneficiaryType,
   CashRetentionType,
@@ -330,6 +330,13 @@ export class FetchAllPaymentClaimsOfACompanyInput {
   @Field({ nullable: true, description: 'Filter by claim status.' })
   status?: string;
 
+  @Field(() => [String], {
+    nullable: true,
+    description:
+      'Multi-select status filter. When provided and non-empty, takes precedence over the single `status` field (the single field is kept for back-compat / Archived tab).',
+  })
+  statuses?: string[];
+
   @Field({ nullable: true, description: 'Filter by project ID.' })
   project_id?: number;
 
@@ -338,6 +345,13 @@ export class FetchAllPaymentClaimsOfACompanyInput {
 
   @Field({ nullable: true, description: 'Filter by client/supplier ID.' })
   client_supplier_id?: number;
+
+  @Field(() => [Int], {
+    nullable: true,
+    description:
+      'Multi-select client/supplier filter. When provided and non-empty, takes precedence over the single `client_supplier_id` field.',
+  })
+  client_supplier_ids?: number[];
 
   @Field({
     defaultValue: null,

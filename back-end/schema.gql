@@ -5856,6 +5856,11 @@ input FetchAllPaymentClaimsOfACompanyInput {
   """Filter by client/supplier ID."""
   client_supplier_id: Float
 
+  """
+  Multi-select client/supplier filter. When provided and non-empty, takes precedence over the single `client_supplier_id` field.
+  """
+  client_supplier_ids: [Int!]
+
   """Business ID."""
   company_id: Float!
 
@@ -5891,6 +5896,11 @@ input FetchAllPaymentClaimsOfACompanyInput {
 
   """Filter by claim status."""
   status: String
+
+  """
+  Multi-select status filter. When provided and non-empty, takes precedence over the single `status` field (the single field is kept for back-compat / Archived tab).
+  """
+  statuses: [String!]
 }
 
 """Response containing all payment claims of a business."""

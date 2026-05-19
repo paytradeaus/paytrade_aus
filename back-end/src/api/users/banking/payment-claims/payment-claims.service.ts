@@ -1593,8 +1593,20 @@ export class PaymentClaimsService {
           cash_retention_type,
         });
       }
+      // Status filter. Multi-select `statuses` (if non-empty) wins over the
+      // legacy single `status` field. The Archived tab still comes in via
+      // the single `status` field and maps to list_status = 'Void'.
+      const statusesArr = Array.isArray((data as any).statuses)
+        ? ((data as any).statuses as string[]).filter(
+            (s) => typeof s === 'string' && s.length > 0,
+          )
+        : [];
       if (status && status === ('Archived' as any)) {
         queryBuilder.andWhere(`pc.list_status = 'Void'`);
+      } else if (statusesArr.length > 0) {
+        queryBuilder.andWhere('pc.list_status IN (:...statusesArr)', {
+          statusesArr,
+        });
       } else if (status && status != ('Archived' as any)) {
         queryBuilder.andWhere('pc.list_status = :status', {
           status,
@@ -1610,7 +1622,21 @@ export class PaymentClaimsService {
         queryBuilder.andWhere('pc.contract_id = :contract_id', { contract_id });
       }
 
-      if (client_supplier_id) {
+      // Client/supplier filter. Multi-select `client_supplier_ids` (if
+      // non-empty) wins over the single `client_supplier_id` field.
+      const clientSupplierIdsArr = Array.isArray(
+        (data as any).client_supplier_ids,
+      )
+        ? ((data as any).client_supplier_ids as any[])
+            .map((v) => Number(v))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        : [];
+      if (clientSupplierIdsArr.length > 0) {
+        queryBuilder.andWhere(
+          'pc.client_supplier_id IN (:...clientSupplierIdsArr)',
+          { clientSupplierIdsArr },
+        );
+      } else if (client_supplier_id) {
         queryBuilder.andWhere('pc.client_supplier_id = :client_supplier_id', {
           client_supplier_id,
         });
