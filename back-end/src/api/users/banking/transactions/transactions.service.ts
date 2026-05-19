@@ -2550,8 +2550,14 @@ export class TransactionsService {
         throw new Error(`Failed to download CSV file from storage: ${filePath}`);
       }
 
-      // Parse CSV from buffer
-      const csvContent = fileBuffer.toString('utf-8');
+      // Parse CSV from buffer. Bank exports vary wildly in shape
+      // (preamble lines, Excel sep= directive, split Debit/Credit
+      // columns, `="..."` formula-escaped cells). Normalise to the
+      // canonical PT template columns first so the rest of the
+      // pipeline can stay format-agnostic.
+      const csvContent = this.normaliseBankCsv(
+        fileBuffer.toString('utf-8'),
+      );
       const records = parse(csvContent, { columns: true });
 
       await this.temperoryRepoTransactions
@@ -2574,6 +2580,193 @@ export class TransactionsService {
       this.logError(`Error processing CSV file: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Normalise a bank-exported CSV into the canonical PayTrade template
+   * shape (`txn_date,description,txn_amount,balance`).
+   *
+   * Handles:
+   *  - Excel `sep=,` directive on the first line.
+   *  - Preamble metadata lines (e.g. NAB's "Account Name:", "Opening
+   *    balance:" etc.) before the real header row.
+   *  - Excel-formula escaping such as `="2026-05-13"` and
+   *    `="/ Pmt 000318197194 …"` — common in NAB / CBA exports.
+   *  - Split Debit / Credit amount columns (NAB, CBA, Westpac
+   *    business banking) collapsed into a single signed `txn_amount`.
+   *  - Common header aliases (Date / Transaction Date, Narrative /
+   *    Description / Details, Running Balance / Balance).
+   *
+   * If the file already looks like the canonical template (headers
+   * `txn_date,txn_amount,description,balance`) it is returned
+   * unchanged.
+   */
+  normaliseBankCsv(raw: string): string {
+    if (!raw) return raw;
+
+    // Strip BOM and Excel locale directive ("sep=,"). The directive
+    // can also declare a non-comma delimiter (e.g. "sep=;" in some
+    // European Excel exports); honour it if present.
+    const text = raw.replace(/^\uFEFF/, '');
+    const lines = text.split(/\r?\n/);
+    let delimiter = ',';
+    const sepMatch = lines[0] && lines[0].trim().match(/^sep\s*=\s*(.)$/i);
+    if (sepMatch) {
+      delimiter = sepMatch[1] || ',';
+      lines.shift();
+    }
+    // Rebuild the working text so the fallback (no-header) path also
+    // returns the sep=-stripped content.
+    const stripped = lines.join('\n');
+
+    // Find the first row that looks like a transaction header. We
+    // need a Date-ish column and either an Amount column or both
+    // Debit and Credit columns.
+    const isHeaderRow = (cells: string[]): boolean => {
+      const norm = cells.map((c) => c.trim().toLowerCase());
+      const hasDate = norm.some((c) => /^(txn_?date|date|transaction date|posting date)$/.test(c));
+      const hasAmount = norm.some((c) =>
+        /^(txn_?amount|amount|transaction amount)$/.test(c),
+      );
+      const hasDebit = norm.some((c) => /^(debit|debit amount|withdrawal|withdrawals)$/.test(c));
+      const hasCredit = norm.some((c) =>
+        /^(credit|credit amount|deposit|deposits)$/.test(c),
+      );
+      return hasDate && (hasAmount || (hasDebit && hasCredit));
+    };
+
+    // Cheap CSV row splitter that respects double-quoted fields.
+    const splitCsvLine = (line: string): string[] => {
+      const out: string[] = [];
+      let cur = '';
+      let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else if (ch === '"') {
+            inQ = false;
+          } else {
+            cur += ch;
+          }
+        } else {
+          if (ch === '"') {
+            inQ = true;
+          } else if (ch === delimiter) {
+            out.push(cur);
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+
+    let headerIdx = -1;
+    let headerCells: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i] || !lines[i].trim()) continue;
+      const cells = splitCsvLine(lines[i]).map((c) => c.trim());
+      if (isHeaderRow(cells)) {
+        headerIdx = i;
+        headerCells = cells;
+        break;
+      }
+    }
+
+    // No recognisable header — let csv-parse raise the existing
+    // error, but with BOM + sep= already stripped so it sees a clean
+    // payload.
+    if (headerIdx === -1) return stripped;
+
+    const norm = headerCells.map((c) => c.trim().toLowerCase());
+    const colIdx = (re: RegExp) => norm.findIndex((c) => re.test(c));
+
+    const dateCol = colIdx(/^(txn_?date|date|transaction date|posting date)$/);
+    const amountCol = colIdx(/^(txn_?amount|amount|transaction amount)$/);
+    const debitCol = colIdx(/^(debit|debit amount|withdrawal|withdrawals)$/);
+    const creditCol = colIdx(/^(credit|credit amount|deposit|deposits)$/);
+    const descCol = colIdx(/^(description|narrative|narration|details|particulars|memo|reference)$/);
+    const balanceCol = colIdx(/^(balance|running balance|closing balance)$/);
+
+    // If the file is already in the canonical template shape AND
+    // starts at line 0, pass it through unchanged — preserves existing
+    // template-download workflow byte-for-byte.
+    const canonical =
+      headerIdx === 0 &&
+      norm.includes('txn_date') &&
+      norm.includes('txn_amount') &&
+      norm.includes('description') &&
+      norm.includes('balance');
+    if (canonical) return text;
+
+    // Unwrap Excel formula escapes: `="value"` → `value`.
+    const unwrap = (v: string): string => {
+      if (v == null) return '';
+      let s = String(v).trim();
+      const m = s.match(/^="(.*)"$/s);
+      if (m) s = m[1];
+      // Strip a stray leading `/` that NAB prepends on some narratives
+      // (e.g. `="/ Pmt 000…"`). Keep it readable.
+      s = s.replace(/^\/\s*/, '');
+      return s.trim();
+    };
+
+    const parseAmount = (v: string): number | null => {
+      if (v == null) return null;
+      const s = unwrap(v).replace(/,/g, '').trim();
+      if (!s) return null;
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const outRows: string[] = ['txn_date,description,txn_amount,balance'];
+    const csvEscape = (v: string | number): string => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      if (!lines[i] || !lines[i].trim()) continue;
+      const cells = splitCsvLine(lines[i]);
+      if (!cells.length) continue;
+
+      const dateRaw = dateCol >= 0 ? unwrap(cells[dateCol] || '') : '';
+      if (!dateRaw) continue;
+
+      // Compute signed amount. If a single Amount column is present
+      // use it as-is; otherwise combine Debit/Credit. Debits are
+      // forced negative, credits positive — covers exports that ship
+      // debits as positive numbers as well as those that pre-sign.
+      let amount: number | null = null;
+      if (amountCol >= 0) {
+        amount = parseAmount(cells[amountCol] || '');
+      } else {
+        const dN = debitCol >= 0 ? parseAmount(cells[debitCol] || '') : null;
+        const cN = creditCol >= 0 ? parseAmount(cells[creditCol] || '') : null;
+        if (dN != null && dN !== 0) amount = -Math.abs(dN);
+        else if (cN != null && cN !== 0) amount = Math.abs(cN);
+        else amount = 0;
+      }
+
+      const desc = descCol >= 0 ? unwrap(cells[descCol] || '') : '';
+      const balanceRaw = balanceCol >= 0 ? parseAmount(cells[balanceCol] || '') : null;
+
+      outRows.push(
+        [
+          csvEscape(dateRaw),
+          csvEscape(desc),
+          csvEscape(amount == null ? '' : amount),
+          csvEscape(balanceRaw == null ? '' : balanceRaw),
+        ].join(','),
+      );
+    }
+
+    return outRows.join('\n');
   }
 
   //storing the csv in a temp entity
