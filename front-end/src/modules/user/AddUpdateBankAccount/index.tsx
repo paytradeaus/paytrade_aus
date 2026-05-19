@@ -2307,7 +2307,6 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     showError={
                       formik.touched.AccountName && formik.errors.AccountName
                     }
-                    disabled={isEditable}
                     required
                     onChange={(e: any) =>
                       formik?.setFieldValue("AccountName", e?.target?.value)
