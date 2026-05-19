@@ -5535,5 +5535,75 @@
     "from_xero": false,
     "error_code": null,
     "associated_log_ids": null
+  },
+  {
+    "id": 615,
+    "sync_type": "Trust movements",
+    "description": "<p>Trust movement PT payment <b>{{payment_id}}</b> ({{payment_type}}, {{amount}}) pushed to Xero as BankTransfer <b>{{bank_transfer_id}}</b> with reference <b>{{reference}}</b>.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": [616, 617, 618, 619, 620, 621]
+  },
+  {
+    "id": 616,
+    "sync_type": "Trust movements",
+    "description": "<p>Trust movement push failed for PT payment <b>{{payment_id}}</b> (reference {{reference}}): {{error}}.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "TRUST_MOV_PUSH_FAILED",
+    "associated_log_ids": [615]
+  },
+  {
+    "id": 617,
+    "sync_type": "Trust movements",
+    "description": "<p>Trust movement reversal posted for PT payment <b>{{payment_id}}</b> ({{amount}}) as Xero BankTransfer <b>{{bank_transfer_id}}</b> with reference <b>{{reference}}</b>.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": null,
+    "associated_log_ids": [615, 618]
+  },
+  {
+    "id": 618,
+    "sync_type": "Trust movements",
+    "description": "<p>Trust movement reversal failed for PT payment <b>{{payment_id}}</b> (reference {{reference}}): {{error}}.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "TRUST_MOV_REVERSAL_FAILED",
+    "associated_log_ids": [617]
+  },
+  {
+    "id": 619,
+    "sync_type": "Trust movements",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> matched our own reference <b>{{reference}}</b> (PT payment {{payment_id}}, {{kind}}). Anti-echo applied — no PT-side action required.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": [615, 617, 620]
+  },
+  {
+    "id": 620,
+    "sync_type": "Trust movements",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> imported as PT payment <b>{{payment_id}}</b> ({{payment_type}}, {{amount}}).</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": [619, 621]
+  },
+  {
+    "id": 621,
+    "sync_type": "Trust movements",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> ignored: {{reason}}. No PT payment was created.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "TRUST_MOV_INBOUND_IGNORED",
+    "associated_log_ids": [620]
   }
 ]

@@ -39,8 +39,14 @@ export class XeroPaymentSplitSchemaSeederService
           ON xero_payments (bank_transfer_id)
           WHERE bank_transfer_id IS NOT NULL;
       `);
+      // Task #231 — trust-movement BankTransfers have no Xero contact,
+      // so contact_id must be nullable. Older schemas had it NOT NULL.
+      await this.dataSource.query(`
+        ALTER TABLE xero_payments
+          ALTER COLUMN contact_id DROP NOT NULL;
+      `);
       this.logger.log(
-        'xero_payments.bank_transfer_reference + uq_xero_payments_bank_transfer_id ensured',
+        'xero_payments.bank_transfer_reference + uq_xero_payments_bank_transfer_id + contact_id nullable ensured',
       );
     } catch (error: any) {
       this.logger.error(

@@ -442,6 +442,26 @@ export class PaymentsResolver {
                 payment_date: paymentDetails.payment_date,
               });
             this.logger.log(`createOverPaymentDetails: ${JSON.stringify(createOverPaymentDetails)}`);
+          } else if (
+            // Task #231 — Outbound push for non-retention trust account
+            // movements. Fire-and-forget: any failure surfaces as a
+            // Failed sync-log row inside the service for retry; the PT
+            // payment is already saved either way.
+            this.xeroPaymentsService.isTrustMovementType(paymentDetails?.payment_type)
+          ) {
+            try {
+              const trustMovResult =
+                await this.xeroPaymentsService.pushTrustMovement(decoded, {
+                  payment_id: newPayment.data.payment_id,
+                });
+              this.logger.log(
+                `pushTrustMovement result for payment ${newPayment.data.payment_id}: ${JSON.stringify(trustMovResult)}`,
+              );
+            } catch (err: any) {
+              this.logger.error(
+                `pushTrustMovement threw for payment ${newPayment.data.payment_id}: ${err?.message ?? err}`,
+              );
+            }
           }
         }
       }

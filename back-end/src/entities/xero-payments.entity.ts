@@ -30,7 +30,7 @@ export class XeroPayments {
   @Column({ type: 'uuid' })
   tenant_id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
   contact_id: string;
 
   @Column({ type: 'uuid', nullable: true })

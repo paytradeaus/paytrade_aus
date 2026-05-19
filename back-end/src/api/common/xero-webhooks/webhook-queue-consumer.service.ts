@@ -10,6 +10,7 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import Redis from 'ioredis';
 import { isWebhookProcessableStatus } from './integration-status.constants';
+import { XeroPaymentsService } from '../integrations/xero/payments/xero-payments.service';
 
 const LEGACY_QUEUE_KEY = 'xero_webhook_queue';
 
@@ -53,6 +54,10 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
     private xeroIntegrationDetails: Repository<XeroIntegrationDetails>,
     @InjectRepository(CompanyUserRoles)
     private userRoles: Repository<CompanyUserRoles>,
+    // Task #231 — used by the BANKTRANSFER.CREATE/UPDATE dispatch
+    // branch to forward trust-account movements to the inbound
+    // handler (anti-echo aware via PT-MOV-* / PT-RET-* refs).
+    private readonly xeroPaymentsService: XeroPaymentsService,
   ) {
     this.logger = new PaytradeLogger('XERO_WEBHOOK_QUEUE');
     this.environment = resolveEnvironment();
@@ -270,6 +275,30 @@ export class XeroWebhookQueueConsumer implements OnModuleInit {
       // would treat our own writes as inbound user activity. The handler
       // looks up the manual_journal_id in xero_retention_journals and
       // drops self-echoes.
+      // Task #231 — Two-way sync for non-retention trust account
+      // movements. We don't subscribe to Xero BANKTRANSFER webhooks
+      // today (Xero exposes BankTransfers via INVOICE/PAYMENT
+      // mirror records, and our manual re-sync flow drives the same
+      // handler on demand), so this case is wired as a no-op router
+      // that simply forwards to the trust-movement handler when
+      // Xero ever does deliver one. The handler is anti-echo aware
+      // (PT-MOV-*/PT-RET-* references short-circuit).
+      case 'BANKTRANSFER.CREATE':
+      case 'BANKTRANSFER.UPDATE':
+        this.logger.log(`[EVENT] Dispatching to handleInboundTrustMovementBankTransfer (type=${eventType})...`);
+        try {
+          await this.xeroPaymentsService.handleInboundTrustMovementBankTransfer(
+            { resource_id: resourceId, tenant_id: tenantId, sync_run_type: 'webhook' },
+            decoded,
+          );
+        } catch (e: any) {
+          this.logger.error(
+            `[EVENT] handleInboundTrustMovementBankTransfer threw: ${e?.message ?? e}`,
+          );
+        }
+        this.logger.log(`[EVENT] handleInboundTrustMovementBankTransfer completed`);
+        break;
+
       case 'MANUALJOURNAL.CREATE':
       case 'MANUALJOURNAL.UPDATE':
         this.logger.log(`[EVENT] Dispatching to handleManualJournalUpdate (type=${eventType})...`);

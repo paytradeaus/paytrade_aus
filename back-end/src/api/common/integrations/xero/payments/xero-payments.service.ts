@@ -21,8 +21,8 @@ import {
 } from 'xero-node';
 import * as dotenv from 'dotenv';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, In, Repository } from 'typeorm';
+import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
+import { EntityManager, ILike, In, Repository } from 'typeorm';
 import {
   BankAccounts,
   PaymentClaimInvoices,
@@ -99,6 +99,11 @@ export class XeroPaymentsService {
     @InjectRepository(XeroSyncLogs)
     private xeroSyncLogs: Repository<XeroSyncLogs>,
     private readonly xeroService: XeroService,
+    // Task #231 — used by handleInboundTrustMovementBankTransfer to
+    // materialise PaymentDetails + SubPayments + xero_payments in a
+    // single atomic transaction.
+    @InjectEntityManager()
+    private readonly entityManager: EntityManager,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -7914,6 +7919,731 @@ export class XeroPaymentsService {
     };
 
     return await this.createPayment(decoded, retryInput);
+  }
+
+  // ============================================================
+  // Task #231 — Trust account movements two-way Xero sync.
+  // See docs/architecture/xero-trust-movements-sync.md.
+  //
+  // Scope: payments of type Withdrawal / Top Up / Interest Received /
+  // Interest Withdrawal / Bank Charge Applied / Bank Charge Top Up /
+  // Top Up Retention that move money between a Project Trust Account
+  // or Retention Trust Account and that trust account's
+  // associated_cash_account_id.
+  //
+  // Outbound (push): creates a Xero BankTransfer stamped with
+  // `PT-MOV-{payment_id}` and persists the mapping in xero_payments
+  // (re-uses the bank_transfer_id / bank_transfer_reference columns
+  // added for Task #50, distinguished from PT-RET-* by prefix).
+  //
+  // Reversal: posts an opposite BankTransfer with
+  // `PT-MOV-REV-{payment_id}`; Xero has no deleteBankTransfer.
+  //
+  // Inbound: matched by reference round-trip (anti-echo) when ours,
+  // otherwise materialises a new PT payment between the mapped
+  // trust account and its associated cash account.
+  // ============================================================
+  private static readonly TRUST_MOVEMENT_TYPES = new Set<string>([
+    'Withdrawal',
+    'Top Up',
+    'Interest Received',
+    'Interest Withdrawal',
+    'Bank Charge Applied',
+    'Bank Charge Top Up',
+    'Top Up Retention',
+  ]);
+
+  isTrustMovementType(payment_type: string | null | undefined): boolean {
+    return !!payment_type && XeroPaymentsService.TRUST_MOVEMENT_TYPES.has(payment_type);
+  }
+
+  /**
+   * Returns the resolved trust account and its paired cash account
+   * for a PT payment of trust-movement type, or null when the
+   * payment's from/to accounts don't form a trust↔associated_cash
+   * pair owned by the same company.
+   */
+  private async resolveTrustMovementPair(paymentDetails: any): Promise<{
+    trustAccount: BankAccounts;
+    cashAccount: BankAccounts;
+    isOutflow: boolean;
+  } | null> {
+    if (!paymentDetails?.payment_from_account || !paymentDetails?.payment_to_account) {
+      return null;
+    }
+    const [fromAcc, toAcc] = await Promise.all([
+      this.bankAccounts.findOne({
+        where: { bank_account_id: paymentDetails.payment_from_account },
+      }),
+      this.bankAccounts.findOne({
+        where: { bank_account_id: paymentDetails.payment_to_account },
+      }),
+    ]);
+    if (!fromAcc || !toAcc) return null;
+    if (Number(fromAcc.company_id) !== Number(toAcc.company_id)) return null;
+    const TRUST = new Set(['Project Trust Account', 'Retention Trust Account']);
+    const fromIsTrust = TRUST.has(String(fromAcc.account_type));
+    const toIsTrust = TRUST.has(String(toAcc.account_type));
+    if (fromIsTrust === toIsTrust) return null; // need exactly one trust side
+    const trustAccount = fromIsTrust ? fromAcc : toAcc;
+    const cashAccount = fromIsTrust ? toAcc : fromAcc;
+    if (
+      Number(trustAccount.associated_cash_account_id) !==
+      Number(cashAccount.bank_account_id)
+    ) {
+      return null;
+    }
+    return { trustAccount, cashAccount, isOutflow: fromIsTrust };
+  }
+
+  /**
+   * Outbound push — create a Xero BankTransfer for a trust-movement
+   * PT payment. Idempotent: a second call for the same payment_id
+   * short-circuits when an xero_payments row already carries a
+   * bank_transfer_id stamped with `PT-MOV-{payment_id}`.
+   *
+   * Fire-and-forget contract: throws on hard error so the caller
+   * can decide whether to surface it; sync log rows are written
+   * for both success (615) and failure (616).
+   */
+  async pushTrustMovement(
+    decoded: any,
+    input: { payment_id: number },
+  ): Promise<{ success: boolean; bank_transfer_id?: string; reference?: string; message?: string }> {
+    const payment_id = Number(input?.payment_id);
+    if (!payment_id) return { success: false, message: 'payment_id is required' };
+
+    const paymentDetails = await this.getPaymentDetails(payment_id);
+    if (!paymentDetails) return { success: false, message: 'payment not found' };
+    if (!this.isTrustMovementType(paymentDetails.payment_type)) {
+      return { success: false, message: `payment_type ${paymentDetails.payment_type} is not a trust movement` };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: paymentDetails.company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails?.integration_id) {
+      return { success: false, message: 'no active xero integration' };
+    }
+    if (xeroDetails.integrationDetails?.integration_status !== 'Connected - active') {
+      return { success: false, message: 'xero integration not connected' };
+    }
+
+    const pair = await this.resolveTrustMovementPair(paymentDetails);
+    if (!pair) {
+      return { success: false, message: 'payment is not between a trust account and its associated cash account' };
+    }
+
+    // Idempotency: if we already have a PT-MOV mapping, no-op.
+    const ptRef = `PT-MOV-${payment_id}`;
+    const existing = await this.xeroPayments.findOne({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        pt_payment_id: payment_id as any,
+      },
+    });
+    if (existing?.bank_transfer_id && (existing as any)?.bank_transfer_reference === ptRef) {
+      return { success: true, bank_transfer_id: existing.bank_transfer_id, reference: ptRef, message: 'already synced' };
+    }
+
+    // Resolve Xero account ids for both sides.
+    const [fromXa, toXa] = await Promise.all([
+      this.xeroBankAccountDetails.findOne({
+        where: { pt_bank_account_id: paymentDetails.payment_from_account as any, integration_id: xeroDetails.integration_id },
+      }),
+      this.xeroBankAccountDetails.findOne({
+        where: { pt_bank_account_id: paymentDetails.payment_to_account as any, integration_id: xeroDetails.integration_id },
+      }),
+    ]);
+    if (!fromXa?.account_id || !toXa?.account_id) {
+      const msg = `Trust movement push aborted — one or both bank accounts are not mapped to Xero (from=${!!fromXa?.account_id}, to=${!!toXa?.account_id}).`;
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'pushTrustMovementToXero',
+        api_payload: { payment_id, payment_type: paymentDetails.payment_type },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 616,
+        dynamic_values: { reference: ptRef, payment_id, error: msg },
+        reference: { xeroId: null, paytradeId: paymentDetails.id },
+        reference_id: paymentDetails.id,
+        history: [
+          `Trust movement push triggered for payment ${payment_id} (${paymentDetails.payment_type})`,
+          msg,
+        ],
+        important_checks: { 'Bank account mapping': msg.includes('false') ? 'Failed' : 'Ok' },
+        error_message: msg,
+        xero_records: [],
+        paytrade_records: [paymentDetails],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+      return { success: false, message: msg };
+    }
+
+    const amount = Number(paymentDetails.total_amount ?? 0);
+    if (!(amount > 0)) {
+      return { success: false, message: 'payment amount is zero/negative' };
+    }
+    const dateVal = paymentDetails.payment_date
+      ? moment(paymentDetails.payment_date).format('YYYY-MM-DD')
+      : moment().format('YYYY-MM-DD');
+
+    await this.xeroService.refreshTokenSet(paymentDetails.company_id, this.xero);
+
+    const result = await this.tryCreateBankTransferWithRecovery(decoded, {
+      api_name: 'pushTrustMovementToXero',
+      api_payload: { payment_id, payment_type: paymentDetails.payment_type },
+      integration_id: xeroDetails.integration_id,
+      tenant_id: xeroDetails.tenant_id,
+      fromAccountId: fromXa.account_id,
+      toAccountId: toXa.account_id,
+      amount,
+      date: dateVal,
+      reference: ptRef,
+      paymentDetails,
+      xeroInvoicesBills: { project_id: paymentDetails.project_id, contract_id: paymentDetails.contract_id },
+      history_prefix: `Trust movement push triggered for payment ${payment_id} (${paymentDetails.payment_type})`,
+    });
+
+    if (result.failedWithoutRecovery) {
+      return { success: false, message: result.errMsg || 'createBankTransfer failed' };
+    }
+    if (!result.transferId) {
+      return { success: false, message: 'createBankTransfer returned no id' };
+    }
+
+    // Upsert xero_payments row carrying the PT-MOV mapping.
+    if (existing) {
+      await this.xeroPayments
+        .createQueryBuilder()
+        .update(XeroPayments)
+        .set({
+          bank_transfer_id: result.transferId,
+          bank_transfer_reference: ptRef,
+          payment_type: paymentDetails.payment_type,
+          payment_amount: amount,
+          payment_date: paymentDetails.payment_date,
+          updated_on: moment.tz('UTC').toDate(),
+          updated_by: decoded?.userId ?? null,
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where('id = :id', { id: existing.id })
+        .execute();
+    } else {
+      await this.xeroPayments.save(
+        this.xeroPayments.create({
+          integration_id: xeroDetails.integration_id,
+          tenant_id: xeroDetails.tenant_id,
+          contact_id: null as any,
+          account_id: pair.isOutflow ? (fromXa.id as any) : (toXa.id as any),
+          payment_type: paymentDetails.payment_type,
+          status: 'AUTHORISED',
+          payment_date: paymentDetails.payment_date,
+          reference: ptRef,
+          payment_amount: amount,
+          bank_transfer_id: result.transferId,
+          bank_transfer_reference: ptRef,
+          pt_payment_id: payment_id as any,
+          mapped_status: 'Auto' as any,
+          created_by: decoded?.userId ?? null,
+          created_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        }),
+      );
+    }
+
+    if (!result.recovered) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'pushTrustMovementToXero',
+        api_payload: { payment_id, payment_type: paymentDetails.payment_type },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 615,
+        dynamic_values: {
+          reference: ptRef,
+          bank_transfer_id: result.transferId,
+          payment_id,
+          payment_type: paymentDetails.payment_type,
+          amount: Number(amount).toFixed(2),
+        },
+        project_id: paymentDetails.project_id != null ? String(paymentDetails.project_id) : undefined,
+        contract_id: paymentDetails.contract_id != null ? String(paymentDetails.contract_id) : undefined,
+        reference: { xeroId: result.transferId, paytradeId: paymentDetails.id },
+        reference_id: paymentDetails.id,
+        history: [
+          `Trust movement push triggered for payment ${payment_id} (${paymentDetails.payment_type})`,
+          `Xero BankTransfer ${result.transferId} created with reference ${ptRef}`,
+        ],
+        important_checks: { 'Trust pair validation': 'Ok', 'Bank account mapping': 'Ok' },
+        error_message: null,
+        xero_records: [],
+        paytrade_records: [paymentDetails],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+    }
+    return { success: true, bank_transfer_id: result.transferId, reference: ptRef };
+  }
+
+  /**
+   * Reversal — post an opposite-direction BankTransfer for a
+   * previously-pushed trust movement. Stamped with
+   * `PT-MOV-REV-{payment_id}` for retry idempotency. Clears the
+   * forward `bank_transfer_id` on the xero_payments row so the
+   * mapping reflects "no longer present".
+   */
+  async reverseTrustMovement(
+    decoded: any,
+    input: { payment_id: number },
+  ): Promise<{ success: boolean; reversal_id?: string; message?: string }> {
+    const payment_id = Number(input?.payment_id);
+    if (!payment_id) return { success: false, message: 'payment_id is required' };
+
+    const paymentDetails = await this.getPaymentDetails(payment_id);
+    if (!paymentDetails) return { success: false, message: 'payment not found' };
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id: paymentDetails.company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails?.integration_id) return { success: false, message: 'no active xero integration' };
+    if (xeroDetails.integrationDetails?.integration_status !== 'Connected - active') {
+      return { success: false, message: 'xero integration not connected' };
+    }
+
+    const existing = await this.xeroPayments.findOne({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        pt_payment_id: payment_id as any,
+      },
+    });
+    if (!existing?.bank_transfer_id) {
+      return { success: true, message: 'no outbound trust movement to reverse' };
+    }
+
+    const pair = await this.resolveTrustMovementPair(paymentDetails);
+    if (!pair) return { success: false, message: 'pair no longer resolvable' };
+
+    const [fromXa, toXa] = await Promise.all([
+      this.xeroBankAccountDetails.findOne({
+        where: { pt_bank_account_id: paymentDetails.payment_from_account as any, integration_id: xeroDetails.integration_id },
+      }),
+      this.xeroBankAccountDetails.findOne({
+        where: { pt_bank_account_id: paymentDetails.payment_to_account as any, integration_id: xeroDetails.integration_id },
+      }),
+    ]);
+    if (!fromXa?.account_id || !toXa?.account_id) {
+      return { success: false, message: 'bank account mappings missing' };
+    }
+
+    const amount = Number(paymentDetails.total_amount ?? 0);
+    const dateVal = moment().format('YYYY-MM-DD');
+    const reversalRef = `PT-MOV-REV-${payment_id}`;
+
+    await this.xeroService.refreshTokenSet(paymentDetails.company_id, this.xero);
+
+    const result = await this.tryCreateBankTransferWithRecovery(decoded, {
+      api_name: 'reverseTrustMovementInXero',
+      api_payload: { payment_id, payment_type: paymentDetails.payment_type },
+      integration_id: xeroDetails.integration_id,
+      tenant_id: xeroDetails.tenant_id,
+      // SWAP from/to to post the opposite leg.
+      fromAccountId: toXa.account_id,
+      toAccountId: fromXa.account_id,
+      amount,
+      date: dateVal,
+      reference: reversalRef,
+      paymentDetails,
+      xeroInvoicesBills: { project_id: paymentDetails.project_id, contract_id: paymentDetails.contract_id },
+      history_prefix: `Trust movement REVERSAL triggered for payment ${payment_id} (${paymentDetails.payment_type})`,
+    });
+
+    if (result.failedWithoutRecovery) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'reverseTrustMovementInXero',
+        api_payload: { payment_id },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 618,
+        dynamic_values: { reference: reversalRef, payment_id, error: result.errMsg },
+        reference: { xeroId: null, paytradeId: paymentDetails.id },
+        reference_id: paymentDetails.id,
+        history: [`Trust movement reversal failed for payment ${payment_id}: ${result.errMsg}`],
+        important_checks: { 'Reversal posted': 'Failed' },
+        error_message: result.errMsg,
+        xero_records: [],
+        paytrade_records: [paymentDetails],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+      return { success: false, message: result.errMsg || 'reversal failed' };
+    }
+
+    await this.xeroPayments
+      .createQueryBuilder()
+      .update(XeroPayments)
+      .set({
+        bank_transfer_id: result.transferId,
+        bank_transfer_reference: reversalRef,
+        updated_on: moment.tz('UTC').toDate(),
+        updated_by: decoded?.userId ?? null,
+        updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+      })
+      .where('id = :id', { id: existing.id })
+      .execute();
+
+    if (!result.recovered) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'reverseTrustMovementInXero',
+        api_payload: { payment_id, payment_type: paymentDetails.payment_type },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 617,
+        dynamic_values: {
+          reference: reversalRef,
+          bank_transfer_id: result.transferId,
+          payment_id,
+          amount: Number(amount).toFixed(2),
+        },
+        reference: { xeroId: result.transferId, paytradeId: paymentDetails.id },
+        reference_id: paymentDetails.id,
+        history: [
+          `Trust movement REVERSAL posted for payment ${payment_id}`,
+          `Reversing Xero BankTransfer ${result.transferId} created with reference ${reversalRef}`,
+        ],
+        important_checks: { 'Reversal posted': 'Ok' },
+        error_message: null,
+        xero_records: [],
+        paytrade_records: [paymentDetails],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+    }
+    return { success: true, reversal_id: result.transferId };
+  }
+
+  /**
+   * Inbound handler — invoked by the BANKTRANSFER.* webhook
+   * dispatcher and by the manual `trust_movement` re-sync flow.
+   *
+   * Behaviour:
+   *   - PT-MOV-{id} reference → upsert the mapping (anti-echo log 619).
+   *   - PT-RET-{id} / PT-RET-REV-{id} reference → no-op here;
+   *     retention transfers are handled by the existing inbound
+   *     matcher inside validateAndProcessWebhookInvoice.
+   *   - Otherwise → resolve from/to Xero account ids back to PT
+   *     bank accounts; if they form a trust ↔ associated_cash pair
+   *     owned by the same company, materialise a new PT payment
+   *     (Top Up / Withdrawal / Top Up Retention) of the resolved
+   *     direction and link it via xero_payments (sync log 620).
+   *     Mismatched/un-mapped pairs are surfaced as sync log 621.
+   */
+  async handleInboundTrustMovementBankTransfer(
+    input: { resource_id: string; tenant_id: string; sync_run_type?: string },
+    decoded: any,
+  ): Promise<{ success: boolean; created_payment_id?: number; message: string }> {
+    const tenant_id = String(input?.tenant_id || '').trim();
+    const bank_transfer_id = String(input?.resource_id || '').trim();
+    if (!tenant_id || !bank_transfer_id) {
+      return { success: false, message: 'tenant_id and resource_id are required' };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { tenant_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails?.integration_id) {
+      return { success: false, message: 'no active integration for tenant' };
+    }
+
+    await this.xeroService.refreshTokenSet(xeroDetails.company_id, this.xero);
+
+    let bt: any = null;
+    try {
+      const resp = await this.xero.accountingApi.getBankTransfer(tenant_id, bank_transfer_id);
+      bt = resp?.body?.bankTransfers?.[0] || null;
+    } catch (err: any) {
+      const msg = await handleAxiosError(err).catch(() => err?.message || String(err));
+      this.logger.error(`[TRUST_MOV inbound] getBankTransfer failed: ${msg}`);
+      return { success: false, message: `getBankTransfer failed: ${msg}` };
+    }
+    if (!bt) return { success: false, message: 'bank transfer not found in Xero' };
+
+    const reference: string = String(bt?.reference || '');
+    const xeroFromId: string = bt?.fromBankAccount?.accountID;
+    const xeroToId: string = bt?.toBankAccount?.accountID;
+    const amount = Number(bt?.amount || 0);
+    const btDate = bt?.date ? new Date(bt.date) : new Date();
+
+    // Self-echo (PT-RET-* / PT-RET-REV-*) — retention flow handles
+    // its own anti-echo via the invoice update pipeline.
+    if (/^PT-RET-(REV-)?\d+$/.test(reference)) {
+      return { success: true, message: `retention transfer (${reference}) — handled by retention flow` };
+    }
+
+    // Self-echo of an outbound trust-movement we just pushed.
+    if (/^PT-MOV-(REV-)?\d+$/.test(reference)) {
+      const m = /^PT-MOV-(REV-)?(\d+)$/.exec(reference);
+      const ptPaymentId = Number(m?.[2]);
+      const isReversal = !!m?.[1];
+      let existing = await this.xeroPayments.findOne({
+        where: { integration_id: xeroDetails.integration_id, pt_payment_id: ptPaymentId as any },
+      });
+      if (existing && !existing.bank_transfer_id) {
+        try {
+          await this.xeroPayments
+            .createQueryBuilder()
+            .update(XeroPayments)
+            .set({ bank_transfer_id, bank_transfer_reference: reference })
+            .where('id = :id', { id: existing.id })
+            .execute();
+        } catch (e: any) {
+          // Unique violation on bank_transfer_id → another worker
+          // already claimed this BankTransfer; safe to ignore.
+          if (!String(e?.message || '').includes('uq_xero_payments_bank_transfer_id')) throw e;
+        }
+      } else if (!existing && !isReversal) {
+        // True upsert: PT payment still exists but its xero_payments
+        // mapping row was lost (e.g. manual cleanup). Recreate it so
+        // future reconciliation has the link back.
+        const pt = await this.paymentDetails.findOne({ where: { payment_id: ptPaymentId as any } });
+        if (pt) {
+          try {
+            const saved = await this.xeroPayments.save(
+              this.xeroPayments.create({
+                integration_id: xeroDetails.integration_id,
+                tenant_id,
+                contact_id: null as any,
+                account_id: null as any,
+                payment_type: pt.payment_type,
+                status: 'AUTHORISED',
+                payment_date: pt.payment_date,
+                reference,
+                payment_amount: amount,
+                bank_transfer_id,
+                bank_transfer_reference: reference,
+                pt_payment_id: ptPaymentId as any,
+                mapped_status: 'Auto' as any,
+                created_by: decoded?.userId ?? null,
+                created_group: 'SYSTEM' as any,
+              }),
+            );
+            existing = saved as any;
+          } catch (e: any) {
+            if (!String(e?.message || '').includes('uq_xero_payments_bank_transfer_id')) throw e;
+          }
+        }
+      }
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'handleInboundTrustMovementBankTransfer',
+        api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 619,
+        dynamic_values: { reference, bank_transfer_id, payment_id: ptPaymentId, kind: isReversal ? 'reversal' : 'forward' },
+        reference: { xeroId: bank_transfer_id, paytradeId: existing?.id || null },
+        reference_id: existing?.id || null,
+        history: [
+          `Inbound BankTransfer ${bank_transfer_id} matched our PT-MOV reference ${reference}`,
+          `Anti-echo: no PT-side action required (${isReversal ? 'reversal' : 'forward'})`,
+        ],
+        important_checks: { 'Anti-echo match': 'Ok' },
+        error_message: null,
+        xero_records: [bt],
+        paytrade_records: [],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+      return { success: true, message: 'matched outbound trust movement (anti-echo)' };
+    }
+
+    // Already mapped to a PT payment by bank_transfer_id? No-op.
+    const alreadyMapped = await this.xeroPayments.findOne({
+      where: { integration_id: xeroDetails.integration_id, bank_transfer_id: bank_transfer_id as any },
+    });
+    if (alreadyMapped) {
+      return { success: true, message: 'already mapped' };
+    }
+
+    // Resolve from/to back to PT bank accounts.
+    const [fromXa, toXa] = await Promise.all([
+      this.xeroBankAccountDetails.findOne({
+        where: { account_id: xeroFromId as any, integration_id: xeroDetails.integration_id },
+      }),
+      this.xeroBankAccountDetails.findOne({
+        where: { account_id: xeroToId as any, integration_id: xeroDetails.integration_id },
+      }),
+    ]);
+    if (!fromXa?.pt_bank_account_id || !toXa?.pt_bank_account_id) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'handleInboundTrustMovementBankTransfer',
+        api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 621,
+        dynamic_values: { bank_transfer_id, reason: 'unmapped bank accounts' },
+        reference: { xeroId: bank_transfer_id, paytradeId: null },
+        history: [
+          `Inbound BankTransfer ${bank_transfer_id} ignored — one or both accounts are not mapped in PayTrade`,
+        ],
+        important_checks: { 'Account mapping': 'Failed' },
+        error_message: 'unmapped bank accounts',
+        xero_records: [bt],
+        paytrade_records: [],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+      return { success: false, message: 'unmapped bank accounts' };
+    }
+
+    const [fromBank, toBank] = await Promise.all([
+      this.bankAccounts.findOne({ where: { bank_account_id: fromXa.pt_bank_account_id as any } }),
+      this.bankAccounts.findOne({ where: { bank_account_id: toXa.pt_bank_account_id as any } }),
+    ]);
+    if (!fromBank || !toBank || Number(fromBank.company_id) !== Number(toBank.company_id)) {
+      return { success: false, message: 'bank account company mismatch' };
+    }
+    const TRUST = new Set(['Project Trust Account', 'Retention Trust Account']);
+    const fromIsTrust = TRUST.has(String(fromBank.account_type));
+    const toIsTrust = TRUST.has(String(toBank.account_type));
+    if (fromIsTrust === toIsTrust) {
+      return { success: false, message: 'not a trust↔cash pair' };
+    }
+    const trustBank = fromIsTrust ? fromBank : toBank;
+    const cashBank = fromIsTrust ? toBank : fromBank;
+    if (Number(trustBank.associated_cash_account_id) !== Number(cashBank.bank_account_id)) {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'handleInboundTrustMovementBankTransfer',
+        api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 621,
+        dynamic_values: { bank_transfer_id, reason: 'cash account is not the trust account\'s associated_cash_account_id' },
+        reference: { xeroId: bank_transfer_id, paytradeId: null },
+        history: [
+          `Inbound BankTransfer ${bank_transfer_id} ignored — cash account is not the trust account's associated cash account`,
+        ],
+        important_checks: { 'Trust pair validation': 'Failed' },
+        error_message: 'cash account is not the trust\'s associated cash account',
+        xero_records: [bt],
+        paytrade_records: [],
+        new_records: null, updated_records: null, synced_records: null,
+      });
+      return { success: false, message: 'cash account is not the trust\'s associated cash account' };
+    }
+
+    // Default direction → payment_type mapping. Users can re-classify
+    // Interest/Bank Charge variants from the PT UI after import; Xero
+    // gives us no signal to disambiguate those from a plain Top Up /
+    // Withdrawal, so we use the safest neutral default.
+    let payment_type: string;
+    if (fromIsTrust) {
+      payment_type = 'Withdrawal';
+    } else if (String(trustBank.account_type) === 'Retention Trust Account') {
+      payment_type = 'Top Up Retention';
+    } else {
+      payment_type = 'Top Up';
+    }
+
+    // Materialise the PT payment + matched sub_payment + xero_payments
+    // mapping in one transaction so a partial failure can't leave a
+    // BankTransfer with no PT side. The unique index on
+    // xero_payments.bank_transfer_id collapses any concurrent race
+    // (webhook + manual sync hitting at the same moment) into one
+    // winning insert; the loser catches the violation and exits.
+    let created: PaymentDetails;
+    try {
+      created = await this.entityManager.transaction(async (txn) => {
+      const paymentRow = (await txn.save(
+        PaymentDetails,
+        this.paymentDetails.create({
+          company_id: trustBank.company_id,
+          payment_type: payment_type as any,
+          cash_retention: false as any,
+          payment_from_account: fromBank.bank_account_id,
+          payment_to_account: toBank.bank_account_id,
+          total_amount: amount,
+          payment_date: btDate,
+          input_date: btDate,
+          current_status: 'Confirmed - Matched',
+          created_by: decoded?.userId ?? null,
+          created_group: 'SYSTEM' as any,
+          memo: `Imported from Xero BankTransfer ${bank_transfer_id}`,
+        } as any),
+      )) as unknown as PaymentDetails;
+      // Bump payment_id into the 10000000000+ namespace, mirroring addPayment.
+      await txn
+        .createQueryBuilder()
+        .update(PaymentDetails)
+        .set({ payment_id: 10000000000 + Number(paymentRow.payment_id) })
+        .where('id = :id', { id: paymentRow.id })
+        .execute();
+      const reloaded = await txn.findOne(PaymentDetails, { where: { id: paymentRow.id } });
+
+      const subPayment = (await txn.save(
+        SubPayments,
+        this.subPaymentsRepo.create({
+          payment_id: reloaded.payment_id,
+          sub_payment_type: 'Payment',
+          amount: fromIsTrust ? -Math.abs(amount) : Math.abs(amount),
+          status: 'Auto matched',
+          is_paid_confirmed: fromIsTrust ? true : null,
+          is_received_confirmed: fromIsTrust ? null : true,
+          created_by: decoded?.userId ?? null,
+          created_group: 'SYSTEM' as any,
+        } as any),
+      )) as unknown as SubPayments;
+      await txn
+        .createQueryBuilder()
+        .update(SubPayments)
+        .set({ sub_payment_id: 10000000000 + Number(subPayment.sub_payment_id) })
+        .where('id = :id', { id: subPayment.id })
+        .execute();
+
+      const reference_stamp = `PT-MOV-${reloaded.payment_id}`;
+      await txn.save(
+        XeroPayments,
+        this.xeroPayments.create({
+          integration_id: xeroDetails.integration_id,
+          tenant_id,
+          contact_id: null as any,
+          account_id: (fromIsTrust ? fromXa.id : toXa.id) as any,
+          payment_type,
+          status: 'AUTHORISED',
+          payment_date: btDate,
+          reference: reference_stamp,
+          payment_amount: amount,
+          bank_transfer_id,
+          bank_transfer_reference: reference || null,
+          pt_payment_id: reloaded.payment_id as any,
+          mapped_status: 'Auto' as any,
+          created_by: decoded?.userId ?? null,
+          created_group: 'SYSTEM' as any,
+        }),
+      );
+      return reloaded;
+      });
+    } catch (e: any) {
+      if (String(e?.message || '').includes('uq_xero_payments_bank_transfer_id')) {
+        return { success: true, message: 'already mapped (concurrent insert)' };
+      }
+      throw e;
+    }
+
+    await this.xeroService.insertXeroSyncLogs(decoded, {
+      api_name: 'handleInboundTrustMovementBankTransfer',
+      api_payload: { resource_id: bank_transfer_id, tenant_id, reference, sync_run_type: input?.sync_run_type || 'webhook' },
+      integration_id: xeroDetails.integration_id,
+      log_template_id: 620,
+      dynamic_values: {
+        bank_transfer_id,
+        payment_id: created.payment_id,
+        payment_type,
+        amount: Number(amount).toFixed(2),
+      },
+      reference: { xeroId: bank_transfer_id, paytradeId: created.id },
+      reference_id: created.id,
+      history: [
+        `Inbound BankTransfer ${bank_transfer_id} (${reference || 'no reference'}) imported as PT payment ${created.payment_id} (${payment_type})`,
+        `Direction: ${fromBank.account_type} → ${toBank.account_type}; amount ${Number(amount).toFixed(2)}`,
+      ],
+      important_checks: { 'Trust pair validation': 'Ok', 'PT payment created': 'Ok' },
+      error_message: null,
+      xero_records: [bt],
+      paytrade_records: [created],
+      new_records: [{ payment_id: created.payment_id }],
+      updated_records: null,
+      synced_records: null,
+    });
+
+    return { success: true, created_payment_id: created.payment_id, message: 'imported' };
   }
 
   async unMappingPayment(payment_id: string, company_id: number, decoded: any) {

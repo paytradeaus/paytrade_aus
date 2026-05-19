@@ -13655,6 +13655,9 @@ export class XeroWebhookService {
       'bank_transfer',
       'contact',
       'manual_journal',
+      // Task #231 — re-pull a single Xero BankTransfer between a
+      // trust account and its associated cash account.
+      'trust_movement',
     ]);
 
     if (!company_id || !rawType || !rawId) {
@@ -14035,6 +14038,64 @@ export class XeroWebhookService {
           syncLogId,
           resolvedXeroId: rawId,
         };
+      }
+
+      // ─────────────────────── TRUST ACCOUNT MOVEMENT ────────────────────
+      // Task #231 — Re-pull a single Xero BankTransfer between a
+      // trust account (PTA/RTA) and its associated cash account.
+      // Delegates to the anti-echo-aware inbound handler on
+      // XeroPaymentsService; the handler decides whether to mark an
+      // existing PT payment as matched (PT-MOV reference) or
+      // materialise a brand-new PT payment of the right direction.
+      if (rawType === 'trust_movement') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Trust movement id must be a Xero BankTransfer GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+          extraHistory: [
+            `Dispatching trust-movement BankTransfer ${rawId} to handleInboundTrustMovementBankTransfer (manual)`,
+          ],
+        });
+        try {
+          const result =
+            await this.xeroPaymentsService.handleInboundTrustMovementBankTransfer(
+              { resource_id: rawId, tenant_id, sync_run_type: 'manual' },
+              decoded,
+            );
+          if (!result?.success) {
+            return {
+              success: false,
+              message: `Trust movement ${rawId} could not be imported: ${result?.message || 'unknown error'}.`,
+              syncLogId,
+              resolvedXeroId: rawId,
+            };
+          }
+          return {
+            success: true,
+            message: result.created_payment_id
+              ? `Trust movement ${rawId} imported as PT payment ${result.created_payment_id}.`
+              : `Trust movement ${rawId} processed: ${result.message}.`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          return {
+            success: false,
+            message: `Trust movement ${rawId} handler threw: ${errMsg}`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        }
       }
 
       // ───────────────────────────── CONTACT ─────────────────────────────
