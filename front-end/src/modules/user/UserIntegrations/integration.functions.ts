@@ -4211,7 +4211,7 @@ export async function createTaxTypeApi(
  */
 export const manualXeroResync = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal" | "trust_movement";
   id: string;
 }): Promise<{
   success: boolean;
@@ -4339,7 +4339,7 @@ export const archiveXeroSyncLogs = async (variables: {
  */
 export const manualXeroResyncLookup = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal" | "trust_movement";
   hint: string;
   from_date?: string | null;
   to_date?: string | null;
@@ -4428,7 +4428,7 @@ export const manualXeroResyncLookup = async (variables: {
  */
 export const manualXeroPaytradeLookup = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal" | "trust_movement";
   hint: string;
 }): Promise<{
   success: boolean;
@@ -4484,7 +4484,7 @@ export const manualXeroPaytradeLookup = async (variables: {
  */
 export const manualXeroPreflight = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal" | "trust_movement";
   xero_id?: string | null;
   pt_id?: string | null;
 }): Promise<any> => {
@@ -4654,7 +4654,7 @@ export const manualXeroCatchupDiscover = async (variables: {
  */
 export const manualXeroTwoSidedSync = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal";
+  type: "invoice_bill" | "payment" | "bank_transfer" | "contact" | "manual_journal" | "trust_movement";
   xero_id?: string | null;
   pt_id?: string | null;
   action_token: string;
