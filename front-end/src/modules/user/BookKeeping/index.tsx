@@ -40,7 +40,15 @@ import {
 } from "@/utils/export";
 import { showErrorToast, showWarningToast } from "@/components/Toaster";
 import CustomButton from "@/components/CustomButton/CustomButton";
-import { DeleteTransactions } from "../BankAccountOverview/BankAccountsOverview.function";
+import {
+  DeleteTransactions,
+  FetchBatchSuggestedMatches,
+  BatchMatchExactTransactions,
+  BatchMatchSplitTransactions,
+  QuickAdjustAndMatch,
+  GetSmartMatchPreference,
+  SetSmartMatchPreference,
+} from "../BankAccountOverview/BankAccountsOverview.function";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
 import BaseModal from "@/components/BaseModal";
 import { RootState } from "@/redux/store";
@@ -101,19 +109,48 @@ const BookKeepingList = (props: any) => {
   );
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
 
+  // ───────────────────────── Smart Match ─────────────────────────
+  const [smartMatchEnabled, setSmartMatchEnabled] = useState(false);
+  const [suggestedMatches, setSuggestedMatches] = useState<any>(null);
+  const [matchesMap, setMatchesMap] = useState<Record<string, any>>({});
+  const [splitsMap, setSplitsMap] = useState<
+    Record<string, { group: any; index: number; total: number }>
+  >({});
+  const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
+  const [smartMatchLoading, setSmartMatchLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showBatchConfirm, setShowBatchConfirm] = useState(false);
+
+  // Load saved Smart Match preference once.
+  useEffect(() => {
+    (async () => {
+      const pref = await GetSmartMatchPreference();
+      setSmartMatchEnabled(pref);
+    })();
+  }, []);
+
+  const firstBankValue = bankNameOptionsOnly?.[0]?.value;
+
   const resetFilters = () => {
     setSearch("");
-    setBankId("");
     setSingleActivyDate({ value: "", label: "All dates" });
     setIsCustomDate(false);
     setActivityDate("");
-    setSelectedBank(null);
+    // Reset back to the first bank instead of clearing — Bookkeeping is
+    // single-bank by design now.
+    if (firstBankValue) {
+      const firstOpt = bankNameOptionsOnly[0];
+      setBankId(firstBankValue);
+      setSelectedBank(firstOpt);
+    }
     setSelectedRowsInGrid([]);
     setPage(1); // Reset to the first page
   };
 
   const isAnyFilterActive =
-    search !== "" || bankId !== "" || singleActivyDate.label !== "All dates";
+    search !== "" ||
+    (bankId !== "" && String(bankId) !== String(firstBankValue ?? "")) ||
+    singleActivyDate.label !== "All dates";
 
   useEffect(() => {
     (async () => {
@@ -139,8 +176,14 @@ const BookKeepingList = (props: any) => {
             };
           }
         );
-        setBankNameOptions([{ label: "All", value: "" }, ...modifiedContracts]);
+        // Bookkeeping is single-bank: no "All" option. Default to the
+        // first bank so the page always loads a meaningful view.
+        setBankNameOptions(modifiedContracts);
         setBankNameOptionsOnly(modifiedContracts);
+        if (!bankId) {
+          setBankId(modifiedContracts[0].value);
+          setSelectedBank(modifiedContracts[0]);
+        }
       }
     })();
   }, []);
@@ -176,6 +219,455 @@ const BookKeepingList = (props: any) => {
       );
     }
   }
+
+  // ─────────────────────── Smart Match helpers ───────────────────────
+  // Smart Match only applies to the For-Review tab and requires a
+  // single bank account to be selected (Bookkeeping is single-bank).
+  const fetchSmartMatches = useCallback(async () => {
+    if (!smartMatchEnabled || selectedToggle !== "To Review" || !bankId) {
+      setSuggestedMatches(null);
+      setMatchesMap({});
+      setSplitsMap({});
+      return;
+    }
+    setSmartMatchLoading(true);
+    try {
+      const data = await FetchBatchSuggestedMatches({
+        bank_account_id: Number(bankId),
+      });
+      if (data) {
+        setSuggestedMatches(data);
+        const map: Record<string, any> = {};
+        data.matches?.forEach((m: any) => {
+          map[m.transaction_id] = m;
+        });
+        setMatchesMap(map);
+
+        const splitMap: Record<
+          string,
+          { group: any; index: number; total: number }
+        > = {};
+        data.split_matches?.forEach((group: any) => {
+          const total = group.transactions?.length || 0;
+          group.transactions?.forEach((leg: any, idx: number) => {
+            splitMap[leg.id] = { group, index: idx + 1, total };
+          });
+        });
+        setSplitsMap(splitMap);
+      }
+    } catch {
+    } finally {
+      setSmartMatchLoading(false);
+    }
+  }, [smartMatchEnabled, selectedToggle, bankId]);
+
+  useEffect(() => {
+    fetchSmartMatches();
+  }, [fetchSmartMatches]);
+
+  function handleToggleSmartMatch() {
+    const newVal = !smartMatchEnabled;
+    setSmartMatchEnabled(newVal);
+    SetSmartMatchPreference(newVal);
+    if (!newVal) {
+      setExpandedTxnId(null);
+      setSuggestedMatches(null);
+      setMatchesMap({});
+      setSplitsMap({});
+    }
+  }
+
+  async function handleExactMatch(txnId: string, subPaymentId: number) {
+    setActionLoading(txnId);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: [txnId],
+        sub_payment_ids: [[subPaymentId]],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(page, perPage);
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleAdjustAndMatch(txnId: string, subPaymentId: number) {
+    setActionLoading(txnId);
+    try {
+      const result = await QuickAdjustAndMatch({
+        transaction_id: txnId,
+        sub_payment_id: subPaymentId,
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(page, perPage);
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleBulkMatch(txnId: string, subPaymentIds: number[]) {
+    setActionLoading(txnId);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: [txnId],
+        sub_payment_ids: [subPaymentIds],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(page, perPage);
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSplitMatch(
+    triggeringTxnId: string,
+    subPaymentId: number,
+    transactionIds: string[]
+  ) {
+    setActionLoading(triggeringTxnId);
+    try {
+      const result = await BatchMatchSplitTransactions({
+        sub_payment_ids: [subPaymentId],
+        transaction_ids: [transactionIds],
+      });
+      if (result) {
+        setExpandedTxnId(null);
+        getListAllAdminArticles(page, perPage);
+        fetchSmartMatches();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleBatchMatchAllExact() {
+    if (!suggestedMatches?.matches) return;
+    const exactMatches = suggestedMatches.matches.filter(
+      (m: any) => m.match_quality === "exact" && m.suggested_payment
+    );
+    if (exactMatches.length === 0) {
+      showWarningToast("No exact matches available.");
+      return;
+    }
+    setShowBatchConfirm(false);
+    setLoading(true);
+    try {
+      const result = await BatchMatchExactTransactions({
+        transaction_ids: exactMatches.map((m: any) => m.transaction_id),
+        sub_payment_ids: exactMatches.map((m: any) => [
+          m.suggested_payment.sub_payment_id,
+        ]),
+      });
+      if (result) {
+        if (result.failed > 0 && result.succeeded > 0) {
+          showWarningToast(
+            `${result.succeeded} matched, ${result.failed} failed.`
+          );
+        }
+        getListAllAdminArticles(page, perPage);
+        fetchSmartMatches();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getMatchBadge(txnId: string) {
+    if (smartMatchLoading) return null;
+    const match = matchesMap[txnId];
+    const split = splitsMap[txnId];
+
+    const toggle = (e: any) => {
+      e.stopPropagation();
+      setExpandedTxnId(expandedTxnId === txnId ? null : txnId);
+    };
+
+    if (match?.match_quality === "bulk") {
+      const legCount = match.suggested_payments?.length || 0;
+      return (
+        <span className="valid smallbutton" onClick={toggle}>
+          Bulk · {legCount} payments
+        </span>
+      );
+    }
+    if (match?.match_quality === "exact") {
+      return (
+        <span className="valid smallbutton" onClick={toggle}>
+          Exact Match
+        </span>
+      );
+    }
+    if (match?.match_quality === "near") {
+      return (
+        <span className="contrast smallbutton" onClick={toggle}>
+          Near Match (${Math.abs(match.difference_amount).toFixed(2)})
+        </span>
+      );
+    }
+    if (split) {
+      return (
+        <span className="contrast smallbutton" onClick={toggle}>
+          Split · {split.index} of {split.total}
+        </span>
+      );
+    }
+    return <span className="smallbutton rivertext">—</span>;
+  }
+
+  const renderExpandedRow = (row: any) => {
+    if (
+      !smartMatchEnabled ||
+      selectedToggle !== "To Review" ||
+      expandedTxnId !== row?.id
+    )
+      return null;
+    const match = matchesMap[row?.id];
+    const split = splitsMap[row?.id];
+    const isLoading = actionLoading === row?.id;
+
+    // BULK
+    if (match?.match_quality === "bulk" && match.suggested_payments?.length) {
+      const legs = match.suggested_payments;
+      const totalAmt = legs.reduce(
+        (acc: number, p: any) => acc + Math.abs(Number(p.amount) || 0),
+        0
+      );
+      return (
+        <tr className="pt_expandtable">
+          <td colSpan={11} className="pt_records">
+            <div className="pt_expandtable">
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                Bulk match — {legs.length} sub-payments totalling $
+                {convertPositiveDecimalTwoDigit(totalAmt)}
+                {match.review_needed && (
+                  <span
+                    className="contrast smallbutton"
+                    style={{ marginLeft: 8 }}
+                  >
+                    Review needed
+                  </span>
+                )}
+              </div>
+              <table style={{ width: "100%", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Payment Type</th>
+                    <th>Client / Supplier</th>
+                    <th>Project / Contract</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.map((p: any) => (
+                    <tr key={p.sub_payment_id}>
+                      <td>{p.payment_type || "—"}</td>
+                      <td>{p.client_supplier_name || "—"}</td>
+                      <td>
+                        {p.project_name || "—"}
+                        {p.contract_name ? ` / ${p.contract_name}` : ""}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        ${convertPositiveDecimalTwoDigit(Math.abs(p.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <CustomButton
+                  buttonType={buttonType.PRIMARY}
+                  actionType="button"
+                  buttonName={isLoading ? "Matching..." : "Match Bulk"}
+                  iconClassName="fa-light fa-check-double"
+                  onClick={() =>
+                    handleBulkMatch(
+                      row.id,
+                      legs.map((p: any) => p.sub_payment_id)
+                    )
+                  }
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    // SPLIT
+    if (split) {
+      const { group, total } = split;
+      const sp = group.sub_payment;
+      const legs = group.transactions || [];
+      return (
+        <tr className="pt_expandtable">
+          <td colSpan={11} className="pt_records">
+            <div className="pt_expandtable">
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                Split match — 1 payment split across {total} bank lines
+                {group.review_needed && (
+                  <span
+                    className="contrast smallbutton"
+                    style={{ marginLeft: 8 }}
+                  >
+                    Review needed
+                  </span>
+                )}
+              </div>
+              <div className="pt_records" style={{ marginBottom: 8 }}>
+                <div>
+                  <small className="rivertext">Payment Type</small>
+                  <div>{sp.payment_type || "—"}</div>
+                  <small className="rivertext">
+                    {sp.client_supplier_name || ""}
+                  </small>
+                </div>
+                <div>
+                  <small className="rivertext">Total Amount</small>
+                  <div>
+                    ${convertPositiveDecimalTwoDigit(Math.abs(sp.amount))}
+                  </div>
+                </div>
+                <div>
+                  <small className="rivertext">Details</small>
+                  <div>
+                    {sp.project_name || "—"}
+                    {sp.contract_name ? ` / ${sp.contract_name}` : ""}
+                  </div>
+                </div>
+              </div>
+              <table style={{ width: "100%", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.map((leg: any) => (
+                    <tr
+                      key={leg.id}
+                      style={leg.id === row.id ? { fontWeight: 600 } : {}}
+                    >
+                      <td>{formatDate(leg.txn_date)}</td>
+                      <td>{leg.description || "—"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        $
+                        {convertPositiveDecimalTwoDigit(
+                          Math.abs(leg.txn_amount)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <CustomButton
+                  buttonType={buttonType.PRIMARY}
+                  actionType="button"
+                  buttonName={isLoading ? "Matching..." : "Match Split"}
+                  iconClassName="fa-light fa-code-branch"
+                  onClick={() =>
+                    handleSplitMatch(
+                      row.id,
+                      sp.sub_payment_id,
+                      legs.map((l: any) => l.id)
+                    )
+                  }
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    // EXACT / NEAR (1-to-1)
+    if (!match || !match.suggested_payment) return null;
+
+    const sp = match.suggested_payment;
+    const isExact = match.match_quality === "exact";
+
+    return (
+      <tr className="pt_expandtable">
+        <td colSpan={11} className="pt_records">
+          <div className="pt_expandtable">
+            <div className="pt_records">
+              <div>
+                <small className="rivertext">Payment Type</small>
+                <div>{sp.payment_type || "—"}</div>
+                <small className="rivertext">
+                  {sp.client_supplier_name || ""}
+                </small>
+              </div>
+              <div>
+                <small className="rivertext">Amount</small>
+                <div>
+                  $ {convertPositiveDecimalTwoDigit(Math.abs(sp.amount))}
+                </div>
+                {!isExact && (
+                  <small className="contrast">
+                    Difference: $
+                    {Math.abs(match.difference_amount).toFixed(2)}
+                  </small>
+                )}
+              </div>
+              <div>
+                <small className="rivertext">Details</small>
+                <div>
+                  {sp.project_name && <span>{sp.project_name}</span>}
+                  {sp.contract_name && <span> / {sp.contract_name}</span>}
+                </div>
+                <small className="rivertext">
+                  {sp.payment_from_account_name || ""} →{" "}
+                  {sp.payment_to_account_name || ""}
+                </small>
+              </div>
+              <div>
+                {isExact ? (
+                  <CustomButton
+                    buttonType={buttonType.PRIMARY}
+                    actionType="button"
+                    buttonName={isLoading ? "Matching..." : "Match"}
+                    iconClassName="fa-light fa-check"
+                    onClick={() => handleExactMatch(row.id, sp.sub_payment_id)}
+                    disabled={isLoading}
+                  />
+                ) : (
+                  <CustomButton
+                    buttonType={buttonType.SECONDARY}
+                    actionType="button"
+                    buttonName={
+                      isLoading ? "Processing..." : "Adjust & Match"
+                    }
+                    iconClassName="fa-light fa-sliders"
+                    onClick={() =>
+                      handleAdjustAndMatch(row.id, sp.sub_payment_id)
+                    }
+                    disabled={isLoading}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const smartMatchActive =
+    smartMatchEnabled && selectedToggle === "To Review" && !!bankId;
 
   const getListAllAdminArticles = async (page: number, rowsPerPage: number) => {
     setLoading(true);
@@ -701,6 +1193,64 @@ const BookKeepingList = (props: any) => {
                 />
                 <label htmlFor="Billable">All</label>
               </fieldset>
+              {selectedToggle === "To Review" && !!bankId && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    marginLeft: "16px",
+                    gap: "6px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      color: smartMatchEnabled ? "#2563eb" : "#6b7280",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={smartMatchEnabled}
+                      onChange={handleToggleSmartMatch}
+                      style={{ cursor: "pointer" }}
+                    />
+                    Smart Match
+                  </label>
+                  {smartMatchActive && suggestedMatches && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#6b7280",
+                        marginLeft: "4px",
+                      }}
+                    >
+                      ({suggestedMatches.exact_match_count} exact
+                      {suggestedMatches.near_match_count > 0 &&
+                        `, ${suggestedMatches.near_match_count} near`}
+                      {suggestedMatches.bulk_match_count > 0 &&
+                        `, ${suggestedMatches.bulk_match_count} bulk`}
+                      {suggestedMatches.split_match_count > 0 &&
+                        `, ${suggestedMatches.split_match_count} split`}
+                      )
+                    </span>
+                  )}
+                  {smartMatchActive &&
+                    suggestedMatches?.exact_match_count > 0 && (
+                      <CustomButton
+                        buttonType={buttonType.PRIMARY}
+                        actionType="button"
+                        buttonName={`Match All Exact (${suggestedMatches.exact_match_count})`}
+                        iconClassName="fa-light fa-check-double"
+                        onClick={() => setShowBatchConfirm(true)}
+                      />
+                    )}
+                </div>
+              )}
             </div>
             <div className="pt_filteroptions">
               <FormikControl
@@ -821,19 +1371,26 @@ const BookKeepingList = (props: any) => {
           <div className="grid">
             <div className="pt_box">
               <DynamicTable
-                headers={
-                  selectedToggle === "To Review" || selectedToggle === "All"
+                headers={(() => {
+                  const base =
+                    selectedToggle === "To Review" || selectedToggle === "All"
+                      ? [
+                          ...BookKeepingpdfheaderNames,
+                          { title: "Actions", restrictSorting: true },
+                        ]
+                      : selectedToggle === "Matched"
+                      ? [
+                          ...BookKeepingpdfheaderNames,
+                          { title: "Unmatch", restrictSorting: true },
+                        ]
+                      : BookKeepingpdfheaderNames;
+                  return smartMatchActive
                     ? [
-                        ...BookKeepingpdfheaderNames,
-                        { title: "Actions", restrictSorting: true },
+                        ...base,
+                        { title: "Match", restrictSorting: true },
                       ]
-                    : selectedToggle === "Matched"
-                    ? [
-                        ...BookKeepingpdfheaderNames,
-                        { title: "Unmatch", restrictSorting: true },
-                      ]
-                    : BookKeepingpdfheaderNames
-                }
+                    : base;
+                })()}
                 gridData={transactionData.length > 0 ? transactionData : []}
                 gridActions={actions}
                 displayAllStaticActions={
@@ -841,15 +1398,41 @@ const BookKeepingList = (props: any) => {
                 }
                 onRowClick={(data: any) => {}}
                 showLoader={loading}
-                loaderColSpan={10}
-                renderRowList={BookKeepingRenderData}
+                loaderColSpan={smartMatchActive ? 11 : 10}
+                renderRowList={
+                  smartMatchActive
+                    ? [
+                        ...BookKeepingRenderData,
+                        {
+                          key: "_smart_match",
+                          render: (row: any) => getMatchBadge(row?.id),
+                        },
+                      ]
+                    : BookKeepingRenderData
+                }
+                renderExpandedRow={
+                  smartMatchActive ? renderExpandedRow : undefined
+                }
                 currentPage={page}
                 entriesPerPage={perPage}
                 hoverOnRowClick
                 onEntriesPerPageChange={setPerPage}
-                onTableDataClick={(rowData: any) =>
-                  handlePaymentsNavigation(rowData)
-                }
+                onTableDataClick={(rowData: any) => {
+                  const m = matchesMap[rowData?.id];
+                  const hasExpandableMatch =
+                    smartMatchActive &&
+                    ((m &&
+                      m.match_quality &&
+                      m.match_quality !== "none") ||
+                      !!splitsMap[rowData?.id]);
+                  if (hasExpandableMatch) {
+                    setExpandedTxnId(
+                      expandedTxnId === rowData?.id ? null : rowData?.id
+                    );
+                    return;
+                  }
+                  handlePaymentsNavigation(rowData);
+                }}
                 onPageChange={setPage}
                 totalEntries={totalRows}
                 enableCheckbox={
@@ -1010,6 +1593,27 @@ const BookKeepingList = (props: any) => {
           <h4 className="text_center">
             Select the 'Account name' filter to view correct transactions to
             exclude
+          </h4>
+        </BaseModal>
+      )}
+      {showBatchConfirm && (
+        <BaseModal
+          isOpen={showBatchConfirm}
+          onClose={() => setShowBatchConfirm(false)}
+          title="Match all exact suggestions?"
+          firstButtonName="Cancel"
+          secondButtonName={`Match ${
+            suggestedMatches?.exact_match_count || 0
+          }`}
+          firstButtonOnClick={() => setShowBatchConfirm(false)}
+          secondButtonOnClick={handleBatchMatchAllExact}
+        >
+          <h4 className="text_center">
+            This will match {suggestedMatches?.exact_match_count || 0} bank
+            transaction
+            {(suggestedMatches?.exact_match_count || 0) === 1 ? "" : "s"} to
+            their suggested payments. You can unmatch individual rows
+            afterwards if needed.
           </h4>
         </BaseModal>
       )}
