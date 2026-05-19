@@ -464,6 +464,11 @@ input AddBankAccountInput {
   """Date of first subcontract, if applicable."""
   first_sub_contract_date: DateTime
 
+  """
+  If true, any QBCC / client notices generated when the account moves to Open are immediately marked as Sent (the user has already lodged them outside the system) and no email is dispatched.
+  """
+  mark_notices_as_sent: Boolean
+
   """Date the account was opened."""
   opening_date: DateTime
 
@@ -4551,6 +4556,11 @@ input EditDetailsOfABankAccountInput {
 
   """Updated first subcontract date."""
   first_sub_contract_date: DateTime
+
+  """
+  If true, any QBCC / client notices generated when the account moves to Open are immediately marked as Sent (the user has already lodged them outside the system) and no email is dispatched.
+  """
+  mark_notices_as_sent: Boolean
 
   """Updated account opening date."""
   opening_date: DateTime
@@ -25559,6 +25569,11 @@ type sourceClaimDetails {
 input triggerAccountNoticesInput {
   """ID of the bank account."""
   bank_account_id: Float
+
+  """
+  If true, generated notices are immediately marked as Sent (the user has lodged them outside the system) and no email is dispatched.
+  """
+  mark_notices_as_sent: Boolean
 }
 
 """Input to trigger notice generation for an audit."""

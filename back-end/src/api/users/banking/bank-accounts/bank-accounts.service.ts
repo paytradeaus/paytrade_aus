@@ -232,7 +232,10 @@ export class BankAccountsService {
 
             notices = await this.noticeService.handleTriggerAccountNotices(
               decoded,
-              { bank_account_id },
+              {
+                bank_account_id,
+                mark_notices_as_sent: !!data?.mark_notices_as_sent,
+              },
               transactionalEntityManager
             );
 
@@ -553,7 +556,10 @@ export class BankAccountsService {
           if (data.status === 'Open' && data.account_type !== 'Cash Account') {
             notices = await this.noticeService.handleTriggerAccountNotices(
               decoded,
-              { bank_account_id: bank_account_id },
+              {
+                bank_account_id: bank_account_id,
+                mark_notices_as_sent: !!data?.mark_notices_as_sent,
+              },
               transactionalEntityManager,
             );
 

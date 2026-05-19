@@ -108,6 +108,13 @@ export class AddBankAccountInput {
     description: 'User ID of the logged-in user creating the record.',
   })
   created_by: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'If true, any QBCC / client notices generated when the account moves to Open are immediately marked as Sent (the user has already lodged them outside the system) and no email is dispatched.',
+  })
+  mark_notices_as_sent?: boolean;
 }
 
 @InputType({
@@ -202,6 +209,13 @@ export class EditDetailsOfABankAccountInput {
 
   @Field({ nullable: true, description: 'Updated associated general account ID.' })
   associated_cash_account_id: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'If true, any QBCC / client notices generated when the account moves to Open are immediately marked as Sent (the user has already lodged them outside the system) and no email is dispatched.',
+  })
+  mark_notices_as_sent?: boolean;
 }
 
 @InputType({

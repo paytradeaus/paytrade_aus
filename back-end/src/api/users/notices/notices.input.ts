@@ -129,6 +129,13 @@ export class triggerContractNoticesInput {
 export class triggerAccountNoticesInput {
   @Field({ nullable: true, description: 'ID of the bank account.' })
   bank_account_id?: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'If true, generated notices are immediately marked as Sent (the user has lodged them outside the system) and no email is dispatched.',
+  })
+  mark_notices_as_sent?: boolean;
 }
 
 @InputType({

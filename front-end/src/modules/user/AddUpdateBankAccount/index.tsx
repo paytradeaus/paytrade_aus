@@ -112,6 +112,12 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   const [financialInstituteData, setFinancialInstituteData] = useState<any>();
   const [selectedBankType, setSelectedBankType] = useState("");
   const [triggerBtnStatus, setTriggerBtnStatus] = useState<any>("");
+  // When ticked, "Completed - send notices" still generates the
+  // QBCC / client notices PayTrade is configured to produce, but
+  // marks each one as Sent on the backend (the user has already
+  // lodged them outside the system) so no email goes out and the
+  // notices do not appear in the "Notices to send" list.
+  const [markNoticesAsSent, setMarkNoticesAsSent] = useState<boolean>(false);
   const [planName, setPlanName] = useState<string>("Basic");
   const [openFinalModal, setOpenFinalModal] = useState(false);
   const [valuesForSubmit, setValuesForSubmit] = useState<any>();
@@ -1279,6 +1285,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
           ...payload,
           bank_account_id: editData.bank_account_id,
           apca_number: +formik?.values?.apca_number,
+          ...(triggerBtnStatus === "completed"
+            ? { mark_notices_as_sent: markNoticesAsSent }
+            : {}),
         };
 
         const response = await EditDetailsOfABankAccount(
@@ -1375,6 +1384,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
 
         if (BankAccountType !== "Cash Account") {
           payload.status = triggerBtnStatus === "save" ? "Draft" : "Open";
+          if (triggerBtnStatus === "completed") {
+            payload.mark_notices_as_sent = markNoticesAsSent;
+          }
           let response;
           if (ErrorCode === "SCHEDULER_BANK_MISSING_FIELDS") {
             // 🔁 Special case: call the scheduler API
@@ -2505,19 +2517,41 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     (editData?.status === "Draft" ||
                       !editData?.status ||
                       onRtaProjectChange()) && (
-                      <CustomButton
-                        actionType="submit"
-                        buttonType={buttonType.OUTLINE_SECONDARY}
-                        buttonName={"Completed - send notices"}
-                        onClick={(e: any) => {
-                          e.stopPropagation();
-                          e.preventDefault();
+                      <>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            margin: "8px 0",
+                            fontSize: 14,
+                            cursor: "pointer",
+                          }}
+                          title="Tick if you have already lodged these notices with QBCC / the client outside PayTrade. PayTrade will still generate the notice records for your audit trail, but will mark them as Sent and skip the email."
+                        >
+                          <input
+                            type="checkbox"
+                            checked={markNoticesAsSent}
+                            onChange={(e) =>
+                              setMarkNoticesAsSent(e.target.checked)
+                            }
+                          />
+                          Mark notices as already sent (lodged outside PayTrade)
+                        </label>
+                        <CustomButton
+                          actionType="submit"
+                          buttonType={buttonType.OUTLINE_SECONDARY}
+                          buttonName={"Completed - send notices"}
+                          onClick={(e: any) => {
+                            e.stopPropagation();
+                            e.preventDefault();
 
-                          setTriggerBtnStatus("completed");
-                          formik?.handleSubmit();
-                        }}
-                        inputButton
-                      />
+                            setTriggerBtnStatus("completed");
+                            formik?.handleSubmit();
+                          }}
+                          inputButton
+                        />
+                      </>
                     )}
 
                   <CustomButton

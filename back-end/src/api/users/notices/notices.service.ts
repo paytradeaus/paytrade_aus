@@ -3783,6 +3783,15 @@ export class NoticesService {
 
       this.logger.log(`notice_list_to_be_generated: ${JSON.stringify(noticeListWithData)}`);
 
+      // User-driven "I have already lodged these notices outside the
+      // system" flag. When true, we still generate the notice records
+      // (so PayTrade has an audit trail / PDF), but we skip every
+      // mail-generation / auto-send branch and immediately mark each
+      // generated notice as 'Sent' so it does not show up in the
+      // user's "Notices to send" list. Subscription tier still
+      // controls whether the notice itself is generated.
+      const markAsSent = !!payload?.mark_notices_as_sent;
+
       // Task #97: per-company auto-send opt-out (see getCompanyAutoSendSetting).
       const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       const companyAutoSend = await this.getCompanyAutoSendSetting(
@@ -3790,7 +3799,7 @@ export class NoticesService {
         manager,
       );
       this.logger.log(
-        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=account bank_account_id=${payload?.bank_account_id} company_auto_send=${companyAutoSend} user_mode=${userMode}`,
+        `[NOTICE_FLOW] flow_id=${flowId} stage=trigger_entry kind=account bank_account_id=${payload?.bank_account_id} company_auto_send=${companyAutoSend} user_mode=${userMode} mark_as_sent=${markAsSent}`,
       );
 
       let noticeGen = false;
@@ -3825,7 +3834,23 @@ export class NoticesService {
 
           noticeGen = true;
 
-          if (
+          if (markAsSent) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type}`,
+            );
+            await this.updateNoticeStatus(
+              {
+                notice_id: newNotice.data.notice_id,
+                status: 'Sent',
+                reference_id: noticeListWithData.bank_account_id,
+                reference_link: noticeListWithData.bank_accoutn_link,
+                toName: noticeListWithData.clientName,
+                toMail: noticeListWithData.clientMail,
+              },
+              decoded?.userId,
+              manager,
+            );
+          } else if (
             noticeListWithData.trustAccDelegation === 'Paid' ||
             noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
             (userMode && userMode == 'Onboarding')
@@ -3937,7 +3962,23 @@ export class NoticesService {
 
           noticeGen = true;
 
-          if (
+          if (markAsSent) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type}`,
+            );
+            await this.updateNoticeStatus(
+              {
+                notice_id: newNotice.data.notice_id,
+                status: 'Sent',
+                delegated_qbcc: true,
+                qbcc: true,
+                reference_id: noticeListWithData.bank_account_id,
+                reference_link: noticeListWithData.bank_accoutn_link,
+              },
+              decoded?.userId,
+              manager,
+            );
+          } else if (
             noticeListWithData.trustAccDelegation === 'Paid' ||
             noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
             (userMode && userMode == 'Onboarding')
@@ -4066,7 +4107,23 @@ export class NoticesService {
 
                 noticeGen = true;
 
-                if (
+                if (markAsSent) {
+                  this.logger.log(
+                    `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} project_id=${projectId}`,
+                  );
+                  await this.updateNoticeStatus(
+                    {
+                      notice_id: newNotice.data.notice_id,
+                      status: 'Sent',
+                      delegated_qbcc: true,
+                      qbcc: true,
+                      reference_id: noticeListWithData.bank_account_id,
+                      reference_link: noticeListWithData.bank_accoutn_link,
+                    },
+                    decoded?.userId,
+                    manager,
+                  );
+                } else if (
                   noticeListWithData.retentionAccDelegation === 'Paid' ||
                   noticeListWithData.retentionAccDelegation ===
                     'Paid-delegated' ||
