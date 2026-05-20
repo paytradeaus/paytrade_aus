@@ -642,11 +642,27 @@ export class PtSubscriptionResolver {
   })
   async getAllSubscriptionPlanListForUser(
     @Args('is_sandbox', { nullable: true, defaultValue: false }) is_sandbox?: boolean,
+    @Args('current_plan_id', {
+      nullable: true,
+      description:
+        "Existing subscriber's plan_id. When provided alongside current_price_id, the matching plan row is included even if it has been archived (plan_status='Inactive'), so the UI can render a 'Current plan' card for the subscriber.",
+    })
+    current_plan_id?: string,
+    @Args('current_price_id', {
+      nullable: true,
+      description:
+        "Existing subscriber's price_id. Used together with current_plan_id to whitelist exactly the price the subscriber is currently billed on.",
+    })
+    current_price_id?: string,
   ) {
     try {
       this.logger.log(`Request recieved while entering the client`);
       const subscriptionLists =
-        await this.ptSubscriptionService.getAllSubscriptionPlanListForUser(is_sandbox);
+        await this.ptSubscriptionService.getAllSubscriptionPlanListForUser(
+          is_sandbox,
+          current_plan_id,
+          current_price_id,
+        );
       this.logger.log(
         `Response recieved while leaving the client: ${JSON.stringify(subscriptionLists)}`,
       );

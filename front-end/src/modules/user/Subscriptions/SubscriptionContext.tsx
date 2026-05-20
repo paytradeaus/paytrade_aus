@@ -71,7 +71,19 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       const isDemoCompany = isDemoFromCompany || isDemoFromSub;
 
       setCompanyIsDemo(isDemoCompany);
-      await getSubscriptionPlanTypes(isDemoCompany);
+
+      // Forward the existing subscription's plan_id / price_id so the backend
+      // can include the subscriber's current plan row even if it has since
+      // been archived (plan_status='Inactive'). Without this, an archived
+      // current plan would render the page with a "CURRENT PLAN: <name>"
+      // header but no matching card in the grid below it.
+      const existingSub =
+        subResult.status === "fulfilled" ? subResult.value : null;
+      await getSubscriptionPlanTypes(
+        isDemoCompany,
+        existingSub?.plan_id ?? null,
+        existingSub?.price_id ?? null,
+      );
 
       setLoader(false);
     } catch (error) {
@@ -110,9 +122,17 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       return false;
     }
   }
-  async function getSubscriptionPlanTypes(isDemoCompany: boolean = false) {
+  async function getSubscriptionPlanTypes(
+    isDemoCompany: boolean = false,
+    currentPlanId?: string | null,
+    currentPriceId?: string | null,
+  ) {
     try {
-      const response: any = await fetchGetAllSubscriptionPlanListForUser(isDemoCompany);
+      const response: any = await fetchGetAllSubscriptionPlanListForUser(
+        isDemoCompany,
+        currentPlanId,
+        currentPriceId,
+      );
 
       if (response) {
         const transformedPlans = transformPlans(response, isYearly);

@@ -18533,7 +18533,18 @@ type Query {
   ): SubscriptionPlanListResponse!
 
   """Fetches all subscription plans available for users."""
-  getAllSubscriptionPlanListForUser(is_sandbox: Boolean = false): SubscriptionPlanListForUserResponse!
+  getAllSubscriptionPlanListForUser(
+    """
+    Existing subscriber's plan_id. When provided alongside current_price_id, the matching plan row is included even if it has been archived (plan_status='Inactive'), so the UI can render a 'Current plan' card for the subscriber.
+    """
+    current_plan_id: String
+
+    """
+    Existing subscriber's price_id. Used together with current_plan_id to whitelist exactly the price the subscriber is currently billed on.
+    """
+    current_price_id: String
+    is_sandbox: Boolean = false
+  ): SubscriptionPlanListForUserResponse!
 
   """Fetches all Xero tenants."""
   getAllTenants: StringResponse!

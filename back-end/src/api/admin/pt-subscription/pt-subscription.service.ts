@@ -1700,7 +1700,18 @@ export class PtSubscriptionService {
     };
   }
 
-  async getAllSubscriptionPlanListForUser(is_sandbox: boolean = false) {
+  async getAllSubscriptionPlanListForUser(
+    is_sandbox: boolean = false,
+    current_plan_id?: string,
+    current_price_id?: string,
+  ) {
+    // When the caller is an authenticated existing subscriber whose plan has
+    // since been archived (plan_status='Inactive'), we still want to return
+    // that single plan/price row so the UI can render a "Current plan" card
+    // for them. We scope the relaxation to the *exact* price_id they are on
+    // so an archived plan's other billing-cycle variants are NOT offered as
+    // new subscription options.
+    const hasCurrentRef = !!(current_plan_id && current_price_id);
     const result = await this.subscriptionPlanDetails
       .createQueryBuilder('pd')
       .select([
@@ -1758,7 +1769,12 @@ export class PtSubscriptionService {
         'pi',
         'pd.plan_id = pi.plan_id',
       )
-      .andWhere(`pd.plan_type = 'Free' AND pd.plan_status = 'Active'`)
+      .andWhere(
+        hasCurrentRef
+          ? `pd.plan_type = 'Free' AND (pd.plan_status = 'Active' OR (pd.plan_id = :current_plan_id AND ppm.price_id = :current_price_id))`
+          : `pd.plan_type = 'Free' AND pd.plan_status = 'Active'`,
+        hasCurrentRef ? { current_plan_id, current_price_id } : {},
+      )
       .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .getRawOne();
 
@@ -1856,7 +1872,12 @@ export class PtSubscriptionService {
         'pi',
         'pd.plan_id = pi.plan_id',
       )
-      .andWhere(`pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`)
+      .andWhere(
+        hasCurrentRef
+          ? `pd.plan_type = 'Paid' AND (pd.plan_status = 'Active' OR (pd.plan_id = :current_plan_id AND ppm.price_id = :current_price_id))`
+          : `pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`,
+        hasCurrentRef ? { current_plan_id, current_price_id } : {},
+      )
       .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .orderBy({ 'ppm.plan_price': 'ASC' })
       .getRawMany();
@@ -1955,7 +1976,12 @@ export class PtSubscriptionService {
         'pi',
         'pd.plan_id = pi.plan_id',
       )
-      .andWhere(`pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`)
+      .andWhere(
+        hasCurrentRef
+          ? `pd.plan_type = 'Paid' AND (pd.plan_status = 'Active' OR (pd.plan_id = :current_plan_id AND ppy.price_id = :current_price_id))`
+          : `pd.plan_type = 'Paid' AND pd.plan_status = 'Active'`,
+        hasCurrentRef ? { current_plan_id, current_price_id } : {},
+      )
       .andWhere('pd.is_sandbox = :is_sandbox', { is_sandbox })
       .orderBy({ 'ppy.plan_price': 'ASC' })
       .getRawMany();
