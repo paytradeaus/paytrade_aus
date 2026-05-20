@@ -8645,17 +8645,21 @@ export class XeroPaymentsService {
           payment_date: btDate,
           input_date: btDate,
           // ui_status_and_action_buttons stores per-direction statuses
-          // for these movement types: trust→cash uses `Paid - Matched`
+          // for these movement types: trust→cash uses `Paid - …`
           // (Withdrawal / Interest Withdrawal / Bank Charge Applied)
-          // and cash→trust uses `Received - Matched` (Top Up / Top Up
-          // Retention / Interest Received / Bank Charge Top Up). The
-          // generic `Confirmed - Matched` literal we used before
-          // doesn't exist in the lookup, so the row rendered with
-          // blank status text and no action buttons in the Payments
-          // list. Picking the correct direction-specific status lets
-          // getUiStatusAndActionButtonsForPaymentsTransaction (called
-          // below) find the matching seeded row.
-          current_status: (fromIsTrust ? 'Paid - Matched' : 'Received - Matched') as any,
+          // and cash→trust uses `Received - …` (Top Up / Top Up
+          // Retention / Interest Received / Bank Charge Top Up). We
+          // use the `Unmatched` variant because the inbound importer
+          // confirms the Xero side only — the PT-side bank-feed line
+          // for this movement hasn't been matched yet (the sub_payment
+          // row a few lines below is intentionally created with
+          // status='Unmatched' so Smart Match offers this payment as
+          // a candidate against the inbound bank-feed line). When the
+          // user accepts the Smart Match suggestion later, the
+          // existing flow flips both the sub_payment and this
+          // current_status to the `Matched` variant, restoring the
+          // matched-payment status/UI buttons.
+          current_status: (fromIsTrust ? 'Paid - Unmatched' : 'Received - Unmatched') as any,
           // Empty string (not NULL) mirrors what `addPayment` seeds
           // (payments.service.ts:296). The Payments-list query filters
           // `payments.list_status != 'Void'` and `NULL != 'Void'` is
