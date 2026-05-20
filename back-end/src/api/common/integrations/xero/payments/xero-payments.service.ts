@@ -8639,6 +8639,14 @@ export class XeroPaymentsService {
           payment_date: btDate,
           input_date: btDate,
           current_status: 'Confirmed - Matched',
+          // Empty string (not NULL) mirrors what `addPayment` seeds
+          // (payments.service.ts:296). The Payments-list query filters
+          // `payments.list_status != 'Void'` and `NULL != 'Void'` is
+          // NULL (not TRUE) in SQL — leaving list_status NULL silently
+          // hides the row from the Payments list even though every
+          // other field is correct. Empty string passes the filter
+          // and matches the pattern manual movement creation uses.
+          list_status: '' as any,
           created_by: decoded?.userId ?? null,
           created_group: 'SYSTEM' as any,
           memo: `Imported from Xero BankTransfer ${bank_transfer_id}`,
