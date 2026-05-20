@@ -335,6 +335,13 @@ export class SubscriptionPlanForUser {
     description: 'Items associated with this plan.',
   })
   plan_items: PtSubscriptionItemBasicResponse[];
+
+  @Field({
+    nullable: true,
+    description:
+      'Monthly AI credit allotment (USD) granted to companies on this plan.',
+  })
+  monthly_ai_credit?: number;
 }
 
 @ObjectType({ description: 'Lists of subscription plans available to a user.' })

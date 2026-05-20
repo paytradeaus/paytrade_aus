@@ -20678,6 +20678,9 @@ type SubscriptionPlanForUser {
   """Whether this plan is deleted."""
   is_deleted: Boolean
 
+  """Monthly AI credit allotment (USD) granted to companies on this plan."""
+  monthly_ai_credit: Float
+
   """ID of the plan."""
   plan_id: Float!
 
