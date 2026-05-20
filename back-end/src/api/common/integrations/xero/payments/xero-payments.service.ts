@@ -110,6 +110,12 @@ export class XeroPaymentsService {
     // the bank account balance, Journals tab, audit pack and every
     // report that joins through `journal_entries` skips the movement.
     private readonly paymentClaimsService: PaymentClaimsService,
+    // Task #231 follow-up — populate `payment_list_buttons` /
+    // status_in_ui on the imported PT row so the Payments list shows
+    // the same status text and view/delete icons it does for
+    // user-created movements. Without this the row renders with blank
+    // status and no actions.
+    private readonly statusService: StatusService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -8638,7 +8644,18 @@ export class XeroPaymentsService {
           total_amount: amount,
           payment_date: btDate,
           input_date: btDate,
-          current_status: 'Confirmed - Matched',
+          // ui_status_and_action_buttons stores per-direction statuses
+          // for these movement types: trust→cash uses `Paid - Matched`
+          // (Withdrawal / Interest Withdrawal / Bank Charge Applied)
+          // and cash→trust uses `Received - Matched` (Top Up / Top Up
+          // Retention / Interest Received / Bank Charge Top Up). The
+          // generic `Confirmed - Matched` literal we used before
+          // doesn't exist in the lookup, so the row rendered with
+          // blank status text and no action buttons in the Payments
+          // list. Picking the correct direction-specific status lets
+          // getUiStatusAndActionButtonsForPaymentsTransaction (called
+          // below) find the matching seeded row.
+          current_status: (fromIsTrust ? 'Paid - Matched' : 'Received - Matched') as any,
           // Empty string (not NULL) mirrors what `addPayment` seeds
           // (payments.service.ts:296). The Payments-list query filters
           // `payments.list_status != 'Void'` and `NULL != 'Void'` is
@@ -8733,6 +8750,27 @@ export class XeroPaymentsService {
         false,
         decoded?.userId ?? null,
       );
+
+      // Populate `payment_list_buttons` (and `status_in_ui` on the
+      // joined lookup) so the Payments list renders the status pill
+      // and view/delete actions for the imported row. Mirrors what
+      // updateClaimAndPaymentStatuses → getUiStatusAndActionButtonsForPaymentsTransaction
+      // does after manual addPayment. Lookup key is
+      // (payment_type, current_status); we set both above so the
+      // seeded row resolves cleanly.
+      try {
+        await this.statusService.getUiStatusAndActionButtonsForPaymentsTransaction(
+          txn,
+          { payment_id: reloaded.payment_id },
+        );
+      } catch (err) {
+        // Log but don't fail the whole import — a missing UI button
+        // record degrades the row visual but doesn't corrupt
+        // bookkeeping or journal state.
+        this.logger.warn(
+          `getUiStatusAndActionButtonsForPaymentsTransaction failed for inbound trust-movement payment_id=${reloaded.payment_id}: ${err}`,
+        );
+      }
 
       return reloaded;
       });
