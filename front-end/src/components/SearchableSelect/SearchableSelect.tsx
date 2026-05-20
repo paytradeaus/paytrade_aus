@@ -66,16 +66,22 @@ const SearchableSelect: FC<SearchableSelectProps> = ({
       option: (provided: any, state: any) => ({
         ...provided,
         padding: "2px 10px",
-        // Keep react-select's default focus background (the blue band that
-        // matches the OS-native <select> highlight used elsewhere in the
-        // app), but force white text + full text wrap so long account
-        // names highlight cleanly across every wrapped line instead of
-        // showing the band only on line 1.
+        // Match the native <select> highlight used by FormikControl SELECT
+        // elsewhere in the app: charcoal/dark band with white text on
+        // focus/hover/selected. Full text wrap so long account names
+        // highlight cleanly across every wrapped line.
+        backgroundColor:
+          state?.isFocused || state?.isSelected ? "#3a3f4b" : "transparent",
         color: state?.isFocused || state?.isSelected ? "#ffffff" : "",
         whiteSpace: "normal",
         wordBreak: "break-word",
+        cursor: "pointer",
         "&:hover": {
+          backgroundColor: "#3a3f4b",
           color: "#ffffff",
+        },
+        "&:active": {
+          backgroundColor: "#2a3140",
         },
         ...(controlStyles?.option && controlStyles?.option(provided)),
       }),
