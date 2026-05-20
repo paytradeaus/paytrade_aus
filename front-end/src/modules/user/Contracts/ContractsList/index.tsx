@@ -29,7 +29,6 @@ import {
   getProjectsLists,
 } from "../contracts.functions";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   downloadExcelFileFromAPI,
   GenerateSignedUrl,
@@ -433,18 +432,20 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             </div>
           )}
           {!overViewDetails?.overViewMode && (
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select a project"
               name="project"
               options={projectOptions}
+              value={selectedProjectTypeObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
               onChange={(selected: any) => {
                 setCurrentPage(1);
                 setSelectedProjectType(selected?.value);
                 setSelectedProjectTypeObj(selected);
               }}
-              selectedData={selectedProjectTypeObj}
-              renderKey="label"
-              valueKey="value"
             />
           )}
         </div>

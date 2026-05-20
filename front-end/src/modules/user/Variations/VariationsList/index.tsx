@@ -35,7 +35,6 @@ import {
 import { getProjectsLists } from "../../Contracts/contracts.functions";
 import { useRouter } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   downloadExcelFileFromAPI,
   GenerateSignedUrl,
@@ -490,33 +489,37 @@ export default function VariationsList({ overViewDetails = {} }: any) {
         </div>
         <div className="pt_filteroptions">
           {projectOptions?.length > 0 && !overViewMode && (
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select a project"
               name="project"
               options={projectOptions}
+              value={selectedProjectTypeObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
               onChange={(selected: any) => {
                 setCurrentPage(1);
                 setSelectedProjectType(selected?.value);
                 setSelectedProjectTypeObj(selected);
               }}
-              selectedData={selectedProjectTypeObj}
-              renderKey="label"
-              valueKey="value"
             />
           )}
           {contractOptions?.length > 0 && !overViewMode && (
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select a contracts"
               name="contracts"
               options={contractOptions}
+              value={selectedContractTypeObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
               onChange={(selected: any) => {
                 setCurrentPage(1);
                 setSelectedContractType(selected?.value);
                 setSelectedContractTypeObj(selected);
               }}
-              selectedData={selectedContractTypeObj}
-              renderKey="label"
-              valueKey="value"
             />
           )}
           {tabStatus !== tabOptions[1].value &&

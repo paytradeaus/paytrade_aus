@@ -28,7 +28,6 @@ import {
   ChangeStatusOfBankAccount,
   FetchAllBankAccounts,
 } from "./bankAccount.functions";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import { useRouter, useSearchParams } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
 import {
@@ -509,14 +508,16 @@ const BankAccounts = (props: any) => {
               clearSearch={emptySearchField}
             />
 
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select an account type"
               name="bankAccounts"
               options={filteredBankAccountOptions}
-              onChange={(value: any) => handleAccountChange(value)}
-              selectedData={selectedAccType}
+              value={selectedAccType?.value || ""}
               renderKey="label"
               valueKey="value"
+              returnSelectedObject
+              onChange={(value: any) => handleAccountChange(value)}
             />
           </div>
         </div>

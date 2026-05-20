@@ -27,7 +27,6 @@ import { fetchCompliancesList } from "../compliances.functions";
 import { getProjectsLists } from "../../Contracts/contracts.functions";
 import { format, isValid } from "date-fns";
 import { FetchAllBankAccounts } from "../../BankAccounts/bankAccount.functions";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   downloadExcelFileFromAPI,
   GenerateSignedUrl,
@@ -427,32 +426,36 @@ export default function CompliancesList({ overViewDetails = {} }: any) {
 
         <div className="pt_filteroptions">
           {!overViewMode && (
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select a project"
               name="project"
               options={projectOptions}
+              value={selectedProjectTypeObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
               onChange={(selected: any) => {
                 setCurrentPage(1);
                 setSelectedProjectType(selected?.value);
                 setSelectedProjectTypeObj(selected);
               }}
-              selectedData={selectedProjectTypeObj}
-              renderKey="label"
-              valueKey="value"
             />
           )}
-          <SearchableSelect
+          <FormikControl
+            control={InputType.SELECT}
             placeholder="Select an account"
             name="account"
             options={bankOptions}
+            value={selectedBankAccountObj?.value || ""}
+            renderKey="label"
+            valueKey="value"
+            returnSelectedObject
             onChange={(selected: any) => {
               setCurrentPage(1);
               setSelectedBankAccount(selected?.value);
               setSelectedBankAccountObj(selected);
             }}
-            selectedData={selectedBankAccountObj}
-            renderKey="label"
-            valueKey="value"
           />
 
           <FormikControl
