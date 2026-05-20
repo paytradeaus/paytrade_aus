@@ -32,7 +32,7 @@ export default function AuditList(props: any) {
   const companyName = getCookie("companyName"); // Access the company name from the cookie
   const [sortValues, setSortValues] = useState<any>("");
   const [selectedBankAccount, setSelectedBankAccount] = useState("");
-  const [selectedBankAccountObj, setSelectedBankAccountObj] = useState("");
+  const [selectedBankAccountObj, setSelectedBankAccountObj] = useState<any>(null);
   const [selectedAccountType, setSelectedAccountType] = useState("");
   const [totalRows, setTotalRows] = useState(0);
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);

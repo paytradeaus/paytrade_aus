@@ -112,9 +112,9 @@ export default function NoticesList({ overViewDetails = {} }: any) {
 
   const [selectedAccountName, setSelectedAccountName] = useState<any>("");
   const [selectedStatus, setSelectedStatus] = useState<any>("");
-  const [selectedAccountTypeObj, setSelectedAccountTypeObj] = useState("");
-  const [selectedProjectObj, setSelectedProjectObj] = useState("");
-  const [selectedNoticeTypeObj, setSelectedNoticeTypeObj] = useState("");
+  const [selectedAccountTypeObj, setSelectedAccountTypeObj] = useState<any>(null);
+  const [selectedProjectObj, setSelectedProjectObj] = useState<any>(null);
+  const [selectedNoticeTypeObj, setSelectedNoticeTypeObj] = useState<any>(null);
 
   const selectedCompanyId = Number(getCookie("companyId")) || 0;
   const [printDocumentData, setPrintDocumentData] = useState<any>([]);

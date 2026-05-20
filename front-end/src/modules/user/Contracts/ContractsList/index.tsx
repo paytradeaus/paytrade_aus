@@ -55,7 +55,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   const [sortValues, setSortValues] = useState<any>("");
 
   const [selectedProjectType, setSelectedProjectType] = useState("");
-  const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState("");
+  const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState<any>(null);
   const [totalRows, setTotalRows] = useState(0);
   const [tabStatus, setTabStatus] = useState("");
   const [tableLoader, setTableLoader] = useState(false);

@@ -414,6 +414,52 @@ const MatchTransactions = () => {
       );
     }
     setPaymentsData(paymentTransactionsRes?.payments);
+
+    // Auto-select the suggested payment when the backend has returned an
+    // unambiguous, to-the-cent exact match. The user can still change the
+    // selection (radio swap / untick) before pressing Match. We deliberately
+    // skip auto-selection when more than one candidate exists for a single
+    // transaction — that's ambiguous and the user must pick.
+    const txnsRes = paymentTransactionsRes?.transactions ?? [];
+    const paymentsRes = paymentTransactionsRes?.payments ?? [];
+    if (paymentsRes.length > 0 && txnsRes.length > 0) {
+      const signedTotal = txnsRes.reduce(
+        (acc: number, t: any) =>
+          acc +
+          (Number(t?.received_amount) || 0) +
+          (Number(t?.spent_amount) || 0),
+        0
+      );
+      const totalAbs = Math.abs(signedTotal).toFixed(2);
+      const isBulkExact = (p: any) =>
+        Math.abs(Number(p?.amount) || 0).toFixed(2) === totalAbs;
+
+      let autoMatch: any = null;
+      if (txnsRes.length > 1) {
+        // Bulk case: only auto-select the candidate whose amount equals
+        // the sum of all selected transactions, and only when exactly one
+        // such candidate exists.
+        const bulkMatches = paymentsRes.filter(isBulkExact);
+        if (bulkMatches.length === 1) {
+          autoMatch = bulkMatches[0];
+        }
+      } else if (paymentsRes.length === 1) {
+        // 1:1 case: every returned row is an exact match by query
+        // construction, so auto-select only when there's a single,
+        // unambiguous candidate.
+        autoMatch = paymentsRes[0];
+      }
+
+      if (autoMatch) {
+        setSelectedPaymentData([
+          {
+            id: autoMatch.sub_payment_id,
+            amount: autoMatch.amount,
+            payment_type: autoMatch.payment_type,
+          },
+        ]);
+      }
+    }
   };
   const getPaymentsListData = async (page: number, rowsPerPage: number) => {
     if (transactionType === null) return;

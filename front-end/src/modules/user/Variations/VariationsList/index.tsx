@@ -62,8 +62,8 @@ export default function VariationsList({ overViewDetails = {} }: any) {
 
   const [selectedProjectType, setSelectedProjectType] = useState("");
   const [selectedContractType, setSelectedContractType] = useState("");
-  const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState("");
-  const [selectedContractTypeObj, setSelectedContractTypeObj] = useState("");
+  const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState<any>(null);
+  const [selectedContractTypeObj, setSelectedContractTypeObj] = useState<any>(null);
   const [selectedStatusType, setSelectedStatusType] = useState("");
   const [totalRows, setTotalRows] = useState(0);
   const [tabStatus, setTabStatus] = useState("");
