@@ -56,6 +56,7 @@ import {
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import axios from 'axios';
 import { PaymentsService } from 'src/api/users/banking/payments/payments.service';
+import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
@@ -104,6 +105,11 @@ export class XeroPaymentsService {
     // single atomic transaction.
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
+    // Task #231 follow-up — inbound matcher must post the same
+    // double-entry journals the user-creation path does, otherwise
+    // the bank account balance, Journals tab, audit pack and every
+    // report that joins through `journal_entries` skips the movement.
+    private readonly paymentClaimsService: PaymentClaimsService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -8647,13 +8653,23 @@ export class XeroPaymentsService {
         .execute();
       const reloaded = await txn.findOne(PaymentDetails, { where: { id: paymentRow.id } });
 
+      // Leave sub_payment status as 'Unmatched' so Smart Match offers
+      // this PT payment as a candidate against the inbound bank-feed
+      // line in Bookkeeping. The Xero side is already linked via
+      // xero_payments.bank_transfer_id; that link is independent of the
+      // PT-side bank-feed reconciliation. When the user later accepts
+      // the Smart Match suggestion, the existing matchTxnsToPayments
+      // flow flips this row to 'Auto matched' and re-calls
+      // createJournals — which no-ops because the journals we post
+      // below already exist (idempotent check at
+      // payment-claims.service.ts:3119).
       const subPayment = (await txn.save(
         SubPayments,
         this.subPaymentsRepo.create({
           payment_id: reloaded.payment_id,
           sub_payment_type: 'Payment',
           amount: fromIsTrust ? -Math.abs(amount) : Math.abs(amount),
-          status: 'Auto matched',
+          status: 'Unmatched',
           is_paid_confirmed: fromIsTrust ? true : null,
           is_received_confirmed: fromIsTrust ? null : true,
           created_by: decoded?.userId ?? null,
@@ -8688,6 +8704,28 @@ export class XeroPaymentsService {
           created_group: 'SYSTEM' as any,
         }),
       );
+
+      // Post the double-entry journal pair for this trust movement.
+      // Routes via createJournals → otherPayments branch
+      // (payment-claims.service.ts:4096), which selects the correct
+      // process_id per payment_type (Top Up=43, Top Up Retention=42,
+      // Withdrawal PTA=1 / RTA=2, Interest Received=12, Interest
+      // Withdrawal=17, Bank Charge Applied=4, Bank Charge Top Up=43)
+      // and posts the matching `journal_entries` rows on both the
+      // trust and cash bank accounts. Idempotent — if the user later
+      // accepts a Smart Match suggestion that re-invokes this for the
+      // same audit_id, the existing-journals check no-ops it.
+      await this.paymentClaimsService.createJournals(
+        txn,
+        null,
+        reloaded,
+        'Payment',
+        null,
+        null,
+        false,
+        decoded?.userId ?? null,
+      );
+
       return reloaded;
       });
     } catch (e: any) {
