@@ -4587,7 +4587,7 @@ export interface CatchupRow {
 
 export const manualXeroCatchupDiscover = async (variables: {
   company_id: number;
-  type: "invoice_bill" | "payment" | "contact";
+  type: "invoice_bill" | "payment" | "contact" | "trust_movement";
   from_date: string;
   to_date: string;
 }): Promise<{
