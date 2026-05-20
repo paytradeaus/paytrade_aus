@@ -1271,8 +1271,8 @@ export class CompliancePTAFunctions {
       /*
        - Check for the presence of payments by fetching all the payments created against a project. Select the payment_id and status
        If not present, fetch the check number 6 and rule number 9 from the entity and return it.
-       - If present and not all the payments are in matched state, fetch the check number 6 and rule number 10 from the entity and return it along with action_button_type MATCH_TRANSACTIONS and reference_id as project_id.
-       - If present and all the payments are in matched state, fetch the check number 6 and rule number 11 and return it along with action_button_type as NONE.
+       - If present and not all the payments are in confirmed or matched state, fetch the check number 6 and rule number 10 from the entity and return it along with action_button_type MATCH_TRANSACTIONS and reference_id as project_id.
+       - If present and all the payments are in confirmed or matched state, fetch the check number 6 and rule number 11 and return it along with action_button_type as NONE.
       */
 
       this.logger.log(
@@ -1342,11 +1342,13 @@ export class CompliancePTAFunctions {
         // );
 
         if (fetchedAllPayments.length) {
+          // A journal is triggered when a payment is either Confirmed (Paid)
+          // OR Matched to a bank transaction. So only payments that are
+          // neither confirmed nor matched ('Unconfirmed - Unmatched') count
+          // as outstanding for this check.
           const filteredUnmatchedPayments = fetchedAllPayments.filter(
             (payment) =>
-              ['Unconfirmed - Unmatched', 'Paid - Unmatched'].includes(
-                payment.payment_status,
-              ),
+              ['Unconfirmed - Unmatched'].includes(payment.payment_status),
           );
 
           if (!filteredUnmatchedPayments.length) {

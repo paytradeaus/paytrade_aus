@@ -640,7 +640,7 @@
   {
     "id": "ddacba01-0de4-406d-8741-099ed9c65405",
     "bank_account_type": "Project Trust Account",
-    "display_message": "<div>\n      <p>\n        <span style=\"font-weight: 600; color: #e23b30;\">ACTION REQUIRED</span>\n      </p>\n      <span>\n       Please ensure all payments have been matched correctly to satisfy your trustee requirement. Ensure all payments to subcontractor beneficiaries are made only from the project trust account (and transfer retention amounts withheld into the retention trust account).\n      </span>\n    </div>",
+    "display_message": "<div>\n      <p>\n        <span style=\"font-weight: 600; color: #e23b30;\">ACTION REQUIRED</span>\n      </p>\n      <span>\n       Please ensure all payments have been confirmed or matched correctly to satisfy your trustee requirement. Ensure all payments to subcontractor beneficiaries are made only from the project trust account (and transfer retention amounts withheld into the retention trust account).\n      </span>\n    </div>",
     "display_message_colour": "#e23b30",
     "action_button_type": "MATCH_TRANSACTIONS",
     "check_number": 6,

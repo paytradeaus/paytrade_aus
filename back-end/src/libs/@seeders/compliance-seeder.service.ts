@@ -55,6 +55,7 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
       );
       await this.fixCsvUploadWarningColour();
       await this.deactivateAnnualAccountReviewChecks();
+      await this.updatePaymentsToSubcontractorsWording();
       this.logger.log('Compliance seeding complete');
     } catch (error) {
       this.logger.error(`Compliance seeding failed: ${error.message}`);
@@ -87,6 +88,24 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
         await this.checksRepo.update(target.id, { is_active: false } as any);
         this.logger.log(`compliance_checks: deactivated ${target.label} (Annual Account Review Reports)`);
       }
+    }
+  }
+
+  private async updatePaymentsToSubcontractorsWording() {
+    // Check 6 / rule 10 — "PAYMENTS TO SUBCONTRACTORS" red banner.
+    // Updated wording to reflect that a journal is triggered when a payment
+    // is either Confirmed (Paid) OR Matched to a bank transaction.
+    const targetId = 'ddacba01-0de4-406d-8741-099ed9c65405';
+    const newMessage =
+      '<div>\n      <p>\n        <span style="font-weight: 600; color: #e23b30;">ACTION REQUIRED</span>\n      </p>\n      <span>\n       Please ensure all payments have been confirmed or matched correctly to satisfy your trustee requirement. Ensure all payments to subcontractor beneficiaries are made only from the project trust account (and transfer retention amounts withheld into the retention trust account).\n      </span>\n    </div>';
+    const row = await this.ptaRepo.findOne({ where: { id: targetId } as any });
+    if (row && (row as any).display_message !== newMessage) {
+      await this.ptaRepo.update(targetId, {
+        display_message: newMessage,
+      } as any);
+      this.logger.log(
+        'pta_compliances: updated check 6 rule 10 wording to "confirmed or matched"',
+      );
     }
   }
 
