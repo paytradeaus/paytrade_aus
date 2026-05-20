@@ -66,30 +66,16 @@ const SearchableSelect: FC<SearchableSelectProps> = ({
       option: (provided: any, state: any) => ({
         ...provided,
         padding: "2px 10px",
-        // Override react-select's default bright-blue focus background.
-        // Without this, when an option wraps to multiple lines the blue band
-        // only covers the first line (because the default style targets the
-        // inline label, not the full option box), producing the broken-looking
-        // highlight seen on long account names.
-        backgroundColor:
-          state?.isSelected || state?.isFocused
-            ? isLightTheme()
-              ? "#f0f0f0"
-              : "#2a3140"
-            : "transparent",
-        color:
-          state?.isSelected || state?.isFocused
-            ? isLightTheme()
-              ? "#1c212c"
-              : "#fbfcfc"
-            : isLightTheme()
-            ? "#1c212c"
-            : "#fbfcfc",
+        // Keep react-select's default focus background (the blue band that
+        // matches the OS-native <select> highlight used elsewhere in the
+        // app), but force white text + full text wrap so long account
+        // names highlight cleanly across every wrapped line instead of
+        // showing the band only on line 1.
+        color: state?.isFocused || state?.isSelected ? "#ffffff" : "",
         whiteSpace: "normal",
         wordBreak: "break-word",
         "&:hover": {
-          backgroundColor: isLightTheme() ? "#f0f0f0" : "#2a3140",
-          color: isLightTheme() ? "#1c212c" : "#fbfcfc",
+          color: "#ffffff",
         },
         ...(controlStyles?.option && controlStyles?.option(provided)),
       }),
