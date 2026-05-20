@@ -556,10 +556,16 @@ export default function Transactions() {
 
   async function handleBatchMatchAllExact() {
     if (!suggestedMatches?.matches) return;
-    const exactMatches = suggestedMatches.matches.filter(
-      (m: any) => m.match_quality === "exact" && m.suggested_payment
+    // "Match All Exact" covers both 1-to-1 exact matches and bulk matches
+    // (1 bank line ↔ N PT sub-payments summing to the bank amount).
+    const eligibleMatches = suggestedMatches.matches.filter(
+      (m: any) =>
+        (m.match_quality === "exact" && m.suggested_payment) ||
+        (m.match_quality === "bulk" &&
+          Array.isArray(m.suggested_payments) &&
+          m.suggested_payments.length > 0)
     );
-    if (exactMatches.length === 0) {
+    if (eligibleMatches.length === 0) {
       showWarningToast("No exact matches available.");
       return;
     }
@@ -567,10 +573,12 @@ export default function Transactions() {
     setLoader(true);
     try {
       const result = await BatchMatchExactTransactions({
-        transaction_ids: exactMatches.map((m: any) => m.transaction_id),
-        sub_payment_ids: exactMatches.map((m: any) => [
-          m.suggested_payment.sub_payment_id,
-        ]),
+        transaction_ids: eligibleMatches.map((m: any) => m.transaction_id),
+        sub_payment_ids: eligibleMatches.map((m: any) =>
+          m.match_quality === "bulk"
+            ? m.suggested_payments.map((p: any) => p.sub_payment_id)
+            : [m.suggested_payment.sub_payment_id]
+        ),
       });
       if (result) {
         if (result.failed > 0 && result.succeeded > 0) {
@@ -1142,11 +1150,15 @@ export default function Transactions() {
                 </span>
               )}
               {smartMatchEnabled &&
-                suggestedMatches?.exact_match_count > 0 && (
+                (suggestedMatches?.exact_match_count > 0 ||
+                  suggestedMatches?.bulk_match_count > 0) && (
                   <CustomButton
                     buttonType={buttonType.PRIMARY}
                     actionType="button"
-                    buttonName={`Match All Exact (${suggestedMatches.exact_match_count})`}
+                    buttonName={`Match All Exact (${
+                      (suggestedMatches?.exact_match_count || 0) +
+                      (suggestedMatches?.bulk_match_count || 0)
+                    })`}
                     iconClassName="fa-light fa-check-double"
                     onClick={() => setShowBatchConfirm(true)}
                   />
@@ -1420,12 +1432,26 @@ export default function Transactions() {
           secondButtonName="Match All"
         >
           <h4 className="text_center">
-            Match {suggestedMatches?.exact_match_count || 0} exact transaction
-            {(suggestedMatches?.exact_match_count || 0) !== 1 ? "s" : ""}?
+            Match{" "}
+            {(suggestedMatches?.exact_match_count || 0) +
+              (suggestedMatches?.bulk_match_count || 0)}{" "}
+            transaction
+            {(suggestedMatches?.exact_match_count || 0) +
+              (suggestedMatches?.bulk_match_count || 0) !==
+            1
+              ? "s"
+              : ""}
+            {suggestedMatches?.bulk_match_count > 0
+              ? ` (${suggestedMatches.exact_match_count || 0} exact, ${
+                  suggestedMatches.bulk_match_count
+                } bulk)`
+              : ""}
+            ?
           </h4>
           <p style={{ textAlign: "center", fontSize: "13px", color: "#6b7280" }}>
             This will match all transactions where the amount exactly equals the
-            payment amount.
+            payment amount, including bulk matches where one bank line equals
+            the sum of multiple PayTrade payments.
           </p>
         </BaseModal>
       )}

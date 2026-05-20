@@ -351,10 +351,18 @@ const BookKeepingList = (props: any) => {
 
   async function handleBatchMatchAllExact() {
     if (!suggestedMatches?.matches) return;
-    const exactMatches = suggestedMatches.matches.filter(
-      (m: any) => m.match_quality === "exact" && m.suggested_payment
+    // "Match All Exact" covers both 1-to-1 exact matches and bulk matches
+    // (1 bank line ↔ N PT sub-payments whose amounts sum to the bank
+    // amount within tolerance). Bulk matches expose `suggested_payments`
+    // (plural array); single exact matches expose `suggested_payment`.
+    const eligibleMatches = suggestedMatches.matches.filter(
+      (m: any) =>
+        (m.match_quality === "exact" && m.suggested_payment) ||
+        (m.match_quality === "bulk" &&
+          Array.isArray(m.suggested_payments) &&
+          m.suggested_payments.length > 0)
     );
-    if (exactMatches.length === 0) {
+    if (eligibleMatches.length === 0) {
       showWarningToast("No exact matches available.");
       return;
     }
@@ -362,10 +370,12 @@ const BookKeepingList = (props: any) => {
     setLoading(true);
     try {
       const result = await BatchMatchExactTransactions({
-        transaction_ids: exactMatches.map((m: any) => m.transaction_id),
-        sub_payment_ids: exactMatches.map((m: any) => [
-          m.suggested_payment.sub_payment_id,
-        ]),
+        transaction_ids: eligibleMatches.map((m: any) => m.transaction_id),
+        sub_payment_ids: eligibleMatches.map((m: any) =>
+          m.match_quality === "bulk"
+            ? m.suggested_payments.map((p: any) => p.sub_payment_id)
+            : [m.suggested_payment.sub_payment_id]
+        ),
       });
       if (result) {
         if (result.failed > 0 && result.succeeded > 0) {
@@ -1240,11 +1250,15 @@ const BookKeepingList = (props: any) => {
                     </span>
                   )}
                   {smartMatchActive &&
-                    suggestedMatches?.exact_match_count > 0 && (
+                    (suggestedMatches?.exact_match_count > 0 ||
+                      suggestedMatches?.bulk_match_count > 0) && (
                       <CustomButton
                         buttonType={buttonType.PRIMARY}
                         actionType="button"
-                        buttonName={`Match All Exact (${suggestedMatches.exact_match_count})`}
+                        buttonName={`Match All Exact (${
+                          (suggestedMatches?.exact_match_count || 0) +
+                          (suggestedMatches?.bulk_match_count || 0)
+                        })`}
                         iconClassName="fa-light fa-check-double"
                         onClick={() => setShowBatchConfirm(true)}
                       />
@@ -1603,16 +1617,28 @@ const BookKeepingList = (props: any) => {
           title="Match all exact suggestions?"
           firstButtonName="Cancel"
           secondButtonName={`Match ${
-            suggestedMatches?.exact_match_count || 0
+            (suggestedMatches?.exact_match_count || 0) +
+            (suggestedMatches?.bulk_match_count || 0)
           }`}
           onConfirm={handleBatchMatchAllExact}
         >
           <h4 className="text_center">
-            This will match {suggestedMatches?.exact_match_count || 0} bank
-            transaction
-            {(suggestedMatches?.exact_match_count || 0) === 1 ? "" : "s"} to
-            their suggested payments. You can unmatch individual rows
-            afterwards if needed.
+            This will match{" "}
+            {(suggestedMatches?.exact_match_count || 0) +
+              (suggestedMatches?.bulk_match_count || 0)}{" "}
+            bank transaction
+            {(suggestedMatches?.exact_match_count || 0) +
+              (suggestedMatches?.bulk_match_count || 0) ===
+            1
+              ? ""
+              : "s"}{" "}
+            to their suggested payments
+            {suggestedMatches?.bulk_match_count > 0
+              ? ` (${suggestedMatches.exact_match_count || 0} exact, ${
+                  suggestedMatches.bulk_match_count
+                } bulk)`
+              : ""}
+            . You can unmatch individual rows afterwards if needed.
           </h4>
         </BaseModal>
       )}
