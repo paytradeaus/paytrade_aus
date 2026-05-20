@@ -3217,7 +3217,11 @@ export class TransactionsService {
   ): T[] | null {
     if (!items?.length) return null;
     const n = items.length;
-    if (n > 16) return null; // safety net — caller should cap at 8
+    // Safety net. 2^24 ≈ 16M subsets is roughly the upper bound where
+    // a single in-process enumeration still completes in well under a
+    // second; beyond that the caller must use a smarter algorithm
+    // (meet-in-the-middle, quantised DP, etc.).
+    if (n > 24) return null;
     const targetAbs = Math.abs(target);
     let best: { subset: T[]; diff: number } | null = null;
 
@@ -3329,6 +3333,39 @@ export class TransactionsService {
       const consumedSubPaymentIds = new Set<number>();
       const consumedTxnIds = new Set<string>();
 
+      // Debug logging — enable per request with env SMART_MATCH_DEBUG=true.
+      // Emits a single structured block per request so we can see exactly
+      // why the bulk/split pass failed (sign mismatches, date-window drops,
+      // CANDIDATE_CAP exclusions, subset-sum near-misses).
+      const SMART_MATCH_DEBUG =
+        (process.env.SMART_MATCH_DEBUG || '').toLowerCase() === 'true';
+      const debugTag = `[SMART_MATCH_DEBUG][ba=${bank_account_id}][co=${company_id}]`;
+      const dbg = (msg: string) =>
+        SMART_MATCH_DEBUG && this.logger.log(`${debugTag} ${msg}`);
+
+      if (SMART_MATCH_DEBUG) {
+        const signCounts = unmatchedPayments.reduce(
+          (acc, p) => {
+            const a = parseFloat(p.amount);
+            if (a < 0) acc.neg++;
+            else if (a > 0) acc.pos++;
+            else acc.zero++;
+            return acc;
+          },
+          { pos: 0, neg: 0, zero: 0 },
+        );
+        dbg(
+          `INPUT txns=${unmatchedTxns.length} subPayments=${unmatchedPayments.length} ` +
+            `subPaymentSigns pos=${signCounts.pos} neg=${signCounts.neg} zero=${signCounts.zero} ` +
+            `tolerance=${NEAR_MATCH_TOLERANCE} dateWindowDays=3 candidateCap=8`,
+        );
+        for (const t of unmatchedTxns) {
+          dbg(
+            `TXN id=${t.id} amt=${t.txn_amount} date=${t.txn_date} desc="${(t.description || '').slice(0, 60)}"`,
+          );
+        }
+      }
+
       // ------------------------------------------------------------
       // Pass 1 — 1-to-1 exact / near matches (existing behaviour).
       // ------------------------------------------------------------
@@ -3390,7 +3427,22 @@ export class TransactionsService {
       // that sums to the bank amount within NEAR_MATCH_TOLERANCE.
       // ------------------------------------------------------------
       const DATE_WINDOW_DAYS = 3;
-      const CANDIDATE_CAP = 8;
+      // Search-pool cap for the bulk / split passes.
+      //
+      // Worst case is exhaustive subset enumeration (2^n), so this must
+      // stay modest. Defaults to 20 (≈1M subsets, completes in well under
+      // a second on a single core) which comfortably covers real-world
+      // ABA bulk files — banks routinely process 10–20 payments in one
+      // pass. Capped at 24 (matches the inner `findSubsetSum` safety net)
+      // so a runaway env value can't lock the worker.
+      const parsedCap = parseInt(
+        process.env.SMART_MATCH_CANDIDATE_CAP || '20',
+        10,
+      );
+      const CANDIDATE_CAP = Math.min(
+        24,
+        Math.max(2, isNaN(parsedCap) ? 20 : parsedCap),
+      );
       let bulkCount = 0;
       let splitCount = 0;
       const dayMs = 86400000;
@@ -3408,15 +3460,42 @@ export class TransactionsService {
         const txnAmount = parseFloat(txn.txn_amount);
         const txnTime = new Date(txn.txn_date).getTime();
 
+        // --- DEBUG: classify why each remaining payment did/didn't enter the candidate pool.
+        let dbgDropSign = 0;
+        let dbgDropTooBig = 0;
+        let dbgDropNoDate = 0;
+        let dbgDropDateWindow = 0;
+        let dbgDropConsumed = 0;
+        const dbgWindowMisses: Array<{ id: number; amt: number; days: number }> = [];
+
         // Same-sign candidates within the date window AND still unconsumed.
         const sameDirection = remainingPayments.filter((p) => {
-          if (consumedSubPaymentIds.has(p.sub_payment_id)) return false;
+          if (consumedSubPaymentIds.has(p.sub_payment_id)) {
+            dbgDropConsumed++;
+            return false;
+          }
           const amt = parseFloat(p.amount);
-          if ((amt < 0) !== (txnAmount < 0)) return false;
-          if (Math.abs(amt) > Math.abs(txnAmount) + NEAR_MATCH_TOLERANCE) return false;
-          if (!p.payment_date) return false;
+          if ((amt < 0) !== (txnAmount < 0)) {
+            dbgDropSign++;
+            return false;
+          }
+          if (Math.abs(amt) > Math.abs(txnAmount) + NEAR_MATCH_TOLERANCE) {
+            dbgDropTooBig++;
+            return false;
+          }
+          if (!p.payment_date) {
+            dbgDropNoDate++;
+            return false;
+          }
           const days = Math.abs(new Date(p.payment_date).getTime() - txnTime) / dayMs;
-          return days <= DATE_WINDOW_DAYS;
+          if (days > DATE_WINDOW_DAYS) {
+            dbgDropDateWindow++;
+            if (dbgWindowMisses.length < 8) {
+              dbgWindowMisses.push({ id: p.sub_payment_id, amt, days: Number(days.toFixed(1)) });
+            }
+            return false;
+          }
+          return true;
         });
 
         // Cap the search pool to the CANDIDATE_CAP nearest-by-date entries.
@@ -3432,8 +3511,33 @@ export class TransactionsService {
           .slice(0, CANDIDATE_CAP)
           .map((c) => c.p);
 
+        if (SMART_MATCH_DEBUG) {
+          const sameDirSum = sameDirection.reduce((s, p) => s + parseFloat(p.amount), 0);
+          dbg(
+            `BULK txn=${txn.id} amt=${txnAmount} → pool poolSize=${sameDirection.length} ` +
+              `cap=${CANDIDATE_CAP} usedCap=${poolWasLarge} sameDirSum=${sameDirSum.toFixed(2)} ` +
+              `dropped[ sign=${dbgDropSign} tooBig=${dbgDropTooBig} noDate=${dbgDropNoDate} ` +
+              `dateWindow=${dbgDropDateWindow} alreadyConsumed=${dbgDropConsumed} ]`,
+          );
+          if (dbgWindowMisses.length > 0) {
+            dbg(
+              `BULK txn=${txn.id} date-window misses (first 8): ` +
+                dbgWindowMisses
+                  .map((m) => `sp=${m.id} amt=${m.amt} Δdays=${m.days}`)
+                  .join(' | '),
+            );
+          }
+          const considered = candidates
+            .map((c) => `sp=${c.sub_payment_id} amt=${parseFloat(c.amount).toFixed(2)} date=${c.payment_date}`)
+            .join(' | ');
+          dbg(`BULK txn=${txn.id} considered (${candidates.length}): ${considered || '(none)'}`);
+        }
+
         if (candidates.length < 2) {
           if (poolWasLarge) mi.review_needed = true;
+          if (SMART_MATCH_DEBUG) {
+            dbg(`BULK txn=${txn.id} SKIP — fewer than 2 candidates after filtering.`);
+          }
           continue;
         }
 
@@ -3454,8 +3558,34 @@ export class TransactionsService {
           mi.suggested_payment = null;
           mi.review_needed = poolWasLarge && Math.abs(txnAmount - subsetSum) > EPSILON;
           bulkCount++;
-        } else if (poolWasLarge) {
-          mi.review_needed = true;
+          if (SMART_MATCH_DEBUG) {
+            dbg(
+              `BULK txn=${txn.id} MATCH legs=${subset.length} sum=${subsetSum.toFixed(2)} ` +
+                `diff=${(txnAmount - subsetSum).toFixed(2)} ids=[${subset.map((c) => c.sub_payment_id).join(',')}]`,
+            );
+          }
+        } else {
+          if (poolWasLarge) mi.review_needed = true;
+          if (SMART_MATCH_DEBUG) {
+            // Compute the closest near-miss subset (within 10× tolerance)
+            // so we can see how far off we were.
+            const wideSubset = this.findSubsetSum(
+              candidates,
+              (c) => parseFloat(c.amount),
+              txnAmount,
+              NEAR_MATCH_TOLERANCE * 10,
+            );
+            if (wideSubset) {
+              const wideSum = wideSubset.reduce((s, c) => s + parseFloat(c.amount), 0);
+              dbg(
+                `BULK txn=${txn.id} NO MATCH — closest within 10× tolerance: legs=${wideSubset.length} ` +
+                  `sum=${wideSum.toFixed(2)} diff=${(txnAmount - wideSum).toFixed(2)} ` +
+                  `ids=[${wideSubset.map((c) => c.sub_payment_id).join(',')}]`,
+              );
+            } else {
+              dbg(`BULK txn=${txn.id} NO MATCH — no subset within 10× tolerance either.`);
+            }
+          }
         }
       }
 
