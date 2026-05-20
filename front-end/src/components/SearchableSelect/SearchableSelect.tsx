@@ -66,22 +66,10 @@ const SearchableSelect: FC<SearchableSelectProps> = ({
       option: (provided: any, state: any) => ({
         ...provided,
         padding: "2px 10px",
-        // Match the native <select> highlight used by FormikControl SELECT
-        // elsewhere in the app: charcoal/dark band with white text on
-        // focus/hover/selected. Full text wrap so long account names
-        // highlight cleanly across every wrapped line.
-        backgroundColor:
-          state?.isFocused || state?.isSelected ? "#3a3f4b" : "transparent",
-        color: state?.isFocused || state?.isSelected ? "#ffffff" : "",
-        whiteSpace: "normal",
-        wordBreak: "break-word",
-        cursor: "pointer",
+        color: state?.isFocused ? "#1c212c" : "",
         "&:hover": {
-          backgroundColor: "#3a3f4b",
-          color: "#ffffff",
-        },
-        "&:active": {
-          backgroundColor: "#2a3140",
+          backgroundColor: "#f0f0f0",
+          color: "#1c212c",
         },
         ...(controlStyles?.option && controlStyles?.option(provided)),
       }),

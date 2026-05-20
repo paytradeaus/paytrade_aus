@@ -13,7 +13,6 @@ import Link from "next/link";
 import GridExportActions from "@/components/GridExportActions";
 import { getCookie } from "cookies-next";
 import { useRouter, useSearchParams } from "next/navigation";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import {
   downloadExcelFileFromAPI,
@@ -475,10 +474,15 @@ export default function AuditList(props: any) {
           </div>
         </div>
         <div className="pt_filteroptions">
-          <SearchableSelect
+          <FormikControl
+            control={InputType.SELECT}
             placeholder="Select a account"
             name="account"
             options={bankOptions}
+            value={selectedBankAccountObj?.value || ""}
+            renderKey="label"
+            valueKey="value"
+            returnSelectedObject
             onChange={(selected: any) => {
               setCurrentPage(1);
               setBankAccID(selected);
@@ -486,9 +490,6 @@ export default function AuditList(props: any) {
               setSelectedBankAccountObj(selected);
               // handleRouteToAuditPage(selected);
             }}
-            selectedData={selectedBankAccountObj}
-            renderKey="label"
-            valueKey="value"
           />
 
           <FormikControl

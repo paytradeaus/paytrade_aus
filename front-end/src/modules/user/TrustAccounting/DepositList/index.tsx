@@ -22,7 +22,6 @@ import { FetchAllBankAccounts } from "../../BankAccounts/bankAccount.functions";
 import GridExportActions from "@/components/GridExportActions";
 import { getCookie } from "cookies-next";
 import { useRouter, useSearchParams } from "next/navigation";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import TrustAccountGrid from "@/components/TrustAccountGrid/TrustAccountGrid";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import BreadCrumbs from "@/components/BreadCrumbs";
@@ -522,15 +521,16 @@ export default function UserDeposits(props: any) {
         <div>
           <div className="pt_filtergroup">
             <div className="pt_filteroptions">
-              <SearchableSelect
+              <FormikControl
+                control={InputType.SELECT}
                 placeholder="Account Name"
                 name="account"
-                isInPopup
-                selectedData={selectedAccountName}
-                onChange={handleAccountChange}
-                options={accountList} // Pass the status options here
+                options={accountList}
+                value={selectedAccountName?.value || ""}
                 renderKey="label"
                 valueKey="value"
+                returnSelectedObject
+                onChange={handleAccountChange}
               />
 
               <FormikControl

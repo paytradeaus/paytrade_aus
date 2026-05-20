@@ -18,7 +18,6 @@ import { FetchAllBankAccounts } from "../../BankAccounts/bankAccount.functions";
 import GridExportActions from "@/components/GridExportActions";
 import { getCookie } from "cookies-next";
 import { useRouter, useSearchParams } from "next/navigation";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import TrustAccountGrid from "@/components/TrustAccountGrid/TrustAccountGrid";
 import {
   getLedgerJournalServices,
@@ -546,15 +545,16 @@ export default function Journals(props: any) {
               </div>
               {!overViewDetails?.overBankViewMode && (
                 <div className="tableAlign">
-                  <SearchableSelect
+                  <FormikControl
+                    control={InputType.SELECT}
                     placeholder="Account Name"
                     name="account"
-                    isInPopup
-                    selectedData={selectedAccountName}
-                    onChange={handleAccountChange}
-                    options={accountList} // Pass the status options here
+                    options={accountList}
+                    value={selectedAccountName?.value || ""}
                     renderKey="label"
                     valueKey="value"
+                    returnSelectedObject
+                    onChange={handleAccountChange}
                     disabled={isFromBankOverView}
                   />
                 </div>

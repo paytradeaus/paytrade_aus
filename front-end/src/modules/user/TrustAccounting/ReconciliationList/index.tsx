@@ -36,7 +36,6 @@ import GridExportActions from "@/components/GridExportActions";
 import TabSwitch from "@/components/TabSwitch";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   downloadExcelFileFromAPI,
   GenerateSignedUrl,
@@ -561,14 +560,16 @@ export default function ReconciliationList(props: any) {
           </div>
 
           <div className="pt_filteroptions">
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder="Select an account"
               name="account"
               options={accountList}
-              onChange={handleAccountChange}
-              selectedData={selectedAccountName}
+              value={selectedAccountName?.value || ""}
               renderKey="label"
               valueKey="value"
+              returnSelectedObject
+              onChange={handleAccountChange}
             />
 
             <FormikControl

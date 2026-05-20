@@ -33,7 +33,6 @@ import { IProjectListDetails } from "./projects.types";
 import { useRouter } from "next/navigation";
 import BaseModal from "@/components/BaseModal";
 import { showErrorToast } from "@/components/Toaster";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import debounce from "lodash/debounce";
 import {
   downloadExcelFileFromAPI,
@@ -422,13 +421,15 @@ export default function Projects(props?: any) {
             clearSearch={emptySearchField}
           />
 
-          <SearchableSelect
+          <FormikControl
+            control={InputType.SELECT}
             placeholder="Select a role"
             name="Selectrole"
             options={roleTypeOptions}
-            selectedData={selectedRoleType}
+            value={selectedRoleType?.value || ""}
             renderKey="label"
             valueKey="value"
+            returnSelectedObject
             onChange={(value: any) => {
               setCurrentPage(1);
               setSelectedRoleType(value);

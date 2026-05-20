@@ -33,7 +33,6 @@ import {
 } from "@/utils/export";
 import { showErrorToast } from "@/components/Toaster";
 import { connectWebSocket, getCompanyIdFromStorage } from "@/utils";
-import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import { contractOverviewTabs } from "../ContractOverview/ContractOverview.constants";
 import { useDispatch } from "react-redux";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
@@ -714,48 +713,54 @@ export default function NoticesList({ overViewDetails = {} }: any) {
           </div>
         </div>
         <div className="pt_filteroptions">
-          <SearchableSelect
+          <FormikControl
+            control={InputType.SELECT}
             placeholder="Select an account name"
             name="Account Name"
             options={accountList}
+            value={selectedAccountTypeObj?.value || ""}
+            renderKey="label"
+            valueKey="value"
+            returnSelectedObject
             onChange={(name: any) => {
               handleSelectChange(name, "account_name");
               setSelectedAccountTypeObj(name);
             }}
-            selectedData={selectedAccountTypeObj}
-            renderKey="label"
-            valueKey="value"
           />
 
           {!(
             overViewDetails?.screenName === "contracts" ||
             overViewDetails?.screenName === "projects"
           ) && (
-            <SearchableSelect
+            <FormikControl
+              control={InputType.SELECT}
               placeholder={"Select a project name"}
               name="Project Name"
               options={projectOpt}
+              value={selectedProjectObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
               onChange={(project: any) => {
                 handleSelectChange(project, "project_name");
                 setSelectedProjectObj(project);
               }}
-              selectedData={selectedProjectObj}
-              renderKey="label"
-              valueKey="value"
             />
           )}
 
-          <SearchableSelect
+          <FormikControl
+            control={InputType.SELECT}
             placeholder={"Select a notices type"}
             name="Notices Type"
             options={noticesTypeOptions}
+            value={selectedNoticeTypeObj?.value || ""}
+            renderKey="label"
+            valueKey="value"
+            returnSelectedObject
             onChange={(v: any) => {
               handleSelectChange(v, "notice_type");
               setSelectedNoticeTypeObj(v);
             }}
-            selectedData={selectedNoticeTypeObj}
-            renderKey="label"
-            valueKey="value"
           />
 
           {activeTab !== "Archived" && activeTab !== "Received" && (
