@@ -79,10 +79,21 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
       // header but no matching card in the grid below it.
       const existingSub =
         subResult.status === "fulfilled" ? subResult.value : null;
+      // plan_id / price_id come back from getSubscriptionDetailsByCompanyId
+      // as numbers (GraphQL Float). The args on
+      // getAllSubscriptionPlanListForUser are typed String, so we MUST
+      // coerce to string here — otherwise Apollo rejects the query with a
+      // variable-coercion error, the whole pricing payload comes back null,
+      // and the page silently renders an empty card grid plus the hardcoded
+      // fallback features table.
+      const currentPlanIdStr =
+        existingSub?.plan_id != null ? String(existingSub.plan_id) : null;
+      const currentPriceIdStr =
+        existingSub?.price_id != null ? String(existingSub.price_id) : null;
       await getSubscriptionPlanTypes(
         isDemoCompany,
-        existingSub?.plan_id ?? null,
-        existingSub?.price_id ?? null,
+        currentPlanIdStr,
+        currentPriceIdStr,
       );
 
       setLoader(false);
