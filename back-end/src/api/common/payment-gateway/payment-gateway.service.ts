@@ -37,6 +37,9 @@ moment.tz.setDefault('UTC');
 @Injectable()
 export class PaymentGatewayService {
   private logger: PaytradeLogger;
+  // Cache of the Stripe AU GST tax-rate id, keyed by isDemo (live vs test
+  // mode use separate Stripe accounts and therefore separate tax-rate ids).
+  private gstTaxRateIdCache: Map<boolean, string> = new Map();
   constructor(
     @InjectRepository(SubscriptionPlanItems)
     private subscriptionPlanItems: Repository<SubscriptionPlanItems>,
@@ -68,6 +71,71 @@ export class PaymentGatewayService {
 
   private logError(message: string) {
     this.logger.error(`${message}`);
+  }
+
+  /**
+   * Resolve (find-or-create) the Stripe tax-rate id representing the
+   * Australian 10% GST. We tag new subscriptions with this rate so the
+   * customer is charged the headline plan price + 10% GST and the GST
+   * appears as a separate line on Stripe invoices.
+   *
+   * Existing subscriptions are NEVER mutated by this helper — they retain
+   * whatever tax configuration they were created with. The first
+   * subscriber, who signed up before this change, therefore continues to
+   * be billed their original headline amount with no GST line added.
+   */
+  private async getAuGstTaxRateId(
+    stripe: any,
+    isDemo: boolean,
+  ): Promise<string | null> {
+    try {
+      const cached = this.gstTaxRateIdCache.get(isDemo);
+      if (cached) return cached;
+
+      // Look for an existing active 10% AU GST exclusive rate that we (or
+      // an admin) may have created previously. Stripe tax-rate objects are
+      // immutable in a way that matters here (percentage / inclusive flag
+      // cannot be changed once created), so we always match on those.
+      const existing = await stripe.taxRates.list({
+        active: true,
+        limit: 100,
+      });
+      const match = (existing?.data ?? []).find(
+        (r: any) =>
+          r.percentage === 10 &&
+          r.inclusive === false &&
+          (r.country === 'AU' || r.jurisdiction === 'AU') &&
+          (r.display_name === 'GST' || r.display_name === 'Australian GST'),
+      );
+      if (match?.id) {
+        this.gstTaxRateIdCache.set(isDemo, match.id);
+        return match.id;
+      }
+
+      const created = await stripe.taxRates.create({
+        display_name: 'GST',
+        description: 'Australian Goods and Services Tax (10%)',
+        percentage: 10,
+        inclusive: false,
+        country: 'AU',
+        jurisdiction: 'AU',
+      });
+      if (created?.id) {
+        this.gstTaxRateIdCache.set(isDemo, created.id);
+        this.log(
+          `Created Stripe AU GST tax rate (isDemo=${isDemo}, id=${created.id}).`,
+        );
+        return created.id;
+      }
+      return null;
+    } catch (error) {
+      // Never block subscription creation on a tax-rate lookup failure;
+      // log and fall back to no tax (current behaviour).
+      this.logError(
+        `Failed to resolve Stripe AU GST tax rate (isDemo=${isDemo}): ${error?.message ?? error}`,
+      );
+      return null;
+    }
   }
 
   private async isCompanyDemo(companyId: number): Promise<boolean> {
@@ -343,11 +411,24 @@ export class PaymentGatewayService {
                   ? moment(start_date).add(1, 'months').utc()
                   : moment(start_date).add(1, 'years').utc();
 
+            // Resolve the Australian 10% GST tax rate and attach it to
+            // the new subscription so Stripe adds GST on top of the
+            // headline plan price (e.g. $50/mo -> $55/mo charged).
+            // Only applied to brand-new subscriptions created here;
+            // existing subscriptions keep their original tax configuration.
+            const gstTaxRateId = await this.getAuGstTaxRateId(stripe, isDemo);
+
             // Create a subscription for the customer
             let subsciptionData: any = {
               customer: stripe_customer_id,
-              items: [{ price: pricingDetails.stripe_price_id }],
+              items: [
+                {
+                  price: pricingDetails.stripe_price_id,
+                  ...(gstTaxRateId && { tax_rates: [gstTaxRateId] }),
+                },
+              ],
               expand: ['latest_invoice.payment_intent'],
+              ...(gstTaxRateId && { default_tax_rates: [gstTaxRateId] }),
             };
 
             if (pricingDetails.planDetails.trial_period > 0) {

@@ -73,7 +73,7 @@ export default function PricingPage() {
     const planList = sortPlans(deduplicatePlans(rawPlanList));
 
     const freePlan = data.free_plan ? [data.free_plan] : [];
-    const suffix = isYearly ? "/yr +VAT" : "/mo +VAT";
+    const suffix = isYearly ? "/yr +GST" : "/mo +GST";
 
     return [
       ...freePlan.map((plan: any) => ({
@@ -81,7 +81,7 @@ export default function PricingPage() {
         isCurrentPlan: true,
         title: plan.plan_name || "Free Plan",
         description: plan.description || "",
-        price: "$0.00 +VAT",
+        price: "$0.00 +GST",
         buttonText: "Current plan",
         href: "#",
         offerText: null,

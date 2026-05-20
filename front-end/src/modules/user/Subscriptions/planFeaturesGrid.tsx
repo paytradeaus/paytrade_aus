@@ -259,7 +259,7 @@ export default function PlanFeaturesGrid() {
       ...data,
       planPrice: `${data?.price}${
         data?.bill_cycle === "Year" ? "/yr" : "/mo"
-      }+VAT`,
+      }+GST`,
       description: data?.description ? data?.description : data?.plan_name,
     });
   }

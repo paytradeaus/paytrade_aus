@@ -213,7 +213,7 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
         isCurrentPlan: true,
         title: plan.plan_name || "Free Plan",
         description: plan.description || "hideDescription",
-        price: "$0.00 +VAT",
+        price: "$0.00 +GST",
         buttonText: "Current plan",
       })),
       ...planList
@@ -229,8 +229,8 @@ export const SubscriptionsContextProvider = ({ children }: any) => {
               title: plan.plan_name || "Plan Title",
               description: plan.description || "hideDescription",
               price: plan.price
-                ? `${plan.price} ${isYearly ? "/yr +VAT" : "/mo +VAT"}`
-                : "$0.00/yr +VAT",
+                ? `${plan.price} ${isYearly ? "/yr +GST" : "/mo +GST"}`
+                : "$0.00/yr +GST",
               isCurrentPlan: isCurrentPlan(plan),
               buttonText: isCurrentPlan(plan) ? "Current plan" : "Choose plan",
             };

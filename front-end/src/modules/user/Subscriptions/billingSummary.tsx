@@ -99,7 +99,7 @@ export default function BillingSummary() {
         setFinalAmount(
           `${originalPrice.toFixed(2)}  ${
             annualBilling || isYearly ? "/yr" : "/mo"
-          }  +VAT`
+          }  +GST`
         );
         return;
       }
@@ -116,14 +116,14 @@ export default function BillingSummary() {
 
         let formattedAmount = `${originalPrice.toFixed(2)} ${
           annualBilling || isYearly ? "/yr" : "/mo"
-        } +VAT`;
+        } +GST`;
 
         if (res?.percent_off) {
           const percent = res.percent_off;
           const discounted = originalPrice - (originalPrice * percent) / 100;
           formattedAmount = `${discounted.toFixed(2)} ${
             annualBilling || isYearly ? "/yr" : "/mo"
-          } +VAT`;
+          } +GST`;
         }
 
         setFinalAmount(formattedAmount);
@@ -146,7 +146,7 @@ export default function BillingSummary() {
         setFinalAmount(
           `${originalPrice.toFixed(2)} ${
             annualBilling || isYearly ? "/yr" : "/mo"
-          } +VAT`
+          } +GST`
         );
       }
     };
@@ -412,7 +412,7 @@ export default function BillingSummary() {
     return (
       `${data?.annual_price_amount}${
         annualBilling || isYearly ? "/yr" : "/mo"
-      }+VAT` || "$0.00 +VAT"
+      }+GST` || "$0.00 +GST"
     );
   }
 
@@ -506,7 +506,7 @@ export default function BillingSummary() {
                   {/* {`You'll play ${
                     selectedPlanForSub?.planPrice ||
                     handlePlanDuration(subscriptionData) ||
-                    "$0.00 +VAT"
+                    "$0.00 +GST"
                   } to cover the rest of this
                   billing period`} */}
                   {`You'll pay $${
