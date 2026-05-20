@@ -1067,6 +1067,8 @@ export class SignupService {
       .addSelect('plan.plan_type', 'plan_type')
       .addSelect('subscription.expiry_date', 'expiry_date')
       .addSelect('c.email_preferences::JSONB', 'email_preferences')
+      .addSelect('c.is_gst_registered', 'is_gst_registered')
+      .addSelect('c.notices_auto_send', 'notices_auto_send')
       .leftJoin(FileAttachments, 'f', 'c.logo_id = f.id')
       .leftJoinAndSelect('c.subscriptionDetails', 'subscription')
       .leftJoinAndSelect('subscription.planDetails', 'plan')
