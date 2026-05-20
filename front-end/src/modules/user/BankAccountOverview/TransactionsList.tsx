@@ -1300,6 +1300,8 @@ export default function Transactions() {
         </div>
       )}
 
+      <div className="grid">
+        <div className="pt_box">
       <DynamicTable
         headers={
           transactionTab === "To Review" || transactionTab === "All"
@@ -1365,6 +1367,8 @@ export default function Transactions() {
             : undefined
         }
       />
+        </div>
+      </div>
       {displayConfirmationModal && (
         <BaseModal
           modalId={popupMessage?.headerMsg || "transactions delete modal"}
