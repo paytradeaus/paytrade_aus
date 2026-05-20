@@ -1917,9 +1917,16 @@ function ManualXeroSyncDialog({
   // multi-select results table that batches the existing per-row
   // preflight + run-sync calls.
   const [mode, setMode] = useState<"single" | "catchup">("single");
-  type CatchupType = "invoice_bill" | "payment" | "contact";
+  type CatchupType =
+    | "invoice_bill"
+    | "payment"
+    | "contact"
+    | "trust_movement";
   const isCatchupType = (v: string): v is CatchupType =>
-    v === "invoice_bill" || v === "payment" || v === "contact";
+    v === "invoice_bill" ||
+    v === "payment" ||
+    v === "contact" ||
+    v === "trust_movement";
   // Default to a last-30-days window so the user can hit Discover
   // immediately on first open without typing dates. Format YYYY-MM-DD
   // for the native <input type="date"> control.
@@ -3480,10 +3487,12 @@ function ManualXeroSyncDialog({
               <option value="invoice_bill">Invoices / Bills</option>
               <option value="payment">Payments</option>
               <option value="contact">Contacts</option>
+              <option value="trust_movement">Trust movements</option>
             </select>
             <small style={{ opacity: 0.7 }}>
               Bank transfers and manual journals are produced as
-              side-effects of other syncs and aren&apos;t catch-up-eligible.
+              side-effects of other syncs and aren&apos;t catch-up-eligible
+              — use the Single-record tab for those.
             </small>
           </div>
           {/* Task #152 — date row uses the system FormikControl DATE_PICKER
