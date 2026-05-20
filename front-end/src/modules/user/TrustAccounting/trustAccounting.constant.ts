@@ -102,8 +102,8 @@ const auditRenderData = [
 ];
 
 const reconciliationListHeaders = [
-  { dataKey: "report_date", title: "created" },
   { dataKey: "month_end_date", title: "Month end" },
+  { dataKey: "report_date", title: "created" },
   { dataKey: "account_name", title: "Bank Account Name" },
   { dataKey: "bank_statement_balance", title: "Bank Statement Balance" },
   { dataKey: "adjustments", title: "Adjustments" },
@@ -126,8 +126,8 @@ const reconciliationListHeaders = [
 ];
 
 const reconciliationRenderData = [
-  { key: "report_date", typeOfDate: true },
   { key: "month_end_date", typeOfDate: true },
+  { key: "report_date", typeOfDate: true },
   { key: "account_name" },
   { key: "bank_statement_balance" },
   { key: "adjustments" },
