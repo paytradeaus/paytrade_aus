@@ -1598,15 +1598,14 @@ const BookKeepingList = (props: any) => {
       )}
       {showBatchConfirm && (
         <BaseModal
-          isOpen={showBatchConfirm}
+          displayModal={showBatchConfirm}
           onClose={() => setShowBatchConfirm(false)}
           title="Match all exact suggestions?"
           firstButtonName="Cancel"
           secondButtonName={`Match ${
             suggestedMatches?.exact_match_count || 0
           }`}
-          firstButtonOnClick={() => setShowBatchConfirm(false)}
-          secondButtonOnClick={handleBatchMatchAllExact}
+          onConfirm={handleBatchMatchAllExact}
         >
           <h4 className="text_center">
             This will match {suggestedMatches?.exact_match_count || 0} bank
