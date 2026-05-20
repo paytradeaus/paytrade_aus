@@ -200,6 +200,24 @@ export default function Journals(props: any) {
 
           setAccountList(accountOptions);
           // setCompanyName(response.company_name || "");
+
+          // When rendered inside the Bank Account Overview's Journals tab,
+          // the account-select dropdown is hidden and we must pin the
+          // selection to the bank account the user is actually viewing.
+          // Otherwise the previous default-to-RTA fallback would surface
+          // journals for a *different* account (or none at all).
+          const overBankViewAccId =
+            overViewDetails?.overBankViewMode &&
+            overViewDetails?.data?.bank_account_id
+              ? overViewDetails.data.bank_account_id.toString()
+              : null;
+
+          const overBankViewAccount = overBankViewAccId
+            ? accountOptions.find(
+                (option: any) => option.value === overBankViewAccId
+              )
+            : null;
+
           // Find an RTA (Retention Trust Account) if available
           const rtaAccount = accountOptions.find(
             (option: any) =>
@@ -208,6 +226,7 @@ export default function Journals(props: any) {
 
           // Set the selected account
           const selectedAccount =
+            overBankViewAccount ||
             rtaAccount ||
             accountOptions.find((option: any) =>
               isFromBankOverView && bankOverViewAcc
@@ -229,6 +248,8 @@ export default function Journals(props: any) {
     entriesPerPage,
     isFromBankOverView,
     bankOverViewAcc,
+    overViewDetails?.overBankViewMode,
+    overViewDetails?.data?.bank_account_id,
   ]);
 
   // Effect to handle company ID persistence
