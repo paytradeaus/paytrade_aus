@@ -1074,7 +1074,11 @@ export class TransactionsResolver {
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
       const timezone = decoded?.timezone || 'UTC';
-      const company_id = decoded?.companyId;
+      // Read the active company from the validated `companyid` header so
+      // admin impersonation (Login-as-user) and multi-company users work.
+      // decodeJwtToken above cross-checks this header against the JWT's
+      // companySpecificRoles, so once it returns, the header is trusted.
+      const company_id = Number(context?.req?.headers?.companyid);
 
       if (!company_id) {
         return framedResponse('ERROR', 'Company context not available.');
@@ -1122,8 +1126,11 @@ export class TransactionsResolver {
       );
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      // Active company comes from the validated `companyid` header so
+      // admin impersonation and multi-company users work.
+      const company_id = Number(context?.req?.headers?.companyid);
 
-      if (!decoded?.companyId) {
+      if (!company_id) {
         return framedResponse(
           'ERROR',
           'Company context is required for batch matching.',
@@ -1146,7 +1153,7 @@ export class TransactionsResolver {
         await this.transactionsService.batchMatchExactTransactions(
           matchPairs,
           decoded.userId,
-          decoded.companyId,
+          company_id,
         );
 
       const batchPaymentIds = (result?.data as Record<string, unknown>)?.payment_ids as number[] | undefined;
@@ -1211,8 +1218,11 @@ export class TransactionsResolver {
       );
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      // Active company comes from the validated `companyid` header so
+      // admin impersonation and multi-company users work.
+      const company_id = Number(context?.req?.headers?.companyid);
 
-      if (!decoded?.companyId) {
+      if (!company_id) {
         return framedResponse(
           'ERROR',
           'Company context is required for split batch matching.',
@@ -1235,7 +1245,7 @@ export class TransactionsResolver {
         await this.transactionsService.batchMatchSplitTransactions(
           splitPairs,
           decoded.userId,
-          decoded.companyId,
+          company_id,
         );
 
       const batchPaymentIds = (result?.data as Record<string, unknown>)?.payment_ids as number[] | undefined;
@@ -1300,8 +1310,11 @@ export class TransactionsResolver {
       );
 
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      // Active company comes from the validated `companyid` header so
+      // admin impersonation and multi-company users work.
+      const company_id = Number(context?.req?.headers?.companyid);
 
-      if (!decoded?.companyId) {
+      if (!company_id) {
         return framedResponse(
           'ERROR',
           'Company context is required for quick adjust and match.',
@@ -1311,7 +1324,7 @@ export class TransactionsResolver {
       const result = await this.transactionsService.quickAdjustAndMatch(
         transaction_id,
         sub_payment_id,
-        decoded,
+        { ...decoded, companyId: company_id },
         decoded.userId,
       );
 
@@ -1360,11 +1373,12 @@ export class TransactionsResolver {
   async getSmartMatchPreference(@Context() context): Promise<boolean> {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      if (!decoded?.companyId || !decoded?.userId) {
+      const company_id = Number(context?.req?.headers?.companyid);
+      if (!company_id || !decoded?.userId) {
         return false;
       }
       return this.transactionsService.getSmartMatchPreference(
-        decoded.companyId,
+        company_id,
         decoded.userId,
       );
     } catch (error) {
@@ -1389,11 +1403,12 @@ export class TransactionsResolver {
   ) {
     try {
       const decoded = await this.jwtInternalService.decodeJwtToken(context);
-      if (!decoded?.companyId || !decoded?.userId) {
+      const company_id = Number(context?.req?.headers?.companyid);
+      if (!company_id || !decoded?.userId) {
         return framedResponse('ERROR', 'Company context is required.');
       }
       return this.transactionsService.setSmartMatchPreference(
-        decoded.companyId,
+        company_id,
         decoded.userId,
         enabled,
       );
