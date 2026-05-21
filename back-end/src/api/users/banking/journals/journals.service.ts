@@ -44,6 +44,7 @@ import { NoticeDetails } from 'src/entities/notices-details.entity';
 import { FileAttachments } from 'src/entities/file-attachments.entity';
 import { GetFileRes } from '../../file-upload/response/get-file.response';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
+import { CompliancesService } from '../../compliances/compliances.service';
 
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -74,8 +75,65 @@ export class JournalsService {
     private readonly fileAttachments: Repository<FileAttachments>,
     private readonly objectStorageService: ObjectStorageService,
     private readonly dataSource: DataSource,
+    private readonly compliancesService: CompliancesService,
   ) {
     this.logger = new PaytradeLogger('JOURNALS_SERVICE');
+  }
+
+  private async resyncReconciliationCompliance(
+    bankAccountId: number | string | Array<number | string>,
+  ) {
+    try {
+      const ids = (Array.isArray(bankAccountId) ? bankAccountId : [bankAccountId])
+        .filter((v) => v !== null && v !== undefined && v !== '')
+        .map((v) => String(v));
+      const uniqueIds = Array.from(new Set(ids));
+      for (const bankAcctId of uniqueIds) {
+        await this.resyncReconciliationComplianceForBank(bankAcctId);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Resync compliance helper errored for bank ${JSON.stringify(bankAccountId)}: ${err?.message ?? err}`,
+      );
+    }
+  }
+
+  private async resyncReconciliationComplianceForBank(bankAccountId: string) {
+    try {
+      if (!bankAccountId) return;
+      const bank = await this.bankAccountsRepo
+        .createQueryBuilder('ba')
+        .select(['ba.project_ids AS project_ids', 'ba.account_type AS account_type'])
+        .where('ba.bank_account_id = :id', { id: bankAccountId })
+        .getRawOne();
+      if (!bank?.project_ids) return;
+      const isPTA = bank.account_type === 'Project Trust Account';
+      const isRTA = bank.account_type === 'Retention Trust Account';
+      if (!isPTA && !isRTA) return;
+      // PTA monthly reconciliation = check 8; RTA monthly reconciliation = check 9.
+      const checkNumber = isPTA ? 8 : 9;
+      const projectIds = String(bank.project_ids)
+        .split(',')
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      for (const projectId of projectIds) {
+        try {
+          await this.compliancesService.syncCompliancesOfProject(
+            projectId,
+            checkNumber,
+            isPTA,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Resync compliance failed for project ${projectId} check ${checkNumber}: ${err?.message ?? err}`,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.error(
+        `Resync compliance helper errored for bank ${bankAccountId}: ${err?.message ?? err}`,
+      );
+    }
   }
 
   private log(message: string) {
@@ -1854,7 +1912,9 @@ export class JournalsService {
     data.created_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
     const reconciliationDetails =
       await this.reconciliationReportRepo.create(data);
-    return await this.reconciliationReportRepo.save(reconciliationDetails);
+    const saved = await this.reconciliationReportRepo.save(reconciliationDetails);
+    await this.resyncReconciliationCompliance(saved?.bank_account_id ?? data.bank_account_id);
+    return saved;
   }
 
   async editReconciliationReportDetails(
@@ -1864,6 +1924,7 @@ export class JournalsService {
     const reconciliationDetails = await this.reconciliationReportRepo.findOne({
       where: { id: data.id },
     });
+    const previousBankAccountId = reconciliationDetails?.bank_account_id;
     reconciliationDetails.company_id = data.company_id;
     reconciliationDetails.month_end_date = data.month_end_date;
     reconciliationDetails.bank_account_id = data.bank_account_id;
@@ -1878,7 +1939,12 @@ export class JournalsService {
     reconciliationDetails.updated_by = decoded?.userId;
     reconciliationDetails.updated_on = moment.tz('UTC');
     reconciliationDetails.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
-    return await this.reconciliationReportRepo.save(reconciliationDetails);
+    const saved = await this.reconciliationReportRepo.save(reconciliationDetails);
+    await this.resyncReconciliationCompliance([
+      previousBankAccountId,
+      saved?.bank_account_id,
+    ]);
+    return saved;
   }
 
   async viewReconciliationReportById(id: string) {
@@ -1953,7 +2019,9 @@ export class JournalsService {
     reconciliationDetails.updated_by = decoded?.userId;
     reconciliationDetails.updated_on = moment.tz('UTC');
     reconciliationDetails.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
-    return await this.reconciliationReportRepo.save(reconciliationDetails);
+    const saved = await this.reconciliationReportRepo.save(reconciliationDetails);
+    await this.resyncReconciliationCompliance(saved?.bank_account_id);
+    return saved;
   }
 
   async getAllReconciliationReportList(

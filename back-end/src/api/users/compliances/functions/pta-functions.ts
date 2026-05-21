@@ -2700,6 +2700,9 @@ export class CompliancePTAFunctions {
           .where('rr.bank_account_id = :bank_account_id', {
             bank_account_id: projectTrustAccount.bank_account_id,
           })
+          .andWhere('rr.report_status = :report_status', {
+            report_status: 'Active',
+          })
           .orderBy({ 'rr.month_end_date': 'DESC' })
           .getRawOne();
         //   'fetchedReconcileReportDetails',

@@ -2233,6 +2233,9 @@ export class ComplianceRTAFunctions {
             .where('rr.bank_account_id = :bank_account_id', {
               bank_account_id: retentionTrustAccount.bank_account_id,
             })
+            .andWhere('rr.report_status = :report_status', {
+              report_status: 'Active',
+            })
             .orderBy({ 'rr.created_on': 'DESC' })
             .getRawOne();
           //   'fetchedReconcileReportDetails',
