@@ -915,7 +915,7 @@ export class ContractDetailsService {
     const isArchived =
       status === 'Completed' || status === 'Deleted' ? true : false;
     try {
-      return await this.entityManager.transaction(
+      const txResult = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           const contractTypeDetails = await this.getContractType(
             updateContractDetailInput,
@@ -1111,141 +1111,20 @@ export class ContractDetailsService {
                     const response =
                       await transactionalEntityManager.save(contract);
 
-                    let notices;
-
-                    if (response) {
-                      if (
-                        updateContractDetailInput.client_supplier_type ===
-                        'Supplier'
-                      ) {
-                        try {
-                          notices =
-                            await this.noticeService.handleTriggerContractNotices(
-                              decoded,
-                              {
-                                contract_id: contract.contract_id,
-                                view_preview: true,
-                              },
-                              // transactionalEntityManager,
-                            );
-                        } catch (err) {
-                          this.logger.error(
-                            `Error triggering contract notices: ${err}`,
-                          );
-
-                          throw err;
-                        }
-                      }
-                      if (contract.project_id) {
-                        const compliance_pta_init =
-                          await this.complianceService.fetchComplianceResultsOfAProject(
-                            {
-                              project_id: contract.project_id,
-                              bank_account_type: 'Project Trust Account',
-                              failedFilter: false,
-                            },
-                          );
-
-                        const compliance_rta_init =
-                          await this.complianceService.fetchComplianceResultsOfAProject(
-                            {
-                              project_id: contract.project_id,
-                              bank_account_type: 'Retention Trust Account',
-                              failedFilter: false,
-                            },
-                          );
-                      }
-
-                      //Generating link to view updated contract.
-                      const contractLink =
-                        `${process.env.LOG_BASE_URL}` +
-                        `${linkExtensions[6]}` +
-                        contractDetails.id +
-                        `?from=log`;
-                      this.logger.log(`contractLink: ${contractLink}`);
-
-                      const createActivityLogInput: CreateActivityLogInput = {
-                        event_template_id: 58,
-                        admin_id:
-                          decoded?.logged_in_by &&
-                            decoded?.logged_in_by == 'ADMIN'
-                            ? decoded?.admin_id
-                            : null,
-                        to_user:
-                          decoded?.logged_in_by &&
-                            decoded?.logged_in_by == 'ADMIN'
-                            ? decoded?.userId
-                            : null,
-                        from_user:
-                          decoded?.logged_in_by &&
-                            decoded?.logged_in_by == 'ADMIN'
-                            ? null
-                            : decoded?.userId,
-                        company_id: updateContractDetailInput.company_id,
-                        dynamic_values: {
-                          contractName: await startCasePreserveUnicode(
-                            updateContractDetailInput.contract_name,
-                          ),
-                          contractLink,
-                          clientSupplierType:
-                            contractDetails.clientSuppliersDetails
-                              ?.client_supplier_type,
-                        },
-                        is_admin: false,
-                        created_by: decoded?.userId,
-                      };
-                      await this.activityLogService.insertActivityLog(
-                        createActivityLogInput,
-                      );
-
-                      if (
-                        contractDetails.payment_from_account !=
-                        updateContractDetailInput.payment_from_account ||
-                        contractDetails.payment_to_account !=
-                        updateContractDetailInput.payment_to_account ||
-                        contractDetails.retention_from_account !=
-                        updateContractDetailInput.retention_from_account
-                      ) {
-                        const createActivityLogInput1: CreateActivityLogInput =
-                        {
-                          event_template_id: 62,
-                          admin_id:
-                            decoded?.logged_in_by &&
-                              decoded?.logged_in_by == 'ADMIN'
-                              ? decoded?.admin_id
-                              : null,
-                          to_user:
-                            decoded?.logged_in_by &&
-                              decoded?.logged_in_by == 'ADMIN'
-                              ? decoded?.userId
-                              : null,
-                          from_user:
-                            decoded?.logged_in_by &&
-                              decoded?.logged_in_by == 'ADMIN'
-                              ? null
-                              : decoded?.userId,
-                          company_id: updateContractDetailInput.company_id,
-                          dynamic_values: {
-                            contractName: await startCasePreserveUnicode(
-                              updateContractDetailInput.contract_name,
-                            ),
-                            contractLink,
-                          },
-                          is_admin: false,
-                          created_by: decoded?.userId,
-                        };
-                        await this.activityLogService.insertActivityLog(
-                          createActivityLogInput1,
-                        );
-                      }
-                    }
-
-                    const respWithNotices = {
-                      ...response,
-                      notices: notices?.data,
+                    // Task #235: contract save committed. All post-save side
+                    // effects (notice trigger, compliance recalcs, activity
+                    // logs) are returned here and executed AFTER the
+                    // transaction commits — see the post-commit block below.
+                    // They were previously inline inside this transaction,
+                    // which meant a slow query inside the Supplier S23
+                    // notice pipeline (Postgres statement_timeout) would
+                    // abort the transaction and 500 the entire edit even
+                    // though the contract row itself saved fine.
+                    return {
+                      response,
+                      contractDetails,
+                      contract,
                     };
-                    // throw new Error('Error');
-                    return respWithNotices;
                   }
                   throw new Error(`Unable to edit the contract.`);
                 }
@@ -1259,6 +1138,153 @@ export class ContractDetailsService {
           );
         },
       );
+
+      // Task #235: post-commit side effects. The contract row is already
+      // saved by this point. Each block is wrapped in try/catch so a slow
+      // or failing notice/compliance/activity-log call no longer rolls
+      // back the contract edit or returns a 500 to the client. Errors are
+      // logged so they remain visible in Railway for follow-up.
+      const { response, contractDetails, contract } = txResult ?? {};
+      let notices;
+
+      if (response) {
+        if (
+          updateContractDetailInput.client_supplier_type === 'Supplier'
+        ) {
+          try {
+            notices =
+              await this.noticeService.handleTriggerContractNotices(
+                decoded,
+                {
+                  contract_id: contract.contract_id,
+                  view_preview: true,
+                },
+              );
+          } catch (err) {
+            this.logger.error(
+              `[POST_COMMIT] Error triggering contract notices for contract_id=${contract?.contract_id}: ${err?.message || err}`,
+            );
+          }
+        }
+
+        if (contract.project_id) {
+          try {
+            await this.complianceService.fetchComplianceResultsOfAProject({
+              project_id: contract.project_id,
+              bank_account_type: 'Project Trust Account',
+              failedFilter: false,
+            });
+          } catch (err) {
+            this.logger.error(
+              `[POST_COMMIT] PTA compliance recalc failed for project_id=${contract.project_id}: ${err?.message || err}`,
+            );
+          }
+
+          try {
+            await this.complianceService.fetchComplianceResultsOfAProject({
+              project_id: contract.project_id,
+              bank_account_type: 'Retention Trust Account',
+              failedFilter: false,
+            });
+          } catch (err) {
+            this.logger.error(
+              `[POST_COMMIT] RTA compliance recalc failed for project_id=${contract.project_id}: ${err?.message || err}`,
+            );
+          }
+        }
+
+        const contractLink =
+          `${process.env.LOG_BASE_URL}` +
+          `${linkExtensions[6]}` +
+          contractDetails.id +
+          `?from=log`;
+        this.logger.log(`contractLink: ${contractLink}`);
+
+        try {
+          const createActivityLogInput: CreateActivityLogInput = {
+            event_template_id: 58,
+            admin_id:
+              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                ? decoded?.admin_id
+                : null,
+            to_user:
+              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                ? decoded?.userId
+                : null,
+            from_user:
+              decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                ? null
+                : decoded?.userId,
+            company_id: updateContractDetailInput.company_id,
+            dynamic_values: {
+              contractName: await startCasePreserveUnicode(
+                updateContractDetailInput.contract_name,
+              ),
+              contractLink,
+              clientSupplierType:
+                contractDetails.clientSuppliersDetails
+                  ?.client_supplier_type,
+            },
+            is_admin: false,
+            created_by: decoded?.userId,
+          };
+          await this.activityLogService.insertActivityLog(
+            createActivityLogInput,
+          );
+        } catch (err) {
+          this.logger.error(
+            `[POST_COMMIT] Activity log (template 58) insert failed for contract_id=${contract?.contract_id}: ${err?.message || err}`,
+          );
+        }
+
+        if (
+          contractDetails.payment_from_account !=
+            updateContractDetailInput.payment_from_account ||
+          contractDetails.payment_to_account !=
+            updateContractDetailInput.payment_to_account ||
+          contractDetails.retention_from_account !=
+            updateContractDetailInput.retention_from_account
+        ) {
+          try {
+            const createActivityLogInput1: CreateActivityLogInput = {
+              event_template_id: 62,
+              admin_id:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.admin_id
+                  : null,
+              to_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.userId
+                  : null,
+              from_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? null
+                  : decoded?.userId,
+              company_id: updateContractDetailInput.company_id,
+              dynamic_values: {
+                contractName: await startCasePreserveUnicode(
+                  updateContractDetailInput.contract_name,
+                ),
+                contractLink,
+              },
+              is_admin: false,
+              created_by: decoded?.userId,
+            };
+            await this.activityLogService.insertActivityLog(
+              createActivityLogInput1,
+            );
+          } catch (err) {
+            this.logger.error(
+              `[POST_COMMIT] Activity log (template 62) insert failed for contract_id=${contract?.contract_id}: ${err?.message || err}`,
+            );
+          }
+        }
+      }
+
+      return {
+        ...(response ?? {}),
+        notices: notices?.data,
+      };
     } catch (error) {
       error = error?.message ? error?.message : error;
       this.logger.log(
