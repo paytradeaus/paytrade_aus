@@ -1303,6 +1303,34 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           },
         });
         xeroSyncLog = await this.xeroSyncLogs.save(response);
+
+        // Self-heal: when a Succeeded row lands, archive prior active
+        // Failed rows for the same (integration_id, resource_key). This
+        // stops xero_sync_logs from carrying a permanent trail of errors
+        // after the underlying problem has been resolved (e.g. retro_recheck
+        // cron failure later cleared by webhook, manual retry resolving a
+        // transient Xero blip, contact mapping fixed by user, etc.).
+        if (
+          xeroSyncLog &&
+          templateDetails?.sync_status === 'Succeeded'
+        ) {
+          try {
+            const archivedCount = await this.autoArchivePriorFailedLogs(
+              createXeroSyncLogInput.integration_id,
+              createXeroSyncLogInput.api_payload,
+              xeroSyncLog.sync_id,
+            );
+            if (archivedCount > 0) {
+              this.logger.log(
+                `[insertXeroSyncLogs] Auto-archived ${archivedCount} prior failed log(s) — resolved by sync_id=${xeroSyncLog.sync_id} (integration_id=${createXeroSyncLogInput.integration_id})`,
+              );
+            }
+          } catch (autoArchiveErr: any) {
+            this.logger.warn(
+              `[insertXeroSyncLogs] Auto-archive of prior failed logs threw (non-fatal): ${autoArchiveErr?.message || autoArchiveErr}`,
+            );
+          }
+        }
       }
     } else {
       await this.xeroSyncLogs
@@ -1324,6 +1352,56 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
 
     return xeroSyncLog;
+  }
+
+  /**
+   * Self-heal helper for `insertXeroSyncLogs`: when a Succeeded sync log
+   * is written, archive any still-active Failed rows for the same
+   * (integration_id, resource_key) — keyed off the Xero resource id we
+   * find inside `api_payload` (invoice_id / contact_id / account_id /
+   * bank_transfer_id / payment_id).
+   *
+   * Sets archived_at + archive_note so list views (which filter
+   * `archived_at IS NULL` via idx_xero_sync_logs_active) immediately
+   * stop showing the stale failure, but the row is preserved for audit.
+   * Returns the number of rows archived.
+   */
+  private async autoArchivePriorFailedLogs(
+    integrationId: number,
+    apiPayload: any,
+    resolvingSyncId: number,
+  ): Promise<number> {
+    const resourceKey =
+      apiPayload?.invoice_id ||
+      apiPayload?.contact_id ||
+      apiPayload?.account_id ||
+      apiPayload?.bank_transfer_id ||
+      apiPayload?.payment_id ||
+      null;
+    if (!resourceKey || !integrationId) return 0;
+
+    const archiveNote = `Auto-resolved: subsequent successful import (sync_id ${resolvingSyncId})`;
+    const rows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at = now(),
+              archive_note = $3,
+              updated_on = now()
+       FROM   xero_log_templates t
+       WHERE  l.log_template_id = t.id
+         AND  l.integration_id  = $1
+         AND  l.archived_at IS NULL
+         AND  t.sync_status = 'Failed'
+         AND  COALESCE(
+                l.api_payload->>'invoice_id',
+                l.api_payload->>'contact_id',
+                l.api_payload->>'account_id',
+                l.api_payload->>'bank_transfer_id',
+                l.api_payload->>'payment_id'
+              ) = $2
+       RETURNING l.id`,
+      [integrationId, String(resourceKey), archiveNote],
+    );
+    return Array.isArray(rows) ? rows.length : 0;
   }
 
   // Stamp prior email-waiting warning rows (templates 610-613) for a contact
