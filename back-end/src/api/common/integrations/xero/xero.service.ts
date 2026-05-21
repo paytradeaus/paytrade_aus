@@ -16,6 +16,7 @@ import { In, Repository, DataSource } from 'typeorm';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 import axios from 'axios';
+import * as crypto from 'crypto';
 import Redis from 'ioredis';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { handleAxiosError } from '../../error-handler';
@@ -1264,32 +1265,116 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       if (
         !options?.skipCrossTimeDedup &&
         templateDetails &&
-        templateDetails.sync_status !== 'Succeeded' &&
-        templateDetails.from_xero &&
-        (templateDetails.sync_type?.toLowerCase()?.includes('webhook') ||
-          templateDetails.sync_type?.toLowerCase()?.includes('scheduler'))
+        templateDetails.sync_status === 'Failed'
       ) {
-        const checkExistenceInSchedulers = await this.xeroSyncLogs.findOne({
-          where: {
-            integration_id: createXeroSyncLogInput.integration_id,
-            log_template_id: createXeroSyncLogInput?.log_template_id,
-            reference_id: createXeroSyncLogInput?.reference_id,
-          },
-        });
-        if (checkExistenceInSchedulers) {
+        // Broadened dedup gate (Task: Xero sync-log trail-of-errors cleanup).
+        //
+        // Previously this gate only fired for inbound (`from_xero=true`)
+        // scheduler/webhook templates and matched on `reference_id` alone,
+        // which meant outbound failures like template 27 ("Add bank account
+        // in xero failed") wrote a fresh row every cron tick — accumulating
+        // 1019 identical rows in production before this fix.
+        //
+        // The gate now applies to all Failed templates and tries three
+        // signatures (in priority order) to recognise an already-active
+        // duplicate failure:
+        //   1. reference_id (when both sides have it)
+        //   2. resource_key from api_payload (invoice_id / contact_id /
+        //      account_id / bank_transfer_id / payment_id)
+        //   3. md5(dynamic_values) — for empty-payload outbound retries
+        //
+        // `archived_at IS NULL` is enforced so that if a problem was
+        // self-healed/archived and later recurs, a fresh row IS still
+        // written (we don't want to silently swallow new occurrences).
+        //
+        // On dedup hit we don't drop the write silently — we bump
+        // `updated_on` on the existing row and increment an
+        // `occurrence_count` inside `dynamic_values`, so the UI can
+        // surface "happened N times, last at HH:MM" on a single row
+        // instead of N rows.
+        const resourceKey =
+          createXeroSyncLogInput.api_payload?.invoice_id ||
+          createXeroSyncLogInput.api_payload?.contact_id ||
+          createXeroSyncLogInput.api_payload?.account_id ||
+          createXeroSyncLogInput.api_payload?.bank_transfer_id ||
+          createXeroSyncLogInput.api_payload?.payment_id ||
+          null;
+        const incomingApiPayloadIsEmpty =
+          !createXeroSyncLogInput.api_payload ||
+          Object.keys(createXeroSyncLogInput.api_payload).length === 0;
+        const dynamicValuesSignature = incomingApiPayloadIsEmpty
+          ? crypto
+              .createHash('md5')
+              .update(
+                JSON.stringify(createXeroSyncLogInput.dynamic_values || {}),
+              )
+              .digest('hex')
+          : null;
+        const candidateTemplateIds = [
+          createXeroSyncLogInput.log_template_id,
+          ...(templateDetails?.associated_log_ids || []),
+        ];
+
+        const existingDuplicate = await this.xeroSyncLogs.query(
+          `SELECT id, dynamic_values, created_on
+           FROM   xero_sync_logs
+           WHERE  integration_id  = $1
+             AND  log_template_id = ANY($2::int[])
+             AND  archived_at IS NULL
+             AND  (
+               ($3::text IS NOT NULL AND reference_id = $3)
+               OR ($4::text IS NOT NULL AND COALESCE(
+                     api_payload->>'invoice_id',
+                     api_payload->>'contact_id',
+                     api_payload->>'account_id',
+                     api_payload->>'bank_transfer_id',
+                     api_payload->>'payment_id'
+                   ) = $4)
+               OR ($5::text IS NOT NULL
+                   AND (api_payload IS NULL OR api_payload::text = '{}')
+                   AND md5(COALESCE(dynamic_values::text, '')) = $5)
+             )
+           ORDER BY created_on DESC
+           LIMIT 1`,
+          [
+            createXeroSyncLogInput.integration_id,
+            candidateTemplateIds,
+            createXeroSyncLogInput.reference_id || null,
+            resourceKey ? String(resourceKey) : null,
+            dynamicValuesSignature,
+          ],
+        );
+
+        if (Array.isArray(existingDuplicate) && existingDuplicate.length > 0) {
           allowCreation = false;
-        } else {
-          const checkExistenceInOthers = templateDetails?.associated_log_ids
-            ? await this.xeroSyncLogs.findOne({
-                where: {
-                  integration_id: createXeroSyncLogInput.integration_id,
-                  log_template_id: In(templateDetails?.associated_log_ids),
-                  reference_id: createXeroSyncLogInput?.reference_id,
-                },
-              })
-            : null;
-          if (checkExistenceInOthers) {
-            allowCreation = false;
+          const dup = existingDuplicate[0];
+          try {
+            const existingDyn = dup.dynamic_values || {};
+            const prevCount = Number(existingDyn.occurrence_count || 1);
+            const firstOccurredAt =
+              existingDyn.first_occurred_at ||
+              (dup.created_on
+                ? new Date(dup.created_on).toISOString()
+                : new Date().toISOString());
+            const mergedDyn = {
+              ...existingDyn,
+              ...(createXeroSyncLogInput.dynamic_values || {}),
+              occurrence_count: prevCount + 1,
+              first_occurred_at: firstOccurredAt,
+              last_occurred_at: new Date().toISOString(),
+            };
+            await this.xeroSyncLogs.query(
+              `UPDATE xero_sync_logs
+               SET    updated_on = now(),
+                      dynamic_values = $2::jsonb
+               WHERE  id = $1`,
+              [dup.id, JSON.stringify(mergedDyn)],
+            );
+            xeroSyncLog = { ...dup, dynamic_values: mergedDyn };
+          } catch (dedupBumpErr: any) {
+            this.logger.warn(
+              `[insertXeroSyncLogs] Dedup-hit occurrence bump failed (non-fatal): ${dedupBumpErr?.message || dedupBumpErr}`,
+            );
           }
         }
       }
@@ -1315,10 +1400,21 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           templateDetails?.sync_status === 'Succeeded'
         ) {
           try {
+            // Restrict auto-archive to the failure templates that THIS
+            // success actually resolves — the current template plus any
+            // explicitly-linked associated_log_ids. Without this scope
+            // a successful invoice push could wipe out an unrelated
+            // failed payment sync that happens to share the same
+            // invoice_id resource key.
+            const resolvedTemplateIds = [
+              createXeroSyncLogInput.log_template_id,
+              ...(templateDetails?.associated_log_ids || []),
+            ].filter((v) => v != null);
             const archivedCount = await this.autoArchivePriorFailedLogs(
               createXeroSyncLogInput.integration_id,
               createXeroSyncLogInput.api_payload,
               xeroSyncLog.sync_id,
+              resolvedTemplateIds,
             );
             if (archivedCount > 0) {
               this.logger.log(
@@ -1370,6 +1466,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     integrationId: number,
     apiPayload: any,
     resolvingSyncId: number,
+    resolvedTemplateIds: number[],
   ): Promise<number> {
     const resourceKey =
       apiPayload?.invoice_id ||
@@ -1378,9 +1475,20 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       apiPayload?.bank_transfer_id ||
       apiPayload?.payment_id ||
       null;
-    if (!resourceKey || !integrationId) return 0;
+    if (
+      !resourceKey ||
+      !integrationId ||
+      !Array.isArray(resolvedTemplateIds) ||
+      resolvedTemplateIds.length === 0
+    ) {
+      return 0;
+    }
 
     const archiveNote = `Auto-resolved: subsequent successful import (sync_id ${resolvingSyncId})`;
+    // Match Failed log_templates whose `associated_log_ids` list contains
+    // the SUCCEEDED template's id, OR whose own id is in the resolved set.
+    // This is the inverse linkage to the dedup gate: a Failed template
+    // declares which Succeeded templates retire it.
     const rows = await this.xeroSyncLogs.query(
       `UPDATE xero_sync_logs l
        SET    archived_at = now(),
@@ -1391,6 +1499,10 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
          AND  l.integration_id  = $1
          AND  l.archived_at IS NULL
          AND  t.sync_status = 'Failed'
+         AND  (
+                t.id = ANY($4::int[])
+             OR t.associated_log_ids && $4::int[]
+              )
          AND  COALESCE(
                 l.api_payload->>'invoice_id',
                 l.api_payload->>'contact_id',
@@ -1399,7 +1511,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
                 l.api_payload->>'payment_id'
               ) = $2
        RETURNING l.id`,
-      [integrationId, String(resourceKey), archiveNote],
+      [integrationId, String(resourceKey), archiveNote, resolvedTemplateIds],
     );
     return Array.isArray(rows) ? rows.length : 0;
   }
