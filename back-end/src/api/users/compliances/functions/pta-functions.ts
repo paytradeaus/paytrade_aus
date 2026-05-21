@@ -2700,7 +2700,7 @@ export class CompliancePTAFunctions {
           .where('rr.bank_account_id = :bank_account_id', {
             bank_account_id: projectTrustAccount.bank_account_id,
           })
-          .orderBy({ 'rr.created_on': 'DESC' })
+          .orderBy({ 'rr.month_end_date': 'DESC' })
           .getRawOne();
         //   'fetchedReconcileReportDetails',
         //   fetchedReconcileReportDetails,
@@ -2739,41 +2739,57 @@ export class CompliancePTAFunctions {
             ...fetchedContentOf1stRule,
           });
         } else if (fetchedReconcileReportDetails) {
+          const reconMonthEnd = new Date(
+            fetchedReconcileReportDetails.month_end_date,
+          );
+          const reconIsForLastMonth =
+            reconMonthEnd.getUTCMonth() === lastMonth &&
+            reconMonthEnd.getUTCFullYear() === lastMonthYear;
+
+          // 15-business-day grace window after each month end. If today is
+          // still within the window for last month, a Balanced reconciliation
+          // for the month *before* last is still sufficient — last month's
+          // reconciliation isn't overdue yet, just not done.
+          const pastGraceWindow =
+            await todayIsGreaterThanOpeningDatePlusBusinessDays({
+              startDate: lastMonthEndDate,
+              businessDays: 15,
+              holidayDetails,
+            });
+          const withinGraceWindow = !pastGraceWindow;
+
+          const firstDayOfLastMonth = new Date(
+            Date.UTC(lastMonthYear, lastMonth, 1),
+          );
+          const monthBeforeLastEnd = new Date(
+            firstDayOfLastMonth.getTime() - 1,
+          );
+          const reconIsForMonthBeforeLast =
+            reconMonthEnd.getUTCMonth() ===
+              monthBeforeLastEnd.getUTCMonth() &&
+            reconMonthEnd.getUTCFullYear() ===
+              monthBeforeLastEnd.getUTCFullYear();
+
+          const reconSatisfiesRequirement =
+            reconIsForLastMonth ||
+            (withinGraceWindow && reconIsForMonthBeforeLast);
+
           if (
-            fetchedReconcileReportDetails &&
-            new Date(
-              fetchedReconcileReportDetails.month_end_date,
-            ).getUTCMonth() === lastMonth &&
-            new Date(
-              fetchedReconcileReportDetails.month_end_date,
-            ).getUTCFullYear() === lastMonthYear
+            reconSatisfiesRequirement &&
+            fetchedReconcileReportDetails.reconcile_status === 'Balanced'
           ) {
-            if (fetchedReconcileReportDetails.reconcile_status === 'Balanced') {
-              const fetchedRuleDetails = await fetchComplianceRuleDetails(
-                8,
-                4,
-                fetchedAllRules,
-              );
-              resultsOfCheck.push({
-                ...fetchedRuleDetails,
-                ...fetchedContentOf1stRule,
-              });
-            } else {
-              // Previous month's reconciliation exists but is not balanced
-              const fetchedRuleDetails = await fetchComplianceRuleDetails(
-                8,
-                3,
-                fetchedAllRules,
-              );
-              resultsOfCheck.push({
-                ...fetchedRuleDetails,
-                ...{
-                  reference_id: fetchedReconcileReportDetails.id,
-                },
-                ...fetchedContentOf1stRule,
-              });
-            }
+            const fetchedRuleDetails = await fetchComplianceRuleDetails(
+              8,
+              4,
+              fetchedAllRules,
+            );
+            resultsOfCheck.push({
+              ...fetchedRuleDetails,
+              ...fetchedContentOf1stRule,
+            });
           } else {
+            // Either the latest reconciliation doesn't cover the required
+            // month, or it does but isn't Balanced — surface ACTION REQUIRED.
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               8,
               3,
