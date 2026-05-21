@@ -7925,10 +7925,26 @@ export class NoticesService {
         ? moment(subscriptionDetails.expiry_date).utc()
         : null;
 
-      const isExpired = expiryDate ? moment.utc().isAfter(expiryDate) : false;
+      // `status` is the authoritative field for whether the customer is
+      // currently paying. `expiry_date` can lag behind a successful Stripe
+      // renewal (webhook delay, retry-in-flight, user actions that overwrite
+      // the row, etc.) and previously caused active Subscribed/Trial users
+      // to silently flip to the Basic notice view the morning after every
+      // renewal. Only honour `isExpired` when `status` itself indicates the
+      // subscription is no longer active.
+      const activeStatuses = ['Subscribed', 'Under Trial'];
+      const statusIsActive = activeStatuses.includes(
+        subscriptionDetails?.status,
+      );
+
+      const isExpired =
+        !statusIsActive && expiryDate
+          ? moment.utc().isAfter(expiryDate)
+          : false;
 
       this.logger.log(
-        `[SUBSCRIPTION_CHECK] Expiry check: isExpired=${isExpired}`
+        `[SUBSCRIPTION_CHECK] Status='${subscriptionDetails?.status || 'N/A'}', ` +
+          `statusIsActive=${statusIsActive}, isExpired=${isExpired}`,
       );
 
       if (
