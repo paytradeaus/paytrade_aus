@@ -12,12 +12,14 @@ import {
   ConfirmTrustAccountTransferInput,
   GetBankAccountPreflightInput,
   ListOpenTransfersInput,
+  RelocateStrandedRetentionInput,
   RetryTrustAccountTransferCutoverInput,
   StartTrustAccountTransferInput,
 } from './bank-account-transfers.input';
 import {
   ConfirmTransferResponse,
   PreflightResponse,
+  RelocateStrandedRetentionResponse,
   StartTransferResponse,
   TransferListResponse,
 } from './bank-account-transfers.dto';
@@ -125,6 +127,27 @@ export class BankAccountTransfersResolver {
         payload.dry_run !== false,
       )) as any;
     } catch (e: any) {
+      return { warning: true, warningMessage: e?.message ?? String(e) };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => RelocateStrandedRetentionResponse, {
+    name: 'relocateStrandedRetention',
+  })
+  async relocateStrandedRetention(
+    @Context() ctx,
+    @Args('payload') payload: RelocateStrandedRetentionInput,
+  ): Promise<RelocateStrandedRetentionResponse> {
+    try {
+      const decoded = await this.jwt.decodeJwtToken(ctx);
+      this.logger.log(
+        `relocateStrandedRetention: source=${payload.source_bank_account_id} dest=${payload.destination_bank_account_id} ids=${payload.retention_ids?.length ?? 0} user=${decoded?.userId}`,
+      );
+      return (await this.svc.relocateStrandedRetention(decoded, payload)) as any;
+    } catch (e: any) {
+      this.logger.error(`relocateStrandedRetention err=${e?.message}`);
       return { warning: true, warningMessage: e?.message ?? String(e) };
     }
   }

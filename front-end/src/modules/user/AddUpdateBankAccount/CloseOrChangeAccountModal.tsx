@@ -119,11 +119,44 @@ export default function CloseOrChangeAccountModal({
               <div className="mb_1">
                 <strong>Resolve before closing:</strong>
                 <ul>
-                  {preflight.close_blockers.map((b: string) => (
-                    <li key={b}>
-                      <small className="invalid">{b}</small>
-                    </li>
-                  ))}
+                  {preflight.close_blockers.map((b: string) => {
+                    // Task #249 — if the blocker is the stranded-retention
+                    // one, surface a jump-link to the StrandedRetentionPanel
+                    // on the parent bank-account detail page so the user can
+                    // Release or Move them without leaving the workflow.
+                    const isRetentionBlocker = /retention/i.test(b);
+                    return (
+                      <li key={b}>
+                        <small className="invalid">
+                          {b}
+                          {isRetentionBlocker && (
+                            <>
+                              {" "}
+                              <a
+                                href="#stranded-retention-panel"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (typeof onClose === "function") onClose();
+                                  setTimeout(() => {
+                                    const el = document.getElementById(
+                                      "stranded-retention-panel"
+                                    );
+                                    if (el)
+                                      el.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "start",
+                                      });
+                                  }, 50);
+                                }}
+                              >
+                                View retention to resolve
+                              </a>
+                            </>
+                          )}
+                        </small>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

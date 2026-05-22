@@ -8,6 +8,13 @@ export class PreflightOpenItem {
   @Field({ nullable: true }) amount?: number;
   @Field({ nullable: true }) status?: string;
   @Field({ nullable: true }) party_name?: string;
+  // Task #249 — optional navigation context for stranded retention rows
+  // so the front-end can render Release / Move-to quick actions and
+  // deep-link to the parent payment without a second round-trip.
+  @Field(() => Int, { nullable: true }) payment_id?: number;
+  @Field(() => Int, { nullable: true }) contract_id?: number;
+  @Field(() => Int, { nullable: true }) project_id?: number;
+  @Field({ nullable: true }) project_name?: string;
 }
 
 @ObjectType()
@@ -85,6 +92,15 @@ export class ConfirmTransferResponse {
 @ObjectType()
 export class TransferListResponse {
   @Field(() => [TrustAccountTransfer]) transfers: TrustAccountTransfer[];
+}
+
+@ObjectType()
+export class RelocateStrandedRetentionResponse {
+  @Field({ nullable: true }) successMessage?: string;
+  @Field({ nullable: true }) warningMessage?: string;
+  @Field({ nullable: true }) warning?: boolean;
+  @Field(() => Int, { nullable: true }) relocated_count?: number;
+  @Field(() => Int, { nullable: true }) payments_repointed?: number;
 }
 
 @ObjectType()

@@ -67,6 +67,20 @@ export class RetryTrustAccountTransferCutoverInput {
   dry_run?: boolean;
 }
 
+@InputType({
+  description:
+    'Task #249 — relocate one or more stranded `retention_details` rows ' +
+    'left behind on a Transferred RTA to a different Open RTA in the same ' +
+    'company. Moves the parent payment_details.retention_account ' +
+    'in-place; all Retained rows on a given payment must be relocated ' +
+    'together (single-valued column).',
+})
+export class RelocateStrandedRetentionInput {
+  @Field(() => Int) source_bank_account_id: number;
+  @Field(() => Int) destination_bank_account_id: number;
+  @Field(() => [Int]) retention_ids: number[];
+}
+
 @InputType()
 export class ListOpenTransfersInput {
   @Field(() => Int, {

@@ -601,7 +601,17 @@ export const GetBankAccountPreflight = async (
               transfer_blockers
               open_claims { id reference amount status }
               in_flight_payments { id reference amount status }
-              open_retention { id amount status }
+              open_retention {
+                id
+                amount
+                status
+                payment_id
+                contract_id
+                project_id
+                project_name
+                party_name
+                reference
+              }
               linked_projects { project_id project_name contract_id client_supplier_name }
             }
           }
@@ -741,6 +751,52 @@ export const RetryTrustAccountTransferCutover = async (
     }
     if (out?.successMessage) showSuccessToast(out.successMessage);
     return out;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return null;
+  }
+};
+
+// Task #249 — relocate stranded retention rows on a Transferred RTA
+// to a different Open RTA. Used by the StrandedRetentionPanel quick
+// "Move to..." action on the bank-account detail page.
+export const RelocateStrandedRetention = async (payload: {
+  source_bank_account_id: number;
+  destination_bank_account_id: number;
+  retention_ids: number[];
+}): Promise<{
+  ok: boolean;
+  relocated_count?: number;
+  payments_repointed?: number;
+} | null> => {
+  try {
+    const resp = await apolloClient.mutate({
+      mutation: gql`
+        mutation RelocateStrandedRetention(
+          $payload: RelocateStrandedRetentionInput!
+        ) {
+          relocateStrandedRetention(payload: $payload) {
+            warning
+            warningMessage
+            successMessage
+            relocated_count
+            payments_repointed
+          }
+        }
+      `,
+      variables: { payload },
+    });
+    const out = resp?.data?.relocateStrandedRetention;
+    if (out?.warning) {
+      showWarningToast(out.warningMessage || "Could not relocate retention.");
+      return { ok: false };
+    }
+    if (out?.successMessage) showSuccessToast(out.successMessage);
+    return {
+      ok: true,
+      relocated_count: out?.relocated_count,
+      payments_repointed: out?.payments_repointed,
+    };
   } catch (e: any) {
     showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
     return null;

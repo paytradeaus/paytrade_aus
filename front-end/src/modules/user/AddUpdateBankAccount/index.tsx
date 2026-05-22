@@ -66,6 +66,7 @@ import { AppRoutes } from "@/shared/constant/appRoutes";
 import BaseModal from "@/components/BaseModal";
 import CloseOrChangeAccountModal from "./CloseOrChangeAccountModal";
 import TransferTrustAccountWizard from "./TransferTrustAccountWizard";
+import StrandedRetentionPanel from "./StrandedRetentionPanel";
 import {
   ListOpenTrustAccountTransfers,
   ConfirmTrustAccountTransfer,
@@ -2270,6 +2271,15 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     isEditable ? "Update" : "Add"
                   } your bank account information`}</p>
                   <br />
+
+                  {isEditable && editData?.bank_account_id ? (
+                    <StrandedRetentionPanel
+                      bankAccountId={Number(editData.bank_account_id)}
+                      accountName={editData?.account_name}
+                      accountStatus={editData?.status}
+                      accountType={editData?.account_type}
+                    />
+                  ) : null}
 
                   <FormikControl
                     control={InputType.SELECT}

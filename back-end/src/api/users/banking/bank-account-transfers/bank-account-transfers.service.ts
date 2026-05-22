@@ -143,11 +143,26 @@ export class BankAccountTransfersService {
     // whose retention_status is 'Retained'.
     let openRetentionRaw: any[] = [];
     if (account.account_type === 'Retention Trust Account') {
+      // Task #249 — enrich each stranded retention row with the
+      // parent payment + contract/project/client context so the
+      // detail-page panel can render Release / Move-to quick actions
+      // and a meaningful row label without a second round-trip.
       openRetentionRaw = await this.entityManager.query(
-        `SELECT rd.retention_id, rd.retained_amount, rd.retention_status, rd.client_supplier_id
+        `SELECT rd.retention_id,
+                rd.retained_amount,
+                rd.retention_status,
+                rd.client_supplier_id,
+                rd.payment_id,
+                pd.contract_id,
+                pd.project_id,
+                p.project_name,
+                cs.client_supplier_name
          FROM retention_details rd
          JOIN payment_details pd ON pd.payment_id = rd.payment_id
+         LEFT JOIN project_details p ON p.project_id = pd.project_id
+         LEFT JOIN client_suppliers_details cs ON cs.client_supplier_id = rd.client_supplier_id
          WHERE pd.retention_account = $1 AND rd.retention_status = 'Retained'
+         ORDER BY rd.retention_id ASC
          LIMIT 500`,
         [bank_account_id],
       );
@@ -252,6 +267,17 @@ export class BankAccountTransfersService {
         id: Number(r.retention_id),
         amount: Number(r.retained_amount ?? 0),
         status: r.retention_status,
+        payment_id:
+          r.payment_id != null ? Number(r.payment_id) : undefined,
+        contract_id:
+          r.contract_id != null ? Number(r.contract_id) : undefined,
+        project_id:
+          r.project_id != null ? Number(r.project_id) : undefined,
+        project_name: r.project_name ?? undefined,
+        party_name: r.client_supplier_name ?? undefined,
+        reference:
+          r.project_name ??
+          (r.contract_id != null ? `Contract #${r.contract_id}` : undefined),
       })),
       linked_projects: contractsRaw.map((c: any) => ({
         project_id: Number(c.project_id),
@@ -886,6 +912,179 @@ export class BankAccountTransfersService {
       in_flight_payments_to_repoint: paymentCount,
       retention_rows_to_migrate: retentionCount,
       notes,
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Task #249 — relocate stranded Retained retention_details rows
+  // (left behind on a Transferred RTA because the user chose
+  // 'leave' for them during the transfer) to a different Open RTA
+  // in the same company. Moves the *parent* payment's
+  // payment_details.retention_account in place; because that column
+  // is single-valued per payment, all Retained rows on a given
+  // payment must be relocated together.
+  // ---------------------------------------------------------------------
+  async relocateStrandedRetention(
+    decoded: any,
+    input: {
+      source_bank_account_id: number;
+      destination_bank_account_id: number;
+      retention_ids: number[];
+    },
+  ) {
+    const {
+      source_bank_account_id,
+      destination_bank_account_id,
+      retention_ids,
+    } = input;
+    if (!retention_ids?.length) {
+      return { warning: true, warningMessage: 'No retention rows selected.' };
+    }
+    if (source_bank_account_id === destination_bank_account_id) {
+      return {
+        warning: true,
+        warningMessage:
+          'Destination must differ from the source bank account.',
+      };
+    }
+    const [source, dest] = await Promise.all([
+      this.bankAccountsRepo.findOne({
+        where: { bank_account_id: source_bank_account_id },
+      }),
+      this.bankAccountsRepo.findOne({
+        where: { bank_account_id: destination_bank_account_id },
+      }),
+    ]);
+    if (!source) {
+      return { warning: true, warningMessage: 'Source account not found.' };
+    }
+    if (!dest) {
+      return {
+        warning: true,
+        warningMessage: 'Destination account not found.',
+      };
+    }
+    this.assertTenant(decoded, source);
+    if (source.company_id !== dest.company_id) {
+      return {
+        warning: true,
+        warningMessage: 'Cross-tenant retention moves are not allowed.',
+      };
+    }
+    if (
+      source.account_type !== 'Retention Trust Account' ||
+      dest.account_type !== 'Retention Trust Account'
+    ) {
+      return {
+        warning: true,
+        warningMessage: 'Both source and destination must be Retention Trust Accounts.',
+      };
+    }
+    if (dest.status !== 'Open') {
+      return {
+        warning: true,
+        warningMessage: `Destination account is not Open (status=${dest.status}).`,
+      };
+    }
+
+    // Load the actual stranded rows + their parent payments, scoped to
+    // the source account. Anything not currently anchored to source +
+    // Retained is rejected — prevents stale-UI accidents.
+    const rows: Array<{
+      retention_id: string;
+      payment_id: string;
+    }> = await this.entityManager.query(
+      `SELECT rd.retention_id, rd.payment_id
+       FROM retention_details rd
+       JOIN payment_details pd ON pd.payment_id = rd.payment_id
+       WHERE pd.retention_account = $1
+         AND rd.retention_status = 'Retained'
+         AND rd.retention_id = ANY($2::bigint[])`,
+      [source_bank_account_id, retention_ids.map((n) => Number(n))],
+    );
+    if (rows.length === 0) {
+      return {
+        warning: true,
+        warningMessage:
+          'None of the selected retention rows are still tied to this account — refresh and try again.',
+      };
+    }
+    const requestedIds = new Set(retention_ids.map((n) => String(n)));
+    const foundIds = new Set(rows.map((r) => String(r.retention_id)));
+    const missing = [...requestedIds].filter((id) => !foundIds.has(id));
+
+    // For each parent payment, if there are sibling Retained rows on
+    // the same payment that were NOT selected, we cannot split — the
+    // retention_account column is single-valued. Reject with a clear
+    // message so the user can re-select the missing siblings.
+    const paymentIdsToMove = new Set<string>(rows.map((r) => String(r.payment_id)));
+    const siblingRows: Array<{
+      payment_id: string;
+      retention_id: string;
+    }> = await this.entityManager.query(
+      `SELECT rd.payment_id, rd.retention_id
+       FROM retention_details rd
+       WHERE rd.payment_id = ANY($1::bigint[])
+         AND rd.retention_status = 'Retained'`,
+      [[...paymentIdsToMove]],
+    );
+    const conflictingPayments: string[] = [];
+    for (const pid of paymentIdsToMove) {
+      const onSame = siblingRows.filter(
+        (s) => String(s.payment_id) === pid,
+      );
+      const hasLeftBehind = onSame.some(
+        (s) => !foundIds.has(String(s.retention_id)),
+      );
+      if (hasLeftBehind) conflictingPayments.push(pid);
+    }
+    if (conflictingPayments.length > 0) {
+      return {
+        warning: true,
+        warningMessage:
+          `Cannot split retention on payment(s) ${conflictingPayments.join(', ')}. ` +
+          `payment_details.retention_account is single-valued — select all Retained rows on each payment together, or release the rest first.`,
+      };
+    }
+
+    await this.entityManager.transaction(async (mgr) => {
+      await mgr
+        .getRepository(PaymentDetails)
+        .createQueryBuilder()
+        .update()
+        .set({
+          retention_account: dest.bank_account_id,
+          updated_by: decoded?.userId,
+        })
+        .where(`payment_id IN (:...pids)`, {
+          pids: [...paymentIdsToMove],
+        })
+        .execute();
+      await mgr
+        .getRepository(RetentionDetails)
+        .createQueryBuilder()
+        .update()
+        .set({
+          updated_by: decoded?.userId,
+          updated_on: moment.tz('UTC').toDate(),
+        })
+        .where(`retention_id IN (:...rids)`, {
+          rids: rows.map((r) => String(r.retention_id)),
+        })
+        .execute();
+    });
+
+    this.logger.log(
+      `[STRANDED_RETENTION_RELOCATED] source=${source_bank_account_id} dest=${destination_bank_account_id} rows=${rows.length} payments=${paymentIdsToMove.size} by user=${decoded?.userId}${missing.length ? ` missing=${missing.join(',')}` : ''}`,
+    );
+    return {
+      successMessage:
+        `Moved ${rows.length} retention row(s) across ${paymentIdsToMove.size} payment(s) to ${dest.account_name}.` +
+        (missing.length
+          ? ` (${missing.length} row(s) were skipped — already moved or released.)`
+          : ''),
+      relocated_count: rows.length,
+      payments_repointed: paymentIdsToMove.size,
     };
   }
 
