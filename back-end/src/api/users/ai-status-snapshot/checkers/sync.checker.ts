@@ -36,6 +36,12 @@ export class SyncChecker {
         "xt.id = l.log_template_id AND xt.sync_status = 'Failed'",
       )
       .where('l.created_on >= :since', { since })
+      // User-archived sync logs are hidden everywhere else in the app
+      // (xero.service.ts list views default to archived_at IS NULL). The
+      // system-status snapshot must follow the same convention or
+      // archiving a fixed log won't actually clear it from the
+      // dashboard's critical count.
+      .andWhere('l.archived_at IS NULL')
       .orderBy('l.created_on', 'DESC')
       .limit(100)
       .getMany();
