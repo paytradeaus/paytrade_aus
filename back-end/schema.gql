@@ -15806,6 +15806,7 @@ type Mutation {
     """Unique ID of the failed notice to regenerate"""
     noticeId: Float!
   ): RegenerateNoticeResponse!
+  relocateStrandedRetention(payload: RelocateStrandedRetentionInput!): RelocateStrandedRetentionResponse!
 
   """
   Removes a Xero bank account cache row (xero_bank_account_details) for the caller's active Xero integration.
@@ -17187,8 +17188,12 @@ type PreflightLinkedProject {
 
 type PreflightOpenItem {
   amount: Float
+  contract_id: Int
   id: Int!
   party_name: String
+  payment_id: Int
+  project_id: Int
+  project_name: String
   reference: String
   status: String
 }
@@ -19916,6 +19921,23 @@ type RegenerateNoticeResponse {
 
   """Response status."""
   status: String!
+}
+
+"""
+Task #249 — relocate one or more stranded `retention_details` rows left behind on a Transferred RTA to a different Open RTA in the same company. Moves the parent payment_details.retention_account in-place; all Retained rows on a given payment must be relocated together (single-valued column).
+"""
+input RelocateStrandedRetentionInput {
+  destination_bank_account_id: Int!
+  retention_ids: [Int!]!
+  source_bank_account_id: Int!
+}
+
+type RelocateStrandedRetentionResponse {
+  payments_repointed: Int
+  relocated_count: Int
+  successMessage: String
+  warning: Boolean
+  warningMessage: String
 }
 
 input RenameAiChatThreadInput {
