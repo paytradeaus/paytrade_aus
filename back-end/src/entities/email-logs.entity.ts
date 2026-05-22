@@ -25,6 +25,8 @@ export enum EmailTypeEnum {
   AdminAcceptDecline = 'Admin accept or decline user request',
   // Compliance
   failedCompliance = 'Failed compliance',
+  // Xero
+  xeroSyncFailures = 'Xero sync failures daily',
   // Communication management
   communicationManagement = 'Communication management',
   // Community

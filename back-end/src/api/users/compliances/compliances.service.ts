@@ -1389,7 +1389,9 @@ export class CompliancesService {
         .innerJoin(
           CompanyUserRoles,
           'r',
-          `r.company_id = c.company_id AND r.company_role = '${Role.PRIMARY_ADMIN}'`,
+          // Widened so both Primary Admins and (Secondary) Admins receive the
+          // daily compliance email. Previously only PRIMARY ADMIN.
+          `r.company_id = c.company_id AND r.company_role IN ('${Role.PRIMARY_ADMIN}', '${Role.ADMIN}') AND r.status = 'Active'`,
         )
         .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
         .where('p.project_status = :project_status', {
@@ -1511,15 +1513,49 @@ export class CompliancesService {
         dynamicData,
       );
 
-      const mailDetails = {
-        toEmail: projectOwnerdetails.company_email_id,
-        subject: `Compliance Failed for your project: ${projectdetails.project_name}`,
-        template: 'header-footer-email',
-        mailBody: String(mailbody),
-        mail_type: EmailTypeEnum.failedCompliance,
-      };
+      // Resolve recipients: all active Primary + Secondary Admins on the
+      // owning company who haven't opted out via
+      // `user_details.email_preferences.compliance = false`.
+      const adminRows = await this.projectsRepo.manager
+        .getRepository(CompanyUserRoles)
+        .createQueryBuilder('r')
+        .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
+        .where('r.company_id = :cid', {
+          cid: projectOwnerdetails.company_id,
+        })
+        .andWhere(`r.company_role IN ('${Role.PRIMARY_ADMIN}', '${Role.ADMIN}')`)
+        .andWhere(`r.status = 'Active'`)
+        // null/missing pref counts as opted-in; only explicit false opts out.
+        .andWhere(
+          `(u.email_preferences ->> 'compliance') IS DISTINCT FROM 'false'`,
+        )
+        .select(['u.email_id AS email_id'])
+        .getRawMany<{ email_id: string }>();
 
-      this.emailQueueProducer.emailQueueProducer(mailDetails);
+      const recipientEmails = Array.from(
+        new Set(
+          adminRows
+            .map((r) => r.email_id)
+            .filter((e): e is string => !!e && e.includes('@')),
+        ),
+      );
+
+      // Fall back to the legacy company email if there are no opted-in admins
+      // (preserves old behaviour for companies without a Primary Admin row).
+      if (!recipientEmails.length && projectOwnerdetails.company_email_id) {
+        recipientEmails.push(projectOwnerdetails.company_email_id);
+      }
+
+      for (const toEmail of recipientEmails) {
+        const mailDetails = {
+          toEmail,
+          subject: `Compliance Failed for your project: ${projectdetails.project_name}`,
+          template: 'header-footer-email',
+          mailBody: String(mailbody),
+          mail_type: EmailTypeEnum.failedCompliance,
+        };
+        this.emailQueueProducer.emailQueueProducer(mailDetails);
+      }
       // await this.emailServices.sendMail(mailDetails);
 
       return combinedComplianceData;

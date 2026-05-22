@@ -897,6 +897,187 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     );
   }
 
+  /**
+   * Daily Xero sync-failure summary email.
+   *
+   * Mirrors the existing compliance daily email pattern (08:00 UTC) but
+   * staggered to 08:05 UTC so the two crons don't fire at the exact same
+   * second and contend for the email queue.
+   *
+   * Trigger rules (per product spec):
+   *   - Only fire for companies with an Active Xero integration.
+   *   - Only fire if at least one sync log moved into the `Failed` state
+   *     today (UTC). Backlog-only days do NOT generate an email.
+   *   - If the user cleared / archived everything that failed today before
+   *     08:05 UTC, the email is skipped (today_failed_count will be 0).
+   *   - Recipients are Primary + Secondary Admins on the company whose
+   *     `user_details.email_preferences.xero_sync_failures` is not
+   *     explicitly `false` (null/missing = opted-in by default).
+   */
+  @Cron('5 8 * * *', { timeZone: 'UTC' })
+  async sendDailyXeroSyncFailureEmails(): Promise<void> {
+    const PREFIX = '[XERO_SYNC_FAILURE_EMAIL]';
+    try {
+      const activeIntegrations = await this.xeroIntegrationDetails.find({
+        where: { status: 'ACTIVE' },
+        select: ['id', 'integration_id', 'company_id', 'tenant_name'],
+      });
+
+      this.logger.log(
+        `${PREFIX} starting daily scan across ${activeIntegrations.length} active integration(s)`,
+      );
+
+      let emailsSent = 0;
+      let companiesSkipped = 0;
+
+      for (const integ of activeIntegrations) {
+        try {
+          // "Failed today" = sync_log rows created within the last 24h
+          // (UTC) whose joined log_template.sync_status is 'Failed' and
+          // that the user hasn't archived. We use a 24h sliding window
+          // rather than calendar-day so we don't miss anything around
+          // the 08:05 UTC cron boundary.
+          const since = moment.tz('UTC').subtract(24, 'hours').toDate();
+
+          const todayFailedCount = await this.xeroSyncLogs
+            .createQueryBuilder('l')
+            .innerJoin(
+              'xero_log_templates',
+              'xt',
+              "xt.id = l.log_template_id AND xt.sync_status = 'Failed'",
+            )
+            .where('l.integration_id = :iid', {
+              iid: integ.integration_id,
+            })
+            .andWhere('l.created_on >= :since', { since })
+            .andWhere('l.archived_at IS NULL')
+            .getCount();
+
+          if (todayFailedCount === 0) {
+            // Per spec: never fire on backlog-only days.
+            companiesSkipped++;
+            continue;
+          }
+
+          const stillFailedCount = await this.xeroSyncLogs
+            .createQueryBuilder('l')
+            .innerJoin(
+              'xero_log_templates',
+              'xt',
+              "xt.id = l.log_template_id AND xt.sync_status = 'Failed'",
+            )
+            .where('l.integration_id = :iid', {
+              iid: integ.integration_id,
+            })
+            .andWhere('l.archived_at IS NULL')
+            .getCount();
+
+          const recipients = await this.userRoles
+            .createQueryBuilder('r')
+            .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
+            .where('r.company_id = :cid', { cid: integ.company_id })
+            .andWhere(`r.company_role IN ('PRIMARY ADMIN', 'ADMIN')`)
+            .andWhere(`r.status = 'Active'`)
+            .andWhere(
+              `(u.email_preferences ->> 'xero_sync_failures') IS DISTINCT FROM 'false'`,
+            )
+            .select([
+              'u.email_id AS email_id',
+              'u.first_name AS first_name',
+            ])
+            .getRawMany<{ email_id: string; first_name: string }>();
+
+          const uniqueRecipients = Array.from(
+            new Map(
+              recipients
+                .filter((r) => r.email_id && r.email_id.includes('@'))
+                .map((r) => [r.email_id, r]),
+            ).values(),
+          );
+
+          if (!uniqueRecipients.length) {
+            this.logger.log(
+              `${PREFIX} company_id=${integ.company_id}: no opted-in admin recipients; skipping`,
+            );
+            companiesSkipped++;
+            continue;
+          }
+
+          const orgLabel =
+            integ.tenant_name && integ.tenant_name.trim()
+              ? integ.tenant_name
+              : 'your Xero organisation';
+          const baseUrl = (process.env.LOG_BASE_URL || '').replace(/\/+$/, '');
+          const dashboardLink = `${baseUrl}/user/dashboard?view=all-issues`;
+          const syncLogLink = `${baseUrl}/user/integrations/xero/syncLogDetails/`;
+
+          const subject =
+            stillFailedCount > todayFailedCount
+              ? `Xero sync issues: ${todayFailedCount} failed today, ${stillFailedCount} still unresolved`
+              : `Xero sync issues: ${todayFailedCount} failed today`;
+
+          for (const recipient of uniqueRecipients) {
+            const adminName = recipient.first_name?.trim() || 'there';
+            const mailBody = `
+              <p>Hi ${adminName},</p>
+              <p>Your Xero integration for <strong>${orgLabel}</strong> recorded sync failures in the last 24 hours.</p>
+              <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;border:1px solid #dcdcdc;margin:12px 0;">
+                <tr>
+                  <td style="border:1px solid #dcdcdc;background:#f6f8fa;font-weight:bold;">Failed today</td>
+                  <td style="border:1px solid #dcdcdc;color:#D32F2F;font-weight:bold;">${todayFailedCount}</td>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #dcdcdc;background:#f6f8fa;font-weight:bold;">Still in a failed state</td>
+                  <td style="border:1px solid #dcdcdc;color:#D32F2F;font-weight:bold;">${stillFailedCount}</td>
+                </tr>
+              </table>
+              <p>Open the dashboard to review each failure and decide whether to retry, fix the underlying record, or archive the alert.</p>
+              <p>
+                <a href="${dashboardLink}" style="background-color:#1583D8;color:#ffffff;padding:10px 18px;text-decoration:none;border-radius:4px;display:inline-block;">
+                  Review sync issues
+                </a>
+              </p>
+              <p>If the button above doesn't work, copy and paste this link into your browser:<br/>
+                <a href="${dashboardLink}">${dashboardLink}</a>
+              </p>
+              <p style="color:#666;font-size:12px;margin-top:24px;">
+                You're receiving this because you're an admin on this company. You can turn off these daily emails from your
+                Personal Profile page under "Manage email preferences".
+              </p>
+              <p>Thanks,<br/>The PayTrade team</p>
+            `;
+
+            const mailDetails = {
+              toEmail: recipient.email_id,
+              subject,
+              template: 'header-footer-email',
+              mailBody,
+              mail_type: EmailTypeEnum.xeroSyncFailures,
+            };
+            await this.emailQueueProducer.emailQueueProducer(mailDetails);
+            emailsSent++;
+          }
+
+          this.logger.log(
+            `${PREFIX} company_id=${integ.company_id} today=${todayFailedCount} still_failed=${stillFailedCount} recipients=${uniqueRecipients.length}`,
+          );
+        } catch (perCompanyErr: any) {
+          this.logger.error(
+            `${PREFIX} company_id=${integ.company_id} failed: ${perCompanyErr?.message || perCompanyErr}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `${PREFIX} done. emails_sent=${emailsSent} companies_skipped=${companiesSkipped}`,
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `${PREFIX} top-level failure: ${err?.message || err}`,
+      );
+    }
+  }
+
   @Cron('0 13 * * *', { timeZone: 'UTC' })
   async checkSubscriptionExpiryAndUpdateXeroJob() {
     try {

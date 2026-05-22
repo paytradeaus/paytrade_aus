@@ -29,7 +29,12 @@ export type UserStatus =
 
 export type Group = 'SYSTEM' | 'USER' | 'ADMIN';
 
-export const UserEmailPreferences = ['community', 'compliance', 'notices'];
+export const UserEmailPreferences = [
+  'community',
+  'compliance',
+  'notices',
+  'xero_sync_failures',
+];
 
 @Entity()
 export class UserDetails {

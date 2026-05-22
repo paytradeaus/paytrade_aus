@@ -377,6 +377,7 @@ export default function PersonalInfo() {
       position_title: "",
       community: true,
       compliance: true,
+      xero_sync_failures: true,
       notices: true,
     },
     validationSchema,
@@ -422,6 +423,8 @@ export default function PersonalInfo() {
             signature_type: response?.signature_type,
             community: response?.email_preferences?.community,
             compliance: response?.email_preferences?.compliance,
+            xero_sync_failures:
+              response?.email_preferences?.xero_sync_failures !== false,
           });
           setSavedImage(response?.file);
 
@@ -445,6 +448,8 @@ export default function PersonalInfo() {
             signature_type: response?.signature_type,
             community: response?.email_preferences?.community,
             compliance: response?.email_preferences?.compliance,
+            xero_sync_failures:
+              response?.email_preferences?.xero_sync_failures !== false,
           });
         }
       })
@@ -454,7 +459,13 @@ export default function PersonalInfo() {
   async function handleSubmit() {
     try {
       setLoader(true);
-      const { community, compliance, notices, ...restValues } = formik?.values;
+      const {
+        community,
+        compliance,
+        notices,
+        xero_sync_failures,
+        ...restValues
+      } = formik?.values;
       const postData: any = {
         updateSignupInput: {
           ...restValues,
@@ -468,6 +479,7 @@ export default function PersonalInfo() {
             community,
             compliance,
             notices: true,
+            xero_sync_failures: xero_sync_failures !== false,
           },
         },
       };
@@ -850,6 +862,22 @@ export default function PersonalInfo() {
                           control={InputType.CHECKBOX}
                           onChange={formik?.handleChange}
                           value={formik.values.compliance}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <FormikControl
+                          id={"xero_sync_failures"}
+                          name={"xero_sync_failures"}
+                          label={
+                            "Receive daily email when Xero sync issues occur."
+                          }
+                          control={InputType.CHECKBOX}
+                          onChange={formik?.handleChange}
+                          value={formik.values.xero_sync_failures}
                         />
                       </div>
                       <div
