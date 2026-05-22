@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BaseModal from "@/components/BaseModal";
-import { CloseOrChangeBankAccount } from "./AddUpdateBankAccount.function";
+import FormikControl from "@/components/FormikControl";
+import { InputType } from "@/shared/constant/general";
+import {
+  AdminListAllFinancialInstitution,
+  CloseOrChangeBankAccount,
+} from "./AddUpdateBankAccount.function";
 
 type ClosingMode = "Closed" | "Transferred";
 
@@ -9,6 +14,13 @@ interface Props {
   currentAccountName?: string;
   onClose: () => void;
   onDone?: () => void;
+}
+
+interface FiOption {
+  label: string;
+  value: string;
+  maxlengthvalue: number;
+  status: string;
 }
 
 export default function CloseOrChangeAccountModal({
@@ -26,8 +38,44 @@ export default function CloseOrChangeAccountModal({
   const [targetAcct, setTargetAcct] = useState<string>("");
   const [targetOpening, setTargetOpening] = useState<string>(today);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [financialInstituteOpt, setFinancialInstituteOpt] = useState<
+    FiOption[]
+  >([]);
 
   const isTransfer = mode === "Transferred";
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const data = await AdminListAllFinancialInstitution({
+        page: null,
+        perPage: null,
+        keyword: null,
+        status: null,
+        isAlphabeticalOrder: true,
+      });
+      if (cancelled) return;
+      const institutions = data?.institutions || [];
+      const opts: FiOption[] = institutions.map((item: any) => ({
+        label: item?.institution_name,
+        value: String(item?.id),
+        maxlengthvalue: item?.acc_number_maxlength,
+        status: item?.institution_status,
+      }));
+      setFinancialInstituteOpt(
+        opts.filter((each) => each.status === "Active")
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedFi = useMemo(
+    () => financialInstituteOpt.find((o) => o.value === targetFi),
+    [financialInstituteOpt, targetFi]
+  );
+  const accountNumberLength = selectedFi?.maxlengthvalue || 0;
 
   const validate = (): string | null => {
     if (!effectiveDate) return "Effective date is required.";
@@ -37,6 +85,12 @@ export default function CloseOrChangeAccountModal({
       if (!targetBsb.trim() || !/^\d{6}$/.test(targetBsb))
         return "Replacement BSB must be 6 digits.";
       if (!targetAcct.trim()) return "Replacement account number is required.";
+      if (accountNumberLength > 0) {
+        const re = new RegExp(`^\\d{${accountNumberLength}}$`);
+        if (!re.test(targetAcct.trim())) {
+          return `Replacement account number length should be ${accountNumberLength} for ${selectedFi?.label}.`;
+        }
+      }
       if (!targetOpening) return "Replacement opening date is required.";
     }
     return null;
@@ -147,17 +201,22 @@ export default function CloseOrChangeAccountModal({
                 style={{ width: "100%" }}
               />
             </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem" }}>
-                Financial institution
-              </label>
-              <input
-                type="text"
-                value={targetFi}
-                onChange={(e) => setTargetFi(e.target.value)}
-                style={{ width: "100%" }}
-              />
-            </div>
+            <FormikControl
+              control={InputType.SELECT}
+              label={"Financial institution"}
+              name={"closing_target_financial_institution"}
+              value={targetFi}
+              options={financialInstituteOpt}
+              renderKey="label"
+              valueKey="value"
+              placeholder="Select financial institution"
+              required
+              returnSelectedObject
+              onChange={(selectedOption: any) => {
+                setTargetFi(selectedOption?.value || "");
+                setTargetAcct("");
+              }}
+            />
             <div style={{ display: "flex", gap: "1rem" }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: "block", marginBottom: "0.25rem" }}>
@@ -177,11 +236,17 @@ export default function CloseOrChangeAccountModal({
               <div style={{ flex: 1 }}>
                 <label style={{ display: "block", marginBottom: "0.25rem" }}>
                   Account number
+                  {accountNumberLength > 0 ? ` (${accountNumberLength} digits)` : ""}
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={accountNumberLength || undefined}
+                  disabled={accountNumberLength === 0}
                   value={targetAcct}
-                  onChange={(e) => setTargetAcct(e.target.value)}
+                  onChange={(e) =>
+                    setTargetAcct(e.target.value.replace(/\D/g, ""))
+                  }
                   style={{ width: "100%" }}
                 />
               </div>
