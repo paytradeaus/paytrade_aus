@@ -1,5 +1,6 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { buildMissingFieldsLog } from '../integrations/xero/utils/xero-missing-fields.util';
+import { extractAxiosErrorContext } from '../error-handler';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { jwtConstants } from 'src/api/auth/constants';
@@ -5372,7 +5373,9 @@ export class XeroWebhookService {
         // the body with a one-line, actionable explanation; keep the raw
         // payload only when we can't classify it.
         const rawMessage = err?.message || (typeof err === 'string' ? err : '');
+        const ctx = extractAxiosErrorContext(err);
         const statusCode =
+          ctx.status ??
           err?.response?.statusCode ??
           err?.statusCode ??
           err?.response?.status ??
@@ -5384,7 +5387,10 @@ export class XeroWebhookService {
             errMessage =
               `Xero returned 403 (not permitted) for ${invoiceType} ${invoice?.invoiceID}. ` +
               `The connected Xero user no longer has access to this record. ` +
-              `Check the user's role in Xero (Settings → Users) and reconnect the integration if it was recently changed.`;
+              `Check the user's role in Xero (Settings → Users) and reconnect the integration if it was recently changed.` +
+              (ctx.problemDetailsDetail && ctx.problemDetailsDetail !== 'AuthenticationUnsuccessful'
+                ? ` Xero said: ${ctx.problemDetailsDetail}`
+                : '');
             break;
           case 404:
             errMessage =
@@ -5401,23 +5407,62 @@ export class XeroWebhookService {
               `Xero rate-limited the ${invoiceType} fetch (HTTP 429). The 15-minute fallback will retry automatically.`;
             break;
           default:
-            if (statusCode && statusCode >= 500) {
+            if (statusCode && Number(statusCode) >= 500) {
               errMessage = `Xero is returning ${statusCode} (server error) for ${invoiceType} ${invoice?.invoiceID}. Will retry on next fallback run.`;
+            } else if (ctx.validationErrors.length > 0) {
+              // Highest-value path: Xero gave us specific validation feedback.
+              const desc =
+                ctx.xeroErrorNumberDescription ||
+                ctx.xeroErrorType ||
+                'Validation error';
+              errMessage = `${desc}: ${ctx.validationErrors.join('; ')}`;
+            } else if (!ctx.usedGenericFallback && ctx.message) {
+              // Use the structured one-liner (already includes ProblemDetails title etc).
+              errMessage = ctx.message;
             } else {
-              // Fall back to the raw message but cap length so the UI stays readable.
-              const truncated = String(rawMessage).slice(0, 400);
-              errMessage = truncated || 'Unknown error processing invoice';
+              // Last-resort fallback — surface what little context we have
+              // instead of a meaningless "An error occurred in Xero".
+              const parts: string[] = [];
+              if (statusCode) parts.push(`HTTP ${statusCode}`);
+              if (ctx.url) parts.push(`${ctx.method || 'GET'} ${ctx.url}`);
+              if (ctx.bodySnippet) parts.push(`body=${ctx.bodySnippet}`);
+              const hint = parts.length
+                ? parts.join(' — ')
+                : String(rawMessage).slice(0, 400);
+              errMessage = hint || 'Unknown error processing invoice';
             }
         }
+        // Build an "Open in Xero" deep link for the failing record so the
+        // user can jump straight to it from the sync log details page.
+        const xeroDeepLink = invoice?.invoiceID
+          ? invoiceType === 'bill'
+            ? `https://go.xero.com/AccountsPayable/Edit.aspx?InvoiceID=${invoice.invoiceID}`
+            : `https://go.xero.com/AccountsReceivable/Edit.aspx?InvoiceID=${invoice.invoiceID}`
+          : null;
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id || null,
           api_name: 'createClaimInPaytrade',
           api_payload: {
             sync_run_type,
             invoice_id: invoice?.invoiceID,
+            invoice_number: invoice?.invoiceNumber,
+            invoice_reference: invoice?.reference,
             tenant_id,
             type: invoiceType,
             status_code: statusCode,
+            // Structured Xero error context — surfaced in the sync log
+            // details UI so the user can see exactly what failed without
+            // grepping server logs.
+            xero_request_method: ctx.method,
+            xero_request_url: ctx.url,
+            xero_error_number: ctx.xeroErrorNumber,
+            xero_error_type: ctx.xeroErrorType,
+            xero_error_number_description: ctx.xeroErrorNumberDescription,
+            xero_problem_title: ctx.problemDetailsTitle,
+            xero_problem_detail: ctx.problemDetailsDetail,
+            xero_validation_errors: ctx.validationErrors,
+            xero_response_body: ctx.bodySnippet,
+            xero_deep_link: xeroDeepLink,
           },
           integration_id: xeroDetails.integration_id,
           log_template_id: sync_run_type === 'webhook' ? 252 : 412,
@@ -5428,6 +5473,9 @@ export class XeroWebhookService {
           reference_id: null,
           history: [
             `API triggered from ${invoiceType} ${sync_run_type}`,
+            `Failing record: ${invoiceType} ${invoice?.invoiceNumber || invoice?.invoiceID || '(unknown)'}` +
+              (invoice?.reference ? ` (ref ${invoice.reference})` : '') +
+              (xeroDeepLink ? ` — ${xeroDeepLink}` : ''),
             `Processing failed: ${errMessage}`,
           ],
           important_checks: {

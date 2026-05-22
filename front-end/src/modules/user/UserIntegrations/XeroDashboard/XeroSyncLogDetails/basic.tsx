@@ -1653,6 +1653,197 @@ export default function SyncLogDetailsBasic() {
                 </div>
               )
             )}
+            {(() => {
+              const ap = syncLogDetailsData?.api_payload || {};
+              const hasXeroCtx =
+                ap?.xero_request_url ||
+                ap?.xero_response_body ||
+                (Array.isArray(ap?.xero_validation_errors) &&
+                  ap.xero_validation_errors.length > 0) ||
+                ap?.xero_error_number != null ||
+                ap?.xero_error_type ||
+                ap?.xero_problem_title ||
+                ap?.xero_deep_link;
+              if (!hasXeroCtx) return null;
+              return (
+                <div className="pt_infodata">
+                  <div className="pt_infolistdata" style={{ width: "100%" }}>
+                    <h6>Xero API context</h6>
+                    <table style={{ width: "100%", fontSize: "0.92em" }}>
+                      <tbody>
+                        {ap?.status_code != null && (
+                          <tr>
+                            <td style={{ width: "180px", color: "#666" }}>HTTP status</td>
+                            <td>
+                              <strong
+                                style={{
+                                  color:
+                                    Number(ap.status_code) >= 400
+                                      ? statusColors["Failed"]
+                                      : "inherit",
+                                }}
+                              >
+                                {ap.status_code}
+                              </strong>
+                            </td>
+                          </tr>
+                        )}
+                        {(ap?.xero_request_method || ap?.xero_request_url) && (
+                          <tr>
+                            <td style={{ color: "#666" }}>Request</td>
+                            <td style={{ wordBreak: "break-all" }}>
+                              <code>
+                                {ap.xero_request_method || ""}{" "}
+                                {ap.xero_request_url || ""}
+                              </code>
+                            </td>
+                          </tr>
+                        )}
+                        {ap?.tenant_id && (
+                          <tr>
+                            <td style={{ color: "#666" }}>Tenant</td>
+                            <td>
+                              <code>{ap.tenant_id}</code>
+                            </td>
+                          </tr>
+                        )}
+                        {(ap?.invoice_number || ap?.invoice_id) && (
+                          <tr>
+                            <td style={{ color: "#666" }}>Failing record</td>
+                            <td>
+                              {ap.type ? `${ap.type} ` : ""}
+                              {ap.invoice_number || ap.invoice_id}
+                              {ap.invoice_reference
+                                ? ` (ref ${ap.invoice_reference})`
+                                : ""}
+                              {(() => {
+                                const link = ap.xero_deep_link;
+                                if (typeof link !== "string") return null;
+                                let safe = false;
+                                try {
+                                  const u = new URL(link);
+                                  safe =
+                                    u.protocol === "https:" &&
+                                    (u.hostname === "go.xero.com" ||
+                                      u.hostname.endsWith(".xero.com"));
+                                } catch {
+                                  safe = false;
+                                }
+                                if (!safe) return null;
+                                return (
+                                  <>
+                                    {" — "}
+                                    <a
+                                      href={link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      Open in Xero
+                                    </a>
+                                  </>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        )}
+                        {(ap?.xero_error_number != null ||
+                          ap?.xero_error_type) && (
+                          <tr>
+                            <td style={{ color: "#666" }}>Xero ErrorNumber</td>
+                            <td>
+                              {ap.xero_error_number != null
+                                ? `${ap.xero_error_number}`
+                                : ""}
+                              {ap.xero_error_type
+                                ? ` (${ap.xero_error_type})`
+                                : ""}
+                              {ap.xero_error_number_description && (
+                                <div style={{ color: "#666", marginTop: "2px" }}>
+                                  {ap.xero_error_number_description}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                        {ap?.xero_problem_title && (
+                          <tr>
+                            <td style={{ color: "#666" }}>Xero said</td>
+                            <td>
+                              <strong>{ap.xero_problem_title}</strong>
+                              {ap.xero_problem_detail
+                                ? `: ${ap.xero_problem_detail}`
+                                : ""}
+                            </td>
+                          </tr>
+                        )}
+                        {Array.isArray(ap?.xero_validation_errors) &&
+                          ap.xero_validation_errors.length > 0 && (
+                            <tr>
+                              <td style={{ color: "#666", verticalAlign: "top" }}>
+                                Validation errors
+                              </td>
+                              <td>
+                                <ul style={{ margin: 0, paddingLeft: "18px" }}>
+                                  {ap.xero_validation_errors.map(
+                                    (msg: string, i: number) => (
+                                      <li key={i}>{msg}</li>
+                                    )
+                                  )}
+                                </ul>
+                              </td>
+                            </tr>
+                          )}
+                        {ap?.xero_response_body && (
+                          <tr>
+                            <td style={{ color: "#666", verticalAlign: "top" }}>
+                              Raw response
+                            </td>
+                            <td>
+                              <details>
+                                <summary
+                                  style={{
+                                    cursor: "pointer",
+                                    color: "#666",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  Show body snippet
+                                </summary>
+                                <pre
+                                  style={{
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-all",
+                                    background: "#fff5f5",
+                                    padding: "8px",
+                                    borderRadius: "4px",
+                                    marginTop: "4px",
+                                    fontSize: "0.85em",
+                                    maxHeight: "200px",
+                                    overflow: "auto",
+                                  }}
+                                >
+                                  {(() => {
+                                    try {
+                                      return JSON.stringify(
+                                        JSON.parse(ap.xero_response_body),
+                                        null,
+                                        2
+                                      );
+                                    } catch {
+                                      return ap.xero_response_body;
+                                    }
+                                  })()}
+                                </pre>
+                              </details>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="pt_infodata">
               {syncLogDetailsData?.notification && (
                 <div className="pt_infolistdata">
