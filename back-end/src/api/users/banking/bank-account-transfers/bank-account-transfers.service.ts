@@ -6,6 +6,7 @@ import { BankAccountTransfers } from 'src/entities/bank-account-transfers.entity
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { PaymentClaims } from 'src/entities/banking.entity';
+import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { NoticesService } from '../../notices/notices.service';
 import {
@@ -640,6 +641,107 @@ export class BankAccountTransfersService {
           })
           .andWhere(`current_status NOT IN (:...settled)`, { settled })
           .execute();
+
+        // 2b. Migrate `retention_details` rows for RTA→RTA transfers.
+        //
+        // Retention rows are anchored to a bank account indirectly, via
+        // `payment_details.retention_account` on their parent payment.
+        // Step 2 above only repoints retention_account for in-flight
+        // (non-settled) payments, but a Retained retention typically
+        // lives on a Confirmed-Matched (settled) parent payment — so
+        // without this step, retained funds stay logically anchored to
+        // the closed source account even though the cash has moved.
+        //
+        // Per-item choices live at
+        //   carry_across_choices.open_retention[retention_id]
+        //     -> 'carry' | 'release' | 'exclude'
+        // Default (unspecified) is 'carry' — anything else leaves the
+        // row tied to the source account, which is the same outcome
+        // the user gets today for a release/exclude choice.
+        //
+        // Because `retention_account` is single-valued per payment,
+        // if a payment has a mix of 'carry' and 'leave' choices we
+        // cannot split it; we throw to roll the whole cutover back.
+        if (source.account_type === 'Retention Trust Account') {
+          const openRetentionChoices: Record<string, string> =
+            (xfer.carry_across_choices as any)?.open_retention ?? {};
+          const retainedRows: Array<{
+            retention_id: string;
+            payment_id: string;
+          }> = await mgr.query(
+            `SELECT rd.retention_id, rd.payment_id
+             FROM retention_details rd
+             JOIN payment_details pd ON pd.payment_id = rd.payment_id
+             WHERE pd.retention_account = $1
+               AND rd.retention_status = 'Retained'`,
+            [source.bank_account_id],
+          );
+
+          const carryRetentionIds: string[] = [];
+          const leaveRetentionIds = new Set<string>();
+          for (const r of retainedRows) {
+            const choice =
+              openRetentionChoices[String(r.retention_id)] ?? 'carry';
+            if (choice === 'carry') {
+              carryRetentionIds.push(String(r.retention_id));
+            } else {
+              leaveRetentionIds.add(String(r.retention_id));
+            }
+          }
+
+          if (carryRetentionIds.length > 0) {
+            const paymentIdsToMove = new Set<string>();
+            for (const r of retainedRows) {
+              if (!leaveRetentionIds.has(String(r.retention_id))) {
+                paymentIdsToMove.add(String(r.payment_id));
+              }
+            }
+            for (const pid of paymentIdsToMove) {
+              const onSame = retainedRows.filter(
+                (r) => String(r.payment_id) === pid,
+              );
+              const hasLeave = onSame.some((r) =>
+                leaveRetentionIds.has(String(r.retention_id)),
+              );
+              if (hasLeave) {
+                throw new Error(
+                  `Retention rows on payment ${pid} have conflicting carry-across choices; payment_details.retention_account is single-valued and cannot be split. Resolve the choices or release the leftover rows before retrying.`,
+                );
+              }
+            }
+            if (paymentIdsToMove.size > 0) {
+              await mgr
+                .getRepository(PaymentDetails)
+                .createQueryBuilder()
+                .update()
+                .set({
+                  retention_account: dest.bank_account_id,
+                  updated_by: decoded?.userId,
+                })
+                .where(`payment_id IN (:...pids)`, {
+                  pids: [...paymentIdsToMove],
+                })
+                .execute();
+            }
+            // Bump retention_details audit columns for the carried rows
+            // so the move is visible in the row history.
+            await mgr
+              .getRepository(RetentionDetails)
+              .createQueryBuilder()
+              .update()
+              .set({
+                updated_by: decoded?.userId,
+                updated_on: moment.tz('UTC').toDate(),
+              })
+              .where(`retention_id IN (:...rids)`, {
+                rids: carryRetentionIds,
+              })
+              .execute();
+          }
+          this.logger.log(
+            `[XFER_RETENTION_MIGRATED] transfer_id=${transfer_id} retained_total=${retainedRows.length} carried=${carryRetentionIds.length} left_behind=${leaveRetentionIds.size}`,
+          );
+        }
 
         // 3. Flip source status + persist destination snapshot into
         // closing_target_* so the existing TA2 closing notice
