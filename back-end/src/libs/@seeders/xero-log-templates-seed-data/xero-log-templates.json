@@ -3753,7 +3753,7 @@
     "from_xero": true,
     "error_code": "BANK_MISSING_FIELDS",
     "associated_log_ids": [
-      379
+      380
     ]
   },
   {
@@ -3926,7 +3926,7 @@
     "from_xero": true,
     "error_code": "SCHEDULER_BANK_MISSING_FIELDS",
     "associated_log_ids": [
-      365
+      380
     ]
   },
   {
@@ -4017,7 +4017,7 @@
     "from_xero": true,
     "error_code": "BANK_UPGRADE_SUBSCRIPTION",
     "associated_log_ids": [
-      388
+      380
     ]
   },
   {
@@ -4029,7 +4029,7 @@
     "from_xero": true,
     "error_code": "SCHEDULER_BANK_UPGRADE_SUBSCRIPTION",
     "associated_log_ids": [
-      387
+      380
     ]
   },
   {

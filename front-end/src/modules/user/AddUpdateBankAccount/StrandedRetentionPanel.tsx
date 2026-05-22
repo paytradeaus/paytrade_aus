@@ -210,7 +210,7 @@ export default function StrandedRetentionPanel({
         s.add(String(r.payment_id));
       }
     }
-    return [...s];
+    return Array.from(s);
   }, [rows, effectiveIds]);
 
   const openPickerFor = (ids: Iterable<number>) => {
@@ -232,7 +232,7 @@ export default function StrandedRetentionPanel({
     const result = await RelocateStrandedRetention({
       source_bank_account_id: bankAccountId,
       destination_bank_account_id: destinationId,
-      retention_ids: [...effectiveIds].map((n) => Number(n)),
+      retention_ids: Array.from(effectiveIds).map((n) => Number(n)),
     });
     setSubmitting(false);
     if (result?.ok) {
