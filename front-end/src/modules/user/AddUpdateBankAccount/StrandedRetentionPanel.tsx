@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { gql } from "@apollo/client";
 import { apolloClient } from "@/network/apolloClient";
 import {
@@ -32,6 +32,9 @@ interface StrandedRow {
 
 /**
  * Task #249 — Stranded retention panel.
+ * Task #254 — Bulk select + "Move selected to…" so a Transferred RTA
+ * with many leftover retention rows can be cleared in one mutation
+ * call instead of clicking Move-to per row.
  *
  * Surfaces `retention_details` rows that are still tied (via their
  * parent payment's `retention_account`) to a Transferred RTA after a
@@ -49,7 +52,11 @@ interface StrandedRow {
  * "Move to..." opens a small RTA picker and calls the
  * `relocateStrandedRetention` mutation, which re-points the parent
  * payment's `retention_account` to the chosen Open RTA (atomically,
- * one payment at a time, all rows on a payment together).
+ * one payment at a time, all rows on a payment together). Because
+ * `payment_details.retention_account` is single-valued, selecting any
+ * row on a payment implicitly drags every other Retained sibling on
+ * that payment along — the picker shows this clearly so the user
+ * isn't surprised by the resulting move.
  *
  * Styling note: only existing system utility classes are used here
  * (mb_1, mb_0_5, mt_0_5, invalid, pt_yellow, width_100). No new CSS
@@ -64,7 +71,11 @@ export default function StrandedRetentionPanel({
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(true);
   const [rows, setRows] = useState<StrandedRow[]>([]);
-  const [pickerRow, setPickerRow] = useState<StrandedRow | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [pickerOpen, setPickerOpen] = useState<boolean>(false);
+  const [pickerInitialIds, setPickerInitialIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [eligible, setEligible] = useState<any[]>([]);
   const [destinationId, setDestinationId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -80,6 +91,7 @@ export default function StrandedRetentionPanel({
     setLoading(true);
     const res = await GetBankAccountPreflight(bankAccountId);
     setRows((res?.preflight?.open_retention ?? []) as StrandedRow[]);
+    setSelectedIds(new Set());
     setLoading(false);
   }, [bankAccountId, isRta]);
 
@@ -89,7 +101,7 @@ export default function StrandedRetentionPanel({
 
   // Load eligible destination RTAs lazily, only when the picker opens.
   useEffect(() => {
-    if (!pickerRow) return;
+    if (!pickerOpen) return;
     let cancelled = false;
     (async () => {
       try {
@@ -130,8 +142,8 @@ export default function StrandedRetentionPanel({
             (a: any) =>
               Number(a.bank_account_id) !== Number(bankAccountId) &&
               a.status === "Open" &&
-              a.account_type === "Retention Trust Account"
-          )
+              a.account_type === "Retention Trust Account",
+          ),
         );
       } catch {
         if (!cancelled) setEligible([]);
@@ -140,25 +152,98 @@ export default function StrandedRetentionPanel({
     return () => {
       cancelled = true;
     };
-  }, [pickerRow, bankAccountId]);
+  }, [pickerOpen, bankAccountId]);
+
+  // Group rows by parent payment so we can show "what's about to move".
+  const rowsByPayment = useMemo(() => {
+    const m = new Map<string, StrandedRow[]>();
+    for (const r of rows) {
+      const key = String(r.payment_id ?? `r${r.id}`);
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(r);
+    }
+    return m;
+  }, [rows]);
+
+  // Expand the user's selection to include every Retained sibling on
+  // the same payment — the backend will reject a partial selection
+  // because `payment_details.retention_account` is single-valued.
+  const expandWithSiblings = useCallback(
+    (ids: Set<number>): Set<number> => {
+      const out = new Set<number>(ids);
+      const affectedPayments = new Set<string>();
+      for (const r of rows) {
+        if (out.has(Number(r.id)) && r.payment_id != null) {
+          affectedPayments.add(String(r.payment_id));
+        }
+      }
+      for (const r of rows) {
+        if (
+          r.payment_id != null &&
+          affectedPayments.has(String(r.payment_id))
+        ) {
+          out.add(Number(r.id));
+        }
+      }
+      return out;
+    },
+    [rows],
+  );
+
+  const effectiveIds = useMemo(
+    () => expandWithSiblings(pickerInitialIds),
+    [pickerInitialIds, expandWithSiblings],
+  );
+  const dragInSiblings = useMemo(() => {
+    const extras: StrandedRow[] = [];
+    for (const r of rows) {
+      if (effectiveIds.has(Number(r.id)) && !pickerInitialIds.has(Number(r.id))) {
+        extras.push(r);
+      }
+    }
+    return extras;
+  }, [rows, effectiveIds, pickerInitialIds]);
+  const affectedPaymentIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) {
+      if (effectiveIds.has(Number(r.id)) && r.payment_id != null) {
+        s.add(String(r.payment_id));
+      }
+    }
+    return [...s];
+  }, [rows, effectiveIds]);
+
+  const openPickerFor = (ids: Iterable<number>) => {
+    setPickerInitialIds(new Set(ids));
+    setDestinationId(null);
+    setPickerOpen(true);
+  };
+
+  const closePicker = () => {
+    if (submitting) return;
+    setPickerOpen(false);
+    setPickerInitialIds(new Set());
+    setDestinationId(null);
+  };
 
   const handleMove = async () => {
-    if (!pickerRow || !destinationId) return;
+    if (!pickerOpen || !destinationId || effectiveIds.size === 0) return;
     setSubmitting(true);
     const result = await RelocateStrandedRetention({
       source_bank_account_id: bankAccountId,
       destination_bank_account_id: destinationId,
-      retention_ids: [Number(pickerRow.id)],
+      retention_ids: [...effectiveIds].map((n) => Number(n)),
     });
     setSubmitting(false);
     if (result?.ok) {
-      setPickerRow(null);
+      setPickerOpen(false);
+      setPickerInitialIds(new Set());
       setDestinationId(null);
       refresh();
     }
   };
 
-  const handleRelease = (row: StrandedRow) => {
+  const handleRelease = (_row: StrandedRow) => {
     // Release flow lives in the retention list — that page already
     // gates on contract status / payment lifecycle and lets the user
     // generate the necessary pay-out claim.
@@ -167,6 +252,21 @@ export default function StrandedRetentionPanel({
     } catch {
       /* ignore */
     }
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(rows.map((r) => Number(r.id))));
   };
 
   if (!isRta) return null;
@@ -209,9 +309,36 @@ export default function StrandedRetentionPanel({
             )}
           </small>
         </p>
+        <div
+          className="mb_0_5"
+          style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+        >
+          <CustomButton
+            actionType="button"
+            buttonType={`${buttonType.OUTLINE_SECONDARY} ${buttonType.SMALL_BUTTON}`}
+            buttonName={
+              selectedIds.size > 0
+                ? `Move selected to… (${selectedIds.size})`
+                : "Move selected to…"
+            }
+            disabled={selectedIds.size === 0}
+            onClick={() => openPickerFor(selectedIds)}
+          />
+        </div>
         <table className="width_100 mt_0_5">
           <thead>
             <tr>
+              <th style={{ textAlign: "left", width: 32 }}>
+                <input
+                  type="checkbox"
+                  aria-label="Select all stranded retention rows"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected;
+                  }}
+                  onChange={toggleAll}
+                />
+              </th>
               <th style={{ textAlign: "left" }}>Retention</th>
               <th style={{ textAlign: "left" }}>Project</th>
               <th style={{ textAlign: "left" }}>Beneficiary</th>
@@ -222,6 +349,14 @@ export default function StrandedRetentionPanel({
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`Select retention ${r.id}`}
+                    checked={selectedIds.has(Number(r.id))}
+                    onChange={() => toggleOne(Number(r.id))}
+                  />
+                </td>
                 <td>#{r.id}</td>
                 <td>{r.project_name ?? r.reference ?? "—"}</td>
                 <td>{r.party_name ?? "—"}</td>
@@ -239,10 +374,7 @@ export default function StrandedRetentionPanel({
                     actionType="button"
                     buttonType={`${buttonType.OUTLINE_SECONDARY} ${buttonType.SMALL_BUTTON}`}
                     buttonName="Move to…"
-                    onClick={() => {
-                      setDestinationId(null);
-                      setPickerRow(r);
-                    }}
+                    onClick={() => openPickerFor([Number(r.id)])}
                   />
                 </td>
               </tr>
@@ -251,20 +383,21 @@ export default function StrandedRetentionPanel({
         </table>
       </div>
 
-      {pickerRow && (
+      {pickerOpen && (
         <BaseModal
           modalId="move-stranded-retention"
           displayModal
-          title="Move retention to another Retention Trust Account"
+          title={
+            pickerInitialIds.size > 1
+              ? "Move selected retention to another Retention Trust Account"
+              : "Move retention to another Retention Trust Account"
+          }
           firstButtonName="Cancel"
           secondButtonName={submitting ? "Moving…" : "Move retention"}
-          disableSecondButton={submitting || !destinationId}
-          onClose={() => {
-            if (!submitting) {
-              setPickerRow(null);
-              setDestinationId(null);
-            }
-          }}
+          disableSecondButton={
+            submitting || !destinationId || effectiveIds.size === 0
+          }
+          onClose={closePicker}
           onConfirm={() => {
             handleMove();
             return true;
@@ -272,22 +405,69 @@ export default function StrandedRetentionPanel({
         >
           <div>
             <p className="mb_0_5">
-              <strong>Retention:</strong> #{pickerRow.id}
-              {pickerRow.project_name ? ` — ${pickerRow.project_name}` : ""}
-              {pickerRow.party_name ? ` (${pickerRow.party_name})` : ""}
+              <strong>
+                {effectiveIds.size} retention row(s) across{" "}
+                {affectedPaymentIds.length} payment(s) will move.
+              </strong>
             </p>
-            <p className="mb_0_5">
-              <strong>Amount:</strong> $
-              {Number(pickerRow.amount ?? 0).toFixed(2)}
-            </p>
-            <p className="mb_1">
-              <small>
-                <span className="pt_yellow">Note:</span> All Retained rows on
-                the same parent payment will move together — the
-                retention_account field is single-valued per payment. If other
-                rows on the payment shouldn't move, release them first.
-              </small>
-            </p>
+            <div
+              className="mb_0_5"
+              style={{
+                maxHeight: 220,
+                overflowY: "auto",
+                border: "1px solid var(--pt-border, #ddd)",
+                borderRadius: 4,
+                padding: 8,
+              }}
+            >
+              {affectedPaymentIds.map((pid) => {
+                const group = (rowsByPayment.get(pid) ?? []).filter((r) =>
+                  effectiveIds.has(Number(r.id)),
+                );
+                return (
+                  <div key={pid} className="mb_0_5">
+                    <small>
+                      <strong>Payment #{pid}</strong>
+                    </small>
+                    <ul style={{ margin: "4px 0 0 16px" }}>
+                      {group.map((r) => {
+                        const dragged = !pickerInitialIds.has(Number(r.id));
+                        return (
+                          <li key={r.id}>
+                            <small>
+                              #{r.id}
+                              {r.project_name ? ` — ${r.project_name}` : ""}
+                              {r.party_name ? ` (${r.party_name})` : ""} · $
+                              {Number(r.amount ?? 0).toFixed(2)}
+                              {dragged ? (
+                                <>
+                                  {" "}
+                                  <span className="pt_yellow">
+                                    (sibling — must move together)
+                                  </span>
+                                </>
+                              ) : null}
+                            </small>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+            {dragInSiblings.length > 0 && (
+              <p className="mb_0_5">
+                <small>
+                  <span className="pt_yellow">Note:</span>{" "}
+                  {dragInSiblings.length} additional sibling row(s) on the
+                  same payment(s) have been included automatically — the
+                  retention_account field is single-valued per payment. If
+                  any of those shouldn't move, cancel and release them
+                  first.
+                </small>
+              </p>
+            )}
             <label className="mb_0_5">
               <strong>Destination Retention Trust Account</strong>
             </label>
