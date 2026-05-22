@@ -4703,7 +4703,9 @@ a.pt_linksbox {
   .pt_nav nav {
     height: auto;
     line-height: normal;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
     gap: 4px;
   }
 
@@ -4716,6 +4718,78 @@ a.pt_linksbox {
     font-size: var(--step--2);
     white-space: nowrap;
     margin-bottom: 0;
+  }
+
+  /* --- Header profile-dropdown mobile fix (Task #267) ---------------
+     Two issues on phones (<=576px):
+       1. The profile <ul> was wrapping to a second row because the
+          avatar button carried a 140px username box that wouldn't
+          fit beside the logo.
+       2. The opened dropdown panel was positioned with a -23%
+          translate and a fixed 300px inner width, so it slid off
+          the LEFT edge of the viewport on ~360px screens.
+     Fixes: collapse the desktop-only middle <ul>, compact the
+     avatar trigger (icon only, no username text), and anchor the
+     dropdown panel to the right edge of its <li> with a viewport-
+     bounded width. */
+
+  /* The middle <ul> only contains .desktop links which are hidden
+     on mobile, but its empty box still consumes flex space and
+     contributes to wrapping. */
+  .pt_nav nav > ul:nth-of-type(2) {
+    display: none;
+  }
+
+  .pt_nav .navSubmenuLapping {
+    margin: 0;
+    padding: 0;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .pt_nav ul li.pt_profiledrop {
+    margin: 0;
+  }
+
+  .pt_nav .avatarbutton {
+    margin: 0 !important;
+  }
+
+  .pt_nav .avatarbutton summary {
+    height: 40px;
+    padding: 4px !important;
+    margin: 0;
+  }
+
+  .pt_nav .avatarbutton .usernamebox.usertopnav {
+    display: none;
+  }
+
+  .pt_nav .avatar.useravatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pt_nav details.avatarbutton summary::after {
+    display: none;
+  }
+
+  /* Anchor the opened panel to the right of its <li> so it stays
+     inside the viewport. .navSubmenuLapping is already
+     position:relative (general.css), which is our containing block. */
+  .pt_nav details.dropdown.avatarbutton[open] summary + ul.useroptions {
+    position: absolute;
+    right: 0;
+    left: auto;
+    top: 48px;
+    transform: none;
+    width: auto;
+    max-width: 92vw;
+  }
+
+  details.dropdown .useroptions .useroptionsinner {
+    width: min(92vw, 300px) !important;
+    box-sizing: border-box;
   }
 }
 
