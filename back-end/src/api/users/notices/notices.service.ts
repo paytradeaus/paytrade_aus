@@ -6230,16 +6230,16 @@ export class NoticesService {
         // before/after section. We keep existing fields for
         // back-compat; new keys are additive and the template falls
         // back to empty if unused.
-        // Task #238 — `closing_target_financial_institution` may be stored
-        // as either a numeric institution ID (legacy/parity with the add-
-        // account form) or as a literal institution name supplied via the
-        // close/change modal. Resolve by ID when the value looks numeric,
-        // otherwise treat it as the display label directly.
+        // Task #241 — `closing_target_financial_institution` is stored as
+        // the canonical UUID id from `AdminListAllFinancialInstitution`
+        // (set by the Close/Change modal). Older rows may still hold a
+        // free-text label. Resolve by id when the value looks like a UUID
+        // and fall back to the raw string for back-compat.
         const _fi = bankAccount.closing_target_financial_institution;
         const closingTargetBank =
-          _fi && /^\d+$/.test(String(_fi))
+          _fi && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(_fi))
             ? await useRepo(this.bankDetails).findOne({
-                where: { id: Number(_fi) as any },
+                where: { id: String(_fi) as any },
               })
             : null;
         const closingTargetFiLabel = closingTargetBank?.institution_name
@@ -7271,11 +7271,14 @@ export class NoticesService {
           afterTransferAccountName:
             trustAccount?.closing_target_account_name || '',
           afterFinancialInstitution: await (async () => {
+            // Task #241 — resolve UUID id from AdminListAllFinancialInstitution
+            // to the institution display name; fall back to raw value for
+            // legacy free-text entries.
             const _fi = trustAccount?.closing_target_financial_institution;
             if (!_fi) return '';
-            if (/^\d+$/.test(String(_fi))) {
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(_fi))) {
               const row = await useRepo(this.bankDetails).findOne({
-                where: { id: Number(_fi) as any },
+                where: { id: String(_fi) as any },
               });
               return row?.institution_name || String(_fi);
             }
@@ -7423,11 +7426,14 @@ export class NoticesService {
           afterTransferAccountName:
             retentionAccount?.closing_target_account_name || '',
           afterFinancialInstitution: await (async () => {
+            // Task #241 — resolve UUID id from AdminListAllFinancialInstitution
+            // to the institution display name; fall back to raw value for
+            // legacy free-text entries.
             const _fi = retentionAccount?.closing_target_financial_institution;
             if (!_fi) return '';
-            if (/^\d+$/.test(String(_fi))) {
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(_fi))) {
               const row = await useRepo(this.bankDetails).findOne({
-                where: { id: Number(_fi) as any },
+                where: { id: String(_fi) as any },
               });
               return row?.institution_name || String(_fi);
             }
