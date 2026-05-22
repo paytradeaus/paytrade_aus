@@ -14,9 +14,13 @@ interface Props {
 
 /**
  * Task #244 — close-only modal. The Transferred path has moved to the
- * dedicated Trust Account Transfer wizard. This modal now surfaces the
+ * dedicated Trust Account Transfer wizard. This modal surfaces the
  * server-side preflight as an explicit list of failed-checks so the
  * user knows exactly what to fix before the Close button is enabled.
+ *
+ * Styling note: only existing system utility classes are used here
+ * (width_100, mb_1, mb_0_5, invalid, pt_yellow). No new CSS or
+ * hardcoded colors are introduced.
  */
 export default function CloseOrChangeAccountModal({
   bankAccountId,
@@ -76,55 +80,49 @@ export default function CloseOrChangeAccountModal({
         return true;
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div>
         {currentAccountName && (
-          <p style={{ margin: 0 }}>
+          <p className="mb_0_5">
             <strong>Account:</strong> {currentAccountName}
           </p>
         )}
-        <div
-          style={{
-            background: "#eef4ff",
-            border: "1px solid #c5d6f5",
-            padding: 10,
-            borderRadius: 4,
-            fontSize: "0.85rem",
-          }}
-        >
-          Looking to move the balance to a new trust account? Use{" "}
-          <strong>Transfer to another account</strong> instead — the wizard
-          re-points contracts and in-flight items atomically and gates on the
-          bank actually moving the money.
-        </div>
+
+        <p className="mb_1">
+          <small>
+            <span className="pt_yellow">Note:</span> Looking to move the
+            balance to a new trust account? Use{" "}
+            <strong>Transfer to another account</strong> instead — the wizard
+            re-points contracts and in-flight items atomically and gates on
+            the bank actually moving the money.
+          </small>
+        </p>
 
         {loadingPreflight && <p>Running preflight…</p>}
 
         {!loadingPreflight && preflight && (
           <>
-            <div>
+            <div className="mb_1">
               <strong>Preflight</strong>
-              <ul style={{ margin: "0.5rem 0", paddingLeft: 18 }}>
+              <ul>
                 <li>
-                  Current balance: ${Number(preflight.current_balance ?? 0).toFixed(2)}
+                  Current balance: $
+                  {Number(preflight.current_balance ?? 0).toFixed(2)}
                 </li>
-                <li>In-flight payments: {preflight.in_flight_payments_count}</li>
+                <li>
+                  In-flight payments: {preflight.in_flight_payments_count}
+                </li>
                 <li>Open claims: {preflight.open_claims_count}</li>
                 <li>Open retention: {preflight.open_retention_count}</li>
               </ul>
             </div>
             {preflight.close_blockers?.length > 0 && (
-              <div
-                style={{
-                  background: "#fde2e2",
-                  border: "1px solid #f5b3b3",
-                  padding: 10,
-                  borderRadius: 4,
-                }}
-              >
+              <div className="mb_1">
                 <strong>Resolve before closing:</strong>
-                <ul style={{ margin: "0.5rem 0 0", paddingLeft: 18 }}>
+                <ul>
                   {preflight.close_blockers.map((b: string) => (
-                    <li key={b}>{b}</li>
+                    <li key={b}>
+                      <small className="invalid">{b}</small>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -132,19 +130,17 @@ export default function CloseOrChangeAccountModal({
           </>
         )}
 
-        <div>
-          <label style={{ display: "block", marginBottom: "0.25rem" }}>
-            Effective date
-          </label>
+        <div className="mb_1">
+          <label>Effective date</label>
           <input
+            className="width_100"
             type="date"
             value={effectiveDate}
             onChange={(e) => setEffectiveDate(e.target.value)}
-            style={{ width: "100%" }}
           />
         </div>
 
-        <label>
+        <label className="mb_0_5">
           <input
             type="checkbox"
             checked={markAsSent}
@@ -153,10 +149,12 @@ export default function CloseOrChangeAccountModal({
           Mark notices as already sent (lodged outside PayTrade)
         </label>
 
-        <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
-          On Close, PayTrade queues a QBCC TA2 closing notice and a
-          Contracting Party Account Closing Notice for every contracted
-          beneficiary. You can review them from the Notices to Send list.
+        <p>
+          <small>
+            On Close, PayTrade queues a QBCC TA2 closing notice and a
+            Contracting Party Account Closing Notice for every contracted
+            beneficiary. You can review them from the Notices to Send list.
+          </small>
         </p>
       </div>
     </BaseModal>

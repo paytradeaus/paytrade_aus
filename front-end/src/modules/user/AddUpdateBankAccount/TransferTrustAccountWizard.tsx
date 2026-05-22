@@ -26,9 +26,9 @@ interface Props {
  *  3. Review + confirm — calls startTrustAccountTransfer, then optionally
  *     confirmTrustAccountTransfer to fire the atomic cutover immediately.
  *
- * The cutover is gated server-side and will only fire when the wizard
- * caller hits "Confirm transfer now" — otherwise the transfer row sits
- * in `Pending` waiting for a Xero BankTransfer match or reconciliation.
+ * Styling note: only existing system utility classes are used here
+ * (width_100, mb_1, mb_0_5, mt_0_5, invalid, pt_yellow). No new CSS or
+ * hardcoded colors are introduced.
  */
 export default function TransferTrustAccountWizard({
   sourceBankAccountId,
@@ -48,7 +48,6 @@ export default function TransferTrustAccountWizard({
   const [confirmNow, setConfirmNow] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Load preflight + eligible destinations on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -59,7 +58,6 @@ export default function TransferTrustAccountWizard({
       if (pre?.preflight?.current_balance != null) {
         setAmount(String(pre.preflight.current_balance));
       }
-      // Eligible destinations: query all bank accounts of same type, status=Open, exclude self.
       try {
         const resp = await apolloClient.query({
           query: gql`
@@ -129,7 +127,15 @@ export default function TransferTrustAccountWizard({
   };
 
   const secondButtonName =
-    step === 1 ? "Next: pick destination" : step === 2 ? "Next: review" : submitting ? "Submitting…" : confirmNow ? "Start & confirm transfer" : "Start transfer";
+    step === 1
+      ? "Next: pick destination"
+      : step === 2
+      ? "Next: review"
+      : submitting
+      ? "Submitting…"
+      : confirmNow
+      ? "Start & confirm transfer"
+      : "Start transfer";
 
   return (
     <BaseModal
@@ -157,45 +163,57 @@ export default function TransferTrustAccountWizard({
       {loading && <p>Loading preflight…</p>}
 
       {!loading && step === 1 && preflight && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ margin: 0 }}>
+        <div>
+          <p className="mb_0_5">
             <strong>Account:</strong> {sourceAccountName} ({sourceAccountType})
           </p>
-          <p style={{ margin: 0 }}>
-            <strong>Current balance:</strong> ${Number(preflight.current_balance ?? 0).toFixed(2)}
+          <p className="mb_0_5">
+            <strong>Current balance:</strong> $
+            {Number(preflight.current_balance ?? 0).toFixed(2)}
           </p>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+          <ul className="mb_1">
             <li>In-flight payments: {preflight.in_flight_payments_count}</li>
             <li>Open claims: {preflight.open_claims_count}</li>
             <li>Open retention: {preflight.open_retention_count}</li>
-            <li>Linked projects/contracts: {preflight.linked_projects?.length ?? 0}</li>
+            <li>
+              Linked projects/contracts:{" "}
+              {preflight.linked_projects?.length ?? 0}
+            </li>
           </ul>
           {preflight.transfer_blockers?.length > 0 && (
-            <div style={{ background: "#fff3cd", padding: 8, borderRadius: 4 }}>
+            <div className="mb_1">
               <strong>Cannot transfer yet:</strong>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <ul>
                 {preflight.transfer_blockers.map((b: string) => (
-                  <li key={b}>{b}</li>
+                  <li key={b}>
+                    <small className="invalid">{b}</small>
+                  </li>
                 ))}
               </ul>
             </div>
           )}
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
-            Carry-across: all open items above will be re-pointed at the destination on cutover. (Per-item exclusion is planned for a follow-up.)
+          <p>
+            <small>
+              <span className="pt_yellow">Note:</span> All open items above
+              will be re-pointed at the destination on cutover. (Per-item
+              exclusion is planned for a follow-up.)
+            </small>
           </p>
         </div>
       )}
 
       {!loading && step === 2 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
-              Destination account ({sourceAccountType})
+        <div>
+          <div className="mb_1">
+            <label>
+              <strong>
+                Destination account ({sourceAccountType})
+              </strong>
             </label>
             <select
+              className="width_100"
               value={destinationId ?? ""}
               onChange={(e) => setDestinationId(Number(e.target.value) || null)}
-              style={{ width: "100%" }}
             >
               <option value="">— Select destination —</option>
               {eligibleAccounts.map((a) => (
@@ -205,62 +223,74 @@ export default function TransferTrustAccountWizard({
               ))}
             </select>
             {eligibleAccounts.length === 0 && (
-              <p style={{ color: "#a00", margin: "8px 0 0", fontSize: "0.85rem" }}>
-                No eligible Open {sourceAccountType} accounts found. Create one first.
-              </p>
+              <small className="invalid">
+                No eligible Open {sourceAccountType} accounts found. Create
+                one first.
+              </small>
             )}
           </div>
-          <div>
-            <label style={{ display: "block", marginBottom: 4 }}>Transfer date</label>
+          <div className="mb_1">
+            <label>Transfer date</label>
             <input
+              className="width_100"
               type="date"
               value={transferDate}
               onChange={(e) => setTransferDate(e.target.value)}
-              style={{ width: "100%" }}
             />
           </div>
-          <div>
-            <label style={{ display: "block", marginBottom: 4 }}>Amount</label>
+          <div className="mb_1">
+            <label>Amount</label>
             <input
+              className="width_100"
               type="number"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              style={{ width: "100%" }}
             />
           </div>
         </div>
       )}
 
       {!loading && step === 3 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ margin: 0 }}>
-            Review your transfer. Nothing moves until you confirm. If you uncheck
-            "Confirm now", the transfer will sit Pending until you reconcile or a
-            matching Xero BankTransfer arrives.
+        <div>
+          <p className="mb_1">
+            Review your transfer. Nothing moves until you confirm. If you
+            uncheck "Confirm now", the transfer will sit Pending until you
+            reconcile or a matching Xero BankTransfer arrives.
           </p>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+          <ul className="mb_1">
             <li>
-              <strong>From:</strong> {sourceAccountName} (id {sourceBankAccountId})
+              <strong>From:</strong> {sourceAccountName} (id{" "}
+              {sourceBankAccountId})
             </li>
             <li>
               <strong>To:</strong>{" "}
               {eligibleAccounts.find((a) => a.bank_account_id === destinationId)
                 ?.account_name ?? destinationId}
             </li>
-            <li><strong>Date:</strong> {transferDate}</li>
-            <li><strong>Amount:</strong> ${Number(amount).toFixed(2)}</li>
+            <li>
+              <strong>Date:</strong> {transferDate}
+            </li>
+            <li>
+              <strong>Amount:</strong> ${Number(amount).toFixed(2)}
+            </li>
           </ul>
-          <label>
+          <label className="mb_0_5">
             <input
               type="checkbox"
               checked={confirmNow}
               onChange={(e) => setConfirmNow(e.target.checked)}
             />{" "}
-            Confirm now — apply atomic cutover immediately (you have verified the bank moved the money).
+            Confirm now — apply atomic cutover immediately (you have verified
+            the bank moved the money).
           </label>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
-            On cutover: source flips to <em>Transferred</em>, in-flight payments and contract pointers re-point to the destination, and closing notices (TA2 + per-beneficiary) are queued.
+          <p>
+            <small>
+              <span className="pt_yellow">Note:</span> On cutover, the source
+              flips to <em>Transferred</em>, in-flight payments and contract
+              pointers re-point to the destination, and closing notices
+              (TA2 + per-beneficiary) are queued.
+            </small>
           </p>
         </div>
       )}
