@@ -136,6 +136,19 @@ export class triggerAccountNoticesInput {
       'If true, generated notices are immediately marked as Sent (the user has lodged them outside the system) and no email is dispatched.',
   })
   mark_notices_as_sent?: boolean;
+
+  // Task #238 — when true the trigger pipeline emits the *closing*
+  // notice set (TA2 project / TA2 retention / per-beneficiary
+  // Contracting Party Account Closing Notice) instead of the
+  // open-account notice set (S18B / TA1). The closing context itself
+  // (mode, effective date, before/after values) must already be
+  // persisted on the bank_accounts row by the caller.
+  @Field({
+    nullable: true,
+    description:
+      'If true, generate the TA2 / Contracting Party Account Closing notice set rather than the open-account S18B / TA1 set.',
+  })
+  closing_trigger?: boolean;
 }
 
 @InputType({

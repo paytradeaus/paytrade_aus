@@ -8,6 +8,7 @@ import {
   AddBankAccountResponse,
   ChangeStatusOfBankAccountResponse,
   CheckExistenceOfBankAccountNumberResponse,
+  CloseOrChangeBankAccountResponse,
   EditDetailsOfABankAccountResponse,
   FetchAllBankAccountsResponse,
   FetchBankAccountDetailsForEditingResponse,
@@ -18,6 +19,7 @@ import {
   AddBankAccountInput,
   ChangeStatusOfBankAccountInput,
   CheckExistenceOfBankAccountNumberInput,
+  CloseOrChangeBankAccountInput,
   EditDetailsOfABankAccountInput,
   FetchAllBankAccountsInput,
   FetchBankAccountDetailsInput,
@@ -387,6 +389,45 @@ export class BankAccountsResolver {
         'ERROR',
         `Errored while fetching all bank accounts with message: ${errorMessage}`,
       );
+    }
+  }
+
+  // Task #238 — explicit close/transfer of a Project/Retention Trust
+  // account. Persists closing context on the bank_accounts row and
+  // fires the TA2 + per-beneficiary Contracting Party Account Closing
+  // notice set in a single transaction.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => CloseOrChangeBankAccountResponse, {
+    name: 'closeOrChangeBankAccount',
+    description:
+      'Close or transfer a Project/Retention Trust account and auto-fire QBCC TA2 + per-beneficiary Contracting Party Account Closing notices.',
+  })
+  async closeOrChangeBankAccount(
+    @Context() context,
+    @Args('payload', {
+      description: 'Payload describing the close/transfer action.',
+    })
+    payload: CloseOrChangeBankAccountInput,
+  ) {
+    try {
+      this.logger.log(
+        `Request received for closeOrChangeBankAccount: ${JSON.stringify(payload)}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result = await this.bankAccountsService.closeOrChangeBankAccount(
+        decoded,
+        payload,
+      );
+      if (result?.warning) {
+        return framedResponse('WARNING', result.warningMessage);
+      }
+      return framedResponse('SUCCESS', result?.successMessage);
+    } catch (error) {
+      this.logger.error(
+        `Error in closeOrChangeBankAccount: ${error?.message ? error.message : error}`,
+      );
+      return framedResponse('ERROR', error?.message ? error.message : error);
     }
   }
 

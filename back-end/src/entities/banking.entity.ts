@@ -7,6 +7,7 @@ import {
   DelegatePowers,
   PaymentClaimTypes,
   CashRetentionType,
+  ClosingMode,
 } from 'src/libs/@paytrade-types/paytrade-types';
 import {
   AfterInsert,
@@ -163,6 +164,39 @@ export class BankAccounts {
 
   @Column({ type: 'bigint', nullable: true })
   associated_cash_account_id: number;
+
+  // Task #238 — TA2 account-closing context. Set when the user invokes
+  // "Close or change account" or when an account rename auto-fires a
+  // name-changed TA2. Cleared (left set, but ignored) once the relevant
+  // closing notices have been generated; downstream generators key off
+  // these fields for the before/after / scenario flags on Form TA2.
+  @Column({
+    type: 'enum',
+    enum: ['Closed', 'Transferred', 'Renamed'],
+    nullable: true,
+  })
+  closing_mode?: ClosingMode;
+
+  @Column({ type: 'date', nullable: true })
+  closing_effective_date?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  closing_previous_account_name?: string;
+
+  @Column({ type: 'text', nullable: true })
+  closing_target_account_name?: string;
+
+  @Column({ type: 'text', nullable: true })
+  closing_target_financial_institution?: string;
+
+  @Column({ type: 'int', nullable: true })
+  closing_target_bsb?: number;
+
+  @Column({ type: 'text', nullable: true })
+  closing_target_account_number?: string;
+
+  @Column({ type: 'date', nullable: true })
+  closing_target_opening_date?: Date;
 
   @Column({ type: 'int', default: 0, nullable: true })
   last_journal_id: number;

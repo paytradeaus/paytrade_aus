@@ -512,6 +512,25 @@ export class FetchAllBankAccountsResponse {
   data: FetchAllBankAccountsWithTotalCount;
 }
 
+// Task #238 — response for the close/transfer mutation.
+@ObjectType({
+  description:
+    'Response returned after closing or transferring a trust bank account and auto-firing the TA2 + Contracting Party notice set.',
+})
+export class CloseOrChangeBankAccountResponse {
+  @Field({ description: 'Status of the operation.' })
+  status: string;
+
+  @Field({ description: 'Human-readable message describing the result.' })
+  message: string;
+
+  @Field({
+    nullable: true,
+    description: 'Result or confirmation message.',
+  })
+  data: string;
+}
+
 @ObjectType({
   description: 'Response returned after changing the status of a bank account.',
 })

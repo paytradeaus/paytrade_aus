@@ -2630,6 +2630,58 @@ type ClientsSuppliers {
   client_supplier_type: String!
 }
 
+"""
+Input to close, transfer, or rename a Project/Retention Trust account and auto-fire the TA2 + Contracting Party Account Closing notice set.
+"""
+input CloseOrChangeBankAccountInput {
+  """Bank account ID to close or transfer."""
+  bank_account_id: Float!
+
+  """Effective date of the close/transfer."""
+  closing_effective_date: DateTime!
+
+  """
+  Closing mode — 'Closed' or 'Transferred'. 'Renamed' is reserved for internal use.
+  """
+  closing_mode: String!
+
+  """
+  New account name for the replacement/transfer-target account (Transferred only).
+  """
+  closing_target_account_name: String
+
+  """Account number of the replacement account (Transferred only)."""
+  closing_target_account_number: String
+
+  """BSB of the replacement account (Transferred only)."""
+  closing_target_bsb: Float
+
+  """Financial institution of the replacement account (Transferred only)."""
+  closing_target_financial_institution: String
+
+  """Opening date of the replacement account (Transferred only)."""
+  closing_target_opening_date: DateTime
+
+  """
+  If true, generated TA2 / Contracting-Party closing notices are immediately marked Sent (user lodged externally) and no email is dispatched.
+  """
+  mark_notices_as_sent: Boolean
+}
+
+"""
+Response returned after closing or transferring a trust bank account and auto-firing the TA2 + Contracting Party notice set.
+"""
+type CloseOrChangeBankAccountResponse {
+  """Result or confirmation message."""
+  data: String
+
+  """Human-readable message describing the result."""
+  message: String!
+
+  """Status of the operation."""
+  status: String!
+}
+
 """Represents a common setting record"""
 type CommonSettings {
   """Unique identifier of the setting"""
@@ -14675,6 +14727,14 @@ type Mutation {
   clearAiChatHistory: AiChatResponse!
 
   """
+  Close or transfer a Project/Retention Trust account and auto-fire QBCC TA2 + per-beneficiary Contracting Party Account Closing notices.
+  """
+  closeOrChangeBankAccount(
+    """Payload describing the close/transfer action."""
+    payload: CloseOrChangeBankAccountInput!
+  ): CloseOrChangeBankAccountResponse!
+
+  """
   Completes a draft bank account with the required missing fields and activates it.
   """
   completeBankAccountDraft(
@@ -25658,6 +25718,11 @@ type sourceClaimDetails {
 input triggerAccountNoticesInput {
   """ID of the bank account."""
   bank_account_id: Float
+
+  """
+  If true, generate the TA2 / Contracting Party Account Closing notice set rather than the open-account S18B / TA1 set.
+  """
+  closing_trigger: Boolean
 
   """
   If true, generated notices are immediately marked as Sent (the user has lodged them outside the system) and no email is dispatched.

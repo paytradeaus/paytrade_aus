@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BankAccounts } from 'src/entities/banking.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { EntityManager, ILike, In, Not, Repository } from 'typeorm';
+import { BankAccountStatus } from 'src/libs/@paytrade-types/paytrade-types';
 import {
   AddBankAccountInput,
   ChangeStatusOfBankAccountInput,
   CheckExistenceOfBankAccountNumberInput,
+  CloseOrChangeBankAccountInput,
   EditDetailsOfABankAccountInput,
   FetchAllBankAccountsInput,
   FetchBankAccountDetailsInput,
@@ -672,6 +674,69 @@ export class BankAccountsService {
               `[NOTICE_TRIGGER_GATE] bank_account_id=${bank_account_id} just_became_open=${justBecameOpen} content_changed=${contentChanged} should_trigger=${shouldTrigger}`,
             );
 
+            // Task #238 — rename auto-trigger detection. If the *only*
+            // notice-content-affecting field that changed is
+            // `account_name`, AND a Sent S18B (PTA) or Sent TA1 (PTA
+            // or RTA) already exists for this account, we fire the
+            // TA2-Renamed + Contracting Party Account Closing notice
+            // set in addition to (or instead of) the regular
+            // S18B/TA1 regeneration. We persist `closing_mode='Renamed'`,
+            // the previous account name, and today's date so the
+            // generator branches can render the BEFORE/AFTER section.
+            // Already-Sent S18B/TA1 are NOT soft-deleted.
+            const renameOnlyDetected = (() => {
+              if (!contentChanged || !accountDetails) return false;
+              const before = { ...accountDetails, account_name: '' };
+              const after = { ...accountDetails, ...data, account_name: '' };
+              const sameApartFromName =
+                this.getNoticeContentFingerprint(before) ===
+                this.getNoticeContentFingerprint(after);
+              const nameChanged =
+                (accountDetails.account_name ?? '') !==
+                (data.account_name ?? accountDetails.account_name ?? '');
+              return sameApartFromName && nameChanged;
+            })();
+            let renameClosingShouldFire = false;
+            if (renameOnlyDetected) {
+              const repo =
+                transactionalEntityManager.getRepository(NoticeDetails);
+              const sentExisting = await repo.findOne({
+                where: {
+                  bank_account_id,
+                  notice_type: In([
+                    'Client S18B Project Trust Account Notice',
+                    'QBCC TA1 Project Trust Account Notice',
+                    'QBCC TA1 Retention Trust Account Notice',
+                  ]) as any,
+                  status: 'Sent' as any,
+                },
+              });
+              if (sentExisting) {
+                renameClosingShouldFire = true;
+                await transactionalEntityManager
+                  .getRepository(BankAccounts)
+                  .update(
+                    { bank_account_id },
+                    {
+                      closing_mode: 'Renamed',
+                      closing_previous_account_name:
+                        accountDetails.account_name,
+                      closing_effective_date: moment
+                        .tz('UTC')
+                        .startOf('day')
+                        .toDate(),
+                    } as any,
+                  );
+                this.logger.log(
+                  `[NOTICE_TRIGGER_GATE] rename-only auto-trigger bank_account_id=${bank_account_id} sent_notice_id=${sentExisting.notice_id} previous_name='${accountDetails.account_name}' new_name='${data.account_name}' — will fire TA2-Renamed + Contracting Party Account Closing notices.`,
+                );
+              } else {
+                this.logger.log(
+                  `[NOTICE_TRIGGER_GATE] rename-only detected for bank_account_id=${bank_account_id} but no Sent S18B/TA1 exists — skipping closing auto-trigger.`,
+                );
+              }
+            }
+
             if (shouldTrigger) {
               // When content changed (but the account was already Open), the
               // existing in-flight unsent notices are stale — soft-delete
@@ -743,6 +808,27 @@ export class BankAccountsService {
 
               if (notices?.status === 'ERROR') {
                 throw new Error('Notice generation failed');
+              }
+            }
+
+            // Task #238 — fire closing-notice set for the rename path.
+            // Runs after the regular trigger so any sniffer state is
+            // independent. Errors here roll back the whole edit txn.
+            if (renameClosingShouldFire) {
+              const closingNotices =
+                await this.noticeService.handleTriggerAccountNotices(
+                  decoded,
+                  {
+                    bank_account_id: bank_account_id,
+                    mark_notices_as_sent: markNoticesAsSent,
+                    closing_trigger: true,
+                  },
+                  transactionalEntityManager,
+                );
+              if (closingNotices?.status === 'ERROR') {
+                throw new Error(
+                  'Rename-auto-trigger closing notice generation failed',
+                );
               }
             }
           }
@@ -951,6 +1037,180 @@ export class BankAccountsService {
       const errMsg = await handleError(error);
 
       throw errMsg;
+    }
+  }
+
+  /**
+   * Task #238 — explicit user-driven close/transfer of a Project or
+   * Retention Trust account. Persists the closing context onto the
+   * `bank_accounts` row, flips the status, and fires the QBCC TA2 +
+   * per-beneficiary Contracting Party Account Closing notice set in
+   * the same transaction. Any failure (validation, persistence, or
+   * notice generation) rolls back the whole operation.
+   *
+   * 'Renamed' mode is reserved for the internal rename-auto-trigger
+   * path in `editDetailsOfABankAccount` and is rejected here.
+   */
+  async closeOrChangeBankAccount(
+    decoded,
+    payload: CloseOrChangeBankAccountInput,
+  ) {
+    try {
+      this.logger.log(
+        `Handling close/change bank account: ${JSON.stringify(payload)}`,
+      );
+      const {
+        bank_account_id,
+        closing_mode,
+        closing_effective_date,
+        closing_target_account_name,
+        closing_target_financial_institution,
+        closing_target_bsb,
+        closing_target_account_number,
+        closing_target_opening_date,
+        mark_notices_as_sent,
+      } = payload;
+
+      if (!bank_account_id) {
+        return { warning: true, warningMessage: 'bank_account_id is required.' };
+      }
+      if (closing_mode !== 'Closed' && closing_mode !== 'Transferred') {
+        return {
+          warning: true,
+          warningMessage:
+            "closing_mode must be 'Closed' or 'Transferred'. 'Renamed' is reserved for internal use.",
+        };
+      }
+      if (!closing_effective_date) {
+        return {
+          warning: true,
+          warningMessage: 'closing_effective_date is required.',
+        };
+      }
+
+      const account = await this.bankAccountsRepo.findOne({
+        where: { bank_account_id },
+      });
+      if (!account) {
+        return { warning: true, warningMessage: 'Bank account not found.' };
+      }
+      // Task #238 — tenant scoping. The caller's JWT must belong to the
+      // same company that owns this bank account. ADMIN impersonation is
+      // permitted (matches the rest of this service).
+      const callerCompanyId = decoded?.companyId ?? null;
+      const isAdmin = decoded?.logged_in_by === 'ADMIN';
+      if (
+        !isAdmin &&
+        (!callerCompanyId || Number(callerCompanyId) !== Number(account.company_id))
+      ) {
+        this.logger.warn(
+          `closeOrChangeBankAccount: tenant mismatch — caller company=${callerCompanyId}, account company=${account.company_id}, bank_account_id=${bank_account_id}`,
+        );
+        return {
+          warning: true,
+          warningMessage: 'You are not authorized to close or change this bank account.',
+        };
+      }
+      if (
+        account.account_type !== 'Project Trust Account' &&
+        account.account_type !== 'Retention Trust Account'
+      ) {
+        return {
+          warning: true,
+          warningMessage:
+            'Close/change is only available for Project Trust Account or Retention Trust Account.',
+        };
+      }
+      if (account.status !== 'Open') {
+        return {
+          warning: true,
+          warningMessage: `Cannot close/transfer a bank account in status '${account.status}'. Only 'Open' accounts are eligible.`,
+        };
+      }
+      if (closing_mode === 'Transferred') {
+        const missing: string[] = [];
+        if (!closing_target_account_name) missing.push('account name');
+        if (!closing_target_financial_institution)
+          missing.push('financial institution');
+        if (!closing_target_bsb) missing.push('BSB');
+        if (!closing_target_account_number) missing.push('account number');
+        if (!closing_target_opening_date) missing.push('opening date');
+        if (missing.length) {
+          return {
+            warning: true,
+            warningMessage: `Transferred mode requires the replacement account details: ${missing.join(', ')}.`,
+          };
+        }
+      }
+
+      const newStatus: BankAccountStatus =
+        closing_mode === 'Closed' ? 'Closed' : 'Transferred';
+
+      const response = await this.entityManager.transaction(
+        async (transactionalEntityManager) => {
+          await transactionalEntityManager
+            .getRepository(BankAccounts)
+            .update(
+              { bank_account_id },
+              {
+                closing_mode,
+                closing_effective_date,
+                closing_previous_account_name: account.account_name,
+                closing_target_account_name:
+                  closing_mode === 'Transferred'
+                    ? closing_target_account_name
+                    : null,
+                closing_target_financial_institution:
+                  closing_mode === 'Transferred'
+                    ? closing_target_financial_institution
+                    : null,
+                closing_target_bsb:
+                  closing_mode === 'Transferred' ? closing_target_bsb : null,
+                closing_target_account_number:
+                  closing_mode === 'Transferred'
+                    ? closing_target_account_number
+                    : null,
+                closing_target_opening_date:
+                  closing_mode === 'Transferred'
+                    ? closing_target_opening_date
+                    : null,
+                status: newStatus,
+                updated_by: decoded?.userId,
+                updated_on: moment.tz('UTC').toDate(),
+              } as any,
+            );
+
+          const notices =
+            await this.noticeService.handleTriggerAccountNotices(
+              decoded,
+              {
+                bank_account_id,
+                mark_notices_as_sent,
+                closing_trigger: true,
+              },
+              transactionalEntityManager,
+            );
+          if (notices?.status === 'ERROR') {
+            throw new Error(
+              `Closing notice generation failed: ${notices.message}`,
+            );
+          }
+          return { notices };
+        },
+      );
+
+      return {
+        successMessage:
+          closing_mode === 'Closed'
+            ? 'Account closed and TA2 / Contracting Party Account Closing notices generated.'
+            : 'Account transferred and TA2 / Contracting Party Account Closing notices generated.',
+        data: response,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Errored in closeOrChangeBankAccount: ${error?.message ? error.message : error}`,
+      );
+      throw error;
     }
   }
 

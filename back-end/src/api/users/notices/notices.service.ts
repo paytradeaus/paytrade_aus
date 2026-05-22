@@ -3719,7 +3719,81 @@ export class NoticesService {
         `?from=log`;
 
       if (bankAccountDetails) {
-        if (bankAccountDetails.project_ids) {
+        // Task #238 — closing-trigger short-circuit. When the caller has
+        // already persisted closing context on the bank_accounts row we
+        // emit the *closing* notice set (TA2 project, TA2 retention, and
+        // a Contracting Party Account Closing Notice per beneficiary)
+        // instead of the open-account S18B / TA1 set.
+        let projectTa2Notice = false;
+        let retentionTa2Notice = false;
+        let contractingPartyClosingBeneficiaries: Array<{
+          client_supplier_id: number;
+          client_supplier_name: string | null;
+          client_email_id: string | null;
+          project_id?: number | null;
+        }> = [];
+
+        if (data?.closing_trigger === true) {
+          if (
+            bankAccountDetails.account_type === 'Project Trust Account'
+          ) {
+            projectTa2Notice = true;
+            trustAccDelegation = await this.getSubscriptionType(
+              bankAccountDetails.company_id,
+              bank_account_id,
+              manager,
+            );
+          }
+          if (
+            bankAccountDetails.account_type === 'Retention Trust Account'
+          ) {
+            retentionTa2Notice = true;
+            retentionAccDelegation = await this.getSubscriptionType(
+              bankAccountDetails.company_id,
+              bank_account_id,
+              manager,
+            );
+          }
+
+          // Resolve distinct beneficiaries (contracting parties) for
+          // this account by walking ContractDetails. A contract is a
+          // beneficiary of this account when it uses the account as
+          // payment_from_account OR retention_from_account.
+          const contractRepo = manager
+            ? manager.getRepository(ContractDetails)
+            : this.contractDetails;
+          const benefRows = await contractRepo
+            .createQueryBuilder('c')
+            .leftJoin('c.clientSuppliersDetails', 'cs')
+            .select('c.client_supplier_id', 'client_supplier_id')
+            .addSelect('cs.client_supplier_name', 'client_supplier_name')
+            .addSelect('cs.client_email_id', 'client_email_id')
+            .addSelect('c.project_id', 'project_id')
+            .where(
+              `(c.payment_from_account = :bid OR c.retention_from_account = :bid)`,
+              { bid: bank_account_id },
+            )
+            .andWhere(`c.contract_status <> 'Deleted'`)
+            .andWhere(`c.client_supplier_id IS NOT NULL`)
+            .distinct(true)
+            .getRawMany();
+
+          const seen = new Set<number>();
+          for (const r of benefRows) {
+            const csid = Number(r.client_supplier_id);
+            if (!csid || seen.has(csid)) continue;
+            seen.add(csid);
+            contractingPartyClosingBeneficiaries.push({
+              client_supplier_id: csid,
+              client_supplier_name: r.client_supplier_name ?? null,
+              client_email_id: r.client_email_id ?? null,
+              project_id: r.project_id ? Number(r.project_id) : null,
+            });
+          }
+          this.logger.log(
+            `[NOTICE_TRIGGER] closing-trigger bank_account_id=${bank_account_id} account_type=${bankAccountDetails.account_type} closing_mode=${bankAccountDetails.closing_mode} beneficiaries=${contractingPartyClosingBeneficiaries.length}`,
+          );
+        } else if (bankAccountDetails.project_ids) {
           if (bankAccountDetails.account_type === 'Project Trust Account') {
             trustAccountNotice = true;
             trustAccDelegation = await this.getSubscriptionType(
@@ -3745,6 +3819,10 @@ export class NoticesService {
           trustAccountNotice: trustAccountNotice,
           trustQBCC: trustQBCC,
           retentionQBCC: retentionQBCC,
+          // Task #238 — closing-trigger flags
+          projectTa2Notice,
+          retentionTa2Notice,
+          contractingPartyClosingBeneficiaries,
           trustAccDelegation: trustAccDelegation,
           retentionAccDelegation: retentionAccDelegation,
           bank_account_id: bank_account_id,
@@ -4283,6 +4361,201 @@ export class NoticesService {
             }
           }
         }
+
+        // ──────────────────────────────────────────────────────────────
+        // Task #238 — closing-trigger branches. These fire when the
+        // caller has set `closing_trigger: true` and persisted closing
+        // context on the bank_accounts row. We generate-and-list (no
+        // auto-send) so the user picks them up in "Notices to send";
+        // the QBCC delegated auto-send is intentionally out of scope.
+        // ──────────────────────────────────────────────────────────────
+        const findExistingClosingPerBeneficiary = async (
+          notice_type: string,
+          client_supplier_id: number,
+        ) =>
+          noticeRepoForIdempotency.findOne({
+            where: {
+              bank_account_id: noticeListWithData.bank_account_id,
+              notice_type: notice_type as any,
+              client_supplier_id,
+              status: Not(In(['Delete-Unsent', 'Delete-Sent'])),
+            },
+          });
+
+        if ((noticeListWithData as any).projectTa2Notice === true) {
+          const existingTa2 = await findExistingAccountNotice(
+            'QBCC TA2 Account Closing Notice',
+          );
+          if (existingTa2) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='QBCC TA2 Account Closing Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingTa2.notice_id} existing_status=${existingTa2.status}`,
+            );
+          } else {
+            const generateNoticePayload: Partial<generateNoticeInput> = {
+              company_id: noticeListWithData.company_id,
+              bank_account_id: noticeListWithData.bank_account_id,
+              notice_type: 'QBCC TA2 Account Closing Notice',
+            };
+            const newNotice = (await this.handleGenerateNotice(
+              decoded,
+              generateNoticePayload as generateNoticeInput,
+              manager,
+              flowId,
+              {
+                paymentName: this.resolvePaymentName(noticeListWithData),
+                referenceId: noticeListWithData.bank_account_id,
+                referenceLink: noticeListWithData.bank_accoutn_link,
+              },
+            )) as generateNoticeResponse;
+            noticeGen = true;
+            if (markAsSent) {
+              try {
+                await this.generateNoticeDocument(
+                  { id: newNotice?.data?.id },
+                  decoded,
+                  manager,
+                );
+              } catch (pdfErr) {
+                this.logger.error(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+                );
+              }
+              await this.updateNoticeStatus(
+                {
+                  notice_id: newNotice.data.notice_id,
+                  status: 'Sent',
+                  delegated_qbcc: true,
+                  qbcc: true,
+                  reference_id: noticeListWithData.bank_account_id,
+                  reference_link: noticeListWithData.bank_accoutn_link,
+                },
+                decoded?.userId,
+                manager,
+              );
+            }
+          }
+        }
+
+        if ((noticeListWithData as any).retentionTa2Notice === true) {
+          const existingRetTa2 = await findExistingAccountNotice(
+            'QBCC TA2 Retention Account Closing Notice',
+          );
+          if (existingRetTa2) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='QBCC TA2 Retention Account Closing Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingRetTa2.notice_id} existing_status=${existingRetTa2.status}`,
+            );
+          } else {
+            const generateNoticePayload: Partial<generateNoticeInput> = {
+              company_id: noticeListWithData.company_id,
+              bank_account_id: noticeListWithData.bank_account_id,
+              notice_type: 'QBCC TA2 Retention Account Closing Notice',
+            };
+            const newNotice = (await this.handleGenerateNotice(
+              decoded,
+              generateNoticePayload as generateNoticeInput,
+              manager,
+              flowId,
+              {
+                paymentName: this.resolvePaymentName(noticeListWithData),
+                referenceId: noticeListWithData.bank_account_id,
+                referenceLink: noticeListWithData.bank_accoutn_link,
+              },
+            )) as generateNoticeResponse;
+            noticeGen = true;
+            if (markAsSent) {
+              try {
+                await this.generateNoticeDocument(
+                  { id: newNotice?.data?.id },
+                  decoded,
+                  manager,
+                );
+              } catch (pdfErr) {
+                this.logger.error(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+                );
+              }
+              await this.updateNoticeStatus(
+                {
+                  notice_id: newNotice.data.notice_id,
+                  status: 'Sent',
+                  delegated_qbcc: true,
+                  qbcc: true,
+                  reference_id: noticeListWithData.bank_account_id,
+                  reference_link: noticeListWithData.bank_accoutn_link,
+                },
+                decoded?.userId,
+                manager,
+              );
+            }
+          }
+        }
+
+        const beneficiaries =
+          ((noticeListWithData as any).contractingPartyClosingBeneficiaries as Array<{
+            client_supplier_id: number;
+            client_supplier_name: string | null;
+            client_email_id: string | null;
+            project_id?: number | null;
+          }>) || [];
+        for (const benef of beneficiaries) {
+          const existingCp = await findExistingClosingPerBeneficiary(
+            'Contracting Party Account Closing Notice',
+            benef.client_supplier_id,
+          );
+          if (existingCp) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='Contracting Party Account Closing Notice' bank_account_id=${noticeListWithData.bank_account_id} client_supplier_id=${benef.client_supplier_id} existing_notice_id=${existingCp.notice_id} existing_status=${existingCp.status}`,
+            );
+            continue;
+          }
+          const generateNoticePayload: Partial<generateNoticeInput> = {
+            company_id: noticeListWithData.company_id,
+            bank_account_id: noticeListWithData.bank_account_id,
+            client_supplier_id: benef.client_supplier_id,
+            project_id: benef.project_id ?? undefined,
+            notice_type: 'Contracting Party Account Closing Notice',
+          };
+          const newNotice = (await this.handleGenerateNotice(
+            decoded,
+            generateNoticePayload as generateNoticeInput,
+            manager,
+            flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.bank_account_id,
+              referenceLink: noticeListWithData.bank_accoutn_link,
+              toName: benef.client_supplier_name ?? undefined,
+              toMail: benef.client_email_id ?? undefined,
+            },
+          )) as generateNoticeResponse;
+          noticeGen = true;
+          if (markAsSent) {
+            try {
+              await this.generateNoticeDocument(
+                { id: newNotice?.data?.id },
+                decoded,
+                manager,
+              );
+            } catch (pdfErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+              );
+            }
+            await this.updateNoticeStatus(
+              {
+                notice_id: newNotice.data.notice_id,
+                status: 'Sent',
+                reference_id: noticeListWithData.bank_account_id,
+                reference_link: noticeListWithData.bank_accoutn_link,
+                toName: benef.client_supplier_name ?? undefined,
+                toMail: benef.client_email_id ?? undefined,
+              },
+              decoded?.userId,
+              manager,
+            );
+          }
+        }
+
         if (noticeGen === true && userMode === 'Normal') {
           return framedResponse(
             'SUCCESS',
@@ -5831,6 +6104,25 @@ export class NoticesService {
           where: { id: bankAccount.financial_institution },
         });
 
+        // Task #238 — surface the closing-context fields stored on the
+        // bank_accounts row so the template can render the right
+        // before/after section. We keep existing fields for
+        // back-compat; new keys are additive and the template falls
+        // back to empty if unused.
+        // Task #238 — `closing_target_financial_institution` may be stored
+        // as either a numeric institution ID (legacy/parity with the add-
+        // account form) or as a literal institution name supplied via the
+        // close/change modal. Resolve by ID when the value looks numeric,
+        // otherwise treat it as the display label directly.
+        const _fi = bankAccount.closing_target_financial_institution;
+        const closingTargetBank =
+          _fi && /^\d+$/.test(String(_fi))
+            ? await useRepo(this.bankDetails).findOne({
+                where: { id: Number(_fi) as any },
+              })
+            : null;
+        const closingTargetFiLabel = closingTargetBank?.institution_name
+          || (_fi ? String(_fi) : '');
         pdfData = {
           paytradeLogo: paytradeLogo,
           noticeData: {
@@ -5846,6 +6138,24 @@ export class NoticesService {
             sign: subscription?.signature ? subscription.signature : ' ',
             opening_date: convertToLocalDate(bankAccount.opening_date),
             notice_date: convertToLocalDate(notice.created_on),
+            // Task #238 closing context
+            closing_mode: bankAccount.closing_mode || 'Closed',
+            closing_effective_date: bankAccount.closing_effective_date
+              ? convertToLocalDate(bankAccount.closing_effective_date)
+              : convertToLocalDate(notice.created_on),
+            closing_previous_account_name:
+              bankAccount.closing_previous_account_name || '',
+            closing_target_account_name:
+              bankAccount.closing_target_account_name || '',
+            closing_target_financial_institution: closingTargetFiLabel,
+            closing_target_bsb: bankAccount.closing_target_bsb
+              ? padBsb6(bankAccount.closing_target_bsb)
+              : '',
+            closing_target_account_number:
+              bankAccount.closing_target_account_number || '',
+            closing_target_opening_date: bankAccount.closing_target_opening_date
+              ? convertToLocalDate(bankAccount.closing_target_opening_date)
+              : '',
           },
         };
       }
@@ -6796,7 +7106,14 @@ export class NoticesService {
           trusteeEmail: pdfData.trusteeDetails?.mail || '',
           isProjectTrust: true,
           isRetentionTrust: '',
-          beforeAccountName: pdfData.trustAcct?.name || '',
+          // Task #238 — for Renamed we want the BEFORE name to be the
+          // previous (pre-rename) name; for Closed/Transferred the
+          // current account row's name is already the name on record.
+          beforeAccountName:
+            trustAccount?.closing_mode === 'Renamed' &&
+            trustAccount?.closing_previous_account_name
+              ? trustAccount.closing_previous_account_name
+              : pdfData.trustAcct?.name || '',
           beforeFinancialInstitution: pdfData.trustAcct?.finIns || '',
           beforeBsb: pdfData.trustAcct?.name
             ? `${pdfData.trustAcct?.bsb}`
@@ -6804,18 +7121,53 @@ export class NoticesService {
           beforeAccountNumber: pdfData.trustAcct?.name
             ? pdfData.trustAcct?.accno
             : '',
-          hasClosedAndEnded: true,
-          dateAccountClosed: pdfData.notice_date?.noticeDate || '',
-          hasTransferred: '',
-          dateAccountTransferred: '',
-          hasNameChanged: '',
-          afterNameChangeAccountName: '',
-          dateOfChange: '',
-          afterTransferAccountName: '',
-          afterFinancialInstitution: '',
-          afterBsb: '',
-          afterAccountNumber: '',
-          afterDateOpened: '',
+          // Task #238 — scenario flags driven by closing_mode
+          hasClosedAndEnded:
+            !trustAccount?.closing_mode || trustAccount.closing_mode === 'Closed',
+          dateAccountClosed:
+            (!trustAccount?.closing_mode ||
+              trustAccount.closing_mode === 'Closed')
+              ? (trustAccount?.closing_effective_date
+                  ? (convertToLocalDate(trustAccount.closing_effective_date) as any)?.noticeDate
+                  : pdfData.notice_date?.noticeDate) || ''
+              : '',
+          hasTransferred: trustAccount?.closing_mode === 'Transferred',
+          dateAccountTransferred:
+            trustAccount?.closing_mode === 'Transferred' &&
+            trustAccount?.closing_effective_date
+              ? (convertToLocalDate(trustAccount.closing_effective_date) as any)?.noticeDate || ''
+              : '',
+          hasNameChanged: trustAccount?.closing_mode === 'Renamed',
+          afterNameChangeAccountName:
+            trustAccount?.closing_mode === 'Renamed'
+              ? trustAccount?.account_name || ''
+              : '',
+          dateOfChange:
+            trustAccount?.closing_mode === 'Renamed' &&
+            trustAccount?.closing_effective_date
+              ? (convertToLocalDate(trustAccount.closing_effective_date) as any)?.noticeDate || ''
+              : '',
+          afterTransferAccountName:
+            trustAccount?.closing_target_account_name || '',
+          afterFinancialInstitution: await (async () => {
+            const _fi = trustAccount?.closing_target_financial_institution;
+            if (!_fi) return '';
+            if (/^\d+$/.test(String(_fi))) {
+              const row = await useRepo(this.bankDetails).findOne({
+                where: { id: Number(_fi) as any },
+              });
+              return row?.institution_name || String(_fi);
+            }
+            return String(_fi);
+          })(),
+          afterBsb: trustAccount?.closing_target_bsb
+            ? `${padBsb6(trustAccount.closing_target_bsb)}`
+            : '',
+          afterAccountNumber:
+            trustAccount?.closing_target_account_number || '',
+          afterDateOpened: trustAccount?.closing_target_opening_date
+            ? (convertToLocalDate(trustAccount.closing_target_opening_date) as any)?.noticeDate || ''
+            : '',
           afterDateIntended: '',
           declarationCheckbox1: true || '',
           declarationCheckbox2: true || '',
@@ -6907,7 +7259,12 @@ export class NoticesService {
           trusteeEmail: pdfData.trusteeDetails?.mail || '',
           isProjectTrust: '',
           isRetentionTrust: true,
-          beforeAccountName: pdfData.retnAcct?.name || '',
+          // Task #238 — dynamic before/after driven by closing context.
+          beforeAccountName:
+            retentionAccount?.closing_mode === 'Renamed' &&
+            retentionAccount?.closing_previous_account_name
+              ? retentionAccount.closing_previous_account_name
+              : pdfData.retnAcct?.name || '',
           beforeFinancialInstitution: pdfData.retnAcct?.name
             ? pdfData.retnAcct?.finIns
             : '',
@@ -6917,18 +7274,52 @@ export class NoticesService {
           beforeAccountNumber: pdfData.retnAcct?.name
             ? pdfData.retnAcct?.accno
             : '',
-          hasClosedAndEnded: true,
-          dateAccountClosed: pdfData.notice_date?.noticeDate || '',
-          hasTransferred: '',
-          dateAccountTransferred: '',
-          hasNameChanged: '',
-          afterNameChangeAccountName: '',
-          dateOfChange: '',
-          afterTransferAccountName: '',
-          afterFinancialInstitution: '',
-          afterBsb: '',
-          afterAccountNumber: '',
-          afterDateOpened: '',
+          hasClosedAndEnded:
+            !retentionAccount?.closing_mode || retentionAccount.closing_mode === 'Closed',
+          dateAccountClosed:
+            (!retentionAccount?.closing_mode ||
+              retentionAccount.closing_mode === 'Closed')
+              ? (retentionAccount?.closing_effective_date
+                  ? (convertToLocalDate(retentionAccount.closing_effective_date) as any)?.noticeDate
+                  : pdfData.notice_date?.noticeDate) || ''
+              : '',
+          hasTransferred: retentionAccount?.closing_mode === 'Transferred',
+          dateAccountTransferred:
+            retentionAccount?.closing_mode === 'Transferred' &&
+            retentionAccount?.closing_effective_date
+              ? (convertToLocalDate(retentionAccount.closing_effective_date) as any)?.noticeDate || ''
+              : '',
+          hasNameChanged: retentionAccount?.closing_mode === 'Renamed',
+          afterNameChangeAccountName:
+            retentionAccount?.closing_mode === 'Renamed'
+              ? retentionAccount?.account_name || ''
+              : '',
+          dateOfChange:
+            retentionAccount?.closing_mode === 'Renamed' &&
+            retentionAccount?.closing_effective_date
+              ? (convertToLocalDate(retentionAccount.closing_effective_date) as any)?.noticeDate || ''
+              : '',
+          afterTransferAccountName:
+            retentionAccount?.closing_target_account_name || '',
+          afterFinancialInstitution: await (async () => {
+            const _fi = retentionAccount?.closing_target_financial_institution;
+            if (!_fi) return '';
+            if (/^\d+$/.test(String(_fi))) {
+              const row = await useRepo(this.bankDetails).findOne({
+                where: { id: Number(_fi) as any },
+              });
+              return row?.institution_name || String(_fi);
+            }
+            return String(_fi);
+          })(),
+          afterBsb: retentionAccount?.closing_target_bsb
+            ? `${padBsb6(retentionAccount.closing_target_bsb)}`
+            : '',
+          afterAccountNumber:
+            retentionAccount?.closing_target_account_number || '',
+          afterDateOpened: retentionAccount?.closing_target_opening_date
+            ? (convertToLocalDate(retentionAccount.closing_target_opening_date) as any)?.noticeDate || ''
+            : '',
           afterDateIntended: '',
           declarationCheckbox1: true || '',
           declarationCheckbox2: true || '',

@@ -529,6 +529,48 @@ export const EditDetailsOfABankAccount = async (
   }
 };
 
+export const CloseOrChangeBankAccount = async (
+  data: any,
+  successMsg?: string
+): Promise<any> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation CloseOrChangeBankAccount(
+          $payload: CloseOrChangeBankAccountInput!
+        ) {
+          closeOrChangeBankAccount(payload: $payload) {
+            data
+            message
+            status
+          }
+        }
+      `,
+      variables: { payload: data },
+    });
+    if (
+      response?.data?.closeOrChangeBankAccount?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(
+        successMsg ||
+          response?.data?.closeOrChangeBankAccount?.message ||
+          "Account closing notices have been queued."
+      );
+      return response?.data?.closeOrChangeBankAccount?.data ?? true;
+    }
+    if (
+      response?.data?.closeOrChangeBankAccount?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.closeOrChangeBankAccount?.message);
+      return false;
+    }
+    return false;
+  } catch (error: any) {
+    showErrorToast(error.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return false;
+  }
+};
+
 export const projectArraysCompare = (
   arr1: Array<number>,
   arr2: Array<number>

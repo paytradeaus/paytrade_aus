@@ -4,6 +4,7 @@ import { ClientSupplierRole } from 'src/entities/contract-details.entity';
 import {
   BankAccountStatus,
   BankAccountType,
+  ClosingMode,
   DelegatePowers,
 } from 'src/libs/@paytrade-types/paytrade-types';
 
@@ -273,6 +274,72 @@ export class ChangeStatusOfBankAccountInput {
 
   @Field({ description: 'New status for the bank account.' })
   status?: BankAccountStatus;
+}
+
+// Task #238 — explicit user action: close or transfer a Project/Retention
+// Trust account. Persists closing context on the bank_accounts row and
+// fires the QBCC TA2 + per-beneficiary Contracting Party Account Closing
+// Notice set. The 'Renamed' mode is reserved for the internal
+// rename-auto-trigger path inside `editDetailsOfABankAccount` and is NOT
+// accepted via this mutation.
+@InputType({
+  description:
+    'Input to close, transfer, or rename a Project/Retention Trust account ' +
+    'and auto-fire the TA2 + Contracting Party Account Closing notice set.',
+})
+export class CloseOrChangeBankAccountInput {
+  @Field({ description: 'Bank account ID to close or transfer.' })
+  bank_account_id: number;
+
+  @Field({
+    description:
+      "Closing mode — 'Closed' or 'Transferred'. 'Renamed' is reserved for internal use.",
+  })
+  closing_mode: ClosingMode;
+
+  @Field({ description: 'Effective date of the close/transfer.' })
+  closing_effective_date: Date;
+
+  @Field({
+    nullable: true,
+    description:
+      'New account name for the replacement/transfer-target account (Transferred only).',
+  })
+  closing_target_account_name?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Financial institution of the replacement account (Transferred only).',
+  })
+  closing_target_financial_institution?: string;
+
+  @Field({
+    nullable: true,
+    description: 'BSB of the replacement account (Transferred only).',
+  })
+  closing_target_bsb?: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'Account number of the replacement account (Transferred only).',
+  })
+  closing_target_account_number?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Opening date of the replacement account (Transferred only).',
+  })
+  closing_target_opening_date?: Date;
+
+  @Field({
+    nullable: true,
+    description:
+      'If true, generated TA2 / Contracting-Party closing notices are immediately marked Sent (user lodged externally) and no email is dispatched.',
+  })
+  mark_notices_as_sent?: boolean;
 }
 
 @InputType({

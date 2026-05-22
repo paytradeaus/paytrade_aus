@@ -28,6 +28,11 @@ export type AdditionalCostStatus = 'Draft' | 'Unmatched' | 'Matched';
 export type BankStatementStatus = 'Open' | 'Locked';
 export type PaymentStatus = 'Unmatched' | 'Matched' | 'Locked' | 'Deleted';
 export type DelegatePowers = 'Yes' | 'No';
+// Task #238 — explicit Close/Transfer or implicit Rename action on a
+// Project / Retention Trust account. Persisted on `bank_accounts` so the
+// TA2 / Contracting-Party Account Closing Notice generators can read the
+// closing context back without a separate pipe-through param.
+export type ClosingMode = 'Closed' | 'Transferred' | 'Renamed';
 
 //Banking File attachments
 export type FileAttachmentOrDocumentType =

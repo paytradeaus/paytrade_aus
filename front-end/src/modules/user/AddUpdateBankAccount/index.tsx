@@ -64,6 +64,7 @@ import RetentionTrustGrid from "./RetentionTrustGrid";
 import ContractDetails from "./ContractDetails";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import BaseModal from "@/components/BaseModal";
+import CloseOrChangeAccountModal from "./CloseOrChangeAccountModal";
 import DynamicTable from "@/components/Table";
 import { isEqual } from "lodash";
 import { useLoaderContext } from "@/context/useLoader";
@@ -150,6 +151,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   const [cashAccounts, setCashAccounts] = useState<any>([]);
 
   const [openModal, setOpenModal] = useState(false);
+  const [showCloseAccountModal, setShowCloseAccountModal] = useState(false);
 
   const [archivedProjectOpt, setArchivedProjectOpt] = useState<any>([]);
   const [viewProjectsInEdit, setViewProjectsInEdit] = useState<any>([]);
@@ -2553,6 +2555,23 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                       </>
                     )}
 
+                  {isEditable &&
+                    editData?.status === "Open" &&
+                    (editData?.account_type === "Project Trust Account" ||
+                      editData?.account_type === "Retention Trust Account") && (
+                      <CustomButton
+                        actionType="button"
+                        buttonType={buttonType.OUTLINE_SECONDARY}
+                        buttonName={"Close or change account"}
+                        disabled={formik?.isSubmitting}
+                        onClick={(e: any) => {
+                          e?.stopPropagation?.();
+                          e?.preventDefault?.();
+                          setShowCloseAccountModal(true);
+                        }}
+                        inputButton
+                      />
+                    )}
                   <CustomButton
                     actionType="button"
                     buttonType={buttonType.OUTLINE_CONTRAST}
@@ -2567,6 +2586,20 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
           </div>
         </div>
       </div>
+      {showCloseAccountModal && editData?.bank_account_id && (
+        <CloseOrChangeAccountModal
+          bankAccountId={Number(editData.bank_account_id)}
+          currentAccountName={editData?.account_name}
+          onClose={() => setShowCloseAccountModal(false)}
+          onDone={() => {
+            try {
+              router.push(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+            } catch {
+              /* ignore */
+            }
+          }}
+        />
+      )}
       {displayRetentionGrid && (
         <RetentionTrustGrid
           isDisplay={displayRetentionGrid}
