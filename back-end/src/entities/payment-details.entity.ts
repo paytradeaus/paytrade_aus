@@ -70,6 +70,7 @@ export class PaymentDetails {
       'Overpayment from client',
       'Underpayment from client',
       'Top Up Retention',
+      'Inter Trust Transfer',
     ],
     nullable: true,
   })
@@ -274,6 +275,22 @@ export class PaymentDetails {
 
   @Column({ name: 'notice_generated', type: 'boolean', default: false })
   notice_generated: boolean;
+
+  // Task #244 — when this payment is the money-movement leg of a Trust
+  // Account Transfer (payment_type='Inter Trust Transfer'), this links
+  // back to the `bank_account_transfers` wizard record that owns it.
+  // NULL on every other payment_type. The transfer's lifecycle and the
+  // atomic cutover transaction key off this id.
+  @Column({ type: 'bigint', nullable: true })
+  trust_account_transfer_id: number;
+
+  // Task #244 — anti-echo + Xero matching reference. For PT-originated
+  // transfers we set this to `PT-XFER-{transfer_id}` so the inbound
+  // Xero BankTransfer matcher will reject the echo and avoid creating a
+  // duplicate. For transfers the user creates inside Xero first, the
+  // matcher copies the Xero reference here when adopting the transfer.
+  @Column({ type: 'text', nullable: true })
+  bank_transfer_reference: string;
 
   @OneToMany(() => XeroPayments, (payment) => payment.paymentDetails)
   xeroPayments: XeroPayments[];

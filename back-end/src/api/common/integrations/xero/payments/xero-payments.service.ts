@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import {
   Account,
   Allocation,
@@ -110,6 +111,10 @@ export class XeroPaymentsService {
     // the bank account balance, Journals tab, audit pack and every
     // report that joins through `journal_entries` skips the movement.
     private readonly paymentClaimsService: PaymentClaimsService,
+    // Task #244 — lazy-resolved (strict:false) so we can route inbound
+    // BankTransfer events with `PT-XFER-{id}` refs into the
+    // BankAccountTransfersService matcher without a circular import.
+    private readonly moduleRef: ModuleRef,
     // Task #231 follow-up — populate `payment_list_buttons` /
     // status_in_ui on the imported PT row so the Payments list shows
     // the same status text and view/delete icons it does for
@@ -8423,6 +8428,14 @@ export class XeroPaymentsService {
     const amount = Number(bt?.amount || 0);
     const btDate = bt?.date ? new Date(bt.date) : new Date();
 
+    // Task #244 — Anti-echo for outbound Inter Trust Transfers we
+    // stamped with `PT-XFER-{transfer_id}`. Pure passthrough: the real
+    // auto-match for inbound user-driven transfers runs below, after
+    // we resolve the source/destination PT bank accounts.
+    if (/^PT-XFER-\d+$/.test(reference)) {
+      return { success: true, message: `inter trust transfer (${reference}) — anti-echo passthrough` };
+    }
+
     // Self-echo (PT-RET-* / PT-RET-REV-*) — retention flow handles
     // its own anti-echo via the invoice update pipeline.
     if (/^PT-RET-(REV-)?\d+$/.test(reference)) {
@@ -8557,6 +8570,47 @@ export class XeroPaymentsService {
     const TRUST = new Set(['Project Trust Account', 'Retention Trust Account']);
     const fromIsTrust = TRUST.has(String(fromBank.account_type));
     const toIsTrust = TRUST.has(String(toBank.account_type));
+
+    // Task #244 — Inter Trust Transfer auto-match. When both legs are
+    // trust accounts of the same type (PTA↔PTA or RTA↔RTA), look up a
+    // Pending BankAccountTransfers row and fire the atomic cutover.
+    // Runs before the Task #231 trust-movement materialisation so a
+    // matched wizard-started transfer doesn't get duplicated as a
+    // generic Top Up / Withdrawal.
+    if (
+      fromIsTrust &&
+      toIsTrust &&
+      String(fromBank.account_type) === String(toBank.account_type)
+    ) {
+      try {
+        const svc: any = this.moduleRef.get(
+          'BankAccountTransfersService' as any,
+          { strict: false },
+        );
+        if (svc?.tryAutoMatchInboundBankTransfer) {
+          const matchResult = await svc.tryAutoMatchInboundBankTransfer({
+            company_id: Number(fromBank.company_id),
+            reference,
+            amount,
+            source_bank_account_id: Number(fromXa.pt_bank_account_id),
+            destination_bank_account_id: Number(toXa.pt_bank_account_id),
+            transfer_date: btDate,
+          });
+          if (matchResult === 'AUTO_MATCHED') {
+            return {
+              success: true,
+              message: `Inbound BankTransfer ${bank_transfer_id} matched a pending Inter Trust Transfer (cutover fired).`,
+            };
+          }
+          // ECHO is impossible here (we returned earlier for PT-XFER refs);
+          // NO_MATCH falls through to the Task #231 materialisation path.
+        }
+      } catch (e: any) {
+        this.logger.error(
+          `[TRUST_XFER inbound] auto-match threw: ${e?.message ?? e}`,
+        );
+      }
+    }
     if (fromIsTrust === toIsTrust) {
       return { success: false, message: 'not a trust↔cash pair' };
     }

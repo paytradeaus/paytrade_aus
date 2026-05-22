@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import BaseModal from "@/components/BaseModal";
-import FormikControl from "@/components/FormikControl";
-import { InputType } from "@/shared/constant/general";
 import {
-  AdminListAllFinancialInstitution,
   CloseOrChangeBankAccount,
+  GetBankAccountPreflight,
 } from "./AddUpdateBankAccount.function";
-
-type ClosingMode = "Closed" | "Transferred";
 
 interface Props {
   bankAccountId: number;
@@ -16,13 +12,12 @@ interface Props {
   onDone?: () => void;
 }
 
-interface FiOption {
-  label: string;
-  value: string;
-  maxlengthvalue: number;
-  status: string;
-}
-
+/**
+ * Task #244 — close-only modal. The Transferred path has moved to the
+ * dedicated Trust Account Transfer wizard. This modal now surfaces the
+ * server-side preflight as an explicit list of failed-checks so the
+ * user knows exactly what to fix before the Close button is enabled.
+ */
 export default function CloseOrChangeAccountModal({
   bankAccountId,
   currentAccountName,
@@ -30,93 +25,36 @@ export default function CloseOrChangeAccountModal({
   onDone,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
-  const [mode, setMode] = useState<ClosingMode>("Closed");
   const [effectiveDate, setEffectiveDate] = useState<string>(today);
-  const [targetName, setTargetName] = useState<string>("");
-  const [targetFi, setTargetFi] = useState<string>("");
-  const [targetBsb, setTargetBsb] = useState<string>("");
-  const [targetAcct, setTargetAcct] = useState<string>("");
-  const [targetOpening, setTargetOpening] = useState<string>(today);
+  const [markAsSent, setMarkAsSent] = useState<boolean>(false);
+  const [preflight, setPreflight] = useState<any>(null);
+  const [loadingPreflight, setLoadingPreflight] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [financialInstituteOpt, setFinancialInstituteOpt] = useState<
-    FiOption[]
-  >([]);
-
-  const isTransfer = mode === "Transferred";
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await AdminListAllFinancialInstitution({
-        page: null,
-        perPage: null,
-        keyword: null,
-        status: null,
-        isAlphabeticalOrder: true,
-      });
+      setLoadingPreflight(true);
+      const res = await GetBankAccountPreflight(bankAccountId);
       if (cancelled) return;
-      const institutions = data?.institutions || [];
-      const opts: FiOption[] = institutions.map((item: any) => ({
-        label: item?.institution_name,
-        value: String(item?.id),
-        maxlengthvalue: item?.acc_number_maxlength,
-        status: item?.institution_status,
-      }));
-      setFinancialInstituteOpt(
-        opts.filter((each) => each.status === "Active")
-      );
+      setPreflight(res?.preflight ?? null);
+      setLoadingPreflight(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [bankAccountId]);
 
-  const selectedFi = useMemo(
-    () => financialInstituteOpt.find((o) => o.value === targetFi),
-    [financialInstituteOpt, targetFi]
-  );
-  const accountNumberLength = selectedFi?.maxlengthvalue || 0;
-
-  const validate = (): string | null => {
-    if (!effectiveDate) return "Effective date is required.";
-    if (isTransfer) {
-      if (!targetName.trim()) return "Replacement account name is required.";
-      if (!targetFi.trim()) return "Replacement financial institution is required.";
-      if (!targetBsb.trim() || !/^\d{6}$/.test(targetBsb))
-        return "Replacement BSB must be 6 digits.";
-      if (!targetAcct.trim()) return "Replacement account number is required.";
-      if (accountNumberLength > 0) {
-        const re = new RegExp(`^\\d{${accountNumberLength}}$`);
-        if (!re.test(targetAcct.trim())) {
-          return `Replacement account number length should be ${accountNumberLength} for ${selectedFi?.label}.`;
-        }
-      }
-      if (!targetOpening) return "Replacement opening date is required.";
-    }
-    return null;
-  };
+  const canClose = !!preflight?.can_close && !!effectiveDate;
 
   const handleConfirm = async () => {
-    const err = validate();
-    if (err) {
-      const { showErrorToast } = await import("@/components/Toaster");
-      showErrorToast(err);
-      return;
-    }
     setSubmitting(true);
-    const payload: any = {
+    const ok = await CloseOrChangeBankAccount({
       bank_account_id: Number(bankAccountId),
-      closing_mode: mode,
+      closing_mode: "Closed",
       closing_effective_date: effectiveDate,
-    };
-    if (isTransfer) {
-      payload.closing_target_account_name = targetName.trim();
-      payload.closing_target_financial_institution = targetFi.trim();
-      payload.closing_target_bsb = Number(targetBsb);
-      payload.closing_target_account_number = targetAcct.trim();
-      payload.closing_target_opening_date = targetOpening;
-    }
-    const ok = await CloseOrChangeBankAccount(payload);
+      mark_notices_as_sent: markAsSent,
+    });
     setSubmitting(false);
     if (ok) {
       onDone?.();
@@ -126,18 +64,12 @@ export default function CloseOrChangeAccountModal({
 
   return (
     <BaseModal
-      modalId="close-or-change-bank-account"
+      modalId="close-bank-account"
       displayModal
-      title="Close or change account"
+      title="Close account"
       firstButtonName="Cancel"
-      secondButtonName={
-        submitting
-          ? "Submitting..."
-          : isTransfer
-            ? "Transfer & queue notices"
-            : "Close & queue notices"
-      }
-      disableSecondButton={submitting}
+      secondButtonName={submitting ? "Submitting…" : "Close & queue notices"}
+      disableSecondButton={submitting || !canClose || loadingPreflight}
       onClose={onClose}
       onConfirm={() => {
         handleConfirm();
@@ -150,31 +82,56 @@ export default function CloseOrChangeAccountModal({
             <strong>Account:</strong> {currentAccountName}
           </p>
         )}
-        <div>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
-            What is happening to this account?
-          </label>
-          <label style={{ marginRight: "1.5rem" }}>
-            <input
-              type="radio"
-              name="closingMode"
-              value="Closed"
-              checked={mode === "Closed"}
-              onChange={() => setMode("Closed")}
-            />{" "}
-            Closed (no replacement)
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="closingMode"
-              value="Transferred"
-              checked={mode === "Transferred"}
-              onChange={() => setMode("Transferred")}
-            />{" "}
-            Transferred to a new account
-          </label>
+        <div
+          style={{
+            background: "#eef4ff",
+            border: "1px solid #c5d6f5",
+            padding: 10,
+            borderRadius: 4,
+            fontSize: "0.85rem",
+          }}
+        >
+          Looking to move the balance to a new trust account? Use{" "}
+          <strong>Transfer to another account</strong> instead — the wizard
+          re-points contracts and in-flight items atomically and gates on the
+          bank actually moving the money.
         </div>
+
+        {loadingPreflight && <p>Running preflight…</p>}
+
+        {!loadingPreflight && preflight && (
+          <>
+            <div>
+              <strong>Preflight</strong>
+              <ul style={{ margin: "0.5rem 0", paddingLeft: 18 }}>
+                <li>
+                  Current balance: ${Number(preflight.current_balance ?? 0).toFixed(2)}
+                </li>
+                <li>In-flight payments: {preflight.in_flight_payments_count}</li>
+                <li>Open claims: {preflight.open_claims_count}</li>
+                <li>Open retention: {preflight.open_retention_count}</li>
+              </ul>
+            </div>
+            {preflight.close_blockers?.length > 0 && (
+              <div
+                style={{
+                  background: "#fde2e2",
+                  border: "1px solid #f5b3b3",
+                  padding: 10,
+                  borderRadius: 4,
+                }}
+              >
+                <strong>Resolve before closing:</strong>
+                <ul style={{ margin: "0.5rem 0 0", paddingLeft: 18 }}>
+                  {preflight.close_blockers.map((b: string) => (
+                    <li key={b}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+
         <div>
           <label style={{ display: "block", marginBottom: "0.25rem" }}>
             Effective date
@@ -186,88 +143,20 @@ export default function CloseOrChangeAccountModal({
             style={{ width: "100%" }}
           />
         </div>
-        {isTransfer && (
-          <>
-            <hr style={{ margin: 0 }} />
-            <p style={{ margin: 0, fontWeight: 600 }}>Replacement account details</p>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem" }}>
-                Account name
-              </label>
-              <input
-                type="text"
-                value={targetName}
-                onChange={(e) => setTargetName(e.target.value)}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <FormikControl
-              control={InputType.SELECT}
-              label={"Financial institution"}
-              name={"closing_target_financial_institution"}
-              value={targetFi}
-              options={financialInstituteOpt}
-              renderKey="label"
-              valueKey="value"
-              placeholder="Select financial institution"
-              required
-              returnSelectedObject
-              onChange={(selectedOption: any) => {
-                setTargetFi(selectedOption?.value || "");
-                setTargetAcct("");
-              }}
-            />
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", marginBottom: "0.25rem" }}>
-                  BSB (6 digits)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={targetBsb}
-                  onChange={(e) =>
-                    setTargetBsb(e.target.value.replace(/\D/g, ""))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", marginBottom: "0.25rem" }}>
-                  Account number
-                  {accountNumberLength > 0 ? ` (${accountNumberLength} digits)` : ""}
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={accountNumberLength || undefined}
-                  disabled={accountNumberLength === 0}
-                  value={targetAcct}
-                  onChange={(e) =>
-                    setTargetAcct(e.target.value.replace(/\D/g, ""))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </div>
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem" }}>
-                Opening date of replacement account
-              </label>
-              <input
-                type="date"
-                value={targetOpening}
-                onChange={(e) => setTargetOpening(e.target.value)}
-                style={{ width: "100%" }}
-              />
-            </div>
-          </>
-        )}
+
+        <label>
+          <input
+            type="checkbox"
+            checked={markAsSent}
+            onChange={(e) => setMarkAsSent(e.target.checked)}
+          />{" "}
+          Mark notices as already sent (lodged outside PayTrade)
+        </label>
+
         <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
-          Submitting will queue the QBCC TA2 notice and a Contracting Party
-          Account Closing Notice for each contracted beneficiary. You can review
-          and send them from the Notices to Send list.
+          On Close, PayTrade queues a QBCC TA2 closing notice and a
+          Contracting Party Account Closing Notice for every contracted
+          beneficiary. You can review them from the Notices to Send list.
         </p>
       </div>
     </BaseModal>

@@ -162,5 +162,6 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
     PaymentGatewayService,
     EmailQueueProducer,
   ],
+  exports: [NoticesService],
 })
 export class NoticesModule {}

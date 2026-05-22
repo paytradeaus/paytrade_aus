@@ -55,6 +55,7 @@ import { ContractDetailsModule } from './api/users/contract-details/contract-det
 import { PtSubscriptionModule } from './api/admin/pt-subscription/pt-subscription.module';
 import { bankingEntitiesToInject } from './entities/banking.entity';
 import { BankingModule } from './api/users/banking/banking.module';
+import { BankAccountTransfersModule } from './api/users/banking/bank-account-transfers/bank-account-transfers.module';
 import { PaytradeLoggerModule } from './libs/@loggers/logger.module';
 import { VariationDetails } from './entities/variation-details.entity';
 import { EmailQueuerLogs } from './entities/email-logs.entity';
@@ -307,6 +308,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     IntegrationsModule, // Must be before FileUploadModule so XeroController routes take precedence
     ExportDataModule, // Must be before FileUploadModule so /files routes take precedence
     BankingModule,
+    BankAccountTransfersModule,
     SignupModule,
     FileUploadModule,
     UserAccessModule,

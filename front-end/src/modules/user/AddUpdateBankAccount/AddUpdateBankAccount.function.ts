@@ -571,6 +571,217 @@ export const CloseOrChangeBankAccount = async (
   }
 };
 
+// =====================================================================
+// Task #244 — Trust Account Transfer wizard GraphQL helpers.
+// =====================================================================
+
+export const GetBankAccountPreflight = async (
+  bank_account_id: number,
+): Promise<any> => {
+  try {
+    const resp = await apolloClient.query({
+      query: gql`
+        query GetBankAccountPreflight($payload: GetBankAccountPreflightInput!) {
+          getBankAccountPreflight(payload: $payload) {
+            warning
+            warningMessage
+            preflight {
+              bank_account_id
+              account_name
+              account_type
+              status
+              current_balance
+              open_claims_count
+              in_flight_payments_count
+              open_retention_count
+              unreconciled_transactions_count
+              can_close
+              can_transfer
+              close_blockers
+              transfer_blockers
+              open_claims { id reference amount status }
+              in_flight_payments { id reference amount status }
+              open_retention { id amount status }
+              linked_projects { project_id project_name contract_id client_supplier_name }
+            }
+          }
+        }
+      `,
+      variables: { payload: { bank_account_id } },
+      fetchPolicy: "no-cache",
+    });
+    return resp?.data?.getBankAccountPreflight ?? null;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return null;
+  }
+};
+
+export const StartTrustAccountTransfer = async (payload: {
+  source_bank_account_id: number;
+  destination_bank_account_id: number;
+  transfer_date: string;
+  amount: number;
+  carry_across_choices?: Record<string, any>;
+}): Promise<any> => {
+  try {
+    const resp = await apolloClient.mutate({
+      mutation: gql`
+        mutation StartTrustAccountTransfer($payload: StartTrustAccountTransferInput!) {
+          startTrustAccountTransfer(payload: $payload) {
+            warning
+            warningMessage
+            successMessage
+            transfer { transfer_id status amount transfer_date bank_transfer_reference }
+          }
+        }
+      `,
+      variables: { payload },
+    });
+    const out = resp?.data?.startTrustAccountTransfer;
+    if (out?.warning) {
+      showWarningToast(out.warningMessage || "Could not start transfer.");
+      return null;
+    }
+    if (out?.successMessage) showSuccessToast(out.successMessage);
+    return out?.transfer ?? null;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return null;
+  }
+};
+
+export const ConfirmTrustAccountTransfer = async (
+  transfer_id: number,
+): Promise<boolean> => {
+  try {
+    const resp = await apolloClient.mutate({
+      mutation: gql`
+        mutation ConfirmTrustAccountTransfer($payload: ConfirmTrustAccountTransferInput!) {
+          confirmTrustAccountTransfer(payload: $payload) {
+            warning
+            warningMessage
+            successMessage
+            transfer { transfer_id status cutover_applied_at }
+          }
+        }
+      `,
+      variables: { payload: { transfer_id } },
+    });
+    const out = resp?.data?.confirmTrustAccountTransfer;
+    if (out?.warning) {
+      showWarningToast(out.warningMessage || "Could not confirm transfer.");
+      return false;
+    }
+    if (out?.successMessage) showSuccessToast(out.successMessage);
+    return true;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return false;
+  }
+};
+
+export const CancelTrustAccountTransfer = async (
+  transfer_id: number,
+): Promise<boolean> => {
+  try {
+    const resp = await apolloClient.mutate({
+      mutation: gql`
+        mutation CancelTrustAccountTransfer($payload: CancelTrustAccountTransferInput!) {
+          cancelTrustAccountTransfer(payload: $payload) {
+            warning
+            warningMessage
+            successMessage
+          }
+        }
+      `,
+      variables: { payload: { transfer_id } },
+    });
+    const out = resp?.data?.cancelTrustAccountTransfer;
+    if (out?.warning) {
+      showWarningToast(out.warningMessage || "Could not cancel transfer.");
+      return false;
+    }
+    if (out?.successMessage) showSuccessToast(out.successMessage);
+    return true;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return false;
+  }
+};
+
+export const RetryTrustAccountTransferCutover = async (
+  transfer_id: number,
+  dry_run: boolean,
+): Promise<any> => {
+  try {
+    const resp = await apolloClient.mutate({
+      mutation: gql`
+        mutation RetryTrustAccountTransferCutover($payload: RetryTrustAccountTransferCutoverInput!) {
+          retryTrustAccountTransferCutover(payload: $payload) {
+            warning
+            warningMessage
+            successMessage
+            dry_run_summary {
+              contracts_to_repoint
+              in_flight_payments_to_repoint
+              retention_rows_to_migrate
+              notes
+            }
+            transfer { transfer_id status cutover_applied_at last_error }
+          }
+        }
+      `,
+      variables: { payload: { transfer_id, dry_run } },
+    });
+    const out = resp?.data?.retryTrustAccountTransferCutover;
+    if (out?.warning) {
+      showWarningToast(out.warningMessage || "Retry failed.");
+      return null;
+    }
+    if (out?.successMessage) showSuccessToast(out.successMessage);
+    return out;
+  } catch (e: any) {
+    showErrorToast(e?.message || ApiResponse.SOMETHING_WENT_WRONG);
+    return null;
+  }
+};
+
+export const ListOpenTrustAccountTransfers = async (
+  bank_account_id?: number,
+): Promise<any[]> => {
+  try {
+    const resp = await apolloClient.query({
+      query: gql`
+        query ListOpenTrustAccountTransfers($payload: ListOpenTransfersInput!) {
+          listOpenTrustAccountTransfers(payload: $payload) {
+            transfers {
+              transfer_id
+              source_bank_account_id
+              destination_bank_account_id
+              source_account_name
+              destination_account_name
+              transfer_date
+              amount
+              status
+              transfer_payment_id
+              bank_transfer_reference
+              last_error
+              cutover_applied_at
+              created_on
+            }
+          }
+        }
+      `,
+      variables: { payload: { bank_account_id: bank_account_id ?? null } },
+      fetchPolicy: "no-cache",
+    });
+    return resp?.data?.listOpenTrustAccountTransfers?.transfers ?? [];
+  } catch {
+    return [];
+  }
+};
+
 export const projectArraysCompare = (
   arr1: Array<number>,
   arr2: Array<number>

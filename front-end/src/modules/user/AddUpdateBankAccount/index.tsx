@@ -65,6 +65,12 @@ import ContractDetails from "./ContractDetails";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import BaseModal from "@/components/BaseModal";
 import CloseOrChangeAccountModal from "./CloseOrChangeAccountModal";
+import TransferTrustAccountWizard from "./TransferTrustAccountWizard";
+import {
+  ListOpenTrustAccountTransfers,
+  ConfirmTrustAccountTransfer,
+  CancelTrustAccountTransfer,
+} from "./AddUpdateBankAccount.function";
 import DynamicTable from "@/components/Table";
 import { isEqual } from "lodash";
 import { useLoaderContext } from "@/context/useLoader";
@@ -152,6 +158,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
 
   const [openModal, setOpenModal] = useState(false);
   const [showCloseAccountModal, setShowCloseAccountModal] = useState(false);
+  // Task #244 — Trust Account Transfer wizard state.
+  const [showTransferWizard, setShowTransferWizard] = useState(false);
+  const [openTransfers, setOpenTransfers] = useState<any[]>([]);
 
   const [archivedProjectOpt, setArchivedProjectOpt] = useState<any>([]);
   const [viewProjectsInEdit, setViewProjectsInEdit] = useState<any>([]);
@@ -2559,18 +2568,36 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                     editData?.status === "Open" &&
                     (editData?.account_type === "Project Trust Account" ||
                       editData?.account_type === "Retention Trust Account") && (
-                      <CustomButton
-                        actionType="button"
-                        buttonType={buttonType.OUTLINE_SECONDARY}
-                        buttonName={"Close or change account"}
-                        disabled={formik?.isSubmitting}
-                        onClick={(e: any) => {
-                          e?.stopPropagation?.();
-                          e?.preventDefault?.();
-                          setShowCloseAccountModal(true);
-                        }}
-                        inputButton
-                      />
+                      <>
+                        <CustomButton
+                          actionType="button"
+                          buttonType={buttonType.OUTLINE_SECONDARY}
+                          buttonName={"Close account"}
+                          disabled={
+                            formik?.isSubmitting || openTransfers.length > 0
+                          }
+                          onClick={(e: any) => {
+                            e?.stopPropagation?.();
+                            e?.preventDefault?.();
+                            setShowCloseAccountModal(true);
+                          }}
+                          inputButton
+                        />
+                        <CustomButton
+                          actionType="button"
+                          buttonType={buttonType.OUTLINE_SECONDARY}
+                          buttonName={"Transfer to another account"}
+                          disabled={
+                            formik?.isSubmitting || openTransfers.length > 0
+                          }
+                          onClick={(e: any) => {
+                            e?.stopPropagation?.();
+                            e?.preventDefault?.();
+                            setShowTransferWizard(true);
+                          }}
+                          inputButton
+                        />
+                      </>
                     )}
                   <CustomButton
                     actionType="button"
@@ -2591,6 +2618,21 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
           bankAccountId={Number(editData.bank_account_id)}
           currentAccountName={editData?.account_name}
           onClose={() => setShowCloseAccountModal(false)}
+          onDone={() => {
+            try {
+              router.push(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);
+            } catch {
+              /* ignore */
+            }
+          }}
+        />
+      )}
+      {showTransferWizard && editData?.bank_account_id && (
+        <TransferTrustAccountWizard
+          sourceBankAccountId={Number(editData.bank_account_id)}
+          sourceAccountName={editData?.account_name}
+          sourceAccountType={editData?.account_type as any}
+          onClose={() => setShowTransferWizard(false)}
           onDone={() => {
             try {
               router.push(AppRoutes.USER_BANK_ACCOUNTS_CURRENT);

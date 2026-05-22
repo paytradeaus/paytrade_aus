@@ -1810,6 +1810,26 @@ type AutoMapResponse {
   status: String!
 }
 
+type BankAccountPreflight {
+  account_name: String
+  account_type: String
+  bank_account_id: Int!
+  can_close: Boolean!
+  can_transfer: Boolean!
+  close_blockers: [String!]!
+  current_balance: Float
+  in_flight_payments: [PreflightOpenItem!]!
+  in_flight_payments_count: Int!
+  linked_projects: [PreflightLinkedProject!]!
+  open_claims: [PreflightOpenItem!]!
+  open_claims_count: Int!
+  open_retention: [PreflightOpenItem!]!
+  open_retention_count: Int!
+  status: String
+  transfer_blockers: [String!]!
+  unreconciled_transactions_count: Int!
+}
+
 """Basic project information linked to a bank account"""
 type BankProjectDetail {
   """Optional description of the project"""
@@ -2038,6 +2058,10 @@ type CISRateResponse {
 
   """Status of the API response."""
   status: String!
+}
+
+input CancelTrustAccountTransferInput {
+  transfer_id: Int!
 }
 
 """Represents the details of a single payment card"""
@@ -3097,6 +3121,18 @@ type ComplianceRules {
 
   """Number of the rule"""
   rule_number: Float
+}
+
+type ConfirmTransferResponse {
+  dry_run_summary: CutoverDryRunSummary
+  successMessage: String
+  transfer: TrustAccountTransfer
+  warning: Boolean
+  warningMessage: String
+}
+
+input ConfirmTrustAccountTransferInput {
+  transfer_id: Int!
 }
 
 """
@@ -4395,6 +4431,13 @@ type CurrencyMastersResponse {
 
   """Status of the API call"""
   status: String!
+}
+
+type CutoverDryRunSummary {
+  contracts_to_repoint: Int!
+  in_flight_payments_to_repoint: Int!
+  notes: [String!]!
+  retention_rows_to_migrate: Int!
 }
 
 """Represents dashboard counts by type and status"""
@@ -10213,6 +10256,12 @@ type GetBankAccountListResponse {
   status: String!
 }
 
+"""Identify a single bank account by its numeric id."""
+input GetBankAccountPreflightInput {
+  """Bank account ID to preflight."""
+  bank_account_id: Int!
+}
+
 """Response containing bank-related project details"""
 type GetBankProjectResponse {
   """List of projects associated with the bank account"""
@@ -13881,6 +13930,13 @@ type ListOfProjects {
   project_name: String
 }
 
+input ListOpenTransfersInput {
+  """
+  Filter to a single source bank account (e.g. for the edit-page banner).
+  """
+  bank_account_id: Int
+}
+
 input ListSeoKeywordsInput {
   """Page number"""
   page: Int
@@ -14655,6 +14711,7 @@ type Mutation {
     """ID of the company whose subscription is to be cancelled."""
     company_id: Float!
   ): SubscriptionDetailsResponse!
+  cancelTrustAccountTransfer(payload: CancelTrustAccountTransferInput!): ConfirmTransferResponse!
 
   """
   Update the status of a payment and synchronize changes with Xero including deletions of payments, credit notes, and overpayments if required.
@@ -14743,6 +14800,7 @@ type Mutation {
     """
     input: CompleteBankAccountDraftInput!
   ): StringResponse!
+  confirmTrustAccountTransfer(payload: ConfirmTrustAccountTransferInput!): ConfirmTransferResponse!
 
   """Creates a new Xero account for a company."""
   createAccount(
@@ -15809,6 +15867,7 @@ type Mutation {
     """The id of the Failed retention-transfer sync log to retry."""
     sync_log_id: String!
   ): GetXeroPaymentsResponse!
+  retryTrustAccountTransferCutover(payload: RetryTrustAccountTransferCutoverInput!): ConfirmTransferResponse!
   runAiCreditMonthlyAllocation(period: String): Boolean!
 
   """
@@ -15931,6 +15990,7 @@ type Mutation {
     """The PayTrade bank account ID"""
     bank_account_id: Float!
   ): StringResponse!
+  startTrustAccountTransfer(payload: StartTrustAccountTransferInput!): StartTransferResponse!
 
   """
   Allow a public user to submit a contact request after successful reCAPTCHA verification.
@@ -17115,6 +17175,27 @@ type PendingSmartCreateResult {
   Outcome of the replay: created | skipped | failed. See reason for skipped/failed.
   """
   status: String!
+}
+
+type PreflightLinkedProject {
+  client_supplier_name: String
+  contract_id: Int
+  project_id: Int!
+  project_name: String
+}
+
+type PreflightOpenItem {
+  amount: Float
+  id: Int!
+  party_name: String
+  reference: String
+  status: String
+}
+
+type PreflightResponse {
+  preflight: BankAccountPreflight
+  warning: Boolean
+  warningMessage: String
 }
 
 type PricingTableFeatureListResponse {
@@ -18644,6 +18725,7 @@ type Query {
     """Payload containing company ID and filter criteria"""
     getBankAccountListInput: GetBankAccountListInput!
   ): GetBankAccountListResponse!
+  getBankAccountPreflight(payload: GetBankAccountPreflightInput!): PreflightResponse!
 
   """Fetch the project details associated with a specific bank account."""
   getBankAssociatedProject(
@@ -19473,6 +19555,7 @@ type Query {
     """
     listAnsCmtInput: getAnsCommentInput!
   ): listAnsCommentsResponse!
+  listOpenTrustAccountTransfers(payload: ListOpenTransfersInput!): TransferListResponse!
 
   """
   Authenticates a user using email and password. 
@@ -19888,6 +19971,17 @@ type RetentionJournalEntry {
 
   """POSTED | DELETED | VOIDED | FAILED"""
   status: String
+}
+
+"""
+Admin-only retry of the atomic cutover for a Failed/Pending transfer. Pass dry_run=true to preview the planned migration counts without committing.
+"""
+input RetryTrustAccountTransferCutoverInput {
+  """
+  When true, returns the planned change counts without applying. Defaults to true for safety.
+  """
+  dry_run: Boolean
+  transfer_id: Int!
 }
 
 """Represents routing metadata associated with a journal transaction."""
@@ -20355,6 +20449,39 @@ type SplitTransactionLeg {
 
   """Transaction date (ISO)."""
   txn_date: DateTime!
+}
+
+type StartTransferResponse {
+  successMessage: String
+  transfer: TrustAccountTransfer
+  warning: Boolean
+  warningMessage: String
+}
+
+"""
+Task #244 — start a new trust-account transfer wizard. Creates a `bank_account_transfers` row in Pending state + companion `Inter Trust Transfer` payment. Nothing else moves until the companion payment is confirmed / reconciled / matched in Xero.
+"""
+input StartTrustAccountTransferInput {
+  """
+  Amount of the transfer payment. Typically the current source balance + any open items the user chose to carry across.
+  """
+  amount: Float!
+
+  """
+  Per-open-item carry-across choices from the wizard preflight step. Schema documented on the BankAccountTransfers entity.
+  """
+  carry_across_choices: JSON
+
+  """
+  Destination bank account ID — must be same company + same type as source.
+  """
+  destination_bank_account_id: Int!
+
+  """Source bank account ID (PTA or RTA)."""
+  source_bank_account_id: Int!
+
+  """Date the transfer payment will be dated."""
+  transfer_date: DateTime!
 }
 
 """Key-value pair representing a statement field."""
@@ -21286,6 +21413,10 @@ type TopupResultResponse {
   stripe_fee_usd: Float!
 }
 
+type TransferListResponse {
+  transfers: [TrustAccountTransfer!]!
+}
+
 """
 Response returned after triggering an activity log when a user is signed out.
 """
@@ -21329,6 +21460,23 @@ type TriggerNoticesData {
 
   """Preview of generated QBCC notices."""
   qbcc_notice_previews: [qbccNoticeFileAndMailDetails!]
+}
+
+type TrustAccountTransfer {
+  amount: Float!
+  bank_transfer_reference: String
+  carry_across_choices: JSON
+  created_on: DateTime!
+  cutover_applied_at: DateTime
+  destination_account_name: String
+  destination_bank_account_id: Int!
+  last_error: String
+  source_account_name: String
+  source_bank_account_id: Int!
+  status: String!
+  transfer_date: DateTime!
+  transfer_id: Int!
+  transfer_payment_id: Int
 }
 
 """

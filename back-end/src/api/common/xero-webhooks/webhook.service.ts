@@ -14092,6 +14092,43 @@ export class XeroWebhookService {
           return { success: false, message: msg, syncLogId };
         }
 
+        // Task #244 — manual re-pull of an Inter Trust Transfer
+        // (PT-XFER-{transfer_id}). Delegate to the same inbound
+        // matcher the live BANKTRANSFER webhook uses; that path is
+        // anti-echo aware and idempotent.
+        if (reference && /^PT-XFER-\d+$/.test(reference.trim())) {
+          const syncLogId = await writeTriggerLog({
+            status: 'Succeeded',
+            resolvedXeroId: rawId,
+            message: '',
+            extraHistory: [
+              `Dispatching PT-XFER BankTransfer ${rawId} to handleInboundTrustMovementBankTransfer (manual)`,
+            ],
+          });
+          try {
+            const result =
+              await this.xeroPaymentsService.handleInboundTrustMovementBankTransfer(
+                { resource_id: rawId, tenant_id, sync_run_type: 'manual' },
+                decoded,
+              );
+            return {
+              success: !!result?.success,
+              message:
+                result?.message ||
+                `Inter Trust Transfer ${rawId} processed.`,
+              syncLogId,
+              resolvedXeroId: rawId,
+            };
+          } catch (err: any) {
+            return {
+              success: false,
+              message: `Inter Trust Transfer ${rawId} handler threw: ${err?.message || String(err)}`,
+              syncLogId,
+              resolvedXeroId: rawId,
+            };
+          }
+        }
+
         // Reference round-trip: PT-RET-{pt_payment_id}
         const refMatch = reference && /^PT-RET-(\d+)$/.exec(reference.trim());
         if (!refMatch) {

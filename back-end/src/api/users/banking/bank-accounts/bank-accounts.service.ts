@@ -1094,6 +1094,19 @@ export class BankAccountsService {
             "closing_mode must be 'Closed' or 'Transferred'. 'Renamed' is reserved for internal use.",
         };
       }
+      // Task #244 — the 'Transferred' path has moved to the dedicated
+      // Trust Account Transfer wizard (`startTrustAccountTransfer` →
+      // `confirmTrustAccountTransfer`). This mutation now refuses
+      // Transferred mode so callers cannot bypass the preflight +
+      // payment-match gates. The enum value is preserved for
+      // back-compat with cached frontends.
+      if (closing_mode === 'Transferred') {
+        return {
+          warning: true,
+          warningMessage:
+            "Use the Trust Account Transfer wizard (startTrustAccountTransfer / confirmTrustAccountTransfer) instead of this mutation. The legacy 'Transferred' path here is no longer supported.",
+        };
+      }
       if (!closing_effective_date) {
         return {
           warning: true,
@@ -1140,18 +1153,72 @@ export class BankAccountsService {
           warningMessage: `Cannot close/transfer a bank account in status '${account.status}'. Only 'Open' accounts are eligible.`,
         };
       }
-      if (closing_mode === 'Transferred') {
-        const missing: string[] = [];
-        if (!closing_target_account_name) missing.push('account name');
-        if (!closing_target_financial_institution)
-          missing.push('financial institution');
-        if (!closing_target_bsb) missing.push('BSB');
-        if (!closing_target_account_number) missing.push('account number');
-        if (!closing_target_opening_date) missing.push('opening date');
-        if (missing.length) {
+      // Task #244 — strict Close preflight. Refuse Close unless:
+      //   * current_balance is zero (±0.005),
+      //   * no in-flight (non-settled) payments reference this account,
+      //   * no open payment claims on contracts pointing at this account,
+      //   * no Retained retention rows whose parent payment is on this RTA.
+      // Each failed check is surfaced individually so the user knows
+      // exactly what to fix before retrying.
+      {
+        const closeBlockers: string[] = [];
+        const balance = Number(account.current_balance ?? 0);
+        if (Math.abs(balance) > 0.005) {
+          closeBlockers.push(
+            `Current balance is ${balance.toFixed(2)} — must be 0.00 before closing.`,
+          );
+        }
+        const inFlight = await this.paymentsRepo
+          .createQueryBuilder('p')
+          .where(
+            `(p.payment_from_account = :bid OR p.payment_to_account = :bid OR p.retention_account = :bid)`,
+            { bid: bank_account_id },
+          )
+          .andWhere(`p.current_status NOT IN (:...settled)`, {
+            settled: [
+              'Confirmed - Matched',
+              'Reconciled',
+              'Deleted',
+              'Completed',
+            ],
+          })
+          .getCount();
+        if (inFlight > 0) {
+          closeBlockers.push(
+            `${inFlight} in-flight payment(s) reference this account — settle, delete, or transfer them before closing.`,
+          );
+        }
+        const openClaims = await this.entityManager.query(
+          `SELECT COUNT(*)::int AS count
+           FROM payment_claims pc
+           JOIN contract_details ct ON ct.contract_id = pc.contract_id
+           WHERE (ct.payment_from_account = $1 OR ct.payment_to_account = $1 OR ct.retention_from_account = $1)
+             AND pc.status NOT IN ('Completed','Deleted','Paid','Archived')`,
+          [bank_account_id],
+        );
+        if (Number(openClaims?.[0]?.count ?? 0) > 0) {
+          closeBlockers.push(
+            `${openClaims[0].count} open payment claim(s) on contracts pointing at this account.`,
+          );
+        }
+        if (account.account_type === 'Retention Trust Account') {
+          const openRetention = await this.entityManager.query(
+            `SELECT COUNT(*)::int AS count
+             FROM retention_details rd
+             JOIN payment_details pd ON pd.payment_id = rd.payment_id
+             WHERE pd.retention_account = $1 AND rd.retention_status = 'Retained'`,
+            [bank_account_id],
+          );
+          if (Number(openRetention?.[0]?.count ?? 0) > 0) {
+            closeBlockers.push(
+              `${openRetention[0].count} Retained retention row(s) on this RTA — release or migrate before closing.`,
+            );
+          }
+        }
+        if (closeBlockers.length) {
           return {
             warning: true,
-            warningMessage: `Transferred mode requires the replacement account details: ${missing.join(', ')}.`,
+            warningMessage: `Close preflight failed:\n• ${closeBlockers.join('\n• ')}`,
           };
         }
       }
@@ -1175,24 +1242,16 @@ export class BankAccountsService {
                 closing_mode,
                 closing_effective_date,
                 closing_previous_account_name: account.account_name,
-                closing_target_account_name:
-                  closing_mode === 'Transferred'
-                    ? closing_target_account_name
-                    : null,
-                closing_target_financial_institution:
-                  closing_mode === 'Transferred'
-                    ? closing_target_financial_institution
-                    : null,
-                closing_target_bsb:
-                  closing_mode === 'Transferred' ? closing_target_bsb : null,
-                closing_target_account_number:
-                  closing_mode === 'Transferred'
-                    ? closing_target_account_number
-                    : null,
-                closing_target_opening_date:
-                  closing_mode === 'Transferred'
-                    ? closing_target_opening_date
-                    : null,
+                // Task #244 — Transferred mode is now refused above and
+                // handled by the Trust Account Transfer wizard, so the
+                // closing_target_* snapshot here is always null on
+                // Close. The wizard's cutover writes these fields
+                // directly when it flips the source to 'Transferred'.
+                closing_target_account_name: null,
+                closing_target_financial_institution: null,
+                closing_target_bsb: null,
+                closing_target_account_number: null,
+                closing_target_opening_date: null,
                 status: newStatus,
                 updated_by: decoded?.userId,
                 updated_on: moment.tz('UTC').toDate(),

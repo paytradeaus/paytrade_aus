@@ -119,7 +119,24 @@ export type PaymentTypes =
   | 'Underpayment to supplier'
   | 'Overpayment from client'
   | 'Underpayment from client'
-  | 'Top Up Retention';
+  | 'Top Up Retention'
+  | 'Inter Trust Transfer';
+
+// Task #244 — lifecycle of a trust-account transfer wizard record. A
+// transfer is `Pending` until either the user confirms the proposed
+// payment, a reconciled bank line matches it, or a Xero BankTransfer
+// webhook auto-confirms it. `Confirmed` is the transient state during
+// the atomic cutover transaction; `CutoverApplied` is the terminal
+// success state. `Cancelled` is the user-cancelled terminal state.
+// `Failed` records a rolled-back cutover attempt — re-fireable via the
+// admin retry mutation. See docs/architecture/<TODO>.md.
+export type TrustAccountTransferStatus =
+  | 'Pending'
+  | 'Confirmed'
+  | 'CutoverApplied'
+  | 'Cancelled'
+  | 'Failed';
+
 export type RetentionPaymentStatus = 'Not paid' | 'Paid';
 export type CashRetentionType = 'Claim' | 'Retention claim';
 
