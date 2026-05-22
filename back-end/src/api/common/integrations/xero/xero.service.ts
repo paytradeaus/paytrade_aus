@@ -1937,6 +1937,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       .leftJoin('log.xeroProjectDetails', 'project')
       .leftJoin('log.xeroContractDetails', 'contract')
       .where('log.integration_id = :integrationId', { integrationId })
+      .andWhere('log.archived_at IS NULL')
       .orderBy('log.created_on', 'DESC')
       .limit(10);
 
@@ -1948,6 +1949,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         .addSelect('COUNT(*)', 'status_count')
         .innerJoin('log.xeroLogTemplates', 'template')
         .where('log.integration_id = :integrationId', { integrationId })
+        .andWhere('log.archived_at IS NULL')
         .groupBy('template.sync_status')
         .getRawMany(),
     ]);
