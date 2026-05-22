@@ -490,11 +490,40 @@ export class BankAccountTransfersService {
     let resultTransfer: BankAccountTransfers;
     let source: BankAccounts;
     let dest: BankAccounts;
+    // Task #248 — set when a concurrent caller already applied the
+    // cutover and we short-circuit with a no-op. Used to suppress the
+    // post-commit success log + return a benign result.
+    let alreadyApplied = false;
     try {
       await this.entityManager.transaction(async (mgr) => {
         const xferRepo = mgr.getRepository(BankAccountTransfers);
-        const xfer = await xferRepo.findOne({ where: { transfer_id } });
+        // Task #248 — acquire a row-level lock on the transfer row
+        // BEFORE doing any reads/writes. A second concurrent caller
+        // (e.g. the user confirms while the Xero webhook matcher is
+        // racing the same transfer) will block here until the first
+        // transaction commits, then wake up and observe the
+        // `CutoverApplied` status flipped below — at which point the
+        // strict status-transition guard short-circuits.
+        const xfer = await xferRepo.findOne({
+          where: { transfer_id },
+          lock: { mode: 'pessimistic_write' },
+        });
         if (!xfer) throw new Error('Transfer disappeared mid-transaction.');
+        // Task #248 — idempotency guard. If the row is already in the
+        // terminal `CutoverApplied` state, a concurrent caller beat us
+        // to it. Return the row as-is without re-firing contract
+        // re-points, notice batches, or journal writes.
+        if (xfer.status === 'CutoverApplied') {
+          alreadyApplied = true;
+          resultTransfer = xfer;
+          source = await mgr.getRepository(BankAccounts).findOne({
+            where: { bank_account_id: xfer.source_bank_account_id },
+          });
+          dest = await mgr.getRepository(BankAccounts).findOne({
+            where: { bank_account_id: xfer.destination_bank_account_id },
+          });
+          return;
+        }
         if (!['Pending', 'Failed'].includes(xfer.status)) {
           throw new Error(
             `Cannot cutover — transfer status is '${xfer.status}'.`,
@@ -694,6 +723,17 @@ export class BankAccountTransfersService {
       throw err;
     }
 
+    if (alreadyApplied) {
+      // Task #248 — concurrent caller short-circuit. Log at info so
+      // the race is observable but don't double-emit the success log.
+      this.logger.log(
+        `[XFER_CUTOVER_NOOP] transfer_id=${transfer_id} adminRetry=${isAdminRetry} reason=already_applied`,
+      );
+      return {
+        successMessage: 'Transfer cutover was already applied by a concurrent request — no action taken.',
+        transfer: this._toDto(resultTransfer, source, dest),
+      };
+    }
     this.logger.log(
       `[XFER_CUTOVER_APPLIED] transfer_id=${transfer_id} adminRetry=${isAdminRetry}`,
     );
