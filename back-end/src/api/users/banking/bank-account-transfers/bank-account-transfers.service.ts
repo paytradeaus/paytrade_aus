@@ -893,16 +893,50 @@ export class BankAccountTransfersService {
          AND payment_id <> $2`,
       [xfer.source_bank_account_id, xfer.transfer_payment_id ?? 0],
     );
-    let retentionCount = 0;
+    let retentionCarryCount = 0;
+    let retentionLeaveCount = 0;
     if (source?.account_type === 'Retention Trust Account') {
-      const [r] = await this.entityManager.query(
-        `SELECT COUNT(*)::int AS count
+      const retainedRows: Array<{
+        retention_id: string;
+        payment_id: string;
+      }> = await this.entityManager.query(
+        `SELECT rd.retention_id, rd.payment_id
          FROM retention_details rd
          JOIN payment_details pd ON pd.payment_id = rd.payment_id
          WHERE pd.retention_account = $1 AND rd.retention_status = 'Retained'`,
         [xfer.source_bank_account_id],
       );
-      retentionCount = r.count;
+      const openRetentionChoices: Record<string, string> =
+        (xfer.carry_across_choices as any)?.open_retention ?? {};
+      // Per-payment choice map so we can detect the
+      // "mixed choices on a single payment" guard that
+      // _runCutover throws on (retention_account is single-valued).
+      const choicesByPayment = new Map<string, Set<string>>();
+      for (const r of retainedRows) {
+        const choice =
+          openRetentionChoices[String(r.retention_id)] ?? 'carry';
+        const effective = choice === 'carry' ? 'carry' : 'leave';
+        if (effective === 'carry') {
+          retentionCarryCount++;
+        } else {
+          retentionLeaveCount++;
+        }
+        const pid = String(r.payment_id);
+        if (!choicesByPayment.has(pid)) choicesByPayment.set(pid, new Set());
+        choicesByPayment.get(pid)!.add(effective);
+      }
+      const conflictPaymentIds: string[] = [];
+      for (const [pid, set] of choicesByPayment) {
+        if (set.size > 1) conflictPaymentIds.push(pid);
+      }
+      if (conflictPaymentIds.length > 0) {
+        notes.push(
+          `WARNING: ${conflictPaymentIds.length} payment(s) have mixed carry/leave choices on their retention rows ` +
+            `(payment_id(s): ${conflictPaymentIds.join(', ')}). ` +
+            `payment_details.retention_account is single-valued and cannot be split — the real cutover will throw and roll back. ` +
+            `Resolve the choices or release the leftover rows before retrying.`,
+        );
+      }
     }
     notes.push(`Will flip source bank_accounts.status -> 'Transferred'.`);
     notes.push(`Will fire TA2 closing notice batch (source) + per-beneficiary closing notices.`);
@@ -910,7 +944,8 @@ export class BankAccountTransfersService {
     return {
       contracts_to_repoint: contractCount,
       in_flight_payments_to_repoint: paymentCount,
-      retention_rows_to_migrate: retentionCount,
+      retention_rows_to_migrate: retentionCarryCount,
+      retention_rows_to_leave: retentionLeaveCount,
       notes,
     };
   }

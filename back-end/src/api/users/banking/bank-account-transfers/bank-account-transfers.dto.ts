@@ -77,6 +77,7 @@ export class CutoverDryRunSummary {
   @Field(() => Int) contracts_to_repoint: number;
   @Field(() => Int) in_flight_payments_to_repoint: number;
   @Field(() => Int) retention_rows_to_migrate: number;
+  @Field(() => Int) retention_rows_to_leave: number;
   @Field(() => [String]) notes: string[];
 }
 

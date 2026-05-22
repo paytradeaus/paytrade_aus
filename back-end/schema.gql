@@ -4437,6 +4437,7 @@ type CutoverDryRunSummary {
   contracts_to_repoint: Int!
   in_flight_payments_to_repoint: Int!
   notes: [String!]!
+  retention_rows_to_leave: Int!
   retention_rows_to_migrate: Int!
 }
 
