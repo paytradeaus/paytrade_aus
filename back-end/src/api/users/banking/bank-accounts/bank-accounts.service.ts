@@ -700,6 +700,19 @@ export class BankAccountsService {
             if (renameOnlyDetected) {
               const repo =
                 transactionalEntityManager.getRepository(NoticeDetails);
+              // Task #238 — the rename auto-trigger must fire when an
+              // S18B/TA1 exists in *any* status except the unsent /
+              // deleted set. Restricting to 'Sent' alone misses valid
+              // delegated/onboarded states such as 'Sent - Onboarded'
+              // and 'Sending'.
+              const renameGateExcludedStatuses = [
+                'Not Sent',
+                'Draft',
+                'Sending',
+                'Sent - Notice Attachment Failed',
+                'Delete-Unsent',
+                'Delete-Sent',
+              ];
               const sentExisting = await repo.findOne({
                 where: {
                   bank_account_id,
@@ -708,7 +721,7 @@ export class BankAccountsService {
                     'QBCC TA1 Project Trust Account Notice',
                     'QBCC TA1 Retention Trust Account Notice',
                   ]) as any,
-                  status: 'Sent' as any,
+                  status: Not(In(renameGateExcludedStatuses)) as any,
                 },
               });
               if (sentExisting) {
@@ -1146,6 +1159,12 @@ export class BankAccountsService {
       const newStatus: BankAccountStatus =
         closing_mode === 'Closed' ? 'Closed' : 'Transferred';
 
+      // Task #238 — activity-log event for the explicit close/transfer
+      // action. Reuses the existing Closed/Transferred templates from
+      // changeStatusOfBankAccount so the log surface stays consistent.
+      const closingEventTemplateId =
+        closing_mode === 'Closed' ? 70 : 71;
+
       const response = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           await transactionalEntityManager
@@ -1195,6 +1214,41 @@ export class BankAccountsService {
               `Closing notice generation failed: ${notices.message}`,
             );
           }
+
+          // Task #238 — write a dedicated activity-log entry for the
+          // close/transfer action inside the same transaction.
+          try {
+            const createActivityLogInput: CreateActivityLogInput = {
+              event_template_id: closingEventTemplateId,
+              admin_id:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.admin_id
+                  : null,
+              to_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? decoded?.userId
+                  : null,
+              from_user:
+                decoded?.logged_in_by && decoded?.logged_in_by == 'ADMIN'
+                  ? null
+                  : decoded?.userId,
+              company_id: account.company_id,
+              dynamic_values: {
+                bankAccountName: account.account_name,
+                bankAccountLink: `/user/bank-accounts/edit/${bank_account_id}`,
+              },
+              is_admin: false,
+              created_by: decoded?.userId,
+            };
+            await this.activityLogService.insertActivityLog(
+              createActivityLogInput,
+            );
+          } catch (logErr) {
+            this.logger.warn(
+              `closeOrChangeBankAccount: activity log insert failed (non-fatal): ${logErr?.message}`,
+            );
+          }
+
           return { notices };
         },
       );

@@ -4382,112 +4382,144 @@ export class NoticesService {
             },
           });
 
-        if ((noticeListWithData as any).projectTa2Notice === true) {
-          const existingTa2 = await findExistingAccountNotice(
-            'QBCC TA2 Account Closing Notice',
-          );
-          if (existingTa2) {
+        // Task #238 — TA2 QBCC closing notices mirror the QBCC TA1
+        // pipeline (`trustQBCC` branch above): explicit mark-as-sent →
+        // delegated lodgement via `handleSentAdminMailQbccNotice` when
+        // the company is on a Paid-delegated/Onboarding plan → otherwise
+        // queue as 'Not Sent' / 'Sent - Onboarded' for the Notices to
+        // Send list. Like TA1, QBCC lodgement is *not* gated by the
+        // per-company `notices_auto_send` opt-out (regulatory).
+        const fireQbccTa2 = async (
+          noticeType:
+            | 'QBCC TA2 Account Closing Notice'
+            | 'QBCC TA2 Retention Account Closing Notice',
+          delegationMode: string | undefined,
+        ) => {
+          const existing = await findExistingAccountNotice(noticeType);
+          if (existing) {
             this.logger.log(
-              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='QBCC TA2 Account Closing Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingTa2.notice_id} existing_status=${existingTa2.status}`,
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='${noticeType}' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existing.notice_id} existing_status=${existing.status}`,
             );
-          } else {
-            const generateNoticePayload: Partial<generateNoticeInput> = {
-              company_id: noticeListWithData.company_id,
-              bank_account_id: noticeListWithData.bank_account_id,
-              notice_type: 'QBCC TA2 Account Closing Notice',
-            };
-            const newNotice = (await this.handleGenerateNotice(
-              decoded,
-              generateNoticePayload as generateNoticeInput,
-              manager,
-              flowId,
+            return;
+          }
+          const generateNoticePayload: Partial<generateNoticeInput> = {
+            company_id: noticeListWithData.company_id,
+            bank_account_id: noticeListWithData.bank_account_id,
+            notice_type: noticeType,
+          };
+          const newNotice = (await this.handleGenerateNotice(
+            decoded,
+            generateNoticePayload as generateNoticeInput,
+            manager,
+            flowId,
+            {
+              paymentName: this.resolvePaymentName(noticeListWithData),
+              referenceId: noticeListWithData.bank_account_id,
+              referenceLink: noticeListWithData.bank_accoutn_link,
+            },
+          )) as generateNoticeResponse;
+          noticeGen = true;
+
+          if (markAsSent) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type=${noticeType}`,
+            );
+            try {
+              await this.generateNoticeDocument(
+                { id: newNotice?.data?.id },
+                decoded,
+                manager,
+              );
+            } catch (pdfErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
+              );
+            }
+            await this.updateNoticeStatus(
               {
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.bank_account_id,
-                referenceLink: noticeListWithData.bank_accoutn_link,
+                notice_id: newNotice.data.notice_id,
+                status: 'Sent',
+                delegated_qbcc: true,
+                qbcc: true,
+                reference_id: noticeListWithData.bank_account_id,
+                reference_link: noticeListWithData.bank_accoutn_link,
               },
-            )) as generateNoticeResponse;
-            noticeGen = true;
-            if (markAsSent) {
-              try {
-                await this.generateNoticeDocument(
-                  { id: newNotice?.data?.id },
-                  decoded,
-                  manager,
-                );
-              } catch (pdfErr) {
-                this.logger.error(
-                  `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
-                );
-              }
-              await this.updateNoticeStatus(
-                {
-                  notice_id: newNotice.data.notice_id,
-                  status: 'Sent',
-                  delegated_qbcc: true,
-                  qbcc: true,
-                  reference_id: noticeListWithData.bank_account_id,
-                  reference_link: noticeListWithData.bank_accoutn_link,
-                },
-                decoded?.userId,
+              decoded?.userId,
+              manager,
+            );
+            return;
+          }
+
+          if (
+            delegationMode === 'Paid' ||
+            delegationMode === 'Paid-delegated' ||
+            (userMode && userMode == 'Onboarding')
+          ) {
+            const generateMailNoticePayload: GenerateMailForANoticeInput = {
+              id: newNotice?.data?.id,
+            };
+            if (
+              delegationMode === 'Paid' ||
+              delegationMode === 'Paid-delegated'
+            ) {
+              await this.generateNoticeDocument(
+                generateMailNoticePayload,
+                decoded,
                 manager,
               );
             }
+            if (
+              delegationMode === 'Paid-delegated' ||
+              (userMode && userMode == 'Onboarding')
+            ) {
+              if (userMode && userMode == 'Normal') {
+                const adminMail = (await this.handleSentAdminMailQbccNotice(
+                  decoded,
+                  newNotice?.data?.id,
+                  true,
+                  null,
+                  manager,
+                )) as {
+                  status: string;
+                  message: string;
+                  data: {
+                    qbcc_notice_file: {
+                      mail_uuid: string;
+                      file_details: any;
+                    };
+                    mails: any;
+                  };
+                };
+                qbcc_notice_previews.push(adminMail.data.qbcc_notice_file);
+                mails_to_sent.push(adminMail.data.mails);
+              }
+              const updateNoticePayload: updateNoticesInput = {
+                notice_id: newNotice.data.notice_id,
+                delegated_qbcc: true,
+                status:
+                  userMode == 'Normal' ? 'Sending' : 'Sent - Onboarded',
+                qbcc: true,
+                reference_id: noticeListWithData.bank_account_id,
+                reference_link: noticeListWithData.bank_accoutn_link,
+              };
+              updateNoticePayload.flow_id = flowId;
+              update_notice_inputs.push(updateNoticePayload);
+            }
           }
+        };
+
+        if ((noticeListWithData as any).projectTa2Notice === true) {
+          await fireQbccTa2(
+            'QBCC TA2 Account Closing Notice',
+            noticeListWithData.trustAccDelegation,
+          );
         }
 
         if ((noticeListWithData as any).retentionTa2Notice === true) {
-          const existingRetTa2 = await findExistingAccountNotice(
+          await fireQbccTa2(
             'QBCC TA2 Retention Account Closing Notice',
+            noticeListWithData.retentionAccDelegation,
           );
-          if (existingRetTa2) {
-            this.logger.log(
-              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='QBCC TA2 Retention Account Closing Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingRetTa2.notice_id} existing_status=${existingRetTa2.status}`,
-            );
-          } else {
-            const generateNoticePayload: Partial<generateNoticeInput> = {
-              company_id: noticeListWithData.company_id,
-              bank_account_id: noticeListWithData.bank_account_id,
-              notice_type: 'QBCC TA2 Retention Account Closing Notice',
-            };
-            const newNotice = (await this.handleGenerateNotice(
-              decoded,
-              generateNoticePayload as generateNoticeInput,
-              manager,
-              flowId,
-              {
-                paymentName: this.resolvePaymentName(noticeListWithData),
-                referenceId: noticeListWithData.bank_account_id,
-                referenceLink: noticeListWithData.bank_accoutn_link,
-              },
-            )) as generateNoticeResponse;
-            noticeGen = true;
-            if (markAsSent) {
-              try {
-                await this.generateNoticeDocument(
-                  { id: newNotice?.data?.id },
-                  decoded,
-                  manager,
-                );
-              } catch (pdfErr) {
-                this.logger.error(
-                  `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally_pdf_failed notice_id=${newNotice?.data?.notice_id} error=${pdfErr?.message}`,
-                );
-              }
-              await this.updateNoticeStatus(
-                {
-                  notice_id: newNotice.data.notice_id,
-                  status: 'Sent',
-                  delegated_qbcc: true,
-                  qbcc: true,
-                  reference_id: noticeListWithData.bank_account_id,
-                  reference_link: noticeListWithData.bank_accoutn_link,
-                },
-                decoded?.userId,
-                manager,
-              );
-            }
-          }
         }
 
         const beneficiaries =
@@ -4530,6 +4562,9 @@ export class NoticesService {
           )) as generateNoticeResponse;
           noticeGen = true;
           if (markAsSent) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=mark_as_sent_externally notice_id=${newNotice?.data?.notice_id} notice_type='Contracting Party Account Closing Notice' client_supplier_id=${benef.client_supplier_id}`,
+            );
             try {
               await this.generateNoticeDocument(
                 { id: newNotice?.data?.id },
@@ -4553,6 +4588,92 @@ export class NoticesService {
               decoded?.userId,
               manager,
             );
+            continue;
+          }
+
+          // Task #238 — Contracting Party Account Closing Notice mirrors
+          // the S18B `trustAccountNotice` branch above: delegated plans
+          // generate the mail + (optionally) auto-send when
+          // `companyAutoSend` is enabled; otherwise the notice is queued
+          // as 'Not Sent' / 'Sent - Onboarded' for the user to send from
+          // the Notices to Send list.
+          if (
+            noticeListWithData.trustAccDelegation === 'Paid' ||
+            noticeListWithData.trustAccDelegation === 'Paid-delegated' ||
+            (userMode && userMode == 'Onboarding')
+          ) {
+            const generateMailNoticePayload: GenerateMailForANoticeInput = {
+              id: newNotice?.data?.id,
+            };
+            if (
+              noticeListWithData.trustAccDelegation === 'Paid' ||
+              noticeListWithData.trustAccDelegation === 'Paid-delegated'
+            ) {
+              await this.generateNoticeDocument(
+                generateMailNoticePayload,
+                decoded,
+                manager,
+              );
+            }
+            const newMail = await this.handleGenerateMailForANotice(
+              decoded,
+              generateMailNoticePayload,
+              manager,
+              flowId,
+            );
+            if (!newMail || newMail.status !== 'SUCCESS' || !newMail.data) {
+              throw new Error(
+                `Mail generation failed: ${newMail?.message}`,
+              );
+            }
+            const sentMailNoticePayload: SentMailForANoticeInput = {
+              id: newMail?.data?.id,
+              view_preview: true,
+            };
+            if (userMode && userMode == 'Normal' && !companyAutoSend) {
+              this.logger.log(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type='Contracting Party Account Closing Notice' mail_uuid=${newMail?.data?.id} status=Not Sent`,
+              );
+            }
+            if (userMode && userMode == 'Normal' && companyAutoSend) {
+              const mailSent = (await this.handlesentNoticeMail(
+                decoded,
+                sentMailNoticePayload,
+                null,
+                manager,
+                true,
+                flowId,
+              )) as {
+                status: string;
+                message: string;
+                data: {
+                  mails: any;
+                  preview: {
+                    mail_uuid: string;
+                    file_details: any;
+                  };
+                };
+              };
+              notice_previews.push(mailSent.data.preview);
+              mails_to_sent.push(mailSent.data.mails);
+            }
+            const updateNoticePayload: updateNoticesInput = {
+              notice_id: newMail.data.notice_id,
+              notice_mail_uuid: newMail?.data?.id,
+              status:
+                userMode == 'Normal' && companyAutoSend
+                  ? 'Sent'
+                  : userMode == 'Normal'
+                  ? 'Not Sent'
+                  : 'Sent - Onboarded',
+              auto_sent: !!(userMode == 'Normal' && companyAutoSend),
+              reference_id: noticeListWithData.bank_account_id,
+              reference_link: noticeListWithData.bank_accoutn_link,
+              toName: benef.client_supplier_name ?? undefined,
+              toMail: benef.client_email_id ?? undefined,
+            };
+            updateNoticePayload.flow_id = flowId;
+            update_notice_inputs.push(updateNoticePayload);
           }
         }
 

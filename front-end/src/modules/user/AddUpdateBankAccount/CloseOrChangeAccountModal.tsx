@@ -25,7 +25,6 @@ export default function CloseOrChangeAccountModal({
   const [targetBsb, setTargetBsb] = useState<string>("");
   const [targetAcct, setTargetAcct] = useState<string>("");
   const [targetOpening, setTargetOpening] = useState<string>(today);
-  const [memo, setMemo] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const isTransfer = mode === "Transferred";
@@ -63,8 +62,6 @@ export default function CloseOrChangeAccountModal({
       payload.closing_target_account_number = targetAcct.trim();
       payload.closing_target_opening_date = targetOpening;
     }
-    if (memo.trim()) payload.memo = memo.trim();
-
     const ok = await CloseOrChangeBankAccount(payload);
     setSubmitting(false);
     if (ok) {
@@ -202,17 +199,6 @@ export default function CloseOrChangeAccountModal({
             </div>
           </>
         )}
-        <div>
-          <label style={{ display: "block", marginBottom: "0.25rem" }}>
-            Memo / reason (optional)
-          </label>
-          <textarea
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            rows={2}
-            style={{ width: "100%" }}
-          />
-        </div>
         <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
           Submitting will queue the QBCC TA2 notice and a Contracting Party
           Account Closing Notice for each contracted beneficiary. You can review
