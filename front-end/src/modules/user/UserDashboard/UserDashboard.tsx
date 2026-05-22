@@ -705,7 +705,7 @@ export default function UserDashboard() {
             const sev = cardObj?.severity;
             if (sev === "critical") return "invalid";
             if (sev === "warning") return "warning-status";
-            return "valid";
+            return "info-status";
           }}
           subHeaderContent={
             statusSnapshot?.total > 0 ? (

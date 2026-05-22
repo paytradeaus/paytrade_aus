@@ -2566,13 +2566,18 @@ small a {
   color: #ef6c00;
 }
 
+.pt_dashbox .info-status {
+  color: #1976d2;
+}
+
 .pt_dashbox .valid {
   color: #43a047;
 }
 
 .pt_dashbox:hover .invalid,
 .pt_dashbox:hover .valid,
-.pt_dashbox:hover .warning-status {
+.pt_dashbox:hover .warning-status,
+.pt_dashbox:hover .info-status {
   color: var(--wind);
 }
 
