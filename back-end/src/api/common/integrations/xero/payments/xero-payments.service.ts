@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+// Task #244 — value import (not type-only) so ModuleRef.get can use the
+// real class token at runtime. The BankAccountTransfersModule is
+// registered in app.module.ts and has no imports that touch the Xero
+// subsystem, so this does not create a circular dependency.
+import { BankAccountTransfersService } from '../../../../users/banking/bank-account-transfers/bank-account-transfers.service';
 import {
   Account,
   Allocation,
@@ -8583,10 +8588,12 @@ export class XeroPaymentsService {
       String(fromBank.account_type) === String(toBank.account_type)
     ) {
       try {
-        const svc: any = this.moduleRef.get(
-          'BankAccountTransfersService' as any,
-          { strict: false },
-        );
+        // Use the actual class as the DI token — string tokens only
+        // resolve value providers, not class providers, so the prior
+        // string lookup was silently returning undefined and disabling
+        // the wizard auto-match.
+        const svc: BankAccountTransfersService | undefined =
+          this.moduleRef.get(BankAccountTransfersService, { strict: false });
         if (svc?.tryAutoMatchInboundBankTransfer) {
           const matchResult = await svc.tryAutoMatchInboundBankTransfer({
             company_id: Number(fromBank.company_id),

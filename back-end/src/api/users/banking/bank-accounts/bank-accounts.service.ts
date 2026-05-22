@@ -1215,6 +1215,22 @@ export class BankAccountsService {
             );
           }
         }
+        // Task #244 — strict Close also requires the imported bank
+        // statement to be fully cleared. Any transaction row in
+        // status 'To Review' or 'Unmatched' blocks Close.
+        const unreconciledRows = await this.entityManager.query(
+          `SELECT COUNT(*)::int AS count
+           FROM transactions
+           WHERE bank_account_id = $1
+             AND status NOT IN ('Matched','Excluded')`,
+          [bank_account_id],
+        );
+        const unreconciledCount = Number(unreconciledRows?.[0]?.count ?? 0);
+        if (unreconciledCount > 0) {
+          closeBlockers.push(
+            `${unreconciledCount} unreconciled bank transaction(s) on this account — match or exclude them before closing.`,
+          );
+        }
         if (closeBlockers.length) {
           return {
             warning: true,

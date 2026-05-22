@@ -152,6 +152,20 @@ export class BankAccountTransfersService {
       );
     }
 
+    // Unreconciled transactions = imported bank-statement lines for
+    // this account that haven't been matched or excluded. Counted from
+    // the Transactions table (status enum: 'To Review' | 'Unmatched' |
+    // 'Matched' | 'Excluded'). Both 'Matched' and 'Excluded' are
+    // considered cleared; anything else blocks Close.
+    const [{ count: unreconciledRaw }] = await this.entityManager.query(
+      `SELECT COUNT(*)::int AS count
+       FROM transactions
+       WHERE bank_account_id = $1
+         AND status NOT IN ('Matched','Excluded')`,
+      [bank_account_id],
+    );
+    const unreconciledCount = Number(unreconciledRaw ?? 0);
+
     // Linked projects: contracts that reference this account.
     const contractsRaw = await this.contractsRepo
       .createQueryBuilder('c')
@@ -193,6 +207,11 @@ export class BankAccountTransfersService {
         `${openRetentionRaw.length} open retention row(s) — release or migrate first.`,
       );
     }
+    if (unreconciledCount > 0) {
+      closeBlockers.push(
+        `${unreconciledCount} unreconciled bank transaction(s) — match or exclude them before closing.`,
+      );
+    }
     if (account.status !== 'Open') {
       closeBlockers.push(`Account is in status '${account.status}', not 'Open'.`);
       transferBlockers.push(
@@ -216,7 +235,7 @@ export class BankAccountTransfersService {
       open_claims_count: openClaimsRaw.length,
       in_flight_payments_count: inFlightRaw.length,
       open_retention_count: openRetentionRaw.length,
-      unreconciled_transactions_count: 0,
+      unreconciled_transactions_count: unreconciledCount,
       open_claims: openClaimsRaw.map((c: any) => ({
         id: Number(c.c_payment_claim_id ?? c.payment_claim_id),
         reference: c.c_claim_reference ?? c.claim_reference,
