@@ -87,6 +87,56 @@ export class BankAccountsService {
     this.logger.log(`${message}`);
   }
 
+  /**
+   * Task #266: deterministic fingerprint over the bank-account fields that
+   * actually appear on (or gate) S18B / TA1 / S23 trust-account notices.
+   * Used by `editDetailsOfABankAccount` to decide whether a save warrants
+   * re-triggering notice generation. Fields not on this list (status,
+   * balances, last_journal_id, audit fields, etc.) do NOT trigger
+   * regeneration when changed.
+   */
+  private getNoticeContentFingerprint(
+    account: Partial<BankAccounts> | Record<string, any> | null | undefined,
+  ): string {
+    if (!account) return '';
+    const norm = (v: any) => {
+      if (v === null || v === undefined) return '';
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (Array.isArray(v))
+        return v.map((x) => String(x).trim()).sort().join(',');
+      if (typeof v === 'string') return v.trim();
+      return String(v);
+    };
+    const normProjectIds = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const list = Array.isArray(v) ? v : String(v).split(',');
+      return list
+        .map((x) => String(x).trim())
+        .filter(Boolean)
+        .sort()
+        .join(',');
+    };
+    const fields = [
+      norm(account.account_name),
+      norm(account.account_number),
+      norm(account.bsb_number),
+      norm(account.financial_institution),
+      norm(account.account_type),
+      normProjectIds(account.project_ids),
+      norm(account.client_supplier_id),
+      norm(account.trustee_id),
+      norm(account.company_id),
+      norm(account.contract_date),
+      norm(account.opening_date),
+      norm(account.contract_practical_completion_date),
+      norm(account.first_sub_contract_date),
+      norm(account.contract_value),
+      norm(account.delegate_powers),
+      norm(account.retention_trust_certificate_attachment_ids),
+    ];
+    return fields.join('|');
+  }
+
   private logError(message: string) {
     this.logger.error(`${message}`);
   }
@@ -580,18 +630,120 @@ export class BankAccountsService {
           }
 
           let notices;
-          if (data.status === 'Open' && data.account_type !== 'Cash Account') {
-            notices = await this.noticeService.handleTriggerAccountNotices(
-              decoded,
-              {
-                bank_account_id: bank_account_id,
-                mark_notices_as_sent: markNoticesAsSent,
-              },
-              transactionalEntityManager,
+          // Task #266: GraphQL edit inputs are nullable, so `data.status` /
+          // `data.account_type` may be omitted on a legitimate edit. Fall
+          // back to the persisted values so a content-only edit (e.g.
+          // renaming the account) still passes this gate.
+          const effectiveStatus = data.status ?? accountDetails?.status;
+          const effectiveAccountType =
+            data.account_type ?? accountDetails?.account_type;
+          if (
+            effectiveStatus === 'Open' &&
+            effectiveAccountType !== 'Cash Account'
+          ) {
+            // Task #266: only re-trigger account-notice generation when the
+            // save actually warrants it. Previously every edit-and-save of a
+            // Project/Retention Trust Account re-fired the trigger and (with
+            // no idempotency in notices.service.ts) produced duplicate
+            // S18B/TA1 rows — see the project 1006 incident.
+            //
+            // Decision matrix:
+            //   - first time the account goes to 'Open' (`justBecameOpen`)
+            //       → trigger (regular initial notice generation).
+            //   - already 'Open' AND notice-content-affecting fields changed
+            //       → soft-delete stale unsent notices, then trigger
+            //         (regeneration with up-to-date content).
+            //   - already 'Open' AND no content change
+            //       → skip trigger entirely (the duplicate-bug fix).
+            const justBecameOpen =
+              !accountDetails || accountDetails.status !== 'Open';
+            const beforeFingerprint = accountDetails
+              ? this.getNoticeContentFingerprint(accountDetails)
+              : '';
+            const afterFingerprint = this.getNoticeContentFingerprint({
+              ...accountDetails,
+              ...data,
+            });
+            const contentChanged =
+              !!accountDetails && beforeFingerprint !== afterFingerprint;
+            const shouldTrigger = justBecameOpen || contentChanged;
+
+            this.logger.log(
+              `[NOTICE_TRIGGER_GATE] bank_account_id=${bank_account_id} just_became_open=${justBecameOpen} content_changed=${contentChanged} should_trigger=${shouldTrigger}`,
             );
 
-            if (notices?.status === 'ERROR') {
-              throw new Error('Notice generation failed');
+            if (shouldTrigger) {
+              // When content changed (but the account was already Open), the
+              // existing in-flight unsent notices are stale — soft-delete
+              // them so the downstream idempotency check inside
+              // `handleTriggerAccountNotices` will allow fresh ones to be
+              // generated. Already-Sent notices are NOT touched (legal
+              // audit trail). If a Sent notice exists for a type whose
+              // contents changed, the idempotency check will currently
+              // block the new amendment — that's intentional for now and
+              // logged below; surfacing an explicit "send amendment"
+              // action to the user is a follow-up.
+              if (contentChanged && !justBecameOpen) {
+                const noticeTypesToCheck = [
+                  'Client S18B Project Trust Account Notice',
+                  'QBCC TA1 Project Trust Account Notice',
+                  'QBCC TA1 Retention Trust Account Notice',
+                ];
+                const repo =
+                  transactionalEntityManager.getRepository(NoticeDetails);
+                const existing = await repo.find({
+                  where: {
+                    bank_account_id,
+                    notice_type: In(noticeTypesToCheck) as any,
+                    status: Not(In(['Delete-Unsent', 'Delete-Sent'])),
+                  },
+                });
+                const unsentStatuses = [
+                  'Not Sent',
+                  'Draft',
+                  'Sending',
+                  'Sent - Notice Attachment Failed',
+                ];
+                const toSoftDelete = existing.filter((n) =>
+                  unsentStatuses.includes(n.status as any),
+                );
+                const sentBlocking = existing.filter(
+                  (n) => !unsentStatuses.includes(n.status as any),
+                );
+                if (toSoftDelete.length) {
+                  await repo
+                    .createQueryBuilder()
+                    .update(NoticeDetails)
+                    .set({
+                      status: 'Delete-Unsent' as any,
+                      updated_by: decoded?.userId,
+                      updated_on: moment.tz('UTC').toDate(),
+                    })
+                    .whereInIds(toSoftDelete.map((n) => n.id))
+                    .execute();
+                  this.logger.log(
+                    `[NOTICE_TRIGGER_GATE] soft-deleted ${toSoftDelete.length} stale unsent notice(s) for bank_account_id=${bank_account_id} types=${toSoftDelete.map((n) => n.notice_type).join(',')}`,
+                  );
+                }
+                if (sentBlocking.length) {
+                  this.logger.warn(
+                    `[NOTICE_TRIGGER_GATE] content changed but ${sentBlocking.length} already-Sent notice(s) remain for bank_account_id=${bank_account_id} (types=${sentBlocking.map((n) => n.notice_type).join(',')}); idempotency will block fresh notice creation — manual amendment required.`,
+                  );
+                }
+              }
+
+              notices = await this.noticeService.handleTriggerAccountNotices(
+                decoded,
+                {
+                  bank_account_id: bank_account_id,
+                  mark_notices_as_sent: markNoticesAsSent,
+                },
+                transactionalEntityManager,
+              );
+
+              if (notices?.status === 'ERROR') {
+                throw new Error('Notice generation failed');
+              }
             }
           }
           return {

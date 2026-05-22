@@ -3820,7 +3820,36 @@ export class NoticesService {
       let update_notice_inputs = [];
 
       if (noticeListWithData) {
+        // Task #266: idempotency guard — `handleTriggerAccountNotices` is
+        // called from both the bank-account create and edit paths, and
+        // historically re-created S18B/TA1 notices on every save (see
+        // pta-functions.ts duplicate-notice incident on project 1006). For
+        // each per-bank-account notice type below we now check for an
+        // existing active notice and skip generation if one is already on
+        // record. Edit-path callers that legitimately need to regenerate
+        // (because notice-content-affecting fields changed) are expected to
+        // soft-delete the stale row first (status='Delete-Unsent').
+        const noticeRepoForIdempotency = manager
+          ? manager.getRepository(NoticeDetails)
+          : this.noticesRepo;
+        const findExistingAccountNotice = async (notice_type: string) =>
+          noticeRepoForIdempotency.findOne({
+            where: {
+              bank_account_id: noticeListWithData.bank_account_id,
+              notice_type: notice_type as any,
+              status: Not(In(['Delete-Unsent', 'Delete-Sent'])),
+            },
+          });
+
         if (noticeListWithData.trustAccountNotice === true) {
+          const existingS18B = await findExistingAccountNotice(
+            'Client S18B Project Trust Account Notice',
+          );
+          if (existingS18B) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='Client S18B Project Trust Account Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingS18B.notice_id} existing_status=${existingS18B.status}`,
+            );
+          } else {
           const generateNoticePayload: Partial<generateNoticeInput> = {
             company_id: noticeListWithData.company_id,
             bank_account_id: noticeListWithData.bank_account_id,
@@ -3961,8 +3990,17 @@ export class NoticesService {
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
+          } // end else (no existing S18B notice)
         }
         if (noticeListWithData.trustQBCC === true) {
+          const existingTA1 = await findExistingAccountNotice(
+            'QBCC TA1 Project Trust Account Notice',
+          );
+          if (existingTA1) {
+            this.logger.log(
+              `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=idempotency notice_type='QBCC TA1 Project Trust Account Notice' bank_account_id=${noticeListWithData.bank_account_id} existing_notice_id=${existingTA1.notice_id} existing_status=${existingTA1.status}`,
+            );
+          } else {
           const generateNoticePayload: Partial<generateNoticeInput> = {
             company_id: noticeListWithData.company_id,
             bank_account_id: noticeListWithData.bank_account_id,
@@ -4076,6 +4114,7 @@ export class NoticesService {
             }
           // Notice generation activity log is recorded centrally in handleGenerateNotice (Task #98).
           }
+          } // end else (no existing TA1 notice)
         }
         if (noticeListWithData.retentionQBCC === true) {
           const banksrepo = manager
