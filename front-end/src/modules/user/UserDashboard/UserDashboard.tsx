@@ -44,6 +44,60 @@ export default function UserDashboard() {
   const searchParams = useSearchParams();
   const showAllIssuesModal = searchParams?.get("view") === "all-issues";
   const closeAllIssuesModal = () => router.push(AppRoutes.USER_DASHBOARD);
+
+  /**
+   * Deep-link a System Status Summary issue to the screen where the user can
+   * fix it. Falls back to the relevant index page when we don't have a
+   * record-specific route, or returns null when no useful target exists
+   * (in which case the row is rendered non-clickable).
+   */
+  const resolveStatusIssueRoute = (issue: any): string | null => {
+    if (!issue) return null;
+    const type: string = issue.affectedRecordType || "";
+    const id = issue.affectedRecordId;
+    const projectId = issue.projectId;
+    const hasId = id !== null && id !== undefined && String(id).length > 0;
+    switch (type) {
+      case "xero_sync_log":
+        return hasId ? `${AppRoutes.USER_SYNC_LOG}${id}` : AppRoutes.USER_XERO;
+      case "project":
+        return hasId
+          ? `${AppRoutes.USER_PROJECTS_OVERVIEW}/${id}`
+          : AppRoutes.USER_PROJECTS;
+      case "contract":
+        return hasId
+          ? `${AppRoutes.USER_CONTRACTS_OVERVIEW}/${id}`
+          : AppRoutes.USER_CONTRACTS_LIST;
+      case "payment_claim":
+        return hasId
+          ? `${AppRoutes.USER_PAYMENTS_LIST}?partclaimid=${id}`
+          : AppRoutes.USER_PAYMENTS_LIST;
+      case "payment":
+      case "sub_payment":
+        return AppRoutes.USER_PAYMENTS_LIST;
+      case "notice":
+        return hasId
+          ? `${AppRoutes.USER_NOTICES_VIEW}/${id}`
+          : AppRoutes.USER_NOTICES;
+      case "client_supplier":
+        return AppRoutes.USER_CLIENTS_AND_SUPPLIERS;
+      case "bank_account":
+      case "reconciliation_report":
+      case "audit_report":
+        return hasId
+          ? `${AppRoutes.USER_BANK_ACCOUNTS_OVERVIEW}/${id}`
+          : AppRoutes.USER_BANK_ACCOUNTS_CURRENT;
+      case "company":
+        return projectId
+          ? `${AppRoutes.USER_PROJECTS_OVERVIEW}/${projectId}`
+          : null;
+      default:
+        // Soft fallback: if we know a project, at least open the project.
+        return projectId
+          ? `${AppRoutes.USER_PROJECTS_OVERVIEW}/${projectId}`
+          : null;
+    }
+  };
   // Create a placeholder component to wrap with the HOC
   const BlogContent = () => null;
 
@@ -92,6 +146,9 @@ export default function UserDashboard() {
     title: string;
     severity: 'critical' | 'warning' | 'info';
     category: string;
+    affectedRecordType?: string | null;
+    affectedRecordId?: string | number | null;
+    projectId?: number | null;
   }
   interface StatusSnapshotState {
     data: StatusIssue[];
@@ -707,6 +764,10 @@ export default function UserDashboard() {
             if (sev === "warning") return "warning-status";
             return "info-status";
           }}
+          onCardClick={(cardObj) => {
+            const target = resolveStatusIssueRoute(cardObj);
+            if (target) router.push(target);
+          }}
           subHeaderContent={
             statusSnapshot?.total > 0 ? (
               <div style={{ display: "flex", gap: "12px", fontSize: "12px" }}>
@@ -789,36 +850,45 @@ export default function UserDashboard() {
             )}
             {!statusSnapshot.loader && statusSnapshot.allIssues.length > 0 && (
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {statusSnapshot.allIssues.map((issue) => (
-                  <li
-                    key={issue.id}
-                    style={{
-                      padding: "10px 12px",
-                      borderBottom: "1px solid #eee",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "12px",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{issue.title}</div>
-                      <div style={{ fontSize: "12px", color: "#666" }}>
-                        {issue.category}
-                      </div>
-                    </div>
-                    <b
-                      className={
-                        issue.severity === "critical"
-                          ? "invalid"
-                          : issue.severity === "warning"
-                            ? "warning-status"
-                            : "valid"
-                      }
+                {statusSnapshot.allIssues.map((issue) => {
+                  const target = resolveStatusIssueRoute(issue);
+                  return (
+                    <li
+                      key={issue.id}
+                      onClick={() => {
+                        if (target) router.push(target);
+                      }}
+                      style={{
+                        padding: "10px 12px",
+                        borderBottom: "1px solid #eee",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        cursor: target ? "pointer" : "default",
+                      }}
+                      title={target ? "Open source record" : undefined}
                     >
-                      {issue.severity}
-                    </b>
-                  </li>
-                ))}
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{issue.title}</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          {issue.category}
+                          {target ? " — click to open" : ""}
+                        </div>
+                      </div>
+                      <b
+                        className={
+                          issue.severity === "critical"
+                            ? "invalid"
+                            : issue.severity === "warning"
+                              ? "warning-status"
+                              : "info-status"
+                        }
+                      >
+                        {issue.severity}
+                      </b>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
