@@ -204,6 +204,9 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
         ],
         // autoLoadEntities: true,
         synchronize: process.env.NODE_ENV !== 'production',
+        migrations: ['dist/migrations/*.js'],
+        migrationsRun: process.env.NODE_ENV === 'production',
+        migrationsTableName: 'migrations',
         ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
         extra: {
           max: 5,
