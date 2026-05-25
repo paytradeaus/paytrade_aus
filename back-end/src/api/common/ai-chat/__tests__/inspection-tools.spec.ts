@@ -285,7 +285,7 @@ describe('AiChatInspectionService.getTrustAccountBalances', () => {
         status: 'Active',
         currentBalance: 1500.5,
         lastFourDigits: '6789',
-        bsb: 12345,
+        bsb: '012345',
         projectIds: [5, 6],
       },
       {

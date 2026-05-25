@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
 import { PaymentClaims, BankAccounts } from 'src/entities/banking.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
@@ -66,7 +67,7 @@ export interface TrustAccountBalance {
   status: string;
   currentBalance: number | null;
   lastFourDigits: string | null;
-  bsb: number | null;
+  bsb: string | null;
   projectIds: number[] | null;
 }
 
@@ -444,7 +445,7 @@ export class AiChatInspectionService {
         currentBalance:
           b.current_balance != null ? Number(b.current_balance) : null,
         lastFourDigits: lastFour,
-        bsb: b.bsb_number ?? null,
+        bsb: padBsb6(b.bsb_number),
         projectIds:
           Array.isArray(b.project_ids) && b.project_ids.length
             ? b.project_ids.map((n) => Number(n))

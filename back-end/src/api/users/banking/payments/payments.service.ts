@@ -6,6 +6,7 @@ import {
   PaymentClaims,
 } from 'src/entities/banking.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { Repository, EntityManager, In, Not } from 'typeorm';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
@@ -3165,12 +3166,12 @@ export class PaymentsService {
           'p.payment_from_account AS payment_from_account',
           'fromAccount.account_name AS payment_from_account_name',
           'fromAccount.account_type AS payment_from_account_type',
-          'fromAccount.bsb_number AS payment_from_account_bsb_number',
+          `LPAD(CAST(fromAccount.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb_number`,
           'fromAccount.account_number AS payment_from_account_number',
           'p.payment_to_account AS payment_to_account',
           'toAccount.account_name AS payment_to_account_name',
           'toAccount.account_type AS payment_to_account_type',
-          'toAccount.bsb_number AS payment_to_account_bsb_number',
+          `LPAD(CAST(toAccount.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb_number`,
           'toAccount.account_number AS payment_to_account_number',
           'p.retention_account AS retention_account',
           'retentionAcc.account_name AS retention_account_name',
@@ -3662,7 +3663,7 @@ export class PaymentsService {
             'ba.bank_account_id AS payment_from_account',
             'ba.account_name AS payment_from_account_name',
             'ba.account_type AS payment_from_account_type',
-            'ba.bsb_number AS payment_from_account_bsb_number',
+            `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb_number`,
             'ba.account_number AS payment_from_account_number',
           ])
           .where('ba.bank_account_id = :bank_account_id', {
@@ -3684,7 +3685,7 @@ export class PaymentsService {
           'ba.bank_account_id AS payment_to_account',
           'ba.account_name AS payment_to_account_name',
           'ba.account_type AS payment_to_account_type',
-          'ba.bsb_number AS payment_to_account_bsb_number',
+          `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb_number`,
           'ba.account_number AS payment_to_account_number',
         ])
         .where('ba.bank_account_id = :bank_account_id', {
@@ -4105,7 +4106,10 @@ export class PaymentsService {
       .addSelect('fromAccount.account_name', 'payment_from_account_name')
       .leftJoin('payments.paymentToAccount', 'toAccount')
       .addSelect('toAccount.account_name', 'payment_to_account_name')
-      .addSelect('toAccount.bsb_number', 'payment_to_account_bsb_number')
+      .addSelect(
+        `LPAD(CAST(toAccount.bsb_number AS TEXT), 6, '0')`,
+        'payment_to_account_bsb_number',
+      )
       .addSelect('toAccount.account_number', 'payment_to_account_number')
       .leftJoin('payments.retentionAccount', 'retentionAcc')
       .addSelect('retentionAcc.account_name', 'retention_account_name')
@@ -4253,32 +4257,32 @@ export class PaymentsService {
          CAST(cpf.account_name AS TEXT) ILIKE :keyword OR 
          CAST(cpf.account_type AS TEXT) ILIKE :keyword OR 
          CAST(cpf.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(cpf.apca_number AS TEXT) ILIKE :keyword OR 
          CAST(cpt.account_name AS TEXT) ILIKE :keyword OR 
          CAST(cpt.account_type AS TEXT) ILIKE :keyword OR 
          CAST(cpt.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpt.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(cpt.apca_number AS TEXT) ILIKE :keyword OR 
          CAST(crf.account_name AS TEXT) ILIKE :keyword OR 
          CAST(crf.account_type AS TEXT) ILIKE :keyword OR 
          CAST(crf.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(crf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(crf.apca_number AS TEXT) ILIKE :keyword OR 
           CAST(fromAccount.account_name AS TEXT) ILIKE :keyword OR 
          CAST(fromAccount.account_type AS TEXT) ILIKE :keyword OR 
          CAST(fromAccount.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(fromAccount.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(fromAccount.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(fromAccount.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(fromAccount.apca_number AS TEXT) ILIKE :keyword OR 
           CAST(toAccount.account_name AS TEXT) ILIKE :keyword OR 
          CAST(toAccount.account_type AS TEXT) ILIKE :keyword OR 
          CAST(toAccount.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(toAccount.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(toAccount.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(toAccount.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(toAccount.apca_number AS TEXT) ILIKE :keyword OR 
           CAST(retentionAcc.account_name AS TEXT) ILIKE :keyword OR 
          CAST(retentionAcc.account_type AS TEXT) ILIKE :keyword OR 
          CAST(retentionAcc.account_number AS TEXT) ILIKE :keyword OR 
-         CAST(retentionAcc.bsb_number AS TEXT) ILIKE :keyword OR 
+         (CAST(retentionAcc.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(retentionAcc.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
          CAST(retentionAcc.apca_number AS TEXT) ILIKE :keyword OR 
          EXISTS (SELECT 1 FROM payment_claim_invoices pci WHERE pci.payment_claim_id = pc.payment_claim_id AND (
             CAST(pci.description AS TEXT) ILIKE :keyword OR  
@@ -5164,7 +5168,10 @@ export class PaymentsService {
         END`,
         'payment_from_account_name',
       )
-      .addSelect('fromAccount.bsb_number', 'payment_from_account_bsb_number')
+      .addSelect(
+        `LPAD(CAST(fromAccount.bsb_number AS TEXT), 6, '0')`,
+        'payment_from_account_bsb_number',
+      )
       .addSelect('fromAccount.account_number', 'payment_from_account_number')
       .addSelect(
         'fromAccount.financial_institution',
@@ -5183,11 +5190,13 @@ export class PaymentsService {
       )
       .addSelect(
         `
-        CASE 
-          WHEN subpayment.sub_payment_type IN ('Retention Out', 'Retention In') 
-          THEN retentionAcc.bsb_number 
-          ELSE toAccount.bsb_number 
-        END`,
+        LPAD(CAST(
+          CASE 
+            WHEN subpayment.sub_payment_type IN ('Retention Out', 'Retention In') 
+            THEN retentionAcc.bsb_number 
+            ELSE toAccount.bsb_number 
+          END
+        AS TEXT), 6, '0')`,
         'payment_to_account_bsb_number',
       )
       .addSelect(
@@ -7316,7 +7325,7 @@ export class PaymentsService {
       company_id,
       account_name: r.account_name || '',
       account_number: r.account_number || '',
-      bsb_number: r.bsb_number != null ? String(r.bsb_number) : '',
+      bsb_number: padBsb6(r.bsb_number) || '',
       apca_number: r.apca_number != null ? String(r.apca_number) : null,
       has_apca: r.apca_number != null && String(r.apca_number).length > 0,
       eligible_count: Number(r.eligible_count) || 0,
@@ -7467,7 +7476,7 @@ export class PaymentsService {
         recipient_account_number: r.recipient_account_number
           ? String(r.recipient_account_number)
           : '',
-        recipient_bsb: r.recipient_bsb != null ? String(r.recipient_bsb) : '',
+        recipient_bsb: padBsb6(r.recipient_bsb) || '',
         amount: r.amount != null ? Math.abs(Number(r.amount)) : 0,
         project_name: r.project_name || '',
         contract_name: r.contract_name || '',

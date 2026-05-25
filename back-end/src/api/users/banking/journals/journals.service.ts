@@ -343,17 +343,17 @@ export class JournalsService {
            CAST(cpf.account_name AS TEXT) ILIKE :keyword OR 
            CAST(cpf.account_type AS TEXT) ILIKE :keyword OR 
            CAST(cpf.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(cpf.apca_number AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_name AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_type AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpt.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(cpt.apca_number AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_name AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_type AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(crf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(crf.apca_number AS TEXT) ILIKE :keyword OR 
            EXISTS (SELECT 1 FROM payment_claim_invoices pci WHERE pci.payment_claim_id = pc.payment_claim_id AND (
             CAST(pci.description AS TEXT) ILIKE :keyword OR  
@@ -1188,7 +1188,7 @@ export class JournalsService {
           'account_name',
         )
         .addSelect(
-          `CASE WHEN jt.beneficiary_type = 'supplier' THEN b.bsb_number ELSE NULL END`,
+          `CASE WHEN jt.beneficiary_type = 'supplier' THEN LPAD(CAST(b.bsb_number AS TEXT), 6, '0') ELSE NULL END`,
           'bsb_number',
         )
         .addSelect(
@@ -1224,7 +1224,10 @@ export class JournalsService {
           `CASE WHEN account.account_name IS NULL AND journalType.beneficiary_type = 'client' THEN client.client_supplier_name ELSE account.account_name END`,
           'account_name',
         )
-        .addSelect('account.bsb_number', 'bsb_number')
+        .addSelect(
+          `LPAD(CAST(account.bsb_number AS TEXT), 6, '0')`,
+          'bsb_number',
+        )
         .addSelect('account.account_number', 'account_number')
         .addSelect('journal.journal_number', 'journal_number')
         .addSelect('journal.audit_id', 'audit_id')

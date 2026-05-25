@@ -619,7 +619,7 @@ export class FetchWithdrawAndDeposit {
     nullable: true,
     description: 'BSB number associated with the bank account.',
   })
-  bsb_number: number;
+  bsb_number: string;
 
   @Field({
     nullable: true,

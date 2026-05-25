@@ -1695,17 +1695,17 @@ export class PaymentClaimsService {
            CAST(cpf.account_name AS TEXT) ILIKE :keyword OR 
            CAST(cpf.account_type AS TEXT) ILIKE :keyword OR 
            CAST(cpf.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(cpf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(cpf.apca_number AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_name AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_type AS TEXT) ILIKE :keyword OR 
            CAST(cpt.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(cpt.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(cpt.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(cpt.apca_number AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_name AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_type AS TEXT) ILIKE :keyword OR 
            CAST(crf.account_number AS TEXT) ILIKE :keyword OR 
-           CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR 
+           (CAST(crf.bsb_number AS TEXT) ILIKE :keyword OR LPAD(CAST(crf.bsb_number AS TEXT), 6, '0') ILIKE :keyword) OR 
            CAST(crf.apca_number AS TEXT) ILIKE :keyword OR 
            EXISTS (SELECT 1 FROM payment_claim_invoices pci WHERE pci.payment_claim_id = pc.payment_claim_id AND (
             CAST(pci.description AS TEXT) ILIKE :keyword OR  
@@ -2445,7 +2445,7 @@ export class PaymentClaimsService {
             'ba.account_name AS payment_from_account_name',
             'ba.account_type AS payment_from_account_type',
             'ba.account_number AS payment_from_account_number',
-            'ba.bsb_number AS payment_from_account_bsb_number',
+            `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb_number`,
           ])
           .where('ba.bank_account_id = :bank_account_id', {
             bank_account_id: payment_from_account_id,
@@ -2466,7 +2466,7 @@ export class PaymentClaimsService {
           .createQueryBuilder('b')
           .select([
             'b.account_name AS payment_to_account_name',
-            'b.bsb_number AS payment_to_account_bsb_number',
+            `LPAD(CAST(b.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb_number`,
             'b.account_number AS payment_to_account_number',
             'b.account_type AS payment_to_account_type',
           ])
@@ -2593,7 +2593,7 @@ export class PaymentClaimsService {
           'ba.account_name AS payment_to_account_name',
           'ba.bank_account_id AS payment_to_account_id',
           'ba.account_type AS payment_to_account_type',
-          'ba.bsb_number AS payment_to_account_bsb_number',
+          `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb_number`,
           'ba.account_number AS payment_to_account_number',
         ])
         .where(`ba.account_type IN(:...bankAccountsToBeFetched)`, {
@@ -2626,7 +2626,7 @@ export class PaymentClaimsService {
         .select([
           'ba.account_name AS payment_from_account_name',
           'ba.account_type AS payment_from_account_type',
-          'ba.bsb_number AS payment_from_account_bsb_number',
+          `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb_number`,
           'ba.bank_account_id AS payment_from_account_id',
           'ba.account_number AS payment_from_account_number',
         ])
@@ -2772,7 +2772,7 @@ export class PaymentClaimsService {
           'c.payment_terms AS payment_terms',
           'r.account_name AS retention_from_account_name',
           'r.bank_account_id AS retention_from_account_id',
-          'r.bsb_number AS retention_from_account_bsb_number',
+          `LPAD(CAST(r.bsb_number AS TEXT), 6, '0') AS retention_from_account_bsb_number`,
           'r.account_number AS retention_from_account_number',
           'r.account_type AS retention_from_account_type',
         ])
@@ -2792,7 +2792,7 @@ export class PaymentClaimsService {
           'ba.account_name AS payment_to_account_name',
           'ba.account_number AS payment_to_account_number',
           'ba.account_type AS payment_to_account_type',
-          'ba.bsb_number AS payment_to_account_bsb_number',
+          `LPAD(CAST(ba.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb_number`,
           'ba.bank_account_id AS payment_to_account_id',
         ])
         .where('ba.client_supplier_id = :client_supplier_id', {
@@ -3605,33 +3605,33 @@ export class PaymentClaimsService {
         'pf.account_name AS payment_from_account_name',
         'pf.account_type AS payment_from_account_type',
         'pf.account_number AS payment_from_account_number',
-        'pf.bsb_number AS payment_from_account_bsb',
+        `LPAD(CAST(pf.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb`,
         'pf.associated_cash_account_id AS payment_from_cash_account',
         'pf.last_journal_id AS payment_from_last_journal_id',
         'pt.account_name AS payment_to_account_name',
         'pt.account_type AS payment_to_account_type',
         'pt.account_number AS payment_to_account_number',
-        'pt.bsb_number AS payment_to_account_bsb',
+        `LPAD(CAST(pt.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb`,
         'pt.associated_cash_account_id AS payment_to_cash_account',
         'pt.last_journal_id AS payment_to_last_journal_id',
         'rf.account_name AS retention_from_account_name',
         'rf.account_type AS retention_from_account_type',
         'rf.account_number AS retention_from_account_number',
-        'rf.bsb_number AS retention_from_account_bsb',
+        `LPAD(CAST(rf.bsb_number AS TEXT), 6, '0') AS retention_from_account_bsb`,
         'rf.associated_cash_account_id AS retention_from_cash_account',
         'rf.last_journal_id AS retention_from_last_journal_id',
         'pfca.account_name AS payment_from_cash_account_name',
         'pfca.account_type AS payment_from_cash_account_type',
         'pfca.account_number AS payment_from_cash_account_number',
-        'pfca.bsb_number AS payment_from_cash_account_bsb',
+        `LPAD(CAST(pfca.bsb_number AS TEXT), 6, '0') AS payment_from_cash_account_bsb`,
         'ptca.account_name AS payment_to_cash_account_name',
         'ptca.account_type AS payment_to_cash_account_type',
         'ptca.account_number AS payment_to_cash_account_number',
-        'ptca.bsb_number AS payment_to_cash_account_bsb',
+        `LPAD(CAST(ptca.bsb_number AS TEXT), 6, '0') AS payment_to_cash_account_bsb`,
         'rfca.account_name AS retention_from_cash_account_name',
         'rfca.account_type AS retention_from_cash_aaccount_type',
         'rfca.account_number AS retention_from_cash_account_number',
-        'rfca.bsb_number AS retention_from_cash_account_bsb',
+        `LPAD(CAST(rfca.bsb_number AS TEXT), 6, '0') AS retention_from_cash_account_bsb`,
         'pd.payment_id AS payment_id',
         'pd.payment_type AS payment_type',
         'pd.cash_retention AS cash_retention',
@@ -3736,33 +3736,33 @@ export class PaymentClaimsService {
         'pf.account_name AS payment_from_account_name',
         'pf.account_type AS payment_from_account_type',
         'pf.account_number AS payment_from_account_number',
-        'pf.bsb_number AS payment_from_account_bsb',
+        `LPAD(CAST(pf.bsb_number AS TEXT), 6, '0') AS payment_from_account_bsb`,
         'pf.associated_cash_account_id AS payment_from_cash_account',
         'pf.last_journal_id AS payment_from_last_journal_id',
         'pt.account_name AS payment_to_account_name',
         'pt.account_type AS payment_to_account_type',
         'pt.account_number AS payment_to_account_number',
-        'pt.bsb_number AS payment_to_account_bsb',
+        `LPAD(CAST(pt.bsb_number AS TEXT), 6, '0') AS payment_to_account_bsb`,
         'pt.associated_cash_account_id AS payment_to_cash_account',
         'pt.last_journal_id AS payment_to_last_journal_id',
         'pfca.account_name AS payment_from_cash_account_name',
         'pfca.account_type AS payment_from_cash_account_type',
         'pfca.account_number AS payment_from_cash_account_number',
-        'pfca.bsb_number AS payment_from_cash_account_bsb',
+        `LPAD(CAST(pfca.bsb_number AS TEXT), 6, '0') AS payment_from_cash_account_bsb`,
         'ptca.account_name AS payment_to_cash_account_name',
         'ptca.account_type AS payment_to_cash_account_type',
         'ptca.account_number AS payment_to_cash_account_number',
-        'ptca.bsb_number AS payment_to_cash_account_bsb',
+        `LPAD(CAST(ptca.bsb_number AS TEXT), 6, '0') AS payment_to_cash_account_bsb`,
         'ap.payment_to_account AS supplier_account',
         'appt.account_name AS supplier_account_name',
         'appt.account_type AS supplier_account_type',
         'appt.account_number AS supplier_account_number',
-        'appt.bsb_number AS supplier_account_bsb',
+        `LPAD(CAST(appt.bsb_number AS TEXT), 6, '0') AS supplier_account_bsb`,
         `CASE WHEN cba.bank_account_id IS NULL THEN 00000000000 ELSE cba.bank_account_id END AS client_account`,
         'cba.account_name AS client_account_name',
         'cba.account_type AS client_account_type',
         'cba.account_number AS client_account_number',
-        'cba.bsb_number AS client_account_bsb',
+        `LPAD(CAST(cba.bsb_number AS TEXT), 6, '0') AS client_account_bsb`,
       ])
       .where('pd.payment_id = :payment_id', { payment_id });
 

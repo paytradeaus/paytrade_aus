@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import * as ExcelJS from 'exceljs';
 import * as archiver from 'archiver';
 import * as jwt from 'jsonwebtoken';
@@ -701,7 +702,7 @@ export class ExportDataService {
           entry?.journal_description,
           entry?.account_name,
           entry?.account_number,
-          entry?.bsb_number,
+          padBsb6(entry?.bsb_number),
           `#${entry?.journal_number}`,
           entry?.amount,
           entry?.balance_amount,
@@ -1490,7 +1491,7 @@ export class ExportDataService {
             const transaction = entry.journal_description || '';
             const accountName = entry.account_name || '';
             const accountNumber = entry.account_number || '';
-            const bsbNumber = entry.bsb_number || '';
+            const bsbNumber = padBsb6(entry.bsb_number) || '';
             const reference = entry.journal_number || '';
             const amount = entry.amount || '';
             const balance = entry.balance_amount || '';
@@ -3567,11 +3568,13 @@ export class ExportDataService {
                   : res?.paymentDetails?.paymentToAccount?.account_name) || '',
             // res?.paymentDetails?.paymentToAccount?.account_number,
             payment_to_account_bsb_number:
-              (['Retention Out', 'Retention In']?.includes(
-                res?.sub_payment_type,
-              )
-                ? res?.paymentDetails?.retentionAccount?.bsb_number
-                : res?.paymentDetails?.paymentToAccount?.bsb_number) || '',
+              padBsb6(
+                ['Retention Out', 'Retention In']?.includes(
+                  res?.sub_payment_type,
+                )
+                  ? res?.paymentDetails?.retentionAccount?.bsb_number
+                  : res?.paymentDetails?.paymentToAccount?.bsb_number,
+              ) || '',
             status: data?.is_late ? 'Overdue' : 'Not paid',
           }));
 

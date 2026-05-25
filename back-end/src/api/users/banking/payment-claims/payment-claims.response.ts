@@ -416,7 +416,7 @@ export class FetchPaymentFromAccountDetailsOfContract {
     nullable: true,
     description: 'BSB number of the payment from account.',
   })
-  payment_from_account_bsb_number?: number;
+  payment_from_account_bsb_number?: string;
 
   @Field({
     nullable: true,
@@ -442,7 +442,7 @@ export class FetchPaymentToAccountListOfSelectedSupplier {
     nullable: true,
     description: 'BSB number of the payment to account.',
   })
-  payment_to_account_bsb_number?: number;
+  payment_to_account_bsb_number?: string;
 
   @Field({
     nullable: true,
@@ -504,7 +504,7 @@ export class FetchAutoPopulatableFieldsOfARetentionClaim {
     nullable: true,
     description: 'BSB number of the retention from account.',
   })
-  retention_from_account_bsb_number?: number;
+  retention_from_account_bsb_number?: string;
 
   @Field({
     nullable: true,
@@ -531,7 +531,7 @@ export class FetchAutoPopulatableFieldsOfARetentionClaim {
     nullable: true,
     description: 'BSB number of the payment to account.',
   })
-  payment_to_account_bsb_number?: number;
+  payment_to_account_bsb_number?: string;
 
   @Field({ description: 'ID of the payment to account.' })
   payment_to_account_id: number;
