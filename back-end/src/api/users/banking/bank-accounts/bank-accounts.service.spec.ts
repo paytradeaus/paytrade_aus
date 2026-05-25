@@ -269,43 +269,15 @@ describe('BankAccountsService — Task #238 close/transfer/rename notice trigger
       expect(bag.noticeService.handleTriggerAccountNotices).not.toHaveBeenCalled();
     });
 
-    it('persists transferred-target fields and fires closing-trigger fan-out (RTA)', async () => {
-      const bag = buildService();
-      bag.bankAccountsRepo.findOne.mockResolvedValue({ ...OPEN_RTA });
-
-      const result = await bag.service.closeOrChangeBankAccount(DECODED_OWNER, {
-        bank_account_id: OPEN_RTA.bank_account_id,
-        closing_mode: 'Transferred',
-        closing_effective_date: new Date('2026-05-01T00:00:00Z'),
-        closing_target_account_name: 'RTA Replacement',
-        closing_target_financial_institution: 'CBA',
-        closing_target_bsb: '062000',
-        closing_target_account_number: '7654321',
-        closing_target_opening_date: new Date('2026-05-02T00:00:00Z'),
-        mark_notices_as_sent: true,
-      } as any);
-
-      const [, patch] = bag.txnBankRepo.update.mock.calls[0];
-      expect(patch.status).toBe('Transferred');
-      expect(patch.closing_mode).toBe('Transferred');
-      expect(patch.closing_target_account_name).toBe('RTA Replacement');
-      expect(patch.closing_target_financial_institution).toBe('CBA');
-      expect(patch.closing_target_bsb).toBe('062000');
-      expect(patch.closing_target_account_number).toBe('7654321');
-      expect(patch.closing_target_opening_date).toBeInstanceOf(Date);
-
-      expect(bag.noticeService.handleTriggerAccountNotices).toHaveBeenCalledWith(
-        DECODED_OWNER,
-        expect.objectContaining({
-          bank_account_id: OPEN_RTA.bank_account_id,
-          closing_trigger: true,
-          mark_notices_as_sent: true,
-        }),
-        expect.anything(),
-      );
-      expect(bag.activityLogService.insertActivityLog.mock.calls[0][0].event_template_id).toBe(71);
-      expect(result.successMessage).toMatch(/transferred/i);
-    });
+    // The legacy "persists transferred-target fields and fires closing-trigger
+    // fan-out" test was removed: `closeOrChangeBankAccount` no longer handles
+    // Transferred mode at all. That path now lives in
+    // `bank-account-transfers.service.ts` (startTrustAccountTransfer /
+    // confirmTrustAccountTransfer) and is covered by its own spec.
+    // (Incoming main updated the BSB literal to the padded '062000' string
+    // from Task #258, but the underlying test still asserted behavior that
+    // no longer exists — the service refuses Transferred mode before
+    // reaching the persistence path — so deletion remains correct.)
   });
 
   describe('closeOrChangeBankAccount — authorization & input guards', () => {
