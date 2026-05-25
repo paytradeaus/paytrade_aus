@@ -4769,12 +4769,14 @@ export class PaymentsService {
               formatField(FI_id, 3, true) +
               ' '.repeat(7) +
               formatField(fromTxnDetails.userName, 26, true) + // User name, padded to 26 characters
-              formatField(
-                fromTxnDetails.apcaId
-                  ? fromTxnDetails.apcaId.toString().padEnd(6, ' ')
-                  : '      ',
-                6,
-              ) + // APCA ID or blank spaces
+              // APCA User Identification Number: NAB spec is 6 numeric
+              // digits, right-justified, ZERO-filled (e.g. "001234").
+              // The previous `padEnd(' ')` produced "1234  " which the
+              // bank treats as malformed. "000000" is a valid placeholder
+              // many banks accept and is the column's stored form.
+              (fromTxnDetails.apcaId
+                ? fromTxnDetails.apcaId.toString().padStart(6, '0').slice(-6)
+                : '000000') +
               formatField(
                 fromTxnDetails.lodgmentReference.trim().padEnd(12, ' '),
                 12,
@@ -4792,45 +4794,89 @@ export class PaymentsService {
 
             let totalAmount = 0;
             let transactionCount = 0;
+            let creditTotalCents = 0;
+            let debitTotalCents = 0;
 
-            // Transaction Records (Type 1)
+            // Transaction Records (Type 1) — NAB CEMTEX spec, 120 chars:
+            //   pos 1       record type     '1'
+            //   pos 2-8     recipient BSB   NNN-NNN
+            //   pos 9-17    recipient acct  9 chars, right-justified blank-filled
+            //   pos 18      indicator       blank
+            //   pos 19-20   txn code        '50' credit / '13' debit
+            //   pos 21-30   amount          10 digits, cents, right-justified zero-filled
+            //   pos 31-62   account title   32 chars, left-justified blank-filled
+            //   pos 63-80   lodgement ref   18 chars, left-justified blank-filled
+            //   pos 81-87   trace BSB       NNN-NNN
+            //   pos 88-96   trace account   9 chars, right-justified blank-filled
+            //   pos 97-112  remitter name   16 chars, left-justified blank-filled
+            //   pos 113-120 withholding tax 8 digits, zero-filled
             transactions.forEach((tx) => {
               const absoluteAmount = Math.abs(Math.round(tx.amount * 100)); // Convert to cents
+
+              // PayTrade only ever emits outbound supplier payments, which
+              // are always CREDITS to the recipient (txn code 50). The
+              // previous `tx.amount >= 0 ? '50' : '13'` heuristic emitted
+              // '13' (debit) whenever the upstream pipeline passed amounts
+              // as negative (sender-side view), which NAB rejects with
+              // "payment does not contain any credit transactions".
+              const transactionCode = '50';
 
               let transactionLine =
                 `1` +
                 formatBSB(tx.payment_to_account_bsb_number) +
-                formatField(tx.payment_to_account_number, 9) + // Ensure 9 characters
+                formatField(tx.payment_to_account_number, 9, true) + // recipient acct: 9 chars right-pad blank
                 ' ' +
-                (tx.amount >= 0 ? '50' : '13') + // 50 for Credit, 13 for Debit
-                formatField(absoluteAmount.toString(), 10) + // Ensure 10 characters, padded with leading zeros
-                formatField(tx.payment_to_account_name, 28, true) + // Ensure up to 28 characters
-                formatField(tx.payment_type, 22, true) + // Ensure up to 18 characters
+                transactionCode +
+                formatField(absoluteAmount.toString(), 10) +
+                formatField(tx.payment_to_account_name, 32, true) + // account title: 32 chars
+                formatField(tx.payment_type, 18, true) + // lodgement ref: 18 chars
                 fromTxnDetails.traceBsb +
-                formatField(fromTxnDetails.traceAccount, 9) + // Ensure 9 characters
-                formatField(fromTxnDetails.remitterName, 8, true) + // Ensure up to 12 characters
-                `00000000`; // Withholding
+                formatField(fromTxnDetails.traceAccount, 9, true) + // trace acct: 9 chars right-pad blank
+                formatField(fromTxnDetails.remitterName, 16, true) + // remitter: 16 chars
+                `00000000`; // withholding tax
 
               abaFileContent += transactionLine.padEnd(120, ' ') + '\n';
 
+              // Track credit vs debit separately so the File Total record
+              // can be emitted correctly. Currently always credit, but
+              // structuring this way keeps the footer correct if a debit
+              // path is added later.
+              if (transactionCode === '50') {
+                creditTotalCents += absoluteAmount;
+              } else {
+                debitTotalCents += absoluteAmount;
+              }
               totalAmount += Math.abs(tx.amount);
               transactionCount++;
             });
 
-            const absoluteTotalAmount = Math.abs(Math.round(totalAmount * 100)); // Convert to cents
-
-            const aboo = 0;
+            // File Total Record (Type 7) — NAB CEMTEX spec, 120 chars:
+            //   pos 1       record type     '7'
+            //   pos 2-8     BSB filler      '999-999'
+            //   pos 9-20    blank           12 spaces
+            //   pos 21-30   net total       |credit - debit| in cents, zero-filled
+            //   pos 31-40   credit total    in cents, zero-filled
+            //   pos 41-50   debit total     in cents, zero-filled
+            //   pos 51-74   blank           24 spaces
+            //   pos 75-80   record count    6 digits, zero-filled
+            //   pos 81-120  blank           40 spaces
+            //
+            // Previously this hard-coded credit_total=0 and debit_total
+            // =absoluteTotalAmount regardless of transaction direction,
+            // which is why NAB rejected the file with "no credit
+            // transactions" even when the Type-1 codes were correct.
+            const netTotalCents = Math.abs(creditTotalCents - debitTotalCents);
 
             let footerLine =
               `7` +
               '999-999' +
               ' '.repeat(12) +
-              formatField(absoluteTotalAmount.toString(), 10) +
-              formatField(aboo.toString(), 10) +
-              formatField(absoluteTotalAmount.toString(), 10) +
-              '                    ' +
+              formatField(netTotalCents.toString(), 10) +
+              formatField(creditTotalCents.toString(), 10) +
+              formatField(debitTotalCents.toString(), 10) +
+              ' '.repeat(24) +
               formatField(transactionCount.toString(), 6) +
-              ' '.repeat(28);
+              ' '.repeat(40);
             abaFileContent += footerLine.padEnd(120, ' ') + '\n';
 
             const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
