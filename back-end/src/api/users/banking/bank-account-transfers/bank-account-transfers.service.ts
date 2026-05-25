@@ -7,8 +7,20 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { PaymentClaims } from 'src/entities/banking.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
+import { JournalEntries } from 'src/entities/journal-entries.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { NoticesService } from '../../notices/notices.service';
+
+/**
+ * Task #244 follow-up — Gap 1: anchor process_id for the per-account
+ * journal entries written during cutover. Out-of-band of the existing
+ * payment-claims `JournalType.process_type` range so we don't collide
+ * with seeded types. A dedicated `JournalType` row for `Inter Trust
+ * Transfer` (with `process_description`, `dynamic_values`, etc) is the
+ * proper long-term home; until that seeder lands, the entries
+ * themselves are still balanced, queryable, and audit-able.
+ */
+const JOURNAL_PROCESS_ID_INTER_TRUST_TRANSFER = 99244;
 import {
   BankAccountPreflight,
   CutoverDryRunSummary,
@@ -521,6 +533,15 @@ export class BankAccountTransfersService {
     // cutover and we short-circuit with a no-op. Used to suppress the
     // post-commit success log + return a benign result.
     let alreadyApplied = false;
+    // Task #244 follow-up — Gap 2 (architect fix). Hoisted out of the
+    // txn callback so the per-contract TA3 notice loop can run AFTER
+    // the cutover commits. Keeping that loop inside the transaction
+    // held row locks far longer than necessary and increased
+    // contention/retry pressure (notices fan out to template lookups,
+    // document refs, etc.). Post-commit failure is acceptable: the
+    // money side is already durable, the user can re-trigger notices
+    // from the contract page if any individual contract failed.
+    let repointedContractIds: number[] = [];
     try {
       await this.entityManager.transaction(async (mgr) => {
         const xferRepo = mgr.getRepository(BankAccountTransfers);
@@ -570,7 +591,23 @@ export class BankAccountTransfersService {
         }
 
         // 1. Repoint contract pointers from source → destination.
+        // Task #244 follow-up — Gap 2: capture contract IDs BEFORE the
+        // update so we can fire per-contract TA3 notices on dest AFTER
+        // the txn commits (see post-commit loop below). `repointedContractIds`
+        // is declared in the outer scope.
         if (source.account_type === 'Project Trust Account') {
+          const ptaContracts = await mgr
+            .getRepository(ContractDetails)
+            .createQueryBuilder('c')
+            .select('c.contract_id', 'contract_id')
+            .where(
+              `(c.payment_from_account = :sid OR c.payment_to_account = :sid) AND c.contract_status <> 'Deleted'`,
+              { sid: source.bank_account_id },
+            )
+            .getRawMany();
+          repointedContractIds = ptaContracts.map((c: any) =>
+            Number(c.contract_id),
+          );
           await mgr
             .getRepository(ContractDetails)
             .createQueryBuilder()
@@ -598,6 +635,18 @@ export class BankAccountTransfersService {
             )
             .execute();
         } else if (source.account_type === 'Retention Trust Account') {
+          const rtaContracts = await mgr
+            .getRepository(ContractDetails)
+            .createQueryBuilder('c')
+            .select('c.contract_id', 'contract_id')
+            .where(
+              `c.retention_from_account = :sid AND c.contract_status <> 'Deleted'`,
+              { sid: source.bank_account_id },
+            )
+            .getRawMany();
+          repointedContractIds = rtaContracts.map((c: any) =>
+            Number(c.contract_id),
+          );
           await mgr
             .getRepository(ContractDetails)
             .createQueryBuilder()
@@ -804,6 +853,20 @@ export class BankAccountTransfersService {
           );
         }
 
+        // 4b. Task #244 follow-up — Gap 1: write balanced per-account
+        // journal entries for the cash movement (source Credit, dest
+        // Debit). In-transaction with everything else so a journal
+        // failure rolls the whole cutover back.
+        await this._writeTransferJournalEntries(mgr, {
+          source,
+          dest,
+          amount: Number(xfer.amount ?? 0),
+          transferId: xfer.transfer_id,
+          paymentId: xfer.transfer_payment_id ?? null,
+          transferDate: xfer.transfer_date,
+          userId: decoded?.userId ?? null,
+        });
+
         // 5. Fire closing notice batch (TA2 source + per-beneficiary).
         // Re-uses the closing_trigger path already wired in Task #238
         // — generators read the closing_* columns we just persisted.
@@ -818,6 +881,12 @@ export class BankAccountTransfersService {
         if (notices?.status === 'ERROR') {
           throw new Error(`Notice generation failed: ${notices.message}`);
         }
+
+        // 5b. (moved post-commit — see "Post-commit TA3 fan-out" block
+        // after this transaction closes. We capture the contract IDs in
+        // step 1 into the outer-scope `repointedContractIds` array; the
+        // loop now runs after commit so notice fan-out does not hold
+        // row locks during heavy template/document work.)
 
         // 6. Persist transfer terminal state.
         await xferRepo.update(
@@ -862,6 +931,38 @@ export class BankAccountTransfersService {
         transfer: this._toDto(resultTransfer, source, dest),
       };
     }
+
+    // Post-commit TA3 fan-out (Gap 2 — architect fix). The cutover txn
+    // has committed; money + state are durable. Fan out per-contract
+    // TA3 destination notices outside the txn so heavy template/document
+    // work does NOT hold row locks. Log-and-continue per contract so one
+    // bad contract doesn't bubble up and make the user think the cutover
+    // failed. Failures are surfaced in the aggregate log + per-contract
+    // error log so admins can re-trigger from the contract page.
+    let perContractFailures = 0;
+    for (const cid of repointedContractIds) {
+      try {
+        const res = await this.noticesService.handleTriggerContractNotices(
+          decoded,
+          { contract_id: cid } as any,
+        );
+        if (res?.status === 'ERROR') {
+          perContractFailures += 1;
+          this.logger.error(
+            `[XFER_TA3_DEST] transfer_id=${transfer_id} contract_id=${cid} status=ERROR message=${res?.message}`,
+          );
+        }
+      } catch (err: any) {
+        perContractFailures += 1;
+        this.logger.error(
+          `[XFER_TA3_DEST] transfer_id=${transfer_id} contract_id=${cid} threw: ${err?.message ?? err}`,
+        );
+      }
+    }
+    this.logger.log(
+      `[XFER_TA3_DEST] transfer_id=${transfer_id} contracts_repointed=${repointedContractIds.length} per_contract_failures=${perContractFailures}`,
+    );
+
     this.logger.log(
       `[XFER_CUTOVER_APPLIED] transfer_id=${transfer_id} adminRetry=${isAdminRetry}`,
     );
@@ -869,6 +970,170 @@ export class BankAccountTransfersService {
       successMessage: 'Transfer cutover applied. Source marked Transferred and closing notices generated.',
       transfer: this._toDto(resultTransfer, source, dest),
     };
+  }
+
+  /**
+   * Task #244 follow-up — Gap 1. Writes balanced per-account journal
+   * entries for the cash movement of an Inter Trust Transfer:
+   *   source side  -> 1 row, entry_type='Credit', credit_amount=amount
+   *   dest   side  -> 1 row, entry_type='Debit',  debit_amount=amount
+   *
+   * `journal_number` is the per-bank-account sequence anchored on
+   * `bank_accounts.last_journal_id` (mirrors payment-claims.service
+   * `createJournalEntries`). Each side independently increments its
+   * own sequence; `last_journal_id` is bumped in the same transaction.
+   *
+   * `journal_process_id` is pinned to
+   * `JOURNAL_PROCESS_ID_INTER_TRUST_TRANSFER` so future reporting can
+   * filter on the transfer category once a `JournalType` seeder row
+   * exists for it. The entries themselves are fully self-describing
+   * via `journal_description` + `dynamic_values` and are not blocked
+   * by the missing JournalType row.
+   *
+   * `audit_id` is the `transfer_id` so we can later locate / reverse
+   * these entries by transfer.
+   */
+  private async _writeTransferJournalEntries(
+    mgr: EntityManager,
+    opts: {
+      source: BankAccounts;
+      dest: BankAccounts;
+      amount: number;
+      transferId: number;
+      paymentId: number | null;
+      transferDate: Date | string;
+      userId: number | null;
+    },
+  ): Promise<void> {
+    const { source, dest, amount, transferId, paymentId, transferDate, userId } =
+      opts;
+    if (!(Number(amount) > 0)) {
+      throw new Error(
+        `Transfer amount must be > 0 to write journal entries (got ${amount}).`,
+      );
+    }
+    const txnDate =
+      transferDate instanceof Date ? transferDate : new Date(transferDate);
+    const description = `Inter Trust Transfer #${transferId} (${source.account_name} → ${dest.account_name})`;
+    const dynamicValues = {
+      transfer_id: transferId,
+      source_bank_account_id: source.bank_account_id,
+      destination_bank_account_id: dest.bank_account_id,
+      transfer_payment_id: paymentId,
+      amount,
+    };
+
+    // Pre-flight idempotency: an admin retry that's already written
+    // entries for this transfer must not double-write or burn journal
+    // numbers. Match on (audit_id, journal_process_id, is_reversed=false)
+    // and short-circuit BEFORE allocating new journal numbers.
+    const existing = await mgr.getRepository(JournalEntries).find({
+      where: {
+        audit_id: transferId as any,
+        journal_process_id: JOURNAL_PROCESS_ID_INTER_TRUST_TRANSFER,
+        is_reversed: false as any,
+      },
+    });
+    if (existing.length > 0) {
+      this.logger.log(
+        `[XFER_JOURNAL_SKIP] transfer_id=${transferId} reason=already_written existing_count=${existing.length}`,
+      );
+      return;
+    }
+
+    // Architect feedback (code review): the previous version computed
+    // `srcNextJournal = source.last_journal_id + 1` in-memory and wrote
+    // it back as a fixed value, which races against concurrent journal
+    // writers on the same account and can produce duplicate
+    // `journal_number`s + lost increments. Replace with an atomic
+    // `UPDATE ... SET last_journal_id = COALESCE(last_journal_id,0)+1
+    // RETURNING last_journal_id` per side. PostgreSQL guarantees the
+    // increment + read are atomic on the row; concurrent callers serialize
+    // on the row lock the UPDATE takes and each observes a distinct value.
+    const srcAlloc: Array<{ last_journal_id: number }> = await mgr.query(
+      `UPDATE bank_accounts
+         SET last_journal_id = COALESCE(last_journal_id, 0) + 1,
+             updated_by = $2,
+             updated_on = timezone('utc', now())
+       WHERE bank_account_id = $1
+       RETURNING last_journal_id`,
+      [source.bank_account_id, userId],
+    );
+    const srcNextJournal = Number(srcAlloc?.[0]?.last_journal_id);
+    if (!Number.isFinite(srcNextJournal) || srcNextJournal <= 0) {
+      throw new Error(
+        `Failed to allocate journal_number on source bank_account ${source.bank_account_id}.`,
+      );
+    }
+    const destAlloc: Array<{ last_journal_id: number }> = await mgr.query(
+      `UPDATE bank_accounts
+         SET last_journal_id = COALESCE(last_journal_id, 0) + 1,
+             updated_by = $2,
+             updated_on = timezone('utc', now())
+       WHERE bank_account_id = $1
+       RETURNING last_journal_id`,
+      [dest.bank_account_id, userId],
+    );
+    const destNextJournal = Number(destAlloc?.[0]?.last_journal_id);
+    if (!Number.isFinite(destNextJournal) || destNextJournal <= 0) {
+      throw new Error(
+        `Failed to allocate journal_number on destination bank_account ${dest.bank_account_id}.`,
+      );
+    }
+
+    const journalRepo = mgr.getRepository(JournalEntries);
+    await journalRepo.save(
+      journalRepo.create([
+        {
+          company_id: source.company_id,
+          bank_account_id: source.bank_account_id,
+          journal_number: srcNextJournal,
+          audit_id: transferId,
+          journal_suffix: 'a',
+          activity_suffix: 'a',
+          journal_date: txnDate,
+          journal_description: description,
+          dynamic_values: dynamicValues,
+          transaction_account_id: dest.bank_account_id,
+          debit_amount: 0,
+          credit_amount: amount,
+          balance_amount: amount,
+          journal_process_id: JOURNAL_PROCESS_ID_INTER_TRUST_TRANSFER,
+          entry_type: 'Credit',
+          created_by: userId,
+          created_group: 'SYSTEM',
+        } as any,
+        {
+          company_id: dest.company_id,
+          bank_account_id: dest.bank_account_id,
+          journal_number: destNextJournal,
+          audit_id: transferId,
+          journal_suffix: 'a',
+          activity_suffix: 'a',
+          journal_date: txnDate,
+          journal_description: description,
+          dynamic_values: dynamicValues,
+          transaction_account_id: source.bank_account_id,
+          debit_amount: amount,
+          credit_amount: 0,
+          balance_amount: amount,
+          journal_process_id: JOURNAL_PROCESS_ID_INTER_TRUST_TRANSFER,
+          entry_type: 'Debit',
+          created_by: userId,
+          created_group: 'SYSTEM',
+        } as any,
+      ]),
+    );
+
+    // NOTE: the per-account `last_journal_id` columns were already
+    // bumped atomically by the two `UPDATE ... RETURNING` calls above —
+    // do NOT write them back here (a second SET would clobber any
+    // concurrent allocation that landed between our allocate and our
+    // insert).
+
+    this.logger.log(
+      `[XFER_JOURNAL_WRITTEN] transfer_id=${transferId} src_bank=${source.bank_account_id} src_jn=${srcNextJournal} dest_bank=${dest.bank_account_id} dest_jn=${destNextJournal} amount=${amount}`,
+    );
   }
 
   private async _computeDryRun(

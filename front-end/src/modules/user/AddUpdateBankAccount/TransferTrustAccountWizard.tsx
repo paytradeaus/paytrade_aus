@@ -47,6 +47,16 @@ export default function TransferTrustAccountWizard({
   const [amount, setAmount] = useState<string>("");
   const [confirmNow, setConfirmNow] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  // Task #244 follow-up — Gap 4. Per-open-retention carry/leave choices.
+  // Default is 'carry' for every row; the user can flip individual rows
+  // to 'leave' which leaves them anchored on the source account post-
+  // cutover (becoming stranded retention for the Task #249 panel to
+  // relocate later). Backend honours this via
+  // `carry_across_choices.open_retention[retention_id]` and will reject
+  // a mixed-choice payment with a clear error.
+  const [retentionChoices, setRetentionChoices] = useState<
+    Record<string, "carry" | "leave">
+  >({});
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +67,13 @@ export default function TransferTrustAccountWizard({
       setPreflight(pre?.preflight ?? null);
       if (pre?.preflight?.current_balance != null) {
         setAmount(String(pre.preflight.current_balance));
+      }
+      if (Array.isArray(pre?.preflight?.open_retention)) {
+        const init: Record<string, "carry" | "leave"> = {};
+        pre.preflight.open_retention.forEach((r: any) => {
+          init[String(r.id)] = "carry";
+        });
+        setRetentionChoices(init);
       }
       try {
         const resp = await apolloClient.query({
@@ -102,11 +119,16 @@ export default function TransferTrustAccountWizard({
   const handleSubmit = async () => {
     if (!destinationId) return;
     setSubmitting(true);
+    const choices =
+      Object.keys(retentionChoices).length > 0
+        ? { open_retention: retentionChoices }
+        : undefined;
     const created = await StartTrustAccountTransfer({
       source_bank_account_id: sourceBankAccountId,
       destination_bank_account_id: destinationId,
       transfer_date: transferDate,
       amount: Number(amount),
+      carry_across_choices: choices,
     });
     if (!created) {
       setSubmitting(false);
@@ -192,11 +214,75 @@ export default function TransferTrustAccountWizard({
               </ul>
             </div>
           )}
+          {preflight.open_retention?.length > 0 && (
+            <div className="mb_1">
+              <p className="mb_0_5">
+                <strong>Open retention rows — choose per item:</strong>
+              </p>
+              <p className="mb_0_5">
+                <small>
+                  Default is <em>Carry</em> — the retained funds move with
+                  the cash to the destination account. Flip to{" "}
+                  <em>Leave</em> to keep a row anchored on the source
+                  account (it will become stranded retention you can
+                  relocate later from the source account's edit page).
+                </small>
+              </p>
+              {preflight.open_retention.map((r: any) => {
+                const choice = retentionChoices[String(r.id)] ?? "carry";
+                const label =
+                  r.reference ||
+                  r.project_name ||
+                  `Retention #${r.id}`;
+                return (
+                  <div key={r.id} className="mb_0_5">
+                    <small>
+                      <strong>{label}</strong> — $
+                      {Number(r.amount ?? 0).toFixed(2)}
+                      {r.party_name ? ` — ${r.party_name}` : ""}
+                    </small>
+                    <div>
+                      <label className="mr_1">
+                        <input
+                          type="radio"
+                          name={`ret-choice-${r.id}`}
+                          checked={choice === "carry"}
+                          onChange={() =>
+                            setRetentionChoices((c) => ({
+                              ...c,
+                              [String(r.id)]: "carry",
+                            }))
+                          }
+                        />{" "}
+                        Carry to destination
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name={`ret-choice-${r.id}`}
+                          checked={choice === "leave"}
+                          onChange={() =>
+                            setRetentionChoices((c) => ({
+                              ...c,
+                              [String(r.id)]: "leave",
+                            }))
+                          }
+                        />{" "}
+                        Leave on source
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <p>
             <small>
-              <span className="pt_yellow">Note:</span> All open items above
-              will be re-pointed at the destination on cutover. (Per-item
-              exclusion is planned for a follow-up.)
+              <span className="pt_yellow">Note:</span> In-flight payments,
+              open claims, and contract pointers will be re-pointed at the
+              destination on cutover. Retention choices above only affect
+              <em> Retained</em> rows; all other open items always carry
+              across.
             </small>
           </p>
         </div>

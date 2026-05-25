@@ -8609,8 +8609,52 @@ export class XeroPaymentsService {
               message: `Inbound BankTransfer ${bank_transfer_id} matched a pending Inter Trust Transfer (cutover fired).`,
             };
           }
-          // ECHO is impossible here (we returned earlier for PT-XFER refs);
-          // NO_MATCH falls through to the Task #231 materialisation path.
+          // ECHO is impossible here (we returned earlier for PT-XFER refs).
+          // NO_MATCH: Task #244 follow-up — Gap 5. A trust↔trust BankTransfer
+          // arrived with no Pending PayTrade transfer to bind it to. The
+          // legacy fall-through landed at the `fromIsTrust === toIsTrust`
+          // guard below and returned the misleading 'not a trust↔cash pair'
+          // — silently dropping the event. Instead: emit a structured sync
+          // log so an admin can adopt (start + confirm a wizard transfer)
+          // or reject (ignore) the orphan, and short-circuit with a clear
+          // message. We deliberately do NOT auto-create a transfer here —
+          // direction, amount, and intent are user-authored decisions.
+          if (matchResult === 'NO_MATCH') {
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              api_name: 'handleInboundTrustMovementBankTransfer',
+              api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 621,
+              dynamic_values: {
+                bank_transfer_id,
+                reference,
+                amount,
+                source_bank_account_id: Number(fromXa.pt_bank_account_id),
+                destination_bank_account_id: Number(toXa.pt_bank_account_id),
+                account_type: String(fromBank.account_type),
+                reason: 'orphan_inter_trust_transfer',
+              },
+              reference: { xeroId: bank_transfer_id, paytradeId: null },
+              history: [
+                `Inbound BankTransfer ${bank_transfer_id} looks like an Inter Trust Transfer (${fromBank.account_type} → ${toBank.account_type}, same company) but no Pending PayTrade BankAccountTransfers row matched on (source, destination, amount, ±14d date window, reference).`,
+                `Reference="${reference}", amount=${amount}, date=${btDate?.toISOString?.() ?? String(btDate)}`,
+                `Action: an admin should either start a Trust Account Transfer in PayTrade for these accounts and Confirm Now (Xero re-pull will then auto-match by reference round-trip), or ignore if this is an external transfer that should not have a PT-side cutover.`,
+              ],
+              important_checks: { 'Inter trust transfer match': 'Orphan' },
+              error_message:
+                'orphan inter-trust transfer — no matching pending PayTrade transfer',
+              xero_records: [bt],
+              paytrade_records: [],
+              new_records: null, updated_records: null, synced_records: null,
+            });
+            this.logger.warn(
+              `[TRUST_XFER inbound] orphan inter-trust BankTransfer ${bank_transfer_id} (${fromBank.account_type}) — no pending PT transfer matched; surfaced via xero_sync_logs for admin adopt/reject.`,
+            );
+            return {
+              success: false,
+              message: `orphan inter-trust BankTransfer ${bank_transfer_id} — no matching pending PayTrade transfer (surfaced for admin review).`,
+            };
+          }
         }
       } catch (e: any) {
         this.logger.error(
