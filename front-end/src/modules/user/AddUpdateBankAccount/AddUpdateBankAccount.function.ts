@@ -803,9 +803,13 @@ export const RelocateStrandedRetention = async (payload: {
   }
 };
 
+// Task #244 — returns the open transfers array on success, or `null` if the
+// query failed. Callers (e.g. the edit-page banner) MUST distinguish "no
+// transfers in flight" (safe) from "query failed" (must keep Close/Transfer
+// disabled so a transient outage doesn't fail-open).
 export const ListOpenTrustAccountTransfers = async (
   bank_account_id?: number,
-): Promise<any[]> => {
+): Promise<any[] | null> => {
   try {
     const resp = await apolloClient.query({
       query: gql`
@@ -834,7 +838,7 @@ export const ListOpenTrustAccountTransfers = async (
     });
     return resp?.data?.listOpenTrustAccountTransfers?.transfers ?? [];
   } catch {
-    return [];
+    return null;
   }
 };
 

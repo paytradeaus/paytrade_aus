@@ -162,6 +162,10 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
   // Task #244 — Trust Account Transfer wizard state.
   const [showTransferWizard, setShowTransferWizard] = useState(false);
   const [openTransfers, setOpenTransfers] = useState<any[]>([]);
+  // Task #244 — distinguish "loaded, none in flight" (safe to enable
+  // Close/Transfer) from "fetch failed or still loading" (must stay
+  // disabled so a transient query error doesn't fail-open).
+  const [openTransfersLoaded, setOpenTransfersLoaded] = useState(false);
 
   const [archivedProjectOpt, setArchivedProjectOpt] = useState<any>([]);
   const [viewProjectsInEdit, setViewProjectsInEdit] = useState<any>([]);
@@ -648,6 +652,37 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
       );
     }
   }, [planName]);
+
+  // Task #244 — fetch open (Pending/Failed) transfers for this account so the
+  // edit page can render a recovery banner and so the Close / Transfer buttons
+  // at the bottom of the form can stay disabled while one is in flight.
+  const refreshOpenTransfers = async () => {
+    if (!editData?.bank_account_id) {
+      setOpenTransfers([]);
+      setOpenTransfersLoaded(true);
+      return;
+    }
+    setOpenTransfersLoaded(false);
+    const list = await ListOpenTrustAccountTransfers(
+      Number(editData.bank_account_id),
+    );
+    if (list === null) {
+      // Query failed — leave openTransfersLoaded=false so the
+      // Close/Transfer buttons stay disabled (fail-closed).
+      setOpenTransfers([]);
+      return;
+    }
+    setOpenTransfers(
+      list.filter((t: any) =>
+        ["Pending", "Failed"].includes(String(t?.status)),
+      ),
+    );
+    setOpenTransfersLoaded(true);
+  };
+  useEffect(() => {
+    refreshOpenTransfers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editData?.bank_account_id, editData?.status]);
 
   useEffect(() => {
     if (isEditable && editData?.bank_account_id) {
@@ -2272,6 +2307,108 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                   } your bank account information`}</p>
                   <br />
 
+                  {isEditable &&
+                    editData?.bank_account_id &&
+                    openTransfers.length > 0 && (
+                      <div className="mb_1">
+                        {openTransfers.map((t: any) => (
+                          <div
+                            key={t.transfer_id}
+                            className="mb_0_5"
+                            style={{
+                              border: "1px solid",
+                              borderRadius: 4,
+                              padding: 12,
+                            }}
+                          >
+                            <p className="mb_0_5">
+                              <strong>
+                                {t.status === "Failed"
+                                  ? "Transfer failed — needs attention"
+                                  : "Transfer in progress"}
+                              </strong>
+                            </p>
+                            <p className="mb_0_5">
+                              <small>
+                                <strong>To:</strong>{" "}
+                                {t.destination_account_name || `Account #${t.destination_bank_account_id}`}
+                                {" — "}
+                                <strong>Amount:</strong> $
+                                {Number(t.amount || 0).toFixed(2)}
+                                {" — "}
+                                <strong>Date:</strong>{" "}
+                                {t.transfer_date
+                                  ? String(t.transfer_date).slice(0, 10)
+                                  : "—"}
+                              </small>
+                            </p>
+                            {t.last_error && (
+                              <p className="mb_0_5">
+                                <small className="invalid">
+                                  Last error: {t.last_error}
+                                </small>
+                              </p>
+                            )}
+                            {t.status === "Pending" && (
+                              <p className="mb_0_5">
+                                <small>
+                                  <span className="pt_yellow">Awaiting</span>{" "}
+                                  bank confirmation. Confirm now if the money
+                                  has moved between accounts, or cancel to
+                                  abort.
+                                </small>
+                              </p>
+                            )}
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <CustomButton
+                                actionType="button"
+                                buttonType={buttonType.OUTLINE_PRIMARY}
+                                buttonName={
+                                  t.status === "Failed"
+                                    ? "Retry cutover"
+                                    : "Confirm now"
+                                }
+                                onClick={async (e: any) => {
+                                  e?.stopPropagation?.();
+                                  e?.preventDefault?.();
+                                  const ok = await ConfirmTrustAccountTransfer(
+                                    Number(t.transfer_id),
+                                  );
+                                  if (ok) {
+                                    await refreshOpenTransfers();
+                                    try {
+                                      router.push(
+                                        AppRoutes.USER_BANK_ACCOUNTS_CURRENT,
+                                      );
+                                    } catch {
+                                      /* ignore */
+                                    }
+                                  }
+                                }}
+                                inputButton
+                              />
+                              {t.status === "Pending" && (
+                                <CustomButton
+                                  actionType="button"
+                                  buttonType={buttonType.OUTLINE_CONTRAST}
+                                  buttonName={"Cancel transfer"}
+                                  onClick={async (e: any) => {
+                                    e?.stopPropagation?.();
+                                    e?.preventDefault?.();
+                                    const ok = await CancelTrustAccountTransfer(
+                                      Number(t.transfer_id),
+                                    );
+                                    if (ok) await refreshOpenTransfers();
+                                  }}
+                                  inputButton
+                                />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                   {isEditable && editData?.bank_account_id ? (
                     <StrandedRetentionPanel
                       bankAccountId={Number(editData.bank_account_id)}
@@ -2584,7 +2721,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                           buttonType={buttonType.OUTLINE_SECONDARY}
                           buttonName={"Close account"}
                           disabled={
-                            formik?.isSubmitting || openTransfers.length > 0
+                            formik?.isSubmitting ||
+                            !openTransfersLoaded ||
+                            openTransfers.length > 0
                           }
                           onClick={(e: any) => {
                             e?.stopPropagation?.();
@@ -2598,7 +2737,9 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                           buttonType={buttonType.OUTLINE_SECONDARY}
                           buttonName={"Transfer to another account"}
                           disabled={
-                            formik?.isSubmitting || openTransfers.length > 0
+                            formik?.isSubmitting ||
+                            !openTransfersLoaded ||
+                            openTransfers.length > 0
                           }
                           onClick={(e: any) => {
                             e?.stopPropagation?.();
