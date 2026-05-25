@@ -2367,7 +2367,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
                             <div style={{ display: "flex", gap: 8 }}>
                               <CustomButton
                                 actionType="button"
-                                buttonType={buttonType.OUTLINE_PRIMARY}
+                                buttonType={buttonType.PRIMARY_OUTLINE}
                                 buttonName={
                                   t.status === "Failed"
                                     ? "Retry cutover"
