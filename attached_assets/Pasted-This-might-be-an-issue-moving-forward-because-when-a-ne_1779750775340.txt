@@ -1,0 +1,473 @@
+This might be an issue moving forward because when a new contact is generated in Procore it automatically creates a new contact in xero.  Procore doesn't have the ability to enter bank details. Once the invoice gets approved in Procore it then syncs to xero and appears in the "awaiting approval" tab in xero which is my trigger to go and check all relevant information has been entered in the system ie bank account details and email address etc. My question is, once this happens in xero  will Paytrade automatically sync or will I need to do a manual sync for the invoice to come through?
+
+
+
+Kind Regards, 
+Mel Graham
+
+ 
+
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+
+________________________________________
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: Tuesday, 26 May 2026 8:49 AM
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect 
+ 
+From what I can trace.
+
+It was missing email and bank details. These were then added which either resync could then have been done, or as you did, a new manual sync.
+
+Best
+
+PT
+ 
+From: Mel Graham <mel@signaturepropertypartners.com.au> 
+Sent: 25 May 2026 23:32
+To: phil.taylor@paytrade.app
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Yes through the integration section and did a manual sync.
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: Tuesday, 26 May 2026 8:30 AM
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect 
+ 
+Ah, you did it manually?
+ 
+From: Mel Graham <mel@signaturepropertypartners.com.au> 
+Sent: 25 May 2026 23:26
+To: phil.taylor@paytrade.app
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+All good, thanks Phil, I managed to figure it out and do the sync so confirming I can also see it.
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: Tuesday, 26 May 2026 8:23 AM
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect 
+ 
+Just hit my desk post drop off (life juggles). I can see it in the claims list. Looks ok to me.
+
+Best
+
+PT
+ 
+From: Mel Graham <mel@signaturepropertypartners.com.au> 
+Sent: 25 May 2026 22:44
+To: phil.taylor <phil.taylor@paytrade.app>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Hi Phil,
+ 
+I've noticed that this invoice has not synced through to Paytrade, can you please advise what the issue might be? Yes please I think we need to do a system error clean up as I received multiple emails overnight that we failed compliance.
+ 
+ 
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor <phil.taylor@paytrade.app>
+Sent: Tuesday, 26 May 2026 7:39 AM
+To: Mel Graham <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Yey. Super glad.
+ 
+Let me know if you want to go througg system error clean up at some point today.a
+ 
+Best
+ 
+PT
+ 
+ 
+ 
+ 
+ 
+ 
+-------- Original message --------
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Date: 26/05/2026 07:28 (GMT+10:00)
+To: phil.taylor@paytrade.app, 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Great news! The file has gone through.  Thanks for your help with this Phil.
+ 
+ 
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: Monday, 25 May 2026 4:04 PM
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect
+ 
+I ran this through ANZ’s ABA file checker to success. Hopefully it passed NAB’s.
+
+ 
+ 
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: 25 May 2026 07:02
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect
+ 
+Hi Mel,
+Can ignore this. It does start with a 0. One of our pages has an issue which I am resolving now, but the ABA file correctly apply the 0 to the front of this BSB so should work fine.
+
+Keep me posted on the ABA file check passing NAB’s validation.
+
+Best
+
+PT
+ 
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: 25 May 2026 06:57
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect
+ 
+What BSB does APS have. The system may have dropped the initial 0 if it starts with a 0.
+
+Looking into this new regardless, but assuming it starts with a 0.
+
+Yours
+
+Phil
+ 
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: 25 May 2026 06:43
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate - error uploading to NAB Connect
+ 
+HI Mel,
+I think I have resolved the issue. Can you try again please.
+
+Yours
+
+Phil
+ 
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Sent: 25 May 2026 06:00
+To: phil.taylor <phil.taylor@paytrade.app>; Kate Beresford <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Thank you!
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor <phil.taylor@paytrade.app>
+Sent: Monday, 25 May 2026 2:57 PM
+To: Mel Graham <mel@signaturepropertypartners.com.au>; Kate Beresford <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+Reviewing now. 
+ 
+Will see if there is a NAB specific variation/requirement. I put your example through an industry Aba file tester with success.
+ 
+Working on this.
+ 
+Best
+ 
+PT
+ 
+ 
+ 
+Sent from my Galaxy
+ 
+ 
+-------- Original message --------
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Date: 25/05/2026 14:53 (GMT+10:00)
+To: "phil.taylor" <phil.taylor@paytrade.app>, Kate Beresford <kate@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate - error uploading to NAB Connect
+ 
+ 
+Hi Phil,
+ 
+ 
+I've just tried to upload the ABA file to our NAB bank account but have received the following error message. Would you mind please looking into this?
+ 
+ 
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Sent: Monday, 25 May 2026 2:46 PM
+To: phil.taylor <phil.taylor@paytrade.app>
+Subject: Re: ABA file wont generate
+ 
+Thanks so much for your help Phil, I really do appreciate how prompt you are with your responses.  
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor <phil.taylor@paytrade.app>
+Sent: Monday, 25 May 2026 2:43 PM
+To: Joe Licastro <joe@signaturepropertypartners.com.au>; Mel Graham <mel@signaturepropertypartners.com.au>
+Cc: Kate Beresford <kate@signaturepropertypartners.com.au>; Matthew Williams <matthew@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate
+ 
+Hi Joe,
+I dont think you'll have an issue and as promised i'll remain best i can on call to resolve through any issues with the new sync system.
+ 
+Will continue to refine based on feedback and our own testing.
+ 
+We have resolved and built at a frightening pace to cover not only standard processing minor issues (expected at outset), but also entirely new systems and processes to accomodate far more unusual scenarios including today accepting a fake APCA number. Done from the time issue was raised to deployed in little over 30mins.
+ 
+I appreciate your patience and support.
+ 
+Yours
+ 
+Phil
+ 
+ 
+ 
+ 
+Sent from my Galaxy
+ 
+ 
+-------- Original message --------
+From: Joe Licastro <joe@signaturepropertypartners.com.au>
+Date: 25/05/2026 14:27 (GMT+10:00)
+To: Mel Graham <mel@signaturepropertypartners.com.au>
+Cc: phil.taylor@paytrade.app, Kate Beresford <kate@signaturepropertypartners.com.au>, Matthew Williams <matthew@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate
+ 
+Hi Phil, 
+ 
+We have ramped up a fair amount and I have many invoices coming in for EOM. I can only give you this week to sort this; otherwise, I have to try and arrange something else.
+Please keep us all posted. 
+ 
+ 
+Kind Regards, 
+Joe Licastro | Managing Director 
+
+ 
+ 
+0439 091 949 
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+ 
+On Mon, 25 May 2026 at 14:23, Mel Graham <mel@signaturepropertypartners.com.au> wrote:
+Thanks Phil! I'm also concerned regarding the number of errors currently showing on the Dashboard as per below:
+ 
+ 
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor@paytrade.app <phil.taylor@paytrade.app>
+Sent: Monday, 25 May 2026 2:20 PM
+To: 'Mel Graham' <mel@signaturepropertypartners.com.au>; 'Kate Beresford' <kate@signaturepropertypartners.com.au>; 'Joe Licastro' <joe@signaturepropertypartners.com.au>; 'Matt Helliwell' <matt.helliwell@albertesharp.com>
+Subject: RE: ABA file wont generate
+ 
+Found the issue.
+
+The system doesn’t allow zero entries, i.e. when you input 000000 it treats it as zero, and saves it as null.
+
+Updating now to allow 000000 entries.
+
+Deploying as we speak. Will take 10mins for the update to take effect. I’ll run a live test at 1430 on your account.
+
+Best
+
+PT
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Sent: 25 May 2026 05:07
+To: phil.taylor <phil.taylor@paytrade.app>; Kate Beresford <kate@signaturepropertypartners.com.au>; Joe Licastro <joe@signaturepropertypartners.com.au>
+Subject: Re: ABA file wont generate
+ 
+Thank you!
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
+________________________________________
+From: phil.taylor <phil.taylor@paytrade.app>
+Sent: Monday, 25 May 2026 2:06 PM
+To: Mel Graham <mel@signaturepropertypartners.com.au>; Kate Beresford <kate@signaturepropertypartners.com.au>; Joe Licastro <joe@signaturepropertypartners.com.au>
+Subject: RE: ABA file wont generate
+ 
+Hey Mel,
+Just got this now. Will check and revert shortly.
+ 
+Yours
+ 
+Phil
+ 
+ 
+ 
+Sent from my Galaxy
+ 
+ 
+-------- Original message --------
+From: Mel Graham <mel@signaturepropertypartners.com.au>
+Date: 25/05/2026 13:57 (GMT+10:00)
+To: "phil.taylor" <phil.taylor@paytrade.app>, Kate Beresford <kate@signaturepropertypartners.com.au>, Joe Licastro <joe@signaturepropertypartners.com.au>
+Subject: ABA file wont generate
+ 
+Hi Phil,
+ 
+I'm trying to do a test payment and the ABA file won't generate. I get the below error message.
+ 
+ 
+ 
+I then click on "fix this account" and update the APCA number to 000000 and get confirmation that "bank account has been updated" however when I go to generate the ABA file I get the error message above. Can you please look into this?
+ 
+ 
+Kind Regards, 
+Mel Graham
+
+ 
+ 
+0413 491 106
+27 Merthyr Road, New Farm QLD, 4005
+PO Box 1179, New Farm QLD 4005
+Website   |   Instagram
+ 
+Accounts: Contact
+Current Projects:  Maya Gold Coast   |   Alba Hamilton
+ 
+The views and opinions included in this email belong to their author and do not necessarily mirror the views and opinions of the company. Our employees are obliged not to make any defamatory clauses, infringe, or authorise infringement of any legal right. Therefore, the company will not take any liability for such statements included in emails. In case of any damages or other liabilities arising, employees are fully responsible for the content of their emails.
+ 
