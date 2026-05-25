@@ -18,6 +18,7 @@ import { handleAxiosError } from 'src/api/common/error-handler';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { BankAccountsService } from 'src/api/users/banking/bank-accounts/bank-accounts.service';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import {
   AddBankAccountInput,
@@ -140,7 +141,7 @@ export class XeroAccountsService {
           tenant_id: xeroDetails.tenant_id,
           account_name: account.name,
           account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-          bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+          bsb_number: padBsb6(account.bankAccountNumber),
           account_type: account.type,
           account_status: account.status,
           description: account.description,
@@ -295,7 +296,7 @@ export class XeroAccountsService {
               tenant_id: xeroDetails.tenant_id,
               account_name: account.name,
               account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-              bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+              bsb_number: padBsb6(account.bankAccountNumber),
               account_type: account.type,
               account_status: account.status,
               description: account.description,
@@ -619,7 +620,7 @@ export class XeroAccountsService {
           account_id,
           account_name: account.name,
           account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-          bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+          bsb_number: padBsb6(account.bankAccountNumber),
         },
         integration_id: xeroDetails.integration_id,
         log_template_id: 365,
@@ -674,7 +675,7 @@ export class XeroAccountsService {
             account_id,
             account_name: account.name,
             account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-            bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+            bsb_number: padBsb6(account.bankAccountNumber),
             payload: data.payload || {},
           },
           integration_id: xeroDetails.integration_id,
@@ -751,8 +752,9 @@ export class XeroAccountsService {
         xeroBankAccountDetails.account_status = updatedAccount.Status;
         xeroBankAccountDetails.account_number =
           updatedAccount.BankAccountNumber?.slice(6);
-        xeroBankAccountDetails.bsb_number =
-          updatedAccount.BankAccountNumber?.slice(0, 6);
+        xeroBankAccountDetails.bsb_number = padBsb6(
+          updatedAccount.BankAccountNumber,
+        );
         xeroBankAccountDetails.account_type = updatedAccount.Type;
         xeroBankAccountDetails.description = updatedAccount.Description;
         xeroBankAccountDetails.pt_bank_account_id =
@@ -770,7 +772,7 @@ export class XeroAccountsService {
             account_id,
             account_name: account.name,
             account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-            bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+            bsb_number: padBsb6(account.bankAccountNumber),
           },
           integration_id: xeroDetails.integration_id,
           log_template_id: 13,
@@ -988,7 +990,7 @@ export class XeroAccountsService {
               integration_id: xeroDetails.integration_id,
               account_name: account.Name,
               account_number: account.BankAccountNumber?.slice(6),
-              bsb_number: account.BankAccountNumber?.slice(0, 6),
+              bsb_number: padBsb6(account.BankAccountNumber),
               account_type: account.Type,
               account_status: account.Status,
               description: account.Description,
@@ -1510,7 +1512,7 @@ export class XeroAccountsService {
             tenant_id: xeroDetails.tenant_id,
             account_name: account.name,
             account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-            bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+            bsb_number: padBsb6(account.bankAccountNumber),
             account_type: account.type,
             account_status: account.status,
             description: account.description,

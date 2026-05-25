@@ -48,6 +48,7 @@ import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.en
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { MappedStatus } from 'src/libs/@paytrade-types/paytrade-types';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { XeroWebhookService } from 'src/api/common/xero-webhooks/webhook.service';
 import { ProjectsService } from 'src/api/users/projects/projects.service';
@@ -1595,7 +1596,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         accounts.forEach((account) => {
           const rawBankNumber = account.bankAccountNumber || '';
           const digitsOnly = rawBankNumber.replace(/\D/g, '');
-          const bsbParsed = digitsOnly.length >= 6 ? parseInt(digitsOnly.slice(0, 6), 10) : null;
+          // Task #259 — Preserve leading zeros via padBsb6 (mirror column
+          // is now varchar(6)). parseInt would silently truncate "064000".
+          const bsbParsed = digitsOnly.length >= 6 ? padBsb6(digitsOnly.slice(0, 6)) : null;
           const accountNumberParsed = digitsOnly.length > 6 ? digitsOnly.slice(6) : rawBankNumber.slice(6) || null;
           const accountData: any = {
             account_id: account.accountID,
@@ -2349,7 +2352,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                     account_id,
                     account_name: account.name,
                     account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-                    bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+                    bsb_number: padBsb6(account.bankAccountNumber),
                     payload: payload || {},
                     account_status: data?.account_status,
                   },
@@ -2827,7 +2830,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 account_id,
                 account_name: account.name,
                 account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+                bsb_number: padBsb6(account.bankAccountNumber),
                 account_status: account.status,
                 created_as_draft: true,
               },
@@ -2869,7 +2872,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 account_id,
                 account_name: account.name,
                 account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+                bsb_number: padBsb6(account.bankAccountNumber),
                 account_status: account.status,
               },
               integration_id: xeroDetails.integration_id,
@@ -2935,7 +2938,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 account_id,
                 account_name: account.name,
                 account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-                bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+                bsb_number: padBsb6(account.bankAccountNumber),
                 payload: data.payload || {},
                 account_status: data?.account_status,
               },
@@ -3035,7 +3038,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   account_id,
                   account_name: account.name,
                   account_number: (account.bankAccountNumber || '').replace(/\D/g, '').slice(6) || null,
-                  bsb_number: parseInt((account.bankAccountNumber || '').replace(/\D/g, '').slice(0, 6), 10) || null,
+                  bsb_number: padBsb6(account.bankAccountNumber),
                   account_status: account.status,
                 },
                 integration_id: xeroDetails.integration_id,
@@ -3839,7 +3842,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   // the remainder is the account number. There is no separate `code`
                   // field on a Contact's BatchPayments (that exists only on Accounts).
                   const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
-                  const bsbParsed = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+                  const bsbParsed = xeroDigits.length >= 6 ? padBsb6(xeroDigits.slice(0, 6)) : null;
                   const acctParsed = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
                   const accountDetail: any = {
                     account_type: 'Cash Account',
@@ -7173,7 +7176,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             // the remainder is the account number. There is no separate `code`
             // field on a Contact's BatchPayments (that exists only on Accounts).
             const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
-            const bsbParsed = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+            const bsbParsed = xeroDigits.length >= 6 ? padBsb6(xeroDigits.slice(0, 6)) : null;
             const acctParsed = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
             const accountDetail: any = {
               account_type: 'Cash Account',

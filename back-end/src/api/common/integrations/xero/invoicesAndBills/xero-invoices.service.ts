@@ -46,6 +46,7 @@ import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { XeroManualJournalService } from '../manualJournals/xero-manual-journal.service';
 import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import {
   resolveSupplierBillCode,
   ResolveSupplierBillCodeResult,
@@ -6541,7 +6542,7 @@ export class XeroInvoicesService {
               // the remainder is the account number. There is no separate `code`
               // field on a Contact's BatchPayments (that exists only on Accounts).
               const xeroDigits = (xeroBatchPayments.bankAccountNumber || '').replace(/\D/g, '');
-              const bsbParsedNew = xeroDigits.length >= 6 ? parseInt(xeroDigits.slice(0, 6), 10) || null : null;
+              const bsbParsedNew = xeroDigits.length >= 6 ? padBsb6(xeroDigits.slice(0, 6)) : null;
               const acctParsedNew = xeroDigits.length > 6 ? xeroDigits.slice(6) : (xeroDigits || '');
               const newAccount = bankAccountsRepo.create({
                 account_type: 'Cash Account' as const,

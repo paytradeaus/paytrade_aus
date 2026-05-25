@@ -35,8 +35,11 @@ export class XeroBankAccountDetails {
   @Column({ type: 'text', nullable: true })
   account_number: string;
 
-  @Column({ type: 'int', nullable: true })
-  bsb_number: number;
+  // Task #259 — Promoted from `int` to `varchar(6)` so leading zeros on
+  // BSBs synced from Xero (e.g. NAB "064000") survive the round-trip
+  // through this mirror table. Ingest sites normalize via `padBsb6`.
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  bsb_number: string;
 
   @Column({ type: 'text', nullable: true })
   account_type: string;
