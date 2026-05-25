@@ -882,11 +882,33 @@ export class BankAccountTransfersService {
           throw new Error(`Notice generation failed: ${notices.message}`);
         }
 
-        // 5b. (moved post-commit — see "Post-commit TA3 fan-out" block
-        // after this transaction closes. We capture the contract IDs in
-        // step 1 into the outer-scope `repointedContractIds` array; the
-        // loop now runs after commit so notice fan-out does not hold
-        // row locks during heavy template/document work.)
+        // 5b. Per-contract TA3 destination notices, IN-TRANSACTION.
+        // Task #244 spec is explicit that cutover is all-or-nothing —
+        // notice/journal/migration failure must roll the whole thing
+        // back. Therefore any failure in the per-contract TA3 fan-out
+        // throws here and aborts the cutover (the outer catch lands
+        // the transfer in Failed with `last_error`).
+        // NOTE: the lock-contention concern raised in an earlier review
+        // round (heavy template work holding row locks) is acknowledged
+        // — the mitigation is to keep TA3 notice templates minimal /
+        // async-defer their external sends, not to weaken cutover
+        // atomicity.
+        for (const cid of repointedContractIds) {
+          const res =
+            await this.noticesService.handleTriggerContractNotices(
+              decoded,
+              { contract_id: cid } as any,
+              mgr,
+            );
+          if (res?.status === 'ERROR') {
+            throw new Error(
+              `TA3 destination notice failed for contract ${cid}: ${res?.message}`,
+            );
+          }
+        }
+        this.logger.log(
+          `[XFER_TA3_DEST] transfer_id=${transfer_id} contracts_repointed=${repointedContractIds.length} status=ok`,
+        );
 
         // 6. Persist transfer terminal state.
         await xferRepo.update(
@@ -932,36 +954,10 @@ export class BankAccountTransfersService {
       };
     }
 
-    // Post-commit TA3 fan-out (Gap 2 — architect fix). The cutover txn
-    // has committed; money + state are durable. Fan out per-contract
-    // TA3 destination notices outside the txn so heavy template/document
-    // work does NOT hold row locks. Log-and-continue per contract so one
-    // bad contract doesn't bubble up and make the user think the cutover
-    // failed. Failures are surfaced in the aggregate log + per-contract
-    // error log so admins can re-trigger from the contract page.
-    let perContractFailures = 0;
-    for (const cid of repointedContractIds) {
-      try {
-        const res = await this.noticesService.handleTriggerContractNotices(
-          decoded,
-          { contract_id: cid } as any,
-        );
-        if (res?.status === 'ERROR') {
-          perContractFailures += 1;
-          this.logger.error(
-            `[XFER_TA3_DEST] transfer_id=${transfer_id} contract_id=${cid} status=ERROR message=${res?.message}`,
-          );
-        }
-      } catch (err: any) {
-        perContractFailures += 1;
-        this.logger.error(
-          `[XFER_TA3_DEST] transfer_id=${transfer_id} contract_id=${cid} threw: ${err?.message ?? err}`,
-        );
-      }
-    }
-    this.logger.log(
-      `[XFER_TA3_DEST] transfer_id=${transfer_id} contracts_repointed=${repointedContractIds.length} per_contract_failures=${perContractFailures}`,
-    );
+    // (TA3 destination notices ran in-transaction in step 5b above
+    // per spec atomicity. No post-commit fan-out — if any contract's
+    // notice failed, the whole cutover already rolled back and the
+    // transfer row is in Failed for admin retry.)
 
     this.logger.log(
       `[XFER_CUTOVER_APPLIED] transfer_id=${transfer_id} adminRetry=${isAdminRetry}`,
