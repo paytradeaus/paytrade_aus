@@ -1294,6 +1294,177 @@ export default function SyncLogDetailsBasic() {
     );
   }
 
+  /**
+   * Derive contextual chips for the sync-log header so the user can
+   * see at-a-glance which entity this log relates to (supplier,
+   * amount, Xero / PayTrade reference, account, etc.) instead of just
+   * a UUID. All values are pulled from data already loaded by
+   * `viewXeroSyncLog` (paytrade_records / xero_records /
+   * paytrade_details / xero_details / dynamic_values) so this works
+   * retroactively on every historical log row — no DB change.
+   * Returns an array of { label, value } that the JSX maps into the
+   * existing overview tile grid; tiles with no value are skipped.
+   */
+  const buildContextTiles = (
+    data: any,
+  ): Array<{ label: string; value: string }> => {
+    if (!data) return [];
+    const pt = data?.paytrade_records?.[0] || data?.paytrade_details || {};
+    const xr = data?.xero_records?.[0] || data?.xero_details || {};
+    const dyn = data?.dynamic_values || {};
+    const tiles: Array<{ label: string; value: string }> = [];
+    const fmt$ = (v: any): string => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n === 0) return "";
+      return formatDollars(n.toFixed(2));
+    };
+
+    // Normalise sync_type so webhook / scheduler variants ("Invoice
+     // webhook", "Bill schedulers", "Account schedulers", …) land in
+     // the same branch as their first-class counterpart. Mirrors the
+     // backend `normaliseSyncType` in sync-log-deep-links.ts.
+    const rawType = String(data?.sync_type || "");
+    const lower = rawType.toLowerCase();
+    let syncType = rawType;
+    if (lower.startsWith("invoice")) syncType = "Invoices";
+    else if (lower.startsWith("bill")) syncType = "Bills";
+    else if (lower.startsWith("contact")) syncType = "Contacts";
+    else if (lower.startsWith("payment")) syncType = "Payments";
+    else if (
+      lower.startsWith("bank") ||
+      lower.startsWith("account schedulers")
+    )
+      syncType = "Bank accounts";
+
+    // xero_details holds the typed-projection shape (snake_case
+     // PayTrade-side keys) while xero_records[0] holds the raw Xero
+     // API payload (camelCase). Some fields only exist in one or the
+     // other, so for bank-account / payment look-ups we want both.
+    const xd = data?.xero_details || {};
+
+    // Contact / supplier — applies to most sync types.
+    const contactName =
+      pt?.clientSupplierDetails?.client_supplier_name ||
+      pt?.client_supplier_name ||
+      pt?.contact_name ||
+      xr?.contact?.name ||
+      xr?.Contact?.Name ||
+      xd?.contact_name ||
+      dyn?.supplier_name ||
+      dyn?.client_supplier_name ||
+      dyn?.contact_name ||
+      "";
+    if (contactName) tiles.push({ label: "Contact", value: contactName });
+
+    if (syncType === "Invoices" || syncType === "Bills") {
+      const xeroInv =
+        xr?.invoiceNumber ||
+        xr?.InvoiceNumber ||
+        xr?.invoice?.invoiceNumber ||
+        xr?.Invoice?.InvoiceNumber ||
+        xd?.invoice_number ||
+        "";
+      if (xeroInv) tiles.push({ label: "Xero invoice", value: xeroInv });
+      const ptInv =
+        pt?.invoice_number ||
+        pt?.payment_claim_id ||
+        pt?.claim_reference ||
+        dyn?.invoice_number ||
+        "";
+      if (ptInv) tiles.push({ label: "PayTrade ref", value: String(ptInv) });
+      const amount =
+        pt?.total_amount ??
+        pt?.amount ??
+        xr?.total ??
+        xr?.Total ??
+        xd?.total ??
+        null;
+      const $amt = fmt$(amount);
+      if ($amt) tiles.push({ label: "Amount", value: $amt });
+      // Webhook failures often have NO paytrade/xero records at all —
+      // only the inbound resourceId from the webhook envelope. Surface
+      // it so the user can identify which Xero invoice misbehaved.
+      if (!xeroInv && !ptInv) {
+        const resourceId =
+          dyn?.resourceId ||
+          dyn?.resource_id ||
+          dyn?.xero_id ||
+          data?.xero_id ||
+          "";
+        if (resourceId)
+          tiles.push({ label: "Xero ID", value: String(resourceId) });
+      }
+    } else if (syncType === "Payments") {
+      // Detect the retention bank-transfer leg vs the regular payment
+      // leg so the chips match the comparison-table semantics. Cover
+      // both lower- and upper-camel shapes (older logs persist mixed
+      // casings).
+      const isBankTransferLeg = !!(
+        xr?.bankTransferID ||
+        xr?.BankTransferID ||
+        xr?.fromBankAccount ||
+        xr?.FromBankAccount
+      );
+      const ptRef = pt?.payment_id
+        ? `${isBankTransferLeg ? "PT-RET" : "PT-PAY"}-${pt.payment_id}`
+        : pt?.payment_claim_id || "";
+      if (ptRef) tiles.push({ label: "PayTrade ref", value: String(ptRef) });
+      const xeroRef =
+        xr?.reference ||
+        xr?.Reference ||
+        xr?.invoice?.invoiceNumber ||
+        xr?.Invoice?.InvoiceNumber ||
+        "";
+      if (xeroRef) tiles.push({ label: "Xero ref", value: String(xeroRef) });
+      const ptTotal = Number(pt?.total_amount || 0);
+      const ptRetention = Number(pt?.retention_amount || 0);
+      const amount = isBankTransferLeg
+        ? ptRetention
+        : Math.max(ptTotal - ptRetention, 0) || ptTotal;
+      const $amt = fmt$(amount);
+      if ($amt) tiles.push({ label: "Amount", value: $amt });
+      const payDate = pt?.payment_date
+        ? String(pt.payment_date).split("T")[0]
+        : "";
+      if (payDate) {
+        const f = formatDate(payDate);
+        if (f) tiles.push({ label: "Payment date", value: f });
+      }
+    } else if (syncType === "Contacts") {
+      // Contact tile already pushed above; nothing extra.
+    } else if (syncType === "Bank accounts") {
+      const acctName =
+        pt?.account_name ||
+        pt?.bank_account_name ||
+        xd?.account_name ||
+        xr?.name ||
+        xr?.Name ||
+        "";
+      if (acctName) tiles.push({ label: "Account", value: acctName });
+      const bsb =
+        pt?.bsb_number || xd?.bsb_number || xr?.bsb_number || "";
+      const acctNo =
+        pt?.account_number ||
+        pt?.bank_account_number ||
+        xd?.account_number ||
+        xr?.bank_account_number ||
+        xr?.bankAccountNumber ||
+        xr?.BankAccountNumber ||
+        "";
+      if (bsb || acctNo) {
+        const last4 = acctNo ? `••••${String(acctNo).slice(-4)}` : "";
+        tiles.push({
+          label: "BSB / Acct",
+          value: [bsb, last4].filter(Boolean).join(" / "),
+        });
+      }
+    }
+
+    return tiles;
+  };
+
+  const contextTiles = buildContextTiles(syncLogDetailsData);
+
   return (
     <>
       <div className="container-fluid">
@@ -1431,6 +1602,19 @@ export default function SyncLogDetailsBasic() {
                   )}
                 </div>
               )}
+              {/* Per-sync-type contextual tiles (supplier, invoice ref,
+                  amount, bank account, etc.) derived from the records
+                  already loaded so the user can identify the log
+                  without opening Xero / PayTrade. */}
+              {!loading &&
+                contextTiles.map((tile) => (
+                  <div className="pt_infolistdata" key={tile.label}>
+                    <h6>{tile.label}</h6>
+                    <span style={{ wordBreak: "break-word" }}>
+                      {tile.value}
+                    </span>
+                  </div>
+                ))}
               <div className="pt_infolistdata">
                 <h6>Started</h6>
                 <span>

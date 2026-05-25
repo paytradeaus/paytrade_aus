@@ -436,8 +436,10 @@ input AddBankAccountInput {
   """Associated general account ID, if applicable."""
   associated_cash_account_id: Float
 
-  """BSB number of the bank account."""
-  bsb_number: Float!
+  """
+  BSB number of the bank account. 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).
+  """
+  bsb_number: String!
 
   """Client/Supplier ID if the account belongs to a client/supplier."""
   client_supplier_id: Float
@@ -2679,8 +2681,10 @@ input CloseOrChangeBankAccountInput {
   """Account number of the replacement account (Transferred only)."""
   closing_target_account_number: String
 
-  """BSB of the replacement account (Transferred only)."""
-  closing_target_bsb: Float
+  """
+  BSB of the replacement account (Transferred only). 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).
+  """
+  closing_target_bsb: String
 
   """Financial institution of the replacement account (Transferred only)."""
   closing_target_financial_institution: String
@@ -3242,8 +3246,10 @@ input CreateAccountDetailInput {
   """Indicates if the account was added by the client or supplier."""
   added_by_client_supplier: Boolean
 
-  """BSB number of the bank account."""
-  bsb_number: Float!
+  """
+  BSB number of the bank account, as a 6-digit string so leading zeros (e.g. "064000") survive the wire.
+  """
+  bsb_number: String!
 
   """Client or supplier ID associated with the account."""
   client_supplier_id: Float
@@ -4639,8 +4645,10 @@ input EditDetailsOfABankAccountInput {
   """ID of the bank account to edit."""
   bank_account_id: Float!
 
-  """Updated BSB number."""
-  bsb_number: Float
+  """
+  Updated BSB number. 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).
+  """
+  bsb_number: String
 
   """Updated client/supplier ID, if applicable."""
   client_supplier_id: Float

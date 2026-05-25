@@ -41,8 +41,11 @@ export class CreateAccountDetailInput {
   @Field({ nullable: true, description: 'Bank account number (optional).' })
   account_number: string;
 
-  @Field({ description: 'BSB number of the bank account.' })
-  bsb_number: number;
+  @Field({
+    description:
+      'BSB number of the bank account, as a 6-digit string so leading zeros (e.g. "064000") survive the wire.',
+  })
+  bsb_number: string;
 
   @Field({
     nullable: true,
