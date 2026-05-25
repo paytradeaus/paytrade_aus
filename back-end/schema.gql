@@ -6668,7 +6668,7 @@ type FetchAutoPopulatableFieldsOfARetentionClaim {
   payment_terms: Float
 
   """BSB number of the payment to account."""
-  payment_to_account_bsb_number: Float
+  payment_to_account_bsb_number: String
 
   """ID of the payment to account."""
   payment_to_account_id: Float!
@@ -6689,7 +6689,7 @@ type FetchAutoPopulatableFieldsOfARetentionClaim {
   project_name: String
 
   """BSB number of the retention from account."""
-  retention_from_account_bsb_number: Float
+  retention_from_account_bsb_number: String
 
   """ID of the retention from account."""
   retention_from_account_id: Float
@@ -9125,7 +9125,7 @@ type FetchPaymentFromAccountDetailsAndPaymentToAccountListOfSelectedSupplierResp
 """Payment from account details for a contract."""
 type FetchPaymentFromAccountDetailsOfContract {
   """BSB number of the payment from account."""
-  payment_from_account_bsb_number: Float
+  payment_from_account_bsb_number: String
 
   """ID of the payment from account."""
   payment_from_account_id: Float!
@@ -9143,7 +9143,7 @@ type FetchPaymentFromAccountDetailsOfContract {
 """Payment to account details for a selected supplier."""
 type FetchPaymentToAccountListOfSelectedSupplier {
   """BSB number of the payment to account."""
-  payment_to_account_bsb_number: Float
+  payment_to_account_bsb_number: String
 
   """ID of the payment to account."""
   payment_to_account_id: Float!
@@ -9384,7 +9384,7 @@ type FetchWithdrawAndDeposit {
   beneficiary_type: String!
 
   """BSB number associated with the bank account."""
-  bsb_number: Float
+  bsb_number: String
 
   """Business identifier."""
   company_id: Float!
