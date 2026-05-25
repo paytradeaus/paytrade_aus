@@ -428,8 +428,10 @@ input AddBankAccountInput {
   """Type of the bank account (e.g., Project Trust, Retention Trust)."""
   account_type: String!
 
-  """APCA number of the bank account, if applicable."""
-  apca_number: Float
+  """
+  APCA number of the bank account, if applicable. Stored as a string to preserve leading zeros (e.g. "000000").
+  """
+  apca_number: String
 
   """Associated general account ID, if applicable."""
   associated_cash_account_id: Float
@@ -4626,8 +4628,10 @@ input EditDetailsOfABankAccountInput {
   """Updated account type."""
   account_type: String
 
-  """Updated APCA number."""
-  apca_number: Float
+  """
+  Updated APCA number. Stored as a string to preserve leading zeros (e.g. "000000").
+  """
+  apca_number: String
 
   """Updated associated general account ID."""
   associated_cash_account_id: Float
@@ -5332,7 +5336,7 @@ type FetchAllBankAccounts {
   account_type: String
 
   """APCA number of the bank account."""
-  apca_number: Float
+  apca_number: String
 
   """Unique identifier of the bank account."""
   bank_account_id: Float
@@ -6958,7 +6962,7 @@ type FetchBankAccountDetails {
   account_type: String
 
   """APCA number of the bank account."""
-  apca_number: Float
+  apca_number: String
 
   """ID of the associated general account, if applicable."""
   associated_cash_account_id: Float
@@ -7011,7 +7015,7 @@ type FetchBankAccountDetailsForEditing {
   account_type: String
 
   """APCA number of the bank account."""
-  apca_number: Float
+  apca_number: String
 
   """Associated general account ID, if applicable."""
   associated_cash_account_id: Float

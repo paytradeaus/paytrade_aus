@@ -61,8 +61,14 @@ export class BankAccounts {
   @Column({ type: 'int', nullable: true })
   bsb_number: number;
 
-  @Column({ type: 'int', nullable: true })
-  apca_number: number;
+  // Stored as `varchar(6)` so that user-entered leading zeros are
+  // preserved (e.g. "000000" is a valid APCA placeholder used by many
+  // banks). The column was originally `int` but that silently dropped
+  // leading zeros, which made the field appear empty after save. The
+  // schema is migrated at bootstrap by
+  // `ApcaNumberStringSchemaSeederService`.
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  apca_number: string;
 
   @Column({ type: 'int' })
   company_id: number;

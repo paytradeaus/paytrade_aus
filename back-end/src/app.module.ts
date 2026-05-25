@@ -131,6 +131,7 @@ import { ContractBillingTypeSchemaSeederModule } from './libs/@seeders/contract-
 import { XeroVariableBillCodeSchemaSeederModule } from './libs/@seeders/xero-variable-bill-code-schema-seeder.module';
 import { XeroIntegrationRecoverySchemaSeederModule } from './libs/@seeders/xero-integration-recovery-schema-seeder.module';
 import { XeroBankAccountNumberNullableSchemaSeederModule } from './libs/@seeders/xero-bank-account-number-nullable-schema-seeder.module';
+import { ApcaNumberStringSchemaSeederModule } from './libs/@seeders/apca-number-string-schema-seeder.module';
 import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sync-logs-error-code-schema-seeder.module';
 import { XeroSyncLogsArchiveSchemaSeederModule } from './libs/@seeders/xero-sync-logs-archive-schema-seeder.module';
 import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-type-partnership-schema-seeder.module';
@@ -378,6 +379,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroVariableBillCodeSchemaSeederModule,
     XeroIntegrationRecoverySchemaSeederModule,
     XeroBankAccountNumberNullableSchemaSeederModule,
+    ApcaNumberStringSchemaSeederModule,
     XeroSyncLogsErrorCodeSchemaSeederModule,
     XeroSyncLogsArchiveSchemaSeederModule,
     EntityTypePartnershipSchemaSeederModule,

@@ -1236,7 +1236,7 @@ export class AbaWizardSenderAccount {
   bsb_number: string;
 
   @Field(() => Float, { nullable: true, description: 'APCA / Direct entry user ID.' })
-  apca_number: number;
+  apca_number: string;
 
   @Field({ description: 'True when the account has a non-null APCA number.' })
   has_apca: boolean;

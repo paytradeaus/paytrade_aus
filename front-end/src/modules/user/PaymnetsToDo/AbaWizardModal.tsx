@@ -16,7 +16,7 @@ type SenderAccount = {
   account_name: string;
   account_number: string;
   bsb_number: string;
-  apca_number: number | null;
+  apca_number: string | null;
   has_apca: boolean;
   eligible_count: number;
 };

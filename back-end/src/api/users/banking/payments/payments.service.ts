@@ -7234,8 +7234,8 @@ export class PaymentsService {
       account_name: r.account_name || '',
       account_number: r.account_number || '',
       bsb_number: r.bsb_number != null ? String(r.bsb_number) : '',
-      apca_number: r.apca_number != null ? Number(r.apca_number) : null,
-      has_apca: r.apca_number != null,
+      apca_number: r.apca_number != null ? String(r.apca_number) : null,
+      has_apca: r.apca_number != null && String(r.apca_number).length > 0,
       eligible_count: Number(r.eligible_count) || 0,
     }));
   }

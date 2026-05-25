@@ -1234,7 +1234,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         delegate_powers:
           BankAccountType === "Cash Account" ? "No" : DelegateStatus,
         ...(formik?.values?.apca_number
-          ? { apca_number: +formik.values.apca_number }
+          ? { apca_number: String(formik.values.apca_number) }
           : {}),
       };
 
@@ -1331,7 +1331,12 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         let modifiedPayload = {
           ...payload,
           bank_account_id: editData.bank_account_id,
-          apca_number: +formik?.values?.apca_number,
+          // Send as string so leading zeros (e.g. "000000") survive
+          // the round-trip. Empty input → null so the column is cleared
+          // rather than persisted as "0".
+          apca_number: formik?.values?.apca_number
+            ? String(formik.values.apca_number)
+            : null,
           ...(triggerBtnStatus === "completed"
             ? { mark_notices_as_sent: markNoticesAsSent }
             : {}),

@@ -39,9 +39,10 @@ export class AddBankAccountInput {
 
   @Field({
     nullable: true,
-    description: 'APCA number of the bank account, if applicable.',
+    description:
+      'APCA number of the bank account, if applicable. Stored as a string to preserve leading zeros (e.g. "000000").',
   })
-  apca_number?: number;
+  apca_number?: string;
 
   @Field({
     nullable: true,
@@ -145,8 +146,12 @@ export class EditDetailsOfABankAccountInput {
   @Field({ nullable: true, description: 'Updated BSB number.' })
   bsb_number?: number;
 
-  @Field({ nullable: true, description: 'Updated APCA number.' })
-  apca_number?: number;
+  @Field({
+    nullable: true,
+    description:
+      'Updated APCA number. Stored as a string to preserve leading zeros (e.g. "000000").',
+  })
+  apca_number?: string;
 
   @Field({ nullable: true, description: 'Updated account type.' })
   account_type?: BankAccountType;

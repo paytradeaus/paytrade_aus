@@ -32,7 +32,7 @@ export class FetchAllBankAccounts {
   bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
-  apca_number: number;
+  apca_number: string;
 
   @Field({ nullable: true, description: 'Bank account number.' })
   account_number: string;
@@ -219,7 +219,7 @@ export class FetchBankAccountDetails {
   bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
-  apca_number: number;
+  apca_number: string;
 
   @Field({
     nullable: true,
@@ -319,7 +319,7 @@ export class FetchBankAccountDetailsForEditing {
   bsb_number: string;
 
   @Field({ nullable: true, description: 'APCA number of the bank account.' })
-  apca_number: number;
+  apca_number: string;
 
   @Field({ description: 'Current status of the bank account.' })
   status: BankAccountStatus;
