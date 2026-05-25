@@ -533,8 +533,24 @@ export const editContractDetailsById = async (
     }
     return {};
   } catch (error: any) {
-    showErrorToast(error.message || "Something went wrong in API");
-    console.error("GraphQL Error:", error);
+    const gqlErr = error?.graphQLErrors?.[0];
+    const detailedMsg =
+      gqlErr?.extensions?.exception?.message ||
+      gqlErr?.extensions?.response?.message ||
+      (Array.isArray(gqlErr?.extensions?.response?.message)
+        ? gqlErr.extensions.response.message.join("; ")
+        : null) ||
+      gqlErr?.message ||
+      error?.networkError?.result?.errors?.[0]?.message ||
+      error?.message ||
+      "Something went wrong in API";
+    showErrorToast(detailedMsg);
+    console.error("GraphQL Error (editContractDetailsById):", {
+      message: error?.message,
+      graphQLErrors: error?.graphQLErrors,
+      networkError: error?.networkError,
+      sentVariables: { updateContractDetailInput: data },
+    });
     return {};
   } finally {
     setLoading && setLoading(false);
