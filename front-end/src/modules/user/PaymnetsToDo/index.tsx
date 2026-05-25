@@ -1,6 +1,7 @@
 "use client";
 import { getCookie } from "cookies-next";
 import { Fragment, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { PaymentData } from "./paymentToDoList.types";
 import {
   tabOptions,
@@ -15,6 +16,7 @@ import { fetchFiltersOfPaymentClaimsPaymentsAndRetentionsList } from "@/network/
 import {
   editDetailsOfAPayment,
   fetchABAFileHistoryList,
+  deleteABAFileHistory,
   fetchAllPaymentsList,
   TriggerPaymentNotices,
 } from "./paymentToDoList.functions";
@@ -120,6 +122,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [qbccNoticeUuids, setQbccNoticeUuids] = useState<string[]>([]);
   const [isNoticePopupPaused, setIsNoticePopupPaused] = useState(false);
   const [pauseSecondsLeft, setPauseSecondsLeft] = useState(0);
+  // ABA-history row pending soft-delete (id + display name for the
+  // confirm modal). null when no delete is in flight.
+  const [abaDeleteTarget, setAbaDeleteTarget] = useState<
+    { id: string; name: string } | null
+  >(null);
 
   const pauseNoticePopup = () => {
     if (isNoticePopupPaused) return;
@@ -504,7 +511,30 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       : []),
   ];
 
+  // Opens the generated ABA file inline in a new browser tab (plain
+  // text) so the user can eyeball the records without downloading.
+  // The associated-payments view that the row click previously hinted
+  // at isn't backed by data — `generate_aba_file_history` doesn't
+  // store which `payment_details` rows were aggregated into the file
+  // (that linkage would require a new `aba_file_history_id` FK on
+  // `payment_details`, populated at generation time). Until that
+  // schema link exists, inline-viewing the file itself is the closest
+  // useful proxy.
+  const viewAbaFileInline = (row: any) => {
+    if (!row?.aba_file_path) return;
+    const url = `/api/proxy-download?url=${encodeURIComponent(
+      row.aba_file_path,
+    )}&filename=${encodeURIComponent(row.aba_file_name || "file.aba")}&inline=1`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const ABAactions = [
+    {
+      label: "View ABA file",
+      icon: "fa-light fa-eye",
+      style: buttonType.PRIMARY,
+      onClick: (row: any) => viewAbaFileInline(row),
+    },
     {
       label: "Download generated ABA file",
       icon: "fa-light fa-download",
@@ -516,7 +546,33 @@ export default function PaymentToDoList({ overViewDetails }: any) {
         });
       },
     },
+    {
+      label: "Delete ABA file",
+      icon: "fa-light fa-trash",
+      style: buttonType.PRIMARY,
+      onClick: (row: any) => {
+        setAbaDeleteTarget({
+          id: row?.id,
+          name: row?.aba_file_name || "this ABA file",
+        });
+      },
+    },
   ];
+
+  const confirmDeleteAbaHistory = async () => {
+    if (!abaDeleteTarget?.id) return;
+    const result = await deleteABAFileHistory(
+      abaDeleteTarget.id,
+      selectedCompanyId,
+    );
+    setAbaDeleteTarget(null);
+    if (result?.status === "SUCCESS") {
+      toast.success(result?.message || "ABA file deleted.");
+      getABAFileHistoryList(page, perPage);
+    } else {
+      toast.error(result?.message || "Failed to delete ABA file.");
+    }
+  };
 
   const modifiedHeaders =
     activeTab === tabOptions[2].label
@@ -1122,7 +1178,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
               displayAllStaticActions={true}
               onRowClick={
                 activeTab === tabOptions[2].label
-                  ? undefined
+                  ? (data: any) => viewAbaFileInline(data)
                   : (data: any) => handleRowView(data)
               }
               showLoader={loading}
@@ -1163,6 +1219,27 @@ export default function PaymentToDoList({ overViewDetails }: any) {
           >
             <div className="text_center">
               {popupMessage?.subHeaderMsg || ""}
+            </div>
+          </BaseModal>
+        )}
+        {abaDeleteTarget && (
+          <BaseModal
+            displayModal={!!abaDeleteTarget}
+            onHeaderIconClose={() => setAbaDeleteTarget(null)}
+            onClose={() => setAbaDeleteTarget(null)}
+            firstButtonName="Cancel"
+            secondButtonName="Delete"
+            title="Delete ABA file?"
+            onConfirm={() => {
+              confirmDeleteAbaHistory();
+              return true;
+            }}
+          >
+            <div className="text_center">
+              Are you sure you want to delete{" "}
+              <strong>{abaDeleteTarget.name}</strong>? The file will be
+              removed from this list but kept in storage for audit
+              purposes.
             </div>
           </BaseModal>
         )}

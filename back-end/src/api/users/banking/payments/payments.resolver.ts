@@ -789,6 +789,36 @@ export class PaymentsResolver {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => ChangeStatusOfAPaymentResponse, {
+    name: 'deleteABAFileHistory',
+    description:
+      'Soft-delete a previously generated ABA file history record (sets status to Deleted). The underlying file remains in storage for audit purposes.',
+  })
+  async deleteABAFileHistory(
+    @Context() context,
+    @Args('aba_history_id', { description: 'UUID of the ABA history row to delete.' })
+    aba_history_id: string,
+    @Args('company_id', { description: 'Owning company id (for scoping).' })
+    company_id: number,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result = await this.paymentsService.deleteABAFileHistory(
+        aba_history_id,
+        company_id,
+        decoded,
+      );
+      return framedResponse(result.status as any, result.message, null);
+    } catch (error) {
+      this.logger.error(
+        `Errored while deleting ABA file history: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', `${error?.message || error}`);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => ChangeStatusOfAPaymentResponse, {
     name: 'changeStatusOfAPayment',
     description:
       'Update the status of a payment and synchronize changes with Xero including deletions of payments, credit notes, and overpayments if required.',

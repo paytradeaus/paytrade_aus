@@ -5826,6 +5826,43 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Soft-deletes an ABA file history record by flipping `status` to
+   * 'Deleted'. The file itself remains on R2 / in `file_attachments`
+   * for audit, but the row disappears from `getABAFileHistoryList`
+   * (which filters on `status='Active'`). Scoped by `company_id` to
+   * match the wider listing/edit pattern in this resolver.
+   */
+  async deleteABAFileHistory(
+    aba_history_id: string,
+    company_id: number,
+    decoded: any,
+  ): Promise<{ status: string; message: string }> {
+    if (!company_id) {
+      return { status: 'ERROR', message: 'Missing company context.' };
+    }
+    const row = await this.generateABAFileHistory.findOne({
+      where: { id: aba_history_id, company_id: Number(company_id) },
+    });
+    if (!row) {
+      return {
+        status: 'ERROR',
+        message: 'ABA file history record not found.',
+      };
+    }
+    if ((row.status as string) === 'Deleted') {
+      return { status: 'SUCCESS', message: 'Already deleted.' };
+    }
+    await this.generateABAFileHistory.update(
+      { id: aba_history_id, company_id: Number(company_id) },
+      {
+        status: 'Deleted' as any,
+        updated_by: Number(decoded?.userId) || row.updated_by,
+      },
+    );
+    return { status: 'SUCCESS', message: 'ABA file deleted.' };
+  }
+
   async fetchAllRetentionInPaymentsList(
     data: FetchAllRetentionInPaymentsListInput,
   ) {

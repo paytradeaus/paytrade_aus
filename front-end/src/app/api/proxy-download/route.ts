@@ -4,6 +4,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const fileUrl = searchParams.get("url");
   const filename = searchParams.get("filename");
+  // `inline=1` switches Content-Disposition from `attachment` (force
+  // download) to `inline` (render in the browser tab). Used by the
+  // ABA history "View" action to preview the file without downloading.
+  const inline = searchParams.get("inline") === "1";
 
   if (!fileUrl || !filename) {
     return NextResponse.json(
@@ -26,8 +30,8 @@ export async function GET(req: NextRequest) {
     const buffer = await res.arrayBuffer();
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Type": inline ? "text/plain; charset=utf-8" : "application/octet-stream",
+        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${filename}"`,
       },
     });
   } catch (err: any) {

@@ -90,7 +90,7 @@ export const myActivityHeaderNames = [
   { title: "Account name" },
   { title: "Paid?" },
   // { title: "Sent Notices?" },
-  { title: "Download", dataKey: "", restrictSorting: true },
+  { title: "Actions", dataKey: "", restrictSorting: true },
 ];
 export const pdfDataRow: any[] = [
   "payment_id",

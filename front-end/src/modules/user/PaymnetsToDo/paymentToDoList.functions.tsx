@@ -264,6 +264,35 @@ export const fetchABAFileHistoryList = async (
   }
 };
 
+export const deleteABAFileHistory = async (
+  aba_history_id: string,
+  company_id: number,
+): Promise<{ status: string; message: string } | null> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation DeleteABAFileHistory(
+          $aba_history_id: String!
+          $company_id: Float!
+        ) {
+          deleteABAFileHistory(
+            aba_history_id: $aba_history_id
+            company_id: $company_id
+          ) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { aba_history_id, company_id },
+      fetchPolicy: "no-cache",
+    });
+    return response?.data?.deleteABAFileHistory || null;
+  } catch {
+    return null;
+  }
+};
+
 export const TriggerPaymentNotices = async (
   data: any,
   setLoading?: Function
