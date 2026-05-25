@@ -1115,6 +1115,21 @@ export class BankAccountsService {
             "closing_mode must be 'Closed' or 'Transferred'. 'Renamed' is reserved for internal use.",
         };
       }
+      // Task #260 — wire-level BSB shape guard. `closing_target_bsb`
+      // is a 6-digit string column; reject malformed input up-front so
+      // a bad client doesn't silently get its leading zeros stripped.
+      if (
+        closing_target_bsb !== undefined &&
+        closing_target_bsb !== null &&
+        closing_target_bsb !== ''
+      ) {
+        if (!/^\d{6}$/.test(String(closing_target_bsb))) {
+          return {
+            warning: true,
+            warningMessage: `closing_target_bsb must be exactly 6 digits (received "${closing_target_bsb}").`,
+          };
+        }
+      }
       // Task #244 — the 'Transferred' path has moved to the dedicated
       // Trust Account Transfer wizard (`startTrustAccountTransfer` →
       // `confirmTrustAccountTransfer`). This mutation now refuses

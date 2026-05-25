@@ -1227,7 +1227,7 @@ export default function AddUpdateBankAccounts({ isEditable }: any) {
         account_type: BankAccountType,
         company_id: selectedCompanyId,
         financial_institution: FinancialIns,
-        bsb_number: Number(BsbNumber),
+        bsb_number: BsbNumber,
         opening_date: OpeningDate || null,
         associated_cash_account_id:
           +formik?.values?.associated_cash_account_id || null,

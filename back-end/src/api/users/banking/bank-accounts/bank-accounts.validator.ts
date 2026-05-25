@@ -41,6 +41,23 @@ export class BankAccountsValidator {
     this.logger.error(`${message}`);
   }
 
+  /**
+   * Task #260 — BSBs are now wired as 6-digit strings end-to-end so
+   * leading zeros (e.g. "064000") survive the wire. Reject any input
+   * that isn't exactly 6 digits. Empty / null is allowed (caller-side
+   * decides whether the field is required); non-empty values must
+   * match `^\d{6}$`. The service-layer `padBsb6` normalization is
+   * still applied as a defensive no-op for legacy callers that send
+   * numbers.
+   */
+  private validateBsb6(value: unknown, fieldLabel: string) {
+    if (value === undefined || value === null || value === '') return;
+    const str = String(value);
+    if (!/^\d{6}$/.test(str)) {
+      throw `${fieldLabel} must be exactly 6 digits (received "${str}").`;
+    }
+  }
+
   async validateBankAccountName(companyId: number, accountName: string) {
     try {
       const splittedAccountName = accountName.toLowerCase().split(' ');
@@ -93,6 +110,12 @@ export class BankAccountsValidator {
         associated_cash_account_id,
       } = data;
       this.logger.log(`project_ids: ${JSON.stringify(project_ids)}`);
+
+      // Task #260 — wire-level BSB shape guard. The DB column is
+      // varchar(6); reject anything that isn't a 6-digit string so a
+      // bad client doesn't silently get its leading zeros stripped
+      // downstream by the defensive `padBsb6` no-op.
+      this.validateBsb6((data as any).bsb_number, 'BSB number');
 
       const bankAccountDetails = await this.bankAccountsRepo.find({
         where: {
@@ -228,6 +251,9 @@ export class BankAccountsValidator {
         throw `Invalid data. Bank account id which you have provided is invalid or not present.`;
 
       const status = bankAccountToBeEdited.status;
+
+      // Task #260 — wire-level BSB shape guard on edits too.
+      this.validateBsb6((data as any).bsb_number, 'BSB number');
 
       if (account_number) {
         const duplicateAccounts = await this.bankAccountsRepo.find({

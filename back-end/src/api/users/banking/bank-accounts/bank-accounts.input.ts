@@ -28,8 +28,11 @@ export class AddBankAccountInput {
   @Field({ description: 'Business ID the account belongs to.' })
   company_id: number;
 
-  @Field({ description: 'BSB number of the bank account.' })
-  bsb_number: number;
+  @Field(() => String, {
+    description:
+      'BSB number of the bank account. 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).',
+  })
+  bsb_number: string;
 
   @Field(() => [Number], {
     nullable: true,
@@ -143,8 +146,12 @@ export class EditDetailsOfABankAccountInput {
   @Field({ nullable: true, description: 'Updated bank account number.' })
   account_number?: string;
 
-  @Field({ nullable: true, description: 'Updated BSB number.' })
-  bsb_number?: number;
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'Updated BSB number. 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).',
+  })
+  bsb_number?: string;
 
   @Field({
     nullable: true,
@@ -319,11 +326,12 @@ export class CloseOrChangeBankAccountInput {
   })
   closing_target_financial_institution?: string;
 
-  @Field({
+  @Field(() => String, {
     nullable: true,
-    description: 'BSB of the replacement account (Transferred only).',
+    description:
+      'BSB of the replacement account (Transferred only). 6-digit string so leading zeros (e.g. "064000") survive the wire — the DB column is varchar(6).',
   })
-  closing_target_bsb?: number;
+  closing_target_bsb?: string;
 
   @Field({
     nullable: true,

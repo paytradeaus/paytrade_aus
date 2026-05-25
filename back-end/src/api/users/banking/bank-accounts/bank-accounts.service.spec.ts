@@ -176,7 +176,7 @@ const OPEN_PTA = {
   project_ids: '7',
   client_supplier_id: 99,
   account_number: '1234567',
-  bsb_number: 84004,
+  bsb_number: '084004',
   financial_institution: 'NAB',
 };
 
@@ -279,7 +279,7 @@ describe('BankAccountsService — Task #238 close/transfer/rename notice trigger
         closing_effective_date: new Date('2026-05-01T00:00:00Z'),
         closing_target_account_name: 'RTA Replacement',
         closing_target_financial_institution: 'CBA',
-        closing_target_bsb: 62000,
+        closing_target_bsb: '062000',
         closing_target_account_number: '7654321',
         closing_target_opening_date: new Date('2026-05-02T00:00:00Z'),
         mark_notices_as_sent: true,
@@ -290,7 +290,7 @@ describe('BankAccountsService — Task #238 close/transfer/rename notice trigger
       expect(patch.closing_mode).toBe('Transferred');
       expect(patch.closing_target_account_name).toBe('RTA Replacement');
       expect(patch.closing_target_financial_institution).toBe('CBA');
-      expect(patch.closing_target_bsb).toBe(62000);
+      expect(patch.closing_target_bsb).toBe('062000');
       expect(patch.closing_target_account_number).toBe('7654321');
       expect(patch.closing_target_opening_date).toBeInstanceOf(Date);
 
