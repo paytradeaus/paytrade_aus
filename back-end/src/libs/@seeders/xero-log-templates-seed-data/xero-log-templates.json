@@ -5649,5 +5649,18 @@
     "associated_log_ids": [
       620
     ]
+  },
+  {
+    "id": 623,
+    "sync_type": "Contact webhook",
+    "description": "<p>Xero sent a contact update, but the contact is <b>archived</b> in Xero so Pay Trade did not import it. Archived contacts in Xero usually have most fields stripped, which is why this would otherwise show up as a misleading \"missing mandatory fields\" error. If you want this contact in Pay Trade, un-archive it in Xero and click Retry import.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_ARCHIVED_SKIPPED",
+    "associated_log_ids": [
+      366,
+      384
+    ]
   }
 ]

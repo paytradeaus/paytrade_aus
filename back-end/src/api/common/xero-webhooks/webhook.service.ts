@@ -884,6 +884,57 @@ export class XeroWebhookService {
           this.logger.log(JSON.stringify({ pt_client_supplier3: pt_client_supplier }));
         }
       } else {
+        // Task #265 — Skip archived Xero contacts on webhook import.
+        // Archived contacts in Xero usually have most fields stripped, so
+        // attempting to import them as new PT contacts almost always fails
+        // with a noisy "Missing mandatory fields" sync log. The real reason
+        // is that the contact is archived, not that the user forgot to fill
+        // in 10 fields. The bulk contact sync already skips non-ACTIVE
+        // contacts on create — the webhook path now behaves the same way.
+        //
+        // The local xero_contact_details row was already upserted above
+        // with the correct ARCHIVED status, so our mirror stays accurate.
+        // Once the user un-archives the contact in Xero and clicks Retry
+        // import on this sync log, handleContactCreateUpdate re-runs, sees
+        // ACTIVE, and proceeds through the normal create path.
+        if (
+          String(contactStatus) === String(Contact.ContactStatusEnum.ARCHIVED)
+        ) {
+          this.logger.log(
+            `[Xero Contact Webhook] Skipping unmapped archived contact ${contactID} (${name})`,
+          );
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: sync_id || null,
+            api_name: 'createContactInPaytradeThroughWebhook',
+            api_payload: {
+              contact_id: contactID,
+              tenant_id: xeroDetails.tenant_id,
+              client_supplier_name: contact.name,
+              client_email_id: contact.emailAddress || '',
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 623,
+            dynamic_values: { contact_name: contact.name },
+            project_id: null,
+            contract_id: null,
+            reference: { xeroId: xeroContactDetails?.id, paytradeId: null },
+            reference_id: xeroContactDetails?.id,
+            history: [
+              `API triggered from contact webhook ${contact.name}`,
+              'Import skipped — contact is archived in Xero',
+            ],
+            important_checks: {},
+            error_message:
+              'Contact is archived in Xero — import skipped. Un-archive the contact in Xero, then click Retry import to bring it into Pay Trade.',
+            xero_records: [contact],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+          return false;
+        }
+
         pt_client_supplier = await this.handleContactCreate(
           contactID,
           xeroDetails,
