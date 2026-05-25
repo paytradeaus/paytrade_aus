@@ -10,6 +10,7 @@ import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { JournalEntries } from 'src/entities/journal-entries.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { NoticesService } from '../../notices/notices.service';
+import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 
 /**
  * Task #244 follow-up — Gap 1: anchor process_id for the per-account
@@ -834,7 +835,12 @@ export class BankAccountTransfersService {
             closing_previous_account_name: source.account_name,
             closing_target_account_name: dest.account_name,
             closing_target_financial_institution: dest.financial_institution,
-            closing_target_bsb: dest.bsb_number,
+            // Task #258 — `closing_target_bsb` is now `varchar(6)`.
+            // `dest.bsb_number` is already a 6-digit string after the
+            // migration, but defensively re-normalize so a legacy
+            // (pre-migration) row or a hand-rolled fixture can't
+            // smuggle a 5-digit value into the column.
+            closing_target_bsb: padBsb6(dest.bsb_number),
             closing_target_account_number: dest.account_number,
             closing_target_opening_date: dest.opening_date,
             updated_by: decoded?.userId,

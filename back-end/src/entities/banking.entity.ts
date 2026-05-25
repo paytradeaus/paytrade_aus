@@ -58,8 +58,14 @@ export class BankAccounts {
   @Column({ type: 'varchar', length: 100, nullable: true })
   account_number: string;
 
-  @Column({ type: 'int', nullable: true })
-  bsb_number: number;
+  // Task #258 — Stored as `varchar(6)` so leading zeros survive a
+  // round-trip through Postgres (e.g. NAB BSB "064000" used to persist
+  // as integer 64000 and required `padBsb6` on every read). Write paths
+  // in `bank-accounts.service.ts` normalize via `padBsb6` so callers
+  // may still pass `number | string` and the stored value is always
+  // either NULL or a canonical 6-digit string.
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  bsb_number: string;
 
   // Stored as `varchar(6)` so that user-entered leading zeros are
   // preserved (e.g. "000000" is a valid APCA placeholder used by many
@@ -195,8 +201,10 @@ export class BankAccounts {
   @Column({ type: 'text', nullable: true })
   closing_target_financial_institution?: string;
 
-  @Column({ type: 'int', nullable: true })
-  closing_target_bsb?: number;
+  // Task #258 — `varchar(6)` (see `bsb_number` above). Snapshot of the
+  // destination account's BSB at the time of close/transfer.
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  closing_target_bsb?: string;
 
   @Column({ type: 'text', nullable: true })
   closing_target_account_number?: string;

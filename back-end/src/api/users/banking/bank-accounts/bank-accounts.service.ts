@@ -43,11 +43,15 @@ import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-q
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
-// Australian BSBs are always 6 digits. The `bsb_number` column is numeric so
-// any leading zero is stripped on write (e.g. NAB BSB "084004" stored as 84004,
-// commonly arriving via the Xero → PT bank-account sync). Zero-pad on read so
-// the frontend always receives the canonical 6-digit value and its
-// "must be 6 digits" validator passes on save.
+// Australian BSBs are always 6 digits. Task #258 promoted the
+// `bank_accounts.bsb_number` and `bank_accounts.closing_target_bsb`
+// columns to `varchar(6)` so leading zeros now persist. This helper is
+// retained as a defensive normalizer for the write paths
+// (`addBankAccount`, `editDetailsOfABankAccount`) — callers may still
+// hand us a `number` from a CSV import / Xero payload / legacy code
+// path and we coerce to the canonical 6-digit string before save. Also
+// used on read paths to harden against any legacy 5-digit rows that
+// somehow slipped past the migration backfill.
 function padBsb6(value: number | string | null | undefined): string | null {
   if (value == null) return null;
   const digits = String(value).replace(/\D/g, '');
@@ -248,6 +252,16 @@ export class BankAccountsService {
       data.created_by = userId;
       if (data.account_type == 'Cash Account') {
         data.status = 'Open';
+      }
+
+      // Task #258 — normalize bsb_number to a 6-digit string before
+      // hitting the `varchar(6)` column. GraphQL still accepts `Int`
+      // for back-compat (and the Xero scheduler hands us `parseInt`-ed
+      // numbers), so coerce + zero-pad here. `data.bsb_number` is
+      // typed as `number` on the input DTO; cast to `any` so TypeORM's
+      // string column accepts the padded value.
+      if ((data as any).bsb_number != null) {
+        (data as any).bsb_number = padBsb6((data as any).bsb_number);
       }
 
       const response = await this.entityManager.transaction(
@@ -595,6 +609,13 @@ export class BankAccountsService {
       //   Property "mark_notices_as_sent" was not found in "BankAccounts"
       const markNoticesAsSent = !!(data as any)?.mark_notices_as_sent;
       delete (data as any).mark_notices_as_sent;
+
+      // Task #258 — normalize bsb_number to a 6-digit string before
+      // the `varchar(6)` write. See the equivalent block in
+      // `addBankAccount` for why a number may still arrive here.
+      if ((data as any).bsb_number != null) {
+        (data as any).bsb_number = padBsb6((data as any).bsb_number);
+      }
 
       const accountDetails = await this.bankAccountsRepo.findOne({
         where: { bank_account_id },
