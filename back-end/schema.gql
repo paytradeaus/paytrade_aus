@@ -15789,6 +15789,14 @@ type Mutation {
   ): StringResponse!
 
   """
+  Marks a Xero contact as permanently unmapped so it is excluded from auto-mapping (sync + webhook) and from invoice/bill push.
+  """
+  permanentlyUnmapContact(
+    """Xero contact id to permanently unmap."""
+    contact_id: String!
+  ): StringResponse!
+
+  """
   Validate and filter uploaded CSV transactions before final confirmation and import.
   """
   processUploadedTransactionsCsv(
@@ -15810,6 +15818,14 @@ type Mutation {
     """Transaction ID to adjust and match."""
     transaction_id: String!
   ): QuickAdjustMatchResponse!
+
+  """
+  Clears the permanently-unmapped flag on a Xero contact so it is eligible for auto-mapping and invoice/bill push again.
+  """
+  reEnableContactMapping(
+    """Xero contact id to re-enable for mapping."""
+    contact_id: String!
+  ): StringResponse!
 
   """
   Record the route + visible record IDs the user is currently viewing so the AI assistant can ground its next answer. No-op when the user has not enabled AI live follow.
