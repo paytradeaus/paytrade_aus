@@ -163,6 +163,18 @@ export class ProjectsService {
             bank_account_type: 'Retention Trust Account',
             failedFilter: false,
           });
+
+        // Invalidate cached compliance so the freshness layer recomputes.
+        try {
+          await this.complianceService.markComplianceDirty(
+            projectDetails.project_id,
+            'project.create',
+          );
+        } catch (err) {
+          this.logger.error(
+            `markComplianceDirty failed for project ${projectDetails.project_id}: ${err?.message || err}`,
+          );
+        }
       }
       return projectDetails;
     } catch (error) {
@@ -736,6 +748,17 @@ export class ProjectsService {
                 bank_account_type: 'Retention Trust Account',
                 failedFilter: false,
               });
+
+            try {
+              await this.complianceService.markComplianceDirty(
+                projectDetails.project_id,
+                'project.edit',
+              );
+            } catch (err) {
+              this.logger.error(
+                `markComplianceDirty failed for project ${projectDetails.project_id}: ${err?.message || err}`,
+              );
+            }
           }
           return result;
         }
@@ -940,6 +963,17 @@ export class ProjectsService {
                 bank_account_type: 'Retention Trust Account',
                 failedFilter: false,
               });
+
+            try {
+              await this.complianceService.markComplianceDirty(
+                projectDetails.project_id,
+                'project.status-update',
+              );
+            } catch (err) {
+              this.logger.error(
+                `markComplianceDirty failed for project ${projectDetails.project_id}: ${err?.message || err}`,
+              );
+            }
           }
           return updateProjectStatusRes;
         }

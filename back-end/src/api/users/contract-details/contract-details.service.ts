@@ -1318,7 +1318,8 @@ export class ContractDetailsService {
       this.logger.log(
         `Update contract status service called for id: ${JSON.stringify(id)}`,
       );
-      return await this.entityManager.transaction(
+      let __postCommitProjectId: number | null = null;
+      const __txResult = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           const contractDetails = await this.getContractsDetailsById(id);
           this.logger.log(
@@ -1429,6 +1430,7 @@ export class ContractDetailsService {
 
               if (response) {
                 if (contract.project_id) {
+                  __postCommitProjectId = contract.project_id;
                   const compliance_pta_init =
                     await this.complianceService.fetchComplianceResultsOfAProject(
                       {
@@ -1446,11 +1448,6 @@ export class ContractDetailsService {
                         failedFilter: false,
                       },
                     );
-                  // Task #297: invalidate the persisted compliance cache.
-                  await this.complianceService.markComplianceDirty(
-                    contract.project_id,
-                    'contract.signed-upload',
-                  );
                 }
 
                 if (status === 'Deleted') {
@@ -1550,6 +1547,21 @@ export class ContractDetailsService {
           throw new Error(`Unable to update the contract, please try again`);
         },
       );
+      // Post-commit: invalidate compliance cache outside the transaction
+      // so a slow refresh can't roll back the contract status update.
+      if (__postCommitProjectId) {
+        try {
+          await this.complianceService.markComplianceDirty(
+            __postCommitProjectId,
+            'contract.status-update',
+          );
+        } catch (err) {
+          this.logger.error(
+            `[POST_COMMIT] markComplianceDirty failed for project_id=${__postCommitProjectId}: ${err?.message || err}`,
+          );
+        }
+      }
+      return __txResult;
     } catch (error) {
       this.logger.log(
         `Update contract status errored out with messgae ${JSON.stringify(error)}`,

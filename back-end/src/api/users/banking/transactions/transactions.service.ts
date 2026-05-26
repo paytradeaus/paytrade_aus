@@ -53,6 +53,7 @@ import {
 } from 'src/libs/@currency-formattor/currency-formattor';
 import { NoticeDetails } from 'src/entities/notices-details.entity';
 import { StatusService } from '../ui-status.service';
+import { CompliancesService } from '../../compliances/compliances.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -84,8 +85,34 @@ export class TransactionsService {
     private readonly paymentClaimsService: PaymentClaimsService,
     private readonly statusService: StatusService,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly complianceService: CompliancesService,
   ) {
     this.logger = new PaytradeLogger('TRANSACTIONS_SERVICE');
+  }
+
+  /**
+   * Collect unique project_ids touched by a list of payments and fire
+   * markComplianceDirty for each one after the surrounding transaction
+   * has committed. Errors are logged so a slow refresh enqueue cannot
+   * roll back a successful match/unmatch.
+   */
+  private async invalidateComplianceForPayments(
+    payments: Array<{ project_id?: number | null }>,
+    source: string,
+  ): Promise<void> {
+    const projectIds = new Set<number>();
+    for (const p of payments ?? []) {
+      if (p?.project_id) projectIds.add(Number(p.project_id));
+    }
+    for (const pid of projectIds) {
+      try {
+        await this.complianceService.markComplianceDirty(pid, source);
+      } catch (err: any) {
+        this.logger.error(
+          `markComplianceDirty failed for project ${pid} (${source}): ${err?.message || err}`,
+        );
+      }
+    }
   }
 
   private log(message: string) {
@@ -1449,7 +1476,15 @@ export class TransactionsService {
             },
           );
       };
-      return externalManager ? await execute(externalManager) : await this.entityManager.transaction(execute);
+      const __matchResult = externalManager
+        ? await execute(externalManager)
+        : await this.entityManager.transaction(execute);
+      // Post-commit compliance invalidation.
+      await this.invalidateComplianceForPayments(
+        (__matchResult as any)?.data?.payments ?? [],
+        'transaction.match',
+      );
+      return __matchResult;
     } catch (error) {
       this.logger.error(
         `Errored while matching transactions with message: ${error}`,
@@ -1464,7 +1499,7 @@ export class TransactionsService {
     userID: number,
   ) {
     try {
-      return await this.entityManager.transaction(
+      const __unmatchResult = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           if (!transaction_id) {
             throw new Error('Transaction_id must be provided.');
@@ -1983,6 +2018,12 @@ export class TransactionsService {
           );
         },
       );
+      // Post-commit compliance invalidation.
+      await this.invalidateComplianceForPayments(
+        (__unmatchResult as any)?.data?.payments ?? [],
+        'transaction.unmatch',
+      );
+      return __unmatchResult;
     } catch (error) {
       this.logger.error(
         `Errored while unmatching transactions with message: ${error}`,

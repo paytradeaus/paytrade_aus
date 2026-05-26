@@ -169,10 +169,12 @@ function ComplianceOverview({ isAdmin = false }: any) {
                 type="button"
                 className="secondary"
                 onClick={handleRefreshClick}
+                disabled={loader}
+                aria-busy={loader}
                 title="Recompute compliance for this project now"
               >
                 <i className="fa-light fa-arrows-rotate" />
-                &nbsp;Refresh
+                &nbsp;{loader ? "Refreshing..." : "Refresh"}
               </button>
             </div>
           )}

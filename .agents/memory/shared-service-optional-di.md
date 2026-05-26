@@ -39,12 +39,12 @@ The fix
   Now Nest resolves the new dep from the imported module's exports
   when constructing the local copy of the shared service.
 
-**Why:** The first time this was learned the hard way on Task #297 —
-adding `ComplianceRefreshProducer` to `CompliancesService` crashed boot
-in `NoticesModule` (which locally provides `CompliancesService`).
-Marking the param optional fixed boot but turned every
-`markComplianceDirty` call from payments / bank-accounts / contracts /
-notices into a silent no-op, defeating the entire feature.
+**Why:** Learned the hard way when adding `ComplianceRefreshProducer`
+to `CompliancesService` crashed boot in `NoticesModule` (which locally
+provides `CompliancesService`). Marking the param optional fixed boot
+but turned every `markComplianceDirty` call from payments /
+bank-accounts / contracts / notices into a silent no-op, defeating the
+entire feature.
 
 **How to apply:** Whenever you add a new dep to a service that you can
 see is `providers: [...]`'d in multiple modules across `rg -l

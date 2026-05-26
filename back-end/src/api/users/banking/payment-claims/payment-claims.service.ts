@@ -522,6 +522,17 @@ export class PaymentClaimsService {
             .catch((err) =>
               this.logger.error('RTA compliance check failed: ' + err.message),
             );
+
+          try {
+            await this.complianceService.markComplianceDirty(
+              clm.data.project_id,
+              'payment-claim.create',
+            );
+          } catch (err) {
+            this.logger.error(
+              `markComplianceDirty failed for project ${clm.data.project_id}: ${err?.message || err}`,
+            );
+          }
         }
       }
 
@@ -1139,6 +1150,17 @@ export class PaymentClaimsService {
               bank_account_type: 'Retention Trust Account',
               failedFilter: false,
             });
+
+          try {
+            await this.complianceService.markComplianceDirty(
+              clm.data.project_id,
+              'payment-claim.update',
+            );
+          } catch (err) {
+            this.logger.error(
+              `markComplianceDirty failed for project ${clm.data.project_id}: ${err?.message || err}`,
+            );
+          }
         }
 
         // if (
@@ -1425,6 +1447,17 @@ export class PaymentClaimsService {
                 bank_account_type: 'Retention Trust Account',
                 failedFilter: false,
               });
+
+            try {
+              await this.complianceService.markComplianceDirty(
+                clm.project_id,
+                'payment-claim.status-change',
+              );
+            } catch (err) {
+              this.logger.error(
+                `markComplianceDirty failed for project ${clm.project_id}: ${err?.message || err}`,
+              );
+            }
           }
         }
       }

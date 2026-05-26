@@ -633,11 +633,18 @@ export class CompliancesService {
     // error we fall through and serve the stale cache so the UI never
     // hangs. This is the line of defence that means the Compliance page
     // is consistent the moment the user navigates back to it.
-    if (
+    const FRESHNESS_SLA_MS = 10 * 60 * 1000;
+    const now = Date.now();
+    const needsRefresh =
       checkpoints.length > 0 &&
       data.project_id &&
-      checkpoints.some((c) => c.is_stale)
-    ) {
+      checkpoints.some(
+        (c) =>
+          c.is_stale ||
+          !c.last_synced_at ||
+          now - new Date(c.last_synced_at).getTime() > FRESHNESS_SLA_MS,
+      );
+    if (needsRefresh) {
       try {
         await Promise.race([
           this.refreshProjectComplianceCache(Number(data.project_id)),

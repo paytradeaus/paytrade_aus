@@ -68,6 +68,7 @@ import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
 import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { CompliancesService } from 'src/api/users/compliances/compliances.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -126,6 +127,7 @@ export class XeroPaymentsService {
     // user-created movements. Without this the row renders with blank
     // status and no actions.
     private readonly statusService: StatusService,
+    private readonly complianceService: CompliancesService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -8888,6 +8890,27 @@ export class XeroPaymentsService {
         return { success: true, message: 'already mapped (concurrent insert)' };
       }
       throw e;
+    }
+
+    // Post-commit: invalidate compliance for the trust-side bank account's
+    // project so the freshness layer recomputes after an inbound Xero
+    // BankTransfer materialises a PT payment.
+    try {
+      const trustProjectIds = Array.isArray(trustBank?.project_ids)
+        ? trustBank!.project_ids
+        : [];
+      for (const pid of trustProjectIds) {
+        if (pid) {
+          await this.complianceService.markComplianceDirty(
+            Number(pid),
+            'xero.inbound-bank-transfer',
+          );
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `markComplianceDirty after inbound BankTransfer failed: ${err?.message || err}`,
+      );
     }
 
     await this.xeroService.insertXeroSyncLogs(decoded, {
