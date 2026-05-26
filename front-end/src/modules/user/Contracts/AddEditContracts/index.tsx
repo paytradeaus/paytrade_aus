@@ -608,7 +608,20 @@ export default function AddEditContracts(props: any) {
       quickAddRecord
     ) {
       getStoredFormData();
+    } else if (isEdit && params?.id) {
+      // When landing on the Edit Contract page from a fresh URL (e.g.
+      // the Compliance "Go to Contract" button), clear any stale
+      // `addContractDetails` left over in Redux from a previous Add /
+      // Edit Contract session. Without this, the gated fetch at the
+      // `viewContractDetailsById` effect below is skipped and the form
+      // is hydrated from the previous contract's values — so the user
+      // sees an empty / wrong-contract form. The quick-add round-trip
+      // branch above intentionally preserves that state.
+      if (!_.isEmpty(addContractDetails)) {
+        dispatch(setAddContractDetails({}));
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
