@@ -40,6 +40,20 @@ moment.tz.setDefault('UTC');
 @Injectable()
 export class CompliancesService {
   private logger: PaytradeLogger;
+
+  // In-memory mutex for the first-time auto-populate path in
+  // `getComplianceData`. Without this, concurrent reads against a
+  // project whose checkpoints table is empty all pass the
+  // `!checkpoints.length` check and run `syncCompliancesOfProject` for
+  // every check_number in parallel — and because that helper does a
+  // delete-then-insert per check with no DB-level serialisation, each
+  // race inserted a fresh duplicate row per
+  // `(project_id, bank_account_type, check_number)` tuple. A unique
+  // index on that tuple (see ComplianceCheckpointDedupeAndUniqueIndex
+  // migration) is the durable fix; this lock prevents the noisy unique
+  // violations and the wasted work in the common single-process case.
+  private autoPopulateLocks = new Map<string, Promise<void>>();
+
   constructor(
     @InjectRepository(ProjectDetails)
     private readonly projectsRepo: Repository<ProjectDetails>,
@@ -739,29 +753,48 @@ export class CompliancesService {
       this.logger.log(
         `No checkpoints found for project ${data.project_id} / ${data.bank_account_type}, auto-populating...`,
       );
+      const lockKey = `${data.project_id}:${data.bank_account_type}`;
       try {
-        const isPTA = data.bank_account_type === 'Project Trust Account';
-        const bankAccountType = data.bank_account_type || 'Project Trust Account';
+        // Serialise auto-populate per (project, bank_account_type) so
+        // that N concurrent first-time reads don't each race through
+        // the delete-then-insert path and produce duplicates.
+        const existingLock = this.autoPopulateLocks.get(lockKey);
+        if (existingLock) {
+          await existingLock;
+        } else {
+          const populatePromise = (async () => {
+            const isPTA =
+              data.bank_account_type === 'Project Trust Account';
+            const bankAccountType =
+              data.bank_account_type || 'Project Trust Account';
 
-        const allChecks = await this.complianceChecksRepo.find({
-          where: { bank_account_type: bankAccountType },
-        });
+            const allChecks = await this.complianceChecksRepo.find({
+              where: { bank_account_type: bankAccountType },
+            });
 
-        const uniqueCheckNumbers = [
-          ...new Set(allChecks.map((c) => c.check_number)),
-        ];
+            const uniqueCheckNumbers = [
+              ...new Set(allChecks.map((c) => c.check_number)),
+            ];
 
-        for (const checkNumber of uniqueCheckNumbers) {
+            for (const checkNumber of uniqueCheckNumbers) {
+              try {
+                await this.syncCompliancesOfProject(
+                  data.project_id,
+                  checkNumber,
+                  isPTA,
+                );
+              } catch (syncErr) {
+                this.logger.error(
+                  `Auto-sync failed for project ${data.project_id} check ${checkNumber}: ${syncErr.message}`,
+                );
+              }
+            }
+          })();
+          this.autoPopulateLocks.set(lockKey, populatePromise);
           try {
-            await this.syncCompliancesOfProject(
-              data.project_id,
-              checkNumber,
-              isPTA,
-            );
-          } catch (syncErr) {
-            this.logger.error(
-              `Auto-sync failed for project ${data.project_id} check ${checkNumber}: ${syncErr.message}`,
-            );
+            await populatePromise;
+          } finally {
+            this.autoPopulateLocks.delete(lockKey);
           }
         }
 
@@ -779,8 +812,46 @@ export class CompliancesService {
           },
         });
       } catch (autoPopErr) {
+        this.autoPopulateLocks.delete(lockKey);
         this.logger.error(
           `Auto-populate checkpoints failed for project ${data.project_id}: ${autoPopErr.message}`,
+        );
+      }
+    }
+
+    // Read-time dedupe safety net. The unique index added by the
+    // ComplianceCheckpointDedupeAndUniqueIndex migration prevents new
+    // duplicates from accumulating, but until that migration runs (and
+    // in non-prod environments where `migrationsRun` is disabled) any
+    // pre-existing duplicates for the same
+    // `(bank_account_type, check_number)` tuple would still surface as
+    // repeated rows in the UI. Collapse them in-memory, preferring the
+    // freshest row.
+    if (checkpoints.length > 0) {
+      const seen = new Map<string, ComplianceCheckpoint>();
+      for (const cp of checkpoints) {
+        const key = `${cp.bank_account_type}:${cp.check_number}`;
+        const prev = seen.get(key);
+        if (!prev) {
+          seen.set(key, cp);
+          continue;
+        }
+        const prevTs = prev.last_synced_at
+          ? new Date(prev.last_synced_at).getTime()
+          : 0;
+        const curTs = cp.last_synced_at
+          ? new Date(cp.last_synced_at).getTime()
+          : 0;
+        if (curTs > prevTs || (curTs === prevTs && cp.id > prev.id)) {
+          seen.set(key, cp);
+        }
+      }
+      if (seen.size !== checkpoints.length) {
+        this.logger.warn?.(
+          `getComplianceData: dropped ${checkpoints.length - seen.size} duplicate checkpoint row(s) for project=${data.project_id} bank=${data.bank_account_type}`,
+        );
+        checkpoints = Array.from(seen.values()).sort(
+          (a, b) => (a.check_number ?? 0) - (b.check_number ?? 0),
         );
       }
     }
@@ -1278,7 +1349,12 @@ export class CompliancesService {
       // Task #297: this synthetic "inactive" checkpoint is also fresh.
       newCheckpoint.is_stale = false;
       newCheckpoint.last_synced_at = new Date();
-      await this.checkpointRepo.save(newCheckpoint);
+      await this.saveCheckpointTolerantOfUniqueViolation(
+        newCheckpoint,
+        projectId,
+        bankAccountType,
+        checkNumber,
+      );
       return { message: 'Check is inactive, basic rule saved.' };
     }
 
@@ -1417,7 +1493,12 @@ export class CompliancesService {
 
       newCheckpoint.rules = newRules;
 
-      await this.checkpointRepo.save(newCheckpoint);
+      await this.saveCheckpointTolerantOfUniqueViolation(
+        newCheckpoint,
+        projectId,
+        bankAccountType,
+        checkNumber,
+      );
       this.logger.error(
         `Compliances of a project updated with project-id: ${projectId}`,
       );
@@ -1426,6 +1507,34 @@ export class CompliancesService {
     }
 
     return { message: 'No changes detected, skipping update' };
+  }
+
+  /**
+   * Wrap a `checkpointRepo.save(newCheckpoint)` to tolerate the unique
+   * constraint on (project_id, bank_account_type, check_number) added
+   * by the ComplianceCheckpointDedupeAndUniqueIndex migration. If a
+   * concurrent caller already wrote a row for the same tuple, treat it
+   * as success — the other request's row is just as valid as ours and
+   * the next read will reflect it. Any other error is rethrown.
+   */
+  private async saveCheckpointTolerantOfUniqueViolation(
+    newCheckpoint: ComplianceCheckpoint,
+    projectId: number,
+    bankAccountType: string,
+    checkNumber: number,
+  ): Promise<void> {
+    try {
+      await this.checkpointRepo.save(newCheckpoint);
+    } catch (err: any) {
+      const code = err?.code || err?.driverError?.code;
+      if (code === '23505') {
+        this.logger.warn?.(
+          `Concurrent compliance checkpoint write detected; skipping duplicate insert for project=${projectId} bank=${bankAccountType} check=${checkNumber}`,
+        );
+        return;
+      }
+      throw err;
+    }
   }
 
   async fetchAllComplianceResultsInDashboard(
@@ -2142,7 +2251,19 @@ export class CompliancesService {
     }
 
     if (checkpointsToSave.length > 0) {
-      await this.checkpointRepo.save(checkpointsToSave);
+      // Save one row at a time so a unique-constraint violation on a
+      // single checkpoint (a concurrent writer beat us to the same
+      // (project, bank, check_number) tuple) doesn't abort the whole
+      // batch. saveCheckpointTolerantOfUniqueViolation swallows 23505;
+      // any other error still propagates.
+      for (const cp of checkpointsToSave) {
+        await this.saveCheckpointTolerantOfUniqueViolation(
+          cp,
+          projectId,
+          bankAccountType,
+          cp.check_number,
+        );
+      }
     }
   }
 
