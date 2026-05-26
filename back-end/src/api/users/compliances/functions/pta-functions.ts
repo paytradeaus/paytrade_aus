@@ -1288,6 +1288,7 @@ export class CompliancePTAFunctions {
           'p.current_status AS current_status',
           'p.payment_from_account AS bank_account_id',
           'p.company_id AS company_id',
+          'p.payment_date AS payment_date',
         ])
         .leftJoin(
           PaymentClaims,
@@ -1298,6 +1299,25 @@ export class CompliancePTAFunctions {
         .andWhere('pc.claim_type = :claim_type', { claim_type: 'Billable' })
         .andWhere(`p.current_status != 'Deleted'`)
         .getRawMany();
+
+      // Today (date-only) used to decide whether an Unconfirmed - Unmatched
+      // payment is actually overdue. Future-dated unconfirmed payments must
+      // not trip the Check 6 outstanding-payment rules.
+      const todayDateOnly = new Date();
+      todayDateOnly.setHours(0, 0, 0, 0);
+      const isOutstandingUnmatched = (payment: {
+        payment_status?: string;
+        current_status?: string;
+        payment_date?: Date | string | null;
+      }) => {
+        const status = payment.current_status ?? payment.payment_status;
+        if (status !== 'Unconfirmed - Unmatched') return false;
+        if (!payment.payment_date) return true;
+        const due = new Date(payment.payment_date as any);
+        if (isNaN(due.getTime())) return true;
+        due.setHours(0, 0, 0, 0);
+        return due.getTime() <= todayDateOnly.getTime();
+      };
 
       //Check 6 rule 1
       const fetchedContentOf1stRule = await filterComplianceContentDetails(
@@ -1326,7 +1346,10 @@ export class CompliancePTAFunctions {
       } else {
         const fetchedAllPayments = await this.paymentsRepo
           .createQueryBuilder('p')
-          .select(['p.current_status AS payment_status'])
+          .select([
+            'p.current_status AS payment_status',
+            'p.payment_date AS payment_date',
+          ])
           .leftJoin(
             BankAccounts,
             'ba',
@@ -1345,10 +1368,11 @@ export class CompliancePTAFunctions {
           // A journal is triggered when a payment is either Confirmed (Paid)
           // OR Matched to a bank transaction. So only payments that are
           // neither confirmed nor matched ('Unconfirmed - Unmatched') count
-          // as outstanding for this check.
+          // as outstanding for this check. Additionally, an unconfirmed
+          // payment whose payment_date hasn't arrived yet is not overdue,
+          // so it must not count as outstanding either.
           const filteredUnmatchedPayments = fetchedAllPayments.filter(
-            (payment) =>
-              ['Unconfirmed - Unmatched'].includes(payment.payment_status),
+            (payment) => isOutstandingUnmatched(payment),
           );
 
           if (!filteredUnmatchedPayments.length) {
@@ -1631,14 +1655,16 @@ export class CompliancePTAFunctions {
             ...fetchedContentOf3rdRule,
           });
         } else {
-          const filteredInCompletePayments =
-            await fetchedBillablePayments.filter(
-              (payment) =>
-                payment.current_status != 'Unconfirmed - Matched' &&
-                payment.current_status != 'No Match Required' &&
-                payment.current_status != 'Paid - Matched' &&
-                payment.current_status != 'Received - Matched',
-            );
+          // A payment satisfies the trustee requirement when it has been
+          // either marked completed (any "Paid - *" / "Confirmed" /
+          // "No Match Required" / "Unconfirmed - Matched" / "Received - *"
+          // state) OR reconciled to a bank transaction. The only state that
+          // counts as outstanding is 'Unconfirmed - Unmatched' — and even
+          // then, only once its payment_date is on or before today, so a
+          // future-dated unconfirmed payment is not yet overdue.
+          const filteredInCompletePayments = fetchedBillablePayments.filter(
+            (payment) => isOutstandingUnmatched(payment),
+          );
 
           if (filteredInCompletePayments.length) {
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
