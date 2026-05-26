@@ -56,6 +56,11 @@ export default function ContractsList({ overViewDetails = {} }: any) {
 
   const [selectedProjectType, setSelectedProjectType] = useState("");
   const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState<any>(null);
+  const [selectedDataStatus, setSelectedDataStatus] = useState("All");
+  const [selectedDataStatusObj, setSelectedDataStatusObj] = useState<any>({
+    label: "All",
+    value: "All",
+  });
   const [totalRows, setTotalRows] = useState(0);
   const [tabStatus, setTabStatus] = useState("");
   const [tableLoader, setTableLoader] = useState(false);
@@ -66,7 +71,21 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   ]);
   const [disablePDFBtn, setDisablePDFBtn] = useState(false);
   const [emptySearchField, setEmptySearchField] = useState(false);
-  const isAnyFilterActive = selectedProjectType || searchValue;
+  const isAnyFilterActive =
+    selectedProjectType ||
+    searchValue ||
+    (selectedDataStatus && selectedDataStatus !== "All");
+
+  const dataStatusOptions = [
+    { label: "All", value: "All" },
+    { label: "OK", value: "OK" },
+    { label: "Has warnings", value: "Warnings" },
+    { label: "Contract file", value: "Contract file" },
+    { label: "Bank A/C", value: "Bank A/C" },
+    { label: "Buyer", value: "Buyer" },
+    { label: "Seller", value: "Seller" },
+    { label: "Project", value: "Project" },
+  ];
 
   const [disableExcelBtn, setDisableExcelBtn] = useState(false);
   const [displayConfirmationModal, setDisplayConfirmationModal] =
@@ -197,6 +216,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
       if (response?.contract_list?.length > 0) {
         const modifiedGridData = response?.contract_list.map((listObj: any) => {
           const warnings: string[] = [];
+          if (!listObj?.attachment_id) warnings.push("Contract file");
           if (!listObj?.payment_from_account || !listObj?.payment_to_account)
             warnings.push("Bank A/C");
           if (!listObj?.buyer_name) warnings.push("Buyer");
@@ -244,6 +264,8 @@ export default function ContractsList({ overViewDetails = {} }: any) {
     // setTotalRows(0);
     setSelectedProjectType("");
     setSelectedProjectTypeObj("");
+    setSelectedDataStatus("All");
+    setSelectedDataStatusObj({ label: "All", value: "All" });
     setCurrentPage(1);
     setEntriesPerPage(10);
     setTabStatus(value);
@@ -251,10 +273,30 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   const handleResetFilters = () => {
     setSelectedProjectType("");
     setSelectedProjectTypeObj("");
+    setSelectedDataStatus("All");
+    setSelectedDataStatusObj({ label: "All", value: "All" });
     setCurrentPage(1);
     setEntriesPerPage(10);
     setEmptySearchField(true);
   };
+
+  const filteredContractListData = React.useMemo(() => {
+    if (!selectedDataStatus || selectedDataStatus === "All") {
+      return contractListData;
+    }
+    return contractListData.filter((row: any) => {
+      const warnings: string[] = row?.missing_data_warnings || [];
+      if (selectedDataStatus === "OK") return warnings.length === 0;
+      if (selectedDataStatus === "Warnings") return warnings.length > 0;
+      return warnings.includes(selectedDataStatus);
+    });
+  }, [contractListData, selectedDataStatus]);
+
+  const isDataStatusFilterActive =
+    !!selectedDataStatus && selectedDataStatus !== "All";
+  const effectiveTotalRows = isDataStatusFilterActive
+    ? filteredContractListData.length
+    : totalRows;
 
   const handleDownloadExcelFile = async () => {
     setDisableExcelBtn(true);
@@ -448,6 +490,25 @@ export default function ContractsList({ overViewDetails = {} }: any) {
               }}
             />
           )}
+          {!overViewDetails?.overViewMode && (
+            <FormikControl
+              control={InputType.SELECT}
+              placeholder="Data Status"
+              name="data_status"
+              options={dataStatusOptions}
+              value={selectedDataStatusObj?.value || "All"}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
+              onChange={(selected: any) => {
+                setCurrentPage(1);
+                setSelectedDataStatus(selected?.value || "All");
+                setSelectedDataStatusObj(
+                  selected || { label: "All", value: "All" }
+                );
+              }}
+            />
+          )}
         </div>
       </div>
       <div className="grid">
@@ -455,7 +516,11 @@ export default function ContractsList({ overViewDetails = {} }: any) {
           <h4>{tabStatus || "Current"}</h4>
           <DynamicTable
             headers={contractListHeaders}
-            gridData={contractListData?.length > 0 ? contractListData : []}
+            gridData={
+              filteredContractListData?.length > 0
+                ? filteredContractListData
+                : []
+            }
             gridActions={
               tabStatus === tabOptions[1]?.label
                 ? archivedActions
@@ -470,7 +535,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             entriesPerPage={entriesPerPage}
             onEntriesPerPageChange={setEntriesPerPage}
             onPageChange={setCurrentPage}
-            totalEntries={totalRows}
+            totalEntries={effectiveTotalRows}
             hoverOnRowClick
             onSortChange={(sortConfig) => {
               setSortValues(sortConfig);
