@@ -935,13 +935,36 @@ export class XeroWebhookService {
           return false;
         }
 
+        // Task #283 — Webhook queue and direct/resolver entry points all
+        // pass `data = {}` for new contacts because the webhook envelope
+        // carries no fields, only resource ids. Running the missing-
+        // field validator against `{}` flagged every Active contact as
+        // "missing Name, Type, Status, ..." — the well-known symptom in
+        // sync log 112724. The single source of truth for "Xero contact
+        // → PT payload" now lives in `buildContactPayloadFromXero`; use
+        // it whenever the caller did not pre-fill the payload (frontend
+        // Add-Mapping calls still pre-fill via the resolver so admins
+        // can choose Related entity / address values explicitly).
+        const callerHasPrefilledData =
+          data &&
+          typeof data === 'object' &&
+          (data.client_supplier_name ||
+            data.client_supplier_type ||
+            data.client_supplier_address);
+        const builtData = callerHasPrefilledData
+          ? data
+          : this.xeroContactsService.buildContactPayloadFromXero(
+              contact,
+              companyId,
+            );
+
         pt_client_supplier = await this.handleContactCreate(
           contactID,
           xeroDetails,
           contact,
           xeroContactDetails,
           sync_id,
-          data,
+          builtData,
         );
         this.logger.log(`[Xero Contact Webhook] new::` + " " + JSON.stringify(pt_client_supplier));
         if (pt_client_supplier && typeof pt_client_supplier === 'object') {
@@ -1120,20 +1143,30 @@ export class XeroWebhookService {
     } = data || {};
     // Task #154 — Soft-fail on email-only missing; hard-fail on every other
     // missing mandatory field with the exact field names listed.
+    // Task #283 — `webhookSource: true` restricts the check to fields
+    // Xero actually sends, so the "missing" list only mentions fields
+    // the admin can fix in Xero.
     const _otherMissing =
       this.xeroContactsService.collectMissingMandatoryFields(data, {
         excludeEmail: true,
+        webhookSource: true,
       });
     const _emailMissing = !client_email_id;
     if (_otherMissing.length > 0) {
       // Build human-readable {error_message, notification, information_required}
       // so the sync-log details screen explains *which* fields are missing
       // and *where* in Xero the admin should fix them.
+      // Task #283 — pass the live contactStatus so the Status hint only
+      // mentions "archived contacts cannot be imported" when the contact
+      // really is archived (otherwise show neutral guidance).
       const _missingFieldsLog = buildMissingFieldsLog(
         'contact',
         contact?.name,
         _otherMissing,
-        _emailMissing ? { extraNote: '(email also missing)' } : undefined,
+        {
+          ...(_emailMissing ? { extraNote: '(email also missing)' } : {}),
+          contactStatus: String(contact?.contactStatus ?? ''),
+        },
       );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
@@ -19658,6 +19691,198 @@ export class XeroWebhookService {
       updated,
       skipped,
       sample_sync_ids: sampleUpdated,
+    };
+  }
+
+  /**
+   * Task #283 — Retroactive retry sweep for the historical template-368
+   * "missing mandatory fields" rows that were minted by the pre-fix
+   * webhook handler. Those rows landed in the Failed sync log because
+   * the inbound webhook envelope carried an empty `data` payload, so
+   * every Active contact failed the missing-fields validator. Now that
+   * `handleContactCreateUpdate` builds the payload from the live Xero
+   * contact, re-running these rows succeeds for any contact that is
+   * still Active in Xero.
+   *
+   * Mirror of `recoverArchivedContactSyncLogs` (and shaped like
+   * `retryFailedSyncsForContact`), but scoped to the opposite half of
+   * the population: template-368 rows whose linked
+   * `xero_contact_details.contact_status = 'ACTIVE'`. ARCHIVED rows are
+   * left to the archived-contact sweep.
+   *
+   * On success, the original Failed row is stamped with
+   * `important_checks.Recovered = 'Yes'` + a history breadcrumb +
+   * `api_payload.recovered_by_sync_id` linking to the new SUCCESS row.
+   * Idempotent: rows already linked to a `recovered_by_sync_id` are
+   * skipped on subsequent runs.
+   */
+  async recoverFailedContactImportSyncLogs(
+    decoded: any,
+    input: { company_id: number; dry_run?: boolean; limit?: number },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    scanned: number;
+    retried: number;
+    recovered: number;
+    skipped: number;
+    sample_sync_ids?: number[];
+  }> {
+    const company_id = Number(input?.company_id);
+    const dryRun = !!input?.dry_run;
+    const limit = Math.max(1, Math.min(500, Number(input?.limit) || 200));
+
+    const empty = {
+      success: false as boolean,
+      message: '',
+      scanned: 0,
+      retried: 0,
+      recovered: 0,
+      skipped: 0,
+    };
+    if (!company_id) {
+      return { ...empty, message: 'company_id is required.' };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return {
+        ...empty,
+        success: true,
+        message: 'No active Xero integration; nothing to recover.',
+      };
+    }
+    if (
+      xeroDetails.integrationDetails?.integration_status !==
+      'Connected - active'
+    ) {
+      return {
+        ...empty,
+        success: true,
+        message: `Xero integration is not connected (status=${xeroDetails.integrationDetails?.integration_status}); skipping recovery.`,
+      };
+    }
+
+    const candidates = await this.xeroSyncLogs.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 368,
+        archived_at: IsNull(),
+      },
+      take: limit,
+    });
+
+    let retried = 0;
+    let recovered = 0;
+    let skipped = 0;
+    const sampleSyncIds: number[] = [];
+
+    for (const log of candidates) {
+      try {
+        // Idempotency — never retry a row that has already been recovered.
+        if (log.api_payload?.recovered_by_sync_id) {
+          skipped++;
+          continue;
+        }
+
+        let contactRow: XeroContactDetails | null = null;
+        if (log.reference_id) {
+          contactRow = await this.xeroContactDetails.findOne({
+            where: { id: log.reference_id },
+          });
+        }
+        if (!contactRow) {
+          const xeroContactId = log.api_payload?.contact_id;
+          if (xeroContactId) {
+            contactRow = await this.xeroContactDetails.findOne({
+              where: {
+                contact_id: String(xeroContactId),
+                integration_id: xeroDetails.integration_id,
+              },
+            });
+          }
+        }
+        // Only retry Active contacts — ARCHIVED rows belong to
+        // recoverArchivedContactSyncLogs and would just fail again.
+        if (
+          !contactRow ||
+          String(contactRow.contact_status) !==
+            String(Contact.ContactStatusEnum.ACTIVE)
+        ) {
+          skipped++;
+          continue;
+        }
+        if (!contactRow.contact_id) {
+          skipped++;
+          continue;
+        }
+
+        if (dryRun) {
+          retried++;
+          if (sampleSyncIds.length < 10) sampleSyncIds.push(log.sync_id);
+          continue;
+        }
+
+        retried++;
+        const result = await this.manualXeroResync(
+          { userId: null, logged_in_by: 'SYSTEM' },
+          {
+            company_id,
+            type: 'contact',
+            id: String(contactRow.contact_id),
+            _suppressLegacyTrigger: true,
+          },
+        );
+
+        if (result?.success) {
+          recovered++;
+          const newHistory = [
+            ...(Array.isArray(log.history) ? log.history : []),
+            `Auto-recovered by Task #283 sweep — new sync_id=${result.syncLogId ?? 'n/a'}.`,
+          ];
+          const newImportantChecks = {
+            ...(log.important_checks || {}),
+            Recovered: 'Yes',
+            'Recovered by': 'Task #283 missing-fields sweep',
+          };
+          await this.xeroSyncLogs.update(
+            { id: log.id },
+            {
+              history: newHistory,
+              important_checks: newImportantChecks,
+              api_payload: {
+                ...(log.api_payload || {}),
+                recovered_by_sync_id: result.syncLogId ?? null,
+                recovered_at: new Date().toISOString(),
+                recovery_trigger: 'task_283_sweep',
+              },
+            } as any,
+          );
+          if (sampleSyncIds.length < 10) sampleSyncIds.push(log.sync_id);
+        } else {
+          skipped++;
+        }
+      } catch (rowErr: any) {
+        this.logger.warn(
+          `[recoverFailedContactImportSyncLogs] Failed to retry sync_id=${log?.sync_id}: ${rowErr?.message || rowErr}`,
+        );
+        skipped++;
+      }
+    }
+
+    const verb = dryRun ? 'would retry' : 'retried';
+    const msg = `Scanned ${candidates.length}, ${verb} ${retried}, recovered ${recovered}, skipped ${skipped}.`;
+    return {
+      success: true,
+      message: msg,
+      scanned: candidates.length,
+      retried,
+      recovered,
+      skipped,
+      sample_sync_ids: sampleSyncIds,
     };
   }
 

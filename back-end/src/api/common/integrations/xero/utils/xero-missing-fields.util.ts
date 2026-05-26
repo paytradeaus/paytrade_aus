@@ -37,7 +37,7 @@ const FIELD_HINTS: Record<XeroRecordType, Record<string, string>> = {
     Email: 'Add an email address to the contact in Xero (Edit → Email).',
     Type: 'Pay Trade could not infer whether this contact is a Client or Supplier. Set the contact type in Xero (Customer / Supplier toggle).',
     Status:
-      'Activate the contact in Xero — archived contacts cannot be imported.',
+      "Set the contact's status in Xero.",
     'Related entity':
       'Pay Trade could not match this contact to a project or contract. Tag the contact in Xero with the project tracking category.',
     'Entity type':
@@ -157,7 +157,7 @@ export function buildMissingFieldsLog(
   recordType: XeroRecordType,
   recordName: string | null | undefined,
   missingLabels: string[],
-  opts: { extraNote?: string } = {},
+  opts: { extraNote?: string; contactStatus?: string } = {},
 ): {
   error_message: string;
   notification: string;
@@ -172,7 +172,16 @@ export function buildMissingFieldsLog(
   }`;
   const notification = FIX_LOCATION[recordType];
   const hints = FIELD_HINTS[recordType] || {};
+  // Task #283 — Only mention "archived contacts cannot be imported" in
+  // the Status hint when the contact is actually ARCHIVED in Xero. The
+  // old static wording made every Active-contact failure look like an
+  // archive problem, which sent debugging down the wrong path.
+  const contactStatusUpper = String(opts.contactStatus || '').toUpperCase();
+  const isArchived = contactStatusUpper === 'ARCHIVED';
   const lines = missingLabels.map((label) => {
+    if (recordType === 'contact' && label === 'Status' && isArchived) {
+      return `• Status: Activate the contact in Xero — archived contacts cannot be imported.`;
+    }
     const hint = hints[label];
     return hint ? `• ${label}: ${hint}` : `• ${label}`;
   });

@@ -793,29 +793,147 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
   // empty in the inbound Xero payload. When `excludeEmail` is true the
   // email field is omitted from the check (so callers can soft-fail on
   // email alone while still hard-failing on any other missing field).
+  //
+  // Task #283 — `webhookSource: true` narrows the check to fields that
+  // Xero itself can plausibly supply on a Contact webhook. Pay Trade's
+  // map-resolution fields (Place ID, Region, Latitude, Longitude) and
+  // the import-time UI fields (Related entity, Entity type) are skipped
+  // because Xero never sends them — the webhook handler fills them with
+  // sensible defaults / resolves them later, so they should never count
+  // as "missing" on the inbound side.
   collectMissingMandatoryFields(
     payload: any,
-    opts: { excludeEmail?: boolean } = {},
+    opts: { excludeEmail?: boolean; webhookSource?: boolean } = {},
   ): string[] {
     const p = payload || {};
     const checks: Array<[string, any]> = [
       ['Name', p.client_supplier_name],
       ['Type', p.client_supplier_type],
       ['Status', p.client_supplier_status],
-      ['Related entity', p.related_entity],
-      ['Entity type', p.entity_type],
-      ['Place ID', p.place_id],
+    ];
+    if (!opts.webhookSource) {
+      checks.push(
+        ['Related entity', p.related_entity],
+        ['Entity type', p.entity_type],
+        ['Place ID', p.place_id],
+        ['Region', p.region],
+        ['Latitude', p.latitude],
+        ['Longitude', p.longitude],
+      );
+    }
+    checks.push(
       ['Address', p.client_supplier_address],
       ['Country', p.country],
-      ['Region', p.region],
-      ['Latitude', p.latitude],
-      ['Longitude', p.longitude],
       ['Phone', p.client_phone_no],
-    ];
+    );
     if (!opts.excludeEmail) {
       checks.push(['Email', p.client_email_id]);
     }
     return checks.filter(([, v]) => !v).map(([k]) => k);
+  }
+
+  /**
+   * Task #283 — Single source of truth for "Xero Contact → Pay Trade
+   * contact payload" used by the webhook create path. Mirrors the field
+   * extraction the mapped-update branch in
+   * `XeroWebhookService.handleContactCreateUpdate` already uses (POBOX
+   * preferred, then first STREET address; MOBILE phone preferred, then
+   * DEFAULT), and fills the import-time UI defaults that Xero cannot
+   * supply (`related_entity: 'No'`, `entity_type: 'Organisation'`,
+   * `client_supplier_status: 'Completed'`).
+   *
+   * Place ID / Region / Latitude / Longitude are intentionally left
+   * blank — these are Pay Trade map-resolution fields populated by the
+   * frontend Google Places autocomplete when an admin imports manually.
+   * `collectMissingMandatoryFields({ webhookSource: true })` excludes
+   * them from the missing-field check so the webhook does not fail on
+   * fields Xero never sends.
+   */
+  buildContactPayloadFromXero(
+    contact: any,
+    companyId: number,
+  ): any {
+    if (!contact) return null;
+    const xeroAddress =
+      contact.addresses?.find((a: any) => a.addressType === 'POBOX') ||
+      contact.addresses?.find((a: any) => a.addressType === 'STREET') ||
+      contact.addresses?.[0] ||
+      null;
+    const xeroPhone =
+      contact.phones?.find(
+        (p: any) => p.phoneType === 'MOBILE' && p.phoneNumber,
+      ) ||
+      contact.phones?.find(
+        (p: any) => p.phoneType === 'DEFAULT' && p.phoneNumber,
+      ) ||
+      contact.phones?.find((p: any) => p.phoneNumber) ||
+      null;
+
+    const type = contact.isCustomer
+      ? 'Client'
+      : contact.isSupplier
+        ? 'Supplier'
+        : null;
+
+    // Build a single concatenated phone string from area/country/number
+    // pieces if the raw phoneNumber field is empty but the others are
+    // populated (some Xero clients store the number across all three).
+    let phoneNumber: string | null = xeroPhone?.phoneNumber || null;
+    if (!phoneNumber && xeroPhone) {
+      const parts = [
+        xeroPhone.phoneCountryCode,
+        xeroPhone.phoneAreaCode,
+        xeroPhone.phoneNumber,
+      ]
+        .map((s: any) => (s ? String(s).trim() : ''))
+        .filter((s: string) => s.length > 0);
+      phoneNumber = parts.length ? parts.join(' ') : null;
+    }
+
+    // Build a financial account_details entry from Xero's batchPayments
+    // block when present, mirroring the bulk-import path so contacts
+    // that have a bank account in Xero arrive in Pay Trade with one
+    // already attached.
+    const accountDetails: any[] = [];
+    const bp = contact?.batchPayments;
+    if (bp && (bp.bankAccountNumber || bp.bankAccountName)) {
+      const concat = String(bp.bankAccountNumber || '').replace(/\D/g, '');
+      // Xero AU concatenates 6-digit BSB + account number. Split back
+      // out where possible; otherwise leave bsb blank and let the user
+      // complete it in Pay Trade.
+      let bsb = '';
+      let acct = concat;
+      if (concat.length > 6) {
+        bsb = concat.slice(0, 6);
+        acct = concat.slice(6);
+      }
+      if (bp.bankAccountName || acct) {
+        accountDetails.push({
+          account_name: bp.bankAccountName || '',
+          bsb_number: bsb || null,
+          account_number: acct || null,
+        });
+      }
+    }
+
+    return {
+      company_id: companyId,
+      client_supplier_name: contact.name || null,
+      business_name: contact.name || null,
+      client_supplier_type: type,
+      client_supplier_status: 'Completed',
+      related_entity: 'No',
+      entity_type: 'Organisation',
+      place_id: null,
+      client_supplier_address: xeroAddress?.addressLine1 || null,
+      country: xeroAddress?.country || null,
+      region: null,
+      latitude: null,
+      longitude: null,
+      client_phone_no: phoneNumber,
+      client_email_id: contact.emailAddress || null,
+      account_details: accountDetails,
+    };
   }
 
   async insertContactDetailsInPaytrade(decoded: any, data: any) {

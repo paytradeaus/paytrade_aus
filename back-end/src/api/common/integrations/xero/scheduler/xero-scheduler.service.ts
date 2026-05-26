@@ -231,6 +231,52 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         ),
       );
     }, 60_000);
+
+    // Task #283 — One-shot retroactive retry sweep for historical
+    // template-368 "missing mandatory fields" contact sync logs. The
+    // pre-fix webhook handler validated an empty `data: {}` payload and
+    // failed every Active contact. Now that the handler builds the
+    // payload from the live Xero contact, these rows succeed on retry.
+    // Mirrors the recoverArchivedContactSyncLogs sweep but targets the
+    // opposite half of the population (ACTIVE contacts). Per-company,
+    // best-effort, never blocks startup.
+    setTimeout(() => {
+      this.xeroIntegrationDetails
+        .find({ where: { status: 'ACTIVE' } })
+        .then(async (rows) => {
+          let totalScanned = 0;
+          let totalRecovered = 0;
+          for (const row of rows || []) {
+            if (!row?.company_id) continue;
+            try {
+              const res =
+                await this.xeroWebhookService.recoverFailedContactImportSyncLogs(
+                  { userId: null, logged_in_by: 'SYSTEM' },
+                  { company_id: Number(row.company_id), limit: 200 },
+                );
+              totalScanned += res.scanned;
+              totalRecovered += res.recovered;
+              if (res.scanned > 0) {
+                this.logger.log(
+                  `[Task #283] recoverFailedContactImportSyncLogs company_id=${row.company_id}: scanned=${res.scanned} retried=${res.retried} recovered=${res.recovered} skipped=${res.skipped}`,
+                );
+              }
+            } catch (err: any) {
+              this.logger.warn(
+                `[Task #283] recoverFailedContactImportSyncLogs company_id=${row.company_id} failed: ${err?.message || err}`,
+              );
+            }
+          }
+          this.logger.log(
+            `[Task #283] one-shot sweep complete — companies=${rows?.length || 0} scanned=${totalScanned} recovered=${totalRecovered}`,
+          );
+        })
+        .catch((err: any) =>
+          this.logger.warn(
+            `[Task #283] one-shot sweep dispatch failed: ${err?.message || err}`,
+          ),
+        );
+    }, 150_000);
   }
 
   /**

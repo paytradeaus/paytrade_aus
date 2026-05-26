@@ -1435,6 +1435,70 @@ export class XeroResolver {
   }
 
   /**
+   * Task #283 — Admin sweep counterpart to
+   * `recoverArchivedContactSyncLogs`: scan template-368 failed contact
+   * sync logs whose linked Xero contact is now ACTIVE and re-run each
+   * through the now-fixed webhook handler. Idempotent (skips rows
+   * already marked recovered). Same IDOR guard as
+   * `manualXeroResync` and `recoverArchivedContactSyncLogs`.
+   *
+   * Returns a `StringResponse` whose `message` is JSON-stringified
+   * `{ success, message, scanned, retried, recovered, skipped, sample_sync_ids }`.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'recoverFailedContactImportSyncLogs',
+    description:
+      'One-time/admin sweep: find historical "missing mandatory fields" Contact webhook sync logs whose Xero contact is now Active, and retry each through the fixed webhook handler. Idempotent.',
+  })
+  async recoverFailedContactImportSyncLogs(
+    @Context() context,
+    @Args('company_id', { description: 'Company id of the calling user.' })
+    company_id: number,
+    @Args('dry_run', {
+      nullable: true,
+      description:
+        'If true, return the count that would be retried without dispatching any re-syncs.',
+    })
+    dry_run?: boolean,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
+      if (!headerCompanyId || headerCompanyId !== Number(company_id)) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result =
+        await this.xeroWebhookService.recoverFailedContactImportSyncLogs(
+          decoded,
+          { company_id, dry_run: !!dry_run },
+        );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
+    }
+  }
+
+  /**
    * Task #268 — Admin-triggered recovery: scan recently-Failed Xero
    * contact-mirror sync logs for one client/supplier and retry each
    * via the existing `manualXeroResync` pipeline. Idempotent (5-min
