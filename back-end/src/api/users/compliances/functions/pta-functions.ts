@@ -2230,15 +2230,18 @@ export class CompliancePTAFunctions {
             23,
             fetchedAllRules,
           );
+          const __chosenContract = filteredContractsWithoutAttachments[0];
+          const __refUuid = String(__chosenContract.id);
+          this.logger.log(
+            `[PTA_CHECK6_RULE23_DIAG_v2] project=${project_id} emitting reference_id=${__refUuid} (contract_id_int=${(__chosenContract as any).contract_id})`,
+          );
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
               // Use UUID `id` (PK) — see SELECT comment above; the
               // frontend Edit Contract route and `viewContractDetailsById`
               // both match against `id`, not the integer `contract_id`.
-              reference_id: String(
-                filteredContractsWithoutAttachments[0].id,
-              ),
+              reference_id: __refUuid,
             },
             ...fetchedContentOf8thRule,
           });
