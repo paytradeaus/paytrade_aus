@@ -46,6 +46,8 @@ import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-q
 import { BullModule } from '@nestjs/bullmq';
 import { ComplianceRefreshModule } from './compliance-refresh.module';
 import { ComplianceRefreshConsumer } from './compliance-refresh.consumer';
+import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -86,6 +88,7 @@ import { ComplianceRefreshConsumer } from './compliance-refresh.consumer';
     BullModule.registerQueue({
       name: 'mailQueue',
     }),
+    JwtModule.register({}),
     // Task #297 — debounced compliance cache refresh queue + producer
     // live in their own module so write-path sibling modules can
     // import it without creating a circular dep on CompliancesModule.
@@ -104,6 +107,7 @@ import { ComplianceRefreshConsumer } from './compliance-refresh.consumer';
     // Task #297 — refresh worker stays here because it needs to call
     // CompliancesService.refreshProjectComplianceCache (forwardRef).
     ComplianceRefreshConsumer,
+    JwtInternalService,
   ],
   exports: [CompliancesService, ComplianceRefreshModule],
 })

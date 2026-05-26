@@ -114,24 +114,46 @@ export class CompliancesService {
    *   - the read-time safety net inside `getComplianceData`
    *   - the `forceRefreshProjectCompliance` admin/user mutation
    */
+  /**
+   * Task #297 — used by `forceRefreshProjectCompliance` to enforce
+   * project ↔ company ownership before allowing a cross-tenant
+   * refresh. Returns `null` if the project doesn't exist.
+   */
+  async getProjectCompanyId(
+    projectId: number,
+  ): Promise<{ company_id: number } | null> {
+    if (!projectId) return null;
+    const row = await this.projectsRepo.findOne({
+      where: { project_id: Number(projectId) } as any,
+      select: ['project_id', 'company_id'] as any,
+    });
+    if (!row) return null;
+    return { company_id: Number((row as any).company_id) };
+  }
+
   async refreshProjectComplianceCache(
     projectId: number,
   ): Promise<{ pta: number; rta: number; failed: number }> {
     const summary = { pta: 0, rta: 0, failed: 0 };
     if (!projectId) return summary;
 
-    // Capture the wall-clock moment we started, BEFORE any sync runs.
-    // We use this as a watermark when clearing orphan stale rows at
-    // the end: any row whose `last_synced_at` is older than this (or
-    // null) was not touched by `saveFullComplianceData` during this
-    // pass, so it is either a brand-new orphan or a row for a check
-    // that no longer applies — safe to mark fresh. Rows touched by
-    // this pass already have `last_synced_at >= startedAt` set by
-    // `saveFullComplianceData`, and rows that a concurrent write
-    // re-dirtied AFTER `saveFullComplianceData` also have
-    // `last_synced_at >= startedAt` — so the watermark protects both
-    // cases from being clobbered.
+    // Watermark for orphan cleanup at the end.
     const startedAt = new Date();
+
+    // Track which (bank_account_type, check_number) pairs we KNOW are
+    // still active checks — i.e. we attempted to sync them this pass.
+    // Anything outside this set is, by definition, an orphan
+    // checkpoint (its underlying check was removed from
+    // `compliance_checks`) and is safe to mark fresh. Anything INSIDE
+    // this set was either successfully resynced (already cleared by
+    // `saveFullComplianceData`) or failed — in the failure case we
+    // intentionally leave `is_stale = true` so the worker's stillDirty
+    // path picks it up for retry and the read-time safety net keeps
+    // serving via re-refresh on next read.
+    const attemptedPairs: Array<{
+      bankType: 'Project Trust Account' | 'Retention Trust Account';
+      checkNumber: number;
+    }> = [];
 
     for (const bankType of [
       'Project Trust Account',
@@ -146,6 +168,7 @@ export class CompliancesService {
       ];
 
       for (const checkNumber of uniqueCheckNumbers) {
+        attemptedPairs.push({ bankType, checkNumber });
         try {
           await this.syncCompliancesOfProject(projectId, checkNumber, isPTA);
           if (isPTA) summary.pta += 1;
@@ -159,26 +182,65 @@ export class CompliancesService {
       }
     }
 
-    // Defensive: clear `is_stale` ONLY on orphan rows that this pass
-    // never touched (e.g. a project with zero applicable RTA checks,
-    // or a checkpoint for a check that no longer exists in
-    // `compliance_checks`). Crucially we do NOT touch rows whose
-    // `last_synced_at` was bumped during this pass — those include
-    // both freshly-saved rows AND rows that a concurrent
-    // `markComplianceDirty` re-dirtied between
-    // `saveFullComplianceData` and this final query. Without this
-    // guard the blanket clear would silently lose a legitimate
-    // mid-flight dirty signal.
+    // Orphan cleanup: clear `is_stale` ONLY on rows whose
+    // (bank_account_type, check_number) is NOT in the set of checks
+    // we attempted this pass — those rows belong to checks that no
+    // longer exist in `compliance_checks` and would otherwise stay
+    // stale forever, repeatedly triggering the safety net.
+    //
+    // Rows belonging to attempted checks are left alone here:
+    //   - successful checks: already cleared with a fresh
+    //     `last_synced_at` by `saveFullComplianceData`.
+    //   - failed checks: intentionally stay `is_stale = true` so the
+    //     refresh worker's stillDirty count picks them up for retry
+    //     and the next read re-triggers the safety net. This is the
+    //     core freshness invariant — a failed refresh must NEVER
+    //     present as fresh.
+    //
+    // The `last_synced_at < startedAt` clause additionally protects
+    // any concurrent `markComplianceDirty` that re-dirtied a row
+    // AFTER `saveFullComplianceData` finished — that row's
+    // `last_synced_at` is the post-sync stamp (>= startedAt), so the
+    // dirty signal is preserved.
     try {
-      await this.checkpointRepo
+      const ptaAttempted = attemptedPairs
+        .filter((p) => p.bankType === 'Project Trust Account')
+        .map((p) => p.checkNumber);
+      const rtaAttempted = attemptedPairs
+        .filter((p) => p.bankType === 'Retention Trust Account')
+        .map((p) => p.checkNumber);
+
+      const qb = this.checkpointRepo
         .createQueryBuilder()
         .update()
         .set({ is_stale: false, last_synced_at: new Date() })
-        .where(
-          'project_id = :pid AND (last_synced_at IS NULL OR last_synced_at < :startedAt)',
-          { pid: Number(projectId), startedAt },
-        )
-        .execute();
+        .where('project_id = :pid', { pid: Number(projectId) })
+        .andWhere('(last_synced_at IS NULL OR last_synced_at < :startedAt)', {
+          startedAt,
+        });
+
+      // Exclude attempted (bank_account_type, check_number) pairs.
+      // Build a SQL fragment per bank type listing the check_numbers
+      // we just touched; rows matching those pairs are left as-is.
+      const clauses: string[] = [];
+      const params: Record<string, any> = {};
+      if (ptaAttempted.length > 0) {
+        clauses.push(
+          `NOT (bank_account_type = 'Project Trust Account' AND check_number IN (:...ptaAttempted))`,
+        );
+        params.ptaAttempted = ptaAttempted;
+      }
+      if (rtaAttempted.length > 0) {
+        clauses.push(
+          `NOT (bank_account_type = 'Retention Trust Account' AND check_number IN (:...rtaAttempted))`,
+        );
+        params.rtaAttempted = rtaAttempted;
+      }
+      if (clauses.length > 0) {
+        qb.andWhere(clauses.join(' AND '), params);
+      }
+
+      await qb.execute();
     } catch (err: any) {
       this.logger.error(
         `refreshProjectComplianceCache: orphan clear failed for project ${projectId}: ${err?.message || err}`,

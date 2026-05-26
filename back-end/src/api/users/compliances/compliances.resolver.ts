@@ -1,6 +1,7 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtAuthGuard } from 'src/api/auth/jwt-guard/jwt-auth.guard';
+import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 import { Role } from 'src/api/auth/role-guard/role.enum';
 import { Roles } from 'src/api/auth/role-guard/roles.decorator';
 import { RolesGuard } from 'src/api/auth/role-guard/roles.guard';
@@ -24,7 +25,10 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 @Resolver()
 export class CompliancesResolver {
   private logger: PaytradeLogger;
-  constructor(private readonly compliancesService: CompliancesService) {
+  constructor(
+    private readonly compliancesService: CompliancesService,
+    private readonly jwtInternalService: JwtInternalService,
+  ) {
     this.logger = new PaytradeLogger('COMPLIANCES_RESOLVER');
   }
 
@@ -259,6 +263,7 @@ export class CompliancesResolver {
       'Rebuild the persisted compliance cache for a project across PTA and RTA. Used by the Compliance page Refresh button.',
   })
   async forceRefreshProjectCompliance(
+    @Context() context,
     @Args('projectId', {
       description:
         'The unique identifier of the project whose compliance cache should be rebuilt',
@@ -266,6 +271,29 @@ export class CompliancesResolver {
     projectId: number,
   ): Promise<any> {
     try {
+      // Authorize: decoded JWT + companyid header establish the
+      // caller's effective company context (JwtInternalService already
+      // rejects roles that don't belong to that company). We then
+      // resolve the project's company_id and ensure it matches —
+      // otherwise any authenticated user could refresh (and probe the
+      // existence of) any projectId across tenants.
+      await this.jwtInternalService.decodeJwtToken(context);
+      const headerCompanyId = Number(context?.req?.headers?.companyid);
+      if (!headerCompanyId || Number.isNaN(headerCompanyId)) {
+        return framedResponse('ERROR', 'Missing company context.');
+      }
+      const project =
+        await this.compliancesService.getProjectCompanyId(Number(projectId));
+      if (!project) {
+        return framedResponse('ERROR', 'Project not found.');
+      }
+      if (Number(project.company_id) !== headerCompanyId) {
+        return framedResponse(
+          'ERROR',
+          'Not authorized to refresh compliance for this project.',
+        );
+      }
+
       const summary =
         await this.compliancesService.refreshProjectComplianceCache(
           Number(projectId),
