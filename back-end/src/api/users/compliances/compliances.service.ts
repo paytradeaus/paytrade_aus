@@ -2113,23 +2113,16 @@ export class CompliancesService {
           existingCheckpoint.check_colour_code = item.check_colour_code || null;
           existingCheckpoint.mails = true;
           existingCheckpoint.rules = newRules;
-          // Task #297: this row is being rebuilt from a fresh live
-          // evaluation — clear the dirty flag and stamp the sync time.
-          existingCheckpoint.is_stale = false;
-          existingCheckpoint.last_synced_at = new Date();
-          checkpointsToSave.push(existingCheckpoint);
-        } else {
-          // Even when nothing rule-level changed, the cache is now
-          // considered fresh — flip the freshness fields if needed.
-          if (
-            existingCheckpoint.is_stale === true ||
-            !existingCheckpoint.last_synced_at
-          ) {
-            existingCheckpoint.is_stale = false;
-            existingCheckpoint.last_synced_at = new Date();
-            checkpointsToSave.push(existingCheckpoint);
-          }
         }
+        // Task #297: every successful resync — even one whose rule
+        // payload is byte-identical to what's already persisted —
+        // MUST stamp `last_synced_at = now` and clear `is_stale`.
+        // Otherwise the row's age slides past the read-time safety
+        // net's 10-minute SLA and every subsequent read inline-
+        // recomputes the same check, defeating the cache.
+        existingCheckpoint.is_stale = false;
+        existingCheckpoint.last_synced_at = new Date();
+        checkpointsToSave.push(existingCheckpoint);
       } else {
         const newCheckpoint = new ComplianceCheckpoint();
         newCheckpoint.project_id = projectId;
