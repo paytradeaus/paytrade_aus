@@ -5659,8 +5659,31 @@
     "from_xero": true,
     "error_code": "WH_CONTACT_ARCHIVED_SKIPPED",
     "associated_log_ids": [
+      264,
+      265,
       366,
-      384
+      368,
+      384,
+      611,
+      612
+    ]
+  },
+  {
+    "id": 624,
+    "sync_type": "Contact webhook",
+    "description": "<p>Xero sent a contact update for <b>{{contact_name}}</b>, but the contact has had no claim, bill or payment activity in the last 12 months in Pay Trade. The original mirror failure ({{original_error_code}}) has been downgraded to informational so it does not clutter the dashboard. If you start using this contact again, add the missing fields in Xero ({{missing_fields}}) and re-sync.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "WH_CONTACT_DORMANT_INFO",
+    "associated_log_ids": [
+      264,
+      265,
+      366,
+      368,
+      384,
+      611,
+      612
     ]
   }
 ]

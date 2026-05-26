@@ -124,6 +124,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     private readonly xeroPaymentsService: XeroPaymentsService,
     private readonly emailQueueProducer: EmailQueueProducer,
     private readonly xeroSyncRecoveryService: XeroSyncRecoveryService,
+    private readonly dataSource: DataSource,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -7935,6 +7936,69 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
    * (`xero_integration_details.auto_recheck_unmatched_retention_transfers`,
    * default true). Set FALSE to opt a company out.
    */
+  /**
+   * Task #274 — Nightly mirror of Xero's ARCHIVED contact status onto
+   * Pay Trade's `client_suppliers_details.is_archived` flag.
+   *
+   * For every PT contact whose linked `xero_contact_details` row is
+   * ARCHIVED, set `is_archived=true` (sets `archived_at` / `archived_reason`
+   * on first flip). For every contact whose Xero mirror is ACTIVE again,
+   * clear `is_archived` back to false so the contact reappears in pickers
+   * automatically when the user un-archives in Xero.
+   *
+   * Does NOT touch `is_deleted` — that flag is reserved for user-driven
+   * soft-delete via the Contacts UI and has stronger cascade semantics.
+   *
+   * Runs at 03:30 UTC, half an hour after the legacy retention re-check
+   * sweep so the two cron jobs don't fight for the same Postgres locks.
+   */
+  @Cron('30 3 * * *', { timeZone: 'UTC' })
+  async mirrorXeroArchivedContactsToPaytrade() {
+    const PREFIX = '[Task#274 xero-archive-mirror]';
+    try {
+      const archiveResult = await this.dataSource.query(`
+        UPDATE  client_suppliers_details csd
+        SET     is_archived     = true,
+                archived_at     = COALESCE(csd.archived_at, now()),
+                archived_reason = 'xero_mirror'
+        FROM    xero_contact_details xcd
+        WHERE   xcd.pt_contact_id = csd.client_supplier_id
+          AND   xcd.contact_status = 'ARCHIVED'
+          AND   csd.is_archived = false
+          AND   csd.is_deleted = false
+        RETURNING csd.client_supplier_id
+      `);
+      const archived = Array.isArray(archiveResult) ? archiveResult.length : 0;
+
+      // Auto un-archive — only for contacts WE archived via the mirror.
+      // Manual archival (future feature) keeps `archived_reason` NULL or
+      // some other sentinel, and won't be auto-cleared.
+      const unarchiveResult = await this.dataSource.query(`
+        UPDATE  client_suppliers_details csd
+        SET     is_archived     = false,
+                archived_at     = NULL,
+                archived_reason = NULL
+        FROM    xero_contact_details xcd
+        WHERE   xcd.pt_contact_id = csd.client_supplier_id
+          AND   xcd.contact_status = 'ACTIVE'
+          AND   csd.is_archived = true
+          AND   csd.archived_reason = 'xero_mirror'
+        RETURNING csd.client_supplier_id
+      `);
+      const unarchived = Array.isArray(unarchiveResult)
+        ? unarchiveResult.length
+        : 0;
+
+      this.logger.log(
+        `${PREFIX} archived=${archived} unarchived=${unarchived}`,
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `${PREFIX} failed: ${err?.message || err}`,
+      );
+    }
+  }
+
   @Cron('0 3 * * *', { timeZone: 'UTC' })
   async recheckUnmatchedRetentionTransfers() {
     const PREFIX = '[Task#53 retro_recheck]';

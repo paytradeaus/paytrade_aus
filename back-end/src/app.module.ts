@@ -136,6 +136,8 @@ import { XeroSyncLogsErrorCodeSchemaSeederModule } from './libs/@seeders/xero-sy
 import { XeroSyncLogsArchiveSchemaSeederModule } from './libs/@seeders/xero-sync-logs-archive-schema-seeder.module';
 import { EntityTypePartnershipSchemaSeederModule } from './libs/@seeders/entity-type-partnership-schema-seeder.module';
 import { ContactNeedsEmailSchemaSeederModule } from './libs/@seeders/contact-needs-email-schema-seeder.module';
+import { ContactArchivedStatusSchemaSeederModule } from './libs/@seeders/contact-archived-status-schema-seeder.module';
+import { ContactLogNoiseSweepSeederModule } from './libs/@seeders/contact-log-noise-sweep-seeder.module';
 import { TempCsvUploadSchemaSeederModule } from './libs/@seeders/temp-csv-upload-schema-seeder.module';
 import { AiCostMultiplierSeederModule } from './libs/@seeders/ai-cost-multiplier-seeder.module';
 import { AiSchemaBackfillSeederModule } from './libs/@seeders/ai-schema-backfill-seeder.module';
@@ -384,6 +386,8 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroSyncLogsArchiveSchemaSeederModule,
     EntityTypePartnershipSchemaSeederModule,
     ContactNeedsEmailSchemaSeederModule,
+    ContactArchivedStatusSchemaSeederModule,
+    ContactLogNoiseSweepSeederModule,
     TempCsvUploadSchemaSeederModule,
     AiCostMultiplierSeederModule,
     AiSchemaBackfillSeederModule,

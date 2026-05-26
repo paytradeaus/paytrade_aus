@@ -140,6 +140,26 @@ export class ClientSuppliersDetails {
   @Column({ default: false })
   is_deleted: Boolean;
 
+  // Task #274 — Distinct from `is_deleted` (which is a soft-delete /
+  // "Archived" tab in the PT Contacts UI). `is_archived` mirrors Xero's
+  // own ARCHIVED contact status: it is set by the nightly Xero archive
+  // mirror cron when the linked xero_contact_details row is ARCHIVED in
+  // Xero, and cleared again when Xero reports the contact as ACTIVE.
+  // Hides the contact from claim / payment / contact pickers but keeps
+  // historical records intact (unlike `is_deleted`, which has stronger
+  // cascade-style semantics across the app).
+  @Column({ type: 'boolean', default: false })
+  is_archived: boolean;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  archived_at: Date | null;
+
+  // Why the contact was archived. Currently:
+  //   - 'xero_mirror' — auto-set by the nightly Xero archive sync cron.
+  //   - NULL — not archived.
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  archived_reason: string | null;
+
   // Task #154 — When a Xero contact arrives via inbound import (manual /
   // scheduler / webhook) with every mandatory field present *except* email,
   // we now soft-fail: import the contact and flag it. UI surfaces a

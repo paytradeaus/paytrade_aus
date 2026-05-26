@@ -370,9 +370,18 @@ export class ClientSuppliersDetailsService {
       });
 
     if (getClientSuppliersListsInput.list_type === 'Archived') {
-      queryBuilder.andWhere('cs.is_deleted = true');
+      // Task #274 — keep historical behaviour: the Archived tab shows
+      // soft-deleted contacts. Also surface Xero-mirrored archived
+      // contacts in the same tab so users have a single place to find
+      // every hidden contact.
+      queryBuilder.andWhere(
+        '(cs.is_deleted = true OR cs.is_archived = true)',
+      );
     } else {
+      // Default list views (Current, by-type pickers downstream) hide
+      // both soft-deleted and Xero-archived contacts.
       queryBuilder.andWhere('cs.is_deleted = false');
+      queryBuilder.andWhere('cs.is_archived = false');
     }
 
     if (getClientSuppliersListsInput.client_supplier_type) {
@@ -1243,11 +1252,16 @@ export class ClientSuppliersDetailsService {
   }
 
   async getClientSupplierLists(company_id: number) {
+    // Task #274 — hide Xero-mirrored archived contacts from claim /
+    // payment / contract pickers. Historical records remain intact;
+    // un-archiving in Xero re-activates the contact via the nightly
+    // mirror cron.
     const results = await this.clientSuppliersDetails.find({
       where: {
         company_id,
         client_supplier_status: 'Completed',
         is_deleted: false,
+        is_archived: false,
       },
       order: { client_supplier_name: 'ASC' },
     });
@@ -1266,10 +1280,13 @@ export class ClientSuppliersDetailsService {
   }
 
   async getActiveContactsByCompanyId(company_id: number) {
+    // Task #274 — exclude Xero-archived contacts from active picker
+    // queries (kept in DB for historical claims/payments).
     return await this.clientSuppliersDetails.find({
       where: {
         company_id,
         is_deleted: false,
+        is_archived: false,
         client_supplier_status: In(['Completed', 'Draft'] as any),
       },
       select: [
@@ -1420,6 +1437,11 @@ export class ClientSuppliersDetailsService {
       })
       .andWhere("cs.client_supplier_status = 'Completed'")
       .andWhere('cs.is_deleted = false')
+      // Task #274 — exclude Xero-mirrored archived contacts from
+      // project-scoped picker. Historical contracts/claims keep their
+      // legacy contact link via FK; un-archiving in Xero re-surfaces
+      // the contact automatically via the nightly mirror cron.
+      .andWhere('cs.is_archived = false')
       .andWhere(`cd.project_id = :project_id`, {
         project_id: getClientSuppliersListForProjectsInput.project_id,
       });

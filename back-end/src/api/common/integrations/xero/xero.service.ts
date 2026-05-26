@@ -1237,11 +1237,184 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Task #274 — Contact-mirror log noise cleanup helper.
+   *
+   * Mutates `input` in place. When the inbound sync-log is one of the
+   * contact-mirror failure templates and the underlying contact is
+   * either ARCHIVED in Xero or dormant in Pay Trade (no claim, bill or
+   * payment in the last 12 months), this rewrites the input to point at
+   * the softer Warning template (623 or 624 respectively) so the row
+   * persists with an informative, non-noisy classification.
+   *
+   * Original metadata is preserved in `dynamic_values` so the UI and
+   * any subsequent un-archive sweep can recover full context.
+   *
+   * No-ops if the input doesn't match the contact-mirror family, if the
+   * linked contact can't be resolved, or if the contact is active +
+   * non-dormant (in which case the original Failed log is the correct
+   * outcome).
+   */
+  private static readonly CONTACT_MIRROR_TEMPLATE_IDS = new Set<number>([
+    264, 265, 366, 368, 384, 611, 612,
+  ]);
+  private static readonly CONTACT_DORMANCY_WINDOW_MS =
+    365 * 24 * 60 * 60 * 1000;
+
+  private async maybeDowngradeContactMirrorLog(
+    input: CreateXeroSyncLogInput,
+  ): Promise<void> {
+    if (!input || input.id) return; // only intercept *new* rows
+    const incomingTemplateId = Number(input.log_template_id);
+    if (
+      !incomingTemplateId ||
+      !XeroService.CONTACT_MIRROR_TEMPLATE_IDS.has(incomingTemplateId)
+    ) {
+      return;
+    }
+
+    // Resolve the linked PT contact. The contact-mirror writers use a
+    // mix of signals to identify the contact:
+    //   - reference_id points to xero_contact_details.id (uuid)
+    //   - api_payload.contact_id is the Xero contact GUID
+    //   - api_payload.client_supplier_name is the display name
+    // We try reference_id first (most precise), then Xero GUID.
+    const integrationId = Number(input.integration_id);
+    if (!integrationId) return;
+    const xeroContactPk =
+      typeof input.reference_id === 'string' && input.reference_id
+        ? input.reference_id
+        : null;
+    const xeroContactGuid =
+      input.api_payload && typeof input.api_payload === 'object'
+        ? (input.api_payload as any).contact_id || null
+        : null;
+
+    const xeroContactRow: any = await this.dataSource
+      .query(
+        `
+        SELECT xcd.id, xcd.contact_id, xcd.contact_name, xcd.contact_status,
+               xcd.pt_contact_id
+        FROM   xero_contact_details xcd
+        WHERE  xcd.integration_id = $1
+          AND  (
+            ($2::uuid IS NOT NULL AND xcd.id = $2)
+            OR ($3::text IS NOT NULL AND xcd.contact_id = $3::uuid)
+          )
+        LIMIT  1
+        `,
+        [integrationId, xeroContactPk, xeroContactGuid],
+      )
+      .then((rows: any[]) => (Array.isArray(rows) ? rows[0] : null))
+      .catch(() => null);
+
+    if (!xeroContactRow) return;
+
+    const isArchivedInXero =
+      String(xeroContactRow.contact_status || '').toUpperCase() === 'ARCHIVED';
+
+    // Activity check — only consult when *not* already archived.
+    let isDormant = false;
+    if (!isArchivedInXero && xeroContactRow.pt_contact_id) {
+      try {
+        const cutoffIso = new Date(
+          Date.now() - XeroService.CONTACT_DORMANCY_WINDOW_MS,
+        ).toISOString();
+        const activityRows: any[] = await this.dataSource.query(
+          `
+          SELECT 1
+          FROM (
+            SELECT created_on FROM payment_claims
+              WHERE client_supplier_id = $1
+              UNION ALL
+            SELECT created_on FROM payment_details
+              WHERE client_supplier_id = $1
+              UNION ALL
+            SELECT created_on FROM journal_entries
+              WHERE supplier_id = $1
+          ) AS activity
+          WHERE created_on >= $2
+          LIMIT 1
+          `,
+          [xeroContactRow.pt_contact_id, cutoffIso],
+        );
+        isDormant = !activityRows || activityRows.length === 0;
+      } catch (activityErr: any) {
+        this.logger.warn(
+          `[maybeDowngradeContactMirrorLog] activity probe failed for pt_contact_id=${xeroContactRow.pt_contact_id}: ${activityErr?.message || activityErr}`,
+        );
+        // Fail open — leave the original Failed log untouched rather
+        // than silently downgrading on a probe error.
+        return;
+      }
+    }
+
+    if (!isArchivedInXero && !isDormant) return;
+
+    const originalTemplateId = incomingTemplateId;
+    const originalErrorCode = (input as any).error_code || null;
+    const contactName =
+      xeroContactRow.contact_name ||
+      (input.api_payload as any)?.client_supplier_name ||
+      'this contact';
+
+    const targetTemplateId = isArchivedInXero ? 623 : 624;
+    const targetErrorCode = isArchivedInXero
+      ? 'WH_CONTACT_ARCHIVED_SKIPPED'
+      : 'WH_CONTACT_DORMANT_INFO';
+    const targetMessage = isArchivedInXero
+      ? `Contact "${contactName}" is archived in Xero — import skipped. Un-archive the contact in Xero, then click Retry import to bring it into Pay Trade.`
+      : `Contact "${contactName}" has had no claim/bill/payment activity in the last 12 months — original mirror failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact again.`;
+
+    input.log_template_id = targetTemplateId;
+    (input as any).error_code = targetErrorCode;
+    input.error_message = targetMessage;
+    input.dynamic_values = {
+      ...(input.dynamic_values || {}),
+      contact_name: contactName,
+      original_log_template_id: originalTemplateId,
+      original_error_code: originalErrorCode,
+      downgrade_reason: isArchivedInXero ? 'archived_in_xero' : 'dormant',
+      missing_fields:
+        (input as any).information_required ||
+        (input.dynamic_values as any)?.missing_fields ||
+        null,
+    };
+    input.important_checks = {
+      ...((input.important_checks as any) || {}),
+      'Downgraded by contact-mirror noise filter': isArchivedInXero
+        ? 'Archived in Xero'
+        : 'Dormant (no activity in last 12 months)',
+      'Original template': String(originalTemplateId),
+    };
+  }
+
   async insertXeroSyncLogs(
     decoded,
     createXeroSyncLogInput: CreateXeroSyncLogInput,
     options?: { skipCrossTimeDedup?: boolean },
   ) {
+    // Task #274 — Contact-mirror log noise cleanup.
+    // Before persisting a Failed/Warning contact-mirror sync log (the
+    // family that fires when Xero sends us a contact we can't fully
+    // import: 264/265/366/368/384/611/612), check the linked contact
+    // and, if appropriate, *redirect* the write to a softer template:
+    //   - Contact is ARCHIVED in Xero  -> template 623 (Warning,
+    //     "archived in Xero — import skipped")
+    //   - PT contact has no claim / bill / payment activity in the
+    //     last 12 months -> template 624 (Warning,
+    //     "dormant — downgraded to informational")
+    // This rewrites the inbound CreateXeroSyncLogInput in place so the
+    // dedup gate and persistence below operate on the chosen target
+    // template. The original template id is preserved in
+    // dynamic_values.original_log_template_id for audit.
+    try {
+      await this.maybeDowngradeContactMirrorLog(createXeroSyncLogInput);
+    } catch (downgradeErr: any) {
+      this.logger.warn(
+        `[insertXeroSyncLogs] contact-mirror downgrade check failed (non-fatal): ${downgradeErr?.message || downgradeErr}`,
+      );
+    }
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (createXeroSyncLogInput.contract_id != null && !uuidRegex.test(String(createXeroSyncLogInput.contract_id))) {
       this.logger.warn(

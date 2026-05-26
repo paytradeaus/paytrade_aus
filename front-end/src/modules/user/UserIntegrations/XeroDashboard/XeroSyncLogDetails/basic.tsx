@@ -1496,6 +1496,21 @@ export default function SyncLogDetailsBasic() {
                   syncLogDetailsData?.sync_id
                 )}
               </h4>
+              {/* Task #274 — surface the linked contact name in the header
+                  so contact-mirror logs can be triaged without opening the
+                  payload tab. Falls back gracefully when no contact is in
+                  scope (non-contact sync types). */}
+              {!loading &&
+                (syncLogDetailsData?.api_payload?.client_supplier_name ||
+                  syncLogDetailsData?.api_payload?.contact_name) && (
+                  <h5 style={{ color: "#666", marginTop: "0.25rem" }}>
+                    Contact:{" "}
+                    <strong>
+                      {syncLogDetailsData?.api_payload?.client_supplier_name ||
+                        syncLogDetailsData?.api_payload?.contact_name}
+                    </strong>
+                  </h5>
+                )}
             </div>
             <div className="pt_pageactions">
               {syncLogDetailsData?.paytrade_deep_link && (
@@ -1581,6 +1596,24 @@ export default function SyncLogDetailsBasic() {
                   syncLogDetailsData?.sync_type
                 )}
               </div>
+
+              {/* Task #274 — Surface the structured "what's missing" hint
+                  the backend already attaches to contact-mirror logs so
+                  the user doesn't have to open Notification / Information
+                  required tabs to see why the contact didn't import. */}
+              {!loading &&
+                (syncLogDetailsData?.information_required ||
+                  syncLogDetailsData?.dynamic_values?.missing_fields ||
+                  syncLogDetailsData?.notification) && (
+                  <div className="pt_infolistdata">
+                    <h6>Missing fields</h6>
+                    <span style={{ wordBreak: "break-word" }}>
+                      {syncLogDetailsData?.information_required ||
+                        syncLogDetailsData?.dynamic_values?.missing_fields ||
+                        syncLogDetailsData?.notification}
+                    </span>
+                  </div>
+                )}
 
               {syncLogDetailsData?.reference_id && (
                 <div className="pt_infolistdata">
