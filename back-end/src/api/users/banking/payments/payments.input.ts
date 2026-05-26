@@ -529,3 +529,13 @@ export class GetABAFileHistoryInput {
   @Field({ nullable: true, description: 'Sorting order: ASC or DESC.' })
   sorting_order?: 'ASC' | 'DESC';
 }
+
+// Task #286 — ABA batch summary modal input.
+@InputType({ description: 'Input for fetching a single ABA batch summary.' })
+export class GetABABatchSummaryInput {
+  @Field({ description: 'ABA history row ID (uuid).' })
+  aba_history_id: string;
+
+  @Field({ description: 'Business ID for scoping.' })
+  company_id: number;
+}

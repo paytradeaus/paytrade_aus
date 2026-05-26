@@ -233,6 +233,8 @@ export const fetchABAFileHistoryList = async (
                 generated_by
                 id
                 mark_paid
+                payment_count
+                total_amount
               }
               total_count
             }
@@ -261,6 +263,59 @@ export const fetchABAFileHistoryList = async (
     return null;
   } finally {
     setLoading && setLoading(false);
+  }
+};
+
+// Task #286 — fetch the per-batch summary (header + payments) for the
+// ABA history "View" eye-icon modal. Legacy batches generated before
+// the sub_payments ↔ batch link existed return `is_legacy: true` and
+// an empty payments array.
+export const fetchABABatchSummary = async (
+  aba_history_id: string,
+  company_id: number,
+): Promise<any | null> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetABABatchSummary($payload: GetABABatchSummaryInput!) {
+          getABABatchSummary(payload: $payload) {
+            status
+            message
+            data {
+              id
+              created_on
+              account_name
+              aba_file_name
+              mark_paid
+              payment_count
+              total_amount
+              is_legacy
+              control_payment_count
+              control_total_amount
+              reconcile_mismatch
+              payments {
+                sub_payment_id
+                payee_name
+                bsb_number
+                account_number
+                reference
+                amount
+              }
+            }
+          }
+        }
+      `,
+      variables: { payload: { aba_history_id, company_id } },
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.getABABatchSummary?.status === ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getABABatchSummary?.data;
+    }
+    return null;
+  } catch {
+    return null;
   }
 };
 

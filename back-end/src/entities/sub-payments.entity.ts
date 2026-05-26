@@ -21,6 +21,7 @@ import { PaymentDetails } from './payment-details.entity';
 import { RetentionDetails } from './retention-details.entity';
 import { TransactionDetails } from './transaction-details.entity';
 import { RetentionSummaryDetails } from './retention-summary.entity';
+import { GenerateABAFileHistory } from './generate-aba-history.entity';
 
 @Entity()
 export class SubPayments {
@@ -125,6 +126,16 @@ export class SubPayments {
 
   @OneToMany(() => RetentionDetails, (payment) => payment.subPayments)
   retentionDetails: RetentionDetails[];
+
+  // Task #286 — link back to the ABA batch this sub-payment was
+  // included in. Populated at ABA generation time; NULL for
+  // pre-Task-#286 rows (legacy batches show a fallback message).
+  @Column({ type: 'uuid', nullable: true })
+  aba_history_id: string | null;
+
+  @ManyToOne(() => GenerateABAFileHistory, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'aba_history_id', referencedColumnName: 'id' })
+  abaHistory?: GenerateABAFileHistory;
 
   @AfterInsert()
   updateSubPaymentId() {

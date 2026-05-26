@@ -32,6 +32,22 @@ export class GenerateABAFileHistory {
   @Column({ type: 'boolean', default: false })
   mark_paid: boolean;
 
+  // Task #286 — ABA File Total (record-type-7) control values captured
+  // at generation. Used by the batch-summary view to reconcile the
+  // per-payment breakdown against the bank-facing totals. Nullable
+  // because legacy rows (pre-Task-#286) did not store them.
+  @Column({ type: 'bigint', nullable: true })
+  control_credit_total_cents: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  control_debit_total_cents: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  control_net_total_cents: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  control_record_count: number | null;
+
   @OneToOne(() => FileAttachments)
   @JoinColumn({ name: 'aba_file_id', referencedColumnName: 'id' })
   fileAttachments: FileAttachments;

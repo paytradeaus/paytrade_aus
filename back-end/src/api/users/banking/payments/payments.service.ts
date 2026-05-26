@@ -4928,12 +4928,74 @@ export class PaymentsService {
                     String(mark_paid ? mark_paid : '').toLowerCase() === 'yes'
                       ? true
                       : false,
+                  // Task #286 — persist ABA footer (record-type-7)
+                  // control values so the batch summary view can
+                  // independently reconcile the per-payment breakdown
+                  // against the bank-facing totals.
+                  control_credit_total_cents: String(creditTotalCents),
+                  control_debit_total_cents: String(debitTotalCents),
+                  control_net_total_cents: String(netTotalCents),
+                  control_record_count: transactionCount,
                 });
 
               const savedABAFileHistory =
                 await this.generateABAFileHistory.save(
                   createABAFileHistoryInput,
                 );
+
+              // Task #286 — persist the batch → sub-payment membership
+              // via the `aba_batch_sub_payments` join table so the ABA
+              // History "View" action can render a proper batch
+              // summary (count, total, per-line breakdown) without
+              // having to re-parse the on-disk .aba file.
+              //
+              // Using a join table (vs the earlier single FK on
+              // sub_payments) keeps history correct when an operator
+              // regenerates an ABA file without marking the previous
+              // batch as paid — both batches retain their own
+              // accurate count/total.
+              //
+              // Linkage is deterministic: any failure to insert the
+              // exact expected row count throws, so the outer
+              // try/catch returns an ERROR response instead of
+              // silently persisting an ABA history row whose summary
+              // disagrees with the on-disk file. Also mirrors the
+              // membership onto the legacy `sub_payments.aba_history_id`
+              // column (best-effort, for any older code path still
+              // reading it).
+              const subPaymentIds = transactions
+                .map((tx: any) => tx?.sub_payment_id)
+                .filter((v: any) => v !== undefined && v !== null);
+              if (subPaymentIds.length > 0 && savedABAFileHistory?.id) {
+                const values = subPaymentIds
+                  .map((_, i) => `($1, $${i + 2})`)
+                  .join(', ');
+                const insertResult: any = await this.subPaymentsRepo.manager.query(
+                  `INSERT INTO "aba_batch_sub_payments" ("aba_history_id", "sub_payment_id")
+                   VALUES ${values}
+                   ON CONFLICT DO NOTHING
+                   RETURNING "sub_payment_id"`,
+                  [savedABAFileHistory.id, ...subPaymentIds],
+                );
+                const linkedCount = Array.isArray(insertResult)
+                  ? insertResult.length
+                  : 0;
+                if (linkedCount !== subPaymentIds.length) {
+                  throw new Error(
+                    `[ABA] Failed to link all sub-payments to aba_history ${savedABAFileHistory.id}: expected=${subPaymentIds.length} linked=${linkedCount}`,
+                  );
+                }
+                // Best-effort mirror onto the legacy column (no IS NULL
+                // guard so the most-recent batch wins on the row); the
+                // authoritative source for the summary view is the
+                // join table.
+                await this.subPaymentsRepo
+                  .createQueryBuilder()
+                  .update(SubPayments)
+                  .set({ aba_history_id: savedABAFileHistory.id })
+                  .where('sub_payment_id IN (:...ids)', { ids: subPaymentIds })
+                  .execute();
+              }
             }
 
             if (String(mark_paid ? mark_paid : '').toLowerCase() === 'yes') {
@@ -5776,6 +5838,24 @@ export class PaymentsService {
           'h.generated_by as generated_by',
           'h.mark_paid as mark_paid',
           'h.created_on as created_on',
+          // Task #286 — per-batch payment count + total (absolute
+          // sum), sourced from the `aba_batch_sub_payments` join
+          // table so historical batches keep their correct totals
+          // even when the same sub-payment is later regenerated into
+          // a new batch. 0 indicates a legacy batch with no persisted
+          // membership; the UI shows "—" and the batch-summary view
+          // falls back to a "breakdown unavailable" message.
+          `COALESCE((
+            SELECT COUNT(*) FROM aba_batch_sub_payments abp
+            WHERE abp.aba_history_id = h.id
+          ), 0) as payment_count`,
+          `COALESCE((
+            SELECT SUM(ABS(sp.amount))
+            FROM aba_batch_sub_payments abp
+            INNER JOIN sub_payments sp
+              ON sp.sub_payment_id = abp.sub_payment_id
+            WHERE abp.aba_history_id = h.id
+          ), 0) as total_amount`,
         ])
         .leftJoin('company_details', 'c', 'c.company_id = h.company_id')
         .leftJoin(
@@ -5833,6 +5913,128 @@ export class PaymentsService {
       );
       throw `${error}`;
     }
+  }
+
+  /**
+   * Task #286 — Per-batch summary for the "View" eye-icon on the ABA
+   * History tab. Returns the header (timestamp / sender account /
+   * total count / total $ / mark-paid flag) plus the payment lines
+   * (payee, BSB, account, reference, amount) linked to this batch.
+   *
+   * Legacy batches (created before `sub_payments.aba_history_id`
+   * existed) have zero linked sub-payments — in that case we still
+   * return the header so the modal can render, with `is_legacy: true`
+   * and an empty `payments` array; the UI shows the
+   * "breakdown unavailable" message.
+   */
+  async getABABatchSummary(payload: {
+    aba_history_id: string;
+    company_id: number;
+  }): Promise<any> {
+    const { aba_history_id, company_id } = payload;
+    if (!aba_history_id || !company_id) {
+      throw new Error('aba_history_id and company_id are required');
+    }
+
+    const header = await this.generateABAFileHistory
+      .createQueryBuilder('h')
+      .select([
+        'h.id as id',
+        'h.created_on as created_on',
+        'h.mark_paid as mark_paid',
+        'ba.account_name as account_name',
+        'af.file_name as aba_file_name',
+        'h.control_credit_total_cents as control_credit_total_cents',
+        'h.control_debit_total_cents as control_debit_total_cents',
+        'h.control_net_total_cents as control_net_total_cents',
+        'h.control_record_count as control_record_count',
+      ])
+      .leftJoin(
+        'bank_accounts',
+        'ba',
+        'ba.bank_account_id = h.bank_account_id',
+      )
+      .leftJoin('h.fileAttachments', 'af')
+      .where('h.id = :aba_history_id', { aba_history_id })
+      .andWhere('h.company_id = :company_id', { company_id })
+      .getRawOne();
+
+    if (!header) {
+      throw new Error('ABA batch not found for this company');
+    }
+
+    // Sourced from the join table so the breakdown matches whichever
+    // batch the operator is viewing, even if the same sub-payment was
+    // later included in a regenerated ABA file.
+    const lines = await this.subPaymentsRepo.manager.query(
+      `SELECT
+         sp.sub_payment_id as sub_payment_id,
+         sp.amount as amount,
+         p.payment_type as reference,
+         p.payment_to_account_name as payee_name,
+         p.payment_to_account_number as account_number,
+         p.payment_to_account_bsb_number as bsb_number
+       FROM aba_batch_sub_payments abp
+       INNER JOIN sub_payments sp
+         ON sp.sub_payment_id = abp.sub_payment_id
+       LEFT JOIN payment_details p
+         ON p.payment_id = sp.payment_id
+       WHERE abp.aba_history_id = $1
+       ORDER BY abp.created_on ASC, sp.sub_payment_id ASC`,
+      [aba_history_id],
+    );
+
+    const payments = (lines || []).map((row: any) => ({
+      sub_payment_id: String(row?.sub_payment_id ?? ''),
+      payee_name: row?.payee_name ?? null,
+      bsb_number: row?.bsb_number ?? null,
+      account_number: row?.account_number != null ? String(row.account_number) : null,
+      reference: row?.reference ?? null,
+      amount: row?.amount != null ? Math.abs(Number(row.amount)) : 0,
+    }));
+
+    const total_amount = payments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0,
+    );
+
+    // Independent reconcile guard: compare the sum/count derived from
+    // the persisted sub_payments against the ABA footer (record-type-
+    // 7) values captured at generation time. A mismatch indicates a
+    // sub_payment was edited or deleted after the batch was sent and
+    // the operator should investigate before reconciling against the
+    // bank statement. Nullable control values (legacy batches) skip
+    // the check.
+    const controlCount =
+      header.control_record_count != null
+        ? Number(header.control_record_count)
+        : null;
+    const controlNetCents =
+      header.control_net_total_cents != null
+        ? Number(header.control_net_total_cents)
+        : null;
+    const derivedNetCents = Math.round(total_amount * 100);
+    const hasControlTotals = controlCount != null && controlNetCents != null;
+    const reconcileMismatch =
+      hasControlTotals &&
+      (controlCount !== payments.length ||
+        controlNetCents !== derivedNetCents);
+
+    return {
+      id: header.id,
+      created_on: header.created_on,
+      account_name: header.account_name ?? null,
+      aba_file_name: header.aba_file_name ?? null,
+      mark_paid: !!header.mark_paid,
+      payment_count: payments.length,
+      total_amount,
+      is_legacy: payments.length === 0,
+      payments,
+      control_payment_count: controlCount,
+      control_total_amount:
+        controlNetCents != null ? controlNetCents / 100 : null,
+      reconcile_mismatch: reconcileMismatch,
+    };
   }
 
   /**

@@ -88,6 +88,8 @@ export const toDoHeaderNames = [
 export const myActivityHeaderNames = [
   { title: "Generated date" },
   { title: "Account name" },
+  { title: "Payments", dataKey: "payment_count", restrictSorting: true },
+  { title: "Total", dataKey: "total_amount", restrictSorting: true },
   { title: "Paid?" },
   // { title: "Sent Notices?" },
   { title: "Actions", dataKey: "", restrictSorting: true },
@@ -117,8 +119,9 @@ export const paymentRenderData = [
 export const abaPaymentRenderData = [
   { key: "created_on" },
   { key: "account_name" },
+  { key: "payment_count" },
+  { key: "total_amount" },
   { key: "mark_paid" },
-  // { key: "mark_paid" },
 ];
 
 export const filterByDuration = [

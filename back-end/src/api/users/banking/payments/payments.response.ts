@@ -2295,6 +2295,106 @@ class ABAGeneratedFileHistoryDetail {
 
   @Field({ description: 'ID of the user who generated the ABA file.' })
   generated_by: number;
+
+  // Task #286 — batch summary aggregates surfaced on the history list.
+  // Both are 0 for legacy rows that pre-date the sub_payments ↔ batch
+  // link (in which case the UI shows "—" instead of "0").
+  @Field({
+    nullable: true,
+    description: 'Number of sub-payments included in this ABA batch.',
+  })
+  payment_count?: number;
+
+  @Field({
+    nullable: true,
+    description: 'Sum of the absolute amounts of sub-payments in this batch.',
+  })
+  total_amount?: number;
+}
+
+@ObjectType({ description: 'A single payment line inside an ABA batch.' })
+export class ABABatchPaymentLine {
+  @Field({ nullable: true })
+  sub_payment_id?: string;
+
+  @Field({ nullable: true })
+  payee_name?: string;
+
+  @Field({ nullable: true })
+  bsb_number?: string;
+
+  @Field({ nullable: true })
+  account_number?: string;
+
+  @Field({ nullable: true })
+  reference?: string;
+
+  @Field({ nullable: true })
+  amount?: number;
+}
+
+@ObjectType({ description: 'ABA batch summary header + lines.' })
+export class ABABatchSummary {
+  @Field({ nullable: true, description: 'ABA history row ID.' })
+  id?: string;
+
+  @Field({ nullable: true, description: 'Timestamp the ABA file was generated.' })
+  created_on?: Date;
+
+  @Field({ nullable: true, description: 'Sender bank account name.' })
+  account_name?: string;
+
+  @Field({ nullable: true, description: 'ABA file name.' })
+  aba_file_name?: string;
+
+  @Field({ nullable: true, description: 'Whether the batch was marked-paid at generation.' })
+  mark_paid?: boolean;
+
+  @Field({ description: 'Number of payments in the batch.' })
+  payment_count: number;
+
+  @Field({ description: 'Sum of absolute amounts.' })
+  total_amount: number;
+
+  @Field({
+    description:
+      'True for legacy batches generated before the batch ↔ sub-payment link existed. UI should show the "breakdown unavailable" message.',
+  })
+  is_legacy: boolean;
+
+  @Field(() => [ABABatchPaymentLine], {
+    description: 'Per-payment breakdown (empty when is_legacy = true).',
+  })
+  payments: ABABatchPaymentLine[];
+
+  // Task #286 — independent control totals captured from the ABA
+  // file footer (record-type-7) at generation time. Used to reconcile
+  // the per-payment breakdown against the bank-facing values.
+  // Nullable for legacy batches that pre-date the control-total
+  // persistence; in that case `reconcile_mismatch` is always false.
+  @Field({ nullable: true, description: 'Batch record count from the ABA file footer.' })
+  control_payment_count?: number;
+
+  @Field({ nullable: true, description: 'Net total (dollars) from the ABA file footer.' })
+  control_total_amount?: number;
+
+  @Field({
+    description:
+      'True if the per-payment breakdown (count or sum) disagrees with the stored ABA-file control totals — suggests a sub-payment was edited/deleted post-generation.',
+  })
+  reconcile_mismatch: boolean;
+}
+
+@ObjectType({ description: 'Response wrapper for getABABatchSummary.' })
+export class GetABABatchSummaryResponse {
+  @Field({ description: 'API response status.' })
+  status: ApiStatusType;
+
+  @Field({ description: 'Response message.' })
+  message: string;
+
+  @Field(() => ABABatchSummary, { nullable: true })
+  data?: ABABatchSummary;
 }
 
 @ObjectType({ description: 'Paginated ABA generated file history list.' })

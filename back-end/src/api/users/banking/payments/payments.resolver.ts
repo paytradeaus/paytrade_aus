@@ -11,6 +11,7 @@ import {
   ChangeStatusOfAPaymentResponse,
   EditDetailsOfAPaymentResponse,
   FetchAllABAGeneratedFileHistoryResponse,
+  GetABABatchSummaryResponse,
   FetchAllRetentionInPaymentsListResponse,
   FetchAllSubPaymentsOfAPaymentResponse,
   FetchAllTheMatchedTransactionsOfAPaymentResponse,
@@ -36,6 +37,7 @@ import {
   FetchDetailsOfAPaymentInput,
   FetchRetentionSummaryInput,
   GetABAFileHistoryInput,
+  GetABABatchSummaryInput,
   GetAbaWizardOutstandingPaymentsInput,
   GetAbaWizardSenderAccountsInput,
   GetListOfAllPaymentsToDoInDashboardInput,
@@ -783,6 +785,40 @@ export class PaymentsResolver {
         'ERROR',
         `${error.message ? error.message : error}`,
       );
+    }
+  }
+
+  // Task #286 — Batch summary for the "View" eye-icon on ABA History.
+  // Returns the header (created_on, sender account, count, total,
+  // mark-paid flag), per-payment breakdown, and an `is_legacy` flag
+  // for batches generated before the sub_payments ↔ batch link was
+  // introduced (those show a "breakdown unavailable" message in the UI
+  // — the raw `.aba` file is still downloadable).
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetABABatchSummaryResponse, {
+    name: 'getABABatchSummary',
+    description:
+      'Fetch the per-batch summary (header + payment breakdown) for a previously generated ABA file.',
+  })
+  async getABABatchSummary(
+    @Args('payload', {
+      description: 'ABA history id + company id to scope the lookup.',
+    })
+    payload: GetABABatchSummaryInput,
+  ) {
+    try {
+      const summary = await this.paymentsService.getABABatchSummary(payload);
+      return framedResponse(
+        'SUCCESS',
+        'Fetched ABA batch summary',
+        summary,
+      );
+    } catch (error) {
+      this.logger.error(
+        `getABABatchSummary failed: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', `${error?.message || error}`);
     }
   }
 

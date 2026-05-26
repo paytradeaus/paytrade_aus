@@ -16,6 +16,7 @@ import { fetchFiltersOfPaymentClaimsPaymentsAndRetentionsList } from "@/network/
 import {
   editDetailsOfAPayment,
   fetchABAFileHistoryList,
+  fetchABABatchSummary,
   deleteABAFileHistory,
   fetchAllPaymentsList,
   TriggerPaymentNotices,
@@ -127,6 +128,13 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   const [abaDeleteTarget, setAbaDeleteTarget] = useState<
     { id: string; name: string } | null
   >(null);
+  // Task #286 — ABA batch summary modal state.
+  const [abaBatchSummary, setAbaBatchSummary] = useState<{
+    open: boolean;
+    loading: boolean;
+    data: any;
+    row: any;
+  } | null>(null);
 
   const pauseNoticePopup = () => {
     if (isNoticePopupPaused) return;
@@ -412,6 +420,13 @@ export default function PaymentToDoList({ overViewDetails }: any) {
     setTotalRows(response?.total_count || 0);
     setPaymentsListData(
       response?.list?.map((val: any) => {
+        const count = Number(val?.payment_count) || 0;
+        const total = Number(val?.total_amount) || 0;
+        // Task #286 — legacy batches (count = 0) pre-date the
+        // sub_payments ↔ batch link; show "—" rather than a misleading
+        // "$0.00 / 0 payments". The summary modal handles the same case
+        // with a "breakdown unavailable for this legacy batch" notice.
+        const isLegacy = count === 0;
         return {
           ...val,
           mark_paid: val?.mark_paid ? (
@@ -420,6 +435,10 @@ export default function PaymentToDoList({ overViewDetails }: any) {
             <i className="fa fa-times" style={{ color: "red" }}></i>
           ),
           created_on: val?.created_on ? formatDate(val?.created_on) : "",
+          payment_count: isLegacy ? "—" : count,
+          total_amount: isLegacy
+            ? "—"
+            : `${currencySymbol} ${convertPositiveDecimalTwoDigit(total)}`,
         };
       }) || []
     );
@@ -511,29 +530,23 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       : []),
   ];
 
-  // Opens the generated ABA file inline in a new browser tab (plain
-  // text) so the user can eyeball the records without downloading.
-  // The associated-payments view that the row click previously hinted
-  // at isn't backed by data — `generate_aba_file_history` doesn't
-  // store which `payment_details` rows were aggregated into the file
-  // (that linkage would require a new `aba_file_history_id` FK on
-  // `payment_details`, populated at generation time). Until that
-  // schema link exists, inline-viewing the file itself is the closest
-  // useful proxy.
-  const viewAbaFileInline = (row: any) => {
-    if (!row?.aba_file_path) return;
-    const url = `/api/proxy-download?url=${encodeURIComponent(
-      row.aba_file_path,
-    )}&filename=${encodeURIComponent(row.aba_file_name || "file.aba")}&inline=1`;
-    window.open(url, "_blank", "noopener,noreferrer");
+  // Task #286 — Open the per-batch summary modal (header + payment
+  // breakdown). The old "View ABA file" behavior (opening the raw
+  // .aba file inline in a new tab) is preserved via the Download
+  // action.
+  const openAbaBatchSummary = async (row: any) => {
+    if (!row?.id) return;
+    setAbaBatchSummary({ open: true, loading: true, data: null, row });
+    const data = await fetchABABatchSummary(row.id, selectedCompanyId);
+    setAbaBatchSummary({ open: true, loading: false, data, row });
   };
 
   const ABAactions = [
     {
-      label: "View ABA file",
+      label: "View batch summary",
       icon: "fa-light fa-eye",
       style: buttonType.PRIMARY,
-      onClick: (row: any) => viewAbaFileInline(row),
+      onClick: (row: any) => openAbaBatchSummary(row),
     },
     {
       label: "Download generated ABA file",
@@ -1178,7 +1191,7 @@ export default function PaymentToDoList({ overViewDetails }: any) {
               displayAllStaticActions={true}
               onRowClick={
                 activeTab === tabOptions[2].label
-                  ? (data: any) => viewAbaFileInline(data)
+                  ? (data: any) => openAbaBatchSummary(data)
                   : (data: any) => handleRowView(data)
               }
               showLoader={loading}
@@ -1220,6 +1233,218 @@ export default function PaymentToDoList({ overViewDetails }: any) {
             <div className="text_center">
               {popupMessage?.subHeaderMsg || ""}
             </div>
+          </BaseModal>
+        )}
+        {abaBatchSummary?.open && (
+          <BaseModal
+            modalId="aba batch summary modal"
+            displayModal={abaBatchSummary.open}
+            onHeaderIconClose={() =>
+              setAbaBatchSummary({ open: false, loading: false, data: null, row: null })
+            }
+            restrictOncloseFunctionInHeader
+            onClose={() => {
+              setAbaBatchSummary({ open: false, loading: false, data: null, row: null });
+              return true;
+            }}
+            onConfirm={() => {
+              setAbaBatchSummary({ open: false, loading: false, data: null, row: null });
+              return true;
+            }}
+            hideFirstButton
+            secondButtonName="Close"
+            title="ABA batch summary"
+          >
+            {abaBatchSummary.loading ? (
+              <div className="text_center" style={{ padding: "20px" }}>
+                Loading batch summary…
+              </div>
+            ) : !abaBatchSummary.data ? (
+              <div className="text_center" style={{ padding: "20px", color: "#a13a3a" }}>
+                Could not load batch summary. Please try again.
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px 16px",
+                    fontSize: "14px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div>
+                    <b>Generated:</b>{" "}
+                    {abaBatchSummary.data?.created_on
+                      ? formatDate(abaBatchSummary.data.created_on)
+                      : "—"}
+                  </div>
+                  <div>
+                    <b>Sender account:</b>{" "}
+                    {abaBatchSummary.data?.account_name || "—"}
+                  </div>
+                  <div>
+                    <b>Payments:</b>{" "}
+                    {abaBatchSummary.data?.is_legacy
+                      ? "—"
+                      : abaBatchSummary.data?.payment_count ?? 0}
+                  </div>
+                  <div>
+                    <b>Total:</b>{" "}
+                    {abaBatchSummary.data?.is_legacy
+                      ? "—"
+                      : `${currencySymbol} ${convertPositiveDecimalTwoDigit(
+                          Number(abaBatchSummary.data?.total_amount) || 0,
+                        )}`}
+                  </div>
+                  <div>
+                    <b>Marked paid:</b>{" "}
+                    {abaBatchSummary.data?.mark_paid ? "Yes" : "No"}
+                  </div>
+                  <div>
+                    <b>File:</b>{" "}
+                    {abaBatchSummary.data?.aba_file_name || "—"}
+                  </div>
+                </div>
+
+                {abaBatchSummary.data?.reconcile_mismatch && (
+                  <div
+                    style={{
+                      marginBottom: "12px",
+                      padding: "10px",
+                      border: "1px solid #e0a3a3",
+                      borderRadius: "4px",
+                      background: "#fdecec",
+                      color: "#8a1f1f",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <b>Reconcile warning:</b> the payment breakdown below
+                    doesn't match the totals stored in the ABA file (
+                    {abaBatchSummary.data?.control_payment_count ?? 0}{" "}
+                    payment(s),{" "}
+                    {currencySymbol}{" "}
+                    {convertPositiveDecimalTwoDigit(
+                      Number(abaBatchSummary.data?.control_total_amount) || 0,
+                    )}
+                    ). A payment may have been edited or deleted after the
+                    batch was generated — verify against the original ABA
+                    file before reconciling with your bank.
+                  </div>
+                )}
+                {abaBatchSummary.data?.is_legacy ? (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "10px",
+                      border: "1px solid #eee",
+                      borderRadius: "4px",
+                      background: "#fafafa",
+                      color: "#666",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Payment breakdown unavailable for this legacy batch —
+                    download the ABA file to view the included payments.
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        maxHeight: "320px",
+                        overflowY: "auto",
+                        border: "1px solid #eee",
+                        borderRadius: "4px",
+                        padding: "8px",
+                      }}
+                    >
+                      <table style={{ width: "100%", fontSize: "13px" }}>
+                        <thead>
+                          <tr
+                            style={{
+                              textAlign: "left",
+                              borderBottom: "1px solid #ddd",
+                            }}
+                          >
+                            <th style={{ padding: "4px" }}>Payee</th>
+                            <th style={{ padding: "4px" }}>BSB</th>
+                            <th style={{ padding: "4px" }}>Account</th>
+                            <th style={{ padding: "4px" }}>Reference</th>
+                            <th style={{ padding: "4px", textAlign: "right" }}>
+                              Amount
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(abaBatchSummary.data?.payments || []).map(
+                            (p: any, idx: number) => (
+                              <tr
+                                key={`bp-${idx}`}
+                                style={{ borderBottom: "1px solid #f3f3f3" }}
+                              >
+                                <td style={{ padding: "4px" }}>
+                                  {p?.payee_name || "—"}
+                                </td>
+                                <td style={{ padding: "4px" }}>
+                                  {p?.bsb_number || "—"}
+                                </td>
+                                <td style={{ padding: "4px" }}>
+                                  {p?.account_number || "—"}
+                                </td>
+                                <td style={{ padding: "4px" }}>
+                                  {p?.reference || "—"}
+                                </td>
+                                <td
+                                  style={{ padding: "4px", textAlign: "right" }}
+                                >
+                                  {currencySymbol}{" "}
+                                  {convertPositiveDecimalTwoDigit(
+                                    Number(p?.amount) || 0,
+                                  )}
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                          <tr style={{ borderTop: "2px solid #ddd" }}>
+                            <td
+                              colSpan={4}
+                              style={{ padding: "6px 4px", fontWeight: 600 }}
+                            >
+                              Total ({abaBatchSummary.data?.payment_count || 0}{" "}
+                              payment(s))
+                            </td>
+                            <td
+                              style={{
+                                padding: "6px 4px",
+                                textAlign: "right",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {currencySymbol}{" "}
+                              {convertPositiveDecimalTwoDigit(
+                                Number(abaBatchSummary.data?.total_amount) || 0,
+                              )}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p
+                      style={{
+                        marginTop: "10px",
+                        fontSize: "12px",
+                        color: "#a13a3a",
+                      }}
+                    >
+                      Note: this is the list of payments included in the ABA
+                      file. Remember to reconcile each payment against your
+                      bank statement once the bank processes the batch.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
           </BaseModal>
         )}
         {abaDeleteTarget && (
