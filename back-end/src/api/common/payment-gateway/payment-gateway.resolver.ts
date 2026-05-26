@@ -17,7 +17,10 @@ import {
   GetCardDetailsResponse,
 } from './response/stripe-card-details.response';
 import { GetPaymentHistoryInput } from './dto/get-payment-history.input';
-import { GetPaymentHistoryResponse } from './response/get-payment-history.response';
+import {
+  BillingReceiptUrlResponse,
+  GetPaymentHistoryResponse,
+} from './response/get-payment-history.response';
 import { GetSubscriptionDetailsResponse } from './response/get-subscription-details.response';
 import { StringResponse, BooleanDataResponse } from 'src/api/users/signup/response/auth.response';
 import { CreateActivityLogInput } from '../activity-log/dto/create-activity-log.input';
@@ -783,6 +786,83 @@ export class PaymentGatewayResolver {
     } catch (error) {
       this.logError(`Error fetching demo status: ${error.message}`);
       return framedResponse('ERROR', 'Failed to fetch demo status');
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+    Role.BASIC_USER,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+  )
+  @Query(() => BillingReceiptUrlResponse, {
+    name: 'refreshBillingReceiptUrl',
+    description:
+      'Re-fetch the current Stripe hosted_invoice_url / invoice_pdf for a billing-history row, since the cached URL expires.',
+  })
+  async refreshBillingReceiptUrl(
+    @Context() context,
+    @Args('transaction_id', {
+      description:
+        'subscription_transaction.id of the billing-history row to refresh.',
+    })
+    transaction_id: string,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const companyId =
+        await this.paymentGatewayService.getCompanyIdForTransaction(
+          transaction_id,
+        );
+      if (!companyId) {
+        return framedResponse(
+          'ERROR',
+          'Receipt not found for the requested billing history row.',
+        );
+      }
+
+      const roles = await this.getCompanySpecificRole(decoded, companyId);
+
+      const authorized =
+        decoded?.role === 'PORTAL ADMIN' ||
+        decoded?.role === 'RESTRICTED PORTAL ADMIN' ||
+        (roles &&
+          roles.role &&
+          (roles.role === 'PRIMARY ADMIN' ||
+            roles.role === 'ADMIN' ||
+            (roles.role === 'STANDARD USER' &&
+              roles.manageSubscription === 'Yes') ||
+            (roles.role === 'STANDARD USER' &&
+              roles.manageSubscription === 'View Only')));
+
+      if (!authorized) {
+        return framedResponse('ERROR', 'Unauthorized to perform this action');
+      }
+
+      const refreshed =
+        await this.paymentGatewayService.refreshBillingReceiptUrl(
+          transaction_id,
+        );
+      return framedResponse(
+        'SUCCESS',
+        'Refreshed receipt URL successfully',
+        refreshed,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while refreshing receipt URL: ${error?.message || error}`,
+      );
+      const errMsg = await handleError(error).catch((e) => e);
+      return framedResponse(
+        'ERROR',
+        typeof errMsg === 'string'
+          ? errMsg
+          : 'Failed to refresh receipt link from Stripe.',
+      );
     }
   }
 

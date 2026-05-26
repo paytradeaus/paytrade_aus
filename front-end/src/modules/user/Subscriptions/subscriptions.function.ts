@@ -463,6 +463,45 @@ export async function getPaymentHistoryByCompanyId(
     return null;
   }
 }
+export async function refreshBillingReceiptUrl(
+  transactionId: string
+): Promise<{
+  hosted_invoice_url?: string | null;
+  invoice_pdf?: string | null;
+  invoice_number?: string | null;
+} | null> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query RefreshBillingReceiptUrl($transactionId: String!) {
+          refreshBillingReceiptUrl(transaction_id: $transactionId) {
+            status
+            message
+            data {
+              hosted_invoice_url
+              invoice_pdf
+              invoice_id
+              invoice_number
+            }
+          }
+        }
+      `,
+      variables: { transactionId },
+      fetchPolicy: "no-cache",
+    });
+    const payload = response?.data?.refreshBillingReceiptUrl;
+    if (payload?.status === "SUCCESS") {
+      return payload?.data || null;
+    }
+    if (payload?.message) {
+      showErrorToast(payload.message);
+    }
+    return null;
+  } catch (error: any) {
+    return null;
+  }
+}
+
 export const cancelSubscriptionForUser = async (data: any): Promise<any> => {
   try {
     const response = await apolloClient.mutate({

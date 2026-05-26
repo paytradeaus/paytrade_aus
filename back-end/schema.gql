@@ -2058,6 +2058,35 @@ type BatchSuggestedMatchesResponse {
   status: String!
 }
 
+"""
+Fresh Stripe-hosted invoice URL / PDF link retrieved on demand for a billing-history row.
+"""
+type BillingReceiptUrl {
+  """Current Stripe-hosted invoice URL (re-fetched from Stripe)."""
+  hosted_invoice_url: String
+
+  """Stripe invoice id."""
+  invoice_id: String
+
+  """Invoice number for filename hints."""
+  invoice_number: String
+
+  """Current Stripe invoice PDF URL (re-fetched from Stripe)."""
+  invoice_pdf: String
+}
+
+"""Response wrapper for refreshing a Stripe receipt URL."""
+type BillingReceiptUrlResponse {
+  """Refreshed receipt URL payload"""
+  data: BillingReceiptUrl
+
+  """Response message"""
+  message: String!
+
+  """Response status"""
+  status: String!
+}
+
 """Represents a comment on a blog resource."""
 type BlogCommentDto {
   """Text content of the comment."""
@@ -19839,6 +19868,14 @@ type Query {
     """Valid refresh token for session continuation"""
     refresh_token: String!
   ): AuthResponse!
+
+  """
+  Re-fetch the current Stripe hosted_invoice_url / invoice_pdf for a billing-history row, since the cached URL expires.
+  """
+  refreshBillingReceiptUrl(
+    """subscription_transaction.id of the billing-history row to refresh."""
+    transaction_id: String!
+  ): BillingReceiptUrlResponse!
 
   """Search for an existing contact record using the contact email address."""
   searchContactByEmailId(

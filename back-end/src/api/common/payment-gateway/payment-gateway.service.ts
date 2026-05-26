@@ -1556,6 +1556,122 @@ export class PaymentGatewayService {
     };
   }
 
+  /**
+   * Resolve the owning company_id for a billing-history row so the resolver
+   * can authorize the caller before any Stripe call is made.
+   */
+  async getCompanyIdForTransaction(
+    transactionId: string,
+  ): Promise<number | null> {
+    if (!transactionId) return null;
+    const row = await this.subscriptionTransaction
+      .createQueryBuilder('payment')
+      .leftJoin('payment.subscriptionDetails', 'subscription')
+      .select('subscription.company_id', 'company_id')
+      .where('payment.id = :id', { id: transactionId })
+      .getRawOne();
+    return row?.company_id ?? null;
+  }
+
+  /**
+   * On-demand refresh of a billing-history row's Stripe receipt URL.
+   *
+   * Stripe's `hosted_invoice_url` / `invoice_pdf` URLs are signed/expiring,
+   * so the values cached on `subscription_transaction` at webhook time go
+   * stale (the user-visible symptom: clicking "Export to pdf" eventually
+   * returns a Stripe error page). We re-fetch the invoice from Stripe each
+   * time the user requests a download, persist the fresh values back into
+   * the cached columns (so diagnostics keep working), and return them.
+   *
+   * Sandbox-plan transactions are excluded from the live Billing screen
+   * (see `getPaymentHistoryByCompanyId`); we still detect `is_sandbox`
+   * here so admin sandbox views resolve against the test Stripe account.
+   */
+  async refreshBillingReceiptUrl(transactionId: string): Promise<{
+    hosted_invoice_url: string | null;
+    invoice_pdf: string | null;
+    invoice_id: string | null;
+    invoice_number: string | null;
+  }> {
+    const row = await this.subscriptionTransaction
+      .createQueryBuilder('payment')
+      .leftJoin('payment.planDetails', 'planDetails')
+      .select('payment.id', 'id')
+      .addSelect('payment.invoice_id', 'invoice_id')
+      .addSelect('payment.invoice_number', 'invoice_number')
+      .addSelect('payment.hosted_invoice_url', 'hosted_invoice_url')
+      .addSelect('payment.invoice_pdf', 'invoice_pdf')
+      .addSelect('planDetails.is_sandbox', 'is_sandbox')
+      .where('payment.id = :id', { id: transactionId })
+      .getRawOne();
+
+    if (!row) {
+      throw new Error('Receipt not found for the requested billing history row.');
+    }
+    if (!row.invoice_id) {
+      throw new Error(
+        'This billing-history row has no Stripe invoice id, so the receipt cannot be refreshed.',
+      );
+    }
+
+    const isDemo = row.is_sandbox === true;
+    const stripe = getStripeInstance(isDemo);
+
+    let hosted_invoice_url: string | null = null;
+    let invoice_pdf: string | null = null;
+    let invoice_number: string | null = row.invoice_number ?? null;
+
+    try {
+      const invoice = await stripe.invoices.retrieve(row.invoice_id);
+      hosted_invoice_url = invoice?.hosted_invoice_url ?? null;
+      invoice_pdf = invoice?.invoice_pdf ?? null;
+      invoice_number = invoice?.number ?? invoice_number;
+    } catch (err: any) {
+      this.logger.error(
+        `Stripe refresh of invoice ${row.invoice_id} failed: ${err?.message || err}`,
+      );
+      // Fall back to the cached URL only when Stripe itself is unreachable.
+      // For "resource_missing" / 404 we surface a clean error so the UI can
+      // tell the user the receipt no longer exists in Stripe.
+      const code = err?.code || err?.raw?.code;
+      if (code === 'resource_missing' || err?.statusCode === 404) {
+        throw new Error(
+          'This receipt is no longer available in Stripe and cannot be downloaded.',
+        );
+      }
+      hosted_invoice_url = row.hosted_invoice_url ?? null;
+      invoice_pdf = row.invoice_pdf ?? null;
+    }
+
+    // Persist the fresh values so diagnostics / older queries see the
+    // latest URL too. Treat write failures as non-fatal — the user still
+    // gets their link.
+    if (hosted_invoice_url || invoice_pdf) {
+      try {
+        await this.subscriptionTransaction
+          .createQueryBuilder()
+          .update(SubscriptionTransaction)
+          .set({
+            hosted_invoice_url: hosted_invoice_url ?? undefined,
+            invoice_pdf: invoice_pdf ?? undefined,
+          })
+          .where('id = :id', { id: row.id })
+          .execute();
+      } catch (writeErr: any) {
+        this.logger.error(
+          `Failed to cache refreshed Stripe URLs for transaction ${row.id}: ${writeErr?.message || writeErr}`,
+        );
+      }
+    }
+
+    return {
+      hosted_invoice_url,
+      invoice_pdf,
+      invoice_id: row.invoice_id,
+      invoice_number,
+    };
+  }
+
   async getSubscriptionDetailsByCompanyId(company_id: number) {
     const result = await this.subscriptionDetails
       .createQueryBuilder('sd')

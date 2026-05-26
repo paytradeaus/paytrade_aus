@@ -5,7 +5,10 @@ import {
   getDatePickerFormat,
 } from "@/utils";
 import React, { Fragment, useEffect, useState } from "react";
-import { getPaymentHistoryByCompanyId } from "./subscriptions.function";
+import {
+  getPaymentHistoryByCompanyId,
+  refreshBillingReceiptUrl,
+} from "./subscriptions.function";
 import { billingStatus, billingStatusOptions } from "./subscriptions.constants";
 import FormikControl from "@/components/FormikControl";
 import { filterByDuration, InputType } from "@/shared/constant/general";
@@ -70,10 +73,17 @@ export default function BillingHistoryGrid() {
     setActivityDate(selectedValue); // Perform any other actions based on the selected value
   };
 
-  function handleDownloadPdf(fileObj: any) {
+  async function handleDownloadPdf(fileObj: any) {
+    // Stripe receipt URLs expire, so always re-fetch a fresh signed URL
+    // from the backend instead of using the value cached on the row.
+    const fresh = await refreshBillingReceiptUrl(fileObj?.id);
+    const url = fresh?.invoice_pdf || fileObj?.invoice_pdf;
+    if (!url) return;
     const link = document.createElement("a");
-    link.href = fileObj?.invoice_pdf; // Replace with your PDF URL
-    link.download = `${fileObj.invoice_number}.pdf`; // The name for the downloaded file
+    link.href = url;
+    link.download = `${fresh?.invoice_number || fileObj.invoice_number}.pdf`;
+    link.target = "_blank";
+    link.rel = "noopener";
     link.click();
   }
 

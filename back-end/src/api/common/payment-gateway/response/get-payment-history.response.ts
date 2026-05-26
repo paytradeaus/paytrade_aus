@@ -115,3 +115,41 @@ export class GetPaymentHistoryResponse {
   @Field({ nullable: true, description: 'Payment history payload' })
   data?: GetPaymentHistory;
 }
+
+@ObjectType({
+  description:
+    'Fresh Stripe-hosted invoice URL / PDF link retrieved on demand for a billing-history row.',
+})
+export class BillingReceiptUrl {
+  @Field({
+    nullable: true,
+    description: 'Current Stripe-hosted invoice URL (re-fetched from Stripe).',
+  })
+  hosted_invoice_url?: string;
+
+  @Field({
+    nullable: true,
+    description: 'Current Stripe invoice PDF URL (re-fetched from Stripe).',
+  })
+  invoice_pdf?: string;
+
+  @Field({ nullable: true, description: 'Stripe invoice id.' })
+  invoice_id?: string;
+
+  @Field({ nullable: true, description: 'Invoice number for filename hints.' })
+  invoice_number?: string;
+}
+
+@ObjectType({
+  description: 'Response wrapper for refreshing a Stripe receipt URL.',
+})
+export class BillingReceiptUrlResponse {
+  @Field({ description: 'Response status' })
+  status: string;
+
+  @Field({ description: 'Response message' })
+  message: string;
+
+  @Field({ nullable: true, description: 'Refreshed receipt URL payload' })
+  data?: BillingReceiptUrl;
+}
