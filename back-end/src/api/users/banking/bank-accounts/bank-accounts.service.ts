@@ -430,6 +430,11 @@ export class BankAccountsService {
                 bank_account_type: data.account_type,
                 failedFilter: false,
               });
+            // Task #297: invalidate the persisted compliance cache.
+            await this.complianceService.markComplianceDirty(
+              projectId,
+              'bank_account.create',
+            );
           }
         }
       }
@@ -917,6 +922,11 @@ export class BankAccountsService {
                   bank_account_type: account.account_type,
                   failedFilter: false,
                 });
+                // Task #297: invalidate the persisted compliance cache.
+                await this.complianceService.markComplianceDirty(
+                  projectId,
+                  'bank_account.update',
+                );
               }
             }
           }
@@ -1546,6 +1556,11 @@ export class BankAccountsService {
                     bank_account_type: account.account_type,
                     failedFilter: false,
                   });
+                  // Task #297: invalidate the persisted compliance cache.
+                  await this.complianceService.markComplianceDirty(
+                    projectId,
+                    'bank_account.update',
+                  );
                 }
               }
             }

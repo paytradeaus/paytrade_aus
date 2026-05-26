@@ -44,6 +44,8 @@ import {
 import { HolidayDetails } from 'src/entities/holiday-details.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { BullModule } from '@nestjs/bullmq';
+import { ComplianceRefreshModule } from './compliance-refresh.module';
+import { ComplianceRefreshConsumer } from './compliance-refresh.consumer';
 
 @Module({
   imports: [
@@ -84,6 +86,10 @@ import { BullModule } from '@nestjs/bullmq';
     BullModule.registerQueue({
       name: 'mailQueue',
     }),
+    // Task #297 — debounced compliance cache refresh queue + producer
+    // live in their own module so write-path sibling modules can
+    // import it without creating a circular dep on CompliancesModule.
+    ComplianceRefreshModule,
   ],
   providers: [
     CompliancesResolver,
@@ -95,7 +101,10 @@ import { BullModule } from '@nestjs/bullmq';
     ComplianceRTAFunctions,
     PtContentsService,
     EmailQueueProducer,
+    // Task #297 — refresh worker stays here because it needs to call
+    // CompliancesService.refreshProjectComplianceCache (forwardRef).
+    ComplianceRefreshConsumer,
   ],
-  exports: [CompliancesService],
+  exports: [CompliancesService, ComplianceRefreshModule],
 })
 export class CompliancesModule {}

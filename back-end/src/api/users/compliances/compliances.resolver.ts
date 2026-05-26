@@ -240,6 +240,45 @@ export class CompliancesResolver {
     }
   }
 
+  // Task #297 — "Refresh now" entry point. Fully rebuilds the persisted
+  // compliance cache for one project across both PTA and RTA and across
+  // every active check. Wired to the Refresh button on the Compliance
+  // overview page so a user who just fixed something doesn't have to
+  // wait for the 08:00 UTC cron or the 5s debounced background worker.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.RESTRICTED_PORTAL_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+  )
+  @Mutation(() => FetchAllCompliancesResponse, {
+    name: 'forceRefreshProjectCompliance',
+    description:
+      'Rebuild the persisted compliance cache for a project across PTA and RTA. Used by the Compliance page Refresh button.',
+  })
+  async forceRefreshProjectCompliance(
+    @Args('projectId', {
+      description:
+        'The unique identifier of the project whose compliance cache should be rebuilt',
+    })
+    projectId: number,
+  ): Promise<any> {
+    try {
+      const summary =
+        await this.compliancesService.refreshProjectComplianceCache(
+          Number(projectId),
+        );
+      return framedResponse(
+        'SUCCESS',
+        `Compliance refreshed (PTA: ${summary.pta}, RTA: ${summary.rta}, failed: ${summary.failed})`,
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     Role.RESTRICTED_PORTAL_ADMIN,

@@ -235,6 +235,11 @@ export class ContractDetailsService {
           bank_account_type: 'Retention Trust Account',
           failedFilter: false,
         });
+        // Task #297: invalidate the persisted compliance cache.
+        await this.complianceService.markComplianceDirty(
+          response.project_id,
+          'contract.create',
+        );
         this.logger.log(`Compliance recalculation success`);
       }
 
@@ -1197,6 +1202,11 @@ export class ContractDetailsService {
               `[POST_COMMIT] RTA compliance recalc failed for project_id=${contract.project_id}: ${err?.message || err}`,
             );
           }
+          // Task #297: invalidate the persisted compliance cache.
+          await this.complianceService.markComplianceDirty(
+            contract.project_id,
+            'contract.update',
+          );
         }
 
         const contractLink =
@@ -1436,6 +1446,11 @@ export class ContractDetailsService {
                         failedFilter: false,
                       },
                     );
+                  // Task #297: invalidate the persisted compliance cache.
+                  await this.complianceService.markComplianceDirty(
+                    contract.project_id,
+                    'contract.signed-upload',
+                  );
                 }
 
                 if (status === 'Deleted') {

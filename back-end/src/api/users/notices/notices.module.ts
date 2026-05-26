@@ -52,6 +52,7 @@ import { UiStatusAndActionButtons } from 'src/entities/ui-status-and-action-butt
 import { CmtyDiscussionsIdeas } from 'src/entities/cmty-discussion-idea.entity';
 import { CmtyAnswersComments } from 'src/entities/cmty-answers-comments.entity';
 import { CompliancesService } from '../compliances/compliances.service';
+import { ComplianceRefreshModule } from '../compliances/compliance-refresh.module';
 import {
   ComplianceChecks,
   ComplianceOfProjects,
@@ -81,6 +82,10 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
 
 @Module({
   imports: [
+    // Task #297 — gives the locally-provided CompliancesService its
+    // ComplianceRefreshProducer dep so `markComplianceDirty` actually
+    // enqueues a refresh from this module's write paths.
+    ComplianceRefreshModule,
     TypeOrmModule.forFeature([
       UserDetails,
       CompanyDetails,

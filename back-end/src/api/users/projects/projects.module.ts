@@ -12,6 +12,7 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { BankAccounts, PaymentClaims } from 'src/entities/banking.entity';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { CompliancesService } from '../compliances/compliances.service';
+import { ComplianceRefreshModule } from '../compliances/compliance-refresh.module';
 import {
   ComplianceChecks,
   ComplianceOfProjects,
@@ -69,6 +70,10 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
 
 @Module({
   imports: [
+    // Task #297 — wires ComplianceRefreshProducer into the locally
+    // provided CompliancesService so project-side write paths can
+    // self-heal the compliance cache.
+    ComplianceRefreshModule,
     BullModule.registerQueue({
       name: 'xero-refresh-token',
     }),

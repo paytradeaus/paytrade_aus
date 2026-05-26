@@ -35,6 +35,7 @@ import { XeroSyncLogs } from 'src/entities/xero-sync-logs.entity';
 import { JwtInternalService } from 'src/libs/@jwt-internal-services/jwt.internal.service';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { CompliancesService } from '../compliances/compliances.service';
+import { ComplianceRefreshModule } from '../compliances/compliance-refresh.module';
 import {
   ComplianceChecks,
   ComplianceOfProjects,
@@ -89,6 +90,10 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
 
 @Module({
   imports: [
+    // Task #297 — wires ComplianceRefreshProducer into the locally
+    // provided CompliancesService so contract write paths can
+    // self-heal the compliance cache.
+    ComplianceRefreshModule,
     BullModule.registerQueue({
       name: 'xero-refresh-token',
     }),

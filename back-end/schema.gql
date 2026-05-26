@@ -15533,6 +15533,16 @@ type Mutation {
   ): FileUploadResponse!
 
   """
+  Rebuild the persisted compliance cache for a project across PTA and RTA. Used by the Compliance page Refresh button.
+  """
+  forceRefreshProjectCompliance(
+    """
+    The unique identifier of the project whose compliance cache should be rebuilt
+    """
+    projectId: Float!
+  ): FetchAllCompliancesResponse!
+
+  """
   Generate an audit report for a specific date range with subscription validation and return a secure download link.
   """
   generateAuditReport(

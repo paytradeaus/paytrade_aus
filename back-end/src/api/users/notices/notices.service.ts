@@ -302,6 +302,12 @@ export class NoticesService {
           failedFilter: false,
         });
 
+        // Task #297: invalidate the persisted compliance cache.
+        await this.complianceService.markComplianceDirty(
+          payload.project_id,
+          'notice.create',
+        );
+
         this.logger.log(
           ` Compliance calc success after new notice generation with details: ${JSON.stringify(newNotice.data.notice_id)}`,
         );
@@ -615,6 +621,12 @@ export class NoticesService {
           bank_account_type: 'Retention Trust Account',
           failedFilter: false,
         });
+
+        // Task #297: invalidate the persisted compliance cache.
+        await this.complianceService.markComplianceDirty(
+          noticeDetails.project_id,
+          'notice.update',
+        );
       }
 
       return updateNotice;

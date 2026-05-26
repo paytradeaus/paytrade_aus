@@ -35,6 +35,18 @@ export class ComplianceCheckpoint {
     @Column({ type: 'boolean', default: true })
     mails: boolean;
 
+    // Task #297 — Compliance cache freshness.
+    // `is_stale` is flipped to true by `ComplianceRefreshProducer.markDirty`
+    // whenever a user action could have changed the evaluation of any rule
+    // on this project (payment confirmed, contract uploaded, notice sent,
+    // trust top-up, etc). The refresh worker — and the read-time safety
+    // net in `getComplianceData` — set it back to false after a successful
+    // resync. `last_synced_at` records the wall-clock time of that resync.
+    @Column({ type: 'boolean', default: true })
+    is_stale: boolean;
+
+    @Column({ type: 'timestamptz', nullable: true })
+    last_synced_at: Date | null;
 
     @OneToMany(() => ComplianceRule, (rule) => rule.checkpoint, { cascade: true })
     rules: ComplianceRule[];

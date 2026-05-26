@@ -99,6 +99,45 @@ export async function fetchComplianceOverview(postData: any): Promise<any> {
   }
 }
 
+// Task #297 — "Refresh now" mutation that asks the backend to rebuild the
+// persisted compliance cache for one project across PTA and RTA. The
+// Compliance overview page button calls this and then re-fetches the
+// list so the user sees the fresh evaluation immediately.
+export async function forceRefreshProjectCompliance(
+  projectId: number
+): Promise<boolean> {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation ForceRefreshProjectCompliance($projectId: Float!) {
+          forceRefreshProjectCompliance(projectId: $projectId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { projectId },
+      fetchPolicy: "no-cache",
+    });
+
+    const status = response?.data?.forceRefreshProjectCompliance?.status;
+    const message = response?.data?.forceRefreshProjectCompliance?.message;
+
+    if (status === ApiResponse.SUCCESS) {
+      showSuccessToast(message || "Compliance refreshed");
+      return true;
+    }
+    if (status === ApiResponse.ERROR) {
+      showErrorToast(message || "Could not refresh compliance");
+      return false;
+    }
+    return false;
+  } catch {
+    showErrorToast("Could not refresh compliance");
+    return false;
+  }
+}
+
 export async function silenceComplianceMail(postData: any): Promise<any> {
   try {
     const response = await apolloClient.mutate({

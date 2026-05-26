@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { useLoaderContext } from "@/context/useLoader";
 import {
   fetchComplianceOverview,
+  forceRefreshProjectCompliance,
   GetComplianceResultsOfAProject,
 } from "./complianceOverview.functions";
 
@@ -53,6 +54,26 @@ function ComplianceOverview({ isAdmin = false }: any) {
 
       setLoader(false);
     } catch {
+      setLoaderInfo("");
+      setLoader(false);
+    }
+  }
+
+  // Task #297 — manual cache refresh. Calls the backend mutation that
+  // rebuilds `compliance_checkpoint` / `compliance_rule` for both PTA
+  // and RTA, then re-reads the page so the user sees fresh data
+  // without waiting for the 08:00 UTC cron or the debounced worker.
+  async function handleRefreshClick() {
+    if (!projectId) return;
+    setLoaderInfo("Refreshing compliance...");
+    setLoader(true);
+    try {
+      await forceRefreshProjectCompliance(Number(projectId));
+      await Promise.allSettled([
+        getComplianceOverview(),
+        getComplianceTimeLine(),
+      ]);
+    } finally {
       setLoaderInfo("");
       setLoader(false);
     }
@@ -142,6 +163,19 @@ function ComplianceOverview({ isAdmin = false }: any) {
             <h1>Trust account compliance check list</h1>
             <h4>{projectId ? projectId : ""}</h4>
           </div>
+          {projectId && (
+            <div className="pt_addnewbutton">
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleRefreshClick}
+                title="Recompute compliance for this project now"
+              >
+                <i className="fa-light fa-arrows-rotate" />
+                &nbsp;Refresh
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className="pt_overviewinfo">

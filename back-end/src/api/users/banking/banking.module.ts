@@ -75,6 +75,7 @@ import { XeroManualJournalService } from 'src/api/common/integrations/xero/manua
 import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
 import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { CompliancesService } from '../compliances/compliances.service';
+import { ComplianceRefreshModule } from '../compliances/compliance-refresh.module';
 import {
   ComplianceChecks,
   ComplianceOfProjects,
@@ -121,6 +122,10 @@ import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQu
 
 @Module({
   imports: [
+    // Task #297 — wires ComplianceRefreshProducer into the locally
+    // provided CompliancesService so payments + bank-accounts write
+    // paths can self-heal the compliance cache.
+    ComplianceRefreshModule,
     BullModule.registerQueue({
       name: 'xero-refresh-token',
     }),

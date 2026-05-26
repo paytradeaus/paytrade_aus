@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import {
   FetchAllComplianceResultsInDashboardInput,
@@ -33,6 +33,7 @@ import { Role } from 'src/api/auth/role-guard/role.enum';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
+import { ComplianceRefreshProducer } from './compliance-refresh.producer';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
@@ -61,8 +62,130 @@ export class CompliancesService {
     private readonly ptContentService: PtContentsService,
     private readonly emailServices: EmailService,
     private emailQueueProducer: EmailQueueProducer,
+    // Task #297 — event-driven compliance cache freshness. Marked
+    // `@Optional()` because CompliancesService is registered as a
+    // provider directly inside several sibling modules (NoticesModule,
+    // PaymentsModule, ContractDetailsModule, BankAccountsModule, ...)
+    // that don't import CompliancesModule and therefore have no
+    // ComplianceRefreshProducer in scope. In those contexts the
+    // invalidation simply no-ops (those modules already invalidate via
+    // their own injected CompliancesService instance from CompliancesModule
+    // when applicable). In CompliancesModule itself, DI supplies the
+    // real producer and self-healing works as designed.
+    @Optional()
+    private readonly complianceRefreshProducer?: ComplianceRefreshProducer,
   ) {
     this.logger = new PaytradeLogger('COMPLIANCES_SERVICE');
+  }
+
+  /**
+   * Task #297 — public invalidation entry point used by every write path
+   * (payments, contracts, notices, bank accounts, trust movements, ...).
+   * Safe to call from anywhere that already injects `CompliancesService`;
+   * non-blocking and never throws into the caller's transaction.
+   */
+  async markComplianceDirty(
+    projectId: number,
+    trigger?: string,
+  ): Promise<void> {
+    if (!projectId) return;
+    if (!this.complianceRefreshProducer) return;
+    try {
+      await this.complianceRefreshProducer.markDirty(
+        Number(projectId),
+        trigger,
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `markComplianceDirty failed for project ${projectId} (${trigger ?? '-'}): ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Task #297 — full rebuild of the persisted compliance cache for a
+   * single project. Iterates every active check on both PTA and RTA and
+   * calls the existing `syncCompliancesOfProject` path, which writes
+   * through `saveFullComplianceData` (and therefore flips `is_stale`
+   * back to false + stamps `last_synced_at`).
+   *
+   * Called by:
+   *   - `ComplianceRefreshConsumer` (debounced BullMQ worker)
+   *   - the read-time safety net inside `getComplianceData`
+   *   - the `forceRefreshProjectCompliance` admin/user mutation
+   */
+  async refreshProjectComplianceCache(
+    projectId: number,
+  ): Promise<{ pta: number; rta: number; failed: number }> {
+    const summary = { pta: 0, rta: 0, failed: 0 };
+    if (!projectId) return summary;
+
+    // Capture the wall-clock moment we started, BEFORE any sync runs.
+    // We use this as a watermark when clearing orphan stale rows at
+    // the end: any row whose `last_synced_at` is older than this (or
+    // null) was not touched by `saveFullComplianceData` during this
+    // pass, so it is either a brand-new orphan or a row for a check
+    // that no longer applies — safe to mark fresh. Rows touched by
+    // this pass already have `last_synced_at >= startedAt` set by
+    // `saveFullComplianceData`, and rows that a concurrent write
+    // re-dirtied AFTER `saveFullComplianceData` also have
+    // `last_synced_at >= startedAt` — so the watermark protects both
+    // cases from being clobbered.
+    const startedAt = new Date();
+
+    for (const bankType of [
+      'Project Trust Account',
+      'Retention Trust Account',
+    ] as const) {
+      const isPTA = bankType === 'Project Trust Account';
+      const allChecks = await this.complianceChecksRepo.find({
+        where: { bank_account_type: bankType },
+      });
+      const uniqueCheckNumbers = [
+        ...new Set(allChecks.map((c) => c.check_number)),
+      ];
+
+      for (const checkNumber of uniqueCheckNumbers) {
+        try {
+          await this.syncCompliancesOfProject(projectId, checkNumber, isPTA);
+          if (isPTA) summary.pta += 1;
+          else summary.rta += 1;
+        } catch (err: any) {
+          summary.failed += 1;
+          this.logger.error(
+            `refreshProjectComplianceCache failed project=${projectId} check=${checkNumber} (${bankType}): ${err?.message || err}`,
+          );
+        }
+      }
+    }
+
+    // Defensive: clear `is_stale` ONLY on orphan rows that this pass
+    // never touched (e.g. a project with zero applicable RTA checks,
+    // or a checkpoint for a check that no longer exists in
+    // `compliance_checks`). Crucially we do NOT touch rows whose
+    // `last_synced_at` was bumped during this pass — those include
+    // both freshly-saved rows AND rows that a concurrent
+    // `markComplianceDirty` re-dirtied between
+    // `saveFullComplianceData` and this final query. Without this
+    // guard the blanket clear would silently lose a legitimate
+    // mid-flight dirty signal.
+    try {
+      await this.checkpointRepo
+        .createQueryBuilder()
+        .update()
+        .set({ is_stale: false, last_synced_at: new Date() })
+        .where(
+          'project_id = :pid AND (last_synced_at IS NULL OR last_synced_at < :startedAt)',
+          { pid: Number(projectId), startedAt },
+        )
+        .execute();
+    } catch (err: any) {
+      this.logger.error(
+        `refreshProjectComplianceCache: orphan clear failed for project ${projectId}: ${err?.message || err}`,
+      );
+    }
+
+    return summary;
   }
 
   private log(message: string) {
@@ -501,6 +624,47 @@ export class CompliancesService {
         },
       },
     });
+
+    // Task #297 — read-time safety net. If any checkpoint for this
+    // project is flagged `is_stale` (typically because a recent write
+    // called `markComplianceDirty` but the debounced refresh worker
+    // hasn't run yet), attempt a synchronous fast-path recompute with a
+    // hard 3s timeout. On success we re-read fresh rows; on timeout or
+    // error we fall through and serve the stale cache so the UI never
+    // hangs. This is the line of defence that means the Compliance page
+    // is consistent the moment the user navigates back to it.
+    if (
+      checkpoints.length > 0 &&
+      data.project_id &&
+      checkpoints.some((c) => c.is_stale)
+    ) {
+      try {
+        await Promise.race([
+          this.refreshProjectComplianceCache(Number(data.project_id)),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('compliance read-time refresh timeout')),
+              3000,
+            ),
+          ),
+        ]);
+        checkpoints = await this.checkpointRepo.find({
+          where: {
+            project_id: data.project_id,
+            bank_account_type: data.bank_account_type,
+          },
+          relations: ['rules'],
+          order: {
+            check_number: 'ASC',
+            rules: { rule_number: 'ASC' },
+          },
+        });
+      } catch (refreshErr: any) {
+        this.logger.warn?.(
+          `Read-time compliance refresh skipped for project ${data.project_id}: ${refreshErr?.message || refreshErr}`,
+        );
+      }
+    }
 
     if (!checkpoints.length && data.project_id) {
       this.logger.log(
@@ -1042,6 +1206,9 @@ export class CompliancesService {
         await this.checkpointRepo.delete(existingCheckpoint.id);
       }
 
+      // Task #297: this synthetic "inactive" checkpoint is also fresh.
+      newCheckpoint.is_stale = false;
+      newCheckpoint.last_synced_at = new Date();
       await this.checkpointRepo.save(newCheckpoint);
       return { message: 'Check is inactive, basic rule saved.' };
     }
@@ -1877,7 +2044,22 @@ export class CompliancesService {
           existingCheckpoint.check_colour_code = item.check_colour_code || null;
           existingCheckpoint.mails = true;
           existingCheckpoint.rules = newRules;
+          // Task #297: this row is being rebuilt from a fresh live
+          // evaluation — clear the dirty flag and stamp the sync time.
+          existingCheckpoint.is_stale = false;
+          existingCheckpoint.last_synced_at = new Date();
           checkpointsToSave.push(existingCheckpoint);
+        } else {
+          // Even when nothing rule-level changed, the cache is now
+          // considered fresh — flip the freshness fields if needed.
+          if (
+            existingCheckpoint.is_stale === true ||
+            !existingCheckpoint.last_synced_at
+          ) {
+            existingCheckpoint.is_stale = false;
+            existingCheckpoint.last_synced_at = new Date();
+            checkpointsToSave.push(existingCheckpoint);
+          }
         }
       } else {
         const newCheckpoint = new ComplianceCheckpoint();
@@ -1888,6 +2070,9 @@ export class CompliancesService {
         newCheckpoint.check_colour_code = item.check_colour_code || null;
         newCheckpoint.mails = true;
         newCheckpoint.rules = newRules;
+        // Task #297: freshly built → never stale.
+        newCheckpoint.is_stale = false;
+        newCheckpoint.last_synced_at = new Date();
 
         newRules.forEach((r) => (r.checkpoint = newCheckpoint));
         checkpointsToSave.push(newCheckpoint);

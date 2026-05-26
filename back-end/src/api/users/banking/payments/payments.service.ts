@@ -1351,6 +1351,14 @@ export class PaymentsService {
               bank_account_type: 'Retention Trust Account',
               failedFilter: false,
             });
+          // Task #297: persist the recomputed evaluation into the
+          // compliance cache so the Compliance page / Projects list /
+          // Dashboard / email all see this change without waiting for
+          // the 08:00 UTC cron.
+          await this.complianceService.markComplianceDirty(
+            data.project_id,
+            'payment.update',
+          );
         }
       }
 
@@ -2123,6 +2131,11 @@ export class PaymentsService {
               bank_account_type: 'Retention Trust Account',
               failedFilter: false,
             });
+          // Task #297: invalidate the persisted compliance cache.
+          await this.complianceService.markComplianceDirty(
+            paymentDetails.project_id,
+            'payment.write',
+          );
         }
       }
       return response;
@@ -2900,6 +2913,11 @@ export class PaymentsService {
               bank_account_type: 'Retention Trust Account',
               failedFilter: false,
             });
+          // Task #297: invalidate the persisted compliance cache.
+          await this.complianceService.markComplianceDirty(
+            paymentDetails.project_id,
+            'payment.confirm',
+          );
         }
       }
 
