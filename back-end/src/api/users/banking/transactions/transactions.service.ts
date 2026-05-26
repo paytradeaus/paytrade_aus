@@ -2882,7 +2882,16 @@ export class TransactionsService {
         const cN = creditCol >= 0 ? parseAmount(cells[creditCol] || '') : null;
         if (dN != null && dN !== 0) amount = -Math.abs(dN);
         else if (cN != null && cN !== 0) amount = Math.abs(cN);
-        else amount = 0;
+        else {
+          // Task #311 — Bank exports (notably NAB) include informational
+          // rows like "PLEASE NOTE … INTEREST RATE …" with empty Debit
+          // and Credit cells. Don't manufacture a zero amount for these;
+          // skip the row entirely so downstream validation isn't tripped
+          // by a synthetic $0. Rows that arrived via an explicit Amount
+          // column with value 0 still flow through and get caught by
+          // storeInTemporaryTable's zero-amount guard.
+          continue;
+        }
       }
 
       const desc = descCol >= 0 ? unwrap(cells[descCol] || '') : '';
