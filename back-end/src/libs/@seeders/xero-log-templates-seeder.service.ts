@@ -34,13 +34,31 @@ export class XeroLogTemplatesSeederService implements OnApplicationBootstrap {
       const existingRows = await this.repo.find();
       const existingMap = new Map(existingRows.map((r) => [r.id, r]));
 
+      // Union helper: for `associated_log_ids` we never want the seeder
+      // to *remove* template links that exist in the DB but not in the
+      // JSON (operators or migrations may have added linkages at
+      // runtime). The effective seed value for that one column is
+      // always Union(seed, existing).
+      const effectiveSeedValue = (row: any, field: string, existing: any) => {
+        if (field !== 'associated_log_ids') return row[field] ?? null;
+        const fromSeed = Array.isArray(row[field]) ? row[field] : [];
+        const fromExisting =
+          existing && Array.isArray(existing[field]) ? existing[field] : [];
+        const merged = Array.from(new Set([...fromExisting, ...fromSeed]));
+        if (merged.length === 0) return null;
+        // Sort numerically so the comparison below is stable and we
+        // don't churn-update on every boot due to array order drift.
+        merged.sort((a: number, b: number) => Number(a) - Number(b));
+        return merged;
+      };
+
       const missingRows = seedRows.filter((r) => !existingMap.has(r.id));
       const staleRows = seedRows.filter((r) => {
         const existing = existingMap.get(r.id);
         if (!existing) return false;
         return SEED_COMPARE_FIELDS.some(
           (f) =>
-            JSON.stringify(r[f] ?? null) !==
+            JSON.stringify(effectiveSeedValue(r, f, existing)) !==
             JSON.stringify(existing[f] ?? null),
         );
       });
@@ -79,11 +97,12 @@ export class XeroLogTemplatesSeederService implements OnApplicationBootstrap {
           const updatePayload: Record<string, any> = {};
           const existing = existingMap.get(row.id);
           for (const f of SEED_COMPARE_FIELDS) {
+            const desired = effectiveSeedValue(row, f, existing);
             if (
-              JSON.stringify(row[f] ?? null) !==
+              JSON.stringify(desired) !==
               JSON.stringify(existing[f] ?? null)
             ) {
-              updatePayload[f] = row[f] ?? null;
+              updatePayload[f] = desired;
             }
           }
           await this.repo.update(row.id, updatePayload);

@@ -1674,6 +1674,51 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       xeroSyncLog = await this.xeroSyncLogs.findOne({
         where: { id: createXeroSyncLogInput?.id },
       });
+
+      // Task #303 — UPDATE-branch self-heal. When a previously
+      // Pending/Failed sync log is updated to a Succeeded template
+      // (e.g. a sync-recovery retry that flips the existing row
+      // rather than inserting a fresh one), apply the same
+      // auto-archive sweep the INSERT branch already does so prior
+      // Failed rows for the same resource disappear from the UI.
+      try {
+        const updatedTemplateId =
+          createXeroSyncLogInput.log_template_id ??
+          xeroSyncLog?.log_template_id;
+        if (updatedTemplateId) {
+          const updatedTemplate = await this.xeroLogTemplates.findOne({
+            where: { id: updatedTemplateId },
+          });
+          if (
+            xeroSyncLog &&
+            updatedTemplate?.sync_status === 'Succeeded'
+          ) {
+            const resolvedTemplateIds = [
+              updatedTemplateId,
+              ...(updatedTemplate?.associated_log_ids || []),
+            ].filter((v) => v != null);
+            const effectiveApiPayload =
+              createXeroSyncLogInput.api_payload ||
+              xeroSyncLog.api_payload ||
+              {};
+            const archivedCount = await this.autoArchivePriorFailedLogs(
+              xeroSyncLog.integration_id,
+              effectiveApiPayload,
+              xeroSyncLog.sync_id,
+              resolvedTemplateIds,
+            );
+            if (archivedCount > 0) {
+              this.logger.log(
+                `[insertXeroSyncLogs:UPDATE] Auto-archived ${archivedCount} prior failed log(s) — resolved by sync_id=${xeroSyncLog.sync_id} (integration_id=${xeroSyncLog.integration_id})`,
+              );
+            }
+          }
+        }
+      } catch (autoArchiveErr: any) {
+        this.logger.warn(
+          `[insertXeroSyncLogs:UPDATE] Auto-archive of prior failed logs threw (non-fatal): ${autoArchiveErr?.message || autoArchiveErr}`,
+        );
+      }
     }
 
     return xeroSyncLog;
@@ -1844,6 +1889,38 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
 
     const archiveNote = `Auto-resolved: subsequent successful import (sync_id ${resolvingSyncId})`;
+    // Defensive denylist (Task #303): regardless of what a Failed
+    // template's `associated_log_ids` claims, never auto-archive
+    // failure classes whose resolution is NOT proven by a later
+    // successful import on the same resource key:
+    //   - delete-intent failures (user asked Xero to delete it)
+    //   - edit-not-found failures (resource missing on edit)
+    //   - subscription-gate failures (plan/feature lock-outs)
+    // A bad/legacy linkage in `associated_log_ids` (preserved by
+    // the seeder UNION) cannot bypass this filter.
+    const FORBIDDEN_AUTO_ARCHIVE_TEMPLATES = [
+      31,  // EDIT_BANK_NOT_MAPPED → edit failure
+      32,  // EDIT_CONTACT_NOT_MAPPED → edit failure
+      33,  // DELETE_BANK → delete intent
+      34,  // DELETE_CONTACT → delete intent
+      36,  // DELETE_CONTRACT → delete intent
+      39,  // DELETE_BANK_NOT_MAPPED → delete intent
+      40,  // DELETE_CONTACT_NOT_MAPPED → delete intent
+      42,  // DELETE_CONTRACT_NOT_MAPPED → delete intent
+      281, // EDIT_BANK_NOT_FOUND_IN_XERO
+      282, // DELETE_BANK_NOT_FOUND_IN_XERO
+      284, // EDIT_CONTACT_NOT_FOUND_IN_XERO
+      285, // DELETE_CONTACT_NOT_FOUND_IN_XERO
+      292, // DELETE_CONTRACT_MISSING_CATEGORY
+      293, // DELETE_CONTRACT_NOT_FOUND_IN_XERO
+      295, // UNDO_DELETE_CONTRACT
+      387, // SUBSCRIPTION_GATE (bank)
+      388, // SUBSCRIPTION_GATE (bank)
+      389, // CONTACT_CANNOT_BE_DELETED
+      390, // CONTACT_CANNOT_BE_DELETED
+      403, // CONTRACT_CANNOT_BE_EDITED
+      406, // CONTRACT_CANNOT_BE_DELETED
+    ];
     // Match Failed log_templates whose `associated_log_ids` list contains
     // the SUCCEEDED template's id, OR whose own id is in the resolved set.
     // This is the inverse linkage to the dedup gate: a Failed template
@@ -1858,6 +1935,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
          AND  l.integration_id  = $1
          AND  l.archived_at IS NULL
          AND  t.sync_status = 'Failed'
+         AND  NOT (t.id = ANY($5::int[]))
          AND  (
                 t.id = ANY($4::int[])
              OR t.associated_log_ids && $4::int[]
@@ -1870,7 +1948,13 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
                 l.api_payload->>'payment_id'
               ) = $2
        RETURNING l.id`,
-      [integrationId, String(resourceKey), archiveNote, resolvedTemplateIds],
+      [
+        integrationId,
+        String(resourceKey),
+        archiveNote,
+        resolvedTemplateIds,
+        FORBIDDEN_AUTO_ARCHIVE_TEMPLATES,
+      ],
     );
     return Array.isArray(rows) ? rows.length : 0;
   }

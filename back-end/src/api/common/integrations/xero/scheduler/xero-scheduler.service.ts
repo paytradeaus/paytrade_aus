@@ -277,6 +277,385 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           ),
         );
     }, 150_000);
+
+    // Task #303 — One-shot dedupe of duplicate TypeORM migrations
+    // table entries. The `1715731900000-AccountClosingContext`
+    // migration uses `IF NOT EXISTS` internally, so historically it
+    // got logged into `migrations` twice on some environments
+    // (causing doubled "migration already run" lines on every boot).
+    // This is a registry oddity, not a schema problem — keep the
+    // newest row, drop older copies. Idempotent: a no-op once there
+    // is only one row per name.
+    setTimeout(() => {
+      this.dedupeMigrationsTable().catch((err: any) =>
+        this.logger.warn(
+          `[Task #303] dedupeMigrationsTable failed: ${err?.message || err}`,
+        ),
+      );
+    }, 45_000);
+
+    // Task #303 — One-shot archive of template-480 legacy
+    // "invalid uuid" code-bug residue. The underlying code path was
+    // fixed (insertXeroSyncLogs now coerces non-UUID contract_id /
+    // project_id values to null with a warning instead of writing a
+    // Failed log). Historical 480 rows are harmless residue and can
+    // be archived unconditionally.
+    setTimeout(() => {
+      this.archiveLegacyInvalidUuidLogs().catch((err: any) =>
+        this.logger.warn(
+          `[Task #303] archiveLegacyInvalidUuidLogs failed: ${err?.message || err}`,
+        ),
+      );
+    }, 75_000);
+
+    // Task #303 — Run the daily stale-failure sweeper once at boot
+    // so currently-visible stragglers disappear immediately rather
+    // than waiting for the first 04:00 UTC cron tick.
+    setTimeout(() => {
+      this.staleFailureSweeperDaily().catch((err: any) =>
+        this.logger.warn(
+          `[Task #303] one-shot staleFailureSweeperDaily failed: ${err?.message || err}`,
+        ),
+      );
+    }, 180_000);
+  }
+
+  /**
+   * Task #303 — Idempotent one-shot: collapse duplicate rows in
+   * TypeORM's `migrations` registry. Keeps the newest `id` for each
+   * `name`, deletes older duplicates. Safe to re-run on every boot:
+   * does nothing once each migration name has only one row.
+   */
+  async dedupeMigrationsTable(): Promise<void> {
+    try {
+      const dupes = await this.dataSource.query(
+        `SELECT name, COUNT(*) AS c
+         FROM   migrations
+         GROUP BY name
+         HAVING COUNT(*) > 1`,
+      );
+      if (!dupes?.length) return;
+      const result = await this.dataSource.query(
+        `DELETE FROM migrations m1
+         WHERE EXISTS (
+           SELECT 1 FROM migrations m2
+           WHERE m2.name = m1.name
+             AND m2.id  > m1.id
+         )
+         RETURNING name, id`,
+      );
+      this.logger.log(
+        `[Task #303] dedupeMigrationsTable: removed ${result?.length || 0} duplicate registry row(s) across ${dupes.length} migration name(s)`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #303] dedupeMigrationsTable threw: ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Task #303 — Archive legacy template-480 ("invalid uuid") sync
+   * logs. The code path that wrote them now coerces invalid UUIDs
+   * to null and logs a warning instead, so any surviving 480 rows
+   * are harmless code-bug residue. Idempotent: only touches rows
+   * still visible (`archived_at IS NULL`).
+   */
+  async archiveLegacyInvalidUuidLogs(): Promise<void> {
+    try {
+      const rows = await this.xeroSyncLogs.query(
+        `UPDATE xero_sync_logs
+         SET    archived_at  = now(),
+                archive_note = 'Auto-archived by daily sweeper [legacy invalid-uuid code-bug residue]',
+                updated_on   = now()
+         WHERE  log_template_id = 480
+           AND  archived_at IS NULL
+         RETURNING id`,
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        this.logger.log(
+          `[Task #303] archiveLegacyInvalidUuidLogs: archived ${rows.length} template-480 row(s)`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `[Task #303] archiveLegacyInvalidUuidLogs threw: ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Task #303 — Daily stale-failure sweeper.
+   *
+   * Many Failed Xero sync_logs survive forever because the
+   * underlying problem was resolved through a different code path
+   * than the original failure (user re-added a bank account under
+   * a new Xero account_id, fixed a contact via direct edit, the
+   * bill landed via a later manual sync rather than the original
+   * webhook, etc.). The success-path `autoArchivePriorFailedLogs`
+   * helper can't see these because it keys on the resolving
+   * sync_id's resource key, which never matches the dead failure.
+   *
+   * This sweeper closes that gap by archiving any active Failed
+   * row whose resource is now demonstrably resolved in PT,
+   * per-rule:
+   *   - bank account → PT bank_accounts row with matching
+   *     bsb_number + account_number exists in the owning company
+   *   - contact → xero_contact_details.pt_contact_id IS NOT NULL
+   *     AND contact_status='ACTIVE'
+   *   - bill / claim → xero_invoices_bills.pt_claim_id IS NOT NULL
+   *   - contract → xero_contract_details.pt_contract_id IS NOT NULL
+   *   - settings → template 294 (contract category) archives once
+   *     xero_integration_details.contract_category_id IS NOT NULL
+   *
+   * Each archive_note is rule-distinctive so operators can audit
+   * which sweep retired which row. Runs once daily at 04:00 UTC,
+   * just after the 03:00 retro_recheck cron, so the upstream noise
+   * has settled before we sweep.
+   */
+  @Cron('0 4 * * *', { timeZone: 'UTC' })
+  async staleFailureSweeperDaily(): Promise<void> {
+    const PREFIX = '[STALE_FAILURE_SWEEPER]';
+    try {
+      const activeIntegrations = await this.xeroIntegrationDetails.find({
+        where: { status: 'ACTIVE' as any },
+      });
+      if (!activeIntegrations?.length) return;
+
+      let totalArchived = 0;
+      for (const integ of activeIntegrations) {
+        if (!integ?.integration_id) continue;
+        try {
+          const archived = await this.sweepStaleFailuresForIntegration(
+            integ.integration_id,
+          );
+          if (archived > 0) {
+            totalArchived += archived;
+            this.logger.log(
+              `${PREFIX} integration_id=${integ.integration_id} archived=${archived}`,
+            );
+          }
+        } catch (perIntegErr: any) {
+          this.logger.warn(
+            `${PREFIX} integration_id=${integ.integration_id} sweep failed: ${perIntegErr?.message || perIntegErr}`,
+          );
+        }
+      }
+      this.logger.log(
+        `${PREFIX} done — integrations=${activeIntegrations.length} total_archived=${totalArchived}`,
+      );
+    } catch (err: any) {
+      this.logger.error(`${PREFIX} fatal: ${err?.message || err}`);
+    }
+  }
+
+  /**
+   * Per-integration stale-failure sweep. Each rule runs as a single
+   * idempotent UPDATE...FROM with a rule-distinctive archive_note.
+   * Only operates on currently-visible Failed rows
+   * (archived_at IS NULL). Returns total archived count.
+   */
+  private async sweepStaleFailuresForIntegration(
+    integrationId: number,
+  ): Promise<number> {
+    let archived = 0;
+
+    // Each rule below scopes Failed-template archiving to an explicit
+    // allowlist of `log_template_id` values whose underlying issue is
+    // genuinely resolved by the rule's side-channel signal
+    // (mapping / availability). Delete-intent (33/34/36/42/...), edit
+    // failures (31/32/...), not-found-on-edit (281/284/285/293/...),
+    // and subscription gates (387/388) are deliberately EXCLUDED:
+    // "the PT row now exists" is not proof those problems were
+    // resolved. This avoids hiding still-actionable failures.
+
+    // Rule 1 — Bill / claim. Archive when the matching
+    // xero_invoices_bills row has been linked to a PT claim
+    // (pt_claim_id IS NOT NULL). Covers webhook template 350
+    // ("received date in future") once the bill later imports, plus
+    // 412/413/414 bill-import failures whose bill eventually landed
+    // via manual sync, plus 520 (manual two-sided), plus 453
+    // (webhook companion). The pt_claim_id signal is strong on its
+    // own — it only flips once the bill has actually been
+    // round-tripped into PT.
+    const BILL_RESOLVED_TEMPLATES = [350, 412, 413, 414, 453, 520];
+    const billRows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at  = now(),
+              archive_note = 'Auto-resolved by daily sweeper [bill linked to PT claim]',
+              updated_on   = now()
+       WHERE  l.integration_id  = $1
+         AND  l.archived_at IS NULL
+         AND  l.log_template_id = ANY($2::int[])
+         AND  l.api_payload->>'invoice_id' IS NOT NULL
+         AND  EXISTS (
+                SELECT 1 FROM xero_invoices_bills xib
+                WHERE xib.integration_id = l.integration_id
+                  AND xib.invoice_id::text = l.api_payload->>'invoice_id'
+                  AND xib.pt_claim_id IS NOT NULL
+              )
+       RETURNING l.id`,
+      [integrationId, BILL_RESOLVED_TEMPLATES],
+    );
+    archived += Array.isArray(billRows) ? billRows.length : 0;
+
+    // Rule 2 — Contact. Archive when xero_contact_details for that
+    // contact has a pt_contact_id mapping AND is ACTIVE. Allowlist
+    // covers mapping/import/missing-fields/name-conflict family
+    // only — explicitly excludes delete-intent and edit-not-found
+    // codes, which are not resolved by a mapping appearing.
+    const CONTACT_RESOLVED_TEMPLATES = [
+      28,  // SYNC_ADD_CONTACT_TO_XERO
+      38,  // EDIT_CONTACT_NOT_MAPPED
+      75,  // ADD_CONTACT_ALREADY_MAPPED_TO_PAYTRADE
+      264, // legacy contact-import failure
+      265, // legacy contact-import failure
+      283, // ADD_CONTACT_ALREADY_MAPPED_TO_XERO
+      364, // CONTACT_NAME_EXISTS_AND_MAPPED
+      366, // CONTACT_MISSING_FIELDS
+      367, // CONTACT_NAME_EXISTS_BUT_UNMAPPED
+      368, // WH_CONTACT_MISSING_FIELDS
+      369, // WH_CONTACT_NAME_EXISTS_BUT_UNMAPPED
+      370, // WH_CONTACT_NAME_EXISTS_AND_MAPPED
+      384, // SCHEDULER_CONTACT_MISSING_FIELDS
+      385, // SCHEDULER_CONTACT_NAME_EXISTS_BUT_UNMAPPED
+      386, // SCHEDULER_CONTACT_NAME_EXISTS_AND_MAPPED
+    ];
+    const contactRows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at  = now(),
+              archive_note = 'Auto-resolved by daily sweeper [contact mapped to PT contact]',
+              updated_on   = now()
+       WHERE  l.integration_id  = $1
+         AND  l.archived_at IS NULL
+         AND  l.log_template_id = ANY($2::int[])
+         AND  l.api_payload->>'contact_id' IS NOT NULL
+         AND  EXISTS (
+                SELECT 1 FROM xero_contact_details xcd
+                WHERE xcd.integration_id = l.integration_id
+                  AND xcd.contact_id::text = l.api_payload->>'contact_id'
+                  AND xcd.pt_contact_id IS NOT NULL
+                  AND xcd.contact_status = 'ACTIVE'
+              )
+       RETURNING l.id`,
+      [integrationId, CONTACT_RESOLVED_TEMPLATES],
+    );
+    archived += Array.isArray(contactRows) ? contactRows.length : 0;
+
+    // Rule 3 — Contract. Archive when xero_contract_details.pt_contract_id
+    // is set. Allowlist covers add/mapping/missing-fields/name-conflict
+    // contract families; excludes delete/undo-delete/cannot-be-edited
+    // codes and template 294 (handled by the settings rule).
+    const CONTRACT_RESOLVED_TEMPLATES = [
+      30,  // SYNC_ADD_CONTRACT_TO_XERO
+      80,  // MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD
+      82,  // MISSING_CONTRACT_TRACKING_CATEGORY_ID_FROM_XERO
+      290, // SYNC_PROJECT_CATEGORY_NOT_FOUND
+      291, // ADD_CONTRACT_ALREADY_MAPPED_TO_XERO
+      375, // CONTRACT_MISSING_FIELDS
+      376, // CONTRACT_NAME_EXISTS_BUT_UNMAPPED
+      377, // CONTRACT_NAME_EXISTS_AND_MAPPED
+      402, // SCHEDULER_MISSING_CONTRACT_TRACKING_CATEGORY_ID
+      407, // SCHEDULER_CONTRACT_NAME_EXISTS_AND_MAPPED
+      408, // SCHEDULER_CONTRACT_NAME_EXISTS_BUT_UNMAPPED
+      409, // SCHEDULER_CONTRACT_MISSING_FIELDS
+    ];
+    const contractRows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at  = now(),
+              archive_note = 'Auto-resolved by daily sweeper [contract mapped to PT contract]',
+              updated_on   = now()
+       WHERE  l.integration_id  = $1
+         AND  l.archived_at IS NULL
+         AND  l.log_template_id = ANY($2::int[])
+         AND  l.api_payload->>'contract_id' IS NOT NULL
+         AND  EXISTS (
+                SELECT 1 FROM xero_contract_details xcd
+                WHERE xcd.integration_id = l.integration_id
+                  AND xcd.contract_id::text = l.api_payload->>'contract_id'
+                  AND xcd.pt_contract_id IS NOT NULL
+              )
+       RETURNING l.id`,
+      [integrationId, CONTRACT_RESOLVED_TEMPLATES],
+    );
+    archived += Array.isArray(contractRows) ? contractRows.length : 0;
+
+    // Rule 4 — Bank account. Archive when a PT bank_accounts row
+    // exists in the owning company with matching BSB + account
+    // number (the "user re-added under a different Xero account_id"
+    // case). Allowlist excludes delete-intent (33/39/282), edit
+    // failures (31), edit-not-found (281), and subscription-gate
+    // (387/388) — those aren't resolved by the PT account
+    // existing. We resolve BSB+account_number from the api_payload
+    // first, then fall back to xero_bank_account_details looked up
+    // by api_payload.account_id, so both shapes are covered.
+    const BANK_RESOLVED_TEMPLATES = [
+      27,  // SYNC_ADD_BANK_TO_XERO
+      37,  // EDIT_BANK_NOT_MAPPED
+      74,  // ADD_BANK_ALREADY_MAPPED_TO_PAYTRADE
+      280, // ADD_BANK_ALREADY_MAPPED_TO_XERO
+      365, // BANK_MISSING_FIELDS
+      379, // SCHEDULER_BANK_MISSING_FIELDS
+    ];
+    const bankRows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at  = now(),
+              archive_note = 'Auto-resolved by daily sweeper [bank account BSB+number match]',
+              updated_on   = now()
+       FROM   xero_integration_details xid
+       WHERE  l.integration_id   = $1
+         AND  xid.integration_id = l.integration_id
+         AND  l.archived_at IS NULL
+         AND  l.log_template_id = ANY($2::int[])
+         AND  (
+                l.api_payload->>'account_id'     IS NOT NULL
+             OR l.api_payload->>'account_number' IS NOT NULL
+              )
+         AND  EXISTS (
+                SELECT 1
+                FROM   bank_accounts ba
+                LEFT JOIN xero_bank_account_details xba
+                       ON xba.integration_id = l.integration_id
+                      AND xba.account_id::text = l.api_payload->>'account_id'
+                WHERE  ba.company_id = xid.company_id
+                  AND  ba.account_number IS NOT NULL
+                  AND  ba.bsb_number     IS NOT NULL
+                  AND  ba.status IN ('Active','Open','Draft')
+                  AND  ba.account_number = COALESCE(
+                         NULLIF(l.api_payload->>'account_number',''),
+                         xba.account_number
+                       )
+                  AND  ba.bsb_number::text = COALESCE(
+                         NULLIF(l.api_payload->>'bsb_number',''),
+                         xba.bsb_number::text
+                       )
+              )
+       RETURNING l.id`,
+      [integrationId, BANK_RESOLVED_TEMPLATES],
+    );
+    archived += Array.isArray(bankRows) ? bankRows.length : 0;
+
+    // Rule 5 — Settings-driven. Template 294 "missing contract
+    // tracking category id" archives once the owning integration
+    // has contract_category_id configured. Mirror-ready for
+    // project_category_id-driven templates if/when one is added.
+    const settingsRows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at  = now(),
+              archive_note = 'Auto-resolved by daily sweeper [contract tracking category now configured]',
+              updated_on   = now()
+       FROM   xero_integration_details xid
+       WHERE  l.integration_id   = $1
+         AND  xid.integration_id = l.integration_id
+         AND  l.archived_at IS NULL
+         AND  l.log_template_id  = 294
+         AND  xid.contract_category_id IS NOT NULL
+       RETURNING l.id`,
+      [integrationId],
+    );
+    archived += Array.isArray(settingsRows) ? settingsRows.length : 0;
+
+    return archived;
   }
 
   /**

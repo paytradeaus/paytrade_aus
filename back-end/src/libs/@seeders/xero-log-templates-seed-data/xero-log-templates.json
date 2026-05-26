@@ -2610,7 +2610,7 @@
   {
     "id": 260,
     "sync_type": "Invoice webhook",
-    "description": "<p>Bill skipped — line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment) and does not belong in PayTrade. Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
+    "description": "<p>Bill skipped \u2014 line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment) and does not belong in PayTrade. Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Info",
     "from_xero": true,
@@ -2622,7 +2622,7 @@
   {
     "id": 261,
     "sync_type": "Invoice webhook",
-    "description": "<p>Bill skipped — one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
+    "description": "<p>Bill skipped \u2014 one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Info",
     "from_xero": true,
@@ -3584,7 +3584,8 @@
     "from_xero": true,
     "error_code": "WH_CLAIM_RECEIVED_DATE_IN_FUTURE",
     "associated_log_ids": [
-      453
+      453,
+      475
     ]
   },
   {
@@ -4297,7 +4298,10 @@
     "from_xero": true,
     "error_code": "SCHEDULER_RESOURCE_NOT_FOUND",
     "associated_log_ids": [
-      252
+      252,
+      411,
+      51,
+      64
     ]
   },
   {
@@ -4309,7 +4313,10 @@
     "from_xero": true,
     "error_code": "SCHEDULER_ATLEAST_ONE_LINE_ITEM",
     "associated_log_ids": [
-      253
+      253,
+      411,
+      51,
+      64
     ]
   },
   {
@@ -4321,7 +4328,10 @@
     "from_xero": true,
     "error_code": "SCHEDULER_TRACKING_ID_MISSING",
     "associated_log_ids": [
-      254
+      254,
+      411,
+      51,
+      64
     ]
   },
   {
@@ -4387,7 +4397,7 @@
   {
     "id": 420,
     "sync_type": "Invoice schedulers",
-    "description": "<p>Bill skipped (scheduler) — line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
+    "description": "<p>Bill skipped (scheduler) \u2014 line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Info",
     "from_xero": true,
@@ -4399,7 +4409,7 @@
   {
     "id": 421,
     "sync_type": "Invoice schedulers",
-    "description": "<p>Bill skipped (scheduler) — one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
+    "description": "<p>Bill skipped (scheduler) \u2014 one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Info",
     "from_xero": true,
@@ -5189,7 +5199,7 @@
   {
     "id": 603,
     "sync_type": "Retention journals",
-    "description": "<p>Skipped GST gross-up for claim {{payment_claim_id}} — {{reason}}.</p>",
+    "description": "<p>Skipped GST gross-up for claim {{payment_claim_id}} \u2014 {{reason}}.</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5219,7 +5229,7 @@
   {
     "id": 606,
     "sync_type": "Retention journals",
-    "description": "<p>Ignored Manual Journal {{manual_journal_id}} webhook — self-echo of PayTrade-posted gross-up.</p>",
+    "description": "<p>Ignored Manual Journal {{manual_journal_id}} webhook \u2014 self-echo of PayTrade-posted gross-up.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Succeeded",
     "from_xero": true,
@@ -5269,7 +5279,7 @@
   {
     "id": 489,
     "sync_type": "Payments",
-    "description": "<p>Retention bank transfer rejected for invoice {{invoice_number}} — candidate transfer dated {{transfer_date}} is outside the &plusmn;14 day matching window from payment date {{payment_date}}.</p>",
+    "description": "<p>Retention bank transfer rejected for invoice {{invoice_number}} \u2014 candidate transfer dated {{transfer_date}} is outside the &plusmn;14 day matching window from payment date {{payment_date}}.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -5279,7 +5289,7 @@
   {
     "id": 490,
     "sync_type": "Payments",
-    "description": "<p>Multiple retention bank transfers matched after tightening (account AND on from/to + &plusmn;14 day window) for invoice {{invoice_number}}. Manual reconciliation required — candidate IDs: {{candidate_ids}}.</p>",
+    "description": "<p>Multiple retention bank transfers matched after tightening (account AND on from/to + &plusmn;14 day window) for invoice {{invoice_number}}. Manual reconciliation required \u2014 candidate IDs: {{candidate_ids}}.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -5289,7 +5299,7 @@
   {
     "id": 491,
     "sync_type": "Payments",
-    "description": "<p>Confirm Paid un-ticked — Xero Payment {{payment_id}} on invoice {{invoice_number}} was deleted (status set to DELETED).</p>",
+    "description": "<p>Confirm Paid un-ticked \u2014 Xero Payment {{payment_id}} on invoice {{invoice_number}} was deleted (status set to DELETED).</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5299,7 +5309,7 @@
   {
     "id": 492,
     "sync_type": "Payments",
-    "description": "<p>Confirm Retention un-ticked — Xero BankTransfer {{bank_transfer_id}} reversed (new transfer {{reversal_id}} posted from retention account back to operating account).</p>",
+    "description": "<p>Confirm Retention un-ticked \u2014 Xero BankTransfer {{bank_transfer_id}} reversed (new transfer {{reversal_id}} posted from retention account back to operating account).</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5309,7 +5319,7 @@
   {
     "id": 493,
     "sync_type": "Payments",
-    "description": "<p>Xero rejected the payment as 'exceeds amount outstanding' but invoice {{invoice_number}} is already fully paid in Xero (matched payment {{matched_payment_id}}). PayTrade has been auto-marked as already-synced — no further action required.</p>",
+    "description": "<p>Xero rejected the payment as 'exceeds amount outstanding' but invoice {{invoice_number}} is already fully paid in Xero (matched payment {{matched_payment_id}}). PayTrade has been auto-marked as already-synced \u2014 no further action required.</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5329,7 +5339,7 @@
   {
     "id": 495,
     "sync_type": "Payments",
-    "description": "<p>Xero rejected the new BankTransfer but an existing transfer with reference {{reference}} was found in Xero (BankTransfer {{bank_transfer_id}}). PayTrade has been auto-linked to it — no further action required.</p>",
+    "description": "<p>Xero rejected the new BankTransfer but an existing transfer with reference {{reference}} was found in Xero (BankTransfer {{bank_transfer_id}}). PayTrade has been auto-linked to it \u2014 no further action required.</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5349,7 +5359,7 @@
   {
     "id": 497,
     "sync_type": "Payments",
-    "description": "<p>Xero rejected the retention BankTransfer (reference {{reference}}) due to an account problem — the from/to accounts may be the same, missing, or not enabled for transfers. Check the payment and retention bank account settings, then re-tick Confirm Retention. Xero error: {{error}}</p>",
+    "description": "<p>Xero rejected the retention BankTransfer (reference {{reference}}) due to an account problem \u2014 the from/to accounts may be the same, missing, or not enabled for transfers. Check the payment and retention bank account settings, then re-tick Confirm Retention. Xero error: {{error}}</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Failed",
     "from_xero": false,
@@ -5379,7 +5389,7 @@
   {
     "id": 500,
     "sync_type": "Payments",
-    "description": "<p>Retention BankTransfer (reference {{reference}}, amount {{retention_amount}}) created in Xero successfully — BankTransfer {{bank_transfer_id}} from payment account to retention trust account.</p>",
+    "description": "<p>Retention BankTransfer (reference {{reference}}, amount {{retention_amount}}) created in Xero successfully \u2014 BankTransfer {{bank_transfer_id}} from payment account to retention trust account.</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5389,7 +5399,7 @@
   {
     "id": 501,
     "sync_type": "Payments",
-    "description": "<p>Retention BankTransfer leg skipped for PT payment {{payment_id}} — an existing Xero BankTransfer ({{bank_transfer_id}}) is already mapped. No duplicate transfer was created. Un-tick Confirm Retention first if you need to re-push.</p>",
+    "description": "<p>Retention BankTransfer leg skipped for PT payment {{payment_id}} \u2014 an existing Xero BankTransfer ({{bank_transfer_id}}) is already mapped. No duplicate transfer was created. Un-tick Confirm Retention first if you need to re-push.</p>",
     "process": "Pay Trade > Xero",
     "sync_status": "Succeeded",
     "from_xero": false,
@@ -5474,12 +5484,15 @@
     "sync_status": "Failed",
     "from_xero": false,
     "error_code": "MANUAL_TWO_SIDED_DISPATCH_FAILED",
-    "associated_log_ids": null
+    "associated_log_ids": [
+      411,
+      475
+    ]
   },
   {
     "id": 521,
     "sync_type": "Payments",
-    "description": "<p>Retention bank transfer amount mismatch for invoice {{invoice_number}} — expected gross {{expected_gross}} (incl. GST where applicable), found BankTransfer {{bank_transfer_id}} for {{found_amount}} within the &plusmn;{{window_days}} day window. Likely the net was transferred instead of the gross. Review the BankTransfer in Xero, fix the amount, and re-sync.</p>",
+    "description": "<p>Retention bank transfer amount mismatch for invoice {{invoice_number}} \u2014 expected gross {{expected_gross}} (incl. GST where applicable), found BankTransfer {{bank_transfer_id}} for {{found_amount}} within the &plusmn;{{window_days}} day window. Likely the net was transferred instead of the gross. Review the BankTransfer in Xero, fix the amount, and re-sync.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Failed",
     "from_xero": true,
@@ -5602,7 +5615,7 @@
   {
     "id": 619,
     "sync_type": "Trust movements",
-    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> matched our own reference <b>{{reference}}</b> (PT payment {{payment_id}}, {{kind}}). Anti-echo applied — no PT-side action required.</p>",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> matched our own reference <b>{{reference}}</b> (PT payment {{payment_id}}, {{kind}}). Anti-echo applied \u2014 no PT-side action required.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Succeeded",
     "from_xero": true,
@@ -5645,7 +5658,7 @@
     "sync_status": "Warning",
     "from_xero": true,
     "error_code": "TRUST_MOV_INBOUND_TYPE_AMBIGUOUS",
-    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> imported as PT payment <b>{{payment_id}}</b> ({{payment_type}}) — type inference was <i>ambiguous</i>: {{reason}}. Re-classify in PayTrade if needed.</p>",
+    "description": "<p>Inbound BankTransfer <b>{{bank_transfer_id}}</b> imported as PT payment <b>{{payment_id}}</b> ({{payment_type}}) \u2014 type inference was <i>ambiguous</i>: {{reason}}. Re-classify in PayTrade if needed.</p>",
     "associated_log_ids": [
       620
     ]
@@ -5689,7 +5702,7 @@
   {
     "id": 625,
     "sync_type": "Contact archive mirror",
-    "description": "<p>Contact <b>{{contact_name}}</b> is marked <b>ARCHIVED</b> in Xero and has been hidden from Pay Trade contact pickers (status mirrored automatically). Existing contracts, claims and payments are untouched. Un-archive the contact in Xero if you want it to reappear in pickers — the nightly mirror will pick it up.</p>",
+    "description": "<p>Contact <b>{{contact_name}}</b> is marked <b>ARCHIVED</b> in Xero and has been hidden from Pay Trade contact pickers (status mirrored automatically). Existing contracts, claims and payments are untouched. Un-archive the contact in Xero if you want it to reappear in pickers \u2014 the nightly mirror will pick it up.</p>",
     "process": "Xero > Pay Trade",
     "sync_status": "Warning",
     "from_xero": true,
