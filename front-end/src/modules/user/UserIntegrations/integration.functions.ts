@@ -4258,6 +4258,77 @@ export const manualXeroResync = async (variables: {
 };
 
 /**
+ * Task #267 — One-click "Clean up archived-contact failures".
+ *
+ * Calls the admin-only `recoverArchivedContactSyncLogs` mutation. The
+ * backend returns a StringResponse whose `message` is JSON-stringified
+ * `{ success, message, scanned, updated, skipped, sample_sync_ids }`.
+ * Used for both the dry-run preview (count first) and the real sweep,
+ * which is why we suppress the success toast on dry runs — the dialog
+ * shows the preview inline.
+ */
+export const recoverArchivedContactSyncLogs = async (variables: {
+  company_id: number;
+  dry_run?: boolean;
+}): Promise<{
+  success: boolean;
+  message: string;
+  scanned?: number;
+  updated?: number;
+  skipped?: number;
+  sample_sync_ids?: Array<string | number>;
+}> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation RecoverArchivedContactSyncLogs(
+          $company_id: Float!
+          $dry_run: Boolean
+        ) {
+          recoverArchivedContactSyncLogs(
+            company_id: $company_id
+            dry_run: $dry_run
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables,
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.recoverArchivedContactSyncLogs;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return { success: false, message: "Xero re-authentication required." };
+    }
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(res?.message ?? "{}");
+    } catch {
+      parsed = {
+        success: res?.status === ApiResponse.SUCCESS,
+        message: res?.message,
+      };
+    }
+    if (!variables.dry_run) {
+      if (parsed?.success) {
+        showSuccessToast(parsed?.message || "Sweep complete");
+      } else {
+        showErrorToast(parsed?.message || "Sweep failed");
+      }
+    } else if (!parsed?.success) {
+      showErrorToast(parsed?.message || "Preview failed");
+    }
+    return parsed;
+  } catch (error: any) {
+    const msg = error?.message || ApiResponse.ERROR;
+    showErrorToast(msg);
+    return { success: false, message: msg };
+  }
+};
+
+/**
  * Archive (or un-archive) one or more Xero sync log rows.
  *
  * Archived rows stay in the database for audit but are excluded from

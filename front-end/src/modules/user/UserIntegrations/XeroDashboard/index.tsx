@@ -50,7 +50,11 @@ import FormikControl from "@/components/FormikControl";
 import { formatDate, stripHtml } from "@/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { showErrorToast } from "@/components/Toaster";
-import { archiveXeroSyncLogs } from "../integration.functions";
+import {
+  archiveXeroSyncLogs,
+  recoverArchivedContactSyncLogs,
+} from "../integration.functions";
+import { useTokenDetails } from "@/hooks";
 
 // Task #95 — pill style retained for the auto-recovered toggle and the
 // "Filtered: claim #N" badge. All other Sync Log toolbar controls now use
@@ -225,7 +229,82 @@ export default function XeroDashboard() {
     },
   ];
   const companyId = +(localStorage.getItem("companyId") || 0);
+  // Task #267 — gate the "Clean up archived-contact failures" button to
+  // ADMIN / PRIMARY ADMIN on the active company. Backend RolesGuard is
+  // still the authoritative check; this just hides the affordance for
+  // standard users so they don't see a button they can't use.
+  const { decodeTokenData } = useTokenDetails() as any;
+  const activeCompanyRole = decodeTokenData?.companySpecificRoles?.find(
+    (x: { companyId: number }) => Number(x?.companyId) === Number(companyId),
+  );
+  const canRecoverArchivedContacts =
+    activeCompanyRole?.role === "PRIMARY ADMIN" ||
+    activeCompanyRole?.role === "ADMIN";
   const [manualSyncOpen, setManualSyncOpen] = useState<boolean>(false);
+  // Task #267 — "Clean up archived-contact failures" dialog state.
+  // Stage 1 ("preview") shows the dry-run scanned/updated/skipped counts
+  // before any writes; Stage 2 ("done") shows the actual sweep result.
+  const [archivedSweepOpen, setArchivedSweepOpen] = useState<boolean>(false);
+  const [archivedSweepStage, setArchivedSweepStage] = useState<
+    "preview" | "done"
+  >("preview");
+  const [archivedSweepBusy, setArchivedSweepBusy] = useState<boolean>(false);
+  const [archivedSweepPreview, setArchivedSweepPreview] = useState<{
+    success: boolean;
+    message?: string;
+    scanned?: number;
+    updated?: number;
+    skipped?: number;
+    sample_sync_ids?: Array<string | number>;
+  } | null>(null);
+  const [archivedSweepResult, setArchivedSweepResult] = useState<{
+    success: boolean;
+    message?: string;
+    scanned?: number;
+    updated?: number;
+    skipped?: number;
+    sample_sync_ids?: Array<string | number>;
+  } | null>(null);
+
+  const openArchivedSweep = async () => {
+    setArchivedSweepOpen(true);
+    setArchivedSweepStage("preview");
+    setArchivedSweepResult(null);
+    setArchivedSweepPreview(null);
+    setArchivedSweepBusy(true);
+    const preview = await recoverArchivedContactSyncLogs({
+      company_id: companyId,
+      dry_run: true,
+    });
+    setArchivedSweepPreview(preview);
+    setArchivedSweepBusy(false);
+  };
+
+  const runArchivedSweep = async (): Promise<boolean> => {
+    if (archivedSweepBusy) return false;
+    setArchivedSweepBusy(true);
+    const result = await recoverArchivedContactSyncLogs({
+      company_id: companyId,
+      dry_run: false,
+    });
+    setArchivedSweepResult(result);
+    setArchivedSweepStage("done");
+    setArchivedSweepBusy(false);
+    return false; // keep the dialog open so the admin can see the result
+  };
+
+  const closeArchivedSweep = () => {
+    if (archivedSweepBusy) return;
+    setArchivedSweepOpen(false);
+    // Refresh the sync log so reclassified rows show their new status.
+    if (archivedSweepStage === "done" && (archivedSweepResult?.updated ?? 0) > 0) {
+      try {
+        fetchXeroSyncLogs();
+      } catch {
+        /* fetch helper may not be in scope at first render — safe to ignore */
+      }
+    }
+  };
   const steps = [
     {
       number: "01",
@@ -1332,6 +1411,22 @@ export default function XeroDashboard() {
                   onClick={() => setManualSyncOpen(true)}
                   styles={{ margin: 0 }}
                 />
+                {/* Task #267 — One-click sweep that reclassifies historical
+                    "Missing mandatory fields" Contact webhook failures
+                    whose Xero contact is now archived to the friendlier
+                    "archived in Xero" Warning. Idempotent; backend gates
+                    to ADMIN / PRIMARY_ADMIN, and we mirror that gate in
+                    the UI so standard users don't see the button. */}
+                {canRecoverArchivedContacts && (
+                  <CustomButton
+                    buttonName="Clean up archived-contact failures"
+                    iconClassName="fa-light fa-broom"
+                    buttonType={buttonType.CONTRAST_SMALL}
+                    actionType="button"
+                    onClick={openArchivedSweep}
+                    styles={{ margin: 0 }}
+                  />
+                )}
                 {claimFilterId != null && (
                   <>
                     <span
@@ -1857,6 +1952,178 @@ export default function XeroDashboard() {
         onClose={() => setManualSyncOpen(false)}
         onSuccess={fetchXeroSyncLogs}
       />
+      {/* Task #267 — Clean-up sweep dialog. Two stages:
+          1) "preview" shows the dry-run scanned/updated/skipped counts;
+          2) "done"   shows the actual sweep result after confirmation. */}
+      {archivedSweepOpen && canRecoverArchivedContacts && (
+        <BaseModal
+          modalId="recoverArchivedContactSyncLogs"
+          displayModal={archivedSweepOpen}
+          title="Clean up archived-contact failures"
+          onClose={closeArchivedSweep}
+          onHeaderIconClose={closeArchivedSweep}
+          restrictOncloseFunctionInHeader
+          firstButtonName={archivedSweepStage === "done" ? "Close" : "Cancel"}
+          secondButtonName={
+            archivedSweepBusy
+              ? "Working…"
+              : `Run sweep${
+                  archivedSweepPreview?.updated
+                    ? ` (${archivedSweepPreview.updated})`
+                    : ""
+                }`
+          }
+          hideSecondButton={archivedSweepStage === "done"}
+          disableSecondButton={
+            archivedSweepBusy ||
+            !archivedSweepPreview?.success ||
+            (archivedSweepPreview?.updated ?? 0) === 0
+          }
+          onConfirm={runArchivedSweep}
+        >
+          <div style={{ fontSize: "13px" }}>
+            <p style={{ marginTop: 0 }}>
+              This scans old failed <b>Contact</b> webhook sync log rows
+              whose underlying Xero contact is now <b>archived</b>, and
+              rewrites each one in place from a hard failure to the
+              friendlier <i>&ldquo;archived in Xero&rdquo;</i> Warning so
+              they stop showing as Issues. The sweep is idempotent and
+              safe to re-run.
+            </p>
+            {archivedSweepBusy && !archivedSweepPreview && (
+              <p style={{ opacity: 0.7 }}>Counting matching rows…</p>
+            )}
+            {archivedSweepStage === "preview" &&
+              archivedSweepPreview &&
+              !archivedSweepPreview.success && (
+                <p style={{ color: "#a50e0e" }}>
+                  {archivedSweepPreview.message ||
+                    "Preview failed — please try again."}
+                </p>
+              )}
+            {archivedSweepStage === "preview" &&
+              archivedSweepPreview?.success && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "16px",
+                      margin: "12px 0",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                        Scanned
+                      </div>
+                      <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                        {archivedSweepPreview.scanned ?? 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                        Would update
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "18px",
+                          fontWeight: 600,
+                          color: "#137333",
+                        }}
+                      >
+                        {archivedSweepPreview.updated ?? 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                        Skipped
+                      </div>
+                      <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                        {archivedSweepPreview.skipped ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                  {(archivedSweepPreview.updated ?? 0) === 0 ? (
+                    <p style={{ opacity: 0.75 }}>
+                      Nothing to clean up — no failed Contact sync log
+                      rows reference an archived Xero contact right now.
+                    </p>
+                  ) : (
+                    <p style={{ opacity: 0.75 }}>
+                      Click <b>Run sweep</b> to reclassify the{" "}
+                      {archivedSweepPreview.updated} matching row
+                      {archivedSweepPreview.updated === 1 ? "" : "s"}.
+                    </p>
+                  )}
+                </>
+              )}
+            {archivedSweepStage === "done" && archivedSweepResult && (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "16px",
+                    margin: "12px 0",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                      Scanned
+                    </div>
+                    <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                      {archivedSweepResult.scanned ?? 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                      Updated
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#137333",
+                      }}
+                    >
+                      {archivedSweepResult.updated ?? 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ opacity: 0.7, fontSize: "11px" }}>
+                      Skipped
+                    </div>
+                    <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                      {archivedSweepResult.skipped ?? 0}
+                    </div>
+                  </div>
+                </div>
+                <p style={{ opacity: 0.85 }}>
+                  {archivedSweepResult.message ||
+                    (archivedSweepResult.success
+                      ? "Sweep complete."
+                      : "Sweep failed.")}
+                </p>
+                {(archivedSweepResult.updated ?? 0) > 0 && (
+                  <p>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        fetchXeroSyncLogs();
+                        closeArchivedSweep();
+                      }}
+                      style={{ color: "#1a73e8" }}
+                    >
+                      Refresh sync log table
+                    </a>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </BaseModal>
+      )}
     </div>
   );
 }
