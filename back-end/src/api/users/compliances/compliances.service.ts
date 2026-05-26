@@ -1839,9 +1839,12 @@ export class CompliancesService {
           }
 
           const mailTemplate =
-            await this.ptContentService.getMailTemplateByMailType(
+            (await this.ptContentService.getMailTemplateByMailType(
+              'failed-compliance-digest',
+            )) ||
+            (await this.ptContentService.getMailTemplateByMailType(
               'failed-compliance',
-            );
+            ));
 
           const friendlyName =
             bucket.first_name?.trim() || bucket.company_name || 'there';
