@@ -794,20 +794,22 @@ async function BatchMatchExactTransactions(data: {
       },
     });
 
-    if (
-      response?.data?.batchMatchExactTransactions?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.batchMatchExactTransactions?.message ||
-          "Transactions matched successfully"
-      );
-      return response?.data?.batchMatchExactTransactions?.data;
+    const payload = response?.data?.batchMatchExactTransactions;
+    const firstFailureError =
+      (payload?.data?.results || []).find((r: any) => !r?.success)?.error;
+    const partialFailureSuffix =
+      payload?.data?.failed > 0 && firstFailureError
+        ? ` — first error: ${firstFailureError}`
+        : "";
+
+    if (payload?.status === ApiResponse.SUCCESS) {
+      const baseMessage =
+        payload?.message || "Transactions matched successfully";
+      showSuccessToast(`${baseMessage}${partialFailureSuffix}`);
+      return payload?.data;
     }
-    if (
-      response?.data?.batchMatchExactTransactions?.status === ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.batchMatchExactTransactions?.message);
+    if (payload?.status === ApiResponse.ERROR) {
+      showErrorToast(`${payload?.message ?? ""}${partialFailureSuffix}`);
       return null;
     }
   } catch (error: any) {
@@ -852,20 +854,21 @@ async function BatchMatchSplitTransactions(data: {
       },
     });
 
-    if (
-      response?.data?.batchMatchSplitTransactions?.status ===
-      ApiResponse.SUCCESS
-    ) {
-      showSuccessToast(
-        response?.data?.batchMatchSplitTransactions?.message ||
-          "Split match completed"
-      );
-      return response?.data?.batchMatchSplitTransactions?.data;
+    const payload = response?.data?.batchMatchSplitTransactions;
+    const firstFailureError =
+      (payload?.data?.results || []).find((r: any) => !r?.success)?.error;
+    const partialFailureSuffix =
+      payload?.data?.failed > 0 && firstFailureError
+        ? ` — first error: ${firstFailureError}`
+        : "";
+
+    if (payload?.status === ApiResponse.SUCCESS) {
+      const baseMessage = payload?.message || "Split match completed";
+      showSuccessToast(`${baseMessage}${partialFailureSuffix}`);
+      return payload?.data;
     }
-    if (
-      response?.data?.batchMatchSplitTransactions?.status === ApiResponse.ERROR
-    ) {
-      showErrorToast(response?.data?.batchMatchSplitTransactions?.message);
+    if (payload?.status === ApiResponse.ERROR) {
+      showErrorToast(`${payload?.message ?? ""}${partialFailureSuffix}`);
       return null;
     }
   } catch (error: any) {

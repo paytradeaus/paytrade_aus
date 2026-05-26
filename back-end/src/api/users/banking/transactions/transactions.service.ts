@@ -3861,6 +3861,15 @@ export class TransactionsService {
 
       const uniquePaymentIds = [...new Set(allPaymentIds)];
 
+      for (const failedResult of results.filter((r) => !r.success)) {
+        const originalPair = matchPairs.find(
+          (p) => p.transaction_id === failedResult.transaction_id,
+        );
+        this.logger.error(
+          `Batch match pair failed: transaction_id=${failedResult.transaction_id}, sub_payment_ids=${JSON.stringify(originalPair?.sub_payment_ids ?? [])}, error="${failedResult.error}"`,
+        );
+      }
+
       return framedResponse(
         succeeded > 0 ? 'SUCCESS' : 'ERROR',
         `Batch match complete: ${succeeded} succeeded, ${failed} failed.`,
@@ -3974,6 +3983,15 @@ export class TransactionsService {
       }
 
       const uniquePaymentIds = [...new Set(allPaymentIds)];
+
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.success) continue;
+        const originalPair = splitPairs[i];
+        this.logger.error(
+          `Split batch match pair failed: sub_payment_id=${originalPair?.sub_payment_id}, transaction_ids=${JSON.stringify(originalPair?.transaction_ids ?? [])}, error="${r.error}"`,
+        );
+      }
 
       return framedResponse(
         succeeded > 0 ? 'SUCCESS' : 'ERROR',
