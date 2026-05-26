@@ -2193,7 +2193,13 @@ export class CompliancePTAFunctions {
 
       const presenceOfContracts = await this.contractsRepo.find({
         where: { project_id },
-        select: ['attachment_id', 'project_id', 'contract_id'],
+        // `id` is the UUID PK that the frontend's EDIT_CONTRACT route
+        // (`/user/contracts/edit/:id`) and `viewContractDetailsById`
+        // service both key on. `contract_id` is the human-readable
+        // auto-increment number and is NOT what the route resolver
+        // matches — emitting it as reference_id makes the Edit
+        // Contract page open with an empty form.
+        select: ['id', 'attachment_id', 'project_id', 'contract_id'],
       });
       if (presenceOfContracts && !presenceOfContracts.length) {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -2227,8 +2233,11 @@ export class CompliancePTAFunctions {
           resultsOfCheck.push({
             ...fetchedRuleDetails,
             ...{
+              // Use UUID `id` (PK) — see SELECT comment above; the
+              // frontend Edit Contract route and `viewContractDetailsById`
+              // both match against `id`, not the integer `contract_id`.
               reference_id: String(
-                filteredContractsWithoutAttachments[0].contract_id,
+                filteredContractsWithoutAttachments[0].id,
               ),
             },
             ...fetchedContentOf8thRule,
