@@ -181,7 +181,8 @@ export class XeroContractsService {
         checkExistenceInXero[0] !== null &&
         checkExistenceInXero[0]?.options &&
         checkExistenceInXero[0]?.options?.length > 0 &&
-        checkExistenceInXero[0]?.options[0] !== null
+        checkExistenceInXero[0]?.options[0] !== null &&
+        checkExistenceInXero[0]?.options[0]?.trackingOptionID
       ) {
         const contract = checkExistenceInXero[0]?.options[0];
         let requestData: any = {
@@ -319,7 +320,7 @@ export class XeroContractsService {
           this.logger.log(
             `New Option Added to Tracking Category: ${JSON.stringify(xeroResponse.body)}`,
           );
-          if (xeroResponse?.body?.options[0] !== null) {
+          if (xeroResponse?.body?.options?.[0]?.trackingOptionID) {
             const contract = xeroResponse.body.options[0];
             let requestData: any = {
               contract_id: contract.trackingOptionID,
@@ -1216,15 +1217,16 @@ export class XeroContractsService {
               );
         this.logger.log(`trackingCategories: ${JSON.stringify(trackingOptionsResponse.body)}`);
 
-        if (trackingOptionsResponse.body) {
-          xeroContractDetails.contract_id =
-            contractDetails.contract_status === 'Deleted'
-              ? xeroContractDetails.contract_id
-              : trackingOptionsResponse.body?.options[0]?.trackingOptionID;
-          xeroContractDetails.contract_status =
-            contractDetails.contract_status === 'Deleted'
-              ? 'ARCHIVED'
-              : 'ACTIVE';
+        const _isDeleteOp = contractDetails.contract_status === 'Deleted';
+        const _newOptionId =
+          trackingOptionsResponse.body?.options?.[0]?.trackingOptionID;
+        if (trackingOptionsResponse.body && (_isDeleteOp || _newOptionId)) {
+          xeroContractDetails.contract_id = _isDeleteOp
+            ? xeroContractDetails.contract_id
+            : _newOptionId;
+          xeroContractDetails.contract_status = _isDeleteOp
+            ? 'ARCHIVED'
+            : 'ACTIVE';
           xeroContractDetails.updated_by = decoded?.userId;
           xeroContractDetails.updated_on = moment.tz('UTC');
           xeroContractDetails.updated_group = 'USER';
