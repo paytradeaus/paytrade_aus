@@ -26039,6 +26039,11 @@ input updateNoticesInput {
   """If true, indicates notice is auto sent."""
   auto_sent: Boolean
 
+  """
+  Task #271: TRUE when the trigger handler already performed handleUpdateNotice inline after a successful auto-send. Bulk callers must skip handleUpdateNotice for this payload to avoid duplicate template 133 / mail_sent writes.
+  """
+  auto_sent_handled: Boolean
+
   """Update delegated QBCC flag."""
   delegated_qbcc: Boolean
 
