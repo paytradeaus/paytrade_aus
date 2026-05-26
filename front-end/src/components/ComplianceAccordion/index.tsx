@@ -81,7 +81,7 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
         break;
       case actionButtonType.EDIT_CONTRACT:
         router.push(
-          `${AppRoutes.USER_ADD_CONTRACTS}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}`
+          `${AppRoutes.USER_CONTRACTS_OVERVIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}&routedFrom=compliance`
         );
         break;
       case actionButtonType.MATCH_TRANSACTIONS: {
