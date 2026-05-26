@@ -114,6 +114,7 @@ import { ComplianceSeederModule } from './libs/@seeders/compliance-seeder.module
 import { XeroLogTemplatesSeederModule } from './libs/@seeders/xero-log-templates-seeder.module';
 import { ActivityLogTemplatesSeederModule } from './libs/@seeders/activity-log-templates-seeder.module';
 import { NoticesAutoSendSchemaSeederModule } from './libs/@seeders/notices-auto-send-schema-seeder.module';
+import { AbaBatchMembershipBackfillSeederModule } from './libs/@seeders/aba-batch-membership-backfill-seeder.module';
 import { NoticeTemplatesSeederModule } from './libs/@seeders/notice-templates-seeder.module';
 import { EmailTemplatesSeederModule } from './libs/@seeders/email-templates-seeder.module';
 import { EmailTemplateUrlCleanupSeederModule } from './libs/@seeders/email-template-url-cleanup-seeder.module';
@@ -364,6 +365,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroLogTemplatesSeederModule,
     ActivityLogTemplatesSeederModule,
     NoticesAutoSendSchemaSeederModule,
+    AbaBatchMembershipBackfillSeederModule,
     NoticeTemplatesSeederModule,
     EmailTemplatesSeederModule,
     EmailTemplateUrlCleanupSeederModule,
