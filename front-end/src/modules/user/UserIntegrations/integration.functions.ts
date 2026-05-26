@@ -965,6 +965,45 @@ export const permanentlyUnmapContact = async (
   }
 };
 
+// Task #291 — Bulk version of permanentlyUnmapContact.
+export const permanentlyUnmapContactsBulk = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation PermanentlyUnmapContactsBulk($contactIds: [String!]!) {
+          permanentlyUnmapContactsBulk(contact_ids: $contactIds) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.permanentlyUnmapContactsBulk?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.permanentlyUnmapContactsBulk.message);
+      return true;
+    }
+    if (
+      response?.data?.permanentlyUnmapContactsBulk?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.permanentlyUnmapContactsBulk.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
 export const reEnableContactMapping = async (
   data: any,
   setLoading?: Function

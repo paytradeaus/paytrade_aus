@@ -3192,6 +3192,95 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Task #291 — Bulk version of `permanentlyUnmapContact`. Processes
+   * the entire list in a single UPDATE (atomic) and writes ONE
+   * activity-log entry summarising the batch instead of one per row.
+   * Skips silently if the list is empty.
+   */
+  async permanentlyUnmapContactsBulk(
+    contact_ids: string[],
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const ids = Array.isArray(contact_ids)
+        ? Array.from(new Set(contact_ids.filter((x) => typeof x === 'string' && x.length > 0)))
+        : [];
+      if (ids.length === 0) {
+        throw `No contacts selected`;
+      }
+
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const existingRows = await this.xeroContactDetails.find({
+        where: {
+          contact_id: In(ids),
+          integration_id: xeroDetails.integration_id,
+        },
+      });
+
+      const response = await this.xeroContactDetails
+        .createQueryBuilder()
+        .update(XeroContactDetails)
+        .set({
+          pt_contact_id: null,
+          mapped_status: null,
+          permanently_unmapped: true,
+          updated_by: decoded?.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'contact_id IN (:...contact_ids) AND integration_id = :integration_id',
+          {
+            contact_ids: ids,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      const affected = response?.affected ?? 0;
+      if (affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_contacts_permanently_unmapped_bulk',
+              integration_id: xeroDetails.integration_id,
+              requested_count: ids.length,
+              affected_count: affected,
+              contacts: existingRows.map((r) => ({
+                contact_id: r.contact_id,
+                contact_name: r.contact_name ?? null,
+                previous_pt_contact_id: r.pt_contact_id ?? null,
+                previous_mapped_status: r.mapped_status ?? null,
+              })),
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #291] activity log insert failed for permanentlyUnmapContactsBulk: ${err?.message || err}`,
+          );
+        }
+        return `${affected} contact${affected === 1 ? '' : 's'} permanently unmapped from Xero sync`;
+      }
+      return `No contacts were permanently unmapped`;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
+
+  /**
    * Task #289 — Reverse a previous permanent-unmap so the row returns
    * to the normal "unmapped" pool and becomes eligible for auto-map
    * (name match) and invoice/bill push again. Writes an activity-log

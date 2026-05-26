@@ -22,6 +22,7 @@ import {
   getXeroDetailsForCompany,
   manualMappingContact,
   permanentlyUnmapContact,
+  permanentlyUnmapContactsBulk,
   reEnableContactMapping,
   syncAllContactsByCompanyId,
   syncContactFinancialDetails,
@@ -78,6 +79,9 @@ export default function XeroContacts() {
     id: "",
   });
   const [xeroData, setXeroData] = useState<any>("");
+  // Task #291 — Track which Xero-tab contacts the user has ticked so we
+  // can fire the bulk "Unmap permanently (selected)" action against them.
+  const [selectedXeroContacts, setSelectedXeroContacts] = useState<any[]>([]);
 
   const [status, setStatus] = useState("");
 
@@ -238,9 +242,36 @@ export default function XeroContacts() {
       setSearch("");
       setSortValues("");
       setStatus("");
+      // Task #291 — Clear any in-progress bulk selection when switching tabs.
+      setSelectedXeroContacts([]);
       setTabStatus(value);
     }
   }
+
+  // Task #291 — Fire the bulk permanent-unmap mutation against the
+  // current ticked rows, then refresh the grid and clear selection.
+  const handleBulkPermanentlyUnmap = async () => {
+    const ids = (selectedXeroContacts || [])
+      .map((r: any) => r?.contact_id)
+      .filter((x: any) => !!x);
+    if (ids.length === 0) return;
+    setTableLoader(true);
+    const ok = await permanentlyUnmapContactsBulk(
+      { contactIds: ids },
+      setTableLoader
+    );
+    setSelectedXeroContacts([]);
+    if (ok) {
+      const { contacts, totalCount } = await fetchXeroContacts(
+        currentPage,
+        entriesPerPage,
+        search,
+        setTableLoader
+      );
+      setGridData(contacts);
+      setTotalRows(totalCount);
+    }
+  };
 
   useEffect(() => {
     const { headers, gridActions, renderRowList } = getTableConfig();
@@ -577,6 +608,8 @@ export default function XeroContacts() {
       handleBatchCreateInXero();
     } else if (modelConfig.id === "Re_enable_mapping?") {
       handleReEnableMapping();
+    } else if (modelConfig.id === "Bulk_permanently_unmap?") {
+      handleBulkPermanentlyUnmap();
     }
   };
 
@@ -917,6 +950,48 @@ export default function XeroContacts() {
                   styles={{ margin: "0 10px 10px 10px" }}
                 />
               )}
+              {/* Task #291 — Bulk "Unmap permanently (selected)" action.
+                  Only enabled once the user has ticked at least one row
+                  from the Xero contacts grid below. */}
+              <CustomButton
+                buttonName={
+                  selectedXeroContacts.length > 0
+                    ? `UNMAP PERMANENTLY (${selectedXeroContacts.length})`
+                    : "UNMAP PERMANENTLY (SELECTED)"
+                }
+                iconClassName="fa-light fa-ban"
+                buttonType={buttonType.CONTRAST_SMALL}
+                actionType="button"
+                disabled={selectedXeroContacts.length === 0 || tableLoader}
+                onClick={() => {
+                  if (selectedXeroContacts.length === 0) return;
+                  setModelConfig({
+                    show: true,
+                    title: "Unmap permanently",
+                    secondButtonName: "Unmap permanently",
+                    firstButtonName: "Cancel",
+                    description: (
+                      <>
+                        <p>
+                          Permanently unmap{" "}
+                          <b>{selectedXeroContacts.length}</b> selected Xero
+                          contact
+                          {selectedXeroContacts.length === 1 ? "" : "s"}?
+                        </p>
+                        <br />
+                        <p style={{ fontSize: "0.9em", color: "#555" }}>
+                          These contacts will be excluded from all future
+                          auto-mapping (sync + webhook) and from invoice/bill
+                          push. You can re-enable any of them later from the
+                          "Permanently unmapped" tab.
+                        </p>
+                      </>
+                    ),
+                    id: "Bulk_permanently_unmap?",
+                  });
+                }}
+                styles={{ margin: "0 10px 10px 10px" }}
+              />
             </>
           )}
           {tabStatus === "Paytrade contacts" &&
@@ -949,12 +1024,34 @@ export default function XeroContacts() {
                       index === 2 ? { ...header, title: "Action" } : header
                     )
               }
-              gridData={gridData}
+              gridData={
+                // Task #291 — Re-hydrate the row `checked` flag from our
+                // selection set so DynamicTable's internal state mirrors
+                // it across re-renders (matches the pattern used by the
+                // catch-up table in XeroDashboard).
+                tabStatus === "Xero contacts"
+                  ? gridData.map((row: any) => ({
+                      ...row,
+                      checked: selectedXeroContacts.some(
+                        (s: any) => s?.contact_id === row?.contact_id
+                      ),
+                    }))
+                  : gridData
+              }
               gridActions={gridActionsCondition}
               dynamicApiGridIconsKey={"dynamicIcon"}
               showLoader={tableLoader}
               loaderColSpan={headers.length}
               renderRowList={renderRowList}
+              enableCheckbox={tabStatus === "Xero contacts"}
+              checkBoxId="contact_id"
+              selectedCheckboxRows={
+                tabStatus === "Xero contacts" ? selectedXeroContacts : []
+              }
+              onGridCheckboxChange={(rows: any[]) => {
+                if (tabStatus !== "Xero contacts") return;
+                setSelectedXeroContacts(rows || []);
+              }}
               currentPage={currentPage}
               entriesPerPage={entriesPerPage}
               onEntriesPerPageChange={(perPage) => {

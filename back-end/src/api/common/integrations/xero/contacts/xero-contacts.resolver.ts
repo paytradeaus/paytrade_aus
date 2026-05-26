@@ -798,6 +798,42 @@ export class XeroContactsResolver {
   }
 
   /**
+   * Task #291 — Bulk equivalent of `permanentlyUnmapContact`. Accepts
+   * a list of Xero contact ids, processes the whole batch atomically
+   * and writes one activity-log summary entry.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'permanentlyUnmapContactsBulk',
+    description:
+      'Marks multiple Xero contacts as permanently unmapped in one batch so they are excluded from auto-mapping (sync + webhook) and from invoice/bill push.',
+  })
+  async permanentlyUnmapContactsBulk(
+    @Context() context,
+    @Args('contact_ids', {
+      type: () => [String],
+      description: 'List of Xero contact ids to permanently unmap.',
+    })
+    contact_ids: string[],
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response =
+        await this.xeroContactsService.permanentlyUnmapContactsBulk(
+          contact_ids,
+          companyId,
+          decoded,
+        );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  /**
    * Task #289 — Re-enable a previously permanently-unmapped Xero
    * contact so it returns to the normal unmapped pool.
    */
