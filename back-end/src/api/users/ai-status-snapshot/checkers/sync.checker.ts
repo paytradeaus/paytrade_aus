@@ -112,9 +112,16 @@ export class SyncChecker {
   // - DELETE_*     : harmless; the record is going away in Xero.
   // - EDIT_BANK / EDIT_CONTACT : metadata mirror only.
   // - *_NOT_MAPPED : record doesn't exist in Xero — nothing to do.
+  // - *_CONTACT_INCOMPLETE : pre-flight validation block — no API call
+  //                  was attempted, the underlying claim/bill/payment
+  //                  hasn't actually failed to sync. The user fixes the
+  //                  missing contact field (email/bank) in PayTrade and
+  //                  the next sync attempt succeeds. Treat as info so
+  //                  it doesn't dominate the critical card.
   private static readonly INFO_ERROR_CODE_RX =
     /^(SCHEDULER_|WH_|MISSING_PROJECT|MISSING_CONTRACT|DELETE_|EDIT_BANK|EDIT_CONTACT)/i;
   private static readonly NOT_MAPPED_RX = /_NOT_MAPPED$/i;
+  private static readonly CONTACT_INCOMPLETE_RX = /_CONTACT_INCOMPLETE$/i;
 
   async check(companyId: number): Promise<StatusIssue[]> {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86400000);
@@ -227,6 +234,7 @@ export class SyncChecker {
     if (SyncChecker.RETRY_NOISE_SYNC_TYPES.has(syncType)) return 'info';
     if (SyncChecker.INFO_ERROR_CODE_RX.test(errorCode)) return 'info';
     if (SyncChecker.NOT_MAPPED_RX.test(errorCode)) return 'info';
+    if (SyncChecker.CONTACT_INCOMPLETE_RX.test(errorCode)) return 'info';
     if (SyncChecker.CRITICAL_SYNC_TYPES.has(syncType)) return 'critical';
 
     // Failed templates outside both lists are metadata-mirror failures

@@ -77,6 +77,10 @@ describe('SyncChecker', () => {
       ['MISSING_PROJECT on Bills', { error_code: 'MISSING_PROJECT' }, { sync_type: 'Bills', error_code: 'MISSING_PROJECT' }, 'info'],
       ['EDIT_CONTACT_NOT_MAPPED', { error_code: 'EDIT_CONTACT_NOT_MAPPED' }, { sync_type: 'Contacts', error_code: 'EDIT_CONTACT_NOT_MAPPED' }, 'info'],
       ['DELETE_CONTACT_FAILED', { error_code: 'DELETE_CONTACT_FAILED' }, { sync_type: 'Contacts', error_code: 'DELETE_CONTACT_FAILED' }, 'info'],
+      // *_CONTACT_INCOMPLETE is a pre-flight validation block on the
+      // claim/bill push (no API call attempted). Downgrade to info so
+      // it doesn't show as critical alongside genuine sync failures.
+      ['SMART_CONTRACT_CONTACT_INCOMPLETE on Claims', { error_code: 'SMART_CONTRACT_CONTACT_INCOMPLETE' }, { sync_type: 'Claims', error_code: 'SMART_CONTRACT_CONTACT_INCOMPLETE' }, 'info'],
       ['Bank accounts add (metadata)', {}, { sync_type: 'Bank accounts', error_code: 'SYNC_ADD_BANK_TO_XERO' }, 'info'],
       ['Contacts add (metadata)', {}, { sync_type: 'Contacts', error_code: 'SYNC_ADD_CONTACT_TO_XERO' }, 'info'],
     ];
