@@ -97,13 +97,48 @@ export class TransactionsService {
    * roll back a successful match/unmatch.
    */
   private async invalidateComplianceForPayments(
-    payments: Array<{ project_id?: number | null }>,
+    payments: Array<{
+      project_id?: number | null;
+      payment_id?: number | string | null;
+    }>,
     source: string,
   ): Promise<void> {
     const projectIds = new Set<number>();
+    const paymentIdsNeedingLookup = new Set<number>();
+
     for (const p of payments ?? []) {
-      if (p?.project_id) projectIds.add(Number(p.project_id));
+      if (p?.project_id) {
+        projectIds.add(Number(p.project_id));
+      } else if (p?.payment_id != null) {
+        // Match/unmatch SELECTs return SubPayments rows which don't
+        // carry project_id directly — fall back to resolving it from
+        // PaymentDetails. Without this fallback `markComplianceDirty`
+        // would never fire for the transaction match/unmatch flows
+        // and the persisted cache would stay fresh after a confirm.
+        const pid = Number(p.payment_id);
+        if (!Number.isNaN(pid) && pid > 0) paymentIdsNeedingLookup.add(pid);
+      }
     }
+
+    if (paymentIdsNeedingLookup.size > 0) {
+      try {
+        const rows = await this.paymentsRepo
+          .createQueryBuilder('p')
+          .select(['p.payment_id AS payment_id', 'p.project_id AS project_id'])
+          .where('p.payment_id IN (:...ids)', {
+            ids: [...paymentIdsNeedingLookup],
+          })
+          .getRawMany();
+        for (const r of rows) {
+          if (r?.project_id) projectIds.add(Number(r.project_id));
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `invalidateComplianceForPayments lookup failed (${source}): ${err?.message || err}`,
+        );
+      }
+    }
+
     for (const pid of projectIds) {
       try {
         await this.complianceService.markComplianceDirty(pid, source);
