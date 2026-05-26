@@ -909,67 +909,40 @@ export default function PersonalInfo() {
                             style={{
                               marginLeft: "1.75rem",
                               marginTop: "0.4rem",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.75rem",
-                              flexWrap: "wrap",
                             }}
                           >
-                            <small style={{ color: "#555" }}>
-                              How often:
-                            </small>
-                            <label
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.35rem",
-                                margin: 0,
-                              }}
-                            >
-                              <input
-                                type="radio"
-                                name="xero_sync_failures_mode"
-                                value="immediate"
-                                checked={
-                                  formik.values.xero_sync_failures_mode ===
-                                  "immediate"
-                                }
-                                onChange={() =>
-                                  formik.setFieldValue(
-                                    "xero_sync_failures_mode",
-                                    "immediate"
-                                  )
-                                }
-                                style={{ margin: 0 }}
-                              />
-                              <small>Immediately (per failure)</small>
-                            </label>
-                            <label
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.35rem",
-                                margin: 0,
-                              }}
-                            >
-                              <input
-                                type="radio"
-                                name="xero_sync_failures_mode"
-                                value="daily"
-                                checked={
-                                  formik.values.xero_sync_failures_mode !==
-                                  "immediate"
-                                }
-                                onChange={() =>
-                                  formik.setFieldValue(
-                                    "xero_sync_failures_mode",
-                                    "daily"
-                                  )
-                                }
-                                style={{ margin: 0 }}
-                              />
-                              <small>Once a day (summary)</small>
-                            </label>
+                            <FormikControl
+                              id={"xero_sync_failures_mode"}
+                              name={"xero_sync_failures_mode"}
+                              label={"How often"}
+                              control={InputType.SELECT}
+                              options={[
+                                {
+                                  label: "Immediately (per failure)",
+                                  value: "immediate",
+                                },
+                                {
+                                  label: "Once a day (summary)",
+                                  value: "daily",
+                                },
+                              ]}
+                              renderKey={"label"}
+                              valueKey={"value"}
+                              value={
+                                formik.values.xero_sync_failures_mode ===
+                                "immediate"
+                                  ? "immediate"
+                                  : "daily"
+                              }
+                              onChange={(selectedValue: any) =>
+                                formik.setFieldValue(
+                                  "xero_sync_failures_mode",
+                                  selectedValue === "immediate"
+                                    ? "immediate"
+                                    : "daily"
+                                )
+                              }
+                            />
                           </div>
                         )}
                       </div>
