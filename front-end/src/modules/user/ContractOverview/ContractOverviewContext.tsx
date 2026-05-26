@@ -39,11 +39,19 @@ export const ContractOverviewContextProvider = ({ children }: any) => {
   const fetchContractDetails = async () => {
     setLoader(true);
 
-    const params = routeParams;
+    // The route is `/user/contracts/overview/[...data]`, so the contract
+    // id lives at `routeParams.data[0]`. Older code looked at
+    // `params.id`, which never exists for a catch-all segment, so this
+    // helper silently skipped the fetch — leaving the header stuck on
+    // "Loading..." whenever the page was opened (e.g. via the compliance
+    // "Go to Contract" deep link from Task #279).
+    const idFromRoute = Array.isArray(routeParams?.data)
+      ? routeParams.data[0]
+      : (routeParams as any)?.id;
 
-    if (params?.id) {
+    if (idFromRoute) {
       const payload: { id: string } = {
-        id: Array.isArray(params?.id) ? params.id[0] : params?.id || "",
+        id: String(idFromRoute),
       };
       const userData = await viewContractDetailsById(payload);
 
