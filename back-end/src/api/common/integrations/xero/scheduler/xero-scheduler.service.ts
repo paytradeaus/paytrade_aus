@@ -8305,20 +8305,95 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               id: In(ptInvoiceRowIds),
               integration_id: refreshedXero.integration_id,
             },
-            select: ['invoice_id'],
+            select: ['invoice_id', 'pt_claim_id', 'updated_on'],
           });
-          const xeroInvoiceIds = Array.from(
-            new Set(
-              invoiceRows
-                .map((r) => r.invoice_id)
-                .filter((v): v is string => !!v),
-            ),
-          );
 
+          // De-duplicate by xero invoice_id and remember per-invoice
+          // metadata for the change-detection gate below.
+          type InvoiceMeta = {
+            updated_on: Date | null;
+            already_imported: boolean;
+          };
+          const invoiceMetaMap = new Map<string, InvoiceMeta>();
+          for (const r of invoiceRows) {
+            if (!r.invoice_id) continue;
+            const existing = invoiceMetaMap.get(r.invoice_id);
+            const ru = r.updated_on ? new Date(r.updated_on) : null;
+            if (!existing) {
+              invoiceMetaMap.set(r.invoice_id, {
+                updated_on: ru,
+                already_imported: r.pt_claim_id != null,
+              });
+            } else {
+              // If duplicate xib rows exist, prefer the most recent
+              // updated_on and treat any pt_claim_id linkage as
+              // "already imported".
+              if (
+                ru &&
+                (!existing.updated_on || ru > existing.updated_on)
+              ) {
+                existing.updated_on = ru;
+              }
+              if (r.pt_claim_id != null) existing.already_imported = true;
+            }
+          }
+          const xeroInvoiceIds = Array.from(invoiceMetaMap.keys());
+
+          // Change-detection gate (applied to ALL candidates, imported
+          // or not). Re-running the full invoice handler on a bill
+          // whose Xero state has not actually advanced past our
+          // last-seen `updated_on` is the root cause of the daily
+          // "Failed" sync_log spam — a transient pipeline misstep
+          // turns into a new user-visible failure even though nothing
+          // really changed. When Xero's `UpdatedDateUTC` HAS advanced
+          // we still re-fire the handler so the embedded retention
+          // matcher (`matchRetentionTransferCandidates`) gets a fresh
+          // shot at linking the unmatched bank-transfer leg — that
+          // matcher only runs inside the handler today, so a blanket
+          // "skip imported" filter would silently drop leg-repair
+          // coverage for the 15–90 day window not covered by
+          // `trustMovementCatchupSync` (which scans only 14 days).
+          // Mirrors the 60s skew tolerance used by the webhook
+          // fallback sync above. On probe failure we fall through to
+          // the full handler rather than silently dropping work.
           let processed = 0;
+          let processedImported = 0;
           let errors = 0;
+          let skippedUnchangedImported = 0;
+          let skippedUnchangedUnimported = 0;
           for (const xeroInvoiceId of xeroInvoiceIds) {
+            const meta = invoiceMetaMap.get(xeroInvoiceId)!;
             try {
+              if (meta.updated_on) {
+                let xeroUpdatedDate: Date | null = null;
+                try {
+                  const probe = await this.xero.accountingApi.getInvoice(
+                    refreshedXero.tenant_id,
+                    xeroInvoiceId,
+                  );
+                  const inv = probe?.body?.invoices?.[0];
+                  xeroUpdatedDate = inv?.updatedDateUTC
+                    ? new Date(inv.updatedDateUTC)
+                    : null;
+                } catch (probeErr: any) {
+                  this.logger.warn(
+                    `${PREFIX} Company ${companyId}: change-detection probe failed for ${xeroInvoiceId}: ${probeErr?.message || probeErr}. Falling through to full handler.`,
+                  );
+                }
+                if (xeroUpdatedDate) {
+                  const ptTime = meta.updated_on.getTime();
+                  const xeroTime = xeroUpdatedDate.getTime();
+                  if (xeroTime <= ptTime + 60000) {
+                    if (meta.already_imported) {
+                      skippedUnchangedImported++;
+                    } else {
+                      skippedUnchangedUnimported++;
+                    }
+                    continue;
+                  }
+                }
+              }
+
               await this.xeroWebhookService.handleInvoiceCreateUpdate(
                 {
                   resource_id: xeroInvoiceId,
@@ -8329,6 +8404,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 decoded,
               );
               processed++;
+              if (meta.already_imported) processedImported++;
             } catch (procErr: any) {
               errors++;
               this.logger.error(
@@ -8338,7 +8414,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           }
 
           this.logger.log(
-            `${PREFIX} Company ${companyId}: processed=${processed} errors=${errors} (from ${candidateRows.length} candidate xero_payments rows / ${xeroInvoiceIds.length} unique invoices)`,
+            `${PREFIX} Company ${companyId}: processed=${processed} (of which already-imported leg-repair attempts=${processedImported}) skipped_unchanged_imported=${skippedUnchangedImported} skipped_unchanged_unimported=${skippedUnchangedUnimported} errors=${errors} (from ${candidateRows.length} candidate xero_payments rows / ${invoiceRows.length} xib rows / ${xeroInvoiceIds.length} unique invoices)`,
           );
         } catch (companyErr: any) {
           this.logger.error(
