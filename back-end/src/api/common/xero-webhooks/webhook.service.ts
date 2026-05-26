@@ -729,6 +729,17 @@ export class XeroWebhookService {
         existing.is_customer = isCustomer ?? false;
         existing.is_supplier = isSupplier ?? false;
         existing.contact_status = String(contactStatus);
+        // Force-bump updated_on so the scheduler's "Xero updatedDateUTC > PT
+        // updated_on + 60s" skew guard (xero-scheduler.service.ts
+        // webhookFallbackSync, contact branch) can actually trip on the next
+        // cycle. When none of the four mirrored fields above changed,
+        // TypeORM's save() diff skips the UPDATE entirely, @UpdateDateColumn
+        // never fires, updated_on stays stale, and the same contact gets
+        // re-processed every 15 minutes forever — flooding xero_sync_logs
+        // with duplicate "Contact <name> has been synced through webhook"
+        // template-201 rows (seen in production for APS Earthmoving:
+        // 19 fallback rebroadcasts in 4h on a never-changing contact).
+        existing.updated_on = new Date();
         await this.xeroContactDetails.save(existing);
         this.logger.log(`[Xero Service] Contact updated in DB`);
       } else {
