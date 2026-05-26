@@ -267,5 +267,5 @@ export type IntegrationStatus =
   | 'Pending';
 
 export type XeroProcess = 'Pay Trade > Xero' | 'Xero > Pay Trade';
-export type XeroStatus = 'Succeeded' | 'Warning' | 'Failed';
+export type XeroStatus = 'Succeeded' | 'Warning' | 'Failed' | 'Info';
 export type SyncAsDraftStatus = 'Yes' | 'No';

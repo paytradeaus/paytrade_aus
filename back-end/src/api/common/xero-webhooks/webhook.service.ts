@@ -2406,9 +2406,9 @@ export class XeroWebhookService {
           important_checks: {
             'Import data format validation': 'Ok',
             'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Failed',
+            'Import account type validation': 'Skipped',
           },
-          error_message: `Missing account field type. Please configure the mapping in Settings to continue.`,
+          error_message: `Skipped — line item account code is not one of your configured trust-flow accounts. This bill looks like a general supplier expense rather than a subcontractor payment. If this supplier never flows through trust, unmap them on the Xero Contacts tab to suppress future attempts.`,
           xero_records: [invoice],
           paytrade_records: [],
           new_records: null,
@@ -2470,9 +2470,9 @@ export class XeroWebhookService {
             important_checks: {
               'Import data format validation': 'Ok',
               'Import tracking id validation': 'Ok',
-              'Import account type validation': 'Failed',
+              'Import account type validation': 'Skipped',
             },
-            error_message: `Mismatch in account codes`,
+            error_message: `Skipped — one or more line item account codes do not match your configured trust-flow accounts. Part of this bill looks like a general supplier expense rather than a subcontractor payment. If this supplier never flows through trust, unmap them on the Xero Contacts tab to suppress future attempts.`,
             xero_records: [invoice],
             paytrade_records: [],
             new_records: null,

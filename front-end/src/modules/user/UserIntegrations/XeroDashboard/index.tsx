@@ -163,11 +163,12 @@ export default function XeroDashboard() {
     "Variable bill code",
     "Claims",
   ];
-  const STATUS_OPTIONS = ["Succeeded", "Warning", "Failed"];
+  const STATUS_OPTIONS = ["Succeeded", "Warning", "Failed", "Info"];
   const [syncLogData, setSyncLogData] = useState<any>({
     succeeded: 0,
     warning: 0,
     failed: 0,
+    info: 0,
     archived: 0,
     tableData: [],
   });
@@ -718,6 +719,8 @@ export default function XeroDashboard() {
   const sync_status_style: any = {
     Succeeded: <span style={{ color: "green" }}>Succeeded</span>,
     Failed: <span style={{ color: "red" }}>Failed</span>,
+    Warning: <span style={{ color: "orange" }}>Warning</span>,
+    Info: <span style={{ color: "#0b5394" }}>Info</span>,
   };
 
   function mapClaimSyncRows(rows: any[]) {
@@ -797,6 +800,7 @@ export default function XeroDashboard() {
         succeeded: countBy("Succeeded"),
         warning: countBy("Warning"),
         failed: countBy("Failed"),
+        info: countBy("Info"),
         tableData: mapClaimSyncRows(pageRows),
       });
       setTotalRows(safeRows.length);
@@ -845,6 +849,7 @@ export default function XeroDashboard() {
       succeeded: findCount("Succeeded"),
       warning: findCount("Warning"),
       failed: findCount("Failed"),
+      info: findCount("Info"),
       archived: findCount("Archived"),
       tableData: logs.xero_logs.map((val: any) => {
         const distanceAgo = formatDistanceToNow(new Date(val.created_on), {
@@ -887,11 +892,17 @@ export default function XeroDashboard() {
           : val.reference?.paytradeId || "";
         const isArchived = !!val.archived_at;
         const isFailedOrWarn =
-          val.sync_status === "Failed" || val.sync_status === "Warning";
+          val.sync_status === "Failed" ||
+          val.sync_status === "Warning" ||
+          val.sync_status === "Info";
         return {
           ...val,
           // Drives the per-row Archive / Un-archive action visibility
           // via DynamicTable.displayDynamicActions(comparisonRowKey).
+          // Info rows are archivable too — they're surfaced for review
+          // (e.g. "bill skipped, not a trust payment") and the user can
+          // dismiss them once they've decided what to do (e.g. unmap
+          // the supplier).
           archive_eligible: !isArchived && isFailedOrWarn,
           unarchive_eligible: isArchived,
           is_archived: isArchived,
@@ -1406,6 +1417,26 @@ export default function XeroDashboard() {
                     style={{ textAlign: "right", color: "red", margin: 0 }}
                   >
                     {syncLogData?.failed}
+                  </p>
+                </div>
+                {/* Info pill — informational entries that aren't real
+                    failures (e.g. bills with line accounts outside the
+                    configured trust-flow accounts). Surfaced so the
+                    user can review and decide whether to take action
+                    (e.g. unmap a supplier so future webhooks for that
+                    contact are suppressed). */}
+                <div
+                  style={{
+                    textTransform: "uppercase",
+                    lineHeight: "18px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <span>Info</span>
+                  <p
+                    style={{ textAlign: "right", color: "#0b5394", margin: 0 }}
+                  >
+                    {syncLogData?.info}
                   </p>
                 </div>
                 {/* Archive pill — clicking it flips the table into

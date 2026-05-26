@@ -2144,7 +2144,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     // Failed only count active rows; the separate "Archived" pill
     // counts everything currently archived (regardless of status)
     // so users can see at a glance how big the audit pile is.
-    const statuses = ['Succeeded', 'Warning', 'Failed', 'Archived'];
+    const statuses = ['Succeeded', 'Warning', 'Failed', 'Info', 'Archived'];
     const statusMap = new Map<string, any>();
     if (id) {
       // NOTE: GROUP BY uses the full CASE expression rather than the
@@ -2274,7 +2274,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (!xeroDetails) {
-      return { issues: [], total_count: 0, succeeded_count: 0, warning_count: 0, failed_count: 0 };
+      return { issues: [], total_count: 0, succeeded_count: 0, warning_count: 0, failed_count: 0, info_count: 0 };
     }
 
     const integrationId = xeroDetails.integration_id;
@@ -2337,6 +2337,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       succeeded_count: countMap['Succeeded'] || 0,
       warning_count: countMap['Warning'] || 0,
       failed_count: countMap['Failed'] || 0,
+      info_count: countMap['Info'] || 0,
     };
   }
 

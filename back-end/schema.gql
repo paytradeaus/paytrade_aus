@@ -13224,7 +13224,9 @@ input GetXeroSyncLogsInput {
   """Start date for filtering logs"""
   start_date: DateTime
 
-  """Optional template.sync_status filter (Succeeded / Warning / Failed)."""
+  """
+  Optional template.sync_status filter (Succeeded / Warning / Failed / Info).
+  """
   sync_status: String
 
   """
@@ -13489,6 +13491,7 @@ type IntegrationIssue {
 """Sync log summary for dashboard"""
 type IntegrationIssuesList {
   failed_count: Float!
+  info_count: Float!
   issues: [IntegrationIssue!]
   succeeded_count: Float!
   total_count: Float!

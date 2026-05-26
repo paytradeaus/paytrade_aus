@@ -2610,9 +2610,9 @@
   {
     "id": 260,
     "sync_type": "Invoice webhook",
-    "description": "<p>Invoice webhook in xero failed</p>",
+    "description": "<p>Bill skipped — line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment) and does not belong in PayTrade. Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
     "process": "Xero > Pay Trade",
-    "sync_status": "Failed",
+    "sync_status": "Info",
     "from_xero": true,
     "error_code": "WH_MISSING_ACCOUNT_FIELDS",
     "associated_log_ids": [
@@ -2622,9 +2622,9 @@
   {
     "id": 261,
     "sync_type": "Invoice webhook",
-    "description": "<p>Invoice webhook in xero failed</p>",
+    "description": "<p>Bill skipped — one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop future webhooks for that contact.</p>",
     "process": "Xero > Pay Trade",
-    "sync_status": "Failed",
+    "sync_status": "Info",
     "from_xero": true,
     "error_code": "WH_ACCOUNT_FIELDS_MISMATCH",
     "associated_log_ids": [
@@ -4387,9 +4387,9 @@
   {
     "id": 420,
     "sync_type": "Invoice schedulers",
-    "description": "<p>Invoice scheduler in xero failed</p>",
+    "description": "<p>Bill skipped (scheduler) — line item account code is not one of your configured trust-flow accounts. This usually means the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
     "process": "Xero > Pay Trade",
-    "sync_status": "Failed",
+    "sync_status": "Info",
     "from_xero": true,
     "error_code": "SCHEDULER_MISSING_ACCOUNT_FIELDS",
     "associated_log_ids": [
@@ -4399,9 +4399,9 @@
   {
     "id": 421,
     "sync_type": "Invoice schedulers",
-    "description": "<p>Invoice scheduler in xero failed</p>",
+    "description": "<p>Bill skipped (scheduler) — one or more line item account codes do not match your configured trust-flow accounts. This usually means part of the bill is a general supplier expense (not a subcontractor payment). Review the bill in Xero; if this supplier never flows through trust you can unmap them on the Xero Contacts tab to stop the scheduler from re-attempting it.</p>",
     "process": "Xero > Pay Trade",
-    "sync_status": "Failed",
+    "sync_status": "Info",
     "from_xero": true,
     "error_code": "SCHEDULER_ACCOUNT_FIELDS_MISMATCH",
     "associated_log_ids": [

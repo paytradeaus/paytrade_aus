@@ -554,6 +554,9 @@ export class IntegrationIssuesList {
 
   @Field()
   failed_count: number;
+
+  @Field()
+  info_count: number;
 }
 
 @ObjectType({ description: 'Response wrapper for integration issues' })

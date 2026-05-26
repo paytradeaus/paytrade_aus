@@ -28,7 +28,7 @@ export class XeroLogTemplates {
   })
   process: XeroProcess;
 
-  @Column({ type: 'enum', enum: ['Succeeded', 'Warning', 'Failed'] })
+  @Column({ type: 'enum', enum: ['Succeeded', 'Warning', 'Failed', 'Info'] })
   sync_status: XeroStatus;
 
   @Column({ default: false })

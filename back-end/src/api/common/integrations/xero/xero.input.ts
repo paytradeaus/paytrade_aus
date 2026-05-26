@@ -157,7 +157,7 @@ export class GetXeroSyncLogsInput {
   @Field({
     nullable: true,
     description:
-      'Optional template.sync_status filter (Succeeded / Warning / Failed).',
+      'Optional template.sync_status filter (Succeeded / Warning / Failed / Info).',
   })
   sync_status?: string;
 
