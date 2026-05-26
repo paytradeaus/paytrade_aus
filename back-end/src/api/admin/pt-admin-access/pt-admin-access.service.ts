@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { UserDetails, UserStatus } from '../../../entities/user-details.entity';
+import {
+  UserDetails,
+  UserStatus,
+  DefaultUserEmailPreferences,
+} from '../../../entities/user-details.entity';
 import { Between, ILike, In, LessThan, Not, Repository } from 'typeorm';
 import { UpdateUserDetailsInput } from './dto/ptadmin-update-user.dto';
 import { CompanyDetails } from '../../../entities/company-details.entity';
@@ -550,6 +554,13 @@ export class PtAdminAccessService {
         is_verified: true,
         is_admin_contacted: true,
         is_admin_added: true,
+        // Default-ON email preferences — mirrors the regular signup flow
+        // so admin-created users start opted-in to community / compliance
+        // / xero notifications (daily mode by default).
+        email_preferences: {
+          ...DefaultUserEmailPreferences,
+          ...((adminCreateUserInput as any)?.email_preferences || {}),
+        },
       };
 
       const user = await this.userDetails.create(newUserInput);

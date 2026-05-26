@@ -378,6 +378,7 @@ export default function PersonalInfo() {
       community: true,
       compliance: true,
       xero_sync_failures: true,
+      xero_sync_failures_mode: "daily",
       notices: true,
     },
     validationSchema,
@@ -421,10 +422,23 @@ export default function PersonalInfo() {
             position_title: response?.position_title,
             signature: response?.signature,
             signature_type: response?.signature_type,
-            community: response?.email_preferences?.community,
-            compliance: response?.email_preferences?.compliance,
+            // Default-on coercion: treat missing / null personal-pref
+            // keys as opted-IN so legacy users (whose email_preferences
+            // JSON predates a key) see the checkbox in its ON state and
+            // a save round-trip writes an explicit `true`.
+            community: response?.email_preferences?.community !== false,
+            compliance: response?.email_preferences?.compliance !== false,
             xero_sync_failures:
               response?.email_preferences?.xero_sync_failures !== false,
+            // Two-stage Xero control: legacy users with only
+            // `xero_sync_failures: true` are treated as on + daily.
+            // Anything other than the literal string 'immediate' is
+            // normalised to 'daily'.
+            xero_sync_failures_mode:
+              response?.email_preferences?.xero_sync_failures_mode ===
+              "immediate"
+                ? "immediate"
+                : "daily",
           });
           setSavedImage(response?.file);
 
@@ -446,10 +460,15 @@ export default function PersonalInfo() {
             position_title: response?.position_title,
             signature: response?.signature,
             signature_type: response?.signature_type,
-            community: response?.email_preferences?.community,
-            compliance: response?.email_preferences?.compliance,
+            community: response?.email_preferences?.community !== false,
+            compliance: response?.email_preferences?.compliance !== false,
             xero_sync_failures:
               response?.email_preferences?.xero_sync_failures !== false,
+            xero_sync_failures_mode:
+              response?.email_preferences?.xero_sync_failures_mode ===
+              "immediate"
+                ? "immediate"
+                : "daily",
           });
         }
       })
@@ -464,6 +483,7 @@ export default function PersonalInfo() {
         compliance,
         notices,
         xero_sync_failures,
+        xero_sync_failures_mode,
         ...restValues
       } = formik?.values;
       const postData: any = {
@@ -476,10 +496,15 @@ export default function PersonalInfo() {
             ? formik?.values?.date_of_birth
             : null,
           email_preferences: {
-            community,
-            compliance,
+            community: community !== false,
+            compliance: compliance !== false,
             notices: true,
             xero_sync_failures: xero_sync_failures !== false,
+            // Mode only meaningful while the master switch is ON; we
+            // still persist the chosen mode either way so flipping the
+            // master switch back on restores the user's last choice.
+            xero_sync_failures_mode:
+              xero_sync_failures_mode === "immediate" ? "immediate" : "daily",
           },
         },
       };
@@ -873,12 +898,80 @@ export default function PersonalInfo() {
                           id={"xero_sync_failures"}
                           name={"xero_sync_failures"}
                           label={
-                            "Receive daily email when Xero sync issues occur."
+                            "Receive email when Xero sync issues occur."
                           }
                           control={InputType.CHECKBOX}
                           onChange={formik?.handleChange}
                           value={formik.values.xero_sync_failures}
                         />
+                        {formik.values.xero_sync_failures !== false && (
+                          <div
+                            style={{
+                              marginLeft: "1.75rem",
+                              marginTop: "0.4rem",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.75rem",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <small style={{ color: "#555" }}>
+                              How often:
+                            </small>
+                            <label
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.35rem",
+                                margin: 0,
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="xero_sync_failures_mode"
+                                value="immediate"
+                                checked={
+                                  formik.values.xero_sync_failures_mode ===
+                                  "immediate"
+                                }
+                                onChange={() =>
+                                  formik.setFieldValue(
+                                    "xero_sync_failures_mode",
+                                    "immediate"
+                                  )
+                                }
+                                style={{ margin: 0 }}
+                              />
+                              <small>Immediately (per failure)</small>
+                            </label>
+                            <label
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.35rem",
+                                margin: 0,
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="xero_sync_failures_mode"
+                                value="daily"
+                                checked={
+                                  formik.values.xero_sync_failures_mode !==
+                                  "immediate"
+                                }
+                                onChange={() =>
+                                  formik.setFieldValue(
+                                    "xero_sync_failures_mode",
+                                    "daily"
+                                  )
+                                }
+                                style={{ margin: 0 }}
+                              />
+                              <small>Once a day (summary)</small>
+                            </label>
+                          </div>
+                        )}
                       </div>
                       <div
                         style={{

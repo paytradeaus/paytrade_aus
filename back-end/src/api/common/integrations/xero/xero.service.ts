@@ -36,6 +36,8 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { UserDetails } from 'src/entities/user-details.entity';
 import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
+import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
+import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 
 dotenv.config();
 
@@ -67,6 +69,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     private clientSuppliersDetails: Repository<ClientSuppliersDetails>,
     private readonly dataSource: DataSource,
     private xeroRefreshTokenService: XeroRefreshTokenService,
+    private readonly emailQueueProducer: EmailQueueProducer,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -1587,6 +1590,34 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         });
         xeroSyncLog = await this.xeroSyncLogs.save(response);
 
+        // Immediate-mode per-failure email: fires only on a freshly
+        // created Failed log (allowCreation === true means the dedup
+        // gate above did NOT collapse this into an existing active
+        // failure, so it represents a NEW occurrence the user hasn't
+        // been notified about). The dedup gate itself acts as the
+        // short-window dedup for immediate emails — duplicate
+        // failures within the rolling window never reach this branch
+        // because allowCreation will be false. Recipients are Active
+        // Primary / Secondary Admins on the owning company whose
+        // `email_preferences.xero_sync_failures` is not explicitly
+        // false AND whose `xero_sync_failures_mode` === 'immediate'.
+        // Daily-mode users are excluded here (and remain on the 08:05
+        // UTC summary path). Send is best-effort: any failure is
+        // swallowed so we never block sync-log persistence.
+        if (templateDetails?.sync_status === 'Failed') {
+          try {
+            await this.sendImmediateXeroFailureEmail(
+              createXeroSyncLogInput,
+              templateDetails,
+              xeroSyncLog,
+            );
+          } catch (immediateMailErr: any) {
+            this.logger.warn(
+              `[insertXeroSyncLogs] immediate-mode failure email send threw (non-fatal): ${immediateMailErr?.message || immediateMailErr}`,
+            );
+          }
+        }
+
         // Self-heal: when a Succeeded row lands, archive prior active
         // Failed rows for the same (integration_id, resource_key). This
         // stops xero_sync_logs from carrying a permanent trail of errors
@@ -1646,6 +1677,136 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     }
 
     return xeroSyncLog;
+  }
+
+  /**
+   * Per-failure immediate email for Xero sync failures.
+   *
+   * Mirrors the daily summary in `XeroSchedulerService.sendDailyXeroSyncFailureEmails`
+   * but fires once per newly-recorded failure (not on a cron) and only
+   * targets users who explicitly chose the `immediate` mode under
+   * `email_preferences.xero_sync_failures_mode`. The corresponding daily
+   * cron skips these same users so the two paths never double-notify.
+   *
+   * Short-window dedup is provided implicitly by the surrounding
+   * `insertXeroSyncLogs` dedup gate: this helper is only invoked when
+   * `allowCreation === true`, i.e. the failure wasn't merged into an
+   * existing active failure row.
+   */
+  private async sendImmediateXeroFailureEmail(
+    createXeroSyncLogInput: CreateXeroSyncLogInput,
+    templateDetails: XeroLogTemplates,
+    xeroSyncLog: any,
+  ): Promise<void> {
+    const PREFIX = '[XERO_SYNC_FAILURE_IMMEDIATE_EMAIL]';
+    if (!createXeroSyncLogInput?.integration_id) return;
+
+    const integ = await this.xeroIntegrationDetails.findOne({
+      where: { integration_id: createXeroSyncLogInput.integration_id },
+      select: ['integration_id', 'company_id', 'tenant_name', 'status'] as any,
+    });
+    if (!integ || !integ.company_id) return;
+    // Only fire while the integration itself is active. Disconnected
+    // integrations should not be spamming the user about backfilled or
+    // late-arriving webhook failures.
+    if ((integ as any).status && (integ as any).status !== 'ACTIVE') return;
+
+    const recipients = await this.companyUserRolesRepo
+      .createQueryBuilder('r')
+      .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
+      .where('r.company_id = :cid', { cid: integ.company_id })
+      .andWhere(`r.company_role IN ('PRIMARY ADMIN', 'ADMIN')`)
+      .andWhere(`r.status = 'Active'`)
+      .andWhere(
+        `(u.email_preferences ->> 'xero_sync_failures') IS DISTINCT FROM 'false'`,
+      )
+      .andWhere(
+        `COALESCE(u.email_preferences ->> 'xero_sync_failures_mode', 'daily') = 'immediate'`,
+      )
+      .select(['u.email_id AS email_id', 'u.first_name AS first_name'])
+      .getRawMany<{ email_id: string; first_name: string }>();
+
+    const uniqueRecipients = Array.from(
+      new Map(
+        recipients
+          .filter((r) => r.email_id && r.email_id.includes('@'))
+          .map((r) => [r.email_id, r]),
+      ).values(),
+    );
+    if (!uniqueRecipients.length) return;
+
+    const orgLabel =
+      integ.tenant_name && integ.tenant_name.trim()
+        ? integ.tenant_name
+        : 'your Xero organisation';
+    const baseUrl = (process.env.LOG_BASE_URL || '').replace(/\/+$/, '');
+    const dashboardLink = `${baseUrl}/user/dashboard?view=all-issues`;
+    // XeroLogTemplates uses `sync_type` (short label) + `description`
+    // (longer human-readable text). Fall back through both so the
+    // recipient sees something meaningful even if one column is empty.
+    const failureTitle =
+      (templateDetails as any)?.description ||
+      (templateDetails as any)?.sync_type ||
+      'Xero sync failure';
+    const referenceId =
+      createXeroSyncLogInput.reference_id ||
+      createXeroSyncLogInput.api_payload?.invoice_id ||
+      createXeroSyncLogInput.api_payload?.contact_id ||
+      createXeroSyncLogInput.api_payload?.account_id ||
+      createXeroSyncLogInput.api_payload?.bank_transfer_id ||
+      createXeroSyncLogInput.api_payload?.payment_id ||
+      null;
+    const subject = `Xero sync failure: ${failureTitle}`;
+
+    for (const recipient of uniqueRecipients) {
+      const adminName = recipient.first_name?.trim() || 'there';
+      const mailBody = `
+        <p>Hi ${adminName},</p>
+        <p>A Xero sync just failed on <strong>${orgLabel}</strong>.</p>
+        <table cellpadding="8" cellspacing="0" style="border-collapse:collapse;border:1px solid #dcdcdc;margin:12px 0;">
+          <tr>
+            <td style="border:1px solid #dcdcdc;background:#f6f8fa;font-weight:bold;">What failed</td>
+            <td style="border:1px solid #dcdcdc;">${failureTitle}</td>
+          </tr>
+          ${
+            referenceId
+              ? `<tr>
+            <td style="border:1px solid #dcdcdc;background:#f6f8fa;font-weight:bold;">Reference</td>
+            <td style="border:1px solid #dcdcdc;">${String(referenceId)}</td>
+          </tr>`
+              : ''
+          }
+        </table>
+        <p>Open the dashboard to review the failure and decide whether to retry, fix the underlying record, or archive the alert.</p>
+        <p>
+          <a href="${dashboardLink}" style="background-color:#1583D8;color:#ffffff;padding:10px 18px;text-decoration:none;border-radius:4px;display:inline-block;">
+            Review sync issue
+          </a>
+        </p>
+        <p>If the button above doesn't work, copy and paste this link into your browser:<br/>
+          <a href="${dashboardLink}">${dashboardLink}</a>
+        </p>
+        <p style="color:#666;font-size:12px;margin-top:24px;">
+          You're receiving this because you're an admin on this company and
+          you chose to be notified <strong>immediately</strong> on Xero sync
+          failures. Switch to a daily summary (or turn these emails off) from
+          your Personal Profile page under "Manage email preferences".
+        </p>
+        <p>Thanks,<br/>The PayTrade team</p>
+      `;
+
+      await this.emailQueueProducer.emailQueueProducer({
+        toEmail: recipient.email_id,
+        subject,
+        template: 'header-footer-email',
+        mailBody,
+        mail_type: EmailTypeEnum.xeroSyncFailures,
+      } as any);
+    }
+
+    this.logger.log(
+      `${PREFIX} company_id=${integ.company_id} sync_id=${xeroSyncLog?.sync_id ?? '?'} recipients=${uniqueRecipients.length}`,
+    );
   }
 
   /**

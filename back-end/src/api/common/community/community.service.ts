@@ -966,12 +966,17 @@ export class CommunityService {
       const isArray = Array.isArray(email_ids);
 
       if ((isArray && email_ids?.length) || (!isArray && email_ids)) {
+        // Default-on gating: null / missing prefs are treated as opted-IN,
+        // only an explicit `false` opts the recipient out. The matching
+        // signup defaults + bootstrap backfill seed `community: true` for
+        // every user so this lookup stays consistent for both fresh and
+        // legacy accounts.
         const queryBuilder = await this.userDetails
           .createQueryBuilder('u')
           .select(['u.email_id as email_id', 'u.user_id as user_id'])
-          .where(`u.email_preferences ->> 'community' = :enabled`, {
-            enabled: true,
-          });
+          .where(
+            `(u.email_preferences ->> 'community') IS DISTINCT FROM 'false'`,
+          );
 
         if (isArray) {
           queryBuilder.andWhere('u.email_id IN (:...email_ids)', { email_ids });

@@ -1,0 +1,2 @@
+- [Email preference gating convention](email-preferences-gating.md) — opt-IN by default: gating queries treat NULL/missing as on, only explicit `false` opts out; new keys need allowlist + default + backfill.
+- [XeroService cross-module providers](xero-service-cross-module.md) — XeroService is registered in 6 different modules; new dependencies must be added to ALL of them or DI fails at boot.

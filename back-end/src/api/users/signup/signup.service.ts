@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { EntityManager, ILike, In, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateSignupInput } from './dto/create-signup.input';
 import {
   UserDetails,
   UserEmailPreferences,
+  UserDefaultOnEmailPreferenceKeys,
+  DefaultUserEmailPreferences,
 } from '../../../entities/user-details.entity';
 import {
   CreateCompanySignupInput,
@@ -41,7 +43,7 @@ var bcrypt = require('bcryptjs');
 const saltOrRounds = bcrypt.genSaltSync(5);
 
 @Injectable()
-export class SignupService {
+export class SignupService implements OnApplicationBootstrap {
   private logger: PaytradeLogger;
   constructor(
     @InjectRepository(CompanyDetails)
@@ -73,6 +75,56 @@ export class SignupService {
 
   private log(message: string) {
     this.logger.log(`${message}`);
+  }
+
+  /**
+   * One-shot startup backfill for the default-ON email preferences
+   * regime. Sets the canonical opt-IN defaults
+   * (community / compliance / notices / xero_sync_failures = true,
+   * xero_sync_failures_mode = 'daily') on any user_details row that is
+   * either missing email_preferences entirely or missing one of the
+   * recognised keys. Existing explicit values (including `false`) are
+   * preserved — `||` only fills NULL / missing.
+   *
+   * Runs as fire-and-forget so a slow / failed backfill never blocks
+   * startup. Idempotent: re-running it on already-backfilled rows is
+   * a no-op.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const defaultsJson = JSON.stringify(DefaultUserEmailPreferences);
+          // jsonb || jsonb merges right-into-left, so put existing prefs
+          // on the right to ensure they win. Cast user_details
+          // .email_preferences (json) to jsonb for the merge and store
+          // back as the original json type.
+          const result = await this.userDetails.query(
+            `UPDATE user_details
+             SET    email_preferences = (
+                      $1::jsonb || COALESCE(email_preferences::jsonb, '{}'::jsonb)
+                    )::json
+             WHERE  email_preferences IS NULL
+                OR  NOT (email_preferences::jsonb ? 'community')
+                OR  NOT (email_preferences::jsonb ? 'compliance')
+                OR  NOT (email_preferences::jsonb ? 'notices')
+                OR  NOT (email_preferences::jsonb ? 'xero_sync_failures')
+                OR  NOT (email_preferences::jsonb ? 'xero_sync_failures_mode')`,
+            [defaultsJson],
+          );
+          const rowCount = Array.isArray(result) && result[1] != null
+            ? result[1]
+            : (result as any)?.affected ?? 0;
+          this.logger.log(
+            `[email_preferences backfill] default-ON keys applied to ${rowCount} user_details row(s)`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[email_preferences backfill] failed (non-fatal): ${err?.message || err}`,
+          );
+        }
+      })();
+    }, 15000);
   }
 
   private logError(message: string) {
@@ -125,6 +177,16 @@ export class SignupService {
           createSignupInput.user_status = 'Active';
           createSignupInput.created_on = moment.tz('UTC');
           createSignupInput.created_group = 'USER';
+          // Default-ON email preferences for every new user. Without this
+          // seed, brand-new accounts had `email_preferences = NULL` and
+          // every gating query needs to treat NULL as opted-in to avoid
+          // dropping notifications. Seeding here lets the row carry
+          // explicit consent from day one, and gives the UI a non-empty
+          // object to bind the toggle states against.
+          (createSignupInput as any).email_preferences = {
+            ...DefaultUserEmailPreferences,
+            ...((createSignupInput as any).email_preferences || {}),
+          };
 
           const createUser = await transactionalEntityManager.create(
             UserDetails,
@@ -597,22 +659,26 @@ export class SignupService {
 
     if (result?.length > 0) {
       result = result?.map((u) => {
-        let email_preferences: Record<string, boolean> = {};
-        UserEmailPreferences.map((moduleName) => {
+        // Normalise the stored prefs JSON into a complete object the
+        // frontend can render against. Default-ON keys
+        // (UserDefaultOnEmailPreferenceKeys) coerce missing / null to
+        // `true` so legacy users who never touched their prefs see all
+        // toggles ON (matching the gating queries which treat NULL as
+        // opted-in). Non-boolean keys (e.g. xero_sync_failures_mode)
+        // fall back to the seed defaults.
+        const stored: Record<string, any> = u?.email_preferences || {};
+        const email_preferences: Record<string, any> = {};
+        UserEmailPreferences.forEach((key) => {
           if (
-            (u?.email_preferences ? u?.email_preferences : {})?.hasOwnProperty(
-              moduleName,
-            )
+            Object.prototype.hasOwnProperty.call(stored, key) &&
+            stored[key] !== null &&
+            stored[key] !== undefined
           ) {
-            email_preferences = {
-              ...email_preferences,
-              [moduleName]: u?.email_preferences?.[moduleName],
-            };
+            email_preferences[key] = stored[key];
+          } else if (UserDefaultOnEmailPreferenceKeys.includes(key)) {
+            email_preferences[key] = true;
           } else {
-            email_preferences = {
-              ...email_preferences,
-              [moduleName]: false,
-            };
+            email_preferences[key] = DefaultUserEmailPreferences[key];
           }
         });
         return { ...u, email_preferences };

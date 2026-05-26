@@ -35,6 +35,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { XeroRefreshTokenService } from 'src/api/common/integrations/xero/refreshToken/xeroRefreshToken.service';
 import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
 import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
+import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 
 @Module({
   imports: [
@@ -43,6 +44,14 @@ import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQu
     }),
     BullModule.registerQueue({
       name: 'xero-sync-recovery',
+    }),
+    // Required by XeroService for the immediate-mode Xero sync failure
+    // email path. XeroService is registered as a provider in this
+    // module's context, so its EmailQueueProducer dependency must also
+    // be resolvable here (matching xero.module.ts which already
+    // registers the same queue + producer).
+    BullModule.registerQueue({
+      name: 'mailQueue',
     }),
     TypeOrmModule.forFeature([
       UserDetails,
@@ -80,6 +89,7 @@ import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQu
     XeroContactsService,
     XeroRefreshTokenService,
     XeroSyncRecoveryService,
+    EmailQueueProducer,
   ],
   exports: [ClientSuppliersDetailsService],
 })

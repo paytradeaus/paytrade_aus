@@ -29,12 +29,43 @@ export type UserStatus =
 
 export type Group = 'SYSTEM' | 'USER' | 'ADMIN';
 
+// Allowlist of recognised personal email-preference keys.
+// Boolean toggles default to opted-IN: missing/null is treated the same as
+// `true`. Only an explicit `false` opts the user out. The matching gating
+// queries (community / compliance / xero daily cron) all use
+// `IS DISTINCT FROM 'false'` so that default-on behaviour survives users
+// who were created before a key existed and never touched their prefs.
+//
+// `xero_sync_failures_mode` is a string sub-setting that pairs with the
+// `xero_sync_failures` master switch and accepts either 'immediate' or
+// 'daily' (default). Legacy users whose stored prefs have only
+// `xero_sync_failures: true` are treated as on + daily.
 export const UserEmailPreferences = [
   'community',
   'compliance',
   'notices',
   'xero_sync_failures',
+  'xero_sync_failures_mode',
 ];
+
+// Keys that follow the boolean opt-IN-by-default convention. These are
+// normalised to `true` whenever the stored JSON has no entry / null.
+export const UserDefaultOnEmailPreferenceKeys = [
+  'community',
+  'compliance',
+  'notices',
+  'xero_sync_failures',
+];
+
+export type XeroSyncFailuresMode = 'immediate' | 'daily';
+
+export const DefaultUserEmailPreferences: Record<string, any> = {
+  community: true,
+  compliance: true,
+  notices: true,
+  xero_sync_failures: true,
+  xero_sync_failures_mode: 'daily',
+};
 
 @Entity()
 export class UserDetails {

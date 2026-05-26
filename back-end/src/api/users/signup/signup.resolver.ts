@@ -1772,22 +1772,31 @@ export class SignupResolver {
             `Response recieved while leaving the client: ${JSON.stringify(companyDetails)}`,
           );
           if (companyDetails) {
+            // Default-ON: missing / null company-level pref keys are
+            // treated as opted-IN so the BusinessProfile checkboxes
+            // render the same way as the personal-profile ones, and
+            // gating queries that use `IS DISTINCT FROM 'false'` stay
+            // consistent with the rendered UI state.
+            const storedCompanyPrefs: Record<string, any> =
+              companyDetails?.email_preferences || {};
             let email_preferences: Record<string, boolean> = {};
             CompanyEmailPreferences.map((moduleName) => {
               if (
-                (companyDetails?.email_preferences
-                  ? companyDetails?.email_preferences
-                  : {}
-                )?.hasOwnProperty(moduleName)
+                Object.prototype.hasOwnProperty.call(
+                  storedCompanyPrefs,
+                  moduleName,
+                ) &&
+                storedCompanyPrefs[moduleName] !== null &&
+                storedCompanyPrefs[moduleName] !== undefined
               ) {
                 email_preferences = {
                   ...email_preferences,
-                  [moduleName]: companyDetails?.email_preferences?.[moduleName],
+                  [moduleName]: storedCompanyPrefs[moduleName],
                 };
               } else {
                 email_preferences = {
                   ...email_preferences,
-                  [moduleName]: false,
+                  [moduleName]: true,
                 };
               }
             });

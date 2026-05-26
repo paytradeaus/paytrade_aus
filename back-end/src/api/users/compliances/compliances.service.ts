@@ -1397,12 +1397,18 @@ export class CompliancesService {
         .where('p.project_status = :project_status', {
           project_status: 'In Progress',
         })
+        // Default-on user pref always wins: a user's explicit `false`
+        // suppresses the email even when the owning company is a real
+        // (non-system) company that has opted in at the company level.
+        // For system-added (personal) companies we fall back to the
+        // user pref entirely. Null / missing prefs are treated as
+        // opted-IN on both sides so legacy rows without the
+        // `compliance` key still receive the daily email.
         .andWhere(
-          `((c.is_system_added = :disabled AND (c.email_preferences ->> 'compliance')::boolean = :enabled) OR (c.is_system_added = :enabled AND (u.email_preferences ->> 'compliance')::boolean = :enabled))`,
-          {
-            enabled: true,
-            disabled: false,
-          },
+          `(u.email_preferences ->> 'compliance') IS DISTINCT FROM 'false'`,
+        )
+        .andWhere(
+          `(c.is_system_added = TRUE OR (c.email_preferences ->> 'compliance') IS DISTINCT FROM 'false')`,
         );
 
       const result = await queryBuilder.getRawMany();

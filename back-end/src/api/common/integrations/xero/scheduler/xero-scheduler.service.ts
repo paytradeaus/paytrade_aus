@@ -1022,6 +1022,12 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             .andWhere('l.archived_at IS NULL')
             .getCount();
 
+          // Default-on: missing/null `xero_sync_failures` is opted-IN.
+          // Daily-summary cron must additionally SKIP users whose mode is
+          // `immediate` — they already received per-failure emails as the
+          // failures were recorded, and bundling them again into the daily
+          // digest would be a double-notify. Missing mode key defaults to
+          // 'daily' (so it is NOT DISTINCT FROM 'immediate' → included).
           const recipients = await this.userRoles
             .createQueryBuilder('r')
             .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
@@ -1030,6 +1036,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             .andWhere(`r.status = 'Active'`)
             .andWhere(
               `(u.email_preferences ->> 'xero_sync_failures') IS DISTINCT FROM 'false'`,
+            )
+            .andWhere(
+              `COALESCE(u.email_preferences ->> 'xero_sync_failures_mode', 'daily') <> 'immediate'`,
             )
             .select([
               'u.email_id AS email_id',
