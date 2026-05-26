@@ -57,6 +57,7 @@
     "archive_note",
     "archived_at",
     "archived_by_user_id",
+    "archived_reason",
     "asked_at",
     "associated_cash_account_id",
     "associated_log_ids",
