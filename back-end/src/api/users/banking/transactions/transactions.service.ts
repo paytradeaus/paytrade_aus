@@ -1476,10 +1476,20 @@ export class TransactionsService {
             },
           );
       };
-      const __matchResult = externalManager
-        ? await execute(externalManager)
-        : await this.entityManager.transaction(execute);
-      // Post-commit compliance invalidation.
+      if (externalManager) {
+        // Caller owns the surrounding transaction. We CANNOT invalidate
+        // here because the outer tx hasn't committed yet — doing so
+        // would let the refresh worker recompute against pre-commit
+        // state and immediately clear `is_stale`, leaving the persisted
+        // cache out of sync with what the user actually wrote. The
+        // caller is responsible for calling
+        // `invalidateComplianceForPayments(result.data.payments, ...)`
+        // (or `markComplianceDirty` directly) after their own tx
+        // commits.
+        return await execute(externalManager);
+      }
+      const __matchResult = await this.entityManager.transaction(execute);
+      // Post-commit compliance invalidation (we owned the tx).
       await this.invalidateComplianceForPayments(
         (__matchResult as any)?.data?.payments ?? [],
         'transaction.match',

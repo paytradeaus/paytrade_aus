@@ -89,6 +89,7 @@ import { SubscriptionPlanDetails } from 'src/entities/subscription-plan-details.
 import { SubscriptionPricingPlan } from 'src/entities/subscription-pricing-plan.entity';
 import { SubscriptionTransaction } from 'src/entities/subscription-transactions.entity';
 import { CompliancesService } from 'src/api/users/compliances/compliances.service';
+import { ComplianceRefreshModule } from 'src/api/users/compliances/compliance-refresh.module';
 import { CompliancePTAFunctions } from 'src/api/users/compliances/functions/pta-functions';
 import { ComplianceRTAFunctions } from 'src/api/users/compliances/functions/rta-functions';
 import {
@@ -218,6 +219,7 @@ import { XeroSyncRecoveryService } from '../../xero-webhooks/recoveryQueue/xeroS
       CompanyCouponDetails,
     ]),
     ScheduleModule.forRoot(),
+    ComplianceRefreshModule,
   ],
   controllers: [XeroController],
   providers: [

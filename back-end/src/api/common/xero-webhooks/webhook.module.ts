@@ -62,6 +62,7 @@ import { RetentionProgressionFunctions } from 'src/api/users/banking/payments/re
 import { BullModule } from '@nestjs/bullmq';
 import { XeroRefreshTokenService } from 'src/api/common/integrations/xero/refreshToken/xeroRefreshToken.service';
 import { CompliancesService } from 'src/api/users/compliances/compliances.service';
+import { ComplianceRefreshModule } from 'src/api/users/compliances/compliance-refresh.module';
 import {
   ComplianceChecks,
   ComplianceOfProjects,
@@ -118,6 +119,7 @@ import { XeroSyncRecoveryWorker } from './recoveryQueue/xeroSyncRecovery.worker'
 
 @Module({
   imports: [
+    ComplianceRefreshModule,
     BullModule.registerQueue({
       name: 'xero-refresh-token',
     }),
