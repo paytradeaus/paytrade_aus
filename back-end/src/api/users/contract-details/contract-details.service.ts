@@ -737,7 +737,22 @@ export class ContractDetailsService {
   }
 
   async viewContractDetailsById(id: string) {
-    const whereConditions: any = { id };
+    // Accept either the UUID PK (`id`) or the integer `contract_id`.
+    // The compliance "Upload signed contracts" check has historically
+    // emitted the integer `contract_id` as its reference_id (and stale
+    // `compliance_rule` rows in prod can still hold that value). The
+    // frontend route `/user/contracts/edit/:id` passes whatever it
+    // finds straight through, so this resolver must be tolerant of
+    // both shapes — otherwise a single stale cached integer breaks
+    // Edit Contract permanently for that record.
+    const idStr = String(id ?? '').trim();
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const whereConditions: any = UUID_RE.test(idStr)
+      ? { id: idStr }
+      : /^\d+$/.test(idStr)
+        ? { contract_id: Number(idStr) }
+        : { id: idStr };
 
     const result = await this.contractDetails.findOne({
       where: whereConditions,
@@ -790,7 +805,10 @@ export class ContractDetailsService {
     const client_supplier_address =
       result?.clientSuppliersDetails?.client_supplier_address;
 
-    const contractDetails = await this.getContractsDetailsById(id);
+    // Use the resolved UUID from `result` (not the incoming `id`,
+    // which may be an integer contract_id — see viewContractDetailsById
+    // tolerance comment above). getContractsDetailsById queries by UUID.
+    const contractDetails = await this.getContractsDetailsById(result.id);
     var claimCount = 0,
       payment = 0,
       active_payment_claims = false;
