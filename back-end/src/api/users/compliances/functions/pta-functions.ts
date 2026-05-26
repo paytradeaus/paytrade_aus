@@ -1744,43 +1744,74 @@ export class CompliancePTAFunctions {
             filteredUnmatchedBillablePayments.length !=
             fetchedBillablePayments.length
           ) {
-            //Fetch Supplier Payment Remittance Advice notice details.
-            const fetchedUnsentSupplierNoticeDetails =
-              await this.noticeDetailsRepo
-                .createQueryBuilder('n')
-                .select([
-                  'n.notice_type AS notice_type',
-                  'n.id AS notice_id',
-                  'n.status AS status',
-                ])
-                .where('n.notice_type = :notice_type', {
-                  notice_type: 'Supplier Payment Remittance Advice Notice',
-                })
-                .andWhere('n.status = :status', { status: 'Not Sent' })
-                .andWhere('n.project_id = :project_id', { project_id })
-                .getRawMany();
-            //   'fetchedUnsentSupplierNoticeDetails',
-            //   fetchedUnsentSupplierNoticeDetails,
-            // );
+            // Task #276: scope to the same companies/payments the user can
+            // see in the Notices list, and only fire ACTION REQUIRED when
+            // there's a real, deep-linkable Not Sent notice.
+            const billablePaymentIds = fetchedBillablePayments
+              .map((p) => p.payment_id)
+              .filter(Boolean);
+            const billableCompanyIds = Array.from(
+              new Set(
+                fetchedBillablePayments
+                  .map((p) => p.company_id)
+                  .filter(Boolean),
+              ),
+            );
 
-            if (fetchedUnsentSupplierNoticeDetails.length) {
+            const supplierNoticeQB = this.noticeDetailsRepo
+              .createQueryBuilder('n')
+              .select([
+                'n.notice_type AS notice_type',
+                'n.id AS notice_id',
+                'n.status AS status',
+                'n.company_id AS company_id',
+                'n.payment_id AS payment_id',
+              ])
+              .where('n.notice_type = :notice_type', {
+                notice_type: 'Supplier Payment Remittance Advice Notice',
+              })
+              .andWhere('n.status = :status', { status: 'Not Sent' })
+              .andWhere('n.project_id = :project_id', { project_id });
+
+            if (billableCompanyIds.length) {
+              supplierNoticeQB.andWhere(
+                'n.company_id IN (:...billableCompanyIds)',
+                { billableCompanyIds },
+              );
+            }
+            if (billablePaymentIds.length) {
+              supplierNoticeQB.andWhere(
+                'n.payment_id IN (:...billablePaymentIds)',
+                { billablePaymentIds },
+              );
+            }
+
+            const fetchedUnsentSupplierNoticeDetails =
+              await supplierNoticeQB.getRawMany();
+
+            const firstUsableNotice =
+              fetchedUnsentSupplierNoticeDetails.find((n) => !!n?.notice_id) ??
+              null;
+
+            if (firstUsableNotice) {
               //Fetch rule details if any of the Supplier Remittance Advice Notices are not being SENT.
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
                 6,
                 14,
                 fetchedAllRules,
               );
-              //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
-              //   fetchedRuleDetails,
-              // );
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
-                  reference_id: fetchedUnsentSupplierNoticeDetails[0].id,
+                  reference_id: String(firstUsableNotice.notice_id),
                 },
                 ...fetchedContentOf4thRule,
               });
+            } else if (fetchedUnsentSupplierNoticeDetails.length) {
+              this.logger.warn?.(
+                `[COMPLIANCE_DEEPLINK] check=6 rule=14 project_id=${project_id} candidate_count=${fetchedUnsentSupplierNoticeDetails.length} matched_id=null reason=no_usable_notice_id`,
+              );
             }
           } else {
             //Fetch rule details if all the Supplier Remittance Advice Notices are being sent.
@@ -1890,43 +1921,74 @@ export class CompliancePTAFunctions {
             filteredUnmatchedBillablePayments.length !=
             fetchedBillablePayments.length
           ) {
-            //Fetch Supplier Payment Remittance Advice notice details.
-            const fetchedUnsentSupplierNoticeDetails =
-              await this.noticeDetailsRepo
-                .createQueryBuilder('n')
-                .select([
-                  'n.notice_type AS notice_type',
-                  'n.id AS notice_id',
-                  'n.status AS status',
-                ])
-                .where('n.notice_type = :notice_type', {
-                  notice_type: 'Supplier Payment Remittance Advice Notice',
-                })
-                .andWhere('n.status = :status', { status: 'Not Sent' })
-                .andWhere('n.project_id = :project_id', { project_id })
-                .getRawMany();
-            //   'fetchedUnsentSupplierNoticeDetails',
-            //   fetchedUnsentSupplierNoticeDetails,
-            // );
+            // Task #276: scope by company_id + payment_id so the cached
+            // result matches the user-visible Notices list, and skip
+            // ACTION REQUIRED if we can't resolve a deep-linkable id.
+            const billablePaymentIds = fetchedBillablePayments
+              .map((p) => p.payment_id)
+              .filter(Boolean);
+            const billableCompanyIds = Array.from(
+              new Set(
+                fetchedBillablePayments
+                  .map((p) => p.company_id)
+                  .filter(Boolean),
+              ),
+            );
 
-            if (fetchedUnsentSupplierNoticeDetails.length) {
+            const supplierNoticeQB = this.noticeDetailsRepo
+              .createQueryBuilder('n')
+              .select([
+                'n.notice_type AS notice_type',
+                'n.id AS notice_id',
+                'n.status AS status',
+                'n.company_id AS company_id',
+                'n.payment_id AS payment_id',
+              ])
+              .where('n.notice_type = :notice_type', {
+                notice_type: 'Supplier Payment Remittance Advice Notice',
+              })
+              .andWhere('n.status = :status', { status: 'Not Sent' })
+              .andWhere('n.project_id = :project_id', { project_id });
+
+            if (billableCompanyIds.length) {
+              supplierNoticeQB.andWhere(
+                'n.company_id IN (:...billableCompanyIds)',
+                { billableCompanyIds },
+              );
+            }
+            if (billablePaymentIds.length) {
+              supplierNoticeQB.andWhere(
+                'n.payment_id IN (:...billablePaymentIds)',
+                { billablePaymentIds },
+              );
+            }
+
+            const fetchedUnsentSupplierNoticeDetails =
+              await supplierNoticeQB.getRawMany();
+
+            const firstUsableNotice =
+              fetchedUnsentSupplierNoticeDetails.find((n) => !!n?.notice_id) ??
+              null;
+
+            if (firstUsableNotice) {
               //Fetch rule details if any of the Supplier Remittance Advice Notices are not being SENT.
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
                 6,
                 14,
                 fetchedAllRules,
               );
-              //   'fetchedRuleDetailsOfPaymentsToSubcontractorsRule1',
-              //   fetchedRuleDetails,
-              // );
 
               resultsOfCheck.push({
                 ...fetchedRuleDetails,
                 ...{
-                  reference_id: fetchedUnsentSupplierNoticeDetails[0].notice_id,
+                  reference_id: String(firstUsableNotice.notice_id),
                 },
                 ...fetchedContentOf6thRule,
               });
+            } else if (fetchedUnsentSupplierNoticeDetails.length) {
+              this.logger.warn?.(
+                `[COMPLIANCE_DEEPLINK] check=6 rule=14 project_id=${project_id} candidate_count=${fetchedUnsentSupplierNoticeDetails.length} matched_id=null reason=no_usable_notice_id`,
+              );
             }
           } else {
             //Fetch rule details if all the Supplier Remittance Advice Notices are being sent.

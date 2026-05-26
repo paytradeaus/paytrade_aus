@@ -1907,6 +1907,9 @@ export class CompliancesService {
         },
       );
 
+      // Task #276: persist reference_id / action_button_type / rule_number /
+      // display_message for the first FAILED rule per check so future
+      // re-hydrations of this cache carry a valid deep link.
       ptaCompliances = responseData.reduce((acc, item) => {
         item.results.forEach((result) => {
           const existing = acc.find(
@@ -1917,6 +1920,12 @@ export class CompliancesService {
             // If the check_name already exists and the status is 'FAILED', update it
             if (result.check_status === 'FAILED') {
               existing.check_status = 'FAILED';
+              if (!existing.reference_id && result.reference_id) {
+                existing.reference_id = result.reference_id;
+                existing.action_button_type = result.action_button_type ?? null;
+                existing.rule_number = result.rule_number ?? null;
+                existing.display_message = result.display_message ?? null;
+              }
             }
           } else {
             acc.push({
@@ -1925,6 +1934,11 @@ export class CompliancesService {
               check_status: result.check_status,
               notify: true,
               mails: true, // Set as per your requirements
+              reference_id: result.reference_id ?? null,
+              action_button_type: result.action_button_type ?? null,
+              rule_number: result.rule_number ?? null,
+              display_message: result.display_message ?? null,
+              cache_version: 2,
             });
           }
         });
@@ -1969,6 +1983,9 @@ export class CompliancesService {
         { where: { project_id: projectId, rta_compliances: Not(IsNull()) } },
       );
 
+      // Task #276: persist reference_id / action_button_type / rule_number /
+      // display_message for the first FAILED rule per check so future
+      // re-hydrations of this cache carry a valid deep link.
       rtaCompliances = responseData.reduce((acc, item) => {
         item.results.forEach((result) => {
           const existing = acc.find(
@@ -1979,6 +1996,12 @@ export class CompliancesService {
             // If the check_name already exists and the status is 'FAILED', update it
             if (result.check_status === 'FAILED') {
               existing.check_status = 'FAILED';
+              if (!existing.reference_id && result.reference_id) {
+                existing.reference_id = result.reference_id;
+                existing.action_button_type = result.action_button_type ?? null;
+                existing.rule_number = result.rule_number ?? null;
+                existing.display_message = result.display_message ?? null;
+              }
             }
           } else {
             acc.push({
@@ -1987,6 +2010,11 @@ export class CompliancesService {
               check_status: result.check_status,
               notify: true,
               mails: true,
+              reference_id: result.reference_id ?? null,
+              action_button_type: result.action_button_type ?? null,
+              rule_number: result.rule_number ?? null,
+              display_message: result.display_message ?? null,
+              cache_version: 2,
             });
           }
         });

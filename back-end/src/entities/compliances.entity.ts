@@ -329,6 +329,12 @@ export class ComplianceOfProjects {
     check_status: string; // PASSED or FAILED
     notify: boolean;
     mails: boolean;
+    // Task #276: persisted so re-hydrated rows still carry a valid deep link.
+    reference_id?: string | null;
+    action_button_type?: ActionButtonType | null;
+    rule_number?: number | null;
+    display_message?: string | null;
+    cache_version?: number;
   }[];
 
   @Column({
@@ -338,9 +344,15 @@ export class ComplianceOfProjects {
   })
   rta_compliances: {
     check_number: number;
-    check_name: ComplianceChecksOfRTA; 
+    check_name: ComplianceChecksOfRTA;
     check_status: string; // PASSED or FAILED
     notify: boolean;
     mails: boolean;
+    // Task #276: persisted so re-hydrated rows still carry a valid deep link.
+    reference_id?: string | null;
+    action_button_type?: ActionButtonType | null;
+    rule_number?: number | null;
+    display_message?: string | null;
+    cache_version?: number;
   }[];
 }

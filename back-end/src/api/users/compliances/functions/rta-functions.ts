@@ -1525,23 +1525,39 @@ export class ComplianceRTAFunctions {
               fetchedRetentionSubPayments &&
               fetchedRetentionSubPayments.length
             ) {
+              // Task #276: scope to the same payments/companies the user
+              // can see in the Notices list to avoid stale/hidden notice
+              // rows tripping ACTION REQUIRED.
+              const retentionPaymentIds = fetchedRetentionSubPayments
+                .map((sp) => sp.payment_id)
+                .filter(Boolean);
+
+              const retentionRemittanceQB = this.noticeDetailsRepo
+                .createQueryBuilder('n')
+                .select([
+                  'n.id AS notice_id',
+                  'n.notice_type AS notice_type',
+                  'n.status AS notice_status',
+                  'n.payment_id AS payment_id',
+                  'n.company_id AS company_id',
+                  'p.payment_date AS payment_date',
+                ])
+                .leftJoin(PaymentDetails, 'p', 'p.payment_id = n.payment_id')
+                .where('n.project_id = :project_id', { project_id })
+                .andWhere('n.notice_type = :notice_type', {
+                  notice_type: 'Supplier Retention Payment Remittance Notice',
+                })
+                .andWhere('n.status = :status', { status: 'Not Sent' });
+
+              if (retentionPaymentIds.length) {
+                retentionRemittanceQB.andWhere(
+                  'n.payment_id IN (:...retentionPaymentIds)',
+                  { retentionPaymentIds },
+                );
+              }
+
               const fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails =
-                await this.noticeDetailsRepo
-                  .createQueryBuilder('n')
-                  .select([
-                    'n.id AS notice_id',
-                    'n.notice_type AS notice_type',
-                    'n.status AS notice_status',
-                    'n.payment_id AS payment_id',
-                    'p.payment_date AS payment_date',
-                  ])
-                  .leftJoin(PaymentDetails, 'p', 'p.payment_id = n.payment_id')
-                  .where('n.project_id = :project_id', { project_id })
-                  .andWhere('n.notice_type = :notice_type', {
-                    notice_type: 'Supplier Retention Payment Remittance Notice',
-                  })
-                  .andWhere('n.status = :status', { status: 'Not Sent' })
-                  .getRawMany();
+                await retentionRemittanceQB.getRawMany();
               //   'fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails',
               //   fetchedUnsentSupplierRetentionPaymentRemittanceNoticeDetails,
               // );
@@ -1567,10 +1583,15 @@ export class ComplianceRTAFunctions {
                 //   filteredPendingNonLatePayments,
                 // );
 
-                if (
-                  filteredPendingLatePayments &&
-                  filteredPendingLatePayments.length
-                ) {
+                // Task #276: only fire ACTION REQUIRED with a usable id.
+                const firstLateWithId = (filteredPendingLatePayments ?? []).find(
+                  (n) => !!n?.notice_id,
+                );
+                const firstNonLateWithId = (
+                  filteredPendingNonLatePayments ?? []
+                ).find((n) => !!n?.notice_id);
+
+                if (firstLateWithId) {
                   //Fetch rule details if any of the Pending LATE payments are present along with any of the Retention remittance notices are NOT SENT.
                   const fetchedRuleDetails = await fetchComplianceRuleDetails(
                     6,
@@ -1580,16 +1601,11 @@ export class ComplianceRTAFunctions {
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
-                      reference_id: String(
-                        filteredPendingLatePayments[0].notice_id,
-                      ),
+                      reference_id: String(firstLateWithId.notice_id),
                       ...fetchedContent,
                     },
                   });
-                } else if (
-                  filteredPendingNonLatePayments &&
-                  filteredPendingNonLatePayments.length
-                ) {
+                } else if (firstNonLateWithId) {
                   //Fetch rule details if any of the Retention remittance notices are NOT SENT.
                   const fetchedRuleDetails = await fetchComplianceRuleDetails(
                     6,
@@ -1599,12 +1615,18 @@ export class ComplianceRTAFunctions {
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
-                      reference_id: String(
-                        filteredPendingNonLatePayments[0].notice_id,
-                      ),
+                      reference_id: String(firstNonLateWithId.notice_id),
                       ...fetchedContent,
                     },
                   });
+                } else if (
+                  (filteredPendingLatePayments?.length ?? 0) +
+                    (filteredPendingNonLatePayments?.length ?? 0) >
+                  0
+                ) {
+                  this.logger.warn?.(
+                    `[COMPLIANCE_DEEPLINK] check=6 rule=2_or_3 project_id=${project_id} candidate_count=${(filteredPendingLatePayments?.length ?? 0) + (filteredPendingNonLatePayments?.length ?? 0)} matched_id=null reason=no_usable_notice_id`,
+                  );
                 }
               } else {
                 const fetchedRuleDetails = await fetchComplianceRuleDetails(
@@ -1775,31 +1797,46 @@ export class ComplianceRTAFunctions {
               !filteredInCompleteRetentionPayments.length
             ) {
               //Fetching the Retention Supplier Payment Schedule Notice details of a project.
+              // Task #276: scope to actual retention payments so a hidden
+              // / cross-company notice can't trip ACTION REQUIRED.
+              const retentionPaymentIdsForSchedule = fetchedRetentionPayments
+                .map((p) => p.payment_id)
+                .filter(Boolean);
+
+              const scheduleNoticeQB = this.noticeDetailsRepo
+                .createQueryBuilder('n')
+                .select([
+                  'n.id AS notice_id',
+                  'n.notice_type AS notice_type',
+                  'n.status AS notice_status',
+                  'n.payment_id AS payment_id',
+                  'n.company_id AS company_id',
+                  'p.payment_date AS payment_date',
+                ])
+                .leftJoin(PaymentDetails, 'p', 'p.payment_id = n.payment_id')
+                .leftJoin(
+                  ContractDetails,
+                  'c',
+                  'c.contract_id = n.contract_id',
+                )
+                .where('n.project_id = :project_id', { project_id })
+                .andWhere('n.notice_type = :notice_type', {
+                  notice_type: 'Supplier Retention Payment Schedule Notice',
+                })
+                .andWhere('c.retention_type = :retention_type', {
+                  retention_type: 'Cash',
+                })
+                .andWhere('n.status = :status', { status: 'Not Sent' });
+
+              if (retentionPaymentIdsForSchedule.length) {
+                scheduleNoticeQB.andWhere(
+                  'n.payment_id IN (:...retentionPaymentIdsForSchedule)',
+                  { retentionPaymentIdsForSchedule },
+                );
+              }
+
               const fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails =
-                await this.noticeDetailsRepo
-                  .createQueryBuilder('n')
-                  .select([
-                    'n.id AS notice_id',
-                    'n.notice_type AS notice_type',
-                    'n.status AS notice_status',
-                    'n.payment_id AS payment_id',
-                    'p.payment_date AS payment_date',
-                  ])
-                  .leftJoin(PaymentDetails, 'p', 'p.payment_id = n.payment_id')
-                  .leftJoin(
-                    ContractDetails,
-                    'c',
-                    'c.contract_id = n.contract_id',
-                  )
-                  .where('n.project_id = :project_id', { project_id })
-                  .andWhere('n.notice_type = :notice_type', {
-                    notice_type: 'Supplier Retention Payment Schedule Notice',
-                  })
-                  .andWhere('c.retention_type = :retention_type', {
-                    retention_type: 'Cash',
-                  })
-                  .andWhere('n.status = :status', { status: 'Not Sent' })
-                  .getRawMany();
+                await scheduleNoticeQB.getRawMany();
               //   'fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails',
               //   fetchedUnsentRetentionSupplierPaymentScheduleNoticeDetails,
               // );
@@ -1825,10 +1862,15 @@ export class ComplianceRTAFunctions {
                 //   filteredPendingNonLatePayments,
                 // );
 
-                if (
-                  filteredPendingLatePayments &&
-                  filteredPendingLatePayments.length
-                ) {
+                // Task #276: only fire ACTION REQUIRED with a usable id.
+                const firstLateWithId = (filteredPendingLatePayments ?? []).find(
+                  (n) => !!n?.notice_id,
+                );
+                const firstNonLateWithId = (
+                  filteredPendingNonLatePayments ?? []
+                ).find((n) => !!n?.notice_id);
+
+                if (firstLateWithId) {
                   //Fetch rule details if any of the Pending LATE payments are present along with any of the Retention remittance notices are NOT SENT.
                   const fetchedRuleDetails = await fetchComplianceRuleDetails(
                     7,
@@ -1838,16 +1880,11 @@ export class ComplianceRTAFunctions {
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
-                      reference_id: String(
-                        filteredPendingLatePayments[0].notice_id,
-                      ),
+                      reference_id: String(firstLateWithId.notice_id),
                       ...fetchedContent,
                     },
                   });
-                } else if (
-                  filteredPendingNonLatePayments &&
-                  filteredPendingNonLatePayments.length
-                ) {
+                } else if (firstNonLateWithId) {
                   //Fetch rule details if any of the Retention remittance notices are NOT SENT.
                   const fetchedRuleDetails = await fetchComplianceRuleDetails(
                     7,
@@ -1857,12 +1894,18 @@ export class ComplianceRTAFunctions {
                   resultsOfCheck.push({
                     ...fetchedRuleDetails,
                     ...{
-                      reference_id: String(
-                        filteredPendingNonLatePayments[0].notice_id,
-                      ),
+                      reference_id: String(firstNonLateWithId.notice_id),
                       ...fetchedContent,
                     },
                   });
+                } else if (
+                  (filteredPendingLatePayments?.length ?? 0) +
+                    (filteredPendingNonLatePayments?.length ?? 0) >
+                  0
+                ) {
+                  this.logger.warn?.(
+                    `[COMPLIANCE_DEEPLINK] check=7 rule=2_or_3 project_id=${project_id} candidate_count=${(filteredPendingLatePayments?.length ?? 0) + (filteredPendingNonLatePayments?.length ?? 0)} matched_id=null reason=no_usable_notice_id`,
+                  );
                 }
               } else {
                 //Fetch rule details if all the notices are sent.

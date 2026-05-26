@@ -113,11 +113,27 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
           `${AppRoutes.USER_BANK_ACCOUNTS_OVERVIEW}/${reference_id}/${companyId}`
         );
         break;
-      case actionButtonType.SEND_SCHEDULE:
-        router.push(
-          `${AppRoutes.USER_NOTICES_VIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}`
-        );
+      case actionButtonType.SEND_SCHEDULE: {
+        // Task #276: fall back to the filtered Notices list when the
+        // cached reference_id is missing / "null" so we never route to
+        // /user/notices/view/null.
+        const hasUsableId =
+          reference_id != null &&
+          String(reference_id).trim() !== "" &&
+          String(reference_id).trim().toLowerCase() !== "null";
+        if (hasUsableId) {
+          router.push(
+            `${AppRoutes.USER_NOTICES_VIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}`
+          );
+        } else {
+          router.push(
+            `${AppRoutes.USER_NOTICES}?projectId=${PayloadProjectId}&status=${encodeURIComponent(
+              "Not Sent"
+            )}&complianceTab=${typeOfTrustAccount}`
+          );
+        }
         break;
+      }
       case actionButtonType.UPDATE_TRANSACTION_LIST:
         router.push(
           `/user/bank-accounts/overview/${reference_id}/${companyId}`
@@ -128,11 +144,27 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
           `/user/bank-accounts/overview/${reference_id}/${companyId}`
         );
         break;
-      case actionButtonType.SEND_REMITTANCE:
-        router.push(
-          `${AppRoutes.USER_NOTICES_VIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}`
-        );
+      case actionButtonType.SEND_REMITTANCE: {
+        // Task #276: fall back to the filtered Notices list when the
+        // cached reference_id is missing / "null" so we never route to
+        // /user/notices/view/null.
+        const hasUsableId =
+          reference_id != null &&
+          String(reference_id).trim() !== "" &&
+          String(reference_id).trim().toLowerCase() !== "null";
+        if (hasUsableId) {
+          router.push(
+            `${AppRoutes.USER_NOTICES_VIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}`
+          );
+        } else {
+          router.push(
+            `${AppRoutes.USER_NOTICES}?projectId=${PayloadProjectId}&status=${encodeURIComponent(
+              "Not Sent"
+            )}&complianceTab=${typeOfTrustAccount}`
+          );
+        }
         break;
+      }
 
       case actionButtonType.WITHDRAW_BALANCE:
         router.push(
