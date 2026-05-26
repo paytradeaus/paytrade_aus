@@ -1,5 +1,12 @@
 [
   {
+    "id": 133,
+    "event_group": "Notices",
+    "event_type": "Notice auto-sent",
+    "event_text": "Notice ({{noticeSubject}}) auto-sent on your behalf",
+    "event_by": "USER"
+  },
+  {
     "id": 201,
     "event_group": "Payments",
     "event_type": "ABA file generated",

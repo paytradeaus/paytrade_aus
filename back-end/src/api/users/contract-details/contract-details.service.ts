@@ -211,7 +211,13 @@ export class ContractDetailsService {
           });
 
           // 2. UPDATE THE NOTICE
-          await this.noticeService.handleUpdateNotice(decoded, updatePayload);
+          // Task #271: skip when the trigger handler already ran
+          // handleUpdateNotice inline (auto-send path) — otherwise the
+          // notice would emit a duplicate template 133 and re-stamp
+          // mail_sent for an already-completed send.
+          if (updatePayload && !updatePayload.auto_sent_handled) {
+            await this.noticeService.handleUpdateNotice(decoded, updatePayload);
+          }
         }
       }
 

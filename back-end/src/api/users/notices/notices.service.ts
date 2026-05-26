@@ -575,6 +575,10 @@ export class NoticesService {
           company_id: noticeDetails.company_id,
           dynamic_values: {
             noticeLink,
+            // Task #271: numeric notice_id so this activity-log row is
+            // joinable to notice_details.notice_id without UUID tricks.
+            noticeId: noticeDetails.notice_id,
+            noticeType: noticeDetails.notice_type,
             noticeSubject: noticeDetails.notice_type,
             referenceId: payload.reference_id,
             referenceIdLink: payload.reference_link,
@@ -1645,34 +1649,12 @@ export class NoticesService {
               `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
             );
           }
-          if (userMode && userMode == 'Normal' && companyAutoSend) {
-            this.logger.log(`[HANDLE_NOTICE] S23 PTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
-            const mailSent = (await this.handlesentNoticeMail(
-              decoded,
-              sentMailNoticePayload,
-              null,
-              manager,
-            true,
-              flowId,
-              )) as {
-              status: string;
-              message: string;
-              data: {
-                mails: any;
-                preview: {
-                  mail_uuid: string;
-                  file_details: any;
-                };
-              };
-            };
-
-            notice_previews.push(mailSent.data.preview);
-            mails_to_sent.push(mailSent.data.mails);
-            noticeGen = true;
-          } else {
-            this.logger.log(`[HANDLE_NOTICE] S23 PTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
-          }
-
+          // Task #271: build the update payload up front so we can run
+          // handleUpdateNotice inline immediately after a successful
+          // auto-send. Doing it here (instead of relying on the bulk
+          // caller loop in xero-invoices.service.ts / contract-details.
+          // service.ts) means a later RTA failure cannot strand this
+          // PTA notice in mail_sent=false.
           const updateNoticePayload: updateNoticesInput = {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
@@ -1683,8 +1665,61 @@ export class NoticesService {
             toName: noticeListWithData.clientName,
             toMail: noticeListWithData.clientMail,
           };
-
           updateNoticePayload.flow_id = flowId;
+
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
+            try {
+              this.logger.log(`[HANDLE_NOTICE] S23 PTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
+              const mailSent = (await this.handlesentNoticeMail(
+                decoded,
+                sentMailNoticePayload,
+                null,
+                manager,
+                true,
+                flowId,
+              )) as {
+                status: string;
+                message: string;
+                data: {
+                  mails: any;
+                  preview: {
+                    mail_uuid: string;
+                    file_details: any;
+                  };
+                };
+              };
+
+              notice_previews.push(mailSent.data.preview);
+              mails_to_sent.push(mailSent.data.mails);
+              noticeGen = true;
+
+              // Task #271: flip mail_sent=true + fire template 133 inline
+              // so a downstream failure (e.g. RTA branch throwing) cannot
+              // leave this PTA notice stuck at mail_sent=false.
+              try {
+                await this.handleUpdateNotice(
+                  decoded,
+                  updateNoticePayload,
+                  manager,
+                  flowId,
+                );
+                updateNoticePayload.auto_sent_handled = true;
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=auto_sent_inline_handled notice_id=${updateNoticePayload.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_sent=true`,
+                );
+              } catch (updErr) {
+                this.logger.error(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=auto_sent_inline_failed notice_id=${updateNoticePayload.notice_id} error=${updErr?.message || updErr}`,
+                );
+              }
+            } catch (sendErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=auto_send_failed branch=S23_PTA notice_id=${newMail?.data?.notice_id} error=${sendErr?.message || sendErr}`,
+              );
+            }
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] S23 PTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
+          }
 
           update_notice_inputs.push(updateNoticePayload);
         } else {
@@ -1777,34 +1812,8 @@ export class NoticesService {
               `[NOTICE_FLOW] flow_id=${flowId} stage=skipped reason=company_auto_send_disabled notice_id=${newMail?.data?.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_uuid=${newMail?.data?.id} status=Not Sent`,
             );
           }
-          if (userMode && userMode == 'Normal' && companyAutoSend) {
-            this.logger.log(`[HANDLE_NOTICE] S23 RTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
-            const mailSent = (await this.handlesentNoticeMail(
-              decoded,
-              sentMailNoticePayload,
-              null,
-              manager,
-            true,
-              flowId,
-              )) as {
-              status: string;
-              message: string;
-              data: {
-                mails: any;
-                preview?: {
-                  mail_uuid?: any;
-                  file_details?: any;
-                };
-              };
-            };
-
-            notice_previews.push(mailSent.data.preview);
-            mails_to_sent.push(mailSent.data.mails);
-            noticeGen = true;
-          } else {
-            this.logger.log(`[HANDLE_NOTICE] S23 RTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
-          }
-
+          // Task #271: build update payload up front + inline mail_sent flip.
+          // See PTA branch above for the rationale.
           const updateNoticePayload: updateNoticesInput = {
             notice_id: newMail.data.notice_id,
             notice_mail_uuid: newMail?.data?.id,
@@ -1816,6 +1825,58 @@ export class NoticesService {
             toMail: noticeListWithData.clientMail,
           };
           updateNoticePayload.flow_id = flowId;
+
+          if (userMode && userMode == 'Normal' && companyAutoSend) {
+            try {
+              this.logger.log(`[HANDLE_NOTICE] S23 RTA: AUTO-SENDING mail (Paid-delegated + Normal mode)`);
+              const mailSent = (await this.handlesentNoticeMail(
+                decoded,
+                sentMailNoticePayload,
+                null,
+                manager,
+                true,
+                flowId,
+              )) as {
+                status: string;
+                message: string;
+                data: {
+                  mails: any;
+                  preview?: {
+                    mail_uuid?: any;
+                    file_details?: any;
+                  };
+                };
+              };
+
+              notice_previews.push(mailSent.data.preview);
+              mails_to_sent.push(mailSent.data.mails);
+              noticeGen = true;
+
+              try {
+                await this.handleUpdateNotice(
+                  decoded,
+                  updateNoticePayload,
+                  manager,
+                  flowId,
+                );
+                updateNoticePayload.auto_sent_handled = true;
+                this.logger.log(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=auto_sent_inline_handled notice_id=${updateNoticePayload.notice_id} notice_type=${generateNoticePayload?.notice_type} mail_sent=true`,
+                );
+              } catch (updErr) {
+                this.logger.error(
+                  `[NOTICE_FLOW] flow_id=${flowId} stage=auto_sent_inline_failed notice_id=${updateNoticePayload.notice_id} error=${updErr?.message || updErr}`,
+                );
+              }
+            } catch (sendErr) {
+              this.logger.error(
+                `[NOTICE_FLOW] flow_id=${flowId} stage=auto_send_failed branch=S23_RTA notice_id=${newMail?.data?.notice_id} error=${sendErr?.message || sendErr}`,
+              );
+            }
+          } else {
+            this.logger.log(`[HANDLE_NOTICE] S23 RTA: Onboarding mode — marking as 'Sent - Onboarded' without actual send`);
+          }
+
           update_notice_inputs.push(updateNoticePayload);
         } else {
           this.logger.log(

@@ -6811,9 +6811,27 @@ export class XeroInvoicesService {
       });
 
       if (derived.clientSupplierType === 'Supplier' && !_emailMissing) {
+        // Task #271: per-notice failure isolation. handleTriggerContractNotices
+        // now wraps each notice branch (PTA / RTA) in its own try/catch and
+        // runs handleUpdateNotice INLINE after a successful auto-send (so
+        // mail_sent=true is flipped immediately, not deferred to this caller
+        // loop). That means:
+        //   1. A failure in one branch (e.g. RTA) can no longer strand a
+        //      previously-successful branch (PTA) at mail_sent=false.
+        //   2. handlesentNoticeMail (called without an EntityManager from this
+        //      path) already queued the notice email itself, so re-queueing
+        //      it here would double-send. We no longer call emailQueueProducer
+        //      from this loop.
+        //   3. We still iterate update_notice_inputs to handle any non-auto
+        //      cases (Onboarding 'Sent - Onboarded' / 'Not Sent') the trigger
+        //      handler deliberately leaves for the caller, guarded by the
+        //      auto_sent_handled flag.
+        const flowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const branchStatus = { pta: 'skipped', rta: 'skipped', pta_mail_sent: false, rta_mail_sent: false };
+        let noticeResult: any = null;
         try {
           this.logger.log(
-            `[SMART_CONTRACT_NOTICES] === BEGIN notice flow for smart contract ${updatedContractId} ===`
+            `[SMART_CONTRACT_NOTICES] === BEGIN notice flow flow_id=${flowId} smart contract ${updatedContractId} ===`
           );
           this.logger.log(
             `[SMART_CONTRACT_NOTICES] Contract details: type=${derived.clientSupplierType}, ` +
@@ -6823,7 +6841,7 @@ export class XeroInvoicesService {
             `[SMART_CONTRACT_NOTICES] Bank accounts assigned: payment_from=${contractData.payment_from_account || 'NONE'}, ` +
             `payment_to=${contractData.payment_to_account || 'NONE'}, retention_from=${contractData.retention_from_account || 'NONE'}`
           );
-          const noticeResult: any = await this.noticesService.handleTriggerContractNotices(
+          noticeResult = await this.noticesService.handleTriggerContractNotices(
             decoded,
             {
               contract_id: updatedContractId,
@@ -6837,50 +6855,72 @@ export class XeroInvoicesService {
             `update_notice_inputs count=${noticeResult?.data?.update_notice_inputs?.length || 0}, ` +
             `notice_previews count=${noticeResult?.data?.notice_previews?.length || 0}`
           );
-
-          const mailsToSend = noticeResult?.data?.mails_to_sent || [];
-          const updateInputs = noticeResult?.data?.update_notice_inputs || [];
-
-          if (mailsToSend.length > 0) {
-            for (let i = 0; i < mailsToSend.length; i++) {
-              const mailDetails = mailsToSend[i];
-              const updatePayload = updateInputs[i];
-
-              this.logger.log(
-                `[SMART_CONTRACT_NOTICES] Queueing notice email ${i + 1}/${mailsToSend.length}: ` +
-                `has_recipient=${!!mailDetails?.to}, subject=${mailDetails?.subject || 'N/A'}`
-              );
-              await this.emailQueueProducer.emailQueueProducer({
-                ...mailDetails,
-                mail_type: EmailTypeEnum.notice,
-              });
-
-              if (updatePayload) {
-                this.logger.log(
-                  `[SMART_CONTRACT_NOTICES] Updating notice status: notice_id=${updatePayload?.notice_id}, ` +
-                  `status=${updatePayload?.status}, auto_sent=${updatePayload?.auto_sent}`
-                );
-                await this.noticesService.handleUpdateNotice(decoded, updatePayload);
-              }
-            }
-            this.logger.log(
-              `[SMART_CONTRACT_NOTICES] Sent ${mailsToSend.length} notice(s) for smart contract ${updatedContractId}`
-            );
-          } else {
-            this.logger.log(
-              `[SMART_CONTRACT_NOTICES] No notices to send for smart contract ${updatedContractId}. ` +
-              `This typically means: no PTA/RTA bank accounts assigned, or subscription plan is Basic (Manual notices only).`
-            );
-          }
-          this.logger.log(
-            `[SMART_CONTRACT_NOTICES] === END notice flow for smart contract ${updatedContractId} ===`
-          );
         } catch (noticeErr) {
           const noticeErrMsg = noticeErr instanceof Error ? noticeErr.message : String(noticeErr);
-          this.logger.warn(
-            `[SMART_CONTRACT_NOTICES] Notice generation FAILED for smart contract ${updatedContractId}: ${noticeErrMsg}`
+          // Task #271: log at ERROR (not WARN) — silently swallowing this
+          // hid the original ALBA bug for the entire 25 May incident.
+          this.logger.error(
+            `[SMART_CONTRACT_NOTICES] flow_id=${flowId} handleTriggerContractNotices THREW for smart contract ${updatedContractId}: ${noticeErrMsg}`
           );
         }
+
+        // Even if the trigger threw, anything it managed to push into
+        // mails_to_sent / update_notice_inputs before throwing is exposed
+        // here via the partial-result fields once the trigger is refactored
+        // to return on partial failure (see Step 1 / Task #271). For now,
+        // only the auto-sent items that finished cleanly will have
+        // auto_sent_handled=true and require nothing from this loop.
+        const updateInputs: any[] = noticeResult?.data?.update_notice_inputs || [];
+
+        for (let i = 0; i < updateInputs.length; i++) {
+          const updatePayload = updateInputs[i];
+          if (!updatePayload) continue;
+
+          if (updatePayload.auto_sent_handled) {
+            // Inline handleUpdateNotice already fired template 133 + flipped
+            // mail_sent=true inside the trigger handler. Nothing left to do.
+            if (updatePayload.notice_id) {
+              // Track per-branch status for the summary breadcrumb below.
+              const noticeType: string =
+                noticeResult?.data?.notice_previews?.[i]?.file_details?.notice_type || '';
+              if (noticeType.includes('Project Trust')) {
+                branchStatus.pta = 'sent';
+                branchStatus.pta_mail_sent = true;
+              } else if (noticeType.includes('Retention Trust')) {
+                branchStatus.rta = 'sent';
+                branchStatus.rta_mail_sent = true;
+              }
+            }
+            continue;
+          }
+
+          // Non-auto path (e.g. Onboarding 'Sent - Onboarded' or 'Not Sent'):
+          // still needs the bulk status update. Wrap per-item so one bad
+          // payload can't strand others.
+          try {
+            this.logger.log(
+              `[SMART_CONTRACT_NOTICES] flow_id=${flowId} Updating non-auto notice status: notice_id=${updatePayload?.notice_id}, ` +
+              `status=${updatePayload?.status}, auto_sent=${updatePayload?.auto_sent}`
+            );
+            await this.noticesService.handleUpdateNotice(decoded, updatePayload);
+          } catch (updErr) {
+            this.logger.error(
+              `[SMART_CONTRACT_NOTICES] flow_id=${flowId} non-auto handleUpdateNotice failed notice_id=${updatePayload?.notice_id} error=${updErr instanceof Error ? updErr.message : String(updErr)}`
+            );
+          }
+        }
+
+        // Task #271 / Task #97 regression breadcrumb — one-line per-run
+        // summary for easy log scraping when investigating future stuck-
+        // notice reports.
+        this.logger.log(
+          `[SMART_CONTRACT_NOTICES_SUMMARY] flow_id=${flowId} contract_id=${updatedContractId} ` +
+          `pta_status=${branchStatus.pta} rta_status=${branchStatus.rta} ` +
+          `pta_mail_sent=${branchStatus.pta_mail_sent} rta_mail_sent=${branchStatus.rta_mail_sent}`
+        );
+        this.logger.log(
+          `[SMART_CONTRACT_NOTICES] === END notice flow flow_id=${flowId} smart contract ${updatedContractId} ===`
+        );
       } else if (derived.clientSupplierType === 'Supplier' && _emailMissing) {
         this.logger.log(
           `[SMART_CONTRACT_NOTICES] Skipping notices — contact '${contactName}' has no email (needs_email=true). Notices will be re-evaluated after email is added.`

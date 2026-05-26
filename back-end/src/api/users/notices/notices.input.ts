@@ -403,6 +403,13 @@ export class updateNoticesInput {
       'Internal NOTICE_FLOW correlation id stamped by trigger handlers; used only for logging.',
   })
   flow_id?: string;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #271: TRUE when the trigger handler already performed handleUpdateNotice inline after a successful auto-send. Bulk callers must skip handleUpdateNotice for this payload to avoid duplicate template 133 / mail_sent writes.',
+  })
+  auto_sent_handled?: boolean;
 }
 
 @InputType({
