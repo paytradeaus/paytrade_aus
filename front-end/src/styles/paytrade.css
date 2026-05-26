@@ -1611,6 +1611,7 @@ table a {
   margin: var(--space-3xs) 0 0 0;
   flex-direction: row;
   justify-content: flex-start;
+  align-items: flex-start;
   row-gap: var(--space-xs);
   column-gap: var(--space-xs);
 }
@@ -1621,6 +1622,24 @@ table a {
 
 .pt_filteroptions input {
   border-radius: var(--radius);
+}
+
+/* Keep the multi-select trigger on a single line: long comma-joined
+   selections truncate with an ellipsis instead of wrapping and
+   inflating the filter row height. The full selection is still
+   exposed via the summary's `title` attribute for hover/tooltip. */
+.pt_filtercheckboxes > summary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure an open filter dropdown panel sits above the page footer
+   (which uses z-index: 2). Without this, options that extend past
+   the viewport bottom get clipped behind the footer. */
+.pt_filteroptions details.dropdown[open] {
+  position: relative;
+  z-index: 20;
 }
 
 .pt_toggles {

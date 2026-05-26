@@ -70,8 +70,16 @@ function MultiSelectDropdown({
       )}
       {/* Dropdown structure */}
       <details className="dropdown pt_filtercheckboxes">
-        {/* Dropdown summary showing the selected options or placeholder */}
-        <summary aria-invalid={showError && "true"}>{displayValue()}</summary>
+        {/* Dropdown summary showing the selected options or placeholder.
+            Trigger is constrained to a single line via CSS (truncated
+            with an ellipsis); the full comma-joined selection stays
+            accessible through the native tooltip on the `title` attr. */}
+        <summary
+          aria-invalid={showError && "true"}
+          title={selectedOptions.length ? displayValue() : undefined}
+        >
+          {displayValue()}
+        </summary>
         {/* List of checkboxes for each option */}
         <ul aria-disabled={disabled ? "true" : "false"}>
           {options?.length > 0 &&
