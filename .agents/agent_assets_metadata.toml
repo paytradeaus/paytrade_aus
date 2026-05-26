@@ -24,3 +24,9 @@ id = "p1_tsOeVLINtrupxrJ-Qs"
 uri = "file://Xero-Claim-Payment-Mapping.md"
 type = "text"
 title = "Xero ↔ PayTrade: Claim & Payment Type Mapping"
+
+[[outputs]]
+id = "gBUDDfUF_oYtTpC4QggyQ"
+uri = "file://reports/Signature_MultiRes_System_Health_Report.md"
+type = "text"
+title = "Signature Multi-Res — System Health & Compliance Report (live from Railway prod)"
