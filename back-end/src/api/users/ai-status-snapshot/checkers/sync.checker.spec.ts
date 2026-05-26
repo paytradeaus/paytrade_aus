@@ -37,6 +37,9 @@ describe('SyncChecker', () => {
     information_required: 'NA',
     dynamic_values: {},
     api_payload: {},
+    reference: {},
+    project_id: null,
+    contract_id: null,
     archived_at: null,
     created_on: new Date('2026-05-26T03:00:00Z'),
     xeroLogTemplates: overrides.xeroLogTemplates ?? {
@@ -49,7 +52,7 @@ describe('SyncChecker', () => {
     ...overrides,
   });
 
-  it('joins through XeroIntegrationDetails for scoping and through XeroLogTemplates for Failed gating', async () => {
+  it('joins through XeroIntegrationDetails for scoping and through XeroLogTemplates for Failed gating, with archived rows excluded', async () => {
     qb.getMany.mockResolvedValue([]);
     await checker.check(7);
     expect(qb.innerJoin).toHaveBeenCalledTimes(1);
@@ -62,85 +65,27 @@ describe('SyncChecker', () => {
   });
 
   describe('classify()', () => {
-    it('returns critical for Bills push failures', () => {
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Bills',
-          error_code: 'ADD_BILL_FAILED',
-        } as any),
-      ).toBe('critical');
-    });
-    it('returns critical for Smart contract failures', () => {
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Smart contract',
-          error_code: 'SMART_CONTRACT_MISSING_FIELDS',
-        } as any),
-      ).toBe('critical');
-    });
-    it('returns critical for Payments push failures', () => {
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Payments',
-          error_code: 'XP_ADD_FAILED',
-        } as any),
-      ).toBe('critical');
-    });
-    it('returns info for Invoice webhook re-receives (retry noise)', () => {
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Invoice webhook',
-          error_code: 'WH_INVOICE_X',
-        } as any),
-      ).toBe('info');
-    });
-    it('returns info for scheduler retries', () => {
-      expect(
-        SyncChecker.classify(mkRow({ error_code: 'SCHEDULER_PROJECT_X' }), {
-          sync_type: 'Project schedulers',
-          error_code: 'SCHEDULER_PROJECT_X',
-        } as any),
-      ).toBe('info');
-    });
-    it('returns info for missing-parent dependencies (auto-resolves)', () => {
-      expect(
-        SyncChecker.classify(mkRow({ error_code: 'MISSING_PROJECT' }), {
-          sync_type: 'Bills',
-          error_code: 'MISSING_PROJECT',
-        } as any),
-      ).toBe('info');
-    });
-    it('returns info for _NOT_MAPPED metadata mirror failures', () => {
-      expect(
-        SyncChecker.classify(mkRow({ error_code: 'EDIT_CONTACT_NOT_MAPPED' }), {
-          sync_type: 'Contacts',
-          error_code: 'EDIT_CONTACT_NOT_MAPPED',
-        } as any),
-      ).toBe('info');
-    });
-    it('returns info for DELETE_* (record going away)', () => {
-      expect(
-        SyncChecker.classify(mkRow({ error_code: 'DELETE_CONTACT_FAILED' }), {
-          sync_type: 'Contacts',
-          error_code: 'DELETE_CONTACT_FAILED',
-        } as any),
-      ).toBe('info');
-    });
-    it('returns info for metadata-only sync_types (Bank accounts / Contacts / Projects / Contracts) by default', () => {
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Bank accounts',
-          error_code: 'SYNC_ADD_BANK_TO_XERO',
-        } as any),
-      ).toBe('info');
-      expect(
-        SyncChecker.classify(mkRow(), {
-          sync_type: 'Contacts',
-          error_code: 'SYNC_ADD_CONTACT_TO_XERO',
-        } as any),
-      ).toBe('info');
-    });
-    it('trusts the Task #274 downgrade_reason flag', () => {
+    const cases: Array<[string, any, any, 'critical' | 'info']> = [
+      ['Bills push failure', {}, { sync_type: 'Bills', error_code: 'ADD_BILL_FAILED' }, 'critical'],
+      ['Smart contract failure', {}, { sync_type: 'Smart contract', error_code: 'SMART_CONTRACT_X' }, 'critical'],
+      ['Payments push failure', {}, { sync_type: 'Payments', error_code: 'XP_ADD_FAILED' }, 'critical'],
+      ['Claims push failure', {}, { sync_type: 'Claims', error_code: 'ADD_CLAIM_FAILED' }, 'critical'],
+      ['Retention journals failure', {}, { sync_type: 'Retention journals', error_code: 'RETENTION_JOURNAL_X' }, 'critical'],
+      ['Trust movements failure', {}, { sync_type: 'Trust movements', error_code: 'TM_PUSH_FAILED' }, 'critical'],
+      ['Invoice webhook retry', {}, { sync_type: 'Invoice webhook', error_code: 'WH_INVOICE_X' }, 'info'],
+      ['Project schedulers retry', { error_code: 'SCHEDULER_PROJECT_X' }, { sync_type: 'Project schedulers', error_code: 'SCHEDULER_PROJECT_X' }, 'info'],
+      ['MISSING_PROJECT on Bills', { error_code: 'MISSING_PROJECT' }, { sync_type: 'Bills', error_code: 'MISSING_PROJECT' }, 'info'],
+      ['EDIT_CONTACT_NOT_MAPPED', { error_code: 'EDIT_CONTACT_NOT_MAPPED' }, { sync_type: 'Contacts', error_code: 'EDIT_CONTACT_NOT_MAPPED' }, 'info'],
+      ['DELETE_CONTACT_FAILED', { error_code: 'DELETE_CONTACT_FAILED' }, { sync_type: 'Contacts', error_code: 'DELETE_CONTACT_FAILED' }, 'info'],
+      ['Bank accounts add (metadata)', {}, { sync_type: 'Bank accounts', error_code: 'SYNC_ADD_BANK_TO_XERO' }, 'info'],
+      ['Contacts add (metadata)', {}, { sync_type: 'Contacts', error_code: 'SYNC_ADD_CONTACT_TO_XERO' }, 'info'],
+    ];
+    for (const [name, rowOverrides, tpl, expected] of cases) {
+      it(`returns '${expected}' for ${name}`, () => {
+        expect(SyncChecker.classify(mkRow(rowOverrides), tpl)).toBe(expected);
+      });
+    }
+    it('trusts the Task #274 downgrade_reason flag even when sync_type would otherwise be critical', () => {
       expect(
         SyncChecker.classify(
           mkRow({ dynamic_values: { downgrade_reason: 'archived_in_xero' } }),
@@ -148,87 +93,143 @@ describe('SyncChecker', () => {
         ),
       ).toBe('info');
     });
+    it('never emits warning — checker is intentionally binary critical | info', () => {
+      const samples = [
+        SyncChecker.classify(mkRow(), { sync_type: 'Bills' } as any),
+        SyncChecker.classify(mkRow(), { sync_type: 'Bank accounts' } as any),
+        SyncChecker.classify(mkRow(), { sync_type: 'Whatever' } as any),
+      ];
+      expect(samples).not.toContain('warning');
+    });
   });
 
-  describe('buildTitle() fallback chain', () => {
-    it('prefers a substantive authored error_message', () => {
-      const r = mkRow({
-        error_message:
-          "Contact 'Timms Contractors Pty Ltd' is missing required information: Address, Email Address.",
-      });
-      const { title } = SyncChecker.buildTitle(r, {
-        sync_type: 'Claims',
-        description: '<p>Smart contract auto-creation failed</p>',
-      } as any);
-      expect(title).toContain('Timms Contractors Pty Ltd');
-      expect(title).toContain('Address');
+  describe('extractLinkedRefs() + formatLinkedRefs()', () => {
+    it('pulls project/contract/claim ids from columns and names from dynamic_values', () => {
+      const refs = SyncChecker.extractLinkedRefs(
+        mkRow({
+          project_id: '11111111-2222-3333-4444-555555555555',
+          contract_id: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+          dynamic_values: {
+            project_name: '2501 - Alba',
+            contract_name: 'Main',
+            claim_id: 'PC-12',
+          },
+        }) as any,
+      );
+      expect(refs.projectId).toBe('11111111-2222-3333-4444-555555555555');
+      expect(refs.projectName).toBe('2501 - Alba');
+      expect(refs.contractId).toBe('99999999-aaaa-bbbb-cccc-dddddddddddd');
+      expect(refs.contractName).toBe('Main');
+      expect(refs.claimId).toBe('PC-12');
     });
 
-    it('composes from sync_type + entity + missing fields when no authored message', () => {
+    it('renders display names when available and abbreviates raw UUIDs', () => {
+      const out = SyncChecker.formatLinkedRefs({
+        projectId: '11111111-2222-3333-4444-555555555555',
+        projectName: '2501 - Alba',
+        contractId: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+        contractName: null,
+        claimId: 'PC-12',
+        claimRef: null,
+        invoiceId: null,
+        invoiceRef: 'INV-100',
+        billId: null,
+        billRef: null,
+      });
+      expect(out).toBe(' (Project: 2501 - Alba · Contract: 99999999 · Claim: PC-12 · Invoice: INV-100)');
+    });
+
+    it('returns empty string when no refs are set', () => {
+      const out = SyncChecker.formatLinkedRefs({
+        projectId: null,
+        projectName: null,
+        contractId: null,
+        contractName: null,
+        claimId: null,
+        claimRef: null,
+        invoiceId: null,
+        invoiceRef: null,
+        billId: null,
+        billRef: null,
+      });
+      expect(out).toBe('');
+    });
+  });
+
+  describe('buildTitle() fallback chain + linked-ref suffix', () => {
+    it('prefers a substantive authored error_message and appends linked refs the message does not already mention', () => {
+      const r = mkRow({
+        error_message:
+          "Bill 'INV-100' push failed: contact 'ACME Co' missing Email.",
+        dynamic_values: { contact_name: 'ACME Co', project_name: '2501 - Alba' },
+      });
+      const { title } = SyncChecker.buildTitle(r as any, {
+        sync_type: 'Bills',
+        description: '<p>Add bill in xero failed</p>',
+      } as any);
+      expect(title).toContain("Bill 'INV-100' push failed");
+      // Project not mentioned in the message → suffix appended.
+      expect(title).toContain('Project: 2501 - Alba');
+    });
+
+    it('does NOT re-append refs already present in the authored message', () => {
+      const r = mkRow({
+        error_message:
+          "Project 2501 - Alba: bill push failed. ACME Co missing Email Address details.",
+        dynamic_values: { project_name: '2501 - Alba' },
+      });
+      const { title } = SyncChecker.buildTitle(r as any, {
+        sync_type: 'Bills',
+        description: '<p>Add bill in xero failed</p>',
+      } as any);
+      // Project mentioned in the message → no duplicate suffix.
+      expect((title.match(/2501 - Alba/g) || []).length).toBe(1);
+    });
+
+    it('composes from sync_type + entity + missing fields when no authored message, with refs appended', () => {
       const r = mkRow({
         error_message: null,
         dynamic_values: {
           contact_name: 'ACME Co',
           missing_fields: ['Email', 'Phone'],
+          project_name: '2501 - Alba',
         },
       });
-      const { title } = SyncChecker.buildTitle(r, {
+      const { title } = SyncChecker.buildTitle(r as any, {
         sync_type: 'Bills',
         description: '<p>Add bill in xero failed</p>',
       } as any);
-      expect(title).toBe('Bills create failed — ACME Co (missing: Email, Phone)');
+      expect(title).toBe(
+        'Bills create failed — ACME Co (missing: Email, Phone) (Project: 2501 - Alba)',
+      );
     });
 
-    it('falls back to stripped template description', () => {
-      const r = mkRow({ error_message: null, dynamic_values: {} });
-      const { title } = SyncChecker.buildTitle(r, {
-        sync_type: 'Bills',
-        description: '<p>Add bill in xero failed</p>',
-      } as any);
-      // composed title takes precedence over plain description
-      expect(title).toContain('Bills');
-      expect(title).toContain('create failed');
+    it('truncates very long titles at the MAX_TITLE_LEN boundary', () => {
+      const longMsg = 'X'.repeat(500);
+      const { title } = SyncChecker.buildTitle(
+        mkRow({ error_message: longMsg }) as any,
+        { sync_type: 'Bills', description: '<p>Add bill</p>' } as any,
+      );
+      expect(title.length).toBeLessThanOrEqual(160);
+      expect(title.endsWith('…')).toBe(true);
     });
 
-    it('falls back to legacy opaque format when nothing else available', () => {
+    it('falls back to legacy "Xero sync failed" final fallback with refs when nothing else is available', () => {
       const r = mkRow({
         error_message: null,
         error_code: 'WEIRD_CODE',
-        dynamic_values: {},
+        dynamic_values: { project_name: '2501 - Alba' },
       });
-      const { title } = SyncChecker.buildTitle(r, undefined);
-      // With no template at all, syncType defaults to 'Xero' and
-      // action defaults to 'sync failed' — but since both the composed
-      // title and description are blank/default, we get the composed
-      // 'Xero sync failed' string back. Verify it isn't the raw legacy
-      // "(unknown)" form when an error_code is present.
+      const { title } = SyncChecker.buildTitle(r as any, undefined);
+      // No template → composed default 'Xero sync failed' triggers legacy
+      // fallback which still appends the linked-ref suffix.
       expect(title.toLowerCase()).toContain('sync failed');
-    });
-
-    it('extracts missing fields from error_message regex when not in dynamic_values', () => {
-      const r = mkRow({
-        error_message: 'Bill push failed.',
-        information_required: 'NA',
-        dynamic_values: {},
-      });
-      // error_message is too short to take the title path; ensure
-      // extractMissingFields handles the regex path via a longer string
-      const r2 = mkRow({
-        error_message: null,
-        information_required: 'Address, Phone',
-        dynamic_values: { contact_name: 'X Ltd' },
-      });
-      const { title, missingFields } = SyncChecker.buildTitle(r2, {
-        sync_type: 'Bills',
-        description: '<p>Add bill in xero failed</p>',
-      } as any);
-      expect(missingFields).toBe('Address, Phone');
-      expect(title).toContain('Address, Phone');
+      expect(title).toContain('Project: 2501 - Alba');
     });
   });
 
   describe('dedup', () => {
-    it('collapses identical Critical rows from the same root cause with a "+N more" suffix', async () => {
+    it('collapses rows sharing the same structured root cause (template + entity + linked refs)', async () => {
       const tpl = {
         id: 100,
         sync_type: 'Bills',
@@ -240,24 +241,25 @@ describe('SyncChecker', () => {
         mkRow({
           id: 'u-1',
           sync_id: 3,
-          error_message:
-            "Bill 'INV-100' push failed: contact 'ACME Co' missing Email.",
+          error_message: "Bill push attempt #3 failed for ACME Co.",
+          dynamic_values: { contact_name: 'ACME Co', claim_id: 'PC-12' },
           created_on: new Date('2026-05-26T03:00:00Z'),
           xeroLogTemplates: tpl,
         }),
         mkRow({
           id: 'u-2',
           sync_id: 2,
-          error_message:
-            "Bill 'INV-100' push failed: contact 'ACME Co' missing Email.",
+          // wording drifted between retries — would NOT collapse on title
+          error_message: "Bill push attempt #2 failed for ACME Co.",
+          dynamic_values: { contact_name: 'ACME Co', claim_id: 'PC-12' },
           created_on: new Date('2026-05-26T02:00:00Z'),
           xeroLogTemplates: tpl,
         }),
         mkRow({
           id: 'u-3',
           sync_id: 1,
-          error_message:
-            "Bill 'INV-100' push failed: contact 'ACME Co' missing Email.",
+          error_message: "Bill push attempt #1 failed for ACME Co.",
+          dynamic_values: { contact_name: 'ACME Co', claim_id: 'PC-12' },
           created_on: new Date('2026-05-26T01:00:00Z'),
           xeroLogTemplates: tpl,
         }),
@@ -269,12 +271,41 @@ describe('SyncChecker', () => {
       expect(issues[0].description).toContain('Repeated 3 times');
     });
 
-    it('does not collapse rows with different severities or different titles', async () => {
+    it('does NOT collapse rows with different entities (distinct root causes)', async () => {
+      const tpl = {
+        id: 100,
+        sync_type: 'Bills',
+        description: '<p>Add bill in xero failed</p>',
+        error_code: 'ADD_BILL_FAILED',
+        sync_status: 'Failed',
+      };
       qb.getMany.mockResolvedValue([
         mkRow({
           id: 'u-a',
           sync_id: 10,
-          error_message: "Bill 'A' push failed: missing Email.",
+          error_message: "Bill push failed: missing Email field for contact.",
+          dynamic_values: { contact_name: 'ACME Co' },
+          xeroLogTemplates: tpl,
+        }),
+        mkRow({
+          id: 'u-b',
+          sync_id: 11,
+          error_message: "Bill push failed: missing Email field for contact.",
+          dynamic_values: { contact_name: 'Globex Corp' },
+          xeroLogTemplates: tpl,
+        }),
+      ]);
+      const issues = await checker.check(7);
+      expect(issues).toHaveLength(2);
+    });
+
+    it('does NOT collapse rows with the same entity but different severities', async () => {
+      qb.getMany.mockResolvedValue([
+        mkRow({
+          id: 'u-a',
+          sync_id: 10,
+          error_message: "Bill push failed: missing Email field for ACME Co.",
+          dynamic_values: { contact_name: 'ACME Co' },
           xeroLogTemplates: {
             id: 100,
             sync_type: 'Bills',
@@ -286,8 +317,9 @@ describe('SyncChecker', () => {
         mkRow({
           id: 'u-b',
           sync_id: 11,
-          error_message: "Contact 'X' edit failed (not mapped).",
           error_code: 'EDIT_CONTACT_NOT_MAPPED',
+          error_message: "Contact ACME Co edit failed (not mapped).",
+          dynamic_values: { contact_name: 'ACME Co' },
           xeroLogTemplates: {
             id: 38,
             sync_type: 'Contacts',
@@ -299,8 +331,7 @@ describe('SyncChecker', () => {
       ]);
       const issues = await checker.check(7);
       expect(issues).toHaveLength(2);
-      const severities = issues.map((i) => i.severity).sort();
-      expect(severities).toEqual(['critical', 'info']);
+      expect(issues.map((i) => i.severity).sort()).toEqual(['critical', 'info']);
     });
   });
 });

@@ -11,30 +11,59 @@ const FETCH_LIMIT = 200; // wider than the previous 100: we classify + dedup
 const MAX_TITLE_LEN = 160;
 
 /**
+ * Linked-record references discovered on a sync-log row. Used for two
+ * things: appending a "(Project: X · Claim: Y)" suffix to the title so
+ * the user can triage at a glance, and producing a stable dedup key so
+ * the same root cause collapses across many retry rows.
+ */
+export interface SyncLinkedRefs {
+  projectId: string | null;
+  projectName: string | null;
+  contractId: string | null;
+  contractName: string | null;
+  claimId: string | null;
+  claimRef: string | null;
+  invoiceId: string | null;
+  invoiceRef: string | null;
+  billId: string | null;
+  billRef: string | null;
+}
+
+/**
  * Surfaces Xero sync failures in the recent window, with per-row severity
  * classification + meaningful titles + same-root-cause dedup. See
  * `docs/architecture/sync-status-classification.md` for the rule set.
  *
- * Severity decision (per row):
+ * Severity decision (per row): intentionally binary on the dashboard
+ * card per user requirement ("only critical sync errors should be
+ * critical; everything else is info"). The wider StatusIssueSeverity
+ * type still admits `warning`, but this checker only emits
+ * `critical` | `info`:
  *   - critical = action genuinely blocks money movement / compliance
  *     (Bills, Invoices, Payments, Claims, Smart contract, Retentions,
  *     Trust movements, Manual sync).
- *   - info = background noise that the system is retrying on its own or
- *     that the user has already mitigated (webhook re-receives,
- *     scheduler retries, missing-parent dependencies, metadata-only
- *     deletes/edits on contacts/bank-accounts/projects/contracts,
- *     or rows wrapped by the Task #274 contact-mirror downgrade).
+ *   - info = background noise that the system is retrying on its own,
+ *     metadata-only mirror failures, missing-parent dependencies, or
+ *     rows already downgraded by the Task #274 contact-mirror
+ *     interceptor.
  *
  * Title fallback chain (best → worst):
  *   1. Authored `error_message` when present and reasonably sized.
- *   2. Template-derived action verb + entity name from dynamic_values
- *      / api_payload + missing-fields list when discoverable.
+ *   2. Template-derived action verb + entity name + missing-fields list.
  *   3. Template description (stripped of HTML).
  *   4. Legacy `Xero sync failed (<error_code>)` as final fallback.
+ * Whichever path is taken, the discovered linked-record references
+ * (project / contract / claim / invoice / bill) are appended in a
+ * concise " (Project: … · Claim: …)" suffix so the row is triageable
+ * even when the underlying message doesn't already mention them.
  *
- * Dedup: rows with the same (template + entity + project + contract) in
- * the lookback window collapse to the newest row with a `+N more`
- * suffix, so one bad contact can't fill the dashboard card.
+ * Dedup: rows with the same structured root cause (template_id +
+ * severity + entity + project + contract + claim + invoice + bill)
+ * collapse to the newest row with a `+N more occurrences` suffix.
+ * Using structured fields rather than title text means we don't
+ * accidentally collapse distinct rows that happen to truncate to a
+ * similar string, and we don't fail to collapse true duplicates when
+ * the authored message wording drifts slightly between retries.
  */
 @Injectable()
 export class SyncChecker {
@@ -81,8 +110,7 @@ export class SyncChecker {
   // - MISSING_PROJECT/CONTRACT : push blocked by a missing parent that
   //                  another sync will create — auto-resolves.
   // - DELETE_*     : harmless; the record is going away in Xero.
-  // - EDIT_BANK / EDIT_CONTACT / DELETE_BANK / DELETE_CONTACT /
-  //   DELETE_PROJECT / DELETE_CONTRACT : metadata mirror only.
+  // - EDIT_BANK / EDIT_CONTACT : metadata mirror only.
   // - *_NOT_MAPPED : record doesn't exist in Xero — nothing to do.
   private static readonly INFO_ERROR_CODE_RX =
     /^(SCHEDULER_|WH_|MISSING_PROJECT|MISSING_CONTRACT|DELETE_|EDIT_BANK|EDIT_CONTACT)/i;
@@ -118,15 +146,20 @@ export class SyncChecker {
       .limit(FETCH_LIMIT)
       .getMany();
 
-    const issues: StatusIssue[] = rows.map((r) => this.toIssue(r));
-    return this.dedup(issues);
+    const pairs = rows.map((r) => this.toIssueWithKey(r));
+    return SyncChecker.dedup(pairs);
   }
 
   /**
-   * Build a StatusIssue from a single sync-log row + its joined template.
-   * Pure mapping function; pulled out for testability.
+   * Build a StatusIssue from a single sync-log row + its joined template
+   * and return it alongside a structured dedup key. The key is computed
+   * here (not inside the StatusIssue) so the public contract stays
+   * narrow.
    */
-  private toIssue(r: XeroSyncLogs): StatusIssue {
+  private toIssueWithKey(r: XeroSyncLogs): {
+    issue: StatusIssue;
+    dedupKey: string;
+  } {
     const template = (r as any).xeroLogTemplates as
       | Pick<
           XeroLogTemplates,
@@ -134,20 +167,20 @@ export class SyncChecker {
         >
       | undefined;
     const severity = SyncChecker.classify(r, template);
+    const refs = SyncChecker.extractLinkedRefs(r);
     const { title, entityName, missingFields } = SyncChecker.buildTitle(
       r,
       template,
+      refs,
     );
     const description = SyncChecker.buildDescription(
       r,
       template,
       entityName,
       missingFields,
+      refs,
     );
-    return {
-      // Dedup key shape mirrors the grouping below: if two rows from
-      // the same template + entity collapse into one, the surviving id
-      // is still well-defined.
+    const issue: StatusIssue = {
       id: `sync:xero_sync_log:${r.sync_id ?? r.id}:${severity}`,
       category: 'sync',
       severity,
@@ -163,13 +196,23 @@ export class SyncChecker {
       detectedAt:
         r.created_on?.toISOString?.() ?? new Date().toISOString(),
     };
+    const dedupKey = [
+      template?.id ?? '',
+      severity,
+      entityName ?? '',
+      refs.projectId ?? '',
+      refs.contractId ?? '',
+      refs.claimId ?? '',
+      refs.invoiceId ?? '',
+      refs.billId ?? '',
+    ].join('|');
+    return { issue, dedupKey };
   }
 
   /**
-   * Classify a sync-log row to critical | warning | info.
-   * Trusts explicit `downgrade_reason` set by the Task #274 contact-
-   * mirror interceptor; otherwise applies the sync_type / error_code
-   * rule set documented at the top of this file.
+   * Classify a sync-log row. Returns 'critical' | 'info' only — see the
+   * class-level severity note for why this checker doesn't emit
+   * 'warning'.
    */
   static classify(
     r: XeroSyncLogs,
@@ -200,21 +243,30 @@ export class SyncChecker {
   static buildTitle(
     r: XeroSyncLogs,
     template?: Pick<XeroLogTemplates, 'sync_type' | 'description'>,
+    refs?: SyncLinkedRefs,
   ): { title: string; entityName: string | null; missingFields: string | null } {
     const entityName = SyncChecker.extractEntityName(r);
     const missingFields = SyncChecker.extractMissingFields(r);
+    const linkedRefs = refs ?? SyncChecker.extractLinkedRefs(r);
+    const refSuffix = SyncChecker.formatLinkedRefs(linkedRefs);
 
     // 1. Prefer an authored error_message when it's substantive but not
     //    a wall of text. Most authored messages already include the
-    //    entity name + what's wrong; reusing them avoids us losing
-    //    nuance the original writer captured.
+    //    entity name + what's wrong; reusing them preserves nuance the
+    //    original writer captured. Even when the message is rich we
+    //    still append the linked-record suffix when the message doesn't
+    //    already mention the project/contract/claim/invoice/bill — so
+    //    triage doesn't depend on the message author having remembered
+    //    to include them.
     const em = (r.error_message || '').trim();
-    if (em && em.length >= 30 && em.length <= MAX_TITLE_LEN) {
-      return { title: em, entityName, missingFields };
-    }
-    if (em && em.length > MAX_TITLE_LEN) {
+    if (em && em.length >= 30) {
+      const body =
+        em.length <= MAX_TITLE_LEN
+          ? em
+          : SyncChecker.truncate(em, MAX_TITLE_LEN);
+      const composed = SyncChecker.appendRefSuffix(body, refSuffix, em);
       return {
-        title: SyncChecker.truncate(em, MAX_TITLE_LEN),
+        title: SyncChecker.truncate(composed, MAX_TITLE_LEN),
         entityName,
         missingFields,
       };
@@ -226,9 +278,10 @@ export class SyncChecker {
     let title = `${syncType} ${action}`;
     if (entityName) title += ` — ${entityName}`;
     if (missingFields) title += ` (missing: ${missingFields})`;
-    if (title && title !== 'Xero sync failed') {
+    const composed2 = SyncChecker.appendRefSuffix(title, refSuffix, title);
+    if (composed2 && composed2.trim() !== 'Xero sync failed') {
       return {
-        title: SyncChecker.truncate(title, MAX_TITLE_LEN),
+        title: SyncChecker.truncate(composed2, MAX_TITLE_LEN),
         entityName,
         missingFields,
       };
@@ -237,16 +290,20 @@ export class SyncChecker {
     // 3. Template description as plain text.
     const desc = SyncChecker.stripHtml(template?.description || '').trim();
     if (desc) {
+      const composed3 = SyncChecker.appendRefSuffix(desc, refSuffix, desc);
       return {
-        title: SyncChecker.truncate(desc, MAX_TITLE_LEN),
+        title: SyncChecker.truncate(composed3, MAX_TITLE_LEN),
         entityName,
         missingFields,
       };
     }
 
-    // 4. Final legacy fallback.
+    // 4. Final legacy fallback (still gets the ref suffix so the row is
+    //    at least triageable).
+    const legacy = `Xero sync failed (${r.error_code ?? 'unknown'})`;
+    const composed4 = SyncChecker.appendRefSuffix(legacy, refSuffix, legacy);
     return {
-      title: `Xero sync failed (${r.error_code ?? 'unknown'})`,
+      title: SyncChecker.truncate(composed4, MAX_TITLE_LEN),
       entityName,
       missingFields,
     };
@@ -257,6 +314,7 @@ export class SyncChecker {
     template: Pick<XeroLogTemplates, 'sync_type'> | undefined,
     entityName: string | null,
     missingFields: string | null,
+    refs: SyncLinkedRefs,
   ): string {
     const bits: string[] = [];
     bits.push(`Xero sync log #${r.sync_id}`);
@@ -264,6 +322,8 @@ export class SyncChecker {
     if (entityName) bits.push(`entity: ${entityName}`);
     if (missingFields) bits.push(`missing: ${missingFields}`);
     if (r.error_code) bits.push(`code: ${r.error_code}`);
+    const refStr = SyncChecker.formatLinkedRefs(refs);
+    if (refStr) bits.push(refStr.replace(/^\s*\(|\)\s*$/g, ''));
     return `${bits.join(' · ')}.`;
   }
 
@@ -319,6 +379,125 @@ export class SyncChecker {
   }
 
   /**
+   * Pull project / contract / claim / invoice / bill references from
+   * the row's structured columns + JSON blobs. Names are preferred for
+   * display; ids are kept for dedup grouping.
+   */
+  static extractLinkedRefs(r: XeroSyncLogs): SyncLinkedRefs {
+    const dv = (r.dynamic_values as Record<string, any>) || {};
+    const ap = (r.api_payload as Record<string, any>) || {};
+    const ref = (r.reference as Record<string, any>) || {};
+    const pick = (...vals: any[]): string | null => {
+      for (const v of vals) {
+        if (typeof v === 'string' && v.trim()) return v.trim();
+        if (typeof v === 'number') return String(v);
+      }
+      return null;
+    };
+    return {
+      projectId: pick(r.project_id, dv.project_id, ap.project_id, ref.project_id),
+      projectName: pick(
+        dv.project_name,
+        dv.project_display_name,
+        ap.project_name,
+        ref.project_name,
+      ),
+      contractId: pick(
+        r.contract_id,
+        dv.contract_id,
+        ap.contract_id,
+        ref.contract_id,
+      ),
+      contractName: pick(
+        dv.contract_name,
+        dv.contract_display_name,
+        ap.contract_name,
+        ref.contract_name,
+      ),
+      claimId: pick(dv.claim_id, ap.claim_id, ref.claim_id, dv.payment_claim_id),
+      claimRef: pick(
+        dv.claim_reference,
+        dv.claim_ref,
+        dv.claim_number,
+        ap.claim_reference,
+      ),
+      invoiceId: pick(dv.invoice_id, ap.invoice_id, ref.invoice_id),
+      invoiceRef: pick(
+        dv.invoice_number,
+        dv.invoice_reference,
+        ap.invoice_number,
+        ap.invoice_reference,
+      ),
+      billId: pick(dv.bill_id, ap.bill_id, ref.bill_id),
+      billRef: pick(
+        dv.bill_number,
+        dv.bill_reference,
+        ap.bill_number,
+        ap.bill_reference,
+      ),
+    };
+  }
+
+  /**
+   * Render a concise " (Project: X · Claim: Y · …)" suffix from the
+   * linked refs. Returns empty string when nothing is set, in which
+   * case callers should NOT append. Uses display names when available
+   * and falls back to a short id-tail when only ids are present (the
+   * full UUID would dominate the title).
+   */
+  static formatLinkedRefs(refs: SyncLinkedRefs | undefined): string {
+    if (!refs) return '';
+    const shortId = (s: string | null): string | null => {
+      if (!s) return null;
+      // Keep numeric ids and short tokens whole; abbreviate UUIDs.
+      if (/^[0-9]+$/.test(s)) return s;
+      if (s.length <= 8) return s;
+      return s.slice(0, 8);
+    };
+    const parts: string[] = [];
+    if (refs.projectName) parts.push(`Project: ${refs.projectName}`);
+    else if (refs.projectId)
+      parts.push(`Project: ${shortId(refs.projectId)}`);
+    if (refs.contractName) parts.push(`Contract: ${refs.contractName}`);
+    else if (refs.contractId)
+      parts.push(`Contract: ${shortId(refs.contractId)}`);
+    if (refs.claimRef) parts.push(`Claim: ${refs.claimRef}`);
+    else if (refs.claimId) parts.push(`Claim: ${shortId(refs.claimId)}`);
+    if (refs.invoiceRef) parts.push(`Invoice: ${refs.invoiceRef}`);
+    else if (refs.invoiceId)
+      parts.push(`Invoice: ${shortId(refs.invoiceId)}`);
+    if (refs.billRef) parts.push(`Bill: ${refs.billRef}`);
+    else if (refs.billId) parts.push(`Bill: ${shortId(refs.billId)}`);
+    if (!parts.length) return '';
+    return ` (${parts.join(' · ')})`;
+  }
+
+  /**
+   * Append the linked-refs suffix to `body` unless the underlying
+   * `source` text already mentions the same project / contract / claim
+   * tokens (avoids duplicating the reference the author already
+   * included). Pass `body === source` when no truncation happened.
+   */
+  private static appendRefSuffix(
+    body: string,
+    refSuffix: string,
+    source: string,
+  ): string {
+    if (!refSuffix) return body;
+    // Cheap "already mentioned" test: if the source already contains
+    // each of the rendered ref values, skip the suffix entirely. We
+    // strip the leading " (" and trailing ")" before splitting.
+    const inner = refSuffix.replace(/^\s*\(|\)\s*$/g, '');
+    const tokens = inner.split(' · ').map((t) => t.split(': ').pop() || '');
+    const lcSource = source.toLowerCase();
+    const allMentioned = tokens.every(
+      (t) => t && lcSource.includes(t.toLowerCase()),
+    );
+    if (allMentioned) return body;
+    return `${body}${refSuffix}`;
+  }
+
+  /**
    * Map a template description like
    *   "Add bank account in xero failed"
    * to a short action verb suitable for compositing into a title.
@@ -345,34 +524,31 @@ export class SyncChecker {
   }
 
   /**
-   * Collapse rows sharing the same root cause to a single representative
-   * (the newest) with a `+N more occurrences` suffix.
+   * Collapse rows sharing the same structured root cause (template_id +
+   * severity + entity + project + contract + claim + invoice + bill) to
+   * a single representative (the newest) with a `+N more occurrences`
+   * suffix. Input is already DESC by `created_on`, so the first entry
+   * per group is the newest representative.
    *
-   * Grouping key is `(severity, title)`. We rely on the title builder
-   * to produce a stable string per root cause: authored error_messages
-   * already include the entity / missing fields, and the composed
-   * fallback string is built from (sync_type + action + entity +
-   * missing fields). Two rows from the same template + same entity
-   * therefore produce the same title and collapse together; rows with
-   * different entities or different generated wording stay distinct.
-   * This catches the common pattern of one bad contact firing the same
-   * Failed log on every webhook tick without needing to carry extra
-   * grouping columns on the narrow StatusIssue contract.
+   * Structured keys (vs title text) keep dedup explicit: distinct rows
+   * with similar wording stay separate, and true duplicates collapse
+   * even when retry attempts produce slightly different message text.
    */
-  private dedup(issues: StatusIssue[]): StatusIssue[] {
-    const groups = new Map<string, StatusIssue[]>();
-    const keyOf = (i: StatusIssue) => `${i.severity}|${i.title}`;
-    // Input is already DESC by created_on, so the first entry per group
-    // is the newest representative.
-    for (const i of issues) {
-      const k = keyOf(i);
-      const g = groups.get(k);
-      if (g) g.push(i);
-      else groups.set(k, [i]);
+  static dedup(
+    pairs: { issue: StatusIssue; dedupKey: string }[],
+  ): StatusIssue[] {
+    const groups = new Map<
+      string,
+      { issue: StatusIssue; dedupKey: string }[]
+    >();
+    for (const p of pairs) {
+      const g = groups.get(p.dedupKey);
+      if (g) g.push(p);
+      else groups.set(p.dedupKey, [p]);
     }
     const out: StatusIssue[] = [];
     for (const g of groups.values()) {
-      const rep = g[0];
+      const rep = g[0].issue;
       if (g.length === 1) {
         out.push(rep);
       } else {

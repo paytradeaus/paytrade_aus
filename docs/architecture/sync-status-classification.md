@@ -58,10 +58,10 @@ issues list view.
 `SyncChecker.buildTitle` composes the one-liner shown on the card. It
 prefers the most specific available signal:
 
-1. **Authored `error_message`** when present and 30–160 chars. Authored
+1. **Authored `error_message`** when present and ≥30 chars. Authored
    messages usually already include the entity name and what's wrong;
    reusing them preserves nuance the original writer captured.
-   Longer messages are truncated with an ellipsis.
+   Messages longer than 160 chars are truncated with an ellipsis.
 2. **Composed: `<sync_type> <action> — <entity> (missing: <fields>)`**.
    Action is inferred from the template description (`add → create
    failed`, `edit → update failed`, `delete → delete failed`).
@@ -72,13 +72,50 @@ prefers the most specific available signal:
 3. **Stripped template description** as plain text.
 4. **Legacy `Xero sync failed (<error_code>)`** as the final fallback.
 
+### Linked-record suffix
+
+Whichever path produced the body, `SyncChecker.formatLinkedRefs` then
+appends a concise `" (Project: … · Contract: … · Claim: … · Invoice: …
+· Bill: …)"` suffix when any of those references exist on the row.
+
+References are extracted (in priority order) from:
+- structured columns: `xero_sync_logs.project_id`, `.contract_id`
+- `dynamic_values`: `project_name`, `contract_name`, `claim_id`,
+  `claim_reference` / `claim_number`, `invoice_id`, `invoice_number`,
+  `bill_id`, `bill_number`, ...
+- `api_payload` and `reference` JSON, with the same key shapes
+
+Display names are preferred over ids; raw UUIDs are abbreviated to their
+first 8 chars so the title stays readable.
+
+The suffix is skipped when the authored message already mentions each
+of the rendered values (cheap case-insensitive `includes` check), so
+rich error messages don't get duplicated references.
+
 ## Dedup
 
-Rows sharing the same `(severity, title)` collapse to one representative
-(the newest) with a `+N more occurrences` suffix and a `Repeated N times
-in the last 30 days` line in the description. This prevents one bad
-contact from filling the card when it triggers the same Failed log on
-every webhook tick.
+Rows sharing the same structured root cause collapse to one
+representative (the newest) with a `+N more occurrences` suffix and a
+`Repeated N times in the last 30 days` line in the description.
+
+The dedup key is the tuple
+`(log_template_id, severity, entity_name, project_id, contract_id, claim_id, invoice_id, bill_id)`.
+
+Using structured fields rather than the rendered title text means:
+- distinct rows with similar wording stay separate (no false collapses
+  from string coincidence),
+- true duplicates collapse even when retry attempts produce slightly
+  different message text (e.g. `"… attempt #1 …"` vs `"… attempt #2 …"`).
+
+## Severity output is intentionally binary
+
+The wider `StatusIssueSeverity` type admits `critical | warning | info`,
+but this checker only ever emits `critical` or `info`. This is per the
+Task #275 requirement ("only critical sync errors should be critical;
+those that aren't critical are downgraded to info"). The full snapshot
+service still supports `warning` rows from other checkers and from the
+Task #274 contact-mirror Warning templates (623/624/625), which never
+reach this checker because we gate on `sync_status = 'Failed'`.
 
 ## Adding or moving templates
 
