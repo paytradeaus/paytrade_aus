@@ -50,6 +50,8 @@ import {
   updateDelegatePowers,
 } from "../../Subscriptions/subscriptions.function";
 import { viewXeroSyncLog } from "../../UserIntegrations/integration.functions";
+import { GetComplianceResultsOfAProject } from "@/modules/user/CompliancesOverview/complianceOverview.functions";
+import { actionButtonType } from "@/modules/user/CompliancesOverview/complianceOverview.constants";
 import { CreateClaimInPaytrade, CreateOrUpdateContractInPaytrade } from "../../UserIntegrations/XeroDashboard/XeroSyncLogDetails/syncLog.functions";
 
 interface ProjectOption {
@@ -1499,8 +1501,64 @@ export default function AddEditContracts(props: any) {
     }
   }
 
-  function handleRouterBack(contractId?: any, clientSupplierType?: any) {
+  async function handleRouterBack(contractId?: any, clientSupplierType?: any) {
     resetRetainedContractData();
+
+    // Task #279 follow-up: when the user arrived from the Compliance
+    // page's "Upload signed contracts" check (URL carries
+    // `routedFrom=compliance`), try to hop straight to the *next*
+    // non-compliant contract for the same check instead of dropping
+    // them back on the Compliance overview. This collapses an N-click
+    // round-trip into a single linear flow. If there is no next
+    // contract (we just fixed the last one, or the lookup fails), fall
+    // through to the normal compliance-overview return below.
+    if (
+      isEdit &&
+      queryParams.get("routedFrom") === "compliance" &&
+      contractData?.id
+    ) {
+      const complianceTab = queryParams.get("complianceTab");
+      const projectIdParam = queryParams.get("projectId");
+      if (complianceTab && projectIdParam) {
+        try {
+          const complianceData = await GetComplianceResultsOfAProject({
+            payload: {
+              project_id: Number(projectIdParam),
+              bank_account_type: complianceTab,
+            },
+          });
+          const currentId = String(contractData.id);
+          // Walk every check group, gather every EDIT_CONTRACT row that
+          // points at a different contract, then take the first one as
+          // the next stop.
+          const nextRefId: string | undefined = (complianceData ?? [])
+            .flatMap((check: any) => check?.results ?? [])
+            .map((row: any) =>
+              row?.action_button_type === actionButtonType.EDIT_CONTRACT &&
+              row?.reference_id != null
+                ? String(row.reference_id)
+                : null
+            )
+            .find((refId: string | null) => refId && refId !== currentId);
+
+          if (nextRefId) {
+            router.push(
+              `${AppRoutes.USER_EDIT_CONTRACTS}/${nextRefId}?complianceTab=${complianceTab}&projectId=${projectIdParam}&routedFrom=compliance`
+            );
+            return;
+          }
+        } catch {
+          // swallow — fall through to the normal navigation below
+        }
+      }
+      // No next contract found — return to the compliance overview so
+      // the user can see the (hopefully now-green) check.
+      router.push(
+        `${AppRoutes.USER_COMPLIANCE_OVERVIEW}?project=${projectIdParam}&tab=${complianceTab}`
+      );
+      return;
+    }
+
     if (overviewId) {
       router.push(
         `${AppRoutes.USER_PROJECTS_OVERVIEW}/${overviewId}?from=contracts`
