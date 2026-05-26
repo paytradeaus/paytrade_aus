@@ -1350,6 +1350,19 @@ export default function SyncLogDetailsBasic() {
       xr?.contact?.name ||
       xr?.Contact?.Name ||
       xd?.contact_name ||
+      dyn?.supplier_name ||
+      dyn?.client_supplier_name ||
+      dyn?.contact_name ||
+      "";
+    if (contactName) tiles.push({ label: "Contact", value: contactName });
+
+    if (syncType === "Invoices" || syncType === "Bills") {
+      const xeroInv =
+        xr?.invoiceNumber ||
+        xr?.InvoiceNumber ||
+        xr?.invoice?.invoiceNumber ||
+        xr?.Invoice?.InvoiceNumber ||
+        xd?.invoice_number ||
         "";
       if (xeroInv) tiles.push({ label: "Xero invoice", value: xeroInv });
       const ptInv =
