@@ -857,6 +857,27 @@ export default function XeroDashboard() {
         // Decide process direction
         const isXeroToPaytrade = val.process?.split(">")[0].trim() === "Xero";
         const fullDescription = val.description ? stripHtml(val.description) : "";
+        // Task #274 — surface the linked contact name + a condensed
+        // "missing fields" hint inline in the sync-log list so users can
+        // triage contact-mirror noise without opening every row. We take
+        // the top 2 missing-field tokens (server provides a comma- or
+        // line-separated list in information_required / notification).
+        const contactNameInline =
+          val.api_payload?.client_supplier_name ||
+          val.api_payload?.contact_name ||
+          val.dynamic_values?.contact_name ||
+          "";
+        const missingFieldsRaw =
+          val.information_required ||
+          val.dynamic_values?.missing_fields ||
+          val.notification ||
+          "";
+        const topMissingFields = String(missingFieldsRaw)
+          .split(/[,\n;]+/)
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .slice(0, 3)
+          .join(", ");
         const truncatedDescription =
           fullDescription.length > 80
             ? `${fullDescription.slice(0, 80)}…`
@@ -891,7 +912,31 @@ export default function XeroDashboard() {
             .toLowerCase(),
           created_on: val.created_on ? formatDate(val.created_on) : "",
           description: fullDescription ? (
-            <span title={fullDescription}>{truncatedDescription}</span>
+            <span title={fullDescription}>
+              {truncatedDescription}
+              {(contactNameInline || topMissingFields) && (
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "11px",
+                    color: "#666",
+                    marginTop: "2px",
+                  }}
+                >
+                  {contactNameInline && (
+                    <>
+                      <strong>Contact:</strong> {contactNameInline}
+                    </>
+                  )}
+                  {contactNameInline && topMissingFields && " · "}
+                  {topMissingFields && (
+                    <>
+                      <strong>Missing:</strong> {topMissingFields}
+                    </>
+                  )}
+                </span>
+              )}
+            </span>
           ) : (
             ""
           ),

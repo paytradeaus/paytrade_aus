@@ -7956,7 +7956,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
   async mirrorXeroArchivedContactsToPaytrade() {
     const PREFIX = '[Task#274 xero-archive-mirror]';
     try {
-      const archiveResult = await this.dataSource.query(`
+      // RETURNING with a JOIN-derived contact_name + integration_id so we
+      // can emit one sync-log entry per flip without a second roundtrip.
+      const archiveResult: any[] = await this.dataSource.query(`
         UPDATE  client_suppliers_details csd
         SET     is_archived     = true,
                 archived_at     = COALESCE(csd.archived_at, now()),
@@ -7966,14 +7968,17 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           AND   xcd.contact_status = 'ARCHIVED'
           AND   csd.is_archived = false
           AND   csd.is_deleted = false
-        RETURNING csd.client_supplier_id
+        RETURNING csd.client_supplier_id,
+                  csd.client_supplier_name,
+                  xcd.id           AS xero_contact_uuid,
+                  xcd.contact_id   AS xero_contact_guid,
+                  xcd.integration_id
       `);
-      const archived = Array.isArray(archiveResult) ? archiveResult.length : 0;
 
       // Auto un-archive — only for contacts WE archived via the mirror.
-      // Manual archival (future feature) keeps `archived_reason` NULL or
+      // Manual archival (future feature) keeps archived_reason NULL or
       // some other sentinel, and won't be auto-cleared.
-      const unarchiveResult = await this.dataSource.query(`
+      const unarchiveResult: any[] = await this.dataSource.query(`
         UPDATE  client_suppliers_details csd
         SET     is_archived     = false,
                 archived_at     = NULL,
@@ -7983,11 +7988,78 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
           AND   xcd.contact_status = 'ACTIVE'
           AND   csd.is_archived = true
           AND   csd.archived_reason = 'xero_mirror'
-        RETURNING csd.client_supplier_id
+        RETURNING csd.client_supplier_id,
+                  csd.client_supplier_name,
+                  xcd.id           AS xero_contact_uuid,
+                  xcd.contact_id   AS xero_contact_guid,
+                  xcd.integration_id
       `);
+
+      const archived = Array.isArray(archiveResult) ? archiveResult.length : 0;
       const unarchived = Array.isArray(unarchiveResult)
         ? unarchiveResult.length
         : 0;
+
+      // Emit one sync-log row per flip so users can see what changed in
+      // the standard sync log surface. Template 625 = archived (Warning),
+      // 626 = unarchived (Succeeded). Failures here are non-fatal — the
+      // DB mutation already happened; we just lose audit visibility.
+      for (const row of archiveResult || []) {
+        try {
+          await this.xeroService.insertXeroSyncLogs(null, {
+            integration_id: row.integration_id,
+            log_template_id: 625,
+            dynamic_values: { contact_name: row.client_supplier_name || '' },
+            project_id: null,
+            contract_id: null,
+            reference: { paytradeId: row.client_supplier_id },
+            reference_id: row.xero_contact_uuid,
+            api_payload: {
+              client_supplier_name: row.client_supplier_name,
+              contact_id: row.xero_contact_guid,
+              previous_state: 'active',
+              new_state: 'archived',
+              reason: 'xero_mirror',
+            },
+            history: [
+              `Xero contact archived; PT contact is_archived flipped to true (nightly mirror).`,
+            ],
+            important_checks: {},
+          });
+        } catch (logErr: any) {
+          this.logger.warn(
+            `${PREFIX} sync-log emit (archive) failed for contact ${row.client_supplier_id}: ${logErr?.message || logErr}`,
+          );
+        }
+      }
+      for (const row of unarchiveResult || []) {
+        try {
+          await this.xeroService.insertXeroSyncLogs(null, {
+            integration_id: row.integration_id,
+            log_template_id: 626,
+            dynamic_values: { contact_name: row.client_supplier_name || '' },
+            project_id: null,
+            contract_id: null,
+            reference: { paytradeId: row.client_supplier_id },
+            reference_id: row.xero_contact_uuid,
+            api_payload: {
+              client_supplier_name: row.client_supplier_name,
+              contact_id: row.xero_contact_guid,
+              previous_state: 'archived',
+              new_state: 'active',
+              reason: 'xero_mirror',
+            },
+            history: [
+              `Xero contact reactivated; PT contact is_archived cleared (nightly mirror).`,
+            ],
+            important_checks: {},
+          });
+        } catch (logErr: any) {
+          this.logger.warn(
+            `${PREFIX} sync-log emit (unarchive) failed for contact ${row.client_supplier_id}: ${logErr?.message || logErr}`,
+          );
+        }
+      }
 
       this.logger.log(
         `${PREFIX} archived=${archived} unarchived=${unarchived}`,

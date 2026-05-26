@@ -5685,5 +5685,25 @@
       611,
       612
     ]
+  },
+  {
+    "id": 625,
+    "sync_type": "Contact archive mirror",
+    "description": "<p>Contact <b>{{contact_name}}</b> is marked <b>ARCHIVED</b> in Xero and has been hidden from Pay Trade contact pickers (status mirrored automatically). Existing contracts, claims and payments are untouched. Un-archive the contact in Xero if you want it to reappear in pickers — the nightly mirror will pick it up.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "PT_CONTACT_ARCHIVED_BY_XERO_MIRROR",
+    "associated_log_ids": []
+  },
+  {
+    "id": 626,
+    "sync_type": "Contact archive mirror",
+    "description": "<p>Contact <b>{{contact_name}}</b> is <b>ACTIVE</b> again in Xero and is now visible in Pay Trade contact pickers (status mirrored automatically by the nightly Xero archive sync).</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "PT_CONTACT_UNARCHIVED_BY_XERO_MIRROR",
+    "associated_log_ids": []
   }
 ]
