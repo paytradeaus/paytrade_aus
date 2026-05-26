@@ -112,6 +112,15 @@ export class StripeWebhookService {
           invoice_id: response.id,
           invoice_number: response.number,
           amount_paid: response.amount_paid / 100,
+          // Task #312 — capture Stripe's tax breakdown verbatim from the
+          // invoice. Used by the billing-history UI; falls back to
+          // amount/11 when null (legacy rows + non-AU/no-GST invoices).
+          stripe_tax_amount:
+            typeof response.tax === 'number' ? response.tax / 100 : null,
+          stripe_total_excluding_tax:
+            typeof response.total_excluding_tax === 'number'
+              ? response.total_excluding_tax / 100
+              : null,
           effective_at:
             moment.unix(response.effective_at).utc().toDate() ?? null,
           paid_at:

@@ -48,6 +48,15 @@ export class SubscriptionTransaction {
   @Column({ type: 'decimal' })
   amount_paid: number;
 
+  // Stripe-reported GST captured from invoice webhooks. Source of truth
+  // for the receipt UI when present; absent for legacy rows (pre-#312)
+  // and back-filled out-of-band by the GST seeder.
+  @Column({ type: 'decimal', nullable: true })
+  stripe_tax_amount: number | null;
+
+  @Column({ type: 'decimal', nullable: true })
+  stripe_total_excluding_tax: number | null;
+
   @Column({ type: 'timestamp with time zone' })
   effective_at: Date;
 

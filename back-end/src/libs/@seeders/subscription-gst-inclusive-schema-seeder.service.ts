@@ -43,6 +43,7 @@ export class SubscriptionGstInclusiveSchemaSeederService
   async onApplicationBootstrap(): Promise<void> {
     await this.ensureSchema();
     await this.backfillLegacyInclusiveSubs();
+    await this.backfillTransactionTaxFromStripe();
   }
 
   private async ensureSchema(): Promise<void> {
@@ -51,14 +52,92 @@ export class SubscriptionGstInclusiveSchemaSeederService
         ALTER TABLE subscription_details
           ADD COLUMN IF NOT EXISTS is_gst_inclusive boolean DEFAULT false;
       `);
+      // Stripe-reported tax breakdown columns on subscription_transaction,
+      // populated by the invoice webhook + this seeder's backfill.
+      await this.dataSource.query(`
+        ALTER TABLE subscription_transaction
+          ADD COLUMN IF NOT EXISTS stripe_tax_amount numeric NULL,
+          ADD COLUMN IF NOT EXISTS stripe_total_excluding_tax numeric NULL;
+      `);
       this.logger.log(
-        'subscription_details.is_gst_inclusive column ensured (Task #312).',
+        'subscription_details.is_gst_inclusive + subscription_transaction tax columns ensured.',
       );
     } catch (err: any) {
       this.logger.error(
-        `Failed to ensure subscription_details.is_gst_inclusive: ${err?.message || err}`,
+        `Failed to ensure GST columns: ${err?.message || err}`,
       );
     }
+  }
+
+  /**
+   * Backfill `stripe_tax_amount` / `stripe_total_excluding_tax` on
+   * historical subscription_transaction rows by re-fetching the invoice
+   * from Stripe. Bounded per boot to avoid hammering the API on first
+   * deploy; re-runs every restart until the queue is empty. Live mode
+   * only — sandbox transactions are not displayed on the receipt UI.
+   */
+  private async backfillTransactionTaxFromStripe(): Promise<void> {
+    const BATCH = 200;
+    let rows: Array<{ id: string; invoice_id: string }>;
+    try {
+      rows = await this.dataSource.query(
+        `SELECT id, invoice_id
+           FROM subscription_transaction
+          WHERE stripe_tax_amount IS NULL
+            AND invoice_id IS NOT NULL
+            AND invoice_id <> ''
+          ORDER BY paid_at DESC NULLS LAST
+          LIMIT $1`,
+        [BATCH],
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `Tax backfill query failed: ${err?.message || err}`,
+      );
+      return;
+    }
+    if (!rows?.length) return;
+
+    let stripe: any;
+    try {
+      stripe = getStripeInstance(false);
+    } catch (err: any) {
+      this.logger.log(
+        `Tax backfill skipped — live Stripe key unavailable: ${err?.message || err}`,
+      );
+      return;
+    }
+
+    let updated = 0;
+    let failed = 0;
+    for (const row of rows) {
+      try {
+        const inv = await stripe.invoices.retrieve(row.invoice_id);
+        const tax =
+          typeof inv?.tax === 'number' ? inv.tax / 100 : null;
+        const ex =
+          typeof inv?.total_excluding_tax === 'number'
+            ? inv.total_excluding_tax / 100
+            : null;
+        if (tax === null) continue;
+        await this.dataSource.query(
+          `UPDATE subscription_transaction
+              SET stripe_tax_amount = $1,
+                  stripe_total_excluding_tax = $2
+            WHERE id = $3`,
+          [tax, ex, row.id],
+        );
+        updated++;
+      } catch (err: any) {
+        failed++;
+        this.logger.error(
+          `Tax backfill failed for invoice ${row.invoice_id}: ${err?.message || err}`,
+        );
+      }
+    }
+    this.logger.log(
+      `Tax backfill batch: scanned=${rows.length} updated=${updated} failed=${failed}`,
+    );
   }
 
   private async backfillLegacyInclusiveSubs(): Promise<void> {

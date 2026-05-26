@@ -164,22 +164,42 @@ export class PaymentGatewayService implements OnApplicationBootstrap {
    * the customer.
    */
   async onApplicationBootstrap(): Promise<void> {
-    try {
-      const stripe = getStripeInstance(false);
-      const rateId = await this.getAuGstTaxRateId(stripe, false, false);
-      if (!rateId) {
-        this.logError(
-          'GST_HEALTH_CHECK: live AU 10% exclusive GST tax-rate could not be resolved. New paid subscriptions will be created WITHOUT a GST line. Fix Stripe credentials / connectivity immediately.',
-        );
-      } else {
-        this.log(
-          `GST_HEALTH_CHECK ok: live exclusive AU GST rate resolved (${rateId}).`,
-        );
+    // Validate AU GST rate is resolvable in BOTH live and sandbox modes.
+    // A missing live rate silently strips GST from real customer
+    // subscriptions; a missing sandbox rate breaks demo-mode signup. Log
+    // each independently so operators can fix one without the other
+    // masking the issue. Missing test-mode credentials are a WARN, not
+    // an ERROR, because some environments intentionally don't ship
+    // sandbox keys.
+    const envs: Array<{ isDemo: boolean; label: string }> = [
+      { isDemo: false, label: 'live' },
+      { isDemo: true, label: 'sandbox' },
+    ];
+    for (const { isDemo, label } of envs) {
+      try {
+        const stripe = getStripeInstance(isDemo);
+        const rateId = await this.getAuGstTaxRateId(stripe, isDemo, false);
+        if (!rateId) {
+          this.logError(
+            `[STRIPE_TAX_HEALTH] ${label}: AU 10% exclusive GST tax-rate could not be resolved. New paid subscriptions will be created WITHOUT a GST line in this mode. Fix Stripe credentials / connectivity immediately.`,
+          );
+        } else {
+          this.log(
+            `[STRIPE_TAX_HEALTH] ${label}: exclusive AU GST rate resolved (${rateId}).`,
+          );
+        }
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        if (msg.includes('not configured')) {
+          this.log(
+            `[STRIPE_TAX_HEALTH] ${label}: Stripe secret not configured — skipping GST health check for this mode.`,
+          );
+        } else {
+          this.logError(
+            `[STRIPE_TAX_HEALTH] ${label}: health check failed unexpectedly: ${msg}`,
+          );
+        }
       }
-    } catch (err: any) {
-      this.logError(
-        `GST_HEALTH_CHECK failed unexpectedly: ${err?.message || err}`,
-      );
     }
   }
 
@@ -1438,6 +1458,11 @@ export class PaymentGatewayService implements OnApplicationBootstrap {
       .addSelect('payment.invoice_id', 'invoice_id')
       .addSelect('payment.invoice_number', 'invoice_number')
       .addSelect('payment.amount_paid', 'amount_paid')
+      .addSelect('payment.stripe_tax_amount', 'stripe_tax_amount')
+      .addSelect(
+        'payment.stripe_total_excluding_tax',
+        'stripe_total_excluding_tax',
+      )
       .addSelect('payment.effective_at', 'effective_at')
       .addSelect('payment.paid_at', 'paid_at')
       .addSelect('payment.status', 'status')
@@ -1603,19 +1628,40 @@ export class PaymentGatewayService implements OnApplicationBootstrap {
     // Slice the results array to get the results for the current page
     const results = rawResults.slice(startIndex, endIndex);
 
-    // Task #312 — derive GST split per row. Mathematically identical
-    // for inclusive vs exclusive 10% GST: gst = total / 11. The
-    // `is_gst_inclusive` flag only changes how the UI labels it
-    // ("Includes $X GST" vs "Plus $X GST"). amount_paid is then
-    // formatted to the currency string the grid expects.
+    // Task #312 — derive GST split per row. Prefer Stripe's persisted
+    // invoice tax values (captured on webhook + back-filled by the GST
+    // seeder) so the receipt matches what Stripe actually charged. When
+    // those columns are NULL (pre-#312 legacy rows, or invoices that
+    // genuinely carry no tax line), fall back to amount/11 — which is
+    // arithmetically identical for both inclusive and exclusive AU 10%
+    // GST. `is_gst_inclusive` only changes how the UI labels the row.
     results?.forEach((element) => {
       const rawAmount = Number(element.amount_paid) || 0;
-      const gst = Math.round((rawAmount / 11) * 100) / 100;
-      const exGst = Math.round((rawAmount - gst) * 100) / 100;
+      const stripeTax =
+        element.stripe_tax_amount !== null &&
+        element.stripe_tax_amount !== undefined
+          ? Number(element.stripe_tax_amount)
+          : null;
+      let gst: number;
+      let exGst: number;
+      if (stripeTax !== null && Number.isFinite(stripeTax)) {
+        gst = Math.round(stripeTax * 100) / 100;
+        const stripeExTax =
+          element.stripe_total_excluding_tax !== null &&
+          element.stripe_total_excluding_tax !== undefined
+            ? Number(element.stripe_total_excluding_tax)
+            : rawAmount - gst;
+        exGst = Math.round(stripeExTax * 100) / 100;
+      } else {
+        gst = Math.round((rawAmount / 11) * 100) / 100;
+        exGst = Math.round((rawAmount - gst) * 100) / 100;
+      }
       element.gst_amount = gst;
       element.total_ex_gst = exGst;
       element.is_gst_inclusive = element.is_gst_inclusive === true;
       element.amount_paid = formatCurrency(element.amount_paid);
+      delete element.stripe_tax_amount;
+      delete element.stripe_total_excluding_tax;
     });
 
     return {
