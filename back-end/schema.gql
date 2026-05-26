@@ -2,6 +2,59 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+"""A single payment line inside an ABA batch."""
+type ABABatchPaymentLine {
+  account_number: String
+  amount: Float
+  bsb_number: String
+  payee_name: String
+  reference: String
+  sub_payment_id: String
+}
+
+"""ABA batch summary header + lines."""
+type ABABatchSummary {
+  """ABA file name."""
+  aba_file_name: String
+
+  """Sender bank account name."""
+  account_name: String
+
+  """Batch record count from the ABA file footer."""
+  control_payment_count: Float
+
+  """Net total (dollars) from the ABA file footer."""
+  control_total_amount: Float
+
+  """Timestamp the ABA file was generated."""
+  created_on: DateTime
+
+  """ABA history row ID."""
+  id: String
+
+  """
+  True for legacy batches generated before the batch ↔ sub-payment link existed. UI should show the "breakdown unavailable" message.
+  """
+  is_legacy: Boolean!
+
+  """Whether the batch was marked-paid at generation."""
+  mark_paid: Boolean
+
+  """Number of payments in the batch."""
+  payment_count: Float!
+
+  """Per-payment breakdown (empty when is_legacy = true)."""
+  payments: [ABABatchPaymentLine!]!
+
+  """
+  True if the per-payment breakdown (count or sum) disagrees with the stored ABA-file control totals — suggests a sub-payment was edited/deleted post-generation.
+  """
+  reconcile_mismatch: Boolean!
+
+  """Sum of absolute amounts."""
+  total_amount: Float!
+}
+
 """Details of ABA generated file history record."""
 type ABAGeneratedFileHistoryDetail {
   """ABA file ID."""
@@ -36,6 +89,12 @@ type ABAGeneratedFileHistoryDetail {
 
   """Indicates if the ABA file is marked as paid."""
   mark_paid: Boolean!
+
+  """Number of sub-payments included in this ABA batch."""
+  payment_count: Float
+
+  """Sum of the absolute amounts of sub-payments in this batch."""
+  total_amount: Float
 }
 
 """Paginated ABA generated file history list."""
@@ -9755,6 +9814,26 @@ type GenerateS75NoticeResponse {
   status: String!
 }
 
+"""Input for fetching a single ABA batch summary."""
+input GetABABatchSummaryInput {
+  """ABA history row ID (uuid)."""
+  aba_history_id: String!
+
+  """Business ID for scoping."""
+  company_id: Float!
+}
+
+"""Response wrapper for getABABatchSummary."""
+type GetABABatchSummaryResponse {
+  data: ABABatchSummary
+
+  """Response message."""
+  message: String!
+
+  """API response status."""
+  status: String!
+}
+
 """Input for fetching ABA file history."""
 input GetABAFileHistoryInput {
   """Optional bank account ID to filter ABA history."""
@@ -18645,6 +18724,14 @@ type Query {
     """
     payload: ListSubPaymentsInput!
   ): generateAbaFilesResponse!
+
+  """
+  Fetch the per-batch summary (header + payment breakdown) for a previously generated ABA file.
+  """
+  getABABatchSummary(
+    """ABA history id + company id to scope the lookup."""
+    payload: GetABABatchSummaryInput!
+  ): GetABABatchSummaryResponse!
 
   """
   Retrieve the full history of all previously generated ABA files for audit and reference purposes.
