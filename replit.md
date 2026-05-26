@@ -58,6 +58,7 @@ Per-feature deep-dives live under `docs/architecture/`. Pull only the ones relev
 - [Xero retention auto gross-up journals (Phase 3)](docs/architecture/xero-retention-gross-up-phase-3.md) — balanced manual journals, tax-type resolution, anti-echo.
 - [Xero invoice/bill on claims + audit pack](docs/architecture/xero-invoice-bill-claims-audit-pack.md) — cached PDFs, deep links, audit-pack ZIPs.
 - [Xero payment/retention sync gate split](docs/architecture/xero-payment-retention-gate-split.md) — Task #50/#52: per-leg push, inbound matcher pipeline, symmetric un-tick → delete.
+- [Xero createPayment / createBankTransfer response validation](docs/architecture/xero-payment-response-validation.md) — Task #313: reject ID-less / wrong-invoice / DELETED responses with a Failed sync log (template 627/628) instead of phantom "Export successful".
 - [Manual Xero re-sync by ID](docs/architecture/manual-xero-resync.md) — Task #65: self-service single-record recovery tool.
 - [UI status lookup (NULL vs empty string)](docs/architecture/ui-status-lookup.md) — `ui_status_and_action_buttons` lookup coercion.
 - [AI Tool Registry & Audit Foundation](docs/architecture/ai-tool-registry.md) — Task #159: `ai_tool_registry`, `ai_tool_calls`, `ai_prompt_audit`, `activity_log_new.actor_mode` / `ai_run_id`, the `AiTool` wrapper-around-a-domain-service rule.

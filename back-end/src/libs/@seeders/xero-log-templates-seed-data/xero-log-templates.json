@@ -5718,5 +5718,25 @@
     "from_xero": true,
     "error_code": "PT_CONTACT_UNARCHIVED_BY_XERO_MIRROR",
     "associated_log_ids": []
+  },
+  {
+    "id": 627,
+    "sync_type": "Payments",
+    "description": "<p>Pay Trade sent the payment to Xero but Xero's response was unusable: <b>{{reason}}</b>. No <code>xero_payments</code> row was persisted and the payment leg should be re-attempted. Expected invoice <b>{{expected_invoice_id}}</b>, expected amount <b>{{expected_amount}}</b>. Raw response captured in xero_records for support.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_PAYMENT_RESPONSE_INVALID",
+    "associated_log_ids": [168, 332]
+  },
+  {
+    "id": 628,
+    "sync_type": "Payments",
+    "description": "<p>Pay Trade sent the retention BankTransfer to Xero but Xero's response was unusable: <b>{{reason}}</b>. No <code>bank_transfer_id</code> was persisted and the retention leg should be re-attempted. Expected amount <b>{{expected_amount}}</b>, reference <b>{{reference}}</b>. Raw response captured in xero_records for support.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_BANK_TRANSFER_RESPONSE_INVALID",
+    "associated_log_ids": [500, 496, 497, 498]
   }
 ]

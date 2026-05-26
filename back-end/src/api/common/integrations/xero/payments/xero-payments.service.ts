@@ -963,6 +963,116 @@ export class XeroPaymentsService {
           );
         }
 
+        // Task #313 — Strictly validate the Xero response before treating
+        // the payment leg as a success. Previously the gate was just
+        // `!!response?.body?.payments` (array existence), which let
+        // ID-less / validation-error / wrong-invoice / DELETED responses
+        // through and produced "Export successful" sync logs + an
+        // AUTHORISED `xero_payments` row without an actual payment in
+        // Xero. See `.agents/memory/xero-success-requires-real-id.md`.
+        //
+        // On validation failure we emit a Failed sync log (template 627)
+        // carrying the actual Xero response body in `xero_records`, do
+        // NOT persist a `xero_payments` row, do NOT proceed to push the
+        // retention BankTransfer leg, and return false so the resolver
+        // can retry on the next confirm-tick.
+        const validatePaymentResponse = (
+          freshPayment: any,
+          expectedInvoiceId: string,
+          expectedAmount: number,
+        ): string | null => {
+          if (!freshPayment) return 'Xero returned no payment in the response body';
+          if (!freshPayment.paymentID)
+            return 'Xero returned a payment element with no paymentID';
+          if (
+            typeof freshPayment.statusAttributeString === 'string' &&
+            freshPayment.statusAttributeString.toUpperCase() === 'ERROR'
+          )
+            return `Xero returned statusAttributeString=ERROR (validationErrors: ${JSON.stringify(freshPayment.validationErrors || [])})`;
+          if (
+            Array.isArray(freshPayment.validationErrors) &&
+            freshPayment.validationErrors.length > 0
+          )
+            return `Xero returned validationErrors: ${JSON.stringify(freshPayment.validationErrors)}`;
+          const status = String(freshPayment.status || '').toUpperCase();
+          if (status === 'DELETED' || status === 'REVERSED' || status === 'VOIDED')
+            return `Xero accepted the payment but persisted it as ${status}`;
+          const returnedInvoiceId = freshPayment?.invoice?.invoiceID;
+          if (returnedInvoiceId && returnedInvoiceId !== expectedInvoiceId)
+            return `Xero attached the payment to invoice ${returnedInvoiceId} but we sent invoice ${expectedInvoiceId}`;
+          if (
+            typeof freshPayment.amount === 'number' &&
+            Math.abs(freshPayment.amount - expectedAmount) > 0.01
+          )
+            return `Xero recorded amount ${freshPayment.amount} but we sent ${expectedAmount}`;
+          return null;
+        };
+
+        if (!skipPayment) {
+          const freshPaymentCheck = response?.body?.payments?.[0];
+          const validationFailure = validatePaymentResponse(
+            freshPaymentCheck,
+            xeroInvoicesBills.invoice_id,
+            amount,
+          );
+          if (validationFailure) {
+            this.logger.error(
+              `[Task#313 createPayment validation] payment_id=${payment_id} response did not pass validation: ${validationFailure}. Raw body: ${JSON.stringify(response?.body)}`,
+            );
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: data?.sync_id,
+              api_name: 'createPaymentInXero',
+              api_payload: {
+                ...data,
+                mapping_project_id: xeroInvoicesBills?.project_id,
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 627,
+              dynamic_values: {
+                reason: validationFailure,
+                expected_invoice_id: xeroInvoicesBills.invoice_id,
+                expected_amount: Number(amount).toFixed(2),
+              },
+              project_id: xeroInvoicesBills?.project_id,
+              contract_id: xeroInvoicesBills?.contract_id,
+              reference: {
+                xeroId: null,
+                paytradeId: paymentDetails?.id,
+              },
+              reference_id: paymentDetails?.id,
+              history: [
+                `API triggered from payment ${paymentDetails?.payment_id}`,
+                `Export failed — Xero response did not pass validation: ${validationFailure}`,
+              ],
+              important_checks: {
+                'Import data format validation': 'Ok',
+                'Import tracking id validation': 'Ok',
+                'Import account type validation': 'Ok',
+                'Import tax type validation': 'Ok',
+                'Client/Supplier mapping validation': 'Ok',
+                'Contract mapping validation': 'Ok',
+                'Project mapping validation': 'Ok',
+                'Xero response validation': 'Failed',
+              },
+              error_message: validationFailure,
+              // Capture the ACTUAL Xero response body (or at least the
+              // payments[0] element) so support can see exactly what
+              // came back. Previously success logs stored the request
+              // payload in xero_records — that masked this exact bug.
+              xero_records: response?.body?.payments
+                ? response.body.payments
+                : response?.body
+                  ? [response.body]
+                  : [],
+              paytrade_records: [paymentDetails],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return false;
+          }
+        }
+
         const paymentLegOk = skipPayment ? true : !!response?.body?.payments;
         if (paymentLegOk) {
           let bank_transfer_id: string | null =
@@ -993,12 +1103,79 @@ export class XeroPaymentsService {
                   xeroDetails.tenant_id,
                   { bankTransfers: [bankTransfer] },
                 );
-              if (retentionTransfer?.body?.bankTransfers) {
+              // Task #313 — Validate the BankTransfer response the same
+              // way as the payment leg: a truthy `bankTransfers` array
+              // is not enough — we must see a real `bankTransferID` on
+              // element [0] before we treat this as a success. Without
+              // this, an ID-less response would silently leave
+              // `bank_transfer_id` undefined while still emitting the
+              // template-500 "transfer created" success log.
+              const freshTransfer =
+                retentionTransfer?.body?.bankTransfers?.[0];
+              const transferValidation: string | null = !freshTransfer
+                ? 'Xero returned no bankTransfer in the response body'
+                : !freshTransfer.bankTransferID
+                  ? 'Xero returned a bankTransfer element with no bankTransferID'
+                  : Array.isArray(freshTransfer.validationErrors) &&
+                      freshTransfer.validationErrors.length > 0
+                    ? `Xero returned validationErrors: ${JSON.stringify(freshTransfer.validationErrors)}`
+                    : null;
+              if (transferValidation) {
+                this.logger.error(
+                  `[Task#313 transfer validation] payment_id=${payment_id} BankTransfer response did not pass validation: ${transferValidation}. Raw body: ${JSON.stringify(retentionTransfer?.body)}`,
+                );
+                transferFailedWithoutRecovery = true;
+                try {
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    id: data?.sync_id,
+                    api_name: 'createPaymentInXero',
+                    api_payload: {
+                      ...data,
+                      mapping_project_id: xeroInvoicesBills?.project_id,
+                    },
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: 628,
+                    dynamic_values: {
+                      reason: transferValidation,
+                      expected_amount: Number(retention_amount).toFixed(2),
+                      reference: ptRef,
+                    },
+                    project_id: xeroInvoicesBills?.project_id,
+                    contract_id: xeroInvoicesBills?.contract_id,
+                    reference: {
+                      xeroId: null,
+                      paytradeId: paymentDetails?.id,
+                    },
+                    reference_id: paymentDetails?.id,
+                    history: [
+                      `API triggered from payment ${paymentDetails?.payment_id}`,
+                      `Retention BankTransfer response failed validation: ${transferValidation}`,
+                    ],
+                    important_checks: {
+                      'Import data format validation': 'Ok',
+                      'Xero response validation': 'Failed',
+                    },
+                    error_message: transferValidation,
+                    xero_records: retentionTransfer?.body?.bankTransfers
+                      ? retentionTransfer.body.bankTransfers
+                      : retentionTransfer?.body
+                        ? [retentionTransfer.body]
+                        : [],
+                    paytrade_records: [paymentDetails],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
+                } catch (logErr) {
+                  this.logger.error(
+                    `[Task#313] Failed to write transfer-validation Failed log (template 628): ${logErr?.message ?? logErr}`,
+                  );
+                }
+              } else if (retentionTransfer?.body?.bankTransfers) {
                 this.logger.log(
                   `retention: ${JSON.stringify(retentionTransfer?.body?.bankTransfers)}`,
                 );
-                bank_transfer_id =
-                  retentionTransfer?.body?.bankTransfers[0]?.bankTransferID;
+                bank_transfer_id = freshTransfer.bankTransferID;
                 bank_transfer_reference = ptRef;
 
                 // Task #54.1 — Dedicated success log for the transfer
@@ -1340,7 +1517,17 @@ export class XeroPaymentsService {
               'Project mapping validation': 'Ok',
             },
             error_message: null,
-            xero_records: [payment],
+            // Task #313 — capture the actual Xero response body
+            // (paymentID, status, invoice, account, amount, date,
+            // statusAttributeString, validationErrors) so support can
+            // see exactly what Xero recorded, not the request payload.
+            // Falls back to the request `payment` only when no leg
+            // fired (skipPayment path).
+            xero_records: response?.body?.payments?.length
+              ? response.body.payments
+              : freshPayment
+                ? [freshPayment]
+                : [payment],
             paytrade_records: [paymentDetails],
             new_records: null,
             updated_records: null,
