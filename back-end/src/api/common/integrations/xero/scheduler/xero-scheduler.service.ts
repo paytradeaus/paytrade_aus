@@ -635,25 +635,67 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     );
     archived += Array.isArray(bankRows) ? bankRows.length : 0;
 
-    // Rule 5 — Settings-driven. Template 294 "missing contract
-    // tracking category id" archives once the owning integration
-    // has contract_category_id configured. Mirror-ready for
-    // project_category_id-driven templates if/when one is added.
-    const settingsRows = await this.xeroSyncLogs.query(
-      `UPDATE xero_sync_logs l
-       SET    archived_at  = now(),
-              archive_note = 'Auto-resolved by daily sweeper [contract tracking category now configured]',
-              updated_on   = now()
-       FROM   xero_integration_details xid
-       WHERE  l.integration_id   = $1
-         AND  xid.integration_id = l.integration_id
-         AND  l.archived_at IS NULL
-         AND  l.log_template_id  = 294
-         AND  xid.contract_category_id IS NOT NULL
-       RETURNING l.id`,
-      [integrationId],
-    );
-    archived += Array.isArray(settingsRows) ? settingsRows.length : 0;
+    // Rule 5 — Settings-driven. A Failed row whose failure cause is
+    // "the owning integration is missing a configurable setting"
+    // archives once that setting is non-null on
+    // xero_integration_details. Each entry maps a settings column to
+    // the explicit template-id allowlist whose failures the setting
+    // resolves. Mismatch templates, delete-intent templates, and
+    // TO_PAYTRADE templates are excluded — those are not made safe
+    // just because the setting is now configured.
+    type SettingsRule = {
+      column: string;
+      templates: number[];
+      note: string;
+    };
+    const SETTINGS_RULES: SettingsRule[] = [
+      {
+        column: 'contract_category_id',
+        templates: [
+          80,  // MISSING_CONTRACT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD
+          82,  // MISSING_CONTRACT_TRACKING_CATEGORY_ID_FROM_XERO
+          294, // MISSING_*_FROM_XERO_SYNC (description: contract)
+          402, // SCHEDULER_MISSING_CONTRACT_TRACKING_CATEGORY_ID
+        ],
+        note: 'Auto-resolved by daily sweeper [contract tracking category now configured]',
+      },
+      {
+        column: 'project_category_id',
+        templates: [
+          79,  // MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD
+          81,  // MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO
+          249, // PD_SYNC_MISSING_PROJECT_TRACKING_CATEGORY_ID
+          256, // WH_MISSING_PROJECT_CATEGORY_ID
+          289, // MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO_SYNC
+          296, // MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_BILL
+          297, // MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_BILL
+          298, // MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_ADD_INVOICE
+          299, // MISSING_PROJECT_TRACKING_CATEGORY_ID_TO_XERO_IN_EDIT_INVOICE
+          328, // PD_MISSING_PROJECT_TRACKING_CATEGORY_ID
+          330, // MISSING_PROJECT_TRACKING_CATEGORY_ID_FROM_XERO
+          395, // SCHEDULER_MISSING_PROJECT_TRACKING_CATEGORY_ID
+          416, // SCHEDULER_MISSING_PROJECT_CATEGORY_ID
+        ],
+        note: 'Auto-resolved by daily sweeper [project tracking category now configured]',
+      },
+    ];
+    for (const rule of SETTINGS_RULES) {
+      const settingsRows = await this.xeroSyncLogs.query(
+        `UPDATE xero_sync_logs l
+         SET    archived_at  = now(),
+                archive_note = $3,
+                updated_on   = now()
+         FROM   xero_integration_details xid
+         WHERE  l.integration_id   = $1
+           AND  xid.integration_id = l.integration_id
+           AND  l.archived_at IS NULL
+           AND  l.log_template_id  = ANY($2::int[])
+           AND  xid."${rule.column}" IS NOT NULL
+         RETURNING l.id`,
+        [integrationId, rule.templates, rule.note],
+      );
+      archived += Array.isArray(settingsRows) ? settingsRows.length : 0;
+    }
 
     return archived;
   }
