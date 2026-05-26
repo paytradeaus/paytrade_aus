@@ -99,6 +99,17 @@ export class SubscriptionDetails {
   @Column({ type: 'text', nullable: true })
   free_plan_reason: string;
 
+  /**
+   * Task #312 — when true, this subscription's headline `amount` is
+   * GST-INCLUSIVE (Stripe charges the headline; the invoice line splits
+   * it into ex-GST + GST). When false/null, GST is added on TOP of the
+   * headline (current default for all new subscriptions). Set only for
+   * legacy subscriptions whose contracted price already included GST
+   * (e.g. Signature's $300 = $272.73 + $27.27 GST).
+   */
+  @Column({ type: 'boolean', nullable: true, default: false })
+  is_gst_inclusive: boolean;
+
   @Column({ type: 'text', nullable: true })
   signature: string;
 

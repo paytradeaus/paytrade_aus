@@ -440,6 +440,9 @@ export async function getPaymentHistoryByCompanyId(
                 status
                 stripe_subscription_id
                 subscription_id
+                gst_amount
+                total_ex_gst
+                is_gst_inclusive
               }
               total_count
             }

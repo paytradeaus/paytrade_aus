@@ -90,6 +90,27 @@ export class PaymentHistory {
 
   @Field({ description: 'Company name associated with the payment' })
   company_name: string;
+
+  // --- Task #312: GST split for billing-history UI ---
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      'GST component of amount_paid in dollars (10/110 of amount_paid for both inclusive and exclusive modes).',
+  })
+  gst_amount?: number;
+
+  @Field(() => Float, {
+    nullable: true,
+    description: 'Ex-GST component of amount_paid in dollars (amount_paid - gst_amount).',
+  })
+  total_ex_gst?: number;
+
+  @Field({
+    nullable: true,
+    description:
+      'True when the subscription headline price is GST-inclusive (legacy). False/null when GST was added on top.',
+  })
+  is_gst_inclusive?: boolean;
 }
 
 @ObjectType({ description: 'Paginated list of payment history records' })

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyDetails } from 'src/entities/company-details.entity';
 import { SubscriptionPlanItems } from 'src/entities/subscription-plan-items.entity';
@@ -35,11 +35,14 @@ var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 
 @Injectable()
-export class PaymentGatewayService {
+export class PaymentGatewayService implements OnApplicationBootstrap {
   private logger: PaytradeLogger;
-  // Cache of the Stripe AU GST tax-rate id, keyed by isDemo (live vs test
-  // mode use separate Stripe accounts and therefore separate tax-rate ids).
-  private gstTaxRateIdCache: Map<boolean, string> = new Map();
+  // Cache of the Stripe AU GST tax-rate id, keyed by
+  // `${isDemo}:${inclusive}` (live vs test mode use separate Stripe
+  // accounts -> separate ids; and Stripe tax-rate objects are immutable
+  // on the `inclusive` flag so inclusive and exclusive rates are
+  // distinct objects we must look up / cache independently).
+  private gstTaxRateIdCache: Map<string, string> = new Map();
   constructor(
     @InjectRepository(SubscriptionPlanItems)
     private subscriptionPlanItems: Repository<SubscriptionPlanItems>,
@@ -75,27 +78,38 @@ export class PaymentGatewayService {
 
   /**
    * Resolve (find-or-create) the Stripe tax-rate id representing the
-   * Australian 10% GST. We tag new subscriptions with this rate so the
-   * customer is charged the headline plan price + 10% GST and the GST
-   * appears as a separate line on Stripe invoices.
+   * Australian 10% GST. Used to tag new subscriptions so Stripe charges
+   * GST on top of (or as part of) the headline plan price and renders
+   * the GST line on invoices.
    *
-   * Existing subscriptions are NEVER mutated by this helper — they retain
-   * whatever tax configuration they were created with. The first
-   * subscriber, who signed up before this change, therefore continues to
-   * be billed their original headline amount with no GST line added.
+   * `inclusive=false` (default): GST is added on top of the headline
+   *   (e.g. $50/mo -> $55/mo charged). All new subs use this.
+   * `inclusive=true`: headline is treated as GST-inclusive
+   *   (e.g. $300 charged -> $272.73 ex-GST + $27.27 GST shown on
+   *   invoice). Reserved for legacy subs flagged via
+   *   `LEGACY_INCLUSIVE_GST_SUB_IDS` and `subscription_details.is_gst_inclusive`.
+   *
+   * Existing subscriptions are NEVER mutated by this helper itself — it
+   * only resolves the id; mutation is done at call sites that know
+   * which side of the inclusive/exclusive split a sub belongs on.
+   *
+   * Hardened (Task #312): callers expecting a real id must now treat
+   * `null` as a fatal config error. The previous silent-null fallback
+   * caused new sign-ups to silently skip GST when the rate lookup
+   * failed; the boot-time health check below verifies the live
+   * exclusive rate is resolvable so production never gets into that
+   * state unnoticed.
    */
   private async getAuGstTaxRateId(
     stripe: any,
     isDemo: boolean,
+    inclusive: boolean = false,
   ): Promise<string | null> {
+    const cacheKey = `${isDemo}:${inclusive}`;
     try {
-      const cached = this.gstTaxRateIdCache.get(isDemo);
+      const cached = this.gstTaxRateIdCache.get(cacheKey);
       if (cached) return cached;
 
-      // Look for an existing active 10% AU GST exclusive rate that we (or
-      // an admin) may have created previously. Stripe tax-rate objects are
-      // immutable in a way that matters here (percentage / inclusive flag
-      // cannot be changed once created), so we always match on those.
       const existing = await stripe.taxRates.list({
         active: true,
         limit: 100,
@@ -103,38 +117,69 @@ export class PaymentGatewayService {
       const match = (existing?.data ?? []).find(
         (r: any) =>
           r.percentage === 10 &&
-          r.inclusive === false &&
+          r.inclusive === inclusive &&
           (r.country === 'AU' || r.jurisdiction === 'AU') &&
           (r.display_name === 'GST' || r.display_name === 'Australian GST'),
       );
       if (match?.id) {
-        this.gstTaxRateIdCache.set(isDemo, match.id);
+        this.gstTaxRateIdCache.set(cacheKey, match.id);
         return match.id;
       }
 
       const created = await stripe.taxRates.create({
         display_name: 'GST',
-        description: 'Australian Goods and Services Tax (10%)',
+        description: inclusive
+          ? 'Australian Goods and Services Tax (10%, inclusive)'
+          : 'Australian Goods and Services Tax (10%)',
         percentage: 10,
-        inclusive: false,
+        inclusive,
         country: 'AU',
         jurisdiction: 'AU',
       });
       if (created?.id) {
-        this.gstTaxRateIdCache.set(isDemo, created.id);
+        this.gstTaxRateIdCache.set(cacheKey, created.id);
         this.log(
-          `Created Stripe AU GST tax rate (isDemo=${isDemo}, id=${created.id}).`,
+          `Created Stripe AU GST tax rate (isDemo=${isDemo}, inclusive=${inclusive}, id=${created.id}).`,
         );
         return created.id;
       }
       return null;
     } catch (error) {
-      // Never block subscription creation on a tax-rate lookup failure;
-      // log and fall back to no tax (current behaviour).
       this.logError(
-        `Failed to resolve Stripe AU GST tax rate (isDemo=${isDemo}): ${error?.message ?? error}`,
+        `Failed to resolve Stripe AU GST tax rate (isDemo=${isDemo}, inclusive=${inclusive}): ${error?.message ?? error}`,
       );
       return null;
+    }
+  }
+
+  /**
+   * Boot-time health check: verify the live exclusive AU GST rate is
+   * resolvable. If not, log a loud error so operators notice BEFORE a
+   * new sign-up silently skips GST. Demo (test-mode) and inclusive
+   * rates are resolved lazily on first use.
+   *
+   * DO NOT enable Stripe Tax (automatic_tax) in the Stripe dashboard —
+   * this codebase uses manual `default_tax_rates` and assumes Stripe
+   * will not also add an automatic tax line, which would double-charge
+   * the customer.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const stripe = getStripeInstance(false);
+      const rateId = await this.getAuGstTaxRateId(stripe, false, false);
+      if (!rateId) {
+        this.logError(
+          'GST_HEALTH_CHECK: live AU 10% exclusive GST tax-rate could not be resolved. New paid subscriptions will be created WITHOUT a GST line. Fix Stripe credentials / connectivity immediately.',
+        );
+      } else {
+        this.log(
+          `GST_HEALTH_CHECK ok: live exclusive AU GST rate resolved (${rateId}).`,
+        );
+      }
+    } catch (err: any) {
+      this.logError(
+        `GST_HEALTH_CHECK failed unexpectedly: ${err?.message || err}`,
+      );
     }
   }
 
@@ -411,12 +456,23 @@ export class PaymentGatewayService {
                   ? moment(start_date).add(1, 'months').utc()
                   : moment(start_date).add(1, 'years').utc();
 
-            // Resolve the Australian 10% GST tax rate and attach it to
-            // the new subscription so Stripe adds GST on top of the
-            // headline plan price (e.g. $50/mo -> $55/mo charged).
-            // Only applied to brand-new subscriptions created here;
-            // existing subscriptions keep their original tax configuration.
-            const gstTaxRateId = await this.getAuGstTaxRateId(stripe, isDemo);
+            // Resolve the Australian 10% GST tax rate (exclusive) and
+            // attach it to the new subscription so Stripe adds GST on
+            // top of the headline plan price (e.g. $50/mo -> $55/mo
+            // charged). Only applied to brand-new subscriptions created
+            // here; existing subscriptions keep their original tax
+            // configuration. Hardened: a null result indicates a Stripe
+            // config / connectivity failure and must abort the upgrade
+            // rather than silently creating a no-GST subscription
+            // (Task #312).
+            const gstTaxRateId = await this.getAuGstTaxRateId(
+              stripe,
+              isDemo,
+              false,
+            );
+            if (!gstTaxRateId) {
+              throw `Unable to resolve Australian GST tax rate in Stripe (isDemo=${isDemo}). Please retry; if the error persists, contact support.`;
+            }
 
             // Create a subscription for the customer
             let subsciptionData: any = {
@@ -424,11 +480,11 @@ export class PaymentGatewayService {
               items: [
                 {
                   price: pricingDetails.stripe_price_id,
-                  ...(gstTaxRateId && { tax_rates: [gstTaxRateId] }),
+                  tax_rates: [gstTaxRateId],
                 },
               ],
               expand: ['latest_invoice.payment_intent'],
-              ...(gstTaxRateId && { default_tax_rates: [gstTaxRateId] }),
+              default_tax_rates: [gstTaxRateId],
             };
 
             if (pricingDetails.planDetails.trial_period > 0) {
@@ -1393,6 +1449,7 @@ export class PaymentGatewayService {
       .addSelect('payment.expiry_date', 'expiry_date')
       .addSelect('payment.payment_method', 'payment_method')
       .addSelect('subscription.company_id', 'company_id')
+      .addSelect('subscription.is_gst_inclusive', 'is_gst_inclusive')
       .addSelect('company.company_name', 'company_name')
       .leftJoin('payment.subscriptionDetails', 'subscription')
       .leftJoin('payment.planDetails', 'planDetails')
@@ -1546,7 +1603,18 @@ export class PaymentGatewayService {
     // Slice the results array to get the results for the current page
     const results = rawResults.slice(startIndex, endIndex);
 
+    // Task #312 — derive GST split per row. Mathematically identical
+    // for inclusive vs exclusive 10% GST: gst = total / 11. The
+    // `is_gst_inclusive` flag only changes how the UI labels it
+    // ("Includes $X GST" vs "Plus $X GST"). amount_paid is then
+    // formatted to the currency string the grid expects.
     results?.forEach((element) => {
+      const rawAmount = Number(element.amount_paid) || 0;
+      const gst = Math.round((rawAmount / 11) * 100) / 100;
+      const exGst = Math.round((rawAmount - gst) * 100) / 100;
+      element.gst_amount = gst;
+      element.total_ex_gst = exGst;
+      element.is_gst_inclusive = element.is_gst_inclusive === true;
       element.amount_paid = formatCurrency(element.amount_paid);
     });
 

@@ -172,6 +172,8 @@ export default function BillingHistoryGrid() {
                 {/* <th>Card</th> */}
                 <th>Billing Period</th>
                 <th>Payment Method</th>
+                <th>Ex-GST</th>
+                <th>GST (10%)</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Export</th>
@@ -179,7 +181,18 @@ export default function BillingHistoryGrid() {
             </thead>
             <tbody>
               {billingGridData?.length > 0 ? (
-                billingGridData.map((billingDataObj: any) => (
+                billingGridData.map((billingDataObj: any) => {
+                  const gst = Number(billingDataObj?.gst_amount);
+                  const exGst = Number(billingDataObj?.total_ex_gst);
+                  const gstLabel = Number.isFinite(gst)
+                    ? `$${gst.toFixed(2)}${
+                        billingDataObj?.is_gst_inclusive ? " (incl.)" : ""
+                      }`
+                    : "";
+                  const exGstLabel = Number.isFinite(exGst)
+                    ? `$${exGst.toFixed(2)}`
+                    : "";
+                  return (
                   <tr key={billingDataObj?.subscription_id}>
                     <td>
                       {billingDataObj?.paid_at
@@ -200,6 +213,8 @@ export default function BillingHistoryGrid() {
                       }` || ""}
                     </td>
                     <td>{billingDataObj?.payment_method}</td>
+                    <td>{exGstLabel}</td>
+                    <td>{gstLabel}</td>
                     <td>{billingDataObj?.amount_paid}</td>
 
                     <td
@@ -230,11 +245,12 @@ export default function BillingHistoryGrid() {
                       </a>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="
                 "
                   >

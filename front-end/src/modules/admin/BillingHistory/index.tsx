@@ -29,6 +29,8 @@ import {
   billingHistoryRenderData,
   pdfDataRow,
   pdfHeaders,
+  formatGstAmountCell,
+  formatExGstCell,
 } from "./billingHistory.constant";
 import {
   billingStatus,
@@ -222,6 +224,9 @@ function AdminBillingHistory() {
                 billingDate: `${
                   obj?.start_date ? formatDate(obj?.start_date) : ""
                 } - ${obj?.expiry_date ? formatDate(obj?.expiry_date) : ""}`,
+                // Task #312 — pre-format GST split cells for the grid/PDF.
+                total_ex_gst_display: formatExGstCell(obj),
+                gst_amount_display: formatGstAmountCell(obj),
                 showValidIcon: obj?.status == billingStatus.PAID,
                 showErrorIcon: obj?.status !== billingStatus.PAID,
                 status:
