@@ -241,7 +241,7 @@ export type UserMode = 'Onboarding' | 'Normal';
 
 // Integrations
 export type MappedStatus = 'Manual' | 'Auto' | 'System';
-export type MappedStatuses = 'Mapped' | 'Unmapped';
+export type MappedStatuses = 'Mapped' | 'Unmapped' | 'Permanently unmapped';
 export type Integrations = 'Xero' | 'Adatree';
 export type ProviderTpe = 'Accounting' | 'Open banking' | 'ERP';
 export type IntegrationStatus =

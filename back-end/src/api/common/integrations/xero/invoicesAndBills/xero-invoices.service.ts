@@ -708,6 +708,14 @@ export class XeroInvoicesService {
         return false;
       }
 
+      // Task #289 — A PT contact may be linked to a Xero contact that
+      // the user has since marked as permanently unmapped. The find
+      // above is scoped by `pt_contact_id`, but a separate name-matched
+      // row with the same name could also exist as permanently
+      // unmapped. Check both: (1) the resolved mapped row's flag, and
+      // (2) any permanently-unmapped row whose Xero name matches the
+      // PT contact's name. Either case short-circuits with a distinct
+      // "excluded" message.
       const xeroContactDetails = await this.xeroContactDetails.findOne({
         where: {
           pt_contact_id: claimDetails.client_supplier_id,
@@ -715,7 +723,24 @@ export class XeroInvoicesService {
         },
       });
 
-      if (!xeroContactDetails) {
+      const excludedByName = !xeroContactDetails
+        ? await this.xeroContactDetails
+            .createQueryBuilder('c')
+            .where('c.integration_id = :iid', {
+              iid: xeroDetails.integration_id,
+            })
+            .andWhere('c.permanently_unmapped = true')
+            .andWhere(
+              'LOWER(TRIM(c.contact_name)) = LOWER(TRIM(:n))',
+              { n: claimDetails?.clientSupplierDetails?.client_supplier_name || '' },
+            )
+            .getOne()
+        : null;
+
+      const isExcluded =
+        xeroContactDetails?.permanently_unmapped === true || !!excludedByName;
+
+      if (!xeroContactDetails || isExcluded) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id,
           api_name: 'createInvoiceOrBillInXero',
@@ -744,7 +769,9 @@ export class XeroInvoicesService {
             'Import tax type validation': 'Ok',
             'Client/Supplier mapping validation': 'Failed',
           },
-          error_message: `Client/Supplier details not mapped`,
+          error_message: isExcluded
+            ? `Contact excluded from Xero sync (permanently unmapped). Re-enable mapping from Integrations > Xero > Contacts > Permanently unmapped.`
+            : `Client/Supplier details not mapped`,
           xero_records: [],
           paytrade_records: [claimDetails],
           new_records: null,
@@ -4131,7 +4158,25 @@ export class XeroInvoicesService {
         },
       });
 
-      if (!xeroContactDetails) {
+      // Task #289 — Mirror the create path: surface a distinct
+      // "excluded from Xero sync" message for permanently-unmapped rows.
+      const excludedByName = !xeroContactDetails
+        ? await this.xeroContactDetails
+            .createQueryBuilder('c')
+            .where('c.integration_id = :iid', {
+              iid: xeroDetails.integration_id,
+            })
+            .andWhere('c.permanently_unmapped = true')
+            .andWhere(
+              'LOWER(TRIM(c.contact_name)) = LOWER(TRIM(:n))',
+              { n: claimDetails?.clientSupplierDetails?.client_supplier_name || '' },
+            )
+            .getOne()
+        : null;
+      const isExcluded =
+        xeroContactDetails?.permanently_unmapped === true || !!excludedByName;
+
+      if (!xeroContactDetails || isExcluded) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id,
           api_name: 'editInvoiceOrBillInXero',
@@ -4160,7 +4205,9 @@ export class XeroInvoicesService {
             'Import tax type validation': 'Ok',
             'Client/Supplier mapping validation': 'Failed',
           },
-          error_message: `Client/Supplier details not mapped`,
+          error_message: isExcluded
+            ? `Contact excluded from Xero sync (permanently unmapped). Re-enable mapping from Integrations > Xero > Contacts > Permanently unmapped.`
+            : `Client/Supplier details not mapped`,
           xero_records: [],
           paytrade_records: [claimDetails],
           new_records: null,

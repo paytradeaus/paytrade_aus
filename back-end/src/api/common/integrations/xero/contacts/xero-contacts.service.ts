@@ -21,6 +21,7 @@ import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ClientSuppliersDetailsService } from 'src/api/users/client-suppliers-details/client-suppliers-details.service';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
+import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 dotenv.config();
@@ -46,6 +47,7 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     private integrationDetails: Repository<IntegrationDetails>,
     private readonly xeroService: XeroService,
     private readonly clientSuppliersDetailsService: ClientSuppliersDetailsService,
+    private readonly activityLogService: ActivityLogService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -2264,6 +2266,9 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
               },
             )
             .andWhere('contact.pt_contact_id IS NULL')
+            // Task #289 — Never auto-link a row the user explicitly
+            // marked as permanently unmapped.
+            .andWhere('contact.permanently_unmapped = false')
             .orderBy({ 'contact.contact_name': 'ASC' })
             .getRawMany();
           // console.log('autoMappingRecords: ', autoMappingRecords);
@@ -2520,9 +2525,16 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
         .addSelect('contact.contact_status', 'contact_status')
         .addSelect('contact.pt_contact_id', 'pt_contact_id')
         .addSelect(
-          `CASE WHEN contact.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped' ELSE 'Unmapped' END`,
+          // Task #289 — Surface "Permanently unmapped" as a distinct
+          // status so the UI can render it alongside Mapped / Unmapped.
+          `CASE
+             WHEN contact.permanently_unmapped = true THEN 'Permanently unmapped'
+             WHEN contact.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped'
+             ELSE 'Unmapped'
+           END`,
           'mapped_status',
         )
+        .addSelect('contact.permanently_unmapped', 'permanently_unmapped')
         // Task #135 — Use a subquery on the integration table instead of
         // an inner join so a company that has more than one ACTIVE row
         // sharing the same `integration_id` cannot multiply the contact
@@ -2549,14 +2561,19 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
 
       if (data.mapped_status) {
         if (data.mapped_status === 'Mapped') {
-          queryBuilder.andWhere(
-            `contact.mapped_status IN (:...mappedStatuses)`,
-            {
+          queryBuilder
+            .andWhere(`contact.mapped_status IN (:...mappedStatuses)`, {
               mappedStatuses: ['Manual', 'Auto', 'System'],
-            },
-          );
+            })
+            // Task #289 — Permanently unmapped rows must never appear
+            // in the Mapped or plain Unmapped views.
+            .andWhere('contact.permanently_unmapped = false');
+        } else if (data.mapped_status === 'Permanently unmapped') {
+          queryBuilder.andWhere('contact.permanently_unmapped = true');
         } else {
-          queryBuilder.andWhere(`contact.mapped_status IS NULL`);
+          queryBuilder
+            .andWhere(`contact.mapped_status IS NULL`)
+            .andWhere('contact.permanently_unmapped = false');
         }
       }
 
@@ -2968,7 +2985,10 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
             companyId: company_id,
           },
         )
-        .andWhere('contact.pt_contact_id IS NULL');
+        .andWhere('contact.pt_contact_id IS NULL')
+        // Task #289 — Auto-map respects per-contact "permanently
+        // unmapped" exclusion.
+        .andWhere('contact.permanently_unmapped = false');
 
       const rawResults = await queryBuilder
         .orderBy({ 'contact.contact_name': 'ASC' })
@@ -3089,6 +3109,157 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       const errMsg = await handleAxiosError(error);
 
+      throw errMsg;
+    }
+  }
+
+  /**
+   * Task #289 — Mark a Xero contact as permanently unmapped. Clears
+   * any current PT link (same as unMappingContact) and sets the
+   * sticky `permanently_unmapped` flag so the auto-mapper (sync +
+   * webhook) and invoice/bill push will all skip it. Writes an
+   * activity-log entry so admins can trace who excluded it.
+   */
+  async permanentlyUnmapContact(
+    contact_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const existing = await this.xeroContactDetails.findOne({
+        where: {
+          contact_id,
+          integration_id: xeroDetails.integration_id,
+        },
+      });
+
+      const response = await this.xeroContactDetails
+        .createQueryBuilder()
+        .update(XeroContactDetails)
+        .set({
+          pt_contact_id: null,
+          mapped_status: null,
+          permanently_unmapped: true,
+          updated_by: decoded?.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'contact_id = :contact_id AND integration_id = :integration_id',
+          {
+            contact_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_contact_permanently_unmapped',
+              contact_id,
+              contact_name: existing?.contact_name ?? null,
+              previous_pt_contact_id: existing?.pt_contact_id ?? null,
+              previous_mapped_status: existing?.mapped_status ?? null,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #289] activity log insert failed for permanentlyUnmapContact: ${err?.message || err}`,
+          );
+        }
+        return `Contact permanently unmapped from Xero sync`;
+      }
+      return `Contact is not permanently unmapped`;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
+      throw errMsg;
+    }
+  }
+
+  /**
+   * Task #289 — Reverse a previous permanent-unmap so the row returns
+   * to the normal "unmapped" pool and becomes eligible for auto-map
+   * (name match) and invoice/bill push again. Writes an activity-log
+   * entry.
+   */
+  async reEnableContactMapping(
+    contact_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const existing = await this.xeroContactDetails.findOne({
+        where: {
+          contact_id,
+          integration_id: xeroDetails.integration_id,
+        },
+      });
+
+      const response = await this.xeroContactDetails
+        .createQueryBuilder()
+        .update(XeroContactDetails)
+        .set({
+          permanently_unmapped: false,
+          updated_by: decoded?.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'contact_id = :contact_id AND integration_id = :integration_id',
+          {
+            contact_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_contact_mapping_re_enabled',
+              contact_id,
+              contact_name: existing?.contact_name ?? null,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #289] activity log insert failed for reEnableContactMapping: ${err?.message || err}`,
+          );
+        }
+        return `Contact mapping re-enabled`;
+      }
+      return `Contact mapping is not re-enabled`;
+    } catch (error) {
+      const errMsg = await handleAxiosError(error);
       throw errMsg;
     }
   }

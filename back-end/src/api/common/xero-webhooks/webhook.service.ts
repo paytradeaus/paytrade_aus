@@ -883,6 +883,15 @@ export class XeroWebhookService {
           pt_client_supplier = clientSuppliersDetails;
           this.logger.log(JSON.stringify({ pt_client_supplier3: pt_client_supplier }));
         }
+      } else if (xeroContactDetails?.permanently_unmapped) {
+        // Task #289 — Skip the name-match re-link path for any row the
+        // user has marked as permanently unmapped. The Xero-side fields
+        // (name, status, type) were already upserted above so our local
+        // mirror stays fresh; we just refuse to restore the PT link.
+        this.logger.log(
+          `[Xero Contact Webhook] Skipping name-match re-link for permanently unmapped contact ${contactID} (${name})`,
+        );
+        pt_client_supplier = null;
       } else {
         // Task #265 — Skip archived Xero contacts on webhook import.
         // Archived contacts in Xero usually have most fields stripped, so

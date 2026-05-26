@@ -928,6 +928,79 @@ export const unMappingContact = async (
   }
 };
 
+// Task #289 — Permanent unmap & re-enable for Xero contacts.
+export const permanentlyUnmapContact = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation PermanentlyUnmapContact($contactId: String!) {
+          permanentlyUnmapContact(contact_id: $contactId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.permanentlyUnmapContact?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.permanentlyUnmapContact.message);
+      return true;
+    }
+    if (response?.data?.permanentlyUnmapContact?.status === ApiResponse.ERROR) {
+      showErrorToast(response?.data?.permanentlyUnmapContact.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const reEnableContactMapping = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation ReEnableContactMapping($contactId: String!) {
+          reEnableContactMapping(contact_id: $contactId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.reEnableContactMapping?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.reEnableContactMapping.message);
+      return true;
+    }
+    if (response?.data?.reEnableContactMapping?.status === ApiResponse.ERROR) {
+      showErrorToast(response?.data?.reEnableContactMapping.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
 export const unMappingContract = async (
   data: any,
   setLoading?: Function

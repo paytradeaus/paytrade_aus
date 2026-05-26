@@ -21,6 +21,8 @@ import {
   getXeroContactListsForCompany,
   getXeroDetailsForCompany,
   manualMappingContact,
+  permanentlyUnmapContact,
+  reEnableContactMapping,
   syncAllContactsByCompanyId,
   syncContactFinancialDetails,
   syncContactInformation,
@@ -33,6 +35,8 @@ import {
   mappedContactsRenderData,
   paytradeContactsHeaders,
   paytradeContactsRenderData,
+  permanentlyUnmappedContactsHeaders,
+  permanentlyUnmappedContactsRenderData,
   statusOptions,
   xeroContactsHeaders,
   xeroContactsRenderData,
@@ -128,9 +132,61 @@ export default function XeroContacts() {
           secondButtonName: "Unmap",
           firstButtonName: "Cancel",
           id: "Unmap_from?",
+          // Task #289 — Render two-button choice inside the modal body
+          // so the user can either Unmap (today's behaviour, may be
+          // re-linked by name match) or Unmap permanently (sticky
+          // exclusion).
           description: (
             <>
-              <b>{row?.pt_contact_name}</b> from <b>{row?.contact_name}</b>?
+              <p>
+                <b>{row?.pt_contact_name}</b> from <b>{row?.contact_name}</b>?
+              </p>
+              <br />
+              <p style={{ fontSize: "0.9em", color: "#555" }}>
+                Choose <b>Unmap</b> to clear the link (the contact may be
+                re-linked automatically on the next Xero sync or webhook if the
+                names match). Choose <b>Unmap permanently</b> to exclude this
+                contact from all future auto-mapping and invoice/bill sync.
+              </p>
+              <br />
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <CustomButton
+                  buttonName="UNMAP PERMANENTLY"
+                  iconClassName="fa-light fa-ban"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={async () => {
+                    setModelConfig((prev: any) => ({ ...prev, show: false }));
+                    await handlePermanentlyUnmapContact(row);
+                  }}
+                />
+              </div>
+            </>
+          ),
+        });
+      },
+      displayByDefault: true,
+    },
+  ];
+
+  // Task #289 — Per-row action on the "Permanently unmapped" tab.
+  const permanentlyUnmappedContactsActions = [
+    {
+      label: "Re-enable mapping",
+      icon: "fa-light fa-rotate-left",
+      onClick: (row: any) => {
+        setSelectedContact(row);
+        setModelConfig({
+          show: true,
+          title: "Re-enable mapping",
+          secondButtonName: "Re-enable",
+          firstButtonName: "Cancel",
+          id: "Re_enable_mapping?",
+          description: (
+            <>
+              Re-enable mapping for <b>{row?.contact_name}</b>? This will
+              return the contact to the normal unmapped pool so it can be
+              mapped manually or by the auto-mapper.
             </>
           ),
         });
@@ -158,6 +214,12 @@ export default function XeroContacts() {
           headers: mappedContactsHeaders,
           gridActions: mappedContactsActions,
           renderRowList: mappedContactsRenderData,
+        };
+      case "Permanently unmapped":
+        return {
+          headers: permanentlyUnmappedContactsHeaders,
+          gridActions: permanentlyUnmappedContactsActions,
+          renderRowList: permanentlyUnmappedContactsRenderData,
         };
       default:
         return {
@@ -332,6 +394,25 @@ export default function XeroContacts() {
         );
         setGridData(contacts);
         setTotalRows(totalCount);
+      } else if (tabStatus === "Permanently unmapped") {
+        // Task #289 — Re-use the Xero contact list endpoint with the
+        // dedicated `Permanently unmapped` filter value.
+        const data = await getXeroContactListsForCompany(
+          {
+            payload: {
+              company_id: +(localStorage.getItem("companyId") || 0),
+              page_number: currentPage,
+              page_size: entriesPerPage,
+              search: search,
+              sorting_field: sortValues?.sortKey || "",
+              sorting_order: sortValues?.direction || "",
+              mapped_status: "Permanently unmapped",
+            },
+          },
+          setTableLoader
+        );
+        setGridData(data?.contact_list || []);
+        setTotalRows(data?.total_count || 0);
       }
     };
     fetchData();
@@ -494,7 +575,51 @@ export default function XeroContacts() {
       handleBatchCreateInPaytrade();
     } else if (modelConfig.id === "Batch_create_in_xero?") {
       handleBatchCreateInXero();
+    } else if (modelConfig.id === "Re_enable_mapping?") {
+      handleReEnableMapping();
     }
+  };
+
+  // Task #289 — Wire the in-modal "Unmap permanently" button.
+  const handlePermanentlyUnmapContact = async (row?: any) => {
+    const contact = row || selectedContact;
+    setTableLoader(true);
+    await permanentlyUnmapContact(
+      { contactId: contact?.contact_id },
+      setTableLoader
+    );
+    const { contacts, totalCount } = await fetchMappedContacts(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  const handleReEnableMapping = async () => {
+    setTableLoader(true);
+    await reEnableContactMapping(
+      { contactId: selectedContact?.contact_id },
+      setTableLoader
+    );
+    const data = await getXeroContactListsForCompany(
+      {
+        payload: {
+          company_id: +(localStorage.getItem("companyId") || 0),
+          page_number: currentPage,
+          page_size: entriesPerPage,
+          search: search,
+          sorting_field: sortValues?.sortKey || "",
+          sorting_order: sortValues?.direction || "",
+          mapped_status: "Permanently unmapped",
+        },
+      },
+      setTableLoader
+    );
+    setGridData(data?.contact_list || []);
+    setTotalRows(data?.total_count || 0);
   };
 
   const handleUnmapContact = async () => {
@@ -586,6 +711,7 @@ export default function XeroContacts() {
       "Paytrade contacts": isXeroConnected
         ? paytradeContactsActions
         : paytradeContactsActions.slice(0, 1),
+      "Permanently unmapped": permanentlyUnmappedContactsActions,
     };
     return actionMapping[tabStatus] || [];
   };

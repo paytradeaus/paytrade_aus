@@ -45,6 +45,9 @@ export const contactsTabOptions = [
   { label: "Mapped contacts" },
   { label: "Paytrade contacts" },
   { label: "Xero contacts" },
+  // Task #289 — Tab listing contacts the user has marked as permanently
+  // excluded from Xero sync, with a per-row Re-enable action.
+  { label: "Permanently unmapped" },
 ];
 export const projectsTabOptions = [
   { label: "Mapped projects" },
@@ -384,6 +387,18 @@ export const mappedPaymentsRenderData = [
 export const statusOptions = [
   { label: "Mapped", value: "Mapped" },
   { label: "Unmapped", value: "Unmapped" },
+];
+
+// Task #289 — Headers / render config for the "Permanently unmapped"
+// contacts tab.
+export const permanentlyUnmappedContactsHeaders = [
+  { dataKey: "contact_name", title: "Name" },
+  { dataKey: "mapped_status", title: "Status" },
+  { dataKey: "", title: "Actions", restrictSorting: true },
+];
+export const permanentlyUnmappedContactsRenderData = [
+  { key: "contact_name" },
+  { key: "mapped_status" },
 ];
 
 export const integrationStatus = {

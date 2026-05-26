@@ -61,6 +61,14 @@ export class XeroContactDetails {
   @Column({ type: 'integer', nullable: true })
   pt_contact_id: number;
 
+  // Task #289 — When true, this contact is deliberately excluded from
+  // Xero auto-mapping (sync + webhook) and from invoice/bill push. It
+  // remains queryable as "unmapped" (pt_contact_id IS NULL, mapped_status
+  // IS NULL) but lives in its own "Permanently unmapped" view until a
+  // user explicitly re-enables it.
+  @Column({ type: 'boolean', default: false })
+  permanently_unmapped: boolean;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 

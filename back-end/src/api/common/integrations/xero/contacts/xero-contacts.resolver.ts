@@ -765,6 +765,72 @@ export class XeroContactsResolver {
   }
 
   /**
+   * Task #289 — Permanently exclude a Xero contact from auto-mapping
+   * (sync + webhook) and from invoice/bill push. Single-row only.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'permanentlyUnmapContact',
+    description:
+      'Marks a Xero contact as permanently unmapped so it is excluded from auto-mapping (sync + webhook) and from invoice/bill push.',
+  })
+  async permanentlyUnmapContact(
+    @Context() context,
+    @Args('contact_id', {
+      description: 'Xero contact id to permanently unmap.',
+    })
+    contact_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response = await this.xeroContactsService.permanentlyUnmapContact(
+        contact_id,
+        companyId,
+        decoded,
+      );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Task #289 — Re-enable a previously permanently-unmapped Xero
+   * contact so it returns to the normal unmapped pool.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'reEnableContactMapping',
+    description:
+      'Clears the permanently-unmapped flag on a Xero contact so it is eligible for auto-mapping and invoice/bill push again.',
+  })
+  async reEnableContactMapping(
+    @Context() context,
+    @Args('contact_id', {
+      description: 'Xero contact id to re-enable for mapping.',
+    })
+    contact_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response = await this.xeroContactsService.reEnableContactMapping(
+        contact_id,
+        companyId,
+        decoded,
+      );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  /**
    * Phase 2 — alignment endpoints for the Xero Settings widget.
    * Backfill PT contact GST defaults from Xero (Xero is source of truth)
    * for every mapped contact owned by the calling company. Best-effort:
