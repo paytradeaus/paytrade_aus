@@ -6757,6 +6757,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 await this.contractDetailsService.insertContractDetails(
                   decoded,
                   data.payload,
+                  { skipXeroAutoPush: true },
                 );
               this.logger.log(`response: ${JSON.stringify(response)}`);
 

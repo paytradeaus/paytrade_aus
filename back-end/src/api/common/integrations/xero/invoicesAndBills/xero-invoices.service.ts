@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { XeroContractsService } from '../contracts/xero-contracts.service';
 import {
   Contact,
   Invoice,
@@ -97,6 +98,8 @@ export class XeroInvoicesService {
     private readonly emailQueueProducer: EmailQueueProducer,
     private readonly objectStorageService: ObjectStorageService,
     private readonly xeroManualJournalService: XeroManualJournalService,
+    @Optional()
+    private readonly xeroContractsService?: XeroContractsService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -6827,6 +6830,29 @@ export class XeroInvoicesService {
         `Smart contract created: contract_id=${updatedContractId}, name='${contractName}', ` +
         `type=${derived.clientSupplierType}/${derived.clientSupplierRole}`
       );
+
+      // Auto-push the new PT contract to Xero as a tracking option when the
+      // company has enabled `pt_to_xero_contract_auto_create`. Fire-and-forget:
+      // failures are recorded by createContractTrackingOptions itself via
+      // xero_sync_logs, and must not break smart contract creation.
+      if (
+        xeroDetails?.pt_to_xero_contract_auto_create === true &&
+        this.xeroContractsService
+      ) {
+        try {
+          await this.xeroContractsService.createContractTrackingOptions(
+            decoded,
+            { contract_id: updatedContractId, mapped_status: 'System' },
+          );
+          this.logger.log(
+            `Auto-push to Xero triggered for smart contract ${updatedContractId}`,
+          );
+        } catch (autoPushErr) {
+          this.logger.error(
+            `Auto-push to Xero failed for smart contract ${updatedContractId}: ${autoPushErr?.message ?? autoPushErr}`,
+          );
+        }
+      }
 
       const savedPlain = JSON.parse(JSON.stringify(saved));
 

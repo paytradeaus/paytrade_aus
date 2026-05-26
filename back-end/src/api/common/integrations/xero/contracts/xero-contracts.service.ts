@@ -763,6 +763,7 @@ export class XeroContractsService {
             await this.contractDetailsService.insertContractDetails(
               decoded,
               data?.payload,
+              { skipXeroAutoPush: true },
             );
           this.logger.log(`response: ${JSON.stringify(response)}`);
           if (response) {

@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { XeroContractsService } from 'src/api/common/integrations/xero/contracts/xero-contracts.service';
+import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { CreateContractDetailInput } from './dto/create-contract-detail.input';
 import { UpdateContractDetailInput } from './dto/update-contract-detail.input';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -56,11 +58,16 @@ export class ContractDetailsService {
     private paymentDetails: Repository<PaymentDetails>,
     @InjectRepository(ClientSuppliersDetails)
     private clientSuppliersRepo: Repository<ClientSuppliersDetails>,
+    @Optional()
+    @InjectRepository(XeroIntegrationDetails)
+    private xeroIntegrationDetails: Repository<XeroIntegrationDetails> | undefined,
     private entityManager: EntityManager,
     private readonly complianceService: CompliancesService,
     private readonly activityLogService: ActivityLogService,
     private readonly noticeService: NoticesService,
     private emailQueueProducer: EmailQueueProducer,
+    @Optional()
+    private readonly xeroContractsService?: XeroContractsService,
   ) {
     this.logger = new PaytradeLogger('CONTRACT_DETAILS_SERVICE');
   }
@@ -86,6 +93,7 @@ export class ContractDetailsService {
   async insertContractDetails(
     decoded,
     createContractDetailInput: CreateContractDetailInput,
+    options?: { skipXeroAutoPush?: boolean },
   ) {
     try {
       this.logger.log(`Add new contract service initiated`);
@@ -197,6 +205,45 @@ export class ContractDetailsService {
       if (!response) {
         this.logger.log(`Contract addition failed`);
         throw `Unable to add Contract details`;
+      }
+
+      // Auto-push the new PT contract to Xero as a tracking option when the
+      // company has enabled `pt_to_xero_contract_auto_create`. Skipped when
+      // the caller is the inbound Xero→PT import flow (anti-echo). Failures
+      // are recorded by createContractTrackingOptions itself via
+      // xero_sync_logs, and must not break PT contract creation.
+      try {
+        if (options?.skipXeroAutoPush) {
+          this.logger.log(
+            `Xero auto-push skipped (skipXeroAutoPush=true) for contract ${response.contract_id}`,
+          );
+        } else if (!this.xeroIntegrationDetails || !this.xeroContractsService) {
+          this.logger.log(
+            `Xero auto-push deps not available in this module context; skipping for contract ${response.contract_id}`,
+          );
+        } else {
+        const xeroDetails = await this.xeroIntegrationDetails.findOne({
+          where: {
+            company_id: createContractDetailInput.company_id,
+            status: 'ACTIVE',
+          },
+        });
+        if (
+          xeroDetails?.pt_to_xero_contract_auto_create === true
+        ) {
+          await this.xeroContractsService.createContractTrackingOptions(
+            decoded,
+            { contract_id: response.contract_id, mapped_status: 'System' },
+          );
+          this.logger.log(
+            `Auto-push to Xero triggered for new PT contract ${response.contract_id}`,
+          );
+        }
+        }
+      } catch (autoPushErr) {
+        this.logger.error(
+          `Auto-push to Xero failed for new PT contract ${response.contract_id}: ${autoPushErr?.message ?? autoPushErr}`,
+        );
       }
 
       if (response.notices?.mails_to_sent.length) {
