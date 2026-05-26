@@ -147,7 +147,11 @@ export class ContactLogNoiseSweepSeederService
       classified AS (
         SELECT  c.*,
                 CASE
-                  WHEN c.pt_contact_id IS NULL THEN false
+                  -- Never imported into Pay Trade (the most common
+                  -- shape of contact-mirror noise: Xero sent a contact
+                  -- whose required fields are blank, import failed, no
+                  -- PT row exists). No activity ever → dormant.
+                  WHEN c.pt_contact_id IS NULL THEN true
                   WHEN EXISTS (
                     SELECT 1 FROM payment_claims pc
                     WHERE pc.client_supplier_id = c.pt_contact_id
@@ -170,18 +174,32 @@ export class ContactLogNoiseSweepSeederService
       UPDATE  xero_sync_logs xsl
       SET     log_template_id = 624,
               error_code      = 'WH_CONTACT_DORMANT_INFO',
-              error_message   = 'Contact "' || COALESCE(cl.contact_name, 'this contact')
-                                || '" has had no claim/bill/payment activity in the last 12 months — original mirror failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact again.',
+              error_message   = CASE
+                                  WHEN cl.pt_contact_id IS NULL THEN
+                                    'Contact "' || COALESCE(cl.contact_name, 'this contact')
+                                    || '" has never been used on a claim, bill or payment in Pay Trade — import failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact.'
+                                  ELSE
+                                    'Contact "' || COALESCE(cl.contact_name, 'this contact')
+                                    || '" has had no claim/bill/payment activity in the last 12 months — original mirror failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact again.'
+                                END,
               dynamic_values  = (COALESCE(xsl.dynamic_values::jsonb, '{}'::jsonb)
                                 || jsonb_build_object(
                                   'contact_name',             COALESCE(cl.contact_name, ''),
                                   'original_log_template_id', cl.log_template_id,
                                   'original_error_code',      cl.error_code,
-                                  'downgrade_reason',         'dormant_sweep'
+                                  'downgrade_reason',
+                                    CASE WHEN cl.pt_contact_id IS NULL
+                                         THEN 'never_imported_sweep'
+                                         ELSE 'dormant_sweep'
+                                    END
                                 ))::json,
               important_checks = (COALESCE(xsl.important_checks::jsonb, '{}'::jsonb)
                                 || jsonb_build_object(
-                                  'Downgraded by contact-mirror noise sweep', 'Dormant (no activity in last 12 months)',
+                                  'Downgraded by contact-mirror noise sweep',
+                                    CASE WHEN cl.pt_contact_id IS NULL
+                                         THEN 'Never imported into Pay Trade (no PT contact row)'
+                                         ELSE 'Dormant (no activity in last 12 months)'
+                                    END,
                                   'Original template', cl.log_template_id::text
                                 ))::json,
               updated_on = now()

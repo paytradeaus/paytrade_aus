@@ -1314,38 +1314,54 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       String(xeroContactRow.contact_status || '').toUpperCase() === 'ARCHIVED';
 
     // Activity check — only consult when *not* already archived.
+    // A contact is considered dormant when it has no claim / bill /
+    // payment activity in the last 12 months. Two shapes qualify:
+    //   (a) pt_contact_id IS NULL — the contact has never been
+    //       successfully imported into Pay Trade at all (the most
+    //       common shape of the noise we're cleaning up: Xero sends a
+    //       contact whose required fields are blank, the import fails,
+    //       and the same Failed sync log fires on every subsequent
+    //       contact-update webhook). No PT row means no activity ever
+    //       → dormant by definition.
+    //   (b) pt_contact_id IS NOT NULL and the activity union returns
+    //       zero rows inside the 12-month window.
     let isDormant = false;
-    if (!isArchivedInXero && xeroContactRow.pt_contact_id) {
-      try {
-        const cutoffIso = new Date(
-          Date.now() - XeroService.CONTACT_DORMANCY_WINDOW_MS,
-        ).toISOString();
-        const activityRows: any[] = await this.dataSource.query(
-          `
-          SELECT 1
-          FROM (
-            SELECT created_on FROM payment_claims
-              WHERE client_supplier_id = $1
-              UNION ALL
-            SELECT created_on FROM payment_details
-              WHERE client_supplier_id = $1
-              UNION ALL
-            SELECT created_on FROM journal_entries
-              WHERE supplier_id = $1
-          ) AS activity
-          WHERE created_on >= $2
-          LIMIT 1
-          `,
-          [xeroContactRow.pt_contact_id, cutoffIso],
-        );
-        isDormant = !activityRows || activityRows.length === 0;
-      } catch (activityErr: any) {
-        this.logger.warn(
-          `[maybeDowngradeContactMirrorLog] activity probe failed for pt_contact_id=${xeroContactRow.pt_contact_id}: ${activityErr?.message || activityErr}`,
-        );
-        // Fail open — leave the original Failed log untouched rather
-        // than silently downgrading on a probe error.
-        return;
+    if (!isArchivedInXero) {
+      if (!xeroContactRow.pt_contact_id) {
+        // (a) never imported → no activity → dormant.
+        isDormant = true;
+      } else {
+        try {
+          const cutoffIso = new Date(
+            Date.now() - XeroService.CONTACT_DORMANCY_WINDOW_MS,
+          ).toISOString();
+          const activityRows: any[] = await this.dataSource.query(
+            `
+            SELECT 1
+            FROM (
+              SELECT created_on FROM payment_claims
+                WHERE client_supplier_id = $1
+                UNION ALL
+              SELECT created_on FROM payment_details
+                WHERE client_supplier_id = $1
+                UNION ALL
+              SELECT created_on FROM journal_entries
+                WHERE supplier_id = $1
+            ) AS activity
+            WHERE created_on >= $2
+            LIMIT 1
+            `,
+            [xeroContactRow.pt_contact_id, cutoffIso],
+          );
+          isDormant = !activityRows || activityRows.length === 0;
+        } catch (activityErr: any) {
+          this.logger.warn(
+            `[maybeDowngradeContactMirrorLog] activity probe failed for pt_contact_id=${xeroContactRow.pt_contact_id}: ${activityErr?.message || activityErr}`,
+          );
+          // Fail open — leave the original Failed log untouched rather
+          // than silently downgrading on a probe error.
+          return;
+        }
       }
     }
 
@@ -1362,9 +1378,12 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     const targetErrorCode = isArchivedInXero
       ? 'WH_CONTACT_ARCHIVED_SKIPPED'
       : 'WH_CONTACT_DORMANT_INFO';
+    const neverImported = !isArchivedInXero && !xeroContactRow.pt_contact_id;
     const targetMessage = isArchivedInXero
       ? `Contact "${contactName}" is archived in Xero — import skipped. Un-archive the contact in Xero, then click Retry import to bring it into Pay Trade.`
-      : `Contact "${contactName}" has had no claim/bill/payment activity in the last 12 months — original mirror failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact again.`;
+      : neverImported
+        ? `Contact "${contactName}" has never been used on a claim, bill or payment in Pay Trade — import failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact.`
+        : `Contact "${contactName}" has had no claim/bill/payment activity in the last 12 months — original mirror failure downgraded to informational. Add the missing fields in Xero and re-sync if you start using this contact again.`;
 
     input.log_template_id = targetTemplateId;
     (input as any).error_code = targetErrorCode;
@@ -1374,7 +1393,11 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       contact_name: contactName,
       original_log_template_id: originalTemplateId,
       original_error_code: originalErrorCode,
-      downgrade_reason: isArchivedInXero ? 'archived_in_xero' : 'dormant',
+      downgrade_reason: isArchivedInXero
+        ? 'archived_in_xero'
+        : neverImported
+          ? 'never_imported'
+          : 'dormant',
       missing_fields:
         (input as any).information_required ||
         (input.dynamic_values as any)?.missing_fields ||
@@ -1384,7 +1407,9 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       ...((input.important_checks as any) || {}),
       'Downgraded by contact-mirror noise filter': isArchivedInXero
         ? 'Archived in Xero'
-        : 'Dormant (no activity in last 12 months)',
+        : neverImported
+          ? 'Never imported into Pay Trade (no PT contact row)'
+          : 'Dormant (no activity in last 12 months)',
       'Original template': String(originalTemplateId),
     };
   }
