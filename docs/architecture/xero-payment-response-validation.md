@@ -137,3 +137,59 @@ tenant produces one of two outcomes:
 
 The previous silent-success path is no longer reachable from this code
 site.
+
+## Task #318 — Invoice-state checks on the same response
+
+Task #313 inspected the **payment** element on the response
+(`paymentID`, `status`, `validationErrors`, attached `invoiceID`,
+`amount`). It deliberately did **not** read the embedded invoice block
+on `payments[0].invoice` — and that left one more silent-success branch
+open: Xero can accept a payment object that looks correct, yet leave
+the bill's `amountDue` unchanged (payment lands on a credit-note line,
+over-payment branch, currency/locking edge case, etc.). The payment
+element would pass `validatePaymentResponse`, the bill in Xero would
+still show as owing, and PayTrade would still write the success log.
+
+Task #318 extends `validatePaymentResponse` with three checks that use
+fields already present on the response (no extra round-trip to Xero,
+no PT-mirror lookup). All failures route to **template 629**
+(`PD_PAYMENT_AMOUNTDUE_UNCHANGED`), not template 627, so operators can
+distinguish "payment element unusable" from "payment element ok but
+bill not paid down":
+
+- **Our `paymentID` must appear in `invoice.payments[]` (strongest).**
+  Xero typically embeds the bill's full payment roster on the
+  response. If the array is present and our just-created `paymentID`
+  is not in it, the payment was not applied to this bill. This is the
+  only check that reliably catches the silent-failure case on
+  invoices that already had prior partial payments — `amountDue` and
+  `amountPaid` numerics alone can't disambiguate "our payment applied
+  on top of prior" from "our payment was dropped while a prior payment
+  is still there".
+- **amountDue did not drop by the payment amount (fallback).** When
+  the response carries numeric `invoice.total` and `invoice.amountDue`
+  the validator requires `amountDue ≤ total - expectedAmount + 0.01`.
+  Loose by design — prior partial payments make `amountDue` smaller
+  than that, never larger — so this only fires on bills with no prior
+  partials. Acts as a fallback when `invoice.payments[]` is absent
+  from the response.
+- **`amountDue≈0` with `status≠PAID`.** Self-consistency check on
+  Xero's response: if the bill's outstanding is zero, the status must
+  be `PAID`. Anything else (`AUTHORISED`, `VOIDED`, etc.) indicates a
+  Xero-side anomaly and is also routed to template 629.
+
+Both checks are guarded — if `invoice` is missing, or `total` /
+`amountDue` aren't numeric, the validator falls through under the
+existing Task #313 checks rather than emit a false-positive failure.
+
+`validatePaymentResponse` now returns `{ reason, template: 627 | 629 }`
+so the failure log goes to the right template (628 still covers the
+BankTransfer-leg path). The downstream handling — no `xero_payments`
+row persisted, retention BankTransfer leg skipped, return `false` for
+resolver retry, raw Xero body in `xero_records` — is identical to
+Task #313.
+
+The durable rule (also captured in
+`.agents/memory/xero-success-requires-real-id.md`): when an API
+response embeds the affected object, validate the object's
+post-mutation state, not just the action object.

@@ -5738,5 +5738,15 @@
     "from_xero": false,
     "error_code": "PD_BANK_TRANSFER_RESPONSE_INVALID",
     "associated_log_ids": [500, 496, 497, 498]
+  },
+  {
+    "id": 629,
+    "sync_type": "Payments",
+    "description": "<p>Pay Trade sent the payment to Xero and Xero acknowledged it, but the bill's outstanding balance was not reduced: <b>{{reason}}</b>. No <code>xero_payments</code> row was persisted — the payment did not actually pay down the bill. Expected invoice <b>{{expected_invoice_id}}</b>, expected amount <b>{{expected_amount}}</b>. Raw response captured in xero_records for support.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "PD_PAYMENT_AMOUNTDUE_UNCHANGED",
+    "associated_log_ids": [168, 332, 627]
   }
 ]

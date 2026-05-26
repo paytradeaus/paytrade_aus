@@ -44,3 +44,15 @@ reproducible whenever Xero returns an ID-less option element.
 - When auditing for this class of bug across services, query the
   mirror table for `xero_id_column IS NULL` rows grouped by
   `integration_id` — any tenant with a non-trivial count is suspect.
+- **Generalised rule (from the createPayment incident):** when a write
+  response embeds the *affected* object (the invoice on a payment
+  response, the contact on an attachment response, etc.), validate the
+  affected object's post-mutation state — not just the action object.
+  `createPayment` returns `payments[0].invoice` with the bill's new
+  `amountDue` / `status` / `amountPaid`; if Xero accepted the payment
+  but the bill's `amountDue` did not drop by the payment amount, the
+  payment didn't apply. Reading those fields is free (already in the
+  response body) and catches a class of silent failures that no amount
+  of action-object validation can. See
+  `docs/architecture/xero-payment-response-validation.md` for the
+  concrete implementation.

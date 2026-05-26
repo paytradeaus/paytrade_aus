@@ -976,35 +976,130 @@ export class XeroPaymentsService {
         // NOT persist a `xero_payments` row, do NOT proceed to push the
         // retention BankTransfer leg, and return false so the resolver
         // can retry on the next confirm-tick.
+        type PaymentValidationFailure = {
+          reason: string;
+          // 627 = payment element itself unusable (Task #313).
+          // 629 = payment element looks ok but bill's outstanding
+          //       balance was not paid down (Task #318).
+          template: 627 | 629;
+        };
         const validatePaymentResponse = (
           freshPayment: any,
           expectedInvoiceId: string,
           expectedAmount: number,
-        ): string | null => {
-          if (!freshPayment) return 'Xero returned no payment in the response body';
+        ): PaymentValidationFailure | null => {
+          if (!freshPayment)
+            return {
+              reason: 'Xero returned no payment in the response body',
+              template: 627,
+            };
           if (!freshPayment.paymentID)
-            return 'Xero returned a payment element with no paymentID';
+            return {
+              reason: 'Xero returned a payment element with no paymentID',
+              template: 627,
+            };
           if (
             typeof freshPayment.statusAttributeString === 'string' &&
             freshPayment.statusAttributeString.toUpperCase() === 'ERROR'
           )
-            return `Xero returned statusAttributeString=ERROR (validationErrors: ${JSON.stringify(freshPayment.validationErrors || [])})`;
+            return {
+              reason: `Xero returned statusAttributeString=ERROR (validationErrors: ${JSON.stringify(freshPayment.validationErrors || [])})`,
+              template: 627,
+            };
           if (
             Array.isArray(freshPayment.validationErrors) &&
             freshPayment.validationErrors.length > 0
           )
-            return `Xero returned validationErrors: ${JSON.stringify(freshPayment.validationErrors)}`;
+            return {
+              reason: `Xero returned validationErrors: ${JSON.stringify(freshPayment.validationErrors)}`,
+              template: 627,
+            };
           const status = String(freshPayment.status || '').toUpperCase();
           if (status === 'DELETED' || status === 'REVERSED' || status === 'VOIDED')
-            return `Xero accepted the payment but persisted it as ${status}`;
+            return {
+              reason: `Xero accepted the payment but persisted it as ${status}`,
+              template: 627,
+            };
           const returnedInvoiceId = freshPayment?.invoice?.invoiceID;
           if (returnedInvoiceId && returnedInvoiceId !== expectedInvoiceId)
-            return `Xero attached the payment to invoice ${returnedInvoiceId} but we sent invoice ${expectedInvoiceId}`;
+            return {
+              reason: `Xero attached the payment to invoice ${returnedInvoiceId} but we sent invoice ${expectedInvoiceId}`,
+              template: 627,
+            };
           if (
             typeof freshPayment.amount === 'number' &&
             Math.abs(freshPayment.amount - expectedAmount) > 0.01
           )
-            return `Xero recorded amount ${freshPayment.amount} but we sent ${expectedAmount}`;
+            return {
+              reason: `Xero recorded amount ${freshPayment.amount} but we sent ${expectedAmount}`,
+              template: 627,
+            };
+
+          // Task #318 — Inspect the embedded invoice block. Xero returns
+          // the bill's post-payment state on `payments[0].invoice` and
+          // typically also embeds an `invoice.payments[]` array listing
+          // every payment currently applied to the bill (including the
+          // one we just created). We use three independent checks to
+          // catch the silent-failure class where Xero acks the payment
+          // but the bill's outstanding balance doesn't move. All checks
+          // are guarded — if the relevant fields are missing or
+          // non-numeric the validator falls through to the existing
+          // Task #313 result rather than emit a false positive.
+          const inv = freshPayment.invoice;
+          if (inv && Number.isFinite(expectedAmount)) {
+            // Check 1 (strongest) — payments[] roster includes our ID.
+            // This is the only check that reliably catches the
+            // partial-prior-payments case: an invoice that already had
+            // earlier payments would otherwise have an amountDue value
+            // that satisfies the looser checks below by coincidence.
+            // If Xero embedded the roster at all and our paymentID is
+            // not in it, the payment was not applied to this bill.
+            if (Array.isArray(inv.payments)) {
+              const ourId = freshPayment.paymentID;
+              const found = inv.payments.some(
+                (p: any) => p && p.paymentID && p.paymentID === ourId,
+              );
+              if (!found)
+                return {
+                  reason: `Xero accepted the payment (paymentID=${ourId}) but it is absent from invoice.payments[] on the response (${inv.payments.length} payment(s) on bill, none match our paymentID); the payment was not applied to this bill`,
+                  template: 629,
+                };
+            }
+
+            // Check 2 — amountDue did not absorb our payment at all.
+            // Loose by design (prior partial payments make amountDue
+            // smaller, never larger), so this only fires when the bill
+            // had NO prior partials and our push made no dent. Use as
+            // a fallback when payments[] is absent.
+            const total = Number.isFinite(inv.total) ? Number(inv.total) : null;
+            const amountDue = Number.isFinite(inv.amountDue)
+              ? Number(inv.amountDue)
+              : null;
+            if (total !== null && amountDue !== null) {
+              const maxAcceptableDue = total - expectedAmount + 0.01;
+              if (amountDue > maxAcceptableDue)
+                return {
+                  reason: `Xero accepted the payment but the bill's amountDue is ${amountDue.toFixed(2)} (invoice total ${total.toFixed(2)}, payment ${expectedAmount.toFixed(2)}, expected amountDue ≤ ${(total - expectedAmount).toFixed(2)}); the payment did not reduce the bill's outstanding balance`,
+                  template: 629,
+                };
+            }
+
+            // Check 3 — self-consistency: amountDue=0 implies PAID.
+            const invStatus =
+              typeof inv.status === 'string'
+                ? inv.status.toUpperCase()
+                : null;
+            if (
+              amountDue !== null &&
+              Math.abs(amountDue) <= 0.01 &&
+              invStatus &&
+              invStatus !== 'PAID'
+            )
+              return {
+                reason: `Xero returned invoice.amountDue=0 after payment but invoice.status=${invStatus} (expected PAID)`,
+                template: 629,
+              };
+          }
           return null;
         };
 
@@ -1016,8 +1111,10 @@ export class XeroPaymentsService {
             amount,
           );
           if (validationFailure) {
+            const failureReason = validationFailure.reason;
+            const failureTemplate = validationFailure.template;
             this.logger.error(
-              `[Task#313 createPayment validation] payment_id=${payment_id} response did not pass validation: ${validationFailure}. Raw body: ${JSON.stringify(response?.body)}`,
+              `[Task#313/#318 createPayment validation] payment_id=${payment_id} template=${failureTemplate} response did not pass validation: ${failureReason}. Raw body: ${JSON.stringify(response?.body)}`,
             );
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: data?.sync_id,
@@ -1027,9 +1124,9 @@ export class XeroPaymentsService {
                 mapping_project_id: xeroInvoicesBills?.project_id,
               },
               integration_id: xeroDetails.integration_id,
-              log_template_id: 627,
+              log_template_id: failureTemplate,
               dynamic_values: {
-                reason: validationFailure,
+                reason: failureReason,
                 expected_invoice_id: xeroInvoicesBills.invoice_id,
                 expected_amount: Number(amount).toFixed(2),
               },
@@ -1042,7 +1139,7 @@ export class XeroPaymentsService {
               reference_id: paymentDetails?.id,
               history: [
                 `API triggered from payment ${paymentDetails?.payment_id}`,
-                `Export failed — Xero response did not pass validation: ${validationFailure}`,
+                `Export failed — Xero response did not pass validation: ${failureReason}`,
               ],
               important_checks: {
                 'Import data format validation': 'Ok',
@@ -1054,7 +1151,7 @@ export class XeroPaymentsService {
                 'Project mapping validation': 'Ok',
                 'Xero response validation': 'Failed',
               },
-              error_message: validationFailure,
+              error_message: failureReason,
               // Capture the ACTUAL Xero response body (or at least the
               // payments[0] element) so support can see exactly what
               // came back. Previously success logs stored the request
