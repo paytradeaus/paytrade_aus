@@ -3,3 +3,4 @@
 - [Shared-service DI needs @Optional + standalone module](shared-service-optional-di.md) — adding a dep to a service that's locally provided in many sibling modules needs `@Optional()` AND a tiny standalone module those siblings import.
 - [pt_to_xero_contract_auto_create gating](xero-pt-auto-create.md) — per-company opt-in to auto-push new PT contracts to Xero; must be checked at EVERY contract creation site (user resolver AND smart-create), not just one.
 - [Xero "Export successful" must require a real Xero ID](xero-success-requires-real-id.md) — gating success on `options[0] !== null` is not enough; Xero can return ID-less elements, producing phantom mirror rows that fail on later sync. Always check the ID field directly.
+- [Prod DB access via RAILWAY_DATABASE_URL](prod-db-access.md) — `checkDatabase` only sees the dev DB; for Railway prod run `psql "$RAILWAY_DATABASE_URL"` directly. Check prod data BEFORE guessing about deploys/caches.
