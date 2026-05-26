@@ -133,6 +133,7 @@ import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.module';
+import { XeroSyncRecoveryService } from '../../xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 
 @Module({
   imports: [
@@ -145,6 +146,9 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
     }),
     BullModule.registerQueue({
       name: 'mailQueue',
+    }),
+    BullModule.registerQueue({
+      name: 'xero-sync-recovery',
     }),
     TypeOrmModule.forFeature([
       IntegrationDetails,
@@ -267,6 +271,7 @@ import { ObjectStorageModule } from 'src/libs/@object-storage/object-storage.mod
     RetentionReversalFunctions,
     EmailQueueProducer,
     XeroWaitQueueService,
+    XeroSyncRecoveryService,
     // XeroWaitQueueWorker + XeroWaitQueueEvent intentionally omitted —
     // see import-block comment above. They are registered exactly once
     // in XeroWebhookModule.

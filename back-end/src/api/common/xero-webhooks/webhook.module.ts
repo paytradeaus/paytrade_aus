@@ -110,6 +110,11 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
 import { AuthService } from 'src/api/auth/auth-guard/auth.service';
 import { XeroWebhookGraphQLResolver } from './webhook-graphql.resolver';
 import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
+import {
+  XeroSyncRecoveryService,
+  XERO_SYNC_RECOVERY_QUEUE,
+} from './recoveryQueue/xeroSyncRecovery.service';
+import { XeroSyncRecoveryWorker } from './recoveryQueue/xeroSyncRecovery.worker';
 
 @Module({
   imports: [
@@ -121,6 +126,9 @@ import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
     }),
     BullModule.registerQueue({
       name: 'mailQueue',
+    }),
+    BullModule.registerQueue({
+      name: XERO_SYNC_RECOVERY_QUEUE,
     }),
     TypeOrmModule.forFeature([
       XeroContactDetails,
@@ -229,6 +237,9 @@ import { XeroWebhookQueueConsumer } from './webhook-queue-consumer.service';
     XeroWaitQueueService,
     XeroWaitQueueWorker,
     XeroWaitQueueEvent,
+    XeroSyncRecoveryService,
+    XeroSyncRecoveryWorker,
   ],
+  exports: [XeroSyncRecoveryService],
 })
 export class XeroWebhookModule {}

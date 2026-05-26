@@ -72,6 +72,7 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { SubscriptionDetails } from 'src/entities/subscription-details.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
+import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 
 dotenv.config();
 
@@ -122,6 +123,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
     private readonly xeroInvoicesService: XeroInvoicesService,
     private readonly xeroPaymentsService: XeroPaymentsService,
     private readonly emailQueueProducer: EmailQueueProducer,
+    private readonly xeroSyncRecoveryService: XeroSyncRecoveryService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -8257,6 +8259,105 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
       this.logger.error(
         `${PREFIX} Fatal error: ${err?.message || err}`,
       );
+    }
+  }
+
+  /**
+   * Task #268 — Auto-recover Xero contact-mirror failures.
+   *
+   * Every 15 minutes, per active integration, find distinct PT
+   * client/supplier ids that currently have an unarchived Failed
+   * contact-mirror log (templates 366, 368, 384) in the last 30 days
+   * and whose underlying contact now satisfies the prerequisites
+   * (has email + at least one bank account). Enqueue one recovery
+   * job per (company, csId) onto the `xero-sync-recovery` queue.
+   *
+   * Belt-and-braces for the event-driven hooks
+   * (contact edit / bank add / contact webhook mirror / manual contact
+   * resync) — picks up anything those missed (cold-start, webhook drop,
+   * legacy rows from before this task).
+   */
+  @Cron('*/15 * * * *', { timeZone: 'UTC' })
+  async xeroSyncRecoverySweeper() {
+    const PREFIX = '[XERO_SYNC_RECOVERY_SWEEPER]';
+    try {
+      const activeIntegrations = await this.integrationDetails.find({
+        where: { integration_status: 'Connected - active' },
+      });
+      if (!activeIntegrations?.length) return;
+
+      const INBOUND_CONTACT_FAILURE_TEMPLATES = [366, 368, 384];
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      for (const integration of activeIntegrations) {
+        const companyId = integration.company_id;
+        try {
+          const xeroDetails = await this.xeroIntegrationDetails.findOne({
+            where: { company_id: companyId, status: 'ACTIVE' },
+          });
+          if (!xeroDetails?.integration_id) continue;
+
+          // Find distinct candidate xero_contact_details rows referenced
+          // by currently-failing contact-mirror logs in the lookback
+          // window. These map 1:1 to PT client/supplier ids via
+          // pt_contact_id (set when the mirror first succeeded — even
+          // partially).
+          const failedLogs = await this.xeroSyncLogs
+            .createQueryBuilder('log')
+            .select('DISTINCT log.reference_id', 'reference_id')
+            .where('log.integration_id = :integration_id', {
+              integration_id: xeroDetails.integration_id,
+            })
+            .andWhere('log.archived_at IS NULL')
+            .andWhere('log.created_on > :since', { since })
+            .andWhere('log.log_template_id IN (:...templates)', {
+              templates: INBOUND_CONTACT_FAILURE_TEMPLATES,
+            })
+            .andWhere('log.reference_id IS NOT NULL')
+            .getRawMany<{ reference_id: string }>();
+
+          if (!failedLogs.length) continue;
+
+          const referenceIds = failedLogs
+            .map((r) => r.reference_id)
+            .filter(Boolean);
+          if (!referenceIds.length) continue;
+
+          const xeroContactRows = await this.xeroContactDetails.find({
+            where: {
+              id: In(referenceIds),
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+
+          const csIdSet = new Set<number>();
+          for (const row of xeroContactRows) {
+            if (row.pt_contact_id) csIdSet.add(Number(row.pt_contact_id));
+          }
+          if (!csIdSet.size) continue;
+
+          let enqueued = 0;
+          for (const csId of csIdSet) {
+            await this.xeroSyncRecoveryService.enqueue({
+              company_id: companyId,
+              client_supplier_id: csId,
+              trigger: 'scheduler_sweep',
+            });
+            enqueued++;
+          }
+          if (enqueued) {
+            this.logger.log(
+              `${PREFIX} Company ${companyId}: enqueued ${enqueued} contact recovery job(s).`,
+            );
+          }
+        } catch (companyErr: any) {
+          this.logger.error(
+            `${PREFIX} Company ${companyId}: ${companyErr?.message || companyErr}`,
+          );
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(`${PREFIX} Fatal error: ${err?.message || err}`);
     }
   }
 }

@@ -117,6 +117,7 @@ import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { StripeCoupons } from 'src/entities/subscription-coupon.entity';
 import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity';
+import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 
 @Module({
   imports: [
@@ -125,6 +126,9 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
     }),
     BullModule.registerQueue({
       name: 'mailQueue',
+    }),
+    BullModule.registerQueue({
+      name: 'xero-sync-recovery',
     }),
     TypeOrmModule.forFeature([
       UserDetails,
@@ -196,6 +200,7 @@ import { CompanyCouponDetails } from 'src/entities/company-coupon-details.entity
   providers: [
     BankAccountsResolver,
     BankAccountsService,
+    XeroSyncRecoveryService,
     BankStatementsResolver,
     BankStatementsService,
     TransactionsResolver,

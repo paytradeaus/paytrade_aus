@@ -19635,7 +19635,7 @@ export class XeroWebhookService {
               contact_name: contactName,
             },
             updated_by: triggeredByUserId,
-          },
+          } as any,
         );
         updated++;
         if (sampleUpdated.length < 10) sampleUpdated.push(log.sync_id);
@@ -19658,6 +19658,318 @@ export class XeroWebhookService {
       updated,
       skipped,
       sample_sync_ids: sampleUpdated,
+    };
+  }
+
+  /**
+   * Task #268 — Auto-recover recently-Failed Xero sync logs tied to a
+   * client/supplier once the missing prerequisite (email and/or bank
+   * account) has been supplied.
+   *
+   * Scope (initial implementation, reuses `manualXeroResync`):
+   *   - Inbound Contact webhook mirror failures (templates 366, 368, 384)
+   *     where Xero stripped mandatory fields. After the user fills them
+   *     in (either in PT or in Xero, which fires a contact webhook), we
+   *     re-pull the Xero contact via `manualXeroResync({type:'contact'})`
+   *     so PT's mirror gets the now-complete record.
+   *
+   * Allowlist is template-id based — error codes are diverse across
+   * versions of the seed JSON but the templates themselves are stable.
+   *
+   * Guards:
+   *   - 30-day lookback (older rows treated as truly stale).
+   *   - Max 50 retries per contact per run (BullMQ retries the run, but
+   *     a single tick never floods Xero).
+   *   - 5-minute flap guard: each log row stamps
+   *     `api_payload.recovery_last_attempt_at` before retry; subsequent
+   *     runs within 5 minutes skip that row.
+   *   - `archived_at IS NULL` — the existing dedup logic in
+   *     `insertXeroSyncLogs` already auto-archives prior failed rows when
+   *     a SUCCESS replaces them; we only retry currently-failing rows.
+   *
+   * Marker: on success, the original Failed row is stamped with
+   * `important_checks.Recovered = 'Yes'`, a history breadcrumb, and
+   * `api_payload.recovered_by_sync_id` linking to the new SUCCESS row.
+   */
+  async retryFailedSyncsForContact(input: {
+    company_id: number;
+    client_supplier_id: number;
+    trigger?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    scanned: number;
+    retried: number;
+    recovered: number;
+    skipped: number;
+    sample_sync_ids?: number[];
+  }> {
+    const company_id = Number(input?.company_id);
+    const csId = Number(input?.client_supplier_id);
+    const trigger = String(input?.trigger || 'unspecified');
+
+    const empty = {
+      success: false as boolean,
+      message: 'company_id and client_supplier_id are required.',
+      scanned: 0,
+      retried: 0,
+      recovered: 0,
+      skipped: 0,
+    };
+    if (!company_id || !csId) return empty;
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+      relations: ['integrationDetails'],
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return { ...empty, success: true, message: 'No active Xero integration; nothing to recover.' };
+    }
+    if (
+      xeroDetails.integrationDetails?.integration_status !==
+      'Connected - active'
+    ) {
+      return {
+        ...empty,
+        success: true,
+        message: `Xero integration is not connected (status=${xeroDetails.integrationDetails?.integration_status}); skipping recovery.`,
+      };
+    }
+
+    // Resolve every xero_contact_details row mirrored to this PT client/supplier.
+    // We need both the row id (used as `reference_id` on inbound logs) and
+    // the Xero contact GUID (used in api_payload.contact_id on older rows
+    // and as the `id` argument when dispatching `manualXeroResync`).
+    const xeroContactRows = await this.xeroContactDetails.find({
+      where: {
+        pt_contact_id: csId,
+        integration_id: xeroDetails.integration_id,
+      },
+    });
+    if (!xeroContactRows.length) {
+      return {
+        success: true,
+        message:
+          'No mirrored Xero contact for this client/supplier; nothing to recover.',
+        scanned: 0,
+        retried: 0,
+        recovered: 0,
+        skipped: 0,
+      };
+    }
+
+    // Eligibility gate — only retry if the contact now actually
+    // satisfies the prerequisites that the original push failed on.
+    // Templates 366/368/384 all stem from "missing mandatory field"
+    // (email + bank-account presence). Without this gate the 5-minute
+    // flap guard alone would still re-attempt failing contacts every
+    // 15 minutes via the sweeper.
+    const csRow = await this.clientSuppliersDetails.findOne({
+      where: { client_supplier_id: csId, company_id } as any,
+    });
+    if (!csRow) {
+      return {
+        success: true,
+        message: 'Client/supplier not found for this company; skipping.',
+        scanned: 0,
+        retried: 0,
+        recovered: 0,
+        skipped: 0,
+      };
+    }
+    const hasEmail = !!(csRow as any)?.client_email_id;
+    const bankAccountCount = await this.bankAccounts.count({
+      where: { client_supplier_id: csId } as any,
+    });
+    if (!hasEmail && bankAccountCount === 0) {
+      return {
+        success: true,
+        message:
+          'Contact still missing both email and bank accounts; skipping recovery.',
+        scanned: 0,
+        retried: 0,
+        recovered: 0,
+        skipped: 0,
+      };
+    }
+
+    const xeroRowIds = xeroContactRows.map((r) => r.id).filter(Boolean);
+    const xeroGuids = xeroContactRows
+      .map((r) => r.contact_id)
+      .filter(Boolean) as string[];
+
+    // Template allowlist — contact-missing-fields failures only. These
+    // are the rows that flip to SUCCESS once the contact carries the
+    // missing email / mandatory fields.
+    const INBOUND_CONTACT_FAILURE_TEMPLATES = [366, 368, 384];
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const fiveMinutesAgoIso = new Date(
+      Date.now() - 5 * 60 * 1000,
+    ).toISOString();
+
+    // Pull candidate failed logs. Volume per contact is tiny (one per
+    // template per contact at most) so a straight find is fine.
+    const qb = this.xeroSyncLogs
+      .createQueryBuilder('log')
+      .where('log.integration_id = :integration_id', {
+        integration_id: xeroDetails.integration_id,
+      })
+      .andWhere('log.archived_at IS NULL')
+      .andWhere('log.created_on > :since', { since: thirtyDaysAgo })
+      .andWhere('log.log_template_id IN (:...templates)', {
+        templates: INBOUND_CONTACT_FAILURE_TEMPLATES,
+      });
+
+    if (xeroRowIds.length && xeroGuids.length) {
+      qb.andWhere(
+        '(log.reference_id IN (:...rowIds) OR log.api_payload->>\'contact_id\' IN (:...guids))',
+        { rowIds: xeroRowIds, guids: xeroGuids },
+      );
+    } else if (xeroRowIds.length) {
+      qb.andWhere('log.reference_id IN (:...rowIds)', { rowIds: xeroRowIds });
+    } else {
+      qb.andWhere('log.api_payload->>\'contact_id\' IN (:...guids)', {
+        guids: xeroGuids,
+      });
+    }
+
+    qb.orderBy('log.created_on', 'DESC').limit(50);
+
+    const candidates = await qb.getMany();
+    const scanned = candidates.length;
+    if (!scanned) {
+      return {
+        success: true,
+        message: 'No recoverable failed sync logs in the last 30 days.',
+        scanned: 0,
+        retried: 0,
+        recovered: 0,
+        skipped: 0,
+      };
+    }
+
+    let retried = 0;
+    let recovered = 0;
+    let skipped = 0;
+    const sampleSyncIds: number[] = [];
+
+    for (const log of candidates) {
+      try {
+        // 5-min flap guard
+        const lastAttempt = log.api_payload?.recovery_last_attempt_at;
+        if (lastAttempt && String(lastAttempt) > fiveMinutesAgoIso) {
+          skipped++;
+          continue;
+        }
+
+        // Resolve the Xero contact GUID to re-pull. Prefer the value on
+        // the log row (covers historical mismatches) then fall back to
+        // the mirrored row.
+        const guid =
+          log.api_payload?.contact_id ||
+          xeroContactRows.find((r) => r.id === log.reference_id)?.contact_id ||
+          xeroGuids[0];
+        if (!guid) {
+          skipped++;
+          continue;
+        }
+
+        // Stamp the attempt marker BEFORE dispatching so a crash mid-run
+        // still blocks the next tick from immediately re-attempting.
+        const stampedPayload = {
+          ...(log.api_payload || {}),
+          recovery_last_attempt_at: new Date().toISOString(),
+          recovery_trigger: trigger,
+        };
+        await this.xeroSyncLogs.update(
+          { id: log.id },
+          { api_payload: stampedPayload } as any,
+        );
+
+        retried++;
+
+        const result = await this.manualXeroResync(
+          { userId: null, logged_in_by: 'SYSTEM' },
+          {
+            company_id,
+            type: 'contact',
+            id: String(guid),
+            _suppressLegacyTrigger: true,
+          },
+        );
+
+        if (result?.success) {
+          recovered++;
+          const newHistory = [
+            ...(Array.isArray(log.history) ? log.history : []),
+            `Auto-recovered (trigger=${trigger}) — new sync_id=${result.syncLogId ?? 'n/a'}.`,
+          ];
+          const newImportantChecks = {
+            ...(log.important_checks || {}),
+            Recovered: 'Yes',
+          };
+          await this.xeroSyncLogs.update(
+            { id: log.id },
+            {
+              history: newHistory,
+              important_checks: newImportantChecks,
+              api_payload: {
+                ...stampedPayload,
+                recovered_by_sync_id: result.syncLogId ?? null,
+                recovered_at: new Date().toISOString(),
+              },
+            } as any,
+          );
+
+          // Mirror the linkage onto the child SUCCESS log so the UI can
+          // surface "this resolved sync_id=X" without a reverse join.
+          if (result.syncLogId) {
+            try {
+              const childRow = await this.xeroSyncLogs.findOne({
+                where: { sync_id: result.syncLogId },
+              });
+              if (childRow) {
+                await this.xeroSyncLogs.update(
+                  { id: childRow.id },
+                  {
+                    api_payload: {
+                      ...(childRow.api_payload || {}),
+                      recovers_sync_id: log.sync_id,
+                      recovery_trigger: trigger,
+                    },
+                    important_checks: {
+                      ...(childRow.important_checks || {}),
+                      'Recovered for sync_id': log.sync_id,
+                    },
+                  } as any,
+                );
+              }
+            } catch (linkErr: any) {
+              this.logger.warn(
+                `[retryFailedSyncsForContact] Failed to stamp child log linkage for sync_id=${result.syncLogId}: ${linkErr?.message || linkErr}`,
+              );
+            }
+          }
+
+          if (sampleSyncIds.length < 10) sampleSyncIds.push(log.sync_id);
+        }
+      } catch (rowErr: any) {
+        this.logger.warn(
+          `[retryFailedSyncsForContact] Failed to retry sync_id=${log?.sync_id}: ${rowErr?.message || rowErr}`,
+        );
+        skipped++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `Scanned ${scanned}, retried ${retried}, recovered ${recovered}, skipped ${skipped}.`,
+      scanned,
+      retried,
+      recovered,
+      skipped,
+      sample_sync_ids: sampleSyncIds,
     };
   }
 }

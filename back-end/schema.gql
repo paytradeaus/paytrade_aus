@@ -15817,6 +15817,30 @@ type Mutation {
   recordAiLiveFollowContext(input: RecordAiLiveFollowContextInput!): RecordAiLiveFollowContextResponse!
 
   """
+  One-time/admin sweep: find historical failed Contact webhook sync logs whose Xero contact is now archived, and reclassify them to the "archived in Xero" Warning template. Idempotent.
+  """
+  recoverArchivedContactSyncLogs(
+    """Company id of the calling user."""
+    company_id: Float!
+
+    """
+    If true, return the count that would be reclassified without writing any changes.
+    """
+    dry_run: Boolean
+  ): StringResponse!
+
+  """
+  Retry recently-Failed Xero contact-mirror sync logs for the given client/supplier. Reuses the manualXeroResync pipeline; idempotent with a 5-minute flap guard.
+  """
+  recoverFailedSyncsForContact(
+    """PT client/supplier id whose failed sync logs should be retried."""
+    client_supplier_id: Float!
+
+    """Company id of the calling user."""
+    company_id: Float!
+  ): StringResponse!
+
+  """
   Refreshes all Xero-related data (accounts, contacts, projects, contracts) for a given company.
   """
   refreshAllByCompanyId(

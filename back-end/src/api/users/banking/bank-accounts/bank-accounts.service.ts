@@ -39,6 +39,7 @@ import { NoticesService } from '../../notices/notices.service';
 import { PaymentGatewayService } from 'src/api/common/payment-gateway/payment-gateway.service';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
+import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -85,6 +86,7 @@ export class BankAccountsService {
     private readonly paymentGatewayService: PaymentGatewayService,
     private entityManager: EntityManager,
     private emailQueueProducer: EmailQueueProducer,
+    private readonly xeroSyncRecoveryService: XeroSyncRecoveryService,
   ) {
     this.logger = new PaytradeLogger('BANK_ACCOUNTS_SERVICE');
   }
@@ -491,6 +493,24 @@ export class BankAccountsService {
         bank_account_id: response.bank_account_id,
         isCashAcc,
         notices: response.notices,
+      }
+      // Task #268 — If this bank account belongs to a client/supplier,
+      // a previously-Failed Xero contact-mirror log may now be
+      // recoverable (Xero requires bank accounts on certain push
+      // patterns). Best-effort enqueue; recovery service is idempotent
+      // and flap-guarded.
+      if (data?.client_supplier_id) {
+        try {
+          await this.xeroSyncRecoveryService.enqueue({
+            company_id: Number(data.company_id ?? payload?.company_id),
+            client_supplier_id: Number(data.client_supplier_id),
+            trigger: 'bank_account_add',
+          });
+        } catch (recErr: any) {
+          this.logger.log(
+            `[Task#268] Failed to enqueue Xero sync recovery for contact ${data.client_supplier_id}: ${recErr?.message || recErr}`,
+          );
+        }
       }
       return responceFormated;
     } catch (error) {

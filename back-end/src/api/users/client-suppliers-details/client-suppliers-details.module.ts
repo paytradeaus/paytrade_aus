@@ -34,11 +34,15 @@ import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
 import { BullModule } from '@nestjs/bullmq';
 import { XeroRefreshTokenService } from 'src/api/common/integrations/xero/refreshToken/xeroRefreshToken.service';
 import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
+import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 
 @Module({
   imports: [
     BullModule.registerQueue({
       name: 'xero-refresh-token',
+    }),
+    BullModule.registerQueue({
+      name: 'xero-sync-recovery',
     }),
     TypeOrmModule.forFeature([
       UserDetails,
@@ -75,6 +79,7 @@ import { XeroLogTemplates } from 'src/entities/xero-log-templates.entity';
     XeroService,
     XeroContactsService,
     XeroRefreshTokenService,
+    XeroSyncRecoveryService,
   ],
   exports: [ClientSuppliersDetailsService],
 })

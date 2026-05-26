@@ -33,6 +33,7 @@ import { formatCurrencyWithoutDollars } from 'src/libs/@currency-formattor/curre
 import { padBsb6 } from 'src/libs/@bsb/pad-bsb';
 import { CreateActivityLogInput } from 'src/api/common/activity-log/dto/create-activity-log.input';
 import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
+import { XeroSyncRecoveryService } from 'src/api/common/xero-webhooks/recoveryQueue/xeroSyncRecovery.service';
 import { linkExtensions } from 'src/api/common/activity-log/link-extensions';
 import { handleError } from 'src/api/common/error-handler';
 var moment = require('moment-timezone');
@@ -63,6 +64,7 @@ export class ClientSuppliersDetailsService {
     @InjectRepository(ClientSupplierProjectXeroAccountCodes)
     private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
     private readonly activityLogService: ActivityLogService,
+    private readonly xeroSyncRecoveryService: XeroSyncRecoveryService,
   ) {
     this.logger = new PaytradeLogger('CLIENT_SUPPLIERS_SERVICE');
   }
@@ -1042,6 +1044,34 @@ export class ClientSuppliersDetailsService {
               };
               await this.activityLogService.insertActivityLog(
                 createActivityLogInput2,
+              );
+            }
+            // Task #268 — Now that the contact has been edited (typically
+            // to supply a previously-missing email or banking detail),
+            // best-effort enqueue a recovery sweep for any unarchived
+            // Failed Xero contact-mirror logs tied to it. Recovery
+            // service has its own flap guard + no-op for "nothing to
+            // do", so we always fire and never block the edit response.
+            try {
+              // NOTE: `updateClientSuppliersDetailInput.id` is the UUID
+              // primary key — the numeric `client_supplier_id` lives on
+              // the loaded entity (`pt_contact_id` on xero_contact_details
+              // also stores this numeric value, not the UUID).
+              const numericCsId = Number(
+                clientSuppliersDetails?.client_supplier_id,
+              );
+              if (numericCsId) {
+                await this.xeroSyncRecoveryService.enqueue({
+                  company_id: Number(
+                    updateClientSuppliersDetailInput.company_id,
+                  ),
+                  client_supplier_id: numericCsId,
+                  trigger: 'contact_edit',
+                });
+              }
+            } catch (recErr: any) {
+              this.logger.log(
+                `[Task#268] Failed to enqueue Xero sync recovery for contact ${updateClientSuppliersDetailInput.id}: ${recErr?.message || recErr}`,
               );
             }
             return response;
