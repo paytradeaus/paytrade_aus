@@ -234,7 +234,43 @@ export const xeroPaymentsHeaders = [
 ];
 export const xeroContactsRenderData = [
   { key: "contact_name" },
-  { key: "mapped_status" },
+  {
+    key: "mapped_status",
+    // Task #290 — Surface the distinct "Permanently unmapped" status
+    // emitted by getXeroContactListsForCompany as an amber badge so
+    // operators can spot excluded contacts inline on the Xero
+    // contacts tab without switching to the dedicated tab.
+    render: (row: any) => {
+      const status = row?.mapped_status;
+      if (
+        typeof status === "string" &&
+        status.toLowerCase() === "permanently unmapped"
+      ) {
+        return React.createElement(
+          "span",
+          {
+            style: {
+              color: "#b45309",
+              backgroundColor: "#fef3c7",
+              border: "1px solid #fcd34d",
+              borderRadius: "12px",
+              padding: "2px 8px",
+              fontSize: "0.85em",
+              whiteSpace: "nowrap",
+            },
+            title:
+              "This Xero contact has been excluded from auto-mapping and invoice/bill sync.",
+          },
+          React.createElement("i", {
+            className: "fa-light fa-ban",
+            style: { marginRight: "4px" },
+          }),
+          "Permanently unmapped",
+        );
+      }
+      return status;
+    },
+  },
 ];
 export const xeroProjectsRenderData = [
   { key: "project_name" },
@@ -387,6 +423,9 @@ export const mappedPaymentsRenderData = [
 export const statusOptions = [
   { label: "Mapped", value: "Mapped" },
   { label: "Unmapped", value: "Unmapped" },
+  // Task #290 — Filter chip mirroring the backend status value emitted
+  // by getXeroContactListsForCompany for permanently-excluded contacts.
+  { label: "Permanently unmapped", value: "Permanently unmapped" },
 ];
 
 // Task #289 — Headers / render config for the "Permanently unmapped"
