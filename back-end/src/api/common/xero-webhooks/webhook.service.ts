@@ -19494,4 +19494,170 @@ export class XeroWebhookService {
       return null;
     }
   }
+
+  /**
+   * Task #266 — Sweep old failed Contact webhook sync logs whose
+   * underlying Xero contact is now ARCHIVED.
+   *
+   * Before Task #265, a Xero contact webhook for an archived contact
+   * would fall through into the "missing mandatory fields" path and
+   * write a Failed sync log (template 368) — Xero strips most fields
+   * from archived contacts, so the real reason was "archived", not
+   * "user forgot fields". Task #265 added a short-circuit so future
+   * webhooks for archived contacts get the friendlier Warning template
+   * 623 instead. This sweep retro-fits the same fix to historical rows.
+   *
+   * For every still-active (not archived_at) failed template-368 row on
+   * this company's integration whose linked `xero_contact_details.contact_status`
+   * is now `ARCHIVED`, the row is rewritten in-place to template 623
+   * (Warning, `WH_CONTACT_ARCHIVED_SKIPPED`), with a clearer error
+   * message and a history breadcrumb explaining the reclassification.
+   *
+   * Idempotent: rows already on template 623 are skipped (they are not
+   * template-368 to begin with). Re-running the sweep finds zero new
+   * candidates once the backlog is cleared.
+   */
+  async recoverArchivedContactSyncLogs(
+    decoded: any,
+    input: { company_id: number; dry_run?: boolean },
+  ): Promise<{
+    success: boolean;
+    message: string;
+    scanned: number;
+    updated: number;
+    skipped: number;
+    sample_sync_ids?: number[];
+  }> {
+    const company_id = Number(input?.company_id);
+    const dryRun = !!input?.dry_run;
+    if (!company_id) {
+      return {
+        success: false,
+        message: 'company_id is required.',
+        scanned: 0,
+        updated: 0,
+        skipped: 0,
+      };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails || !xeroDetails.integration_id) {
+      return {
+        success: false,
+        message: 'No active Xero integration found for this company.',
+        scanned: 0,
+        updated: 0,
+        skipped: 0,
+      };
+    }
+
+    // Pull every still-active failed contact-missing-fields log on this
+    // integration. The volume is bounded (one per archived contact) so a
+    // straight find is fine here.
+    const candidates = await this.xeroSyncLogs.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 368,
+        archived_at: IsNull(),
+      },
+    });
+
+    let updated = 0;
+    let skipped = 0;
+    const sampleUpdated: number[] = [];
+    const triggeredByUserId = decoded?.userId ?? null;
+
+    for (const log of candidates) {
+      try {
+        // Resolve the linked xero contact. reference_id is the
+        // xero_contact_details.id (uuid) — see handleContactCreateUpdate
+        // where the failed 368 row is written. api_payload.contact_id is
+        // the Xero GUID, which is our backup path when reference_id is
+        // missing on older rows.
+        let contactRow: XeroContactDetails | null = null;
+        if (log.reference_id) {
+          contactRow = await this.xeroContactDetails.findOne({
+            where: { id: log.reference_id },
+          });
+        }
+        if (!contactRow) {
+          const xeroContactId = log.api_payload?.contact_id;
+          if (xeroContactId) {
+            contactRow = await this.xeroContactDetails.findOne({
+              where: {
+                contact_id: String(xeroContactId),
+                integration_id: xeroDetails.integration_id,
+              },
+            });
+          }
+        }
+        if (
+          !contactRow ||
+          String(contactRow.contact_status) !==
+            String(Contact.ContactStatusEnum.ARCHIVED)
+        ) {
+          skipped++;
+          continue;
+        }
+
+        if (dryRun) {
+          updated++;
+          if (sampleUpdated.length < 10) sampleUpdated.push(log.sync_id);
+          continue;
+        }
+
+        const contactName =
+          contactRow.contact_name ||
+          log.api_payload?.client_supplier_name ||
+          'this contact';
+        const newHistory = [
+          ...(Array.isArray(log.history) ? log.history : []),
+          `Reclassified by archived-contact sweep — contact is archived in Xero (was: template 368 "missing mandatory fields").`,
+        ];
+        const newImportantChecks = {
+          ...(log.important_checks || {}),
+          'Reclassified by sweep': 'Archived in Xero',
+        };
+
+        await this.xeroSyncLogs.update(
+          { id: log.id },
+          {
+            log_template_id: 623,
+            error_code: 'WH_CONTACT_ARCHIVED_SKIPPED',
+            error_message:
+              'Contact is archived in Xero — import skipped. Un-archive the contact in Xero, then click Retry import to bring it into Pay Trade.',
+            history: newHistory,
+            important_checks: newImportantChecks,
+            dynamic_values: {
+              ...(log.dynamic_values || {}),
+              contact_name: contactName,
+            },
+            updated_by: triggeredByUserId,
+          },
+        );
+        updated++;
+        if (sampleUpdated.length < 10) sampleUpdated.push(log.sync_id);
+      } catch (rowErr: any) {
+        this.logger.warn(
+          `[recoverArchivedContactSyncLogs] Failed to reclassify sync_id=${log?.sync_id}: ${rowErr?.message || rowErr}`,
+        );
+        skipped++;
+      }
+    }
+
+    const msg = dryRun
+      ? `Dry-run: ${updated} of ${candidates.length} failed contact log(s) would be reclassified to "archived in Xero" (template 623).`
+      : `Reclassified ${updated} of ${candidates.length} failed contact log(s) to "archived in Xero" (template 623).`;
+
+    return {
+      success: true,
+      message: msg,
+      scanned: candidates.length,
+      updated,
+      skipped,
+      sample_sync_ids: sampleUpdated,
+    };
+  }
 }

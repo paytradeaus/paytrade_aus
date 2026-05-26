@@ -1372,6 +1372,69 @@ export class XeroResolver {
   }
 
   /**
+   * Task #266 — Sweep old failed Contact webhook sync logs whose
+   * underlying Xero contact is now ARCHIVED, and rewrite each one in
+   * place to the friendlier "archived in Xero" Warning template (623)
+   * so admins stop seeing them as hard failures. Idempotent and safe
+   * to re-run. Same IDOR guard as `manualXeroResync`.
+   *
+   * Returns a `StringResponse` whose `message` is JSON-stringified
+   * `{ success, message, scanned, updated, skipped, sample_sync_ids }`.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'recoverArchivedContactSyncLogs',
+    description:
+      'One-time/admin sweep: find historical failed Contact webhook sync logs whose Xero contact is now archived, and reclassify them to the "archived in Xero" Warning template. Idempotent.',
+  })
+  async recoverArchivedContactSyncLogs(
+    @Context() context,
+    @Args('company_id', { description: 'Company id of the calling user.' })
+    company_id: number,
+    @Args('dry_run', {
+      nullable: true,
+      description:
+        'If true, return the count that would be reclassified without writing any changes.',
+    })
+    dry_run?: boolean,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
+      if (!headerCompanyId || headerCompanyId !== Number(company_id)) {
+        return framedResponse(
+          'ERROR',
+          JSON.stringify({
+            success: false,
+            message:
+              'Unauthorized: company_id does not match your active session.',
+          }),
+        );
+      }
+      const result =
+        await this.xeroWebhookService.recoverArchivedContactSyncLogs(decoded, {
+          company_id,
+          dry_run: !!dry_run,
+        });
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
+    }
+  }
+
+  /**
    * Task #72 — Lookup helper for the Manual Xero Re-sync widget.
    *
    * Returns up to 10 candidate Xero records for the chosen type filtered
