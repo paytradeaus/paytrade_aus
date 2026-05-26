@@ -7956,55 +7956,88 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
   async mirrorXeroArchivedContactsToPaytrade() {
     const PREFIX = '[Task#274 xero-archive-mirror]';
     try {
-      // RETURNING with a JOIN-derived contact_name + integration_id so we
-      // can emit one sync-log entry per flip without a second roundtrip.
-      const archiveResult: any[] = await this.dataSource.query(`
-        UPDATE  client_suppliers_details csd
-        SET     is_archived     = true,
-                archived_at     = COALESCE(csd.archived_at, now()),
-                archived_reason = 'xero_mirror'
-        FROM    xero_contact_details xcd
-        WHERE   xcd.pt_contact_id = csd.client_supplier_id
-          AND   xcd.contact_status = 'ARCHIVED'
-          AND   csd.is_archived = false
-          AND   csd.is_deleted = false
-        RETURNING csd.client_supplier_id,
-                  csd.client_supplier_name,
-                  xcd.id           AS xero_contact_uuid,
-                  xcd.contact_id   AS xero_contact_guid,
-                  xcd.integration_id
+      // SELECT-then-UPDATE (instead of UPDATE...RETURNING with a JOIN)
+      // because TypeORM's dataSource.query() unwrapping of
+      // UPDATE...FROM...RETURNING with joined-table columns was
+      // producing rows whose joined columns came back as `undefined`
+      // (observed in production: `null value in column "integration_id"`
+      // when emitting the per-flip sync log). Doing the SELECT first
+      // guarantees we have integration_id + contact_name in hand before
+      // we touch xero_sync_logs.
+      const toArchive: any[] = await this.dataSource.query(`
+        SELECT csd.client_supplier_id,
+               csd.client_supplier_name,
+               xcd.id           AS xero_contact_uuid,
+               xcd.contact_id   AS xero_contact_guid,
+               xcd.integration_id
+        FROM   client_suppliers_details csd
+        JOIN   xero_contact_details xcd
+               ON xcd.pt_contact_id = csd.client_supplier_id
+        WHERE  xcd.contact_status = 'ARCHIVED'
+          AND  csd.is_archived = false
+          AND  csd.is_deleted = false
       `);
+      if (toArchive.length) {
+        const ids = toArchive
+          .map((r) => Number(r.client_supplier_id))
+          .filter((n) => Number.isFinite(n));
+        if (ids.length) {
+          await this.dataSource.query(
+            `UPDATE client_suppliers_details
+                SET is_archived     = true,
+                    archived_at     = COALESCE(archived_at, now()),
+                    archived_reason = 'xero_mirror'
+              WHERE client_supplier_id = ANY($1::bigint[])`,
+            [ids],
+          );
+        }
+      }
 
-      // Auto un-archive — only for contacts WE archived via the mirror.
-      // Manual archival (future feature) keeps archived_reason NULL or
-      // some other sentinel, and won't be auto-cleared.
-      const unarchiveResult: any[] = await this.dataSource.query(`
-        UPDATE  client_suppliers_details csd
-        SET     is_archived     = false,
-                archived_at     = NULL,
-                archived_reason = NULL
-        FROM    xero_contact_details xcd
-        WHERE   xcd.pt_contact_id = csd.client_supplier_id
-          AND   xcd.contact_status = 'ACTIVE'
-          AND   csd.is_archived = true
-          AND   csd.archived_reason = 'xero_mirror'
-        RETURNING csd.client_supplier_id,
-                  csd.client_supplier_name,
-                  xcd.id           AS xero_contact_uuid,
-                  xcd.contact_id   AS xero_contact_guid,
-                  xcd.integration_id
+      const toUnarchive: any[] = await this.dataSource.query(`
+        SELECT csd.client_supplier_id,
+               csd.client_supplier_name,
+               xcd.id           AS xero_contact_uuid,
+               xcd.contact_id   AS xero_contact_guid,
+               xcd.integration_id
+        FROM   client_suppliers_details csd
+        JOIN   xero_contact_details xcd
+               ON xcd.pt_contact_id = csd.client_supplier_id
+        WHERE  xcd.contact_status = 'ACTIVE'
+          AND  csd.is_archived = true
+          AND  csd.archived_reason = 'xero_mirror'
       `);
+      if (toUnarchive.length) {
+        const ids = toUnarchive
+          .map((r) => Number(r.client_supplier_id))
+          .filter((n) => Number.isFinite(n));
+        if (ids.length) {
+          await this.dataSource.query(
+            `UPDATE client_suppliers_details
+                SET is_archived     = false,
+                    archived_at     = NULL,
+                    archived_reason = NULL
+              WHERE client_supplier_id = ANY($1::bigint[])`,
+            [ids],
+          );
+        }
+      }
 
-      const archived = Array.isArray(archiveResult) ? archiveResult.length : 0;
-      const unarchived = Array.isArray(unarchiveResult)
-        ? unarchiveResult.length
-        : 0;
+      const archiveResult = toArchive;
+      const unarchiveResult = toUnarchive;
+      const archived = archiveResult.length;
+      const unarchived = unarchiveResult.length;
 
       // Emit one sync-log row per flip so users can see what changed in
       // the standard sync log surface. Template 625 = archived (Warning),
       // 626 = unarchived (Succeeded). Failures here are non-fatal — the
       // DB mutation already happened; we just lose audit visibility.
       for (const row of archiveResult || []) {
+        if (!row.integration_id || !row.client_supplier_id) {
+          this.logger.warn(
+            `${PREFIX} skip sync-log emit (archive): missing integration_id/client_supplier_id on row ${JSON.stringify(row)}`,
+          );
+          continue;
+        }
         try {
           await this.xeroService.insertXeroSyncLogs(null, {
             integration_id: row.integration_id,
@@ -8033,6 +8066,12 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
         }
       }
       for (const row of unarchiveResult || []) {
+        if (!row.integration_id || !row.client_supplier_id) {
+          this.logger.warn(
+            `${PREFIX} skip sync-log emit (unarchive): missing integration_id/client_supplier_id on row ${JSON.stringify(row)}`,
+          );
+          continue;
+        }
         try {
           await this.xeroService.insertXeroSyncLogs(null, {
             integration_id: row.integration_id,
