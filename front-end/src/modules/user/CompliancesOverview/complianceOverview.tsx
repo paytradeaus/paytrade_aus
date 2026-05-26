@@ -17,7 +17,7 @@ import {
 } from "./complianceOverview.functions";
 
 function ComplianceOverview({ isAdmin = false }: any) {
-  const { setLoader, setLoaderInfo }: any = useLoaderContext();
+  const { loader, setLoader, setLoaderInfo }: any = useLoaderContext();
   const [complianceTimeLine, setComplianceTimeLine] = useState<any>([]);
   const [complianceOverview, setComplianceOverview] = useState<any>([]);
 
