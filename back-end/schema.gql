@@ -15830,6 +15830,19 @@ type Mutation {
   ): StringResponse!
 
   """
+  One-time/admin sweep: find historical "missing mandatory fields" Contact webhook sync logs whose Xero contact is now Active, and retry each through the fixed webhook handler. Idempotent.
+  """
+  recoverFailedContactImportSyncLogs(
+    """Company id of the calling user."""
+    company_id: Float!
+
+    """
+    If true, return the count that would be retried without dispatching any re-syncs.
+    """
+    dry_run: Boolean
+  ): StringResponse!
+
+  """
   Retry recently-Failed Xero contact-mirror sync logs for the given client/supplier. Reuses the manualXeroResync pipeline; idempotent with a 5-minute flap guard.
   """
   recoverFailedSyncsForContact(
