@@ -80,8 +80,14 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
         );
         break;
       case actionButtonType.EDIT_CONTRACT:
+        // Task #279 follow-up: the "signed contract missing" compliance
+        // check needs the user to upload a PDF, which lives on the Edit
+        // Contract page's Upload Contract modal — not on the read-only
+        // Overview page. Route straight to the edit form and pass
+        // `routedFrom=compliance` so AddEditContracts auto-opens the
+        // Upload Contract modal once the contract has loaded.
         router.push(
-          `${AppRoutes.USER_CONTRACTS_OVERVIEW}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}&routedFrom=compliance`
+          `${AppRoutes.USER_EDIT_CONTRACTS}/${reference_id}?complianceTab=${typeOfTrustAccount}&projectId=${PayloadProjectId}&routedFrom=compliance`
         );
         break;
       case actionButtonType.MATCH_TRANSACTIONS: {

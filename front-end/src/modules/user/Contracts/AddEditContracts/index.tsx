@@ -699,6 +699,29 @@ export default function AddEditContracts(props: any) {
     }
   }, [complianceOverviewData, projectOptions]);
 
+  // Task #279 follow-up: when the user arrives from the Compliance
+  // page's "Upload signed contracts" check (ComplianceAccordion sends
+  // `?routedFrom=compliance` on EDIT_CONTRACT), auto-open the Upload
+  // Contract modal once the contract record has finished loading so
+  // they don't have to click "Edit" then "Upload Contract" by hand.
+  // Only fire on the edit page (isEdit) and only once per arrival —
+  // hasAutoOpenedUploadRef guards against re-firing if contractData
+  // mutates later in the session.
+  const routedFromCompliance =
+    queryParams.get("routedFrom") === "compliance";
+  const hasAutoOpenedUploadRef = React.useRef(false);
+  useEffect(() => {
+    if (
+      isEdit &&
+      routedFromCompliance &&
+      contractData?.id &&
+      !hasAutoOpenedUploadRef.current
+    ) {
+      hasAutoOpenedUploadRef.current = true;
+      setShowUploadModel(true);
+    }
+  }, [isEdit, routedFromCompliance, contractData?.id]);
+
   // Function to set selected data for role or retention
   const dropdownData = (
     selectedValue: string,
