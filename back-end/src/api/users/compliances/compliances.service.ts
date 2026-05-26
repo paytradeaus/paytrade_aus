@@ -1720,55 +1720,245 @@ export class CompliancesService {
     }
   }
 
+  /**
+   * Daily compliance cron entry point.
+   *
+   * Aggregates failing compliance checks across ALL of a user's In Progress
+   * projects (across every company they admin) and sends ONE digest email
+   * per user per run — replacing the legacy per-project loop that fired
+   * one email per (project x admin) row and triple-counted any project
+   * whose company had multiple admins.
+   *
+   * Recipients: Active Primary/Secondary Admins whose
+   * `email_preferences.compliance` is not explicitly `false` (default opt-IN)
+   * AND whose owning company hasn't opted out at the company level (system-
+   * added/personal companies fall back to the user pref).
+   */
   async checkAllprojectCompliance() {
     try {
-      const queryBuilder = await this.projectsRepo
+      const rows = await this.projectsRepo
         .createQueryBuilder('p')
         .select([
-          'p.project_id as project_id',
-          'p.project_name as project_name',
-          'c.company_name as company_name',
-          'c.company_id as company_id',
+          'p.project_id AS project_id',
+          'p.project_name AS project_name',
+          'c.company_id AS company_id',
+          'c.company_name AS company_name',
+          'u.user_id AS user_id',
+          'u.email_id AS email_id',
+          'u.first_name AS first_name',
         ])
         .innerJoin('p.companyDetails', 'c')
         .innerJoin(
           CompanyUserRoles,
           'r',
-          // Widened so both Primary Admins and (Secondary) Admins receive the
-          // daily compliance email. Previously only PRIMARY ADMIN.
           `r.company_id = c.company_id AND r.company_role IN ('${Role.PRIMARY_ADMIN}', '${Role.ADMIN}') AND r.status = 'Active'`,
         )
         .innerJoin(UserDetails, 'u', 'u.user_id = r.user_id')
         .where('p.project_status = :project_status', {
           project_status: 'In Progress',
         })
-        // Default-on user pref always wins: a user's explicit `false`
-        // suppresses the email even when the owning company is a real
-        // (non-system) company that has opted in at the company level.
-        // For system-added (personal) companies we fall back to the
-        // user pref entirely. Null / missing prefs are treated as
-        // opted-IN on both sides so legacy rows without the
-        // `compliance` key still receive the daily email.
         .andWhere(
           `(u.email_preferences ->> 'compliance') IS DISTINCT FROM 'false'`,
         )
         .andWhere(
           `(c.is_system_added = TRUE OR (c.email_preferences ->> 'compliance') IS DISTINCT FROM 'false')`,
-        );
+        )
+        .getRawMany<{
+          project_id: number;
+          project_name: string;
+          company_id: number;
+          company_name: string;
+          user_id: number;
+          email_id: string;
+          first_name: string;
+        }>();
 
-      const result = await queryBuilder.getRawMany();
-
-      const projectIds = result?.map((project) => project?.project_id);
-
-      for (const projectId of projectIds) {
-        await this.sentMailsOnFailedComplianceOfAProject(projectId);
+      // Group rows by recipient user_id (NOT email) so two distinct
+      // accounts that happen to share an inbox stay as independent
+      // buckets and never receive each other's project data.
+      type UserBucket = {
+        user_id: number;
+        email_id: string;
+        first_name: string;
+        company_name: string | null;
+        project_ids: Set<number>;
+      };
+      const usersByUserId = new Map<number, UserBucket>();
+      for (const row of rows) {
+        if (!row.user_id) continue;
+        if (!row.email_id || !row.email_id.includes('@')) continue;
+        const key = Number(row.user_id);
+        const bucket =
+          usersByUserId.get(key) || {
+            user_id: key,
+            email_id: row.email_id,
+            first_name: row.first_name,
+            company_name: row.company_name,
+            project_ids: new Set<number>(),
+          };
+        bucket.project_ids.add(Number(row.project_id));
+        usersByUserId.set(key, bucket);
       }
+
+      // Per-project compliance results are cached for this cron tick so a
+      // project shared by N admins isn't recomputed N times.
+      const projectComplianceCache = new Map<
+        number,
+        { project: ProjectDetails; data: any[] } | null
+      >();
+
+      let emailsSent = 0;
+      let usersSkipped = 0;
+
+      for (const bucket of usersByUserId.values()) {
+        try {
+          const sections: Array<{ project: ProjectDetails; data: any[] }> = [];
+          for (const projectId of bucket.project_ids) {
+            let cached = projectComplianceCache.get(projectId);
+            if (cached === undefined) {
+              cached = await this.collectFailedComplianceDataForProject(
+                projectId,
+              );
+              projectComplianceCache.set(projectId, cached);
+            }
+            if (cached && cached.data.length) sections.push(cached);
+          }
+
+          if (!sections.length) {
+            usersSkipped++;
+            continue;
+          }
+
+          let aggregatedHtml = '';
+          for (const section of sections) {
+            aggregatedHtml += `<h2 style="color:#1583D8;margin:24px 0 8px 0;">Project: ${section.project.project_name}</h2>`;
+            aggregatedHtml += await this.generateComplianceHTML(
+              section.data,
+              section.project,
+            );
+          }
+
+          const mailTemplate =
+            await this.ptContentService.getMailTemplateByMailType(
+              'failed-compliance',
+            );
+
+          const friendlyName =
+            bucket.first_name?.trim() || bucket.company_name || 'there';
+          const projectLabel =
+            sections.length === 1
+              ? sections[0].project.project_name
+              : `${sections.length} projects`;
+
+          const mailDynamicData: Record<string, string> = {
+            failed_compliance: aggregatedHtml,
+            user_name: friendlyName,
+            project_name: projectLabel,
+          };
+
+          const Keys = mailTemplate.selected_dynamic;
+          const dynamicData: { [key: string]: any } = {};
+          Keys.forEach((key) => {
+            dynamicData[key] = mailDynamicData[key];
+          });
+
+          const mailbody = await this.replaceVariables(
+            mailTemplate.email_content,
+            dynamicData,
+          );
+
+          const subject =
+            sections.length === 1
+              ? `Compliance Failed for your project: ${sections[0].project.project_name}`
+              : `Compliance issues across ${sections.length} of your projects`;
+
+          this.emailQueueProducer.emailQueueProducer({
+            toEmail: bucket.email_id,
+            subject,
+            template: 'header-footer-email',
+            mailBody: String(mailbody),
+            mail_type: EmailTypeEnum.failedCompliance,
+          });
+          emailsSent++;
+        } catch (perUserErr: any) {
+          this.logger.error(
+            `Compliance digest failed for ${bucket.email_id}: ${perUserErr?.message || perUserErr}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `[COMPLIANCE_DIGEST] users_scanned=${usersByUserId.size} emails_sent=${emailsSent} users_skipped_no_issues=${usersSkipped}`,
+      );
     } catch (error) {
       this.logger.error(
-        `Errored while generating a mail for compliance of all projectswith message: ${error}`,
+        `Errored while generating compliance digest emails: ${error}`,
       );
       throw new Error(error);
     }
+  }
+
+  /**
+   * Builds the per-project `combinedComplianceData` payload (PTA + RTA,
+   * each filtered to checks the user opted in to via `mails=true`) used
+   * by both the daily digest aggregator and the single-project explicit
+   * send. Returns null if the project has no opted-in failing checks so
+   * callers can skip cleanly.
+   */
+  async collectFailedComplianceDataForProject(
+    projectId: number,
+  ): Promise<{ project: ProjectDetails; data: any[] } | null> {
+    const projectdetails = await this.projectsRepo.findOne({
+      where: { project_id: projectId },
+      relations: ['companyDetails'],
+    });
+    if (!projectdetails) return null;
+
+    const complianceResults = [
+      {
+        type: 'PTA',
+        data: await this.fetchComplianceResultsOfAProject({
+          project_id: projectId,
+          bank_account_type: 'Project Trust Account',
+          failedFilter: true,
+        }),
+      },
+      {
+        type: 'RTA',
+        data: await this.fetchComplianceResultsOfAProject({
+          project_id: projectId,
+          bank_account_type: 'Retention Trust Account',
+          failedFilter: true,
+        }),
+      },
+    ];
+
+    const savedProjectCompliance = await this.complianceOfProjects.findOne({
+      where: { project_id: projectId },
+    });
+    if (!savedProjectCompliance) return null;
+
+    const combinedComplianceData: any[] = [];
+    complianceResults.forEach(({ type, data }) => {
+      if (!data) return;
+      const filteredData = data.data.filter((compliance: any) => {
+        const match =
+          type === 'PTA'
+            ? savedProjectCompliance.pta_compliances.find(
+                (c) => c.check_number === compliance.check_number,
+              )
+            : savedProjectCompliance.rta_compliances.find(
+                (c) => c.check_number === compliance.check_number,
+              );
+        return match && match.mails === true;
+      });
+      if (filteredData.length) {
+        combinedComplianceData.push({ type, data: filteredData });
+      }
+    });
+
+    if (!combinedComplianceData.length) return null;
+    return { project: projectdetails, data: combinedComplianceData };
   }
 
   async sentMailsOnFailedComplianceOfAProject(projectId: number) {
