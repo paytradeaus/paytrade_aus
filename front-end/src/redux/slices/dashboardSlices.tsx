@@ -13,6 +13,18 @@ const dashboardSlices = createSlice({
       companyId: number;
       bankId: string | number;
     },
+    bookkeepingScreenState: null as null | {
+      companyId: number;
+      bankId?: string | number | null;
+      search?: string;
+      singleActivyDate?: { value: string; label: string };
+      isCustomDate?: boolean;
+      activityDate?: string;
+      activityLogStartDate?: string | null;
+      activityLogEndDate?: string | null;
+      page?: number;
+      perPage?: number;
+    },
     projectoverview: {},
     bankAccountTypeFromDashBoard: "",
     addBankAccountDetails: {},
@@ -62,6 +74,12 @@ const dashboardSlices = createSlice({
     ) => {
       state.bookkeepingSelectedBank = action.payload;
     },
+    setBookkeepingScreenState: (
+      state,
+      action: PayloadAction<typeof state.bookkeepingScreenState>
+    ) => {
+      state.bookkeepingScreenState = action.payload;
+    },
   },
 });
 export const {
@@ -76,6 +94,7 @@ export const {
   SetBankAccountTypeFromDashBoard,
   setBlogDetailsForRouting,
   setBookkeepingSelectedBank,
+  setBookkeepingScreenState,
 } = dashboardSlices.actions;
 export default dashboardSlices.reducer;
 

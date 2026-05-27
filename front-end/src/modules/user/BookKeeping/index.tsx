@@ -1,5 +1,5 @@
 "use client";
-import React, { Fragment, useCallback, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCookie } from "cookies-next";
 import { useDispatch, useSelector } from "react-redux";
@@ -52,6 +52,7 @@ import {
 import {
   setScreenDetails,
   setBookkeepingSelectedBank,
+  setBookkeepingScreenState,
 } from "@/redux/slices/dashboardSlices";
 import BaseModal from "@/components/BaseModal";
 import { RootState } from "@/redux/store";
@@ -68,12 +69,24 @@ const BookKeepingList = (props: any) => {
   const persistedBookkeepingBank = useSelector(
     (state: RootState) => state.dashBoard.bookkeepingSelectedBank
   );
+  const persistedBookkeepingScreen = useSelector(
+    (state: RootState) => state.dashBoard.bookkeepingScreenState
+  );
+  const selectedCompanyId = Number(getCookie("companyId")) || 0;
+  // Read the persisted screen state once at mount; only use it if it
+  // belongs to the currently selected company so we never leak state
+  // across companies.
+  const initialScreen =
+    persistedBookkeepingScreen &&
+    persistedBookkeepingScreen.companyId === selectedCompanyId
+      ? persistedBookkeepingScreen
+      : null;
   const [loading, setLoading] = useState<boolean>(false);
   const [totalRows, setTotalRows] = useState(0);
-  const [perPage, setPerPage] = useState(10);
-  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(initialScreen?.perPage ?? 10);
+  const [page, setPage] = useState(initialScreen?.page ?? 1);
   const [transactionData, setTransactionData] = useState<ITransactions[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialScreen?.search ?? "");
   const [openModal, setOpenModal] = useState(false);
   const [actionData, setActionData] = useState<any>();
   const [popupMessage, setPopupMessage] = useState({
@@ -88,22 +101,46 @@ const BookKeepingList = (props: any) => {
 
   const [activityLogStartDate, setActivityLogStartDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(0, 0, 0, 0)));
+  >(
+    initialScreen?.activityLogStartDate
+      ? new Date(initialScreen.activityLogStartDate)
+      : new Date(new Date().setHours(0, 0, 0, 0))
+  );
   const [activityLogEndDate, setActivityLogEndDate] = useState<
     Date | null | any
-  >(new Date(new Date().setHours(23, 59, 59, 999)));
-  const [isCustomDate, setIsCustomDate] = useState(false);
-  const [activityDate, setActivityDate] = useState("");
-  const [singleActivyDate, setSingleActivyDate] = useState<any>({
-    value: "",
-    label: "All dates",
-  });
+  >(
+    initialScreen?.activityLogEndDate
+      ? new Date(initialScreen.activityLogEndDate)
+      : new Date(new Date().setHours(23, 59, 59, 999))
+  );
+  const [isCustomDate, setIsCustomDate] = useState(
+    initialScreen?.isCustomDate ?? false
+  );
+  const [activityDate, setActivityDate] = useState(
+    initialScreen?.activityDate ?? ""
+  );
+  const [singleActivyDate, setSingleActivyDate] = useState<any>(
+    initialScreen?.singleActivyDate ?? {
+      value: "",
+      label: "All dates",
+    }
+  );
   const [bankNameOptions, setBankNameOptions] = useState<any>([]);
   const [bankNameOptionsOnly, setBankNameOptionsOnly] = useState<any>([]);
   const [selectedBank, setSelectedBank] = useState<any>();
-  const [bankId, setBankId] = useState<any>("");
+  // Lazily seed bankId from the persisted screen state (falling back to
+  // the legacy single-key entry) so that the async bank-options fetch
+  // does NOT have to flip bankId from "" → <value> on mount. If it
+  // did, the "reset page to 1 on filter change" effect would fire and
+  // wipe out the restored page.
+  const [bankId, setBankId] = useState<any>(
+    initialScreen?.bankId ??
+      (persistedBookkeepingBank &&
+      persistedBookkeepingBank.companyId === selectedCompanyId
+        ? persistedBookkeepingBank.bankId
+        : "")
+  );
   const [isOptSelected, setIsOptSelected] = useState("");
-  const selectedCompanyId = Number(getCookie("companyId")) || 0;
   const [selectedRowsInGrid, setSelectedRowsInGrid] = useState<any>([]);
   const [btnDisabled, setBtnDisabled] = useState<boolean>(true);
   const [openExcludeCheck, setOpenExcludeCheck] = useState(false);
@@ -186,37 +223,45 @@ const BookKeepingList = (props: any) => {
         // first bank so the page always loads a meaningful view.
         setBankNameOptions(modifiedContracts);
         setBankNameOptionsOnly(modifiedContracts);
-        if (!bankId) {
-          // Prefer the last-selected bank for this company if it still
-          // exists in the freshly fetched list. Otherwise fall back to
-          // the first account and clear any stale persisted value.
-          const remembered =
+        // Validate the (possibly pre-seeded) bankId against the freshly
+        // fetched list. If it's still valid, leave bankId untouched —
+        // this is critical: calling setBankId with a *different* value
+        // here would fire the "reset page to 1 on filter change" effect
+        // and wipe the restored page. We only mutate bankId when the
+        // remembered value is missing/stale.
+        const candidateId =
+          bankId !== "" && bankId != null
+            ? bankId
+            : persistedBookkeepingBank &&
+              persistedBookkeepingBank.companyId === selectedCompanyId
+            ? persistedBookkeepingBank.bankId
+            : null;
+        const remembered = candidateId
+          ? modifiedContracts.find(
+              (opt: any) => String(opt.value) === String(candidateId)
+            )
+          : null;
+        if (remembered) {
+          // Only update state if the value actually differs, so React
+          // bails out and dependent effects (page reset) don't fire.
+          if (String(bankId) !== String(remembered.value)) {
+            setBankId(remembered.value);
+          }
+          setSelectedBank(remembered);
+        } else {
+          setBankId(modifiedContracts[0].value);
+          setSelectedBank(modifiedContracts[0]);
+          if (
             persistedBookkeepingBank &&
             persistedBookkeepingBank.companyId === selectedCompanyId
-              ? modifiedContracts.find(
-                  (opt: any) =>
-                    String(opt.value) ===
-                    String(persistedBookkeepingBank.bankId)
-                )
-              : null;
-          if (remembered) {
-            setBankId(remembered.value);
-            setSelectedBank(remembered);
-          } else {
-            setBankId(modifiedContracts[0].value);
-            setSelectedBank(modifiedContracts[0]);
-            if (
-              persistedBookkeepingBank &&
-              persistedBookkeepingBank.companyId !== selectedCompanyId
-            ) {
-              dispatch(setBookkeepingSelectedBank(null));
-            } else if (
-              persistedBookkeepingBank &&
-              persistedBookkeepingBank.companyId === selectedCompanyId
-            ) {
-              // Remembered id is no longer in the list — clear it.
-              dispatch(setBookkeepingSelectedBank(null));
-            }
+          ) {
+            // Remembered id is no longer in the list — clear it.
+            dispatch(setBookkeepingSelectedBank(null));
+          } else if (
+            persistedBookkeepingBank &&
+            persistedBookkeepingBank.companyId !== selectedCompanyId
+          ) {
+            dispatch(setBookkeepingSelectedBank(null));
           }
         }
       }
@@ -237,7 +282,50 @@ const BookKeepingList = (props: any) => {
     sortValues,
   ]);
 
+  // Persist the user-controlled filter / pagination state in memory so
+  // returning to Bookkeeping (e.g. via router.back from a match) lands
+  // back on the same view. Tied to companyId so switching companies
+  // automatically discards the remembered state.
   useEffect(() => {
+    dispatch(
+      setBookkeepingScreenState({
+        companyId: selectedCompanyId,
+        bankId: bankId || null,
+        search,
+        singleActivyDate,
+        isCustomDate,
+        activityDate,
+        activityLogStartDate: activityLogStartDate
+          ? new Date(activityLogStartDate).toISOString()
+          : null,
+        activityLogEndDate: activityLogEndDate
+          ? new Date(activityLogEndDate).toISOString()
+          : null,
+        page,
+        perPage,
+      })
+    );
+  }, [
+    selectedCompanyId,
+    bankId,
+    search,
+    singleActivyDate,
+    isCustomDate,
+    activityDate,
+    activityLogStartDate,
+    activityLogEndDate,
+    page,
+    perPage,
+  ]);
+
+  // Skip the first run so that a restored page from persisted state
+  // isn't immediately reset to 1 on mount.
+  const skipResetPageOnce = useRef(true);
+  useEffect(() => {
+    if (skipResetPageOnce.current) {
+      skipResetPageOnce.current = false;
+      return;
+    }
     setPage(1);
   }, [
     activityDate,
