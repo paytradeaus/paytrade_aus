@@ -922,4 +922,32 @@ export class XeroContactsResolver {
       return framedResponse('ERROR', error?.message ? error.message : error);
     }
   }
+
+  /**
+   * Task #326 — One-off backfill: for every mapped Xero contact where
+   * PT abn_number is blank, copy Xero's taxNumber across. Idempotent;
+   * never overwrites a non-empty PT ABN.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'backfillContactAbnFromXero',
+    description:
+      'Task #326: copy Xero taxNumber onto PT abn_number for every mapped contact where the PT ABN is currently blank.',
+  })
+  async backfillContactAbnFromXero(
+    @Context() context,
+  ): Promise<any> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const companyId = context?.req?.headers?.companyid;
+      const response = await this.xeroContactsService.backfillContactAbnFromXero(
+        Number(companyId),
+        decoded,
+      );
+      return framedResponse('SUCCESS', JSON.stringify(response));
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
 }

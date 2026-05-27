@@ -795,6 +795,16 @@ export class XeroWebhookService {
           const syncedEmail = contact.emailAddress
             ? contact.emailAddress
             : clientSuppliersDetails.client_email_id;
+          // Task #326 — Mirror Xero's taxNumber onto PT abn_number when
+          // present. An empty/missing incoming taxNumber is treated as
+          // "no change" so we never wipe an ABN the user typed in PT.
+          const incomingAbn =
+            typeof contact.taxNumber === 'string'
+              ? contact.taxNumber.trim()
+              : '';
+          const syncedAbn = incomingAbn
+            ? incomingAbn
+            : clientSuppliersDetails.abn_number;
 
           const payload: UpdateClientSuppliersDetailInput = {
             company_id: companyId,
@@ -817,7 +827,7 @@ export class XeroWebhookService {
             client_website: clientSuppliersDetails.client_website,
             qbcc_number: clientSuppliersDetails.qbcc_number,
             acn_number: clientSuppliersDetails.acn_number,
-            abn_number: clientSuppliersDetails.abn_number,
+            abn_number: syncedAbn,
             tfn_number: clientSuppliersDetails.tfn_number,
             payment_terms: clientSuppliersDetails.payment_terms,
             account_details: clientSuppliersDetails.accountDetails || [],

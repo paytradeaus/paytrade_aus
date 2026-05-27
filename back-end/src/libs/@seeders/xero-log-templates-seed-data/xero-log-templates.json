@@ -5748,5 +5748,15 @@
     "from_xero": false,
     "error_code": "PD_PAYMENT_AMOUNTDUE_UNCHANGED",
     "associated_log_ids": [168, 332, 627]
+  },
+  {
+    "id": 630,
+    "sync_type": "Contacts",
+    "description": "<p>ABN <b>{{abn_number}}</b> copied from Xero onto contact <b>{{contact_name}}</b> (Pay Trade ABN was blank). Existing user-entered ABNs are never overwritten.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "PT_CONTACT_ABN_BACKFILLED",
+    "associated_log_ids": [201]
   }
 ]

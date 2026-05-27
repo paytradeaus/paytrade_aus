@@ -361,6 +361,113 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     return { scanned: mapped.length, pushed, skipped, errors };
   }
 
+  /**
+   * Task #326 — One-off backfill: for every Xero-linked contact owned
+   * by `company_id` where PT `abn_number` is empty, fetch the full Xero
+   * contact and copy its `taxNumber` across. Never overwrites a
+   * non-empty PT ABN (existing user-entered values are preserved).
+   * Writes a sync log row per updated contact via the existing
+   * Xero sync log surface (template 630), and is idempotent — once
+   * every blank is filled, re-running is a no-op.
+   */
+  async backfillContactAbnFromXero(
+    company_id: number,
+    decoded: any,
+  ): Promise<{ scanned: number; updated: number; skipped: number; errors: number }> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) throw `No active Xero integration for company ${company_id}`;
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const mapped = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE' as any,
+        pt_contact_id: Not(IsNull()),
+      },
+    });
+
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+    for (const row of mapped) {
+      try {
+        const ptContact = await this.clientSuppliersDetails.findOne({
+          where: { client_supplier_id: row.pt_contact_id as any },
+        });
+        if (!ptContact) { skipped += 1; continue; }
+        const existingAbn =
+          typeof ptContact.abn_number === 'string'
+            ? ptContact.abn_number.trim()
+            : '';
+        if (existingAbn) { skipped += 1; continue; }
+
+        const resp = await this.xero.accountingApi.getContact(
+          xeroDetails.tenant_id,
+          row.contact_id,
+        );
+        const contact = resp?.body?.contacts?.[0];
+        const incomingAbn =
+          typeof contact?.taxNumber === 'string'
+            ? contact.taxNumber.trim()
+            : '';
+        if (!incomingAbn) { skipped += 1; continue; }
+
+        await this.clientSuppliersDetails.update(
+          { client_supplier_id: ptContact.client_supplier_id },
+          { abn_number: incomingAbn },
+        );
+        updated += 1;
+
+        try {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            api_name: 'backfillContactAbnFromXero',
+            api_payload: {
+              contact_id: row.contact_id,
+              tenant_id: xeroDetails.tenant_id,
+              client_supplier_id: ptContact.client_supplier_id,
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 630,
+            dynamic_values: {
+              contact_name: ptContact.client_supplier_name,
+              abn_number: incomingAbn,
+            },
+            project_id: null,
+            contract_id: null,
+            reference: {
+              xeroId: row.id,
+              paytradeId: ptContact.id,
+            },
+            reference_id: row.id,
+            history: [
+              `Backfill triggered for ${ptContact.client_supplier_name}`,
+              'ABN copied from Xero',
+            ],
+            important_checks: {},
+            error_message: null,
+            xero_records: [contact],
+            paytrade_records: [ptContact],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+        } catch (logErr) {
+          this.logger.warn(
+            `[Task #326] Failed to write ABN backfill sync log for contact ${row.contact_id}: ${logErr?.message || logErr}`,
+          );
+        }
+      } catch (err) {
+        errors += 1;
+        this.logger.warn(
+          `[Task #326] backfillContactAbnFromXero failed for contact ${row.contact_id}: ${err?.message || err}`,
+        );
+      }
+    }
+    return { scanned: mapped.length, updated, skipped, errors };
+  }
+
   async getClientSuppliersDetails(client_supplier_id) {
     const asNum = Number(client_supplier_id);
     if (!isNaN(asNum) && Number.isInteger(asNum)) {
@@ -934,6 +1041,13 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       longitude: null,
       client_phone_no: phoneNumber,
       client_email_id: contact.emailAddress || null,
+      // Task #326 — Mirror Xero's taxNumber onto PT abn_number on
+      // the inbound create path so new Xero contacts arrive with
+      // their ABN already populated.
+      abn_number:
+        typeof contact.taxNumber === 'string' && contact.taxNumber.trim()
+          ? contact.taxNumber.trim()
+          : '',
       account_details: accountDetails,
     };
   }
