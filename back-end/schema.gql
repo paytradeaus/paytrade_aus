@@ -14753,6 +14753,11 @@ type Mutation {
   ): AutoMapResponse!
 
   """
+  Task #326: copy Xero taxNumber onto PT abn_number for every mapped contact where the PT ABN is currently blank.
+  """
+  backfillContactAbnFromXero: StringResponse!
+
+  """
   Phase 2: push per-contact PT GST overrides (sales/purchases) into Xero for every mapped contact.
   """
   backfillContactGstFromPaytrade: StringResponse!
