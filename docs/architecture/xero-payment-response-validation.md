@@ -150,33 +150,39 @@ over-payment branch, currency/locking edge case, etc.). The payment
 element would pass `validatePaymentResponse`, the bill in Xero would
 still show as owing, and PayTrade would still write the success log.
 
-Task #318 extends `validatePaymentResponse` with three checks that use
-fields already present on the response (no extra round-trip to Xero,
-no PT-mirror lookup). All failures route to **template 629**
+Task #318 extends `validatePaymentResponse` with several layered checks
+on the embedded `invoice` block. All failures route to **template 629**
 (`PD_PAYMENT_AMOUNTDUE_UNCHANGED`), not template 627, so operators can
 distinguish "payment element unusable" from "payment element ok but
-bill not paid down":
+bill not paid down".
 
-- **Our `paymentID` must appear in `invoice.payments[]` (strongest).**
-  Xero typically embeds the bill's full payment roster on the
+To detect the silent-failure case reliably on bills that already had
+prior partial payments, we capture the bill's `amountDue` **before**
+calling `createPayment` via a single `getInvoice` GET. (The PT mirror
+tracks `total` but not `amountDue`, so a one-shot Xero fetch is the
+cheapest way to get the pre-push value. This is drift from the
+original "no extra GET round-trip" plan, accepted on code review:
+without the pre-push value, any post-push `amountDue` that happens to
+sit below `total − expectedAmount` passes the loose ceiling check
+even if the payment was never applied.)
+
+The checks, in order:
+
+- **Our `paymentID` must appear in `invoice.payments[]` (strongest,
+  no-cost).** Xero typically embeds the bill's payment roster on the
   response. If the array is present and our just-created `paymentID`
-  is not in it, the payment was not applied to this bill. This is the
-  only check that reliably catches the silent-failure case on
-  invoices that already had prior partial payments — `amountDue` and
-  `amountPaid` numerics alone can't disambiguate "our payment applied
-  on top of prior" from "our payment was dropped while a prior payment
-  is still there".
-- **amountDue did not drop by the payment amount (fallback).** When
-  the response carries numeric `invoice.total` and `invoice.amountDue`
-  the validator requires `amountDue ≤ total - expectedAmount + 0.01`.
-  Loose by design — prior partial payments make `amountDue` smaller
-  than that, never larger — so this only fires on bills with no prior
-  partials. Acts as a fallback when `invoice.payments[]` is absent
-  from the response.
-- **`amountDue≈0` with `status≠PAID`.** Self-consistency check on
-  Xero's response: if the bill's outstanding is zero, the status must
-  be `PAID`. Anything else (`AUTHORISED`, `VOIDED`, etc.) indicates a
-  Xero-side anomaly and is also routed to template 629.
+  is not in it, the payment was not applied to this bill.
+- **Pre-push vs post-push `amountDue` delta.** When the pre-push
+  `getInvoice` succeeded, the bill's `amountDue` must drop by exactly
+  `expectedAmount` (±0.01 cent). This is the catch-all for prior
+  partial payments.
+- **`amountDue` ceiling fallback.** When the pre-push GET failed or
+  returned no numeric `amountDue`, fall back to the loose check
+  `amountDue ≤ total − expectedAmount + 0.01`. Only fires on bills
+  with no prior partials.
+- **`amountDue≈0` with `status≠PAID`.** Self-consistency check: if
+  the bill's outstanding is zero, the status must be `PAID`.
+  `AUTHORISED`, `VOIDED`, etc. all route to template 629.
 
 Both checks are guarded — if `invoice` is missing, or `total` /
 `amountDue` aren't numeric, the validator falls through under the

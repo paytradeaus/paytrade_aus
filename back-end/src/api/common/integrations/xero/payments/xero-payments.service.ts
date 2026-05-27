@@ -952,6 +952,42 @@ export class XeroPaymentsService {
           status: Payment.StatusEnum.AUTHORISED,
         };
 
+        // Task #318 — Capture the bill's pre-push amountDue so we can
+        // detect Xero acking a payment that doesn't actually pay it
+        // down. The PT mirror (XeroInvoicesBills) tracks total but not
+        // amountDue, so one Invoice GET is required. This costs a
+        // single round-trip per payment push and is the only way to
+        // detect the silent-failure case on bills with prior partial
+        // payments — drift from the original "no extra GET" plan,
+        // accepted by code review on Task #318. If the GET fails the
+        // validator falls through to its other checks instead of
+        // blocking the push.
+        let prePushAmountDue: number | null = null;
+        if (!skipPayment) {
+          try {
+            const preInvoiceResp =
+              await this.xero.accountingApi.getInvoice(
+                xeroDetails.tenant_id,
+                xeroInvoicesBills.invoice_id,
+              );
+            const preInv = preInvoiceResp?.body?.invoices?.[0];
+            if (preInv && Number.isFinite(preInv.amountDue)) {
+              prePushAmountDue = Number(preInv.amountDue);
+              this.logger.log(
+                `[Task#318 pre-push] invoice_id=${xeroInvoicesBills.invoice_id} amountDue=${prePushAmountDue}`,
+              );
+            } else {
+              this.logger.warn(
+                `[Task#318 pre-push] invoice_id=${xeroInvoicesBills.invoice_id} returned no numeric amountDue — pre-push delta check will be skipped`,
+              );
+            }
+          } catch (preErr) {
+            this.logger.warn(
+              `[Task#318 pre-push] getInvoice failed for invoice_id=${xeroInvoicesBills.invoice_id}: ${preErr?.message ?? preErr} — pre-push delta check will be skipped`,
+            );
+          }
+        }
+
         let response: any = null;
         if (!skipPayment) {
           response = await this.xero.accountingApi.createPayment(
@@ -987,6 +1023,7 @@ export class XeroPaymentsService {
           freshPayment: any,
           expectedInvoiceId: string,
           expectedAmount: number,
+          preAmountDue: number | null,
         ): PaymentValidationFailure | null => {
           if (!freshPayment)
             return {
@@ -1066,16 +1103,33 @@ export class XeroPaymentsService {
                 };
             }
 
-            // Check 2 — amountDue did not absorb our payment at all.
-            // Loose by design (prior partial payments make amountDue
-            // smaller, never larger), so this only fires when the bill
-            // had NO prior partials and our push made no dent. Use as
-            // a fallback when payments[] is absent.
-            const total = Number.isFinite(inv.total) ? Number(inv.total) : null;
             const amountDue = Number.isFinite(inv.amountDue)
               ? Number(inv.amountDue)
               : null;
-            if (total !== null && amountDue !== null) {
+            const total = Number.isFinite(inv.total) ? Number(inv.total) : null;
+
+            // Check 2 (primary) — pre-push vs post-push amountDue
+            // delta. When we successfully captured pre-push amountDue
+            // (one extra Xero GET before createPayment), the bill's
+            // amountDue must drop by exactly the payment amount
+            // (±0.01 cent tolerance). This is the only check that
+            // catches the silent-failure case on bills with prior
+            // partial payments where invoice.payments[] is absent.
+            if (preAmountDue !== null && amountDue !== null) {
+              const expectedPostDue = preAmountDue - expectedAmount;
+              const delta = Math.abs(amountDue - expectedPostDue);
+              if (delta > 0.01)
+                return {
+                  reason: `Xero accepted the payment but the bill's amountDue moved from ${preAmountDue.toFixed(2)} to ${amountDue.toFixed(2)} (expected ${expectedPostDue.toFixed(2)} after a ${expectedAmount.toFixed(2)} payment, delta ${delta.toFixed(2)}); the payment did not reduce the bill's outstanding balance by the expected amount`,
+                  template: 629,
+                };
+            } else if (amountDue !== null && total !== null) {
+              // Check 2b (fallback) — when pre-push amountDue was not
+              // captured (GET failed or returned no numeric value) but
+              // both total and post amountDue are numeric, use the
+              // loose ceiling check. Only fires on bills with no prior
+              // partials (those would satisfy this inequality by
+              // coincidence).
               const maxAcceptableDue = total - expectedAmount + 0.01;
               if (amountDue > maxAcceptableDue)
                 return {
@@ -1109,6 +1163,7 @@ export class XeroPaymentsService {
             freshPaymentCheck,
             xeroInvoicesBills.invoice_id,
             amount,
+            prePushAmountDue,
           );
           if (validationFailure) {
             const failureReason = validationFailure.reason;
