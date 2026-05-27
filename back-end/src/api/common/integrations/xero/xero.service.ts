@@ -1266,7 +1266,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
 
   private async maybeDowngradeContactMirrorLog(
     input: CreateXeroSyncLogInput,
-  ): Promise<void> {
+  ): Promise<'skip' | void> {
     if (!input || input.id) return; // only intercept *new* rows
     const incomingTemplateId = Number(input.log_template_id);
     if (
@@ -1370,6 +1370,18 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
 
     if (!isArchivedInXero && !isDormant) return;
 
+    const neverImportedSkip =
+      !isArchivedInXero && isDormant && !xeroContactRow.pt_contact_id;
+
+    // Task #323 — when the only reason we would downgrade is
+    // `never_imported` (the contact has no PT footprint), don't write
+    // any sync log row at all. The placeholder contact is invisible to
+    // users in Pay Trade and the 624 row was pure noise. Signal the
+    // caller (insertXeroSyncLogs) to short-circuit the persist.
+    if (neverImportedSkip) {
+      return 'skip';
+    }
+
     const originalTemplateId = incomingTemplateId;
     const originalErrorCode = (input as any).error_code || null;
     const contactName =
@@ -1437,7 +1449,25 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     // template. The original template id is preserved in
     // dynamic_values.original_log_template_id for audit.
     try {
-      await this.maybeDowngradeContactMirrorLog(createXeroSyncLogInput);
+      const downgradeResult = await this.maybeDowngradeContactMirrorLog(
+        createXeroSyncLogInput,
+      );
+      if (downgradeResult === 'skip') {
+        // Task #323 — never-imported placeholder contact webhook.
+        // Don't persist any sync log row. Emit a single operator-facing
+        // backend log line so we can grep volume later, then ack
+        // silently so Xero doesn't retry the webhook.
+        const xeroContactId =
+          (createXeroSyncLogInput.api_payload as any)?.contact_id || null;
+        const tenantId =
+          (createXeroSyncLogInput as any).tenant_id ||
+          (createXeroSyncLogInput.api_payload as any)?.tenant_id ||
+          null;
+        this.logger.log(
+          `[insertXeroSyncLogs] skipped never_imported contact-mirror log — integration_id=${createXeroSyncLogInput.integration_id} tenant=${tenantId} xero_contact_id=${xeroContactId} original_template=${createXeroSyncLogInput.log_template_id}`,
+        );
+        return null;
+      }
     } catch (downgradeErr: any) {
       this.logger.warn(
         `[insertXeroSyncLogs] contact-mirror downgrade check failed (non-fatal): ${downgradeErr?.message || downgradeErr}`,

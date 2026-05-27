@@ -50,8 +50,9 @@ export class ContactLogNoiseSweepSeederService
       const archived = await this.sweepArchivedInXero();
       const dormant = await this.sweepDormant();
       const mirrored = await this.mirrorXeroArchivedToPaytrade();
+      const neverImportedArchived = await this.archiveNeverImportedRows();
       this.logger.log(
-        `Task #274 sweep done — archived-in-xero reclassified: ${archived}, dormant reclassified: ${dormant}, pt contacts is_archived flipped: ${mirrored}`,
+        `Task #274 sweep done — archived-in-xero reclassified: ${archived}, dormant reclassified: ${dormant}, pt contacts is_archived flipped: ${mirrored}, never_imported rows archived (Task #323): ${neverImportedArchived}`,
       );
     } catch (err: any) {
       this.logger.error(
@@ -216,6 +217,36 @@ export class ContactLogNoiseSweepSeederService
     } catch (err: any) {
       this.logger.warn(
         `sweepDormant failed (non-fatal): ${err?.message || err}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * Task #323 — One-shot archive of existing `never_imported` /
+   * `never_imported_sweep` rows in xero_sync_logs. The runtime filter
+   * now skips these writes entirely, so the backlog rows are pure
+   * noise and should disappear from the dashboard. Idempotent: only
+   * touches rows that the new rule would have skipped (downgrade_reason
+   * in the never-imported family) and whose archived_at IS NULL.
+   */
+  private async archiveNeverImportedRows(): Promise<number> {
+    try {
+      const result = await this.dataSource.query(`
+        UPDATE  xero_sync_logs
+        SET     archived_at = now(),
+                updated_on  = now()
+        WHERE   archived_at IS NULL
+          AND   log_template_id IN (623, 624)
+          AND   (dynamic_values->>'downgrade_reason') IN (
+                  'never_imported', 'never_imported_sweep'
+                )
+        RETURNING sync_id
+      `);
+      return Array.isArray(result) ? result.length : 0;
+    } catch (err: any) {
+      this.logger.warn(
+        `archiveNeverImportedRows failed (non-fatal): ${err?.message || err}`,
       );
       return 0;
     }
