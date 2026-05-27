@@ -51,8 +51,10 @@ export class ContactLogNoiseSweepSeederService
       const dormant = await this.sweepDormant();
       const mirrored = await this.mirrorXeroArchivedToPaytrade();
       const neverImportedArchived = await this.archiveNeverImportedRows();
+      const neverImportedRecordArchived =
+        await this.archiveNeverImportedRecordMirrorRows();
       this.logger.log(
-        `Task #274 sweep done — archived-in-xero reclassified: ${archived}, dormant reclassified: ${dormant}, pt contacts is_archived flipped: ${mirrored}, never_imported rows archived (Task #323): ${neverImportedArchived}`,
+        `Task #274 sweep done — archived-in-xero reclassified: ${archived}, dormant reclassified: ${dormant}, pt contacts is_archived flipped: ${mirrored}, never_imported contact rows archived (Task #323): ${neverImportedArchived}, never_imported account/contract/project rows archived (Task #327): ${neverImportedRecordArchived}`,
       );
     } catch (err: any) {
       this.logger.error(
@@ -250,6 +252,96 @@ export class ContactLogNoiseSweepSeederService
       );
       return 0;
     }
+  }
+
+  /**
+   * Task #327 — One-shot archive of backlog `never_imported` rows in
+   * xero_sync_logs for the account / contract / project missing-fields
+   * mirror templates (365 / 379 / 375 / 409 / 372 / 394). The runtime
+   * filter in `XeroService.maybeSkipRecordMirrorLog` now skips these
+   * writes entirely; this sweep clears the rows that accumulated
+   * before the interceptor existed. Idempotent: only touches active
+   * rows (archived_at IS NULL) whose linked detail row has pt_*_id IS
+   * NULL and is not ARCHIVED in Xero — i.e. exactly the shapes the
+   * runtime filter would now skip.
+   */
+  private async archiveNeverImportedRecordMirrorRows(): Promise<number> {
+    const specs: Array<{
+      label: string;
+      templates: number[];
+      detailsTable: string;
+      statusColumn: string;
+      ptIdColumn: string;
+      guidPayloadKey: string;
+    }> = [
+      {
+        label: 'account',
+        templates: [365, 379],
+        detailsTable: 'xero_bank_account_details',
+        statusColumn: 'account_status',
+        ptIdColumn: 'pt_bank_account_id',
+        guidPayloadKey: 'account_id',
+      },
+      {
+        label: 'contract',
+        templates: [375, 409],
+        detailsTable: 'xero_contract_details',
+        statusColumn: 'contract_status',
+        ptIdColumn: 'pt_contract_id',
+        guidPayloadKey: 'contract_id',
+      },
+      {
+        label: 'project',
+        templates: [372, 394],
+        detailsTable: 'xero_project_details',
+        statusColumn: 'project_status',
+        ptIdColumn: 'pt_project_id',
+        guidPayloadKey: 'project_id',
+      },
+    ];
+
+    let total = 0;
+    for (const spec of specs) {
+      try {
+        const sql = `
+          WITH candidates AS (
+            SELECT xsl.id
+            FROM   xero_sync_logs xsl
+            LEFT JOIN ${spec.detailsTable} d_by_pk
+              ON  d_by_pk.id::text = xsl.reference_id
+            LEFT JOIN ${spec.detailsTable} d_by_guid
+              ON  d_by_guid.integration_id = xsl.integration_id
+              AND d_by_guid.${spec.guidPayloadKey}::text = (xsl.api_payload->>'${spec.guidPayloadKey}')
+            WHERE  xsl.log_template_id = ANY($1::int[])
+              AND  xsl.archived_at IS NULL
+              AND  COALESCE(d_by_pk.${spec.ptIdColumn}, d_by_guid.${spec.ptIdColumn}) IS NULL
+              AND  COALESCE(
+                     UPPER(d_by_pk.${spec.statusColumn}),
+                     UPPER(d_by_guid.${spec.statusColumn}),
+                     ''
+                   ) <> 'ARCHIVED'
+              AND  (d_by_pk.id IS NOT NULL OR d_by_guid.id IS NOT NULL)
+          )
+          UPDATE xero_sync_logs xsl
+          SET    archived_at = now(),
+                 updated_on  = now()
+          FROM   candidates c
+          WHERE  xsl.id = c.id
+          RETURNING xsl.sync_id
+        `;
+        const result = await this.dataSource.query(sql, [spec.templates]);
+        const count = Array.isArray(result) ? result.length : 0;
+        total += count;
+        this.logger.log(
+          `archiveNeverImportedRecordMirrorRows(${spec.label}): archived ${count} backlog row(s)`,
+        );
+      } catch (err: any) {
+        this.logger.warn(
+          `archiveNeverImportedRecordMirrorRows(${spec.label}) failed (non-fatal): ${err?.message || err}`,
+        );
+      }
+    }
+    return total;
   }
 
   /**

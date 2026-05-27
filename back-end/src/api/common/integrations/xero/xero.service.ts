@@ -1264,6 +1264,121 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
   private static readonly CONTACT_DORMANCY_WINDOW_MS =
     365 * 24 * 60 * 60 * 1000;
 
+  /**
+   * Task #327 — Account / contract / project mirror "missing mandatory
+   * fields" failure templates. When the linked xero_*_details row has
+   * never been imported into Pay Trade (pt_*_id IS NULL) AND the Xero
+   * record is not ARCHIVED, the Failed sync log is pure noise: there is
+   * no PT row to fix and admins can't act on it (mirrors the Task #323
+   * contact rule). The interceptor below short-circuits the insert.
+   */
+  private static readonly RECORD_MIRROR_SKIP_SPECS: ReadonlyArray<{
+    type: 'account' | 'contract' | 'project';
+    templateIds: ReadonlySet<number>;
+    detailsTable: string;
+    statusColumn: string;
+    ptIdColumn: string;
+    guidPayloadKey: string;
+  }> = [
+    {
+      type: 'account',
+      templateIds: new Set([365, 379]),
+      detailsTable: 'xero_bank_account_details',
+      statusColumn: 'account_status',
+      ptIdColumn: 'pt_bank_account_id',
+      guidPayloadKey: 'account_id',
+    },
+    {
+      type: 'contract',
+      templateIds: new Set([375, 409]),
+      detailsTable: 'xero_contract_details',
+      statusColumn: 'contract_status',
+      ptIdColumn: 'pt_contract_id',
+      guidPayloadKey: 'contract_id',
+    },
+    {
+      type: 'project',
+      templateIds: new Set([372, 394]),
+      detailsTable: 'xero_project_details',
+      statusColumn: 'project_status',
+      ptIdColumn: 'pt_project_id',
+      guidPayloadKey: 'project_id',
+    },
+  ];
+
+  /**
+   * Task #327 — Skip persisting a Failed sync log for account /
+   * contract / project mirror imports when:
+   *   - the inbound template id is in the per-type missing-fields set,
+   *   - the linked xero_*_details row exists,
+   *   - that row has pt_*_id IS NULL (never imported into Pay Trade),
+   *   - AND the Xero record is not ARCHIVED.
+   *
+   * Returns 'skip' to tell insertXeroSyncLogs to short-circuit the
+   * persist (the caller logs a single operator-facing line). Otherwise
+   * leaves the input untouched and returns void.
+   */
+  private async maybeSkipRecordMirrorLog(
+    input: CreateXeroSyncLogInput,
+  ): Promise<'skip' | void> {
+    if (!input || input.id) return; // only intercept *new* rows
+    const incomingTemplateId = Number(input.log_template_id);
+    if (!incomingTemplateId) return;
+    const spec = XeroService.RECORD_MIRROR_SKIP_SPECS.find((s) =>
+      s.templateIds.has(incomingTemplateId),
+    );
+    if (!spec) return;
+
+    const integrationId = Number(input.integration_id);
+    if (!integrationId) return;
+
+    const referencePk =
+      typeof input.reference_id === 'string' && input.reference_id
+        ? input.reference_id
+        : null;
+    const xeroGuid =
+      input.api_payload && typeof input.api_payload === 'object'
+        ? (input.api_payload as any)[spec.guidPayloadKey] || null
+        : null;
+
+    if (!referencePk && !xeroGuid) return;
+
+    const row: any = await this.dataSource
+      .query(
+        `
+        SELECT id,
+               ${spec.statusColumn} AS status,
+               ${spec.ptIdColumn}  AS pt_id
+        FROM   ${spec.detailsTable}
+        WHERE  integration_id = $1
+          AND  (
+            ($2::uuid IS NOT NULL AND id = $2)
+            OR ($3::text IS NOT NULL AND ${spec.guidPayloadKey} = $3::uuid)
+          )
+        LIMIT  1
+        `,
+        [integrationId, referencePk, xeroGuid],
+      )
+      .then((rows: any[]) => (Array.isArray(rows) ? rows[0] : null))
+      .catch((err: any) => {
+        this.logger.warn(
+          `[maybeSkipRecordMirrorLog:${spec.type}] lookup failed (non-fatal): ${err?.message || err}`,
+        );
+        return null;
+      });
+
+    if (!row) return;
+
+    const isArchivedInXero =
+      String(row.status || '').toUpperCase() === 'ARCHIVED';
+    const neverImported = row.pt_id == null;
+
+    if (!isArchivedInXero && neverImported) {
+      return 'skip';
+    }
+    return;
+  }
+
   private async maybeDowngradeContactMirrorLog(
     input: CreateXeroSyncLogInput,
   ): Promise<'skip' | void> {
@@ -1473,6 +1588,43 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         `[insertXeroSyncLogs] contact-mirror downgrade check failed (non-fatal): ${downgradeErr?.message || downgradeErr}`,
       );
     }
+
+    // Task #327 — Skip never-imported placeholder mirror logs for
+    // account / contract / project import failures, matching the
+    // contact behaviour above. When the linked xero_*_details row has
+    // pt_*_id IS NULL and is not ARCHIVED in Xero, the Failed log is
+    // pure noise (no PT row to fix). Ack silently and emit a single
+    // operator-facing backend log line for volume auditing.
+    try {
+      const skipResult = await this.maybeSkipRecordMirrorLog(
+        createXeroSyncLogInput,
+      );
+      if (skipResult === 'skip') {
+        const incomingTemplateId = Number(createXeroSyncLogInput.log_template_id);
+        const skippedType =
+          XeroService.RECORD_MIRROR_SKIP_SPECS.find((s) =>
+            s.templateIds.has(incomingTemplateId),
+          )?.type || 'record';
+        const xeroGuid =
+          (createXeroSyncLogInput.api_payload as any)?.account_id ||
+          (createXeroSyncLogInput.api_payload as any)?.contract_id ||
+          (createXeroSyncLogInput.api_payload as any)?.project_id ||
+          null;
+        const tenantId =
+          (createXeroSyncLogInput as any).tenant_id ||
+          (createXeroSyncLogInput.api_payload as any)?.tenant_id ||
+          null;
+        this.logger.log(
+          `[insertXeroSyncLogs] skipped never_imported ${skippedType}-mirror log — integration_id=${createXeroSyncLogInput.integration_id} tenant=${tenantId} xero_${skippedType}_id=${xeroGuid} original_template=${incomingTemplateId}`,
+        );
+        return null;
+      }
+    } catch (skipErr: any) {
+      this.logger.warn(
+        `[insertXeroSyncLogs] record-mirror skip check failed (non-fatal): ${skipErr?.message || skipErr}`,
+      );
+    }
+
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (createXeroSyncLogInput.contract_id != null && !uuidRegex.test(String(createXeroSyncLogInput.contract_id))) {
       this.logger.warn(
