@@ -9,6 +9,10 @@ const dashboardSlices = createSlice({
     userDetails: {},
     companyDetails: {},
     screenDetails: {},
+    bookkeepingSelectedBank: null as null | {
+      companyId: number;
+      bankId: string | number;
+    },
     projectoverview: {},
     bankAccountTypeFromDashBoard: "",
     addBankAccountDetails: {},
@@ -49,6 +53,15 @@ const dashboardSlices = createSlice({
     setBlogDetailsForRouting: (state, action: PayloadAction<any>) => {
       state.blogDetailsForRouting = action.payload;
     },
+    setBookkeepingSelectedBank: (
+      state,
+      action: PayloadAction<{
+        companyId: number;
+        bankId: string | number;
+      } | null>
+    ) => {
+      state.bookkeepingSelectedBank = action.payload;
+    },
   },
 });
 export const {
@@ -62,6 +75,7 @@ export const {
   setAddBankAccountDetails,
   SetBankAccountTypeFromDashBoard,
   setBlogDetailsForRouting,
+  setBookkeepingSelectedBank,
 } = dashboardSlices.actions;
 export default dashboardSlices.reducer;
 

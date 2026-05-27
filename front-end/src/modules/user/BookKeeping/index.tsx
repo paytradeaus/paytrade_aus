@@ -49,7 +49,10 @@ import {
   GetSmartMatchPreference,
   SetSmartMatchPreference,
 } from "../BankAccountOverview/BankAccountsOverview.function";
-import { setScreenDetails } from "@/redux/slices/dashboardSlices";
+import {
+  setScreenDetails,
+  setBookkeepingSelectedBank,
+} from "@/redux/slices/dashboardSlices";
 import BaseModal from "@/components/BaseModal";
 import { RootState } from "@/redux/store";
 import { setMatchTransactions } from "@/redux/slices/subscribeRouteBackDetails";
@@ -61,6 +64,9 @@ const BookKeepingList = (props: any) => {
   const dispatch = useDispatch();
   const screenDetails: any = useSelector(
     (state: RootState) => state.dashBoard.screenDetails
+  );
+  const persistedBookkeepingBank = useSelector(
+    (state: RootState) => state.dashBoard.bookkeepingSelectedBank
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [totalRows, setTotalRows] = useState(0);
@@ -181,8 +187,37 @@ const BookKeepingList = (props: any) => {
         setBankNameOptions(modifiedContracts);
         setBankNameOptionsOnly(modifiedContracts);
         if (!bankId) {
-          setBankId(modifiedContracts[0].value);
-          setSelectedBank(modifiedContracts[0]);
+          // Prefer the last-selected bank for this company if it still
+          // exists in the freshly fetched list. Otherwise fall back to
+          // the first account and clear any stale persisted value.
+          const remembered =
+            persistedBookkeepingBank &&
+            persistedBookkeepingBank.companyId === selectedCompanyId
+              ? modifiedContracts.find(
+                  (opt: any) =>
+                    String(opt.value) ===
+                    String(persistedBookkeepingBank.bankId)
+                )
+              : null;
+          if (remembered) {
+            setBankId(remembered.value);
+            setSelectedBank(remembered);
+          } else {
+            setBankId(modifiedContracts[0].value);
+            setSelectedBank(modifiedContracts[0]);
+            if (
+              persistedBookkeepingBank &&
+              persistedBookkeepingBank.companyId !== selectedCompanyId
+            ) {
+              dispatch(setBookkeepingSelectedBank(null));
+            } else if (
+              persistedBookkeepingBank &&
+              persistedBookkeepingBank.companyId === selectedCompanyId
+            ) {
+              // Remembered id is no longer in the list — clear it.
+              dispatch(setBookkeepingSelectedBank(null));
+            }
+          }
         }
       }
     })();
@@ -826,6 +861,20 @@ const BookKeepingList = (props: any) => {
     setSelectedRowsInGrid([]);
     setSelectedBank(selectedValue);
     setBankId(selectedValue);
+    // Persist the selection so returning to Bookkeeping from a match
+    // (via router.back) keeps the user on the same bank account.
+    const newBankId =
+      selectedValue && typeof selectedValue === "object" && "value" in selectedValue
+        ? selectedValue.value
+        : selectedValue;
+    if (newBankId !== undefined && newBankId !== null && newBankId !== "") {
+      dispatch(
+        setBookkeepingSelectedBank({
+          companyId: selectedCompanyId,
+          bankId: newBankId,
+        })
+      );
+    }
     // Perform any other actions based on the selected value
   };
 
