@@ -95,7 +95,7 @@ const BookKeepingList = (props: any) => {
   });
   const [printDocumentData, setPrintDocumentData] = useState<any>([]);
   const [selectedToggle, setSelectedToggle] = useState<string>(
-    screenDetails?.selectTab || "To Review"
+    screenDetails?.selectTab || initialScreen?.selectedToggle || "To Review"
   );
   const [sortValues, setSortValues] = useState<any>(
     initialScreen?.sortValues ?? ""
@@ -306,6 +306,7 @@ const BookKeepingList = (props: any) => {
         page,
         perPage,
         sortValues,
+        selectedToggle,
       })
     );
   }, [
@@ -320,6 +321,7 @@ const BookKeepingList = (props: any) => {
     page,
     perPage,
     sortValues,
+    selectedToggle,
   ]);
 
   // Skip the first run so that a restored page from persisted state

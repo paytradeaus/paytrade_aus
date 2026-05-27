@@ -25,6 +25,7 @@ const dashboardSlices = createSlice({
       page?: number;
       perPage?: number;
       sortValues?: any;
+      selectedToggle?: string;
     },
     projectoverview: {},
     bankAccountTypeFromDashBoard: "",
