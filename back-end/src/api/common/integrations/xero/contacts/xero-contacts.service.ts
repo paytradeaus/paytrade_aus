@@ -196,6 +196,22 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Task #328 — Outbound ABN: copy a PT contact's `abn_number` onto an
+   * outbound Xero contact payload's `taxNumber` (used by createContact,
+   * editContact, batch create, and insertContactDetailsInPaytrade
+   * post-import). Symmetric with the inbound rule: an empty/blank PT
+   * abn_number leaves Xero's taxNumber untouched (we never clear it).
+   */
+  applyContactAbnToXeroPayload(target: any, ptContact: any) {
+    if (!target || !ptContact) return;
+    const abn =
+      typeof ptContact.abn_number === 'string' ? ptContact.abn_number.trim() : '';
+    if (abn) {
+      target.taxNumber = abn;
+    }
+  }
+
+  /**
    * Phase 2: write the per-contact GST defaults from an inbound Xero
    * Contact payload onto the mapped PT `client_suppliers_details` row.
    * No-ops if the Xero contact has no defaults set or the PT contact
@@ -468,6 +484,113 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
     return { scanned: mapped.length, updated, skipped, errors };
   }
 
+  /**
+   * Task #328 — Reverse-direction backfill: for every Xero-linked
+   * contact owned by `company_id` where Xero's `taxNumber` is blank,
+   * push PT's `abn_number` across via `updateContact`. Never overwrites
+   * a non-empty Xero taxNumber (symmetric with `backfillContactAbnFromXero`).
+   * Writes one sync log per pushed contact via template 631.
+   */
+  async backfillContactAbnFromPaytrade(
+    company_id: number,
+    decoded: any,
+  ): Promise<{ scanned: number; pushed: number; skipped: number; errors: number }> {
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { company_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) throw `No active Xero integration for company ${company_id}`;
+    await this.xeroService.refreshTokenSet(company_id, this.xero);
+
+    const mapped = await this.xeroContactDetails.find({
+      where: {
+        integration_id: xeroDetails.integration_id,
+        contact_status: 'ACTIVE' as any,
+        pt_contact_id: Not(IsNull()),
+      },
+    });
+
+    let pushed = 0;
+    let skipped = 0;
+    let errors = 0;
+    for (const row of mapped) {
+      try {
+        const ptContact = await this.clientSuppliersDetails.findOne({
+          where: { client_supplier_id: row.pt_contact_id as any },
+        });
+        if (!ptContact) { skipped += 1; continue; }
+        const ptAbn =
+          typeof ptContact.abn_number === 'string'
+            ? ptContact.abn_number.trim()
+            : '';
+        if (!ptAbn) { skipped += 1; continue; }
+
+        const resp = await this.xero.accountingApi.getContact(
+          xeroDetails.tenant_id,
+          row.contact_id,
+        );
+        const contact = resp?.body?.contacts?.[0];
+        const existingXeroAbn =
+          typeof contact?.taxNumber === 'string'
+            ? contact.taxNumber.trim()
+            : '';
+        if (existingXeroAbn) { skipped += 1; continue; }
+
+        const updateResp = await this.xero.accountingApi.updateContact(
+          xeroDetails.tenant_id,
+          row.contact_id,
+          { contacts: [{ name: ptContact.client_supplier_name, taxNumber: ptAbn }] },
+        );
+        const updatedContact = updateResp?.body?.contacts?.[0];
+        pushed += 1;
+
+        try {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            api_name: 'backfillContactAbnFromPaytrade',
+            api_payload: {
+              contact_id: row.contact_id,
+              tenant_id: xeroDetails.tenant_id,
+              client_supplier_id: ptContact.client_supplier_id,
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: 631,
+            dynamic_values: {
+              contact_name: ptContact.client_supplier_name,
+              abn_number: ptAbn,
+            },
+            project_id: null,
+            contract_id: null,
+            reference: {
+              xeroId: row.id,
+              paytradeId: ptContact.id,
+            },
+            reference_id: ptContact.id,
+            history: [
+              `Backfill triggered for ${ptContact.client_supplier_name}`,
+              'ABN pushed to Xero',
+            ],
+            important_checks: {},
+            error_message: null,
+            xero_records: [updatedContact || contact],
+            paytrade_records: [ptContact],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+        } catch (logErr) {
+          this.logger.warn(
+            `[Task #328] Failed to write ABN backfill sync log for contact ${row.contact_id}: ${logErr?.message || logErr}`,
+          );
+        }
+      } catch (err) {
+        errors += 1;
+        this.logger.warn(
+          `[Task #328] backfillContactAbnFromPaytrade failed for contact ${row.contact_id}: ${err?.message || err}`,
+        );
+      }
+    }
+    return { scanned: mapped.length, pushed, skipped, errors };
+  }
+
   async getClientSuppliersDetails(client_supplier_id) {
     const asNum = Number(client_supplier_id);
     if (!isNaN(asNum) && Number.isInteger(asNum)) {
@@ -685,6 +808,11 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
           };
           // Phase 2 outbound: push per-contact GST overrides to Xero on create.
           this.applyContactGstToXeroPayload(
+            newContactPayload,
+            clientSupplierDetails,
+          );
+          // Task #328 outbound: push PT abn_number → Xero taxNumber on create.
+          this.applyContactAbnToXeroPayload(
             newContactPayload,
             clientSupplierDetails,
           );
@@ -1320,6 +1448,8 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
 
             // Phase 2 outbound: push per-contact GST overrides to Xero.
             this.applyContactGstToXeroPayload(contactData, response);
+            // Task #328 outbound: push PT abn_number → Xero taxNumber.
+            this.applyContactAbnToXeroPayload(contactData, response);
 
             const updateContactResponse =
               await this.xero.accountingApi.updateContact(
@@ -1664,6 +1794,8 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
 
           // Phase 2 outbound: push per-contact GST overrides to Xero.
           this.applyContactGstToXeroPayload(contactData, clientSupplierDetails);
+          // Task #328 outbound: push PT abn_number → Xero taxNumber on edit.
+          this.applyContactAbnToXeroPayload(contactData, clientSupplierDetails);
 
           if (xeroDetails.sync_contact_financial_to_xero) {
             const fullDetails = await this.clientSuppliersDetails.findOne({

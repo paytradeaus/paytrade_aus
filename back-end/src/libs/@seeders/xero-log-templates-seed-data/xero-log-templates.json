@@ -5758,5 +5758,15 @@
     "from_xero": true,
     "error_code": "PT_CONTACT_ABN_BACKFILLED",
     "associated_log_ids": [201]
+  },
+  {
+    "id": 631,
+    "sync_type": "Contacts",
+    "description": "<p>ABN <b>{{abn_number}}</b> pushed from Pay Trade onto Xero contact <b>{{contact_name}}</b> (Xero taxNumber was blank). Existing Xero ABNs are never overwritten.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Succeeded",
+    "from_xero": false,
+    "error_code": "XERO_CONTACT_ABN_BACKFILLED",
+    "associated_log_ids": [10, 22, 630]
   }
 ]
