@@ -1,0 +1,108 @@
+Replit appears to split work in a thread into **human-visible task chunks**, not tiny technical operations.
+
+The practical model is:
+
+**1. The thread is the container**
+A Replit Agent conversation carries the app context, previous messages, project state, and what the agent already understands about the build. In the ChatGPT/Replit integration, Replit says each conversation works with one Replit App; further requests in the same conversation modify that app rather than starting a separate one. ([Replit Docs][1])
+
+**2. The user message becomes either planning or building**
+Replit now distinguishes **Plan Mode** and **Build Mode**. Plan Mode is for brainstorming, architecture, questions, and structured task lists without changing the app’s code or data. Build Mode is where the agent actually edits files, runs commands, tests, and implements. ([Replit Docs][2])
+
+**3. A large request is broken into a task list**
+For complex work, Agent can produce a plan/task list first. Once the user approves, Replit says Agent works through the task list and you can monitor its progress. ([Replit Docs][3])
+
+So a request like:
+
+> “Add Facebook publishing, campaign scheduling, and analytics”
+
+would likely become visible chunks such as:
+
+1. inspect current social-posting code
+2. update schema / migrations
+3. add API routes
+4. update frontend UI
+5. run tests / fix errors
+6. create checkpoint / summarize changes
+
+**4. Each visible task contains multiple hidden low-level actions**
+Under the hood, each task may involve many tool actions: reading files, editing code, running commands, searching docs, testing the app, debugging errors, or publishing changes. Replit’s own AI docs describe agents as a language model plus tools; the model decides what action helps, and the tools perform the action. ([Replit Docs][4])
+
+So the visible “action” in the thread is probably not one model call. It is more like a **grouped work unit** made up of many reads, edits, command runs, and checks.
+
+**5. Checkpoints are the milestone boundaries**
+Replit’s checkpoint system is a big clue to how they structure actions. Replit says Agent creates checkpoints at logical development points, and larger tasks may create multiple checkpoints. Checkpoints capture project contents, AI conversation context, AI memory, environment configuration, and connected database state. ([Replit Docs][5]) ([Replit Docs][6])
+
+That means the split is probably something like:
+
+```text
+Thread
+  └── User request
+        └── Agent run
+              ├── Plan / task list
+              ├── Task 1
+              │     ├── tool calls
+              │     ├── validation
+              │     └── checkpoint
+              ├── Task 2
+              │     ├── tool calls
+              │     ├── validation
+              │     └── checkpoint
+              └── Final summary
+```
+
+**6. The thread UI hides the messy loop**
+What you see as “Agent is doing X” is probably a simplified status layer over a repeated loop:
+
+```text
+understand current goal
+read project state
+choose next action
+call tool
+observe result
+decide whether task is complete
+fix issues if needed
+move to next task
+summarise / checkpoint
+```
+
+That is why Replit can appear to “self-correct”: the agent reads outputs from commands, errors, tests, console logs, or file contents, then decides the next action.
+
+For your own Acute / Tenda-style agent system, I would copy this separation:
+
+```text
+Conversation Thread
+  Stores all user-facing chat and summaries
+
+Agent Run
+  One execution triggered by one user message
+
+Plan
+  Approved objective and task breakdown
+
+Plan Step
+  Human-visible unit of work
+
+Agent Action
+  Internal step: read file, query CRM, search web, draft email, update DB, run test
+
+Tool Call
+  Actual system operation
+
+Observation
+  Result returned from the tool
+
+Checkpoint / Breadcrumb
+  Saved state after a meaningful milestone
+
+Final Review
+  Compare output against the approved plan
+```
+
+The key design point: **do not show every tool call as a separate user-facing action**. Group them into meaningful plan steps, then keep the low-level tool calls as audit logs/breadcrumbs. That gives the user confidence without overwhelming them.
+
+[1]: https://docs.replit.com/references/platforms/chatgpt?utm_source=chatgpt.com "Replit in ChatGPT"
+[2]: https://docs.replit.com/references/agent/plan-mode?utm_source=chatgpt.com "Replit's plan mode"
+[3]: https://docs.replit.com/learn/plan-vs-build-mode?utm_source=chatgpt.com "Plan vs. Build Mode"
+[4]: https://docs.replit.com/learn/foundations/introduction-to-ai?utm_source=chatgpt.com "Introduction to AI"
+[5]: https://docs.replit.com/learn/projects-and-artifacts/version-control?utm_source=chatgpt.com "Version Control"
+[6]: https://docs.replit.com/references/version-control/checkpoints-and-rollbacks?utm_source=chatgpt.com "Checkpoints and Rollbacks"
