@@ -97,7 +97,9 @@ const BookKeepingList = (props: any) => {
   const [selectedToggle, setSelectedToggle] = useState<string>(
     screenDetails?.selectTab || "To Review"
   );
-  const [sortValues, setSortValues] = useState<any>("");
+  const [sortValues, setSortValues] = useState<any>(
+    initialScreen?.sortValues ?? ""
+  );
 
   const [activityLogStartDate, setActivityLogStartDate] = useState<
     Date | null | any
@@ -303,6 +305,7 @@ const BookKeepingList = (props: any) => {
           : null,
         page,
         perPage,
+        sortValues,
       })
     );
   }, [
@@ -316,6 +319,7 @@ const BookKeepingList = (props: any) => {
     activityLogEndDate,
     page,
     perPage,
+    sortValues,
   ]);
 
   // Skip the first run so that a restored page from persisted state

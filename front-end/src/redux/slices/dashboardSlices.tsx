@@ -24,6 +24,7 @@ const dashboardSlices = createSlice({
       activityLogEndDate?: string | null;
       page?: number;
       perPage?: number;
+      sortValues?: any;
     },
     projectoverview: {},
     bankAccountTypeFromDashBoard: "",
