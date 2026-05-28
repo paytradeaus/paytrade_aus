@@ -2886,52 +2886,13 @@ export class XeroInvoicesService {
       }
     }
 
-    if (
-      invoiceDetails?.date &&
-      moment
-        .tz(invoiceDetails?.date, 'UTC')
-        .utc()
-        .isAfter(moment.tz('UTC').startOf('day').utc())
-    ) {
-      await this.xeroService.insertXeroSyncLogs(decoded, {
-        id: data?.sync_id,
-        api_name: 'createInvoiceOrBillInPaytrade',
-        api_payload: {
-          invoice_id: data.invoice_id,
-        },
-        integration_id: xeroDetails.integration_id,
-        log_template_id:
-          invoiceDetails.type === Invoice.TypeEnum.ACCPAY ? 355 : 356,
-        dynamic_values: {},
-        project_id: checkExistenceInDb?.project_id,
-        contract_id: checkExistenceInDb?.contract_id,
-        reference: {
-          xeroId: checkExistenceInDb?.id,
-          paytradeId: null,
-        },
-        reference_id: checkExistenceInDb?.id,
-        history: [`API triggered from claim ${invoice_id}`, 'Import failed'],
-        important_checks: {
-          'Import data format validation': 'Failed',
-          'Import tracking id validation': 'Ok',
-          'Import account type validation': 'Ok',
-          'Import tax type validation': 'Ok',
-          'Client/Supplier mapping validation': 'Ok',
-          'Contract mapping validation': 'Ok',
-          'Project mapping validation': 'Ok',
-        },
-        error_message:
-          invoiceDetails.type === Invoice.TypeEnum.ACCPAY
-            ? `The received date is in the future`
-            : `The sent date is in the future`,
-        xero_records: [invoiceDetails],
-        paytrade_records: [],
-        new_records: null,
-        updated_records: null,
-        synced_records: null,
-      });
-      return false;
-    }
+    // Future-date check removed: Xero does not have a "received date"
+    // field — this was actually checking the bill/invoice issue Date,
+    // which suppliers and admins legitimately pre-date into the future
+    // (e.g. an invoice issued today for next week's billing period).
+    // Rejecting these blocked valid ingest and forced users to edit
+    // Xero just to make PayTrade accept the record. Mirrors the
+    // past-due-date removal in the webhook ingest paths.
 
     if (
       invoiceDetails?.dueDate &&

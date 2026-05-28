@@ -3822,70 +3822,14 @@ export class XeroWebhookService {
             this.logger.debug(`[BILL_TRACE] V-Step retention math: retentionUnitOnly=${retentionUnitOnly}, retentionTaxOnly=${retentionTaxOnly}, subtotal=${subtotal}, retentionPercentage=${retentionPercentage}`);
           }
 
-          if (
-            invoice.date &&
-            moment
-              .tz(invoice.date, 'UTC')
-              .utc()
-              .isAfter(moment.tz('UTC').startOf('day').utc())
-          ) {
-            await this.xeroService.insertXeroSyncLogs(decoded, {
-              id: data?.sync_id || null,
-              api_name: 'createClaimInPaytrade',
-              api_payload: {
-                sync_run_type,
-                invoice_id: invoice?.invoiceID,
-                tenant_id,
-                project_id: contractDetails?.project_id,
-                contract_id: contractDetails?.contract_id,
-                client_supplier_id: xeroContactDetails?.pt_contact_id,
-                type:
-                  invoice?.type === Invoice.TypeEnum.ACCPAY
-                    ? 'bill'
-                    : 'invoice',
-              },
-              integration_id: xeroDetails.integration_id,
-              log_template_id:
-                invoice.type === Invoice.TypeEnum.ACCPAY
-                  ? sync_run_type === 'webhook'
-                    ? 350
-                    : 453
-                  : sync_run_type === 'webhook'
-                    ? 351
-                    : 454,
-              dynamic_values: {},
-              project_id: xeroProjectDetails?.id,
-              contract_id: xeroContractDetails?.id,
-              reference: {
-                xeroId: xeroInvoice?.id,
-                paytradeId: null,
-              },
-              reference_id: xeroInvoice?.id,
-              history: [
-                `API triggered from invoice ${sync_run_type}`,
-                'Import failed',
-              ],
-              important_checks: {
-                'Import data format validation': 'Failed',
-                'Import tracking id validation': 'Ok',
-                'Import account type validation': 'Ok',
-                'Import tax type validation': 'Ok',
-                'Client/Supplier mapping validation': 'Ok',
-                'Contract mapping validation': 'Ok',
-                'Project mapping validation': 'Ok',
-              },
-              error_message:
-                invoice.type === Invoice.TypeEnum.ACCPAY
-                  ? `The received date is in the future`
-                  : `The sent date is in the future`,
-              xero_records: [invoice],
-              paytrade_records: [],
-              new_records: null,
-              updated_records: null,
-              synced_records: null,
-            });
-            return false;
-          }
+          // Future-date check removed: Xero does not have a "received
+          // date" field — this was actually checking the bill/invoice
+          // issue Date, which suppliers and admins legitimately
+          // pre-date into the future (e.g. an invoice issued today
+          // for next week's billing period). Rejecting these blocked
+          // valid ingest and forced users to edit Xero just to make
+          // PayTrade accept the record. Mirrors the past-due-date
+          // removal below.
 
           // Past-due-date check removed: a bill or invoice with a due
           // date in the past is a legitimate record (overdue or
@@ -4696,70 +4640,15 @@ export class XeroWebhookService {
                 this.logger.debug(`[BILL_TRACE] D-Step retention math: retentionUnitOnly=${retentionUnitOnly}, retentionTaxOnly=${retentionTaxOnly}, subtotal=${subtotal}, retentionPercentage=${retentionPercentage}`);
               }
 
-              if (
-                invoice.date &&
-                moment
-                  .tz(invoice.date, 'UTC')
-                  .utc()
-                  .isAfter(moment.tz('UTC').startOf('day').utc())
-              ) {
-                await this.xeroService.insertXeroSyncLogs(decoded, {
-                  id: data?.sync_id || null,
-                  api_name: 'createClaimInPaytrade',
-                  api_payload: {
-                    sync_run_type,
-                    invoice_id: invoice?.invoiceID,
-                    tenant_id,
-                    project_id: contractDetails?.project_id,
-                    contract_id: contractDetails?.contract_id,
-                    client_supplier_id: xeroContactDetails?.pt_contact_id,
-                    type:
-                      invoice?.type === Invoice.TypeEnum.ACCPAY
-                        ? 'bill'
-                        : 'invoice',
-                  },
-                  integration_id: xeroDetails.integration_id,
-                  log_template_id:
-                    invoice.type === Invoice.TypeEnum.ACCPAY
-                      ? sync_run_type === 'webhook'
-                        ? 350
-                        : 453
-                      : sync_run_type === 'webhook'
-                        ? 351
-                        : 454,
-                  dynamic_values: {},
-                  project_id: xeroProjectDetails?.id,
-                  contract_id: xeroContractDetails?.id,
-                  reference: {
-                    xeroId: xeroInvoice?.id,
-                    paytradeId: null,
-                  },
-                  reference_id: xeroInvoice?.id,
-                  history: [
-                    `API triggered from invoice ${sync_run_type}`,
-                    'Import failed',
-                  ],
-                  important_checks: {
-                    'Import data format validation': 'Failed',
-                    'Import tracking id validation': 'Ok',
-                    'Import account type validation': 'Ok',
-                    'Import tax type validation': 'Ok',
-                    'Client/Supplier mapping validation': 'Ok',
-                    'Contract mapping validation': 'Ok',
-                    'Project mapping validation': 'Ok',
-                  },
-                  error_message:
-                    invoice.type === Invoice.TypeEnum.ACCPAY
-                      ? `The received date is in the future`
-                      : `The sent date is in the future`,
-                  xero_records: [invoice],
-                  paytrade_records: [],
-                  new_records: null,
-                  updated_records: null,
-                  synced_records: null,
-                });
-                return false;
-              }
+              // Future-date check removed: Xero does not have a
+              // "received date" field — this was actually checking
+              // the bill/invoice issue Date, which suppliers and
+              // admins legitimately pre-date into the future (e.g.
+              // an invoice issued today for next week's billing
+              // period). Rejecting these blocked valid ingest and
+              // forced users to edit Xero just to make PayTrade
+              // accept the record. Mirrors the past-due-date
+              // removal below.
 
               // Past-due-date check removed for the same reason as the
               // create path above — overdue is a legitimate state and
