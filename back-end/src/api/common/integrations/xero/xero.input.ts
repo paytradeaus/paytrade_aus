@@ -169,6 +169,17 @@ export class GetXeroSyncLogsInput {
       'the same view as the table.',
   })
   archived?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Task #330 — case-insensitive substring search across sync_type, ' +
+      'reference (PT id / Xero id), the rendered message text (template ' +
+      'description + dynamic_values), template.process / sync direction, ' +
+      'project / contract / company name, and the error / notification ' +
+      'fields. Combined with the other filters via AND.',
+  })
+  search?: string;
 }
 
 @InputType({

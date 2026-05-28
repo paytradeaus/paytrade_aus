@@ -121,12 +121,18 @@ export default function XeroDashboard() {
   const [sortValues, setSortValues] = useState<any>("");
   const [recoveredOnly, setRecoveredOnly] = useState<boolean>(false);
   const [claimFilterId, setClaimFilterId] = useState<number | null>(null);
-  // Task #107 — single Claims-style Search box that replaces the old narrow
-  // numeric input. Numeric input routes to the claim-id filter endpoint;
-  // non-numeric input becomes a client-side substring filter on the loaded
-  // page rows (matched against sync_type, reference, message, system,
-  // project, process — see `_searchText` in the row mappers below).
+  // Task #107 / #330 — single Claims-style Search box that replaces the
+  // old narrow numeric input. Numeric input routes to the claim-id filter
+  // endpoint; non-numeric input is sent to the backend as a `search`
+  // argument that runs a case-insensitive substring match across ALL
+  // rows for the integration (sync_type, reference, the rendered message
+  // text, project / contract / company name, sync direction, etc.) — not
+  // just the page that happens to be loaded.
   const [syncSearchText, setSyncSearchText] = useState<string>("");
+  // Task #330 — debounced copy of `syncSearchText` that actually drives
+  // the backend query, so we don't fire a getXeroSyncLogs call per
+  // keystroke while the user is typing.
+  const [syncSearchDebounced, setSyncSearchDebounced] = useState<string>("");
   const [clearSyncSearch, setClearSyncSearch] = useState<boolean>(false);
   // Task #95 — Sync Log date filter mirrors the Account Ledger / Journals
   // pattern: a single `filterByDurationDates` SELECT (All dates / Custom /
@@ -658,7 +664,22 @@ export default function XeroDashboard() {
     syncTypeFilter,
     statusFilter,
     archivedView,
+    syncSearchDebounced,
   ]);
+
+  // Task #330 — 300 ms debounce: a keystroke updates `syncSearchText`
+  // immediately (so the input stays responsive) but only the settled
+  // value is forwarded to the backend query, and we reset to page 1 on
+  // every change so the user always starts at the top of the filtered set.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (syncSearchDebounced !== syncSearchText) {
+        setCurrentPage(1);
+        setSyncSearchDebounced(syncSearchText);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [syncSearchText]);
 
   // Submit handler for the confirm-archive modal — runs the
   // mutation, refreshes the table, and closes the modal.
@@ -740,21 +761,8 @@ export default function XeroDashboard() {
           : fullDescription;
       return {
         ...val,
-        // Task #107 — concat-lowercased searchable text so the Search box
-        // can substring-match against the visible columns even though the
-        // displayed `description` / `process` / `sync_status` get replaced
-        // with JSX below.
-        _searchText: [
-          val.sync_type,
-          val.reference,
-          fullDescription,
-          val.system,
-          val.project_name,
-          isXeroToPaytrade ? "Xero Pay Trade" : "Pay Trade Xero",
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase(),
+        // Task #330 — search now runs server-side across all rows, so the
+        // per-row `_searchText` concat is no longer needed.
         created_on: val.created_on ? formatDate(val.created_on) : "",
         description: fullDescription ? (
           <span title={fullDescription}>{truncatedDescription}</span>
@@ -839,6 +847,7 @@ export default function XeroDashboard() {
         sync_type: syncTypeFilter || null,
         sync_status: statusFilter || null,
         archived: archivedView,
+        search: syncSearchDebounced?.trim() || null,
       },
     });
     const findCount = (key: string) =>
@@ -909,18 +918,6 @@ export default function XeroDashboard() {
           // Allow the row to participate in the table's bulk-select
           // checkbox column (DynamicTable looks for `checked`).
           checked: false,
-          // Task #107 — see mapClaimSyncRows comment.
-          _searchText: [
-            val.sync_type,
-            refStr,
-            fullDescription,
-            val.system,
-            val.project_name,
-            isXeroToPaytrade ? "Xero Pay Trade" : "Pay Trade Xero",
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase(),
           created_on: val.created_on ? formatDate(val.created_on) : "",
           description: fullDescription ? (
             <span title={fullDescription}>
@@ -989,10 +986,11 @@ export default function XeroDashboard() {
     setTableLoader(false);
   }
 
-  // Task #107 — Single Search box semantics. Numeric input → claim-id
-  // filter endpoint (matches the prior "Apply" button behaviour).
-  // Non-numeric → client-side substring filter on the loaded page rows.
-  // Empty input clears both. Always resets to page 1.
+  // Task #107 / #330 — Single Search box semantics. Numeric input →
+  // claim-id filter endpoint (matches the prior "Apply" button
+  // behaviour). Non-numeric → backend `search` argument (debounced via
+  // `syncSearchDebounced`) that filters across all rows for the
+  // integration. Empty input clears both. Always resets to page 1.
   function handleSyncLogSearch(rawValue: string) {
     const v = (rawValue || "").trim();
     setCurrentPage(1);
@@ -1020,18 +1018,6 @@ export default function XeroDashboard() {
       setSyncSearchText(v);
     }
   }
-
-  // Task #107 — apply non-numeric Search box text as a client-side
-  // substring filter against the loaded sync-log rows. Numeric search
-  // and `recoveredOnly` flow through the existing server-side paths.
-  const displayedSyncTableData = useMemo(() => {
-    const rows: any[] = syncLogData?.tableData || [];
-    if (!syncSearchText) return rows;
-    const q = syncSearchText.toLowerCase();
-    return rows.filter((r: any) =>
-      typeof r?._searchText === "string" && r._searchText.includes(q),
-    );
-  }, [syncLogData?.tableData, syncSearchText]);
 
   function closeModal() {
     setTimeout(() => {
@@ -1797,7 +1783,7 @@ export default function XeroDashboard() {
               )}
               <DynamicTable
                 headers={xeroSyncListHeaders}
-                gridData={displayedSyncTableData}
+                gridData={syncLogData?.tableData || []}
                 gridActions={actions}
                 onRowClick={handleRowClick}
                 hoverOnRowClick

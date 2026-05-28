@@ -12,7 +12,7 @@ import * as dotenv from 'dotenv';
 import { XeroIntegrationDetails } from 'src/entities/xero-integration-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource } from 'typeorm';
+import { Brackets, In, Repository, DataSource } from 'typeorm';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
 import axios from 'axios';
@@ -2248,6 +2248,100 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       queryBuilder.andWhere(
         'CAST(template.sync_status AS text) = :sync_status_filter',
         { sync_status_filter: getXeroSyncLogsInput.sync_status },
+      );
+    }
+
+    // Task #330 — server-side text search across the visible columns and the
+    // payload that feeds the rendered message. Bounded by the integration /
+    // archived / status / type / date filters already applied above, so we
+    // don't scan the entire xero_sync_logs table for every keystroke.
+    if (getXeroSyncLogsInput.search && getXeroSyncLogsInput.search.trim()) {
+      // Escape LIKE wildcards so user input is treated as a literal substring
+      // (a stray `%` or `_` from a contact name shouldn't broaden the match).
+      const escaped = getXeroSyncLogsInput.search
+        .trim()
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      const q = `%${escaped}%`;
+      const lc = getXeroSyncLogsInput.search.trim().toLowerCase();
+      // Sync direction is rendered as "Xero → Pay Trade" / "Pay Trade → Xero"
+      // but template.process is stored as "Xero..." / "PayTrade..." (no space).
+      // Match the rendered phrase by translating it back to the stored prefix.
+      const wantsXeroToPt =
+        'xero → pay trade'.includes(lc) ||
+        'xero ➤ pay trade'.includes(lc) ||
+        'xero to pay trade'.includes(lc) ||
+        'xero to paytrade'.includes(lc);
+      const wantsPtToXero =
+        'pay trade → xero'.includes(lc) ||
+        'pay trade ➤ xero'.includes(lc) ||
+        'paytrade → xero'.includes(lc) ||
+        'pay trade to xero'.includes(lc) ||
+        'paytrade to xero'.includes(lc);
+
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('template.sync_type ILIKE :search ESCAPE :esc', {
+            search: q,
+            esc: '\\',
+          })
+            .orWhere('template.description ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere(
+              'CAST(template.process AS text) ILIKE :search ESCAPE :esc',
+              { search: q, esc: '\\' },
+            )
+            .orWhere('project.project_name ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('contract.contract_name ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('company.company_name ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('CAST(log.reference AS text) ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere(
+              'CAST(log.dynamic_values AS text) ILIKE :search ESCAPE :esc',
+              { search: q, esc: '\\' },
+            )
+            .orWhere('log.reference_id ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('log.error_message ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('log.notification ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            })
+            .orWhere('log.information_required ILIKE :search ESCAPE :esc', {
+              search: q,
+              esc: '\\',
+            });
+
+          if (wantsXeroToPt) {
+            qb.orWhere(
+              `LOWER(CAST(template.process AS text)) LIKE 'xero%'`,
+            );
+          }
+          if (wantsPtToXero) {
+            qb.orWhere(
+              `LOWER(CAST(template.process AS text)) LIKE 'paytrade%'`,
+            );
+          }
+        }),
       );
     }
 
