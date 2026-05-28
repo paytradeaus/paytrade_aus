@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "task": "Task #333 — Scenario 3",
+    "scenario": "Ex-GST, receivable (ACCREC), 3-line shape. Symmetric to scenario 1 with receivable-side codes."
+  },
+  "xeroIntegrationDetails": {
+    "company_id": 999,
+    "tenant_id": "00000000-0000-0000-0000-000000000001",
+    "bill_code": "300",
+    "invoice_code": "200",
+    "bill_code_is_variable": false,
+    "bill_code_allow_fallback": true,
+    "retention_payable_retained_code": "832",
+    "retention_payable_release_code": "832",
+    "retention_receivable_retained_code": "833",
+    "retention_receivable_release_code": "833",
+    "liability_payable_code": "831",
+    "liability_receivable_code": "834",
+    "simplified_retention_accounting": false,
+    "retention_recording_mode": "ex_gst",
+    "retention_tax_type": null,
+    "auto_gross_up_retention_journals": false
+  },
+  "invoice": {
+    "type": "ACCREC",
+    "invoiceID": "00000000-0000-0000-0000-018279018279",
+    "invoiceNumber": "018279",
+    "reference": "PT-CLAIM-DEMO-018279",
+    "status": "AUTHORISED",
+    "lineAmountTypes": "Exclusive",
+    "date": "2026-05-01",
+    "dueDate": "2026-05-31",
+    "subTotal": 14937.80,
+    "totalTax": 1493.78,
+    "total": 16431.58,
+    "amountDue": 16431.58,
+    "amountPaid": 0,
+    "currencyCode": "AUD",
+    "contact": { "contactID": "00000000-0000-0000-0000-c0ffeec0ffee", "name": "Demo Customer Pty Ltd" },
+    "lineItems": [
+      { "description": "Project works — May 2026 progress claim", "accountCode": "200", "taxType": "OUTPUT",      "quantity": 1, "unitAmount":  14937.80, "taxAmount": 1493.78, "lineAmount":  14937.80 },
+      { "description": "Retention receivable (5%)",               "accountCode": "834", "taxType": "BASEXCLUDED", "quantity": 1, "unitAmount":    786.20, "taxAmount":       0, "lineAmount":    786.20 },
+      { "description": "Retention held by customer",              "accountCode": "833", "taxType": "BASEXCLUDED", "quantity": 1, "unitAmount":   -786.20, "taxAmount":       0, "lineAmount":   -786.20 }
+    ],
+    "payments": []
+  }
+}

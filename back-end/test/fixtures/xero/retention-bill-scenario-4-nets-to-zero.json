@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "task": "Task #333 — Scenario 4",
+    "scenario": "Retained-code lines that net to zero across multiple sub-lines. Surfaces the Math.abs reducer over-count bug.",
+    "notes": [
+      "Two offsetting lines on retention_payable_retained_code=832: -$1,000 and +$1,000.",
+      "Signed sum = 0 (no actual retention held), but the abs-per-line reducer at webhook.service.ts:3748-3760 sums to $2,000.",
+      "Base line is the same $14,937.80 ex-GST / $1,493.78 GST on bill_code=300 to keep the rest of the shape recognisable."
+    ]
+  },
+  "xeroIntegrationDetails": {
+    "company_id": 999,
+    "tenant_id": "00000000-0000-0000-0000-000000000001",
+    "bill_code": "300",
+    "invoice_code": "200",
+    "bill_code_is_variable": false,
+    "bill_code_allow_fallback": true,
+    "retention_payable_retained_code": "832",
+    "retention_payable_release_code": "832",
+    "retention_receivable_retained_code": "833",
+    "retention_receivable_release_code": "833",
+    "liability_payable_code": "831",
+    "liability_receivable_code": "834",
+    "simplified_retention_accounting": false,
+    "retention_recording_mode": "ex_gst",
+    "retention_tax_type": null,
+    "auto_gross_up_retention_journals": false
+  },
+  "invoice": {
+    "type": "ACCPAY",
+    "invoiceID": "00000000-0000-0000-0000-018280018280",
+    "invoiceNumber": "018280",
+    "reference": "PT-CLAIM-DEMO-018280",
+    "status": "AUTHORISED",
+    "lineAmountTypes": "Exclusive",
+    "date": "2026-05-01",
+    "dueDate": "2026-05-31",
+    "subTotal": 14937.80,
+    "totalTax": 1493.78,
+    "total": 16431.58,
+    "amountDue": 16431.58,
+    "amountPaid": 0,
+    "currencyCode": "AUD",
+    "contact": { "contactID": "00000000-0000-0000-0000-c0ffeec0ffee", "name": "Demo Supplier Pty Ltd" },
+    "lineItems": [
+      { "description": "Project works — May 2026 progress claim", "accountCode": "300", "taxType": "INPUT",       "quantity": 1, "unitAmount": 14937.80, "taxAmount": 1493.78, "lineAmount": 14937.80 },
+      { "description": "Retention adjustment A (reversal)",       "accountCode": "832", "taxType": "BASEXCLUDED", "quantity": 1, "unitAmount":  -1000.00, "taxAmount":      0, "lineAmount":  -1000.00 },
+      { "description": "Retention adjustment B (re-posting)",     "accountCode": "832", "taxType": "BASEXCLUDED", "quantity": 1, "unitAmount":   1000.00, "taxAmount":      0, "lineAmount":   1000.00 }
+    ],
+    "payments": []
+  }
+}
