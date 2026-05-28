@@ -173,7 +173,12 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
             const { addMode, ...restAccountDetails } = data;
             return {
               ...restAccountDetails,
-              bsb_number: Number(data?.bsb_number),
+              // BSB must travel as a String so leading zeros (e.g. "064000")
+              // survive the wire — backend DTO is `bsb_number: string`. Sending
+              // it as Number triggers GraphQL "got invalid value" rejection
+              // before the resolver runs (silent save failure on any contact
+              // with bank accounts).
+              bsb_number: String(data?.bsb_number ?? ""),
               id: null,
             };
           } else {
@@ -181,7 +186,7 @@ export const AddClientsAndSuppliersContextProvider = ({ children }: any) => {
             return {
               ...restAccountDetails,
               client_supplier_id: formik?.values?.client_supplier_id,
-              bsb_number: Number(data?.bsb_number),
+              bsb_number: String(data?.bsb_number ?? ""),
               id: addMode ? null : restAccountDetails?.id,
             };
           }
