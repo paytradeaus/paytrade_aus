@@ -3801,7 +3801,20 @@ export class XeroWebhookService {
             filteredInvoices = invoice.lineItems?.filter(
               (item) => item.accountCode === vBaseAccountCode,
             );
-            if (cashRetention && webhookSimplifiedRetention) {
+            // CLAIM_RECONCILE_FIX: for cash-retention inbound the claim
+            // header must equal linesSubtotal + linesGst +
+            // retention_amount_with_gst (see
+            // payment-claims.service.ts:262). The legacy
+            // `adjustItemsWithRetention` path silently scaled work lines
+            // UP to fold the retention slice back into the lines, which
+            // made `claim_amount = Σ(line totals)` short of the
+            // reconciler's expectation by exactly retention_with_gst
+            // (cf. Demo claims 100005-100042 pre-guard, and Timms 2-line
+            // bill 018277 that surfaced the bug post-guard). Use
+            // mapItemsDirectly for ALL cash-retention paths so lines stay
+            // at the values Xero sent and the retention sits on top of
+            // the header (see claim_amount construction below).
+            if (cashRetention) {
               invoices = this.xeroInvoicesService.mapItemsDirectly(
                 filteredInvoices,
                 invoice.lineAmountTypes,
@@ -4022,25 +4035,34 @@ export class XeroWebhookService {
             // Sum of recomputed per-line totals so SUB TOTAL + GST = TOTAL
             // on the claim drawer. The previous `invoice.total +
             // retentionAmount` mirrored Xero's raw figures, but
-            // `adjustItemsWithRetention` now recomputes per-line GST as
-            // `workLineRate × merged_unit` (clean 10% on the merged
-            // ex-GST unit when the work line is taxable, 0 otherwise).
-            // For BAS-Excluded retention setups, that recomputed GST
-            // diverges from `invoice.totalTax + retentionTaxOnly` by
-            // exactly the missing GST on the retention portion, so we
-            // must derive `claim_amount` from the SAME numbers we just
-            // wrote into `invoices` (otherwise SUB TOTAL $15,724 + GST
-            // $1,572.40 = $17,296.40 but TOTAL would still show
-            // $17,217.78 from the old formula).
+            // CLAIM_RECONCILE_FIX: lines now come from mapItemsDirectly
+            // (at the values Xero sent — see if/else above), so
+            // `total_amount_including_gst` is the per-line gross of
+            // qty × unit + tax. The reconciler at
+            // payment-claims.service.ts:262 requires
+            //   claim_amount = Σ(qty × unit_price) + Σ gst + retention_amount_with_gst
+            // so we add retention_with_gst on top of the line totals.
+            // Computed once here from the same formula used by
+            // `retention_amount_with_gst` below so the two stay in lock-step.
             claim_amount: Array.isArray(invoices)
               ? parseFloat(
-                  invoices
-                    .reduce(
+                  (
+                    invoices.reduce(
                       (sum, i) =>
                         sum + Number(i?.total_amount_including_gst || 0),
                       0,
-                    )
-                    .toFixed(2),
+                    ) +
+                    (cashRetention
+                      ? retainedAmountExcludingGST *
+                        (1 +
+                          (invoice.lineAmountTypes === LineAmountTypes.NoTax
+                            ? 0
+                            : Number(invoice.subTotal) > 0
+                              ? Number(invoice.totalTax || 0) /
+                                Number(invoice.subTotal)
+                              : 0.1))
+                      : 0)
+                  ).toFixed(2),
                 )
               : Number(invoice.total || 0) + retentionAmount,
             cash_retention: cashRetention,
@@ -4048,8 +4070,7 @@ export class XeroWebhookService {
             // Use the already-computed ex-GST retention (which is just
             // `retentionUnitOnly` when retention is present). The previous
             // `retentionAmount / 1.1` re-strip wrongly attributed phantom
-            // GST when retention lines were BAS Excluded — see
-            // adjustItemsWithRetention rationale.
+            // GST when retention lines were BAS Excluded.
             retention_amount: cashRetention ? retainedAmountExcludingGST : 0,
             // retention_amount_with_gst is what the payment page shows
             // under "Retention amount (including GST)". The user's mental
@@ -4612,7 +4633,11 @@ export class XeroWebhookService {
                 filteredInvoices = invoice.lineItems?.filter(
                   (item) => item.accountCode === dBaseAccountCode,
                 );
-                if (cashRetention && draftSimplifiedRetention) {
+                // CLAIM_RECONCILE_FIX: see V-Step site above for full
+                // rationale. Use mapItemsDirectly for ALL cash-retention
+                // paths so the header reconciler at
+                // payment-claims.service.ts:262 passes.
+                if (cashRetention) {
                   invoices = this.xeroInvoicesService.mapItemsDirectly(
                     filteredInvoices,
                     invoice.lineAmountTypes,
@@ -4836,30 +4861,35 @@ export class XeroWebhookService {
                 invoices,
                 associated_retention_sub_payment_id,
                 retention_id,
-                // Sum of recomputed per-line totals so SUB TOTAL + GST = TOTAL
-            // on the claim drawer. The previous `invoice.total +
-            // retentionAmount` mirrored Xero's raw figures, but
-            // `adjustItemsWithRetention` now recomputes per-line GST as
-            // `workLineRate × merged_unit` (clean 10% on the merged
-            // ex-GST unit when the work line is taxable, 0 otherwise).
-            // For BAS-Excluded retention setups, that recomputed GST
-            // diverges from `invoice.totalTax + retentionTaxOnly` by
-            // exactly the missing GST on the retention portion, so we
-            // must derive `claim_amount` from the SAME numbers we just
-            // wrote into `invoices` (otherwise SUB TOTAL $15,724 + GST
-            // $1,572.40 = $17,296.40 but TOTAL would still show
-            // $17,217.78 from the old formula).
-            claim_amount: Array.isArray(invoices)
-              ? parseFloat(
-                  invoices
-                    .reduce(
-                      (sum, i) =>
-                        sum + Number(i?.total_amount_including_gst || 0),
-                      0,
+                // CLAIM_RECONCILE_FIX: see V-Step site for full
+                // rationale. Lines come from mapItemsDirectly so
+                // `total_amount_including_gst` is per-line gross
+                // (qty × unit + tax). Reconciler at
+                // payment-claims.service.ts:262 requires
+                //   claim_amount = Σ(qty × unit_price) + Σ gst + retention_amount_with_gst
+                // so we add retention_with_gst on top using the same
+                // gross-up formula as `retention_amount_with_gst` below.
+                claim_amount: Array.isArray(invoices)
+                  ? parseFloat(
+                      (
+                        invoices.reduce(
+                          (sum, i) =>
+                            sum + Number(i?.total_amount_including_gst || 0),
+                          0,
+                        ) +
+                        (cashRetention
+                          ? retainedAmountExcludingGST *
+                            (1 +
+                              (invoice.lineAmountTypes === LineAmountTypes.NoTax
+                                ? 0
+                                : Number(invoice.subTotal) > 0
+                                  ? Number(invoice.totalTax || 0) /
+                                    Number(invoice.subTotal)
+                                  : 0.1))
+                          : 0)
+                      ).toFixed(2),
                     )
-                    .toFixed(2),
-                )
-              : Number(invoice.total || 0) + retentionAmount,
+                  : Number(invoice.total || 0) + retentionAmount,
                 cash_retention: cashRetention,
                 retention_percentage: retentionPercentage,
                 // See V-Step site above and adjustItemsWithRetention
@@ -5494,6 +5524,14 @@ export class XeroWebhookService {
       } catch (logErr) {
         this.logger.error(`[Webhook] Failed to write sync log for error: ${logErr?.message || logErr}`);
       }
+      // SILENT_SUCCESS_FIX: an exception caught here must propagate as a
+      // boolean `false` so callers (especially `manualXeroResync`) can
+      // distinguish processing failure from success. Falling through
+      // returned `undefined`, which the caller's `=== false` check
+      // misread as success — producing template-518 "Succeeded" sync
+      // logs against bills that never imported (cf. Timms 018277,
+      // 2026-05-28). Always return false from the catch.
+      return false;
     }
   }
 
@@ -13967,8 +14005,10 @@ export class XeroWebhookService {
         // Re-run the same handler the webhook would, stamped 'manual'.
         // Handlers return `false` (without throwing) when the record can't
         // be processed (missing mappings, contact not yet created, etc.).
-        // Treat that as a real failure so the UI doesn't show a misleading
-        // green tick.
+        // SILENT_SUCCESS_FIX: treat anything that isn't an explicit `true`
+        // as failure — the strict `=== false` previously misread the
+        // `undefined` return that resulted when a catch fell through
+        // without returning (cf. Timms 018277, 2026-05-28).
         const handlerOk = await this.handleInvoiceCreateUpdate(
           {
             resource_id: resolvedId,
@@ -13978,7 +14018,7 @@ export class XeroWebhookService {
           },
           decoded,
         );
-        if (handlerOk === false) {
+        if (handlerOk !== true) {
           return {
             success: false,
             message: `Invoice/Bill ${resolvedId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row for details.`,
@@ -14039,6 +14079,9 @@ export class XeroWebhookService {
           ],
         });
 
+        // SILENT_SUCCESS_FIX: see invoice branch above — `!== true`
+        // catches both the explicit-false rejection and the
+        // catch-fell-through `undefined` regression.
         const paymentHandlerOk = await this.handleInvoiceCreateUpdate(
           {
             resource_id: invoiceId,
@@ -14048,7 +14091,7 @@ export class XeroWebhookService {
           },
           decoded,
         );
-        if (paymentHandlerOk === false) {
+        if (paymentHandlerOk !== true) {
           return {
             success: false,
             message: `Payment ${rawId} was resolved to invoice ${invoiceId} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
@@ -14194,7 +14237,7 @@ export class XeroWebhookService {
           },
           decoded,
         );
-        if (transferHandlerOk === false) {
+        if (transferHandlerOk !== true) {
           return {
             success: false,
             message: `Bank transfer ${rawId} resolved to invoice ${xeroInvoice.invoice_id} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
@@ -14291,7 +14334,7 @@ export class XeroWebhookService {
           { sync_run_type: 'manual' },
           decoded,
         );
-        if (contactHandlerOk === false) {
+        if (contactHandlerOk !== true) {
           return {
             success: false,
             message: `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
@@ -14332,7 +14375,7 @@ export class XeroWebhookService {
           },
           decoded,
         );
-        if (mjHandlerOk === false) {
+        if (mjHandlerOk !== true) {
           return {
             success: false,
             message: `Manual Journal ${rawId} was re-pulled from Xero but the handler reported a processing failure (or anti-echo skipped a self-posted journal). Check the sync log entries that follow this trigger row.`,
