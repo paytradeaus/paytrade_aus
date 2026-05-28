@@ -109,7 +109,30 @@ export async function updateClientSuppliersById(postData: any): Promise<any> {
       showErrorToast(response?.data?.editClientSuppliersDetailsById?.message);
       return false;
     }
+    // Neither SUCCESS nor ERROR — surface the unexpected shape instead of
+    // silently returning undefined, which would leave the user staring at a
+    // closed dialog with nothing persisted and no feedback.
+    console.error(
+      "EditClientSuppliersDetailsById unexpected response:",
+      response,
+    );
+    showErrorToast(
+      response?.data?.editClientSuppliersDetailsById?.message ||
+        "Save did not complete — please check the console for details.",
+    );
+    return false;
   } catch (error: any) {
+    // GraphQL / network failure. Most common cause here is schema-validation
+    // rejection at Apollo Server (field mismatch between FE & deployed BE),
+    // class-validator rejection on the input DTO, or a 4xx/5xx from the
+    // proxy. Logging + a toast turns a silent failure into a debuggable one.
+    console.error("EditClientSuppliersDetailsById failed:", error);
+    const gqlMsg =
+      error?.graphQLErrors?.[0]?.message ||
+      error?.networkError?.result?.errors?.[0]?.message ||
+      error?.networkError?.message ||
+      error?.message;
+    showErrorToast(gqlMsg || "Could not save — please try again.");
     return false;
   }
 }
