@@ -1493,17 +1493,38 @@ export class CompliancesService {
 
       newCheckpoint.rules = newRules;
 
+      // Task #297: this checkpoint was just resynced — mark it fresh so
+      // the refresh worker's stillDirty count doesn't see it and
+      // enqueue an infinite stream of follow-up jobs. The entity
+      // default for `is_stale` is `true`, so omitting this is what
+      // caused the runaway COMPLIANCE_REFRESH_CONSUMER loop.
+      newCheckpoint.is_stale = false;
+      newCheckpoint.last_synced_at = new Date();
+
       await this.saveCheckpointTolerantOfUniqueViolation(
         newCheckpoint,
         projectId,
         bankAccountType,
         checkNumber,
       );
-      this.logger.error(
+      this.logger.log(
         `Compliances of a project updated with project-id: ${projectId}`,
       );
 
       return { message: 'Updated successfully' };
+    }
+
+    if (existingCheckpoint && existingCheckpoint.is_stale !== false) {
+      try {
+        await this.checkpointRepo.update(
+          { id: existingCheckpoint.id },
+          { is_stale: false, last_synced_at: new Date() },
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to clear is_stale on no-change checkpoint id=${existingCheckpoint.id}: ${err?.message || err}`,
+        );
+      }
     }
 
     return { message: 'No changes detected, skipping update' };
