@@ -1627,19 +1627,44 @@ table a {
 /* Keep the multi-select trigger on a single line: long comma-joined
    selections truncate with an ellipsis instead of wrapping and
    inflating the filter row height. The full selection is still
-   exposed via the summary's `title` attribute for hover/tooltip. */
+   exposed via the summary's `title` attribute for hover/tooltip.
+   Reserve room on the right for the chevron so the truncated text
+   never collides with it. */
 .pt_filtercheckboxes > summary {
+  position: relative;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: calc(
+    var(--pico-form-element-spacing-horizontal) + 1.25rem
+  );
 }
 
-/* Ensure an open filter dropdown panel sits above the page footer
-   (which uses z-index: 2). Without this, options that extend past
-   the viewport bottom get clipped behind the footer. */
+/* Pico renders the dropdown chevron as a `float: right` ::after on
+   the summary. With nowrap+ellipsis truncation, the truncated text
+   fills the line and the float wraps to a second row, making the
+   trigger look broken. Pin the chevron absolutely so it always
+   stays on the same row as the text. */
+.pt_filtercheckboxes > summary::after {
+  position: absolute;
+  top: 50%;
+  right: var(--pico-form-element-spacing-horizontal);
+  margin: 0;
+  float: none;
+  transform: translateY(-50%) translateX(0.2rem);
+}
+
+/* Ensure an open filter dropdown panel sits above the page footer.
+   The footer (.pt_footer) creates its own stacking context via
+   position:relative + z-index, so the dropdown's containing element
+   needs a high enough z-index to win. Without this, options that
+   extend past the table area get clipped behind the footer. */
 .pt_filteroptions details.dropdown[open] {
   position: relative;
-  z-index: 20;
+  z-index: 100;
+}
+.pt_filteroptions details.dropdown[open] > summary + ul {
+  z-index: 101;
 }
 
 .pt_toggles {
