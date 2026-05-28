@@ -16630,6 +16630,16 @@ export class XeroWebhookService {
             // matching Tax Codes). Tells the operator at a glance
             // whether each Xero line will land on the expected
             // account / tax code or not.
+            //
+            // Task #332 — retention-aware. The real importer classifies
+            // retention shapes via `classifyRetentionShape` in
+            // xero-invoices.service.ts and accepts the company's
+            // configured retention/liability/release accounts on extra
+            // lines. The pre-flight must mirror that, otherwise every
+            // legitimate 3-line retention bill is mis-flagged as
+            // "differ from your configured Bill Code". Keep this set
+            // in lockstep with `classifyRetentionShape` if new
+            // retention-code fields are introduced there.
             const isBillCheck =
               String(inv.type || '').toUpperCase() === 'ACCPAY';
             const expectedAccountCode = isBillCheck
@@ -16638,6 +16648,27 @@ export class XeroWebhookService {
             const expectedTaxCode = isBillCheck
               ? integrationCfg?.bill_tax_code
               : integrationCfg?.invoice_tax_code;
+            const simplifiedRetention = !!integrationCfg
+              ?.simplified_retention_accounting;
+            const retentionRetainedCode = isBillCheck
+              ? integrationCfg?.retention_payable_retained_code
+              : integrationCfg?.retention_receivable_retained_code;
+            const retentionReleaseCode = isBillCheck
+              ? integrationCfg?.retention_payable_release_code
+              : integrationCfg?.retention_receivable_release_code;
+            const liabilityCode = simplifiedRetention
+              ? null
+              : isBillCheck
+              ? integrationCfg?.liability_payable_code
+              : integrationCfg?.liability_receivable_code;
+            const retentionAccountCodeSet = new Set<string>(
+              [retentionRetainedCode, retentionReleaseCode, liabilityCode]
+                .filter((c): c is string => !!c)
+                .map((c) => String(c)),
+            );
+            const retentionTaxTypeOverride = integrationCfg?.retention_tax_type
+              ? String(integrationCfg.retention_tax_type)
+              : null;
             const checks: string[] = [];
             const lineCodes = Array.from(
               new Set(
@@ -16648,6 +16679,18 @@ export class XeroWebhookService {
                   .filter((c: string) => c),
               ),
             );
+            // Split codes into "matches base", "matches a retention
+            // account", and "unexpected".
+            const expectedBaseStr = expectedAccountCode
+              ? String(expectedAccountCode)
+              : null;
+            const unexpectedAccountCodes = lineCodes.filter(
+              (c) =>
+                c !== expectedBaseStr && !retentionAccountCodeSet.has(c),
+            );
+            const matchedRetentionCodes = lineCodes.filter((c) =>
+              retentionAccountCodeSet.has(c),
+            );
             if (expectedAccountCode) {
               if (lineCodes.length === 0) {
                 checks.push(
@@ -16655,23 +16698,30 @@ export class XeroWebhookService {
                     isBillCheck ? 'Bill' : 'Invoice'
                   } Code is ${expectedAccountCode}; PayTrade can't resolve which PT line item to create without one)`,
                 );
-              } else if (
-                lineCodes.every((c) => c === String(expectedAccountCode))
-              ) {
-                checks.push(
-                  `✓ All line account codes match your configured ${
-                    isBillCheck ? 'Bill' : 'Invoice'
-                  } Code (${expectedAccountCode})`,
-                );
+              } else if (unexpectedAccountCodes.length === 0) {
+                if (matchedRetentionCodes.length > 0) {
+                  checks.push(
+                    `✓ All line account codes match your configured ${
+                      isBillCheck ? 'Bill' : 'Invoice'
+                    } Code (${expectedAccountCode}) or configured retention accounts (${matchedRetentionCodes.join(
+                      ', ',
+                    )})`,
+                  );
+                } else {
+                  checks.push(
+                    `✓ All line account codes match your configured ${
+                      isBillCheck ? 'Bill' : 'Invoice'
+                    } Code (${expectedAccountCode})`,
+                  );
+                }
               } else if (isBillCheck) {
-                // Inbound bills: a non-matching account code only
-                // succeeds if the supplier has a per-account override
-                // mapping it to a PayTrade bill code. Without that the
-                // run-sync will fail with "supplier bill code
-                // unresolved". The blocking_issues check below is the
-                // authoritative gate; here we just flag the risk.
+                // Inbound bills: a non-matching, non-retention account
+                // code only succeeds if the supplier has a per-account
+                // override mapping it to a PayTrade bill code. Without
+                // that the run-sync will fail with "supplier bill code
+                // unresolved".
                 checks.push(
-                  `✗ Line account code(s) ${lineCodes.join(
+                  `✗ Line account code(s) ${unexpectedAccountCodes.join(
                     ', ',
                   )} differ from your configured Bill Code (${expectedAccountCode}) — inbound import will FAIL unless the supplier has a per-account override mapping these codes`,
                 );
@@ -16681,7 +16731,7 @@ export class XeroWebhookService {
                 // existing Xero record uses a different code; the link
                 // will still be created on import.
                 checks.push(
-                  `⚠ Line account code(s) ${lineCodes.join(
+                  `⚠ Line account code(s) ${unexpectedAccountCodes.join(
                     ', ',
                   )} differ from your configured Invoice Code (${expectedAccountCode}) — import still links the records but the Xero invoice keeps its own line account codes`,
                 );
@@ -16693,14 +16743,42 @@ export class XeroWebhookService {
                 } Code configured in PayTrade Xero settings — fix in Xero settings before running sync`,
               );
             }
-            const lineTaxes = Array.from(
-              new Set(
-                lineItemsForDetail
-                  .map((li: any) =>
-                    li?.taxType ? String(li.taxType) : '',
-                  )
-                  .filter((t: string) => t),
-              ),
+            // Tax codes: treat each line independently so retention
+            // lines (account ∈ retention codes) can legitimately be
+            // BASEXCLUDED — that's the "account default" behaviour the
+            // operator picks in the dropdown when retention accounts
+            // are BAS-Excluded. A non-default `retention_tax_type` is
+            // also accepted on retention lines.
+            const expectedBaseTax = expectedTaxCode
+              ? String(expectedTaxCode)
+              : null;
+            const unexpectedTaxes: string[] = [];
+            const linesWithTax = lineItemsForDetail.filter(
+              (li: any) => li?.taxType,
+            );
+            for (const li of linesWithTax) {
+              const tax = String(li.taxType);
+              const acct = li?.accountCode ? String(li.accountCode) : '';
+              const isRetentionLine = retentionAccountCodeSet.has(acct);
+              if (isRetentionLine) {
+                if (
+                  tax === 'BASEXCLUDED' ||
+                  (retentionTaxTypeOverride &&
+                    tax === retentionTaxTypeOverride) ||
+                  (expectedBaseTax && tax === expectedBaseTax)
+                ) {
+                  continue;
+                }
+                unexpectedTaxes.push(tax);
+              } else {
+                if (expectedBaseTax && tax === expectedBaseTax) {
+                  continue;
+                }
+                unexpectedTaxes.push(tax);
+              }
+            }
+            const uniqueUnexpectedTaxes = Array.from(
+              new Set(unexpectedTaxes),
             );
             if (!expectedTaxCode) {
               checks.push(
@@ -16708,21 +16786,25 @@ export class XeroWebhookService {
                   isBillCheck ? 'Bill' : 'Invoice'
                 } Tax Code configured in PayTrade Xero settings`,
               );
-            } else if (lineTaxes.length === 0) {
+            } else if (linesWithTax.length === 0) {
               checks.push(
                 `⚠ No tax codes set on Xero lines (your configured ${
                   isBillCheck ? 'Bill' : 'Invoice'
                 } Tax Code is ${expectedTaxCode})`,
               );
-            } else if (lineTaxes.every((t) => t === String(expectedTaxCode))) {
+            } else if (uniqueUnexpectedTaxes.length === 0) {
               checks.push(
                 `✓ All line tax codes match your configured ${
                   isBillCheck ? 'Bill' : 'Invoice'
-                } Tax Code (${expectedTaxCode})`,
+                } Tax Code (${expectedTaxCode})${
+                  matchedRetentionCodes.length > 0
+                    ? ' (retention lines accepted as BASEXCLUDED or configured retention tax type)'
+                    : ''
+                }`,
               );
             } else {
               checks.push(
-                `⚠ Line tax code(s) ${lineTaxes.join(
+                `⚠ Line tax code(s) ${uniqueUnexpectedTaxes.join(
                   ', ',
                 )} differ from your configured ${
                   isBillCheck ? 'Bill' : 'Invoice'
