@@ -3745,19 +3745,33 @@ export class XeroWebhookService {
           const vUseIncGstSplit =
             xeroDetails.retention_recording_mode === 'inc_gst' &&
             invoice.lineAmountTypes === LineAmountTypes.Inclusive;
-          const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
-            const u = Math.abs(Number(item?.unitAmount || 0));
-            const t = Math.abs(Number(item?.taxAmount || 0));
+          // Task #338 — sum SIGNED amounts first, then abs the net.
+          // Per-line Math.abs treated a wash bill (e.g. +$X / -$X on the
+          // same retention account, sometimes used when editing a bill in
+          // Xero by adding a reversing line) as $2X of retention instead
+          // of $0. Net then abs handles wash shapes, partial reversals,
+          // and the normal single-positive-line shape uniformly.
+          const vRetentionUnitOnlySigned = retentionLineItems.reduce((sum, item) => {
+            const u = Number(item?.unitAmount || 0);
+            const t = Number(item?.taxAmount || 0);
             if (vUseIncGstSplit) return sum + u / 1.1;
             const unitExGst =
               invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
             return sum + unitExGst;
           }, 0.0);
-          const retentionTaxOnly = retentionLineItems.reduce((sum, item) => {
-            const u = Math.abs(Number(item?.unitAmount || 0));
+          const vRetentionTaxOnlySigned = retentionLineItems.reduce((sum, item) => {
+            const u = Number(item?.unitAmount || 0);
             if (vUseIncGstSplit) return sum + (u - u / 1.1);
-            return sum + Math.abs(Number(item?.taxAmount || 0));
+            return sum + Number(item?.taxAmount || 0);
           }, 0.0);
+          const retentionUnitOnly =
+            Math.abs(vRetentionUnitOnlySigned) < 0.01
+              ? 0
+              : Math.abs(vRetentionUnitOnlySigned);
+          const retentionTaxOnly =
+            Math.abs(vRetentionTaxOnlySigned) < 0.01
+              ? 0
+              : Math.abs(vRetentionTaxOnlySigned);
           const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
           const cashRetention =
@@ -4579,19 +4593,29 @@ export class XeroWebhookService {
               const dUseIncGstSplit =
                 xeroDetails.retention_recording_mode === 'inc_gst' &&
                 invoice.lineAmountTypes === LineAmountTypes.Inclusive;
-              const retentionUnitOnly = retentionLineItems.reduce((sum, item) => {
-                const u = Math.abs(Number(item?.unitAmount || 0));
-                const t = Math.abs(Number(item?.taxAmount || 0));
+              // Task #338 — sum SIGNED amounts first, then abs the net.
+              // See V-Step comment above for the wash-shape rationale.
+              const dRetentionUnitOnlySigned = retentionLineItems.reduce((sum, item) => {
+                const u = Number(item?.unitAmount || 0);
+                const t = Number(item?.taxAmount || 0);
                 if (dUseIncGstSplit) return sum + u / 1.1;
                 const unitExGst =
                   invoice.lineAmountTypes === LineAmountTypes.Inclusive ? u - t : u;
                 return sum + unitExGst;
               }, 0.0);
-              const retentionTaxOnly = retentionLineItems.reduce((sum, item) => {
-                const u = Math.abs(Number(item?.unitAmount || 0));
+              const dRetentionTaxOnlySigned = retentionLineItems.reduce((sum, item) => {
+                const u = Number(item?.unitAmount || 0);
                 if (dUseIncGstSplit) return sum + (u - u / 1.1);
-                return sum + Math.abs(Number(item?.taxAmount || 0));
+                return sum + Number(item?.taxAmount || 0);
               }, 0.0);
+              const retentionUnitOnly =
+                Math.abs(dRetentionUnitOnlySigned) < 0.01
+                  ? 0
+                  : Math.abs(dRetentionUnitOnlySigned);
+              const retentionTaxOnly =
+                Math.abs(dRetentionTaxOnlySigned) < 0.01
+                  ? 0
+                  : Math.abs(dRetentionTaxOnlySigned);
               const retentionAmount = retentionUnitOnly + retentionTaxOnly;
 
               const cashRetention =
