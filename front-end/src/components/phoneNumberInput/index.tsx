@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from "react";
-import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+
+// Permissive phone check: accepts any string that looks plausibly like a
+// phone number (optional leading +, at least 6 digits, may contain spaces,
+// dashes, parentheses). Intentionally looser than libphonenumber-js's
+// `isValidPhoneNumber` so we accept free-form numbers that Xero (and many
+// real-world contacts) carry — e.g. "+1 800 314 659" — without blocking
+// save. Backend Xero sync passes phone strings through verbatim on both
+// import and export, so anything we accept here round-trips cleanly.
+const isAcceptablePhoneNumber = (value: string | undefined | null): boolean => {
+  if (!value) return false;
+  const s = String(value).trim();
+  if (!/^[+\d][\d\s()\-]*$/.test(s)) return false;
+  return (s.match(/\d/g) || []).length >= 6;
+};
 // import styles from "./phoneNumberInput.module.scss";
 import { useFormik } from "formik";
 
@@ -36,7 +50,7 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
     validate: (values) => {
       const errors: { [key: string]: string } = {};
       const phoneValue = values[name] ?? "";
-      if (!isValidPhoneNumber(phoneValue)) {
+      if (!isAcceptablePhoneNumber(phoneValue)) {
         errors[name] = "Invalid phone number";
       }
       return errors;
@@ -69,7 +83,7 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
     const phoneNumberString = data ? String(data).trim() : "";
     formik.setFieldValue(name, phoneNumberString);
     onChange?.(phoneNumberString);
-    const isValidPhone = isValidPhoneNumber(phoneNumberString);
+    const isValidPhone = isAcceptablePhoneNumber(phoneNumberString);
     setIsValid(isValidPhone);
     onPhoneNumberValidChange?.(isValidPhone);
   };

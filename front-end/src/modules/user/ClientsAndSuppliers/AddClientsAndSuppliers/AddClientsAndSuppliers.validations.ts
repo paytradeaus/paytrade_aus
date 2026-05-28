@@ -1,6 +1,18 @@
 import { EMAIL_REGEX } from "@/shared/constant/general";
-import { isValidPhoneNumber } from "react-phone-number-input";
 import * as yup from "yup";
+
+// Permissive phone check: accepts any string that looks plausibly like a
+// phone number (optional leading +, at least 6 digits, may contain spaces,
+// dashes, parentheses). Replaces strict libphonenumber-based validation
+// because Xero contacts routinely carry free-form numbers (incl. short
+// toll-free strings like "+1 800 314 659") that the strict validator
+// rejects, blocking save on contacts that were perfectly importable.
+const isAcceptablePhoneNumber = (value: string | undefined | null): boolean => {
+  if (!value) return false;
+  const s = String(value).trim();
+  if (!/^[+\d][\d\s()\-]*$/.test(s)) return false;
+  return (s.match(/\d/g) || []).length >= 6;
+};
 
 const initialValues = {
   client_supplier_name: "",
@@ -73,7 +85,7 @@ const validationSchema = yup.object().shape({
     .string()
     .required("Phone number is required")
     .test("is-valid-phone-number", "please enter valid phone number", (value) =>
-      isValidPhoneNumber(value)
+      isAcceptablePhoneNumber(value)
     ),
   client_email_id: yup
     .string()
