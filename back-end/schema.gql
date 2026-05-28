@@ -13244,6 +13244,11 @@ input GetXeroSyncLogsInput {
   """When true, return only auto-recovered sync logs (templates 493 / 495)"""
   recovered_only: Boolean
 
+  """
+  Task #330 — case-insensitive substring search across sync_type, reference (PT id / Xero id), the rendered message text (template description + dynamic_values), template.process / sync direction, project / contract / company name, and the error / notification fields. Combined with the other filters via AND.
+  """
+  search: String
+
   """Field to sort logs by"""
   sorting_field: String
 
