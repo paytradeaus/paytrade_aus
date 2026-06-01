@@ -31,6 +31,7 @@ import { XeroProjectDetails } from 'src/entities/xero-project-details.entity';
 import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { XeroPayments } from 'src/entities/xero-payments.entity';
+import { XeroTransferApplications } from 'src/entities/xero-transfer-applications.entity';
 import { XeroBankAccountDetails } from 'src/entities/xero-bank-account-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { SubPayments } from 'src/entities/sub-payments.entity';
@@ -81,6 +82,8 @@ export class XeroWebhookService {
     private xeroContractDetails: Repository<XeroContractDetails>,
     @InjectRepository(XeroPayments)
     private xeroPayments: Repository<XeroPayments>,
+    @InjectRepository(XeroTransferApplications)
+    private xeroTransferApplications: Repository<XeroTransferApplications>,
     @InjectRepository(ContractDetails)
     private contractDetails: Repository<ContractDetails>,
     @InjectRepository(XeroProjectDetails)
@@ -304,6 +307,178 @@ export class XeroWebhookService {
     }
 
     return { matched, outOfWindow, matchedByReference, windowDays };
+  }
+
+  /**
+   * Classify a Xero BankTransfer by its from/to PayTrade account types.
+   *
+   * The trust-pair invariant (enforced elsewhere for trust movements) is
+   * that a real trust movement has exactly one trust leg (PTA/RTA) and one
+   * cash leg. A two-trust-leg transfer (PTA<->RTA) therefore can NEVER be a
+   * trust movement — the only thing it can be is retention. That makes
+   * PTA->RTA the safe auto-classify lane for retention confirmation; every
+   * other valid shape is a trust movement whose specific type the user must
+   * confirm (direction narrows the candidate set).
+   *
+   * Returns:
+   *   kind: 'retention'  — two trust legs → retention lane (auto).
+   *         'movement'   — one trust + one cash leg → needs user input.
+   *         'invalid'    — neither leg is a trust account (not a trust pair).
+   *   direction (movement only): 'deposit' (cash->trust) | 'withdrawal' (trust->cash)
+   *   candidateTypes (movement only): direction-aware payment_type options.
+   */
+  public classifyTransferShape(opts: {
+    fromAccountType: string | null | undefined;
+    toAccountType: string | null | undefined;
+  }): {
+    kind: 'retention' | 'movement' | 'invalid';
+    direction: 'deposit' | 'withdrawal' | null;
+    candidateTypes: string[];
+  } {
+    const trustTypes = new Set([
+      'Project Trust Account',
+      'Retention Trust Account',
+    ]);
+    const fromIsTrust = trustTypes.has(String(opts.fromAccountType || ''));
+    const toIsTrust = trustTypes.has(String(opts.toAccountType || ''));
+
+    if (fromIsTrust && toIsTrust) {
+      return { kind: 'retention', direction: null, candidateTypes: [] };
+    }
+    if (!fromIsTrust && !toIsTrust) {
+      return { kind: 'invalid', direction: null, candidateTypes: [] };
+    }
+
+    // Exactly one trust leg → trust movement.
+    const trustIsTo = toIsTrust; // cash->trust if the trust leg is the "to"
+    if (trustIsTo) {
+      const trustType = String(opts.toAccountType || '');
+      const candidateTypes = [
+        'Top Up',
+        ...(trustType === 'Retention Trust Account'
+          ? ['Top Up Retention']
+          : []),
+        'Bank Charge Top Up',
+        'Interest Received',
+      ];
+      return { kind: 'movement', direction: 'deposit', candidateTypes };
+    }
+    // trust->cash (withdrawal)
+    return {
+      kind: 'movement',
+      direction: 'withdrawal',
+      candidateTypes: ['Withdrawal', 'Interest Withdrawal', 'Bank Charge Applied'],
+    };
+  }
+
+  /**
+   * Pre-select the most likely trust-movement type for a transfer based on
+   * its size. Interest/bank-charge amounts are small; top-ups/withdrawals are
+   * large. Used ONLY to default the resolution dropdown — never to auto-commit
+   * (trust money: a wrong post is a compliance problem, so a human always
+   * confirms). `threshold` is the per-company ceiling above which an amount is
+   * treated as a top-up/withdrawal rather than interest/charge.
+   */
+  public suggestMovementType(opts: {
+    amount: number;
+    direction: 'deposit' | 'withdrawal';
+    candidateTypes: string[];
+    threshold?: number;
+  }): string {
+    const amount = Math.abs(Number(opts.amount || 0));
+    const threshold = opts.threshold ?? 200;
+    const isLarge = amount > threshold;
+    const preferred =
+      opts.direction === 'deposit'
+        ? isLarge
+          ? ['Top Up', 'Top Up Retention']
+          : ['Bank Charge Top Up', 'Interest Received']
+        : isLarge
+          ? ['Withdrawal']
+          : ['Interest Withdrawal', 'Bank Charge Applied'];
+    const pick = preferred.find((t) => opts.candidateTypes.includes(t));
+    return pick || opts.candidateTypes[0] || '';
+  }
+
+  /**
+   * Generic bounded subset-sum over BankTransfer-like items (each exposing an
+   * `amount`). Returns the subset whose absolute summed amount is within
+   * `tolerance` of `target`, preferring (a) fewer items, then (b) tighter
+   * difference. Also reports how many distinct exact-match subsets exist so
+   * the caller can detect ambiguity (>1 distinct exact subset → require input
+   * rather than guess).
+   *
+   * Works in both directions of the design:
+   *   SPLIT  — items = transfers, target = one retention's expected gross.
+   *   BULK   — items = retention legs, target = one transfer's amount.
+   *
+   * Pure: no DB, no Xero, no logging. Pool capped at `maxPool` (default 12 →
+   * 2^12 = 4096 subsets) to stay trivially fast.
+   */
+  public findTransferSubsetForTarget(opts: {
+    candidates: any[];
+    target: number;
+    tolerance?: number;
+    maxPool?: number;
+    amountOf?: (t: any) => number;
+  }): {
+    subset: any[];
+    sum: number;
+    exact: boolean;
+    exactCount: number;
+    ambiguous: boolean;
+  } | null {
+    const tolerance = opts.tolerance ?? 0.01;
+    const amountOf =
+      opts.amountOf || ((t: any) => Math.abs(Number(t?.amount || 0)));
+    const items = (opts.candidates || []).slice(0, opts.maxPool ?? 12);
+    const n = items.length;
+    if (!n) return null;
+    if (n > 20) return null; // safety bound
+
+    const targetAbs = Math.abs(Number(opts.target || 0));
+    let best: { subset: any[]; diff: number; sum: number } | null = null;
+    let exactCount = 0;
+    let bestExactSize = Infinity;
+    let bestExactCount = 0;
+
+    for (let mask = 1; mask < 1 << n; mask++) {
+      let sum = 0;
+      const subset: any[] = [];
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i)) {
+          subset.push(items[i]);
+          sum += amountOf(items[i]);
+        }
+      }
+      const diff = Math.abs(Math.abs(sum) - targetAbs);
+      if (diff > tolerance) continue;
+      exactCount++;
+      // Track ambiguity only among minimal-size exact subsets: two different
+      // single transfers that both match is the dangerous case.
+      if (subset.length < bestExactSize) {
+        bestExactSize = subset.length;
+        bestExactCount = 1;
+      } else if (subset.length === bestExactSize) {
+        bestExactCount++;
+      }
+      if (
+        !best ||
+        subset.length < best.subset.length ||
+        (subset.length === best.subset.length && diff < best.diff)
+      ) {
+        best = { subset, diff, sum };
+      }
+    }
+
+    if (!best) return null;
+    return {
+      subset: best.subset,
+      sum: best.sum,
+      exact: best.diff <= tolerance,
+      exactCount,
+      ambiguous: bestExactCount > 1,
+    };
   }
 
   /**

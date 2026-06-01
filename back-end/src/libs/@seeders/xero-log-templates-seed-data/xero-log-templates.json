@@ -5768,5 +5768,35 @@
     "from_xero": false,
     "error_code": "XERO_CONTACT_ABN_BACKFILLED",
     "associated_log_ids": [10, 22, 630]
+  },
+  {
+    "id": 632,
+    "sync_type": "Payments",
+    "description": "<p>Bank transfer {{transfer_id}} for {{transfer_amount}} (dated {{transfer_date}}) moves funds between {{from_account}} and {{to_account}}. This is a trust movement, not a retention transfer, so Pay Trade needs you to confirm what it is before recording it. Please choose the movement type.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "TRUST_MOVEMENT_CLASSIFY_REQUIRED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 633,
+    "sync_type": "Payments",
+    "description": "<p>Retention for invoice {{invoice_number}} is partially covered. Bank transfers totalling {{covered_amount}} of an expected {{expected_amount}} have been applied so far ({{transfer_ids}}). The retention will be confirmed automatically once the remaining {{remaining_amount}} arrives.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "RETENTION_TRANSFER_PARTIAL_COVERAGE",
+    "associated_log_ids": null
+  },
+  {
+    "id": 634,
+    "sync_type": "Payments",
+    "description": "<p>Bank transfer {{transfer_id}} for {{transfer_amount}} could match more than one pending Pay Trade record ({{candidate_ids}}). Manual confirmation is required so the payment is applied to the correct one.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "TRANSFER_AMBIGUOUS_MATCH",
+    "associated_log_ids": null
   }
 ]

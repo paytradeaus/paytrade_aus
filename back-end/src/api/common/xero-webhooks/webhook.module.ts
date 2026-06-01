@@ -101,6 +101,7 @@ import { XeroInvoicesService } from '../integrations/xero/invoicesAndBills/xero-
 import { XeroPaymentsService } from '../integrations/xero/payments/xero-payments.service';
 import { XeroManualJournalService } from '../integrations/xero/manualJournals/xero-manual-journal.service';
 import { XeroRetentionJournals } from 'src/entities/xero-retention-journals.entity';
+import { XeroTransferApplications } from 'src/entities/xero-transfer-applications.entity';
 import { ClientSupplierProjectXeroAccountCodes } from 'src/entities/client-supplier-project-xero-account-codes.entity';
 import { EmailQueueProducer } from 'src/libs/@email-services/email-queue/email-queue.producer';
 import { XeroWaitQueueService } from './waitQueue/webhookWait.service';
@@ -142,6 +143,7 @@ import { XeroSyncRecoveryWorker } from './recoveryQueue/xeroSyncRecovery.worker'
       ClientSuppliersDetails,
       XeroInvoicesBills,
       XeroRetentionJournals,
+      XeroTransferApplications,
       ClientSupplierProjectXeroAccountCodes,
       XeroContractDetails,
       XeroProjectDetails,
