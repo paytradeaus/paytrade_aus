@@ -5808,5 +5808,29 @@
     "from_xero": true,
     "error_code": "RETENTION_BULK_MATCH",
     "associated_log_ids": null
+  },
+  {
+    "id": 636,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Invoice/bill webhook processing failed unexpectedly. See the error message for details.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "WH_INVOICE_PROCESSING_ERROR",
+    "associated_log_ids": [
+      637
+    ]
+  },
+  {
+    "id": 637,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Invoice/bill processing failed unexpectedly. See the error message for details.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_INVOICE_PROCESSING_ERROR",
+    "associated_log_ids": [
+      636
+    ]
   }
 ]

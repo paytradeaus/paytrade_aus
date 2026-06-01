@@ -2231,6 +2231,37 @@ export class XeroWebhookService {
         this.logger.error(
           `[BILL_TRACE] Step 1 FAILED: Integration not in a processable state (status=${xeroDetails.integrationDetails.integration_status})`,
         );
+        // SILENT_FAILURE_FIX: persist a Failed sync-log row so a manual
+        // re-sync against a disconnected/suspended integration is diagnosable
+        // instead of returning false with nothing in the log.
+        try {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            api_name: 'createClaimInPaytrade',
+            api_payload: { sync_run_type, invoice_id: resource_id, tenant_id },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+            dynamic_values: {},
+            project_id: null,
+            contract_id: null,
+            reference: {},
+            reference_id: null,
+            history: [
+              `API triggered from invoice ${sync_run_type}`,
+              'Import failed',
+            ],
+            important_checks: { 'Import data format validation': 'Failed' },
+            error_message: `Integration is not in a processable state (status: ${xeroDetails.integrationDetails.integration_status}). Reconnect Xero and try again.`,
+            xero_records: [],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+        } catch (logErr) {
+          this.logger.error(
+            `[BILL_TRACE] Step 1: failed to persist not-processable sync log — ${JSON.stringify(logErr)}`,
+          );
+        }
         return false;
       }
 
@@ -2471,7 +2502,72 @@ export class XeroWebhookService {
         } catch (error) {
           this.logger.error(`[Xero Service] Failed to fetch invoice:` + " " + JSON.stringify(error));
         }
+      } else {
+        // SILENT_FAILURE_FIX (Alba 2501-1-1, 2026-06-01): previously any
+        // non-refresh-token exception was written to the app logger ONLY and
+        // the function fell through returning `undefined`. The manual
+        // two-sided sync caller then wrote a "check the entries that follow"
+        // trigger row with NOTHING following it, making the failure
+        // undiagnosable. Persist a Failed sync-log row carrying the real
+        // error so the cause is visible in the sync log.
+        try {
+          const candidates = await this.xeroIntegrationDetails.find({
+            where: { tenant_id, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
+          });
+          const xeroDetails =
+            candidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? candidates[0];
+
+          if (xeroDetails?.integration_id) {
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              api_name: 'createClaimInPaytrade',
+              api_payload: {
+                sync_run_type,
+                invoice_id: resource_id,
+                tenant_id,
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+              dynamic_values: {},
+              project_id: null,
+              contract_id: null,
+              reference: {},
+              reference_id: null,
+              history: [
+                `API triggered from invoice ${sync_run_type}`,
+                'Import failed',
+              ],
+              important_checks: {
+                'Import data format validation': 'Failed',
+              },
+              error_message:
+                (error && (error.message || error?.body?.Message)) ||
+                JSON.stringify(error),
+              xero_records: [],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+          } else {
+            this.logger.error(
+              `[BILL_TRACE] CATCH: no integration row for tenant ${tenant_id}; cannot persist failure sync log`,
+            );
+          }
+        } catch (logErr) {
+          this.logger.error(
+            `[BILL_TRACE] CATCH: failed to persist generic failure sync log — ${JSON.stringify(logErr)}`,
+          );
+        }
       }
+
+      // Never fall through to an implicit `undefined` return — the caller
+      // treats anything that isn't `true` as failure, so be explicit.
+      return false;
     }
   }
 
