@@ -40,3 +40,34 @@ specifically to be the many-to-many join so the unique constraint can stay.
 through `xero_transfer_applications` and gates `is_retention_confirmed` on
 cumulative coverage; it must not pre-calculate the flag from existing
 sub-payment state, and must not drop/relax `uq_xero_payments_bank_transfer_id`.
+
+## BULK = self-only, ledger-only; each claim confirms ONLY itself
+
+A single PTA→RTA bulk transfer releases several pending retentions. Each claim,
+on its own sync, confirms ONLY itself when a UNIQUE subset of pending retentions
+(that includes the current claim) sums EXACTLY (±$0.01) to the transfer's
+REMAINING capacity (`transfer.amount − ledgerAppliedAcrossAllPayments`). Summing
+to *remaining* (not "fits within") is what keeps it an exact-bundle match and not
+a loose balance draw-down. Ambiguity (>1 hosting transfer, or non-unique subset)
+→ Failed log, never guess on trust money. No `xero_payments` row is ever written
+for BULK (shared transfer id), so the ledger is the only proof of reconciliation.
+
+**Concurrency — capacity consume MUST be atomic.** The webhook runs on TWO
+separate BullMQ workers (wait-queue + recovery) that both call
+`createClaimInPaytrade`; default worker concurrency is 1 but cross-worker
+parallelism is real. The match detector reads remaining capacity OUTSIDE any
+lock, so the capacity check + ledger write must happen together under a
+`pg_advisory_xact_lock(hashtext(integration_id), hashtext(bank_transfer_id))`
+that RE-READS what *other* payments applied and refuses to write when a sibling
+already took the dollars. Idempotent for the same (transfer, payment) on re-sync
+(its own prior leg stays available to itself).
+**Why:** without the re-check-under-lock, two siblings each pass a stale
+remaining read and both write → the same transfer dollars applied twice.
+
+**Re-sync guard must check the confirm flag, not just coverage.** A BULK-covered
+retention has no `xero_payments` mirror, so re-syncs fall through to "no transfer
+identified" unless guarded. Guard on ledger coverage ≥ gross — but if a prior run
+wrote the ledger then crashed before flipping `is_retention_confirmed`, returning
+early on coverage alone leaves the payment forever unconfirmed while reporting
+success. Short-circuit only when covered AND already confirmed; otherwise finish
+the confirm tick.

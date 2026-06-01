@@ -638,6 +638,358 @@ export class XeroWebhookService {
   }
 
   /**
+   * Lane B — BULK helper. Return the cumulative retention coverage already
+   * recorded in the ledger for one PT payment. Drives the BULK re-sync guard:
+   * a BULK-confirmed retention has no `xero_payments` mirror row (a single
+   * bulk transfer can cover many retentions and the row is unique per
+   * transfer), so its only proof of reconciliation is the ledger.
+   */
+  private async getRetentionLedgerCoverageForPayment(
+    pt_payment_id: number,
+  ): Promise<number> {
+    if (!pt_payment_id) return 0;
+    const rows = await this.xeroTransferApplications.find({
+      where: { pt_payment_id, kind: 'retention' },
+    });
+    return rows.reduce(
+      (s, r) => s + Math.abs(Number(r.amount_applied || 0)),
+      0,
+    );
+  }
+
+  /**
+   * Lane B — BULK helper. Is the 'Retention Out' leg of this PT payment already
+   * confirmed (is_retention_confirmed = true)? Used by the BULK re-sync guard so
+   * a payment that is ledger-covered but NOT yet ticked (e.g. a prior run wrote
+   * the ledger then crashed before the confirm) still gets its flag flipped,
+   * instead of being silently short-circuited as "done" forever.
+   */
+  private async isRetentionConfirmedForPayment(
+    pt_payment_id: number,
+  ): Promise<boolean> {
+    if (!pt_payment_id) return false;
+    const row = await this.subPaymentsRepo
+      .createQueryBuilder('sp')
+      .innerJoin('sp.paymentDetails', 'pd')
+      .where('pd.payment_id = :pid', { pid: pt_payment_id })
+      .andWhere('sp.sub_payment_type = :t', { t: 'Retention Out' })
+      .andWhere('sp.is_retention_confirmed = :c', { c: true })
+      .getOne();
+    return !!row;
+  }
+
+  /**
+   * Lane B — BULK helper. Sum how much of a single inbound transfer has
+   * already been applied across ALL retentions in the consumption ledger.
+   * `T.amount - this` is the transfer's remaining capacity, which BULK
+   * matching must respect so the same dollars are never applied twice.
+   */
+  private async getLedgerAppliedToTransfer(
+    integration_id: number,
+    bank_transfer_id: string,
+  ): Promise<number> {
+    if (!bank_transfer_id) return 0;
+    const rows = await this.xeroTransferApplications.find({
+      where: { integration_id, bank_transfer_id },
+    });
+    return rows.reduce(
+      (s, r) => s + Math.abs(Number(r.amount_applied || 0)),
+      0,
+    );
+  }
+
+  /**
+   * Lane B — BULK helper. Atomically consume part of a single inbound transfer
+   * for one retention payment so the same dollars are never applied twice.
+   *
+   * The BULK detector reads a transfer's remaining capacity and decides a match
+   * OUTSIDE any lock; under cross-worker concurrency (the wait-queue worker and
+   * the recovery worker both call createClaimInPaytrade) two sibling retentions
+   * could each pass that read and then both write, over-applying the transfer.
+   * This method closes that window: it takes a Postgres transaction-scoped
+   * advisory lock keyed by (integration_id, bank_transfer_id), RE-READS how much
+   * other payments have already applied under the lock, and only writes this
+   * payment's leg if the remaining capacity still fits it. The lock auto-releases
+   * at transaction end. Idempotent for the same (transfer, payment) on re-sync.
+   *
+   * Returns ok=false (without writing) when a sibling consumed the capacity
+   * first — the caller must NOT flip is_retention_confirmed in that case.
+   */
+  private async consumeRetentionTransferCapacityAtomic(opts: {
+    integration_id: number;
+    tenant_id: string | null;
+    bank_transfer_id: string;
+    transfer_amount: number;
+    pt_payment_id: number;
+    amount: number;
+    userId?: number | null;
+  }): Promise<{ ok: boolean; coverage: number; remainingBefore: number }> {
+    const applyAmount = Math.abs(Number(opts.amount || 0));
+    const transferAmount = Math.abs(Number(opts.transfer_amount || 0));
+    return await this.xeroTransferApplications.manager.transaction(
+      async (em) => {
+        const repo = em.getRepository(XeroTransferApplications);
+        // Serialize every capacity consume for this (integration, transfer).
+        await em.query(
+          'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+          [String(opts.integration_id), String(opts.bank_transfer_id)],
+        );
+        const transferRows = await repo.find({
+          where: {
+            integration_id: opts.integration_id,
+            bank_transfer_id: opts.bank_transfer_id,
+          },
+        });
+        const existingForThisPayment = transferRows.find(
+          (r) => Number(r.pt_payment_id) === Number(opts.pt_payment_id),
+        );
+        // Capacity already taken by OTHER payments (this payment's own prior
+        // leg, if any, is a re-sync and stays available to itself).
+        const appliedByOthers = transferRows
+          .filter(
+            (r) => Number(r.pt_payment_id) !== Number(opts.pt_payment_id),
+          )
+          .reduce((s, r) => s + Math.abs(Number(r.amount_applied || 0)), 0);
+        const remainingBefore = transferAmount - appliedByOthers;
+        if (remainingBefore + 0.01 < applyAmount) {
+          // A sibling won the race for this transfer's dollars. Do not write.
+          const coverageRows = await repo.find({
+            where: { pt_payment_id: opts.pt_payment_id, kind: 'retention' },
+          });
+          const coverage = coverageRows.reduce(
+            (s, r) => s + Math.abs(Number(r.amount_applied || 0)),
+            0,
+          );
+          return { ok: false, coverage, remainingBefore };
+        }
+        if (existingForThisPayment) {
+          if (
+            Math.abs(Number(existingForThisPayment.amount_applied || 0)) !==
+            applyAmount
+          ) {
+            await repo.update(
+              { id: existingForThisPayment.id },
+              {
+                amount_applied: applyAmount,
+                updated_group: 'SYSTEM',
+                updated_by: opts.userId ?? null,
+              },
+            );
+          }
+        } else {
+          const row = repo.create({
+            integration_id: opts.integration_id,
+            tenant_id: opts.tenant_id,
+            bank_transfer_id: opts.bank_transfer_id,
+            pt_payment_id: opts.pt_payment_id,
+            kind: 'retention',
+            amount_applied: applyAmount,
+            created_group: 'SYSTEM',
+            created_by: opts.userId ?? null,
+          });
+          await repo.save(row);
+        }
+        const coverageRows = await repo.find({
+          where: { pt_payment_id: opts.pt_payment_id, kind: 'retention' },
+        });
+        const coverage = coverageRows.reduce(
+          (s, r) => s + Math.abs(Number(r.amount_applied || 0)),
+          0,
+        );
+        return { ok: true, coverage, remainingBefore };
+      },
+    );
+  }
+
+  /**
+   * Lane B — BULK helper. Enumerate the PENDING (is_retention_confirmed IS
+   * NULL) 'Retention Out' sub-payments for one trust-account pair: money is
+   * withheld FROM `payment_from_account` and parked IN `retention_account`.
+   * These rows exist from the moment a claim with retention is imported, so
+   * several can sit pending at once — exactly the pool a single bulk PTA->RTA
+   * transfer is meant to release together.
+   */
+  private async getPendingRetentionsForPair(opts: {
+    company_id: number;
+    ptaPtBankAccountId: number;
+    rtaPtBankAccountId: number;
+  }): Promise<
+    { pt_payment_id: number; gross: number; payment_date: Date | null }[]
+  > {
+    const rows = await this.subPaymentsRepo
+      .createQueryBuilder('sp')
+      .innerJoin('sp.paymentDetails', 'pd')
+      .where('sp.sub_payment_type = :t', { t: 'Retention Out' })
+      .andWhere('sp.is_retention_confirmed IS NULL')
+      .andWhere('pd.company_id = :cid', { cid: opts.company_id })
+      .andWhere('pd.payment_from_account = :pta', {
+        pta: opts.ptaPtBankAccountId,
+      })
+      .andWhere('pd.retention_account = :rta', {
+        rta: opts.rtaPtBankAccountId,
+      })
+      .andWhere("pd.current_status != 'Deleted'")
+      .select([
+        'sp.amount AS gross',
+        'pd.payment_id AS pt_payment_id',
+        'pd.payment_date AS payment_date',
+      ])
+      .getRawMany();
+    return rows.map((r) => ({
+      pt_payment_id: Number(r.pt_payment_id),
+      gross: Math.abs(Number(r.gross || 0)),
+      payment_date: r.payment_date ? new Date(r.payment_date) : null,
+    }));
+  }
+
+  /**
+   * Lane B — BULK detector (1 transfer -> N retentions), the mirror of the
+   * SPLIT lane. The 1:1 and SPLIT matchers found nothing for the current
+   * claim, so check whether a single in-window PTA->RTA bank transfer is a
+   * bundle that releases several pending retentions at once.
+   *
+   * Self-only & ledger-only by design:
+   *  - Each claim confirms ONLY itself when its sync runs; siblings confirm
+   *    themselves on their own syncs. This avoids the `xero_payments` unique
+   *    (bank_transfer_id) constraint that blocks N retentions sharing one
+   *    transfer, and needs no eager cross-invoice writes.
+   *  - "Exact" at every step: we require a UNIQUE subset of pending retentions
+   *    that INCLUDES the current claim and sums EXACTLY to the transfer's
+   *    REMAINING capacity (transfer amount minus what the ledger already
+   *    applied). Summing to *remaining* (not "fits within remaining") is what
+   *    keeps it an exact-bundle match and not a loose balance draw-down.
+   *
+   * Trust-money safety: returns `{ ambiguous: true }` (caller fails for input)
+   * if more than one transfer could host the current claim, or if the subset
+   * for a transfer is not uniquely determined. Transfers already claimed by a
+   * non-DELETED `xero_payments` row (a 1:1 / SPLIT-primary mirror) are excluded
+   * entirely so their dollars are never re-applied.
+   */
+  private async detectRetentionBulkMatchForCurrent(opts: {
+    pairCandidates: any[];
+    paymentAccountId: string; // PTA Xero account id (transfer source)
+    integration_id: number;
+    company_id: number;
+    currentPtPaymentId: number;
+    currentGross: number;
+  }): Promise<{ transfer: any | null; appliedAmount: number; ambiguous: boolean }> {
+    const currentGross = Math.abs(Number(opts.currentGross || 0));
+    if (!(currentGross > 0) || !opts.currentPtPaymentId) {
+      return { transfer: null, appliedAmount: 0, ambiguous: false };
+    }
+
+    // A bulk transfer must move FROM the PTA (retention direction), to a
+    // different account, and be strictly larger than a single retention
+    // (equal amounts are handled by the 1:1 / SPLIT matchers).
+    let candidates = (opts.pairCandidates || []).filter((t: any) => {
+      const from = t?.fromBankAccount?.accountID;
+      const to = t?.toBankAccount?.accountID;
+      if (!t?.bankTransferID) return false;
+      if (from !== opts.paymentAccountId) return false;
+      if (!to || to === opts.paymentAccountId) return false;
+      return Math.abs(Number(t?.amount || 0)) > currentGross + 0.01;
+    });
+    if (!candidates.length) {
+      return { transfer: null, appliedAmount: 0, ambiguous: false };
+    }
+
+    // Exclude any transfer already owned by a non-DELETED xero_payments row
+    // (a 1:1 or SPLIT-primary mirror): those dollars are spoken for.
+    const candidateIds = candidates
+      .map((t: any) => t?.bankTransferID)
+      .filter(Boolean);
+    const usedInPayments = candidateIds.length
+      ? await this.xeroPayments.find({
+          where: {
+            integration_id: opts.integration_id,
+            bank_transfer_id: In(candidateIds),
+            status: Not('DELETED'),
+          },
+        })
+      : [];
+    const usedSet = new Set(
+      usedInPayments.map((p) => p.bank_transfer_id).filter(Boolean),
+    );
+    candidates = candidates.filter(
+      (t: any) => !usedSet.has(t.bankTransferID),
+    );
+    if (!candidates.length) {
+      return { transfer: null, appliedAmount: 0, ambiguous: false };
+    }
+
+    const matches: any[] = [];
+    for (const t of candidates) {
+      const rtaXeroAcc = t?.toBankAccount?.accountID;
+      const maps = await this.xeroBankAccountDetails.find({
+        where: {
+          integration_id: opts.integration_id,
+          account_id: In([opts.paymentAccountId, rtaXeroAcc]),
+        },
+      });
+      const ptaPt = maps.find(
+        (m) => m.account_id === opts.paymentAccountId,
+      )?.pt_bank_account_id;
+      const rtaPt = maps.find(
+        (m) => m.account_id === rtaXeroAcc,
+      )?.pt_bank_account_id;
+      if (!ptaPt || !rtaPt) continue;
+
+      const pending = await this.getPendingRetentionsForPair({
+        company_id: opts.company_id,
+        ptaPtBankAccountId: Number(ptaPt),
+        rtaPtBankAccountId: Number(rtaPt),
+      });
+      // The current claim must itself be a pending retention on this pair.
+      if (
+        !pending.some(
+          (p) => Number(p.pt_payment_id) === Number(opts.currentPtPaymentId),
+        )
+      ) {
+        continue;
+      }
+
+      const appliedToT = await this.getLedgerAppliedToTransfer(
+        opts.integration_id,
+        t?.bankTransferID,
+      );
+      const remaining = Math.abs(Number(t?.amount || 0)) - appliedToT;
+      if (remaining + 0.01 < currentGross) continue; // current can't fit
+
+      const others = pending.filter(
+        (p) => Number(p.pt_payment_id) !== Number(opts.currentPtPaymentId),
+      );
+      const targetForOthers = remaining - currentGross;
+
+      let unique = false;
+      if (Math.abs(targetForOthers) <= 0.01) {
+        // The current claim alone exactly consumes the remaining capacity.
+        unique = true;
+      } else if (targetForOthers > 0.01) {
+        const res = this.findTransferSubsetForTarget({
+          candidates: others,
+          target: targetForOthers,
+          tolerance: 0.01,
+          amountOf: (p: any) => Math.abs(Number(p.gross || 0)),
+        });
+        if (res && res.exact && res.exactCount === 1) unique = true;
+      }
+      if (unique) matches.push(t);
+    }
+
+    if (matches.length > 1) {
+      return { transfer: null, appliedAmount: 0, ambiguous: true };
+    }
+    if (matches.length === 1) {
+      return {
+        transfer: matches[0],
+        appliedAmount: currentGross,
+        ambiguous: false,
+      };
+    }
+    return { transfer: null, appliedAmount: 0, ambiguous: false };
+  }
+
+  /**
    * Classify a Xero invoice/bill as a regular Claim or a Retention Release
    * (cash_retention_type = 'Claim' | 'Retention claim') in a way that is
    * robust to the common misconfiguration where the user has pointed
@@ -10360,6 +10712,243 @@ export class XeroWebhookService {
             this.logger.log(
               `[Lane B split] matched ${retentionSplitLegs.length} legs summing to ${retention_amount} for invoice ${invoice?.invoiceID}`,
             );
+          }
+        }
+
+        // -----------------------------------------------------------------
+        // Lane B — BULK retention auto-match (1 transfer -> N retentions).
+        // The 1:1 and SPLIT matchers found nothing for this claim. A single
+        // PTA->RTA bank transfer may be a bundle that releases several pending
+        // retentions at once. Self-only & ledger-only: confirm ONLY the
+        // current claim against the transfer's REMAINING capacity, and only
+        // when a unique subset of pending retentions (including this one) sums
+        // exactly to that remaining capacity. Siblings confirm themselves on
+        // their own syncs. No xero_payments row is written (a bulk transfer is
+        // shared and that table is unique per bank_transfer_id).
+        // -----------------------------------------------------------------
+        if (
+          retentionTransfers.length === 0 &&
+          !data?.bank_transfer_id &&
+          !existingPayment?.bank_transfer_id
+        ) {
+          const currentRetentionPtPaymentId =
+            existingPayment?.pt_payment_id ||
+            previousPartPayments?.pt_payment_id ||
+            null;
+          if (currentRetentionPtPaymentId && Number(retention_amount) > 0) {
+            // Re-sync guard: a BULK-confirmed retention has no xero_payments
+            // mirror, so a later sync would otherwise fall through to "No
+            // retention transfer identified". If the ledger already covers
+            // this payment's gross, it is already reconciled — treat as done.
+            const existingCoverage =
+              await this.getRetentionLedgerCoverageForPayment(
+                Number(currentRetentionPtPaymentId),
+              );
+            if (existingCoverage + 0.01 >= Number(retention_amount)) {
+              // Ledger already covers the gross. Only treat as fully done if the
+              // retention flag is actually set — a prior run may have written the
+              // ledger then crashed before the confirm tick, which would leave
+              // the payment forever unconfirmed if we short-circuited here.
+              const alreadyConfirmed =
+                await this.isRetentionConfirmedForPayment(
+                  Number(currentRetentionPtPaymentId),
+                );
+              if (alreadyConfirmed) {
+                this.logger.log(
+                  `[Lane B bulk] payment ${currentRetentionPtPaymentId} already ledger-covered (${existingCoverage} >= ${retention_amount}) and confirmed; skipping no-transfer failure`,
+                );
+                return true;
+              }
+              this.logger.log(
+                `[Lane B bulk] payment ${currentRetentionPtPaymentId} ledger-covered (${existingCoverage} >= ${retention_amount}) but not yet confirmed; finishing the confirm tick`,
+              );
+              const repairEditPayload: EditDetailsOfAPaymentInput = {
+                payment_id: Number(currentRetentionPtPaymentId),
+                is_paid_confirmed: null,
+                is_received_confirmed: null,
+                is_retention_confirmed: true,
+                delete_paytrade_only: false,
+              };
+              await this.paymentsService.editDetailsOfAPayment(
+                decoded,
+                repairEditPayload,
+                decoded?.userId,
+              );
+              return true;
+            }
+
+            const bulk = await this.detectRetentionBulkMatchForCurrent({
+              pairCandidates: matchResult.pairCandidates || [],
+              paymentAccountId: xeroBankAccountDetails.account_id,
+              integration_id: xeroDetails.integration_id,
+              company_id: xeroDetails.company_id,
+              currentPtPaymentId: Number(currentRetentionPtPaymentId),
+              currentGross: Number(retention_amount),
+            });
+
+            if (bulk.ambiguous) {
+              // More than one bulk transfer could host this claim — never
+              // guess on trust money. Surface a Failed log (634) + stop.
+              try {
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: data?.sync_id || null,
+                  api_name: 'createClaimInPaytrade',
+                  api_payload: {
+                    sync_run_type,
+                    invoice_id: invoice?.invoiceID,
+                    tenant_id,
+                    pt_payment_id: currentRetentionPtPaymentId,
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 634,
+                  dynamic_values: {
+                    transfer_id: '',
+                    transfer_amount: String(retention_amount),
+                    candidate_ids: (matchResult.pairCandidates || [])
+                      .map((t: any) => t?.bankTransferID)
+                      .filter(Boolean)
+                      .join(', '),
+                  },
+                  project_id: xeroProjectDetails?.id,
+                  contract_id: xeroContractDetails?.id,
+                  reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                  reference_id: xeroInvoice?.id,
+                  history: [
+                    `API triggered from invoice ${sync_run_type}`,
+                    'Ambiguous bulk retention transfer combination',
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Ok',
+                    'Import tracking id validation': 'Ok',
+                    'Import account type validation': 'Ok',
+                    'Import tax type validation': 'Ok',
+                    'Client/Supplier mapping validation': 'Ok',
+                    'Contract mapping validation': 'Ok',
+                    'Project mapping validation': 'Ok',
+                  },
+                  error_message:
+                    'Ambiguous bulk retention transfer combination',
+                  xero_records: matchResult.pairCandidates || [],
+                  paytrade_records: [],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } catch (e: any) {
+                this.logger.error(
+                  `[Lane B bulk] failed to write template 634 log: ${e?.message || e}`,
+                );
+              }
+              return false;
+            }
+
+            if (bulk.transfer?.bankTransferID) {
+              // Unique exact bundle. Apply ONLY this claim's gross against the
+              // transfer in the consumption ledger, then confirm just this
+              // retention. The remaining capacity stays available for the
+              // sibling retentions to draw exactly when they sync.
+              const consume =
+                await this.consumeRetentionTransferCapacityAtomic({
+                  integration_id: xeroDetails.integration_id,
+                  tenant_id: xeroDetails.tenant_id,
+                  bank_transfer_id: bulk.transfer.bankTransferID,
+                  transfer_amount: Math.abs(Number(bulk.transfer?.amount || 0)),
+                  pt_payment_id: Number(currentRetentionPtPaymentId),
+                  amount: bulk.appliedAmount,
+                  userId: decoded?.userId ?? null,
+                });
+              if (!consume.ok) {
+                // A sibling retention consumed this transfer's remaining
+                // capacity between detection and write. Never tick on a
+                // contested transfer — let the next sync re-evaluate.
+                this.logger.log(
+                  `[Lane B bulk] transfer ${bulk.transfer.bankTransferID} capacity consumed concurrently (remaining ${consume.remainingBefore} < gross ${retention_amount}); not confirming payment ${currentRetentionPtPaymentId}`,
+                );
+                return false;
+              }
+              const coverage = consume.coverage;
+              if (coverage + 0.01 < Number(retention_amount)) {
+                // Shouldn't happen (we applied the full gross), but never tick
+                // confirmed on short coverage — log and fail for input.
+                this.logger.error(
+                  `[Lane B bulk] UNEXPECTED short coverage ${coverage} < gross ${retention_amount} on payment ${currentRetentionPtPaymentId}; not confirming`,
+                );
+                return false;
+              }
+              // Pass paid/received as null so the helper's null-guard leaves
+              // those flags untouched and only the retention flag is flipped.
+              const bulkEditPayload: EditDetailsOfAPaymentInput = {
+                payment_id: Number(currentRetentionPtPaymentId),
+                is_paid_confirmed: null,
+                is_received_confirmed: null,
+                is_retention_confirmed: true,
+                delete_paytrade_only: false,
+              };
+              await this.paymentsService.editDetailsOfAPayment(
+                decoded,
+                bulkEditPayload,
+                decoded?.userId,
+              );
+              try {
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: data?.sync_id || null,
+                  api_name: 'createClaimInPaytrade',
+                  api_payload: {
+                    sync_run_type,
+                    invoice_id: invoice?.invoiceID,
+                    tenant_id,
+                    bank_transfer_id: bulk.transfer.bankTransferID,
+                    pt_payment_id: currentRetentionPtPaymentId,
+                    applied_amount: bulk.appliedAmount,
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 635,
+                  dynamic_values: {
+                    invoice_number:
+                      invoice?.invoiceNumber || invoice?.invoiceID,
+                    transfer_id: bulk.transfer.bankTransferID,
+                    transfer_amount: String(
+                      Math.abs(Number(bulk.transfer?.amount || 0)),
+                    ),
+                    applied_amount: String(bulk.appliedAmount),
+                  },
+                  project_id: xeroProjectDetails?.id,
+                  contract_id: xeroContractDetails?.id,
+                  reference: {
+                    xeroId: xeroInvoice?.id,
+                    paytradeId: currentRetentionPtPaymentId,
+                  },
+                  reference_id: xeroInvoice?.id,
+                  history: [
+                    `API triggered from invoice ${sync_run_type}`,
+                    'Confirmed retention from bulk bank transfer',
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Ok',
+                    'Import tracking id validation': 'Ok',
+                    'Import account type validation': 'Ok',
+                    'Import tax type validation': 'Ok',
+                    'Client/Supplier mapping validation': 'Ok',
+                    'Contract mapping validation': 'Ok',
+                    'Project mapping validation': 'Ok',
+                  },
+                  error_message: null,
+                  xero_records: [bulk.transfer],
+                  paytrade_records: [],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+              } catch (e: any) {
+                this.logger.error(
+                  `[Lane B bulk] failed to write template 635 log: ${e?.message || e}`,
+                );
+              }
+              this.logger.log(
+                `[Lane B bulk] confirmed retention payment ${currentRetentionPtPaymentId} (gross ${retention_amount}) from bulk transfer ${bulk.transfer.bankTransferID}`,
+              );
+              return true;
+            }
           }
         }
 

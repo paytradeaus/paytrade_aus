@@ -5798,5 +5798,15 @@
     "from_xero": true,
     "error_code": "TRANSFER_AMBIGUOUS_MATCH",
     "associated_log_ids": null
+  },
+  {
+    "id": 635,
+    "sync_type": "Payments",
+    "description": "<p>Retention for invoice {{invoice_number}} was confirmed from bulk bank transfer {{transfer_id}} for {{transfer_amount}}. This transfer covers several retentions; {{applied_amount}} of it was applied to this one.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "RETENTION_BULK_MATCH",
+    "associated_log_ids": null
   }
 ]
