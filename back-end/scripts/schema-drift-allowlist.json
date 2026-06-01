@@ -37,6 +37,7 @@
     "all_permission",
     "all_subcontracts_paid",
     "amount",
+    "amount_applied",
     "amount_charged_usd",
     "amount_paid",
     "amount_type",
