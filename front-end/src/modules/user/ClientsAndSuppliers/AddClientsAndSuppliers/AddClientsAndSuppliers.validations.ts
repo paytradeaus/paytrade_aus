@@ -119,21 +119,70 @@ const validationSchema = yup.object().shape({
     .optional()
     .matches(/^[0-9]+$/, "Only numbers are allowed"),
 
-  // Bank details are optional at contact level. They're only needed when money
-  // is actually paid OUT to the contact (e.g. an overpayment refund to a
-  // client), so presence is enforced at that point in the backend payment
-  // validator instead of being forced here. See payments.validator.ts
-  // ('Overpayment refund to client').
-  account_type: yup.string().notRequired(),
+  // Bank details are REQUIRED for SUPPLIERS (we routinely pay suppliers, so
+  // their BSB/account is mandatory) but OPTIONAL for CLIENTS — a client's bank
+  // is only needed if we ever refund an overpayment, which is enforced at refund
+  // time in the backend (payments.validator.ts 'Overpayment refund to client').
+  // The supplier requirement is gated on isPaymentDetailsRequired (the bank
+  // sub-form being open), matching the original behaviour, so editing an
+  // existing contact without re-opening the bank section isn't blocked.
+  account_type: yup
+    .string()
+    .when(
+      ["client_supplier_type", "isPaymentDetailsRequired"],
+      (vals: any) => {
+        const isSupplier = vals?.[0]?.value === "Supplier";
+        const subFormOpen = vals?.[1];
+        return isSupplier && subFormOpen
+          ? yup.string().required("Type is required")
+          : yup.string().notRequired();
+      }
+    ),
 
-  account_name: yup.string().notRequired(),
+  account_name: yup
+    .string()
+    .when(
+      ["client_supplier_type", "isPaymentDetailsRequired"],
+      (vals: any) => {
+        const isSupplier = vals?.[0]?.value === "Supplier";
+        const subFormOpen = vals?.[1];
+        return isSupplier && subFormOpen
+          ? yup.string().required("Name is required")
+          : yup.string().notRequired();
+      }
+    ),
 
   bsb_number: yup
     .string()
-    .notRequired()
-    .matches(/^[0-9]*$/, "Only numbers allowed"),
+    .when(
+      ["client_supplier_type", "isPaymentDetailsRequired"],
+      (vals: any) => {
+        const isSupplier = vals?.[0]?.value === "Supplier";
+        const subFormOpen = vals?.[1];
+        return isSupplier && subFormOpen
+          ? yup
+              .string()
+              .required("BSB is required")
+              .matches(/^[0-9]+$/, "Only numbers allowed")
+          : yup
+              .string()
+              .notRequired()
+              .matches(/^[0-9]*$/, "Only numbers allowed");
+      }
+    ),
 
-  account_number: yup.string().notRequired(),
+  account_number: yup
+    .string()
+    .when(
+      ["client_supplier_type", "isPaymentDetailsRequired"],
+      (vals: any) => {
+        const isSupplier = vals?.[0]?.value === "Supplier";
+        const subFormOpen = vals?.[1];
+        return isSupplier && subFormOpen
+          ? yup.string().required("Number is required")
+          : yup.string().notRequired();
+      }
+    ),
   account_details: yup.array().notRequired(),
 });
 
