@@ -31,6 +31,7 @@ import {
   CreateClaimInPaytradeReason,
   createInvoiceOrBillInPaytradeTable,
   RetryRetentionTransferFromSyncLog,
+  ResolveTrustMovementFromSyncLog,
 } from "./syncLog.functions";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { useTokenDetails } from "@/hooks";
@@ -52,6 +53,8 @@ export default function SyncLogDetailsBasic() {
   const [resolveInprogress, setResolveInprogress] = useState(false);
   const [retryInprogress, setRetryInprogress] = useState(false);
   const [retentionRetryInprogress, setRetentionRetryInprogress] = useState(false);
+  const [trustMovementInprogress, setTrustMovementInprogress] = useState(false);
+  const [trustMovementChosenType, setTrustMovementChosenType] = useState<string>("");
   const statusColors = {
     Ok: "#22bb33",
     Failed: "#FF2C2C",
@@ -747,6 +750,47 @@ export default function SyncLogDetailsBasic() {
     } finally {
       setLoading(false);
       setRetentionRetryInprogress(false);
+      getViewSyncLogDetails();
+    }
+  }
+
+  // Trust-movement classification lane (template 632). The backend parks a
+  // Failed log carrying a JSON `information_required` payload with the
+  // direction-aware candidate types and a size-pre-selected default. We show
+  // a dropdown so the admin picks the exact movement type and one-click
+  // confirms — never auto-committed (trust money compliance).
+  const trustMovementInfo = (() => {
+    if (viewLogData?.log_template_id !== 632) return null;
+    const raw = viewLogData?.information_required;
+    if (!raw || raw === "NA") return null;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (parsed?.kind !== "trust_movement_classification") return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  })();
+  const isTrustMovementClassify =
+    viewLogData?.sync_status === "Failed" &&
+    !viewLogData?.archived_at &&
+    !!trustMovementInfo &&
+    Array.isArray(trustMovementInfo?.candidate_types) &&
+    trustMovementInfo.candidate_types.length > 0;
+
+  async function resolveTrustMovementHandle() {
+    if (!viewLogData?.id || !trustMovementInfo) return;
+    const chosen =
+      trustMovementChosenType || trustMovementInfo?.suggested_type || "";
+    if (!chosen) return;
+    setTrustMovementInprogress(true);
+    setLoading(true);
+    try {
+      await ResolveTrustMovementFromSyncLog(viewLogData.id, chosen);
+    } finally {
+      setLoading(false);
+      setTrustMovementInprogress(false);
+      setTrustMovementChosenType("");
       getViewSyncLogDetails();
     }
   }
@@ -1863,6 +1907,83 @@ export default function SyncLogDetailsBasic() {
                               ? "Retrying..."
                               : "Retry retention transfer"}
                           </button>
+                        )}
+                        {isTrustMovementClassify && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <select
+                              value={
+                                trustMovementChosenType ||
+                                trustMovementInfo?.suggested_type ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                setTrustMovementChosenType(e.target.value)
+                              }
+                              disabled={trustMovementInprogress}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                border: "1px solid #cbd5e1",
+                                height: "fit-content",
+                                fontSize: "0.92em",
+                              }}
+                              title={`This ${
+                                trustMovementInfo?.direction === "deposit"
+                                  ? "cash → trust deposit"
+                                  : "trust → cash withdrawal"
+                              } needs a movement type. Suggested: ${
+                                trustMovementInfo?.suggested_type || "-"
+                              }.`}
+                            >
+                              {(trustMovementInfo?.candidate_types || []).map(
+                                (t: string) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                    {t === trustMovementInfo?.suggested_type
+                                      ? " (suggested)"
+                                      : ""}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                            <button
+                              style={{
+                                whiteSpace: "nowrap",
+                                padding: "6px 14px",
+                                backgroundColor: "#16A34A",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "fit-content",
+                                margin: 0,
+                              }}
+                              onClick={() => resolveTrustMovementHandle()}
+                              disabled={trustMovementInprogress}
+                              title="Confirms the selected trust movement type and posts the matching payment in PayTrade. Trust money is never auto-classified — this is the one-click human confirm."
+                            >
+                              <i
+                                className="fa-light fa-circle-check"
+                                style={{
+                                  marginRight: "10px",
+                                  marginLeft: "10px",
+                                }}
+                              ></i>
+                              {trustMovementInprogress
+                                ? "Confirming..."
+                                : "Confirm movement type"}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

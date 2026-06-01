@@ -868,6 +868,46 @@ export async function RetryRetentionTransferFromSyncLog(
   }
 }
 
+export async function ResolveTrustMovementFromSyncLog(
+  syncLogId: string,
+  chosenType: string
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation ResolveTrustMovementFromSyncLog(
+          $syncLogId: String!
+          $chosenType: String!
+        ) {
+          resolveTrustMovementFromSyncLog(
+            sync_log_id: $syncLogId
+            chosen_type: $chosenType
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { syncLogId, chosenType },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.resolveTrustMovementFromSyncLog;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return null;
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
+      return true;
+    }
+    showErrorToast(res?.message);
+    return false;
+  } catch (error: any) {
+    showErrorToast(error);
+    return false;
+  }
+}
+
 export async function CreateOverPaymentRefundInXero(
   postData: any
 ): Promise<any> {

@@ -165,6 +165,47 @@ export class XeroPaymentsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'resolveTrustMovementFromSyncLog',
+    description:
+      'Trust-movement classification lane — admin confirm step. Re-invokes the inbound BankTransfer handler in apply mode with the chosen movement type for a Failed classification sync log (template 632), then archives that log. The chosen type is re-validated against the live transfer.',
+  })
+  async resolveTrustMovementFromSyncLog(
+    @Context() context,
+    @Args('sync_log_id', {
+      description:
+        'The id (uuid) of the Failed trust-movement classification sync log (template 632) to resolve.',
+    })
+    sync_log_id: string,
+    @Args('chosen_type', {
+      description:
+        'The movement payment_type the admin selected from the direction-aware dropdown (e.g. "Top Up", "Withdrawal", "Interest Received").',
+    })
+    chosen_type: string,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for resolveTrustMovementFromSyncLog sync_log_id=${sync_log_id} chosen_type=${chosen_type}`,
+      );
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+
+      const result =
+        await this.xeroPaymentsService.resolveTrustMovementFromSyncLog(decoded, {
+          sync_log_id,
+          chosen_type,
+        });
+
+      if (!result.success) {
+        return framedResponse('ERROR', result.message, JSON.stringify(result));
+      }
+      return framedResponse('SUCCESS', result.message, JSON.stringify(result));
+    } catch (error) {
+      return framedResponse('ERROR', error?.message ? error.message : error);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => GetXeroPaymentsResponse, {
     name: 'createOverPaymentInXero',
     description:

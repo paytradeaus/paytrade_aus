@@ -8738,7 +8738,20 @@ export class XeroPaymentsService {
    *     Mismatched/un-mapped pairs are surfaced as sync log 621.
    */
   async handleInboundTrustMovementBankTransfer(
-    input: { resource_id: string; tenant_id: string; sync_run_type?: string },
+    input: {
+      resource_id: string;
+      tenant_id: string;
+      sync_run_type?: string;
+      // Trust-movement classification lane. A one-trust+one-cash transfer is
+      // never auto-posted (trust money — a wrong post is a compliance issue):
+      //  - 'classify' (default): write a Failed sync log (template 632) with
+      //    direction-aware candidate types + a size-pre-selected default in
+      //    `information_required`, and return without creating a PT payment.
+      //  - 'apply': the admin confirmed a type (override_payment_type) from the
+      //    sync-log dropdown — materialise the PT payment with that type.
+      mode?: 'classify' | 'apply';
+      override_payment_type?: string;
+    },
     decoded: any,
   ): Promise<{ success: boolean; created_payment_id?: number; message: string }> {
     const tenant_id = String(input?.tenant_id || '').trim();
@@ -9041,34 +9054,124 @@ export class XeroPaymentsService {
       isRtaTrust,
       refText: refTextRaw,
     });
-    const payment_type = inferred.payment_type;
-    const typeAmbiguous = inferred.ambiguous;
-    if (typeAmbiguous) {
-      try {
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          api_name: 'handleInboundTrustMovementBankTransfer',
-          api_payload: { resource_id: bank_transfer_id, tenant_id, reference },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 622,
-          dynamic_values: {
-            bank_transfer_id,
-            payment_id: null,
-            payment_type,
-            reason: `Reference "${reference || '(empty)'}" had no Interest/Bank Charge hint — defaulted to ${payment_type}`,
-          },
-          reference: { xeroId: bank_transfer_id, paytradeId: null },
-          history: [
-            `Inbound BankTransfer ${bank_transfer_id} type inference is neutral — defaulted to ${payment_type}`,
-            'Re-classify in PayTrade if this should be Interest Received/Withdrawal or Bank Charge Applied/Top Up.',
-          ],
-          important_checks: { 'Type classification': 'Warn' },
-          error_message: null,
-          xero_records: [bt],
-          paytrade_records: [],
-          new_records: null, updated_records: null, synced_records: null,
-        });
-      } catch {}
+    // ------------------------------------------------------------------
+    // Trust-movement classification lane (fail-for-input, never auto-post).
+    // Direction is fixed by the trust leg's side; the candidate payment
+    // types are direction-aware. A size threshold pre-selects the most
+    // likely default for the admin's dropdown — but only a human confirm
+    // ever materialises the movement (trust money: a wrong post is a
+    // compliance problem). `inferred` is kept only as a last-resort
+    // fallback for the size-based default.
+    // ------------------------------------------------------------------
+    const movementDirection: 'deposit' | 'withdrawal' = fromIsTrust
+      ? 'withdrawal'
+      : 'deposit';
+    const candidateMovementTypes =
+      movementDirection === 'deposit'
+        ? [
+            'Top Up',
+            ...(isRtaTrust ? ['Top Up Retention'] : []),
+            'Bank Charge Top Up',
+            'Interest Received',
+          ]
+        : ['Withdrawal', 'Interest Withdrawal', 'Bank Charge Applied'];
+    const MOVEMENT_SIZE_THRESHOLD = 200;
+    const amountAbsForSuggest = Math.abs(Number(amount || 0));
+    const sizePreferred =
+      movementDirection === 'deposit'
+        ? amountAbsForSuggest > MOVEMENT_SIZE_THRESHOLD
+          ? ['Top Up', 'Top Up Retention']
+          : ['Bank Charge Top Up', 'Interest Received']
+        : amountAbsForSuggest > MOVEMENT_SIZE_THRESHOLD
+          ? ['Withdrawal']
+          : ['Interest Withdrawal', 'Bank Charge Applied'];
+    const suggestedMovementType =
+      sizePreferred.find((t) => candidateMovementTypes.includes(t)) ||
+      candidateMovementTypes[0] ||
+      inferred.payment_type;
+
+    const runMode: 'classify' | 'apply' =
+      input?.mode === 'apply' ? 'apply' : 'classify';
+
+    if (runMode === 'classify') {
+      const informationRequired = {
+        kind: 'trust_movement_classification',
+        bank_transfer_id,
+        tenant_id,
+        direction: movementDirection,
+        candidate_types: candidateMovementTypes,
+        suggested_type: suggestedMovementType,
+        amount: amountAbsForSuggest,
+        reference: reference || null,
+        date: btDate?.toISOString?.() ?? String(btDate),
+        from_account: {
+          bank_account_id: fromBank.bank_account_id,
+          account_name: (fromBank as any).account_name || null,
+          account_type: fromBank.account_type,
+        },
+        to_account: {
+          bank_account_id: toBank.bank_account_id,
+          account_name: (toBank as any).account_name || null,
+          account_type: toBank.account_type,
+        },
+      };
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'handleInboundTrustMovementBankTransfer',
+        api_payload: {
+          resource_id: bank_transfer_id,
+          tenant_id,
+          reference,
+          sync_run_type: input?.sync_run_type || 'webhook',
+        },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: 632,
+        dynamic_values: {
+          bank_transfer_id,
+          direction: movementDirection,
+          suggested_type: suggestedMovementType,
+          amount: amountAbsForSuggest.toFixed(2),
+          candidate_types: candidateMovementTypes.join(', '),
+        },
+        information_required: JSON.stringify(informationRequired),
+        reference: { xeroId: bank_transfer_id, paytradeId: null },
+        history: [
+          `Inbound BankTransfer ${bank_transfer_id} (${reference || 'no reference'}) is a ${
+            movementDirection === 'deposit'
+              ? 'cash → trust deposit'
+              : 'trust → cash withdrawal'
+          } of ${amountAbsForSuggest.toFixed(2)}.`,
+          `Trust money is not auto-classified — confirm the movement type in PayTrade (suggested: ${suggestedMovementType}).`,
+        ],
+        important_checks: {
+          'Trust pair validation': 'Ok',
+          'Type classification': 'Required',
+        },
+        error_message: 'Trust movement type confirmation required',
+        xero_records: [bt],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      return {
+        success: false,
+        message: `classification required for BankTransfer ${bank_transfer_id}`,
+      };
     }
+
+    // apply mode — the admin confirmed a type from the sync-log dropdown.
+    // Validate it against the direction-aware candidate set so a stale or
+    // forged choice can't post a wrong-direction movement.
+    const chosenType = String(input?.override_payment_type || '').trim();
+    if (!candidateMovementTypes.includes(chosenType)) {
+      return {
+        success: false,
+        message: `invalid movement type "${chosenType}" for ${movementDirection} (allowed: ${candidateMovementTypes.join(
+          ', ',
+        )})`,
+      };
+    }
+    const payment_type = chosenType;
 
     // Materialise the PT payment + matched sub_payment + xero_payments
     // mapping in one transaction so a partial failure can't leave a
@@ -9279,6 +9382,110 @@ export class XeroPaymentsService {
     });
 
     return { success: true, created_payment_id: created.payment_id, message: 'imported' };
+  }
+
+  /**
+   * Trust-movement classification lane — admin confirm step.
+   *
+   * The webhook/scheduler runs `handleInboundTrustMovementBankTransfer` in
+   * 'classify' mode for any one-trust+one-cash transfer, which parks a Failed
+   * sync log (template 632) carrying `information_required`
+   * (kind=trust_movement_classification) instead of auto-posting. This method
+   * is the human resolution: it re-invokes the same handler in 'apply' mode
+   * with the admin-chosen type, then archives the original Failed log so it
+   * drops out of the open-issues counters.
+   *
+   * Validation (chosen type ∈ direction-aware candidate set, trust-pair, etc.)
+   * is re-run inside the handler against the live BankTransfer — the sync log's
+   * stored candidates are only a UI hint, never the source of truth.
+   */
+  async resolveTrustMovementFromSyncLog(
+    decoded: any,
+    input: { sync_log_id: string; chosen_type: string },
+  ): Promise<{
+    success: boolean;
+    created_payment_id?: number;
+    message: string;
+  }> {
+    const syncLogId = String(input?.sync_log_id || '').trim();
+    const chosenType = String(input?.chosen_type || '').trim();
+    if (!syncLogId || !chosenType) {
+      return {
+        success: false,
+        message: 'sync_log_id and chosen_type are required',
+      };
+    }
+
+    const log = await this.xeroSyncLogs.findOne({
+      where: { id: syncLogId },
+    });
+    if (!log) {
+      return { success: false, message: `sync log ${syncLogId} not found` };
+    }
+    if (log.log_template_id !== 632) {
+      return {
+        success: false,
+        message: `sync log ${syncLogId} is not a trust-movement classification log`,
+      };
+    }
+    if (log.archived_at) {
+      return {
+        success: false,
+        message: `sync log ${syncLogId} has already been resolved`,
+      };
+    }
+
+    let info: any = {};
+    try {
+      info =
+        log.information_required && log.information_required !== 'NA'
+          ? JSON.parse(log.information_required)
+          : {};
+    } catch {
+      info = {};
+    }
+    const bankTransferId = String(info?.bank_transfer_id || '').trim();
+    const tenantId = String(info?.tenant_id || '').trim();
+    if (
+      info?.kind !== 'trust_movement_classification' ||
+      !bankTransferId ||
+      !tenantId
+    ) {
+      return {
+        success: false,
+        message: `sync log ${syncLogId} is missing trust-movement classification data`,
+      };
+    }
+
+    const result = await this.handleInboundTrustMovementBankTransfer(
+      {
+        resource_id: bankTransferId,
+        tenant_id: tenantId,
+        sync_run_type: 'manual_resolution',
+        mode: 'apply',
+        override_payment_type: chosenType,
+      },
+      decoded,
+    );
+
+    if (result.success) {
+      // Archive the original Failed log so it leaves the open-issues view.
+      // The 'apply' run already wrote a fresh template 620 success log.
+      log.archived_at = new Date();
+      log.archived_by_user_id = decoded?.userId ?? null;
+      log.archive_note = `Resolved as "${chosenType}" → PT payment ${
+        result.created_payment_id ?? 'n/a'
+      }`;
+      log.history = [
+        ...(log.history || []),
+        `Resolved by user ${
+          decoded?.userId ?? 'n/a'
+        } as "${chosenType}" on ${new Date().toISOString()}.`,
+      ];
+      await this.xeroSyncLogs.save(log);
+    }
+
+    return result;
   }
 
   async unMappingPayment(payment_id: string, company_id: number, decoded: any) {
