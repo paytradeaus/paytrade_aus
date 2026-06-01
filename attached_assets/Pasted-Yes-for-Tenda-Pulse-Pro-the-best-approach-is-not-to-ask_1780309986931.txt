@@ -1,0 +1,347 @@
+Yes — for Tenda/Pulse Pro, the best approach is **not** to ask the model to create a full professional marketing strategy from a thin business snapshot. The first pass should be an **intake diagnosis**, not the strategy itself.
+
+The model should decide:
+
+1. **What it knows**
+2. **What it does not know**
+3. **Which missing answers are essential**
+4. **Which assumptions it can safely make**
+5. **Whether it is allowed to draft now, or must ask more questions first**
+
+OpenAI’s current tooling supports this kind of workflow well: use **structured outputs** so the model returns predictable JSON/status decisions, and use **function calling/tools** when the agent needs to query Tenda profile data, website data, CRM, connected analytics, ads accounts, social accounts, or uploaded attachments. OpenAI describes function calling as the way to connect models to external systems/data, and Structured Outputs as a way to make model responses conform to your JSON schema. ([OpenAI Developers][1]) ([OpenAI Developers][2])
+
+## The right Tenda flow
+
+I would structure it like this:
+
+**Step 1 — User gives low-friction input**
+
+Example:
+
+> “Tell us about your business and what you want to achieve.”
+
+They can type, upload a business plan, connect website/social/Google/Search Console/Meta/LinkedIn, or just start with a Tenda profile.
+
+**Step 2 — Strategy Intake Agent reviews the snapshot**
+
+The agent should not immediately write a strategy. It should produce a structured “readiness assessment”:
+
+```json
+{
+  "status": "need_more_information",
+  "confidence_score": 42,
+  "known_facts": [],
+  "missing_critical_information": [],
+  "questions_to_user": [],
+  "safe_assumptions": [],
+  "recommended_next_action": "ask_questions"
+}
+```
+
+**Step 3 — Ask only the highest-value questions**
+
+Do not ask 40 questions at once. That will kill onboarding. Ask 5–8 questions, grouped neatly.
+
+For example:
+
+> “I can create a useful first strategy, but to make it properly tailored I need a bit more detail. The most important gaps are your ideal customer, service area, current lead sources, average job value, capacity, and marketing budget.”
+
+**Step 4 — Loop until strategy readiness is high enough**
+
+The system should keep updating the business snapshot after each user reply. Once it reaches, say, **75–85% confidence**, the agent can create a strategy with clearly labelled assumptions.
+
+**Step 5 — Generate the strategy**
+
+Only then should the Strategy Agent create:
+
+* business positioning
+* target customer segments
+* offer strategy
+* channels
+* content pillars
+* SEO plan
+* paid ads plan
+* CRM/email plan
+* social strategy
+* budget allocation
+* 30/60/90-day action plan
+* success metrics
+* risks and assumptions
+
+**Step 6 — Review Agent checks the output**
+
+A separate reviewer should ask:
+
+> “Is this actually tailored to the business snapshot, or is it generic?”
+
+OpenAI’s Agents SDK is designed around agents with instructions, tools, guardrails, handoffs, and structured outputs, which fits this pattern well. A manager/orchestrator can keep control while calling specialist agents as tools, or hand off to specialist agents where needed. ([OpenAI GitHub][3])
+
+## The key design rule
+
+Do **not** rely on one giant prompt to “loop forever”. Build the loop in your application.
+
+The LLM should return a structured decision:
+
+```json
+"status": "need_more_information"
+```
+
+Then Tenda decides whether to:
+
+* ask the user another question
+* call tools
+* inspect attachments
+* search their website
+* pull CRM data
+* proceed with assumptions
+* generate the strategy
+
+That is more reliable than hoping the model self-loops. OpenAI’s function calling flow is explicitly a multi-step process: the model requests a tool call, your application runs it, sends the result back, then the model continues. ([OpenAI Developers][1])
+
+## Suggested structured statuses
+
+Use something like this:
+
+```ts
+type StrategyReadinessStatus =
+  | "insufficient_snapshot"
+  | "need_more_information"
+  | "ready_with_assumptions"
+  | "ready_for_strategy"
+  | "blocked_by_missing_critical_data";
+```
+
+A very limited business snapshot would normally return:
+
+```json
+{
+  "status": "need_more_information",
+  "confidence_score": 35,
+  "recommended_question_count": 7
+}
+```
+
+A decent snapshot might return:
+
+```json
+{
+  "status": "ready_with_assumptions",
+  "confidence_score": 76,
+  "assumptions_to_confirm": [
+    "The business wants more local trade leads",
+    "The business has limited marketing budget",
+    "The business wants practical lead generation, not brand-only marketing"
+  ]
+}
+```
+
+## The ideal prompt for the first-pass Strategy Intake Agent
+
+This is the type of system/developer prompt I would use.
+
+You are Tenda Pulse Pro’s Strategy Intake Agent.
+
+Your job is not to immediately create a marketing strategy. Your job is to assess whether the available business snapshot is detailed enough to create a genuinely tailored, professional marketing strategy.
+
+You will receive some or all of the following:
+
+* user-entered business description
+* Tenda business profile data
+* Tenda trade profile data
+* uploaded documents
+* website summary
+* social account summaries
+* CRM/contact data
+* previous campaigns
+* connected analytics or advertising data
+
+Your task is to produce a structured readiness assessment.
+
+You must determine:
+
+1. What is already known about the business.
+2. What is missing.
+3. Which missing information is critical.
+4. Which missing information is useful but not essential.
+5. Which assumptions can safely be made.
+6. Whether to ask the user more questions or proceed with a strategy.
+7. The smallest useful set of questions to ask next.
+
+You must avoid generic marketing advice. The goal is to create a strategy that is specific to this business, its services, customers, location, goals, capacity, budget, strengths, constraints, and existing marketing assets.
+
+Before allowing a full strategy to be created, check whether the snapshot includes enough detail across the following areas:
+
+* Business name, location, service area, and trade/category
+* Core services and highest-value services
+* Ideal customers
+* Customer problems and buying triggers
+* Current lead sources
+* Current marketing channels
+* Website status
+* Social media presence
+* CRM/contact list status
+* Reviews/reputation
+* Competitors or alternatives
+* Differentiators
+* Pricing or average job value
+* Capacity and growth target
+* Budget and time horizon
+* Sales process
+* Geographic priorities
+* Compliance, licensing, or trust signals
+* Existing brand tone and positioning
+* Previous campaigns or marketing results
+
+Use this decision logic:
+
+* If the information is too thin to create anything professional, return `insufficient_snapshot`.
+* If the strategy could be created but would be generic without more information, return `need_more_information`.
+* If enough information exists to create a useful first strategy, but assumptions are still required, return `ready_with_assumptions`.
+* If the business snapshot is strong enough to create a tailored strategy, return `ready_for_strategy`.
+* If a critical blocker exists, return `blocked_by_missing_critical_data`.
+
+When asking questions:
+
+* Ask no more than 8 questions at once.
+* Ask the most commercially important questions first.
+* Use plain language suitable for a busy trade business owner.
+* Avoid making the user feel they are filling in a long form.
+* Where possible, give multiple-choice options or examples.
+* Explain briefly why the questions matter.
+* Do not ask for information already provided.
+* Do not ask for perfect information if a reasonable assumption can be made.
+
+Your output must be valid JSON matching this structure:
+
+{
+"status": "insufficient_snapshot | need_more_information | ready_with_assumptions | ready_for_strategy | blocked_by_missing_critical_data",
+"confidence_score": 0,
+"summary_of_known_business": "",
+"known_facts": [],
+"missing_critical_information": [],
+"missing_useful_information": [],
+"safe_assumptions": [],
+"unsafe_assumptions": [],
+"questions_to_user": [
+{
+"question": "",
+"why_it_matters": "",
+"answer_type": "free_text | multiple_choice | yes_no | number | currency | location | date",
+"example_answers": []
+}
+],
+"recommended_next_action": "ask_questions | call_tools | inspect_attachments | generate_strategy_with_assumptions | generate_strategy | stop_and_explain_blocker",
+"tool_requests_needed": [],
+"strategy_sections_ready_to_generate": [],
+"strategy_sections_not_ready": []
+}
+
+Never create the full marketing strategy in this step unless the status is `ready_for_strategy` or `ready_with_assumptions`.
+
+If the status is `ready_with_assumptions`, clearly list the assumptions that the strategy generator must state in the final strategy.
+
+## What Tenda should store after every loop
+
+Each user answer should update a persistent **Business Strategy Snapshot**, not just the chat history.
+
+Something like:
+
+```json
+{
+  "business_identity": {},
+  "services": {},
+  "target_customers": {},
+  "service_area": {},
+  "current_marketing": {},
+  "sales_process": {},
+  "budget": {},
+  "capacity": {},
+  "goals": {},
+  "constraints": {},
+  "assets": {},
+  "assumptions": {},
+  "confidence_score": 0,
+  "last_reviewed_at": ""
+}
+```
+
+This matters because the strategy should become reusable across Tenda: Pulse Pro, CRM, ads, email campaigns, social scheduling, SEO, lead generation, and profile optimisation.
+
+OpenAI’s Agents SDK also supports session/conversation handling and result surfaces such as final output, previous response IDs, run items, handoffs, tool calls, approvals, and resumable state, which is useful for building this kind of ongoing workflow rather than treating each turn as isolated. ([OpenAI GitHub][4])
+
+## Best practical setup for Tenda
+
+I would use five agents:
+
+**1. Intake Agent**
+Reviews snapshot and asks questions.
+
+**2. Research Agent**
+Uses tools: website scan, Google Business Profile, Search Console, Analytics, Meta, LinkedIn, CRM, Tenda profile, competitor search.
+
+**3. Strategy Agent**
+Creates the actual marketing strategy.
+
+**4. Review Agent**
+Scores the strategy for specificity, usefulness, realism, and whether it reflects the snapshot.
+
+**5. Action Planner Agent**
+Turns the strategy into tasks, campaigns, budgets, and Pulse Pro actions.
+
+Guardrails are worth adding because you need to stop the system from producing generic or overconfident strategies. OpenAI’s guardrails can run on inputs, outputs, and tool calls, with tool guardrails applying around custom function-tool invocations. ([OpenAI GitHub][5])
+
+## The user experience should feel like this
+
+The user types:
+
+> “I’m a plumber on the Sunshine Coast. I want more work.”
+
+Bad experience:
+
+> “Here is your full 12-month marketing strategy…”
+
+Good Tenda experience:
+
+> “I can create that, but to make it properly useful I need 6 quick answers. Who are you most trying to win: emergency callouts, bathroom renovations, builders, property managers, or maintenance contracts?”
+
+Then after the answers:
+
+> “Great. I now have enough to create a first strategy. I’ll assume your initial budget is modest unless you tell me otherwise.”
+
+That is the balance: **low friction**, but still intelligent enough not to produce nonsense.
+
+## My recommendation
+
+For Tenda, build this as a **strategy readiness loop**:
+
+```text
+User input / attachment / connected data
+        ↓
+Snapshot builder
+        ↓
+Intake Agent readiness check
+        ↓
+Need more info? Ask 5–8 questions
+        ↓
+Update snapshot
+        ↓
+Repeat until confidence threshold met
+        ↓
+Generate strategy
+        ↓
+Review strategy against snapshot
+        ↓
+Create campaigns, tasks, budget plan, and Pulse Pro action plan
+```
+
+The most important instruction is:
+
+> “Do not create the strategy until you have either enough information, or you have explicitly listed the assumptions required to proceed.”
+
+That one rule will make Pulse Pro feel far more professional than a basic chatbot.
+
+[1]: https://developers.openai.com/api/docs/guides/function-calling "Function calling | OpenAI API"
+[2]: https://developers.openai.com/api/docs/guides/structured-outputs "Structured model outputs | OpenAI API"
+[3]: https://openai.github.io/openai-agents-python/agents/ "Agents - OpenAI Agents SDK"
+[4]: https://openai.github.io/openai-agents-python/results/ "Results - OpenAI Agents SDK"
+[5]: https://openai.github.io/openai-agents-python/guardrails/ "Guardrails - OpenAI Agents SDK"
