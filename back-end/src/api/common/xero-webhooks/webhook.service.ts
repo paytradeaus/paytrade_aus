@@ -221,6 +221,7 @@ export class XeroWebhookService {
     outOfWindow: any[];
     matchedByReference: boolean;
     windowDays: number;
+    pairCandidates: any[];
   } {
     const windowDays = opts.windowDays ?? 14;
     const all = opts.allCandidateTransfers || [];
@@ -250,6 +251,7 @@ export class XeroWebhookService {
         outOfWindow: [],
         matchedByReference: false,
         windowDays,
+        pairCandidates: [],
       };
     }
 
@@ -306,7 +308,22 @@ export class XeroWebhookService {
       });
     }
 
-    return { matched, outOfWindow, matchedByReference, windowDays };
+    // In-window from/to-pair candidates regardless of exact amount. Used by
+    // the Lane B SPLIT detector to subset-sum the ex-GST + GST legs of a
+    // single retention. Kept here so the ±N-day window logic lives in one
+    // place. Amount-matching is intentionally NOT applied.
+    const pairCandidates = all.filter((t: any) => {
+      const fromAcc = t?.fromBankAccount?.accountID;
+      const toAcc = t?.toBankAccount?.accountID;
+      const fromMatches = fromAcc === opts.paymentAccountId;
+      const toMatches = toAcc === opts.paymentAccountId;
+      if (!fromMatches && !toMatches) return false;
+      const otherSide = fromMatches ? toAcc : fromAcc;
+      if (!otherSide || otherSide === opts.paymentAccountId) return false;
+      return isInWindow(t);
+    });
+
+    return { matched, outOfWindow, matchedByReference, windowDays, pairCandidates };
   }
 
   /**
@@ -479,6 +496,145 @@ export class XeroWebhookService {
       exactCount,
       ambiguous: bestExactCount > 1,
     };
+  }
+
+  /**
+   * Lane B — SPLIT retention detector. Given the in-window PTA<->RTA pair
+   * candidate transfers, find a unique combination of >= 2 transfers whose
+   * absolute amounts sum to the retention gross (±$0.01). Used only when the
+   * exact 1:1 matcher found nothing, so the ex-GST leg + GST leg of a single
+   * retention can be reconciled together.
+   *
+   * Conservative on trust money: returns a match ONLY when the subset is
+   * exact AND unambiguous AND every leg shares the same from/to account pair
+   * (a real single PTA->RTA movement, not a coincidental sum). If more than
+   * one distinct pair/subset could satisfy the target it returns
+   * `{ ambiguous: true }` so the caller can fail-for-input rather than guess.
+   */
+  public detectRetentionSplitSubset(opts: {
+    pairCandidates: any[];
+    target: number;
+    excludeTransferIds?: Set<string>;
+  }): { subset: any[]; ambiguous: boolean } | null {
+    const exclude = opts.excludeTransferIds || new Set<string>();
+    const eligible = (opts.pairCandidates || []).filter(
+      (t: any) => t?.bankTransferID && !exclude.has(t.bankTransferID),
+    );
+    if (eligible.length < 2) return null;
+
+    // Group by direction-pair so all legs of a chosen subset move between the
+    // same two accounts in the same direction.
+    const groups = new Map<string, any[]>();
+    for (const t of eligible) {
+      const key = `${t?.fromBankAccount?.accountID || ''}->${
+        t?.toBankAccount?.accountID || ''
+      }`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    }
+
+    const validSubsets: any[][] = [];
+    let anyAmbiguous = false;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const res = this.findTransferSubsetForTarget({
+        candidates: group,
+        target: opts.target,
+        tolerance: 0.01,
+      });
+      if (!res || !res.exact) continue;
+      // Trust-money safety: any group where MORE THAN ONE distinct exact
+      // subset hits the target is ambiguous — not just ties at the minimal
+      // cardinality. `exactCount > 1` covers a small subset plus a larger
+      // exact subset, which findTransferSubsetForTarget's own `ambiguous`
+      // flag (minimal-size ties only) would miss.
+      if (res.ambiguous || res.exactCount > 1) {
+        anyAmbiguous = true;
+        continue;
+      }
+      if (res.subset.length >= 2) validSubsets.push(res.subset);
+    }
+
+    if (anyAmbiguous || validSubsets.length > 1) {
+      return { subset: [], ambiguous: true };
+    }
+    if (validSubsets.length === 1) {
+      return { subset: validSubsets[0], ambiguous: false };
+    }
+    return null;
+  }
+
+  /**
+   * Lane B — return the subset of `bankTransferIds` that already have at least
+   * one row in the consumption ledger for this integration. Used to keep a
+   * transfer leg from being applied to a second retention (no double-spend).
+   */
+  private async getLedgerConsumedTransferIds(
+    integration_id: number,
+    bankTransferIds: string[],
+  ): Promise<Set<string>> {
+    const ids = (bankTransferIds || []).filter(Boolean);
+    if (!ids.length) return new Set<string>();
+    const rows = await this.xeroTransferApplications.find({
+      where: { integration_id, bank_transfer_id: In(ids) },
+    });
+    return new Set(rows.map((r) => r.bank_transfer_id));
+  }
+
+  /**
+   * Lane B — record (idempotently) how much of each inbound transfer leg was
+   * applied to one PT retention payment, then return the cumulative coverage
+   * for that payment. Drives accumulate-then-tick: callers only flip
+   * is_retention_confirmed once the returned coverage >= gross (±$0.01).
+   */
+  private async recordRetentionLedgerApplications(opts: {
+    integration_id: number;
+    tenant_id: string | null;
+    pt_payment_id: number;
+    legs: { bank_transfer_id: string; amount: number }[];
+    userId?: number | null;
+  }): Promise<number> {
+    for (const leg of opts.legs || []) {
+      if (!leg?.bank_transfer_id) continue;
+      const amount = Math.abs(Number(leg.amount || 0));
+      const existing = await this.xeroTransferApplications.findOne({
+        where: {
+          bank_transfer_id: leg.bank_transfer_id,
+          pt_payment_id: opts.pt_payment_id,
+        },
+      });
+      if (existing) {
+        if (Number(existing.amount_applied) !== amount) {
+          await this.xeroTransferApplications.update(
+            { id: existing.id },
+            {
+              amount_applied: amount,
+              updated_group: 'SYSTEM',
+              updated_by: opts.userId ?? null,
+            },
+          );
+        }
+        continue;
+      }
+      const row = this.xeroTransferApplications.create({
+        integration_id: opts.integration_id,
+        tenant_id: opts.tenant_id,
+        bank_transfer_id: leg.bank_transfer_id,
+        pt_payment_id: opts.pt_payment_id,
+        kind: 'retention',
+        amount_applied: amount,
+        created_group: 'SYSTEM',
+        created_by: opts.userId ?? null,
+      });
+      await this.xeroTransferApplications.save(row);
+    }
+    const all = await this.xeroTransferApplications.find({
+      where: { pt_payment_id: opts.pt_payment_id, kind: 'retention' },
+    });
+    return all.reduce(
+      (s, r) => s + Math.abs(Number(r.amount_applied || 0)),
+      0,
+    );
   }
 
   /**
@@ -9810,6 +9966,12 @@ export class XeroWebhookService {
       let paymentAccount: string | null = null;
       let retentionAccount: string | null = null;
       let bankTransferId: string | null = null;
+      // Lane B — when a retention is reconciled from multiple transfer legs
+      // (ex-GST + GST), the legs are recorded here so addOrDeletePaymentInPaytrade
+      // can ledger them and gate the confirm tick on cumulative coverage.
+      let retentionSplitLegs:
+        | { bank_transfer_id: string; amount: number }[]
+        | null = null;
       let retention_amount =
         cash_retention_type === 'Retention claim'
           ? payment?.amount
@@ -10092,6 +10254,114 @@ export class XeroWebhookService {
         // Build debug info string for all error messages
         const retentionDebugContext = `[DEBUG CONTEXT] existingPayment=${!!existingPayment}, existingPayment.bank_transfer_id=${existingPayment?.bank_transfer_id || 'null'}, data.bank_transfer_id=${data?.bank_transfer_id || 'null'}, totalXeroTransfers=${bankTransferResponse?.body?.bankTransfers?.length || 0}, matchedTransfers=${retentionTransfers?.length || 0}, matchedIds=${retentionTransfers?.map(t => t?.bankTransferID)?.join(',') || 'none'}`;
         this.logger.log(retentionDebugContext);
+
+        // -----------------------------------------------------------------
+        // Lane B — SPLIT retention auto-match (ex-GST leg + GST leg -> one
+        // retention). The exact 1:1 matcher above found nothing; before we
+        // give up, see whether a unique combination of >= 2 in-window
+        // PTA->RTA transfers sums to the retention gross. The chosen legs are
+        // recorded in the xero_transfer_applications ledger and
+        // is_retention_confirmed is only ticked once cumulative coverage >=
+        // gross (accumulate-then-tick), handled inside
+        // addOrDeletePaymentInPaytrade.
+        // -----------------------------------------------------------------
+        if (
+          retentionTransfers.length === 0 &&
+          !data?.bank_transfer_id &&
+          !existingPayment?.bank_transfer_id &&
+          (matchResult.pairCandidates?.length || 0) >= 2
+        ) {
+          const pairCandidateIds = matchResult.pairCandidates
+            .map((t: any) => t?.bankTransferID)
+            .filter(Boolean);
+          const ledgerConsumed = await this.getLedgerConsumedTransferIds(
+            xeroDetails.integration_id,
+            pairCandidateIds,
+          );
+          const usedInPayments = pairCandidateIds.length
+            ? await this.xeroPayments.find({
+                where: {
+                  integration_id: xeroDetails.integration_id,
+                  bank_transfer_id: In(pairCandidateIds),
+                  status: Not('DELETED'),
+                },
+              })
+            : [];
+          const excludeIds = new Set<string>([
+            ...ledgerConsumed,
+            ...usedInPayments
+              .map((p) => p.bank_transfer_id)
+              .filter(Boolean),
+          ]);
+          const splitResult = this.detectRetentionSplitSubset({
+            pairCandidates: matchResult.pairCandidates,
+            target: Number(retention_amount),
+            excludeTransferIds: excludeIds,
+          });
+          if (splitResult?.ambiguous) {
+            // More than one distinct combination could sum to the gross —
+            // never guess on trust money. Surface a Failed log (634) + stop.
+            try {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id || null,
+                api_name: 'createClaimInPaytrade',
+                api_payload: {
+                  sync_run_type,
+                  invoice_id: invoice?.invoiceID,
+                  tenant_id,
+                  candidate_transfer_ids: pairCandidateIds,
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: 634,
+                dynamic_values: {
+                  transfer_id: '',
+                  transfer_amount: String(retention_amount),
+                  candidate_ids: pairCandidateIds.join(', '),
+                },
+                project_id: xeroProjectDetails?.id,
+                contract_id: xeroContractDetails?.id,
+                reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                reference_id: xeroInvoice?.id,
+                history: [
+                  `API triggered from invoice ${sync_run_type}`,
+                  'Ambiguous split retention transfer combination',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                },
+                error_message: 'Ambiguous split retention transfer combination',
+                xero_records: matchResult.pairCandidates,
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            } catch (e: any) {
+              this.logger.error(
+                `[Lane B split] failed to write template 634 log: ${e?.message || e}`,
+              );
+            }
+            return false;
+          }
+          if (splitResult && splitResult.subset.length >= 2) {
+            retentionSplitLegs = splitResult.subset.map((t: any) => ({
+              bank_transfer_id: t?.bankTransferID,
+              amount: Math.abs(Number(t?.amount || 0)),
+            }));
+            // Drive the existing single-payment persistence with the primary
+            // leg; the remaining legs are recorded in the ledger for coverage.
+            retentionTransfers = [splitResult.subset[0]] as any;
+            this.logger.log(
+              `[Lane B split] matched ${retentionSplitLegs.length} legs summing to ${retention_amount} for invoice ${invoice?.invoiceID}`,
+            );
+          }
+        }
 
         this.logger.log('[Retention Flow Debug] retentionTransfers.length:' + " " + JSON.stringify(retentionTransfers?.length));
         if (retentionTransfers && retentionTransfers.length > 0) {
@@ -10632,6 +10902,8 @@ export class XeroWebhookService {
           retentionAccountDetails,
           existingPayment,
           sync_run_type,
+          retentionSplitLegs,
+          retentionGrossForLedger: Number(retention_amount),
         },
         decoded,
       );
@@ -10667,6 +10939,8 @@ export class XeroWebhookService {
         retentionAccountDetails,
         existingPayment,
         sync_run_type,
+        retentionSplitLegs,
+        retentionGrossForLedger,
       } = paytradeData;
 
       let xeroPaymentPayload: any = {
@@ -10852,6 +11126,87 @@ export class XeroWebhookService {
                     }
                   }),
                 );
+
+                // Lane B accumulate-then-tick: when this retention was matched
+                // as a SPLIT (multiple transfer legs), record each leg in the
+                // consumption ledger and only KEEP the retention tick once
+                // cumulative coverage >= gross (±$0.01). Anything short stays
+                // unconfirmed and surfaces a Warning (633) so a human can see
+                // it pending — we never tick trust money on partial coverage.
+                if (
+                  retentionSplitLegs &&
+                  retentionSplitLegs.length > 0 &&
+                  is_retention_confirmed
+                ) {
+                  const coverage =
+                    await this.recordRetentionLedgerApplications({
+                      integration_id: xeroDetails.integration_id,
+                      tenant_id: xeroDetails.tenant_id,
+                      pt_payment_id: filteredPayments[0].payment_id,
+                      legs: retentionSplitLegs,
+                      userId: decoded?.userId ?? null,
+                    });
+                  const gross = Number(retentionGrossForLedger || 0);
+                  if (gross > 0 && coverage + 0.01 < gross) {
+                    is_retention_confirmed = undefined;
+                    this.logger.log(
+                      `[Lane B split] partial coverage ${coverage} < gross ${gross} for payment ${filteredPayments[0].payment_id}; deferring retention confirm`,
+                    );
+                    try {
+                      await this.xeroService.insertXeroSyncLogs(decoded, {
+                        id: data?.sync_id || null,
+                        api_name: 'createClaimInPaytrade',
+                        api_payload: {
+                          sync_run_type,
+                          invoice_id: invoice?.invoiceID,
+                          tenant_id,
+                          pt_payment_id: filteredPayments[0].payment_id,
+                        },
+                        integration_id: xeroDetails.integration_id,
+                        log_template_id: 633,
+                        dynamic_values: {
+                          invoice_number:
+                            invoice?.invoiceNumber || invoice?.invoiceID,
+                          covered_amount: String(coverage),
+                          expected_amount: String(gross),
+                          transfer_ids: retentionSplitLegs
+                            .map((l) => l.bank_transfer_id)
+                            .join(', '),
+                          remaining_amount: String(
+                            Math.max(0, gross - coverage),
+                          ),
+                        },
+                        project_id: xeroProjectDetails?.id,
+                        contract_id: xeroContractDetails?.id,
+                        reference: { xeroId: xeroInvoice?.id, paytradeId: null },
+                        reference_id: xeroInvoice?.id,
+                        history: [
+                          `API triggered from invoice ${sync_run_type}`,
+                          'Partial retention transfer coverage',
+                        ],
+                        important_checks: {
+                          'Import data format validation': 'Ok',
+                          'Import tracking id validation': 'Ok',
+                          'Import account type validation': 'Ok',
+                          'Import tax type validation': 'Ok',
+                          'Client/Supplier mapping validation': 'Ok',
+                          'Contract mapping validation': 'Ok',
+                          'Project mapping validation': 'Ok',
+                        },
+                        error_message: null,
+                        xero_records: retentionSplitLegs,
+                        paytrade_records: [],
+                        new_records: null,
+                        updated_records: null,
+                        synced_records: null,
+                      });
+                    } catch (e: any) {
+                      this.logger.error(
+                        `[Lane B split] failed to write template 633 log: ${e?.message || e}`,
+                      );
+                    }
+                  }
+                }
 
                 const editPayload: EditDetailsOfAPaymentInput = {
                   payment_id: filteredPayments[0].payment_id,
@@ -11650,6 +12005,40 @@ export class XeroWebhookService {
                 this.logger.log(
                   `[Xero Webhook] Synced to Paytrade: Payment ${newPayment?.data?.payment_id}`,
                 );
+
+                // Lane B SPLIT — when this retention was confirmed from
+                // multiple transfer legs, record EVERY leg in the consumption
+                // ledger against the freshly-created payment. The payment's
+                // bank_transfer_id only links the primary leg; without this the
+                // remaining legs stay unconsumed and could be re-applied to a
+                // later retention (double-spend). A SPLIT subset always sums to
+                // the gross (detectRetentionSplitSubset requires an exact
+                // match), so the is_retention_confirmed=true set above is
+                // correct; we only verify and warn if coverage is unexpectedly
+                // short.
+                if (
+                  retentionSplitLegs &&
+                  retentionSplitLegs.length > 0 &&
+                  newPayment?.data?.payment_id &&
+                  cash_retention_type === 'Claim' &&
+                  cashRetention &&
+                  !isPreviousPartPaymentExist
+                ) {
+                  const coverage =
+                    await this.recordRetentionLedgerApplications({
+                      integration_id: xeroDetails.integration_id,
+                      tenant_id: xeroDetails.tenant_id,
+                      pt_payment_id: newPayment.data.payment_id,
+                      legs: retentionSplitLegs,
+                      userId: decoded?.userId ?? null,
+                    });
+                  const gross = Number(retentionGrossForLedger || 0);
+                  if (gross > 0 && coverage + 0.01 < gross) {
+                    this.logger.error(
+                      `[Lane B split] UNEXPECTED partial coverage on new payment ${newPayment.data.payment_id}: ${coverage} < gross ${gross}. Legs were recorded but the retention was already confirmed; review for double-count.`,
+                    );
+                  }
+                }
 
                 const paytradeDetails = await this.paymentDetails.findOne({
                   where: { payment_id: newPayment?.data?.payment_id },
