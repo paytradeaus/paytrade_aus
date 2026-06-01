@@ -119,47 +119,21 @@ const validationSchema = yup.object().shape({
     .optional()
     .matches(/^[0-9]+$/, "Only numbers are allowed"),
 
-  account_type: yup
-    .string()
-    .when("isPaymentDetailsRequired", (fieldData: any) => {
-      if (fieldData[0]) {
-        return yup.string().required("Type is required");
-      } else {
-        return yup.string().notRequired();
-      }
-    }),
+  // Bank details are optional at contact level. They're only needed when money
+  // is actually paid OUT to the contact (e.g. an overpayment refund to a
+  // client), so presence is enforced at that point in the backend payment
+  // validator instead of being forced here. See payments.validator.ts
+  // ('Overpayment refund to client').
+  account_type: yup.string().notRequired(),
 
-  account_name: yup
-    .string()
-    .when("isPaymentDetailsRequired", (fieldData: any) => {
-      // New Fields
-      if (fieldData[0]) {
-        return yup.string().required("Name is required");
-      } else {
-        return yup.string().notRequired();
-      }
-    }),
+  account_name: yup.string().notRequired(),
 
   bsb_number: yup
-    .number()
-    .typeError("Only numbers allowed")
-    .when("isPaymentDetailsRequired", (fieldData: any) => {
-      if (fieldData[0]) {
-        return yup.number().required("BSB is required");
-      } else {
-        return yup.number().notRequired();
-      }
-    }),
-
-  account_number: yup
     .string()
-    .when("isPaymentDetailsRequired", (fieldData: any) => {
-      if (fieldData[0]) {
-        return yup.string().required("Number is required");
-      } else {
-        return yup.string().notRequired();
-      }
-    }),
+    .notRequired()
+    .matches(/^[0-9]*$/, "Only numbers allowed"),
+
+  account_number: yup.string().notRequired(),
   account_details: yup.array().notRequired(),
 });
 

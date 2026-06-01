@@ -782,6 +782,42 @@ export class PaymentsValidator {
             'associated_overpayment_id',
             'memo',
           ];
+          // Inline-when-required: client bank details are optional at contact
+          // level and only needed when we actually pay the client. Enforce a
+          // usable refund account HERE so the ABA file doesn't silently skip the
+          // line (generateAbaFile drops rows missing recipient BSB / account
+          // number). Resolve the SAME account addPayment will pay to (mirror its
+          // logic at payments.service.ts ~204-252): honour a caller-supplied,
+          // company-owned payment_to_account; otherwise fall back to the newest
+          // Open account for this client+company. Any divergence here would
+          // either reject a refund that would actually succeed or pass one that
+          // later silently skips.
+          let resolvedToAccount: BankAccounts | null = null;
+          if (payment_to_account) {
+            resolvedToAccount = await this.bankAccountsRepo.findOne({
+              where: { bank_account_id: payment_to_account, company_id },
+            });
+          }
+          if (!resolvedToAccount && data.client_supplier_id) {
+            resolvedToAccount = await this.bankAccountsRepo.findOne({
+              where: {
+                client_supplier_id: data.client_supplier_id,
+                company_id,
+                status: 'Open' as any,
+              },
+              order: {
+                added_by_client_supplier: 'DESC',
+                created_on: 'DESC',
+              },
+            });
+          }
+          if (
+            !resolvedToAccount ||
+            !resolvedToAccount.bsb_number ||
+            !resolvedToAccount.account_number
+          ) {
+            throw `This client has no refund bank account on file. Please add the client's bank account (BSB and account number) before processing the overpayment refund.`;
+          }
         } else if (payment_type == 'Overpayment to supplier') {
           mandatoryParams = [
             'payment_from_account',
