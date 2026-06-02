@@ -9115,6 +9115,24 @@ export class XeroPaymentsService {
           account_type: toBank.account_type,
         },
       };
+      // Template 632 interpolates {{transfer_id}}, {{transfer_amount}},
+      // {{transfer_date}}, {{from_account}}, {{to_account}} — the renderer
+      // substitutes by key NAME, so dynamic_values keys MUST match the
+      // placeholder names exactly (otherwise the message shows raw {{...}}).
+      const transferDateDisplay = (() => {
+        try {
+          const d = btDate instanceof Date ? btDate : new Date(btDate as any);
+          return isNaN(d.getTime())
+            ? String(btDate)
+            : d.toLocaleDateString('en-AU');
+        } catch {
+          return String(btDate);
+        }
+      })();
+      const transferAmountDisplay = `$${amountAbsForSuggest.toLocaleString(
+        'en-AU',
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      )}`;
       await this.xeroService.insertXeroSyncLogs(decoded, {
         api_name: 'handleInboundTrustMovementBankTransfer',
         api_payload: {
@@ -9126,10 +9144,21 @@ export class XeroPaymentsService {
         integration_id: xeroDetails.integration_id,
         log_template_id: 632,
         dynamic_values: {
-          bank_transfer_id,
+          // Keys MUST mirror template 632's placeholders.
+          transfer_id: bank_transfer_id,
+          transfer_amount: transferAmountDisplay,
+          transfer_date: transferDateDisplay,
+          from_account:
+            (fromBank as any).account_name ||
+            fromBank.account_type ||
+            String(fromBank.bank_account_id),
+          to_account:
+            (toBank as any).account_name ||
+            toBank.account_type ||
+            String(toBank.bank_account_id),
+          // Retained for diagnostics / downstream readers (not in the message).
           direction: movementDirection,
           suggested_type: suggestedMovementType,
-          amount: amountAbsForSuggest.toFixed(2),
           candidate_types: candidateMovementTypes.join(', '),
         },
         information_required: JSON.stringify(informationRequired),
