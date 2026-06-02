@@ -1655,10 +1655,22 @@ table a {
 }
 
 /* Ensure an open filter dropdown panel sits above the page footer.
-   The footer (.pt_footer) creates its own stacking context via
-   position:relative + z-index, so the dropdown's containing element
-   needs a high enough z-index to win. Without this, options that
-   extend past the table area get clipped behind the footer. */
+   Root cause: `.pt_right > main` (which holds the dropdown) is
+   position:relative + z-index:2, and the sibling <footer>
+   (.footerLapping) is z-index:2 !important. They tie, so the footer
+   wins on DOM order and paints over EVERYTHING inside main —
+   including the dropdown's own z-index, which is trapped inside
+   main's stacking context and can never escape. Raising only the
+   dropdown's z-index therefore had no effect.
+
+   While a filter dropdown is open, lift main's whole stacking context
+   above the footer (:has scopes it to that moment only) so the open
+   panel renders on top of — and effectively pushes past — the footer.
+   The inner z-indexes keep the panel above the rest of the page. */
+.pt_right > main:has(.pt_filteroptions details.dropdown[open]),
+.pt_page > main:has(.pt_filteroptions details.dropdown[open]) {
+  z-index: 5;
+}
 .pt_filteroptions details.dropdown[open] {
   position: relative;
   z-index: 100;
