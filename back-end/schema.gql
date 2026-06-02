@@ -5151,6 +5151,9 @@ input ExportExcelDataInput {
   """Company ID (required for admin-side exports)"""
   company_id: Float
 
+  """Contact (client/supplier) ID used to filter contracts"""
+  contact_id: Float
+
   """Blog content type"""
   contentType: String
 
