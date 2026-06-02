@@ -2550,10 +2550,23 @@ export const commentsTableResolve = async (
           };
         }
       );
+      const fetchSucceeded =
+        !!responseData && Array.isArray(responseData?.payment_claims);
+      if (fetchSucceeded && (!parsedClaims || parsedClaims.length === 0)) {
+        // All outstanding subcontractor claims have since been paid — no S75
+        // reason is required. Signal the caller to re-run the import so the
+        // hold clears automatically.
+        return { s75AllPaid: true };
+      }
+      if (!parsedClaims || parsedClaims.length === 0) {
+        // Fetch failed / returned no data — do NOT auto-retry; keep the hold so
+        // the user can try again rather than risk clearing a required notice.
+        return { s75AllPaid: false };
+      }
       setGenerateClaimData(parsedClaims || []);
       setGenerateClaimCount(responseData?.total_count || 0);
       setOpenGeneratedClaimModel(true);
-      break;
+      return { s75AllPaid: false };
     }
     default:
       return false;

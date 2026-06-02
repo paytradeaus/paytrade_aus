@@ -2969,6 +2969,7 @@ export class XeroInvoicesService {
             api_name: 'createInvoiceOrBillInPaytrade',
             api_payload: {
               invoice_id: data.invoice_id,
+              project_id: checkExistenceInDb?.project_id,
             },
             integration_id: xeroDetails.integration_id,
             log_template_id: 359,

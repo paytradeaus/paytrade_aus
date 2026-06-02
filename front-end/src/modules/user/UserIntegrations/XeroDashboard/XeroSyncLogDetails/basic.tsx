@@ -811,6 +811,40 @@ export default function SyncLogDetailsBasic() {
     getViewSyncLogDetails();
   }
 
+  // S75 auto-clear: when all outstanding subcontractor claims have since been
+  // paid, no "reason for non-payment" is required. Re-run the import with no
+  // reasons so the backend gate (claimNotPaidCount === 0) passes and the hold
+  // clears automatically.
+  async function s75ReasonlessRetry() {
+    const invoice_id = viewLogData?.api_payload?.invoice_id || null;
+    const tenant_id = viewLogData?.api_payload?.tenant_id || null;
+    if (viewLogData?.error_code === "XP_ADD_INVOICE_MISSING_NON_PAID_REASONS") {
+      await createInvoiceOrBillInPaytradeTable({
+        syncId: viewLogData?.id,
+        retentionId: null,
+        invoiceId: invoice_id,
+        compulsoryAttachmentIds: null,
+        claimsWithReason: [],
+        associatedRetentionSubPaymentId: null,
+        companyId: +(localStorage.getItem("companyId") || 0),
+      });
+    } else if (
+      viewLogData?.error_code === "WH_MISSING_NON_PAID_REASONS" ||
+      viewLogData?.error_code === "SCHEDULER_MISSING_NON_PAID_REASONS"
+    ) {
+      await CreateClaimInPaytradeForTable({
+        associatedRetentionSubPaymentId: null,
+        claimsWithReason: [],
+        compulsoryAttachmentIds: null,
+        invoiceId: invoice_id,
+        retentionId: null,
+        syncId: viewLogData?.id,
+        tenantId: tenant_id,
+        syncRunType: viewLogData?.api_payload?.sync_run_type || null,
+      });
+    }
+  }
+
   async function resolveHandle() {
     setResolveInprogress(true);
     setLoading(true);
@@ -823,12 +857,15 @@ export default function SyncLogDetailsBasic() {
       );
     }
     if (!response) {
-      await commentsTableResolve(
+      const commentsResult = await commentsTableResolve(
         viewLogData,
         setGenerateClaimData,
         setGenerateClaimCount,
         setOpenGeneratedClaimModel
       );
+      if (typeof commentsResult === "object" && commentsResult?.s75AllPaid) {
+        await s75ReasonlessRetry();
+      }
     }
     if (!response) {
       await uploadAttachment(viewLogData, setOpenAttachmentModel);
@@ -969,6 +1006,7 @@ export default function SyncLogDetailsBasic() {
           compulsoryAttachmentIds: null,
           claimsWithReason,
           associatedRetentionSubPaymentId: null,
+          companyId: +(localStorage.getItem("companyId") || 0),
         });
       }
       setOpenGeneratedClaimModel(false);
@@ -1822,7 +1860,7 @@ export default function SyncLogDetailsBasic() {
                           style={{
                             whiteSpace: "nowrap",
                             padding: "6px 14px",
-                            backgroundColor: "#FF4B4B",
+                            backgroundColor: "#2563EB",
                             color: "#fff",
                             border: "none",
                             borderRadius: "6px",
@@ -1957,7 +1995,7 @@ export default function SyncLogDetailsBasic() {
                               style={{
                                 whiteSpace: "nowrap",
                                 padding: "6px 14px",
-                                backgroundColor: "#16A34A",
+                                backgroundColor: "#2563EB",
                                 color: "#fff",
                                 border: "none",
                                 borderRadius: "6px",
