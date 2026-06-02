@@ -219,6 +219,31 @@ export class PaymentsService {
                 `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — not owned by company ${company_id}; clearing.`,
               );
               data.payment_to_account = null;
+            } else if (
+              // Supplier-mismatch guard: when the destination is a supplier-
+              // owned cash account (client_supplier_id NOT NULL), it MUST
+              // belong to this claim's supplier. Without this, a stale/global
+              // "to account" from a different same-company supplier is silently
+              // persisted and the ABA/remittance routes money to the wrong
+              // party (the supplier name still reads correctly, masking it).
+              // Skipped for `3rd Party` payments (intentionally a different
+              // payee) and for company-owned trust accounts (client_supplier_id
+              // NULL, e.g. Receivable claims). Cleared values fall through to
+              // the auto-resolve below, which repopulates from the right supplier.
+              payment_type !== '3rd Party' &&
+              ownedBank.client_supplier_id != null
+            ) {
+              const claimSupplierId =
+                claimDetails?.client_supplier_id ?? client_supplier_id;
+              if (
+                claimSupplierId &&
+                Number(ownedBank.client_supplier_id) !== Number(claimSupplierId)
+              ) {
+                this.logger.warn(
+                  `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — owned by supplier ${ownedBank.client_supplier_id}, not the claim's supplier ${claimSupplierId}; clearing for auto-resolve.`,
+                );
+                data.payment_to_account = null;
+              }
             }
           }
 
