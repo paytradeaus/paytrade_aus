@@ -9094,6 +9094,30 @@ export class XeroPaymentsService {
       input?.mode === 'apply' ? 'apply' : 'classify';
 
     if (runMode === 'classify') {
+      // Idempotency guard — the inbound handler re-runs on every webhook AND
+      // every scheduled-fallback poll (~15 min). An unclassified trust movement
+      // would otherwise spawn a fresh template-632 "needs your input" hold on
+      // every poll (one un-actioned transfer => ~96 duplicate holds/day). If an
+      // open (non-archived) hold already exists for this transfer, skip writing
+      // a duplicate; the resolve mutation (apply mode) archives/clears it.
+      const existingHold = await this.xeroSyncLogs
+        .createQueryBuilder('log')
+        .where('log.integration_id = :integrationId', {
+          integrationId: xeroDetails.integration_id,
+        })
+        .andWhere('log.log_template_id = :tpl', { tpl: 632 })
+        .andWhere('log.archived_at IS NULL')
+        .andWhere(`log.reference ->> 'xeroId' = :btId`, {
+          btId: bank_transfer_id,
+        })
+        .getOne();
+      if (existingHold) {
+        return {
+          success: false,
+          message: `trust-movement classification already pending for BankTransfer ${bank_transfer_id} (sync_id ${existingHold.sync_id})`,
+        };
+      }
+
       const informationRequired = {
         kind: 'trust_movement_classification',
         bank_transfer_id,
