@@ -1452,6 +1452,16 @@ export class CompliancesService {
           oldRule.check_name !== newRule.check_name ||
           oldRule.check_status !== newRule.check_status ||
           oldRule.action_button_type !== newRule.action_button_type ||
+          // `reference_id` MUST be part of change-detection. It is the
+          // target of the action button (e.g. the EDIT_CONTRACT deep-link
+          // contract UUID). A recompute can keep the same status/message
+          // but re-point the action at a different record — e.g. when the
+          // contract-presence check stops blaming a now-deleted contract
+          // and selects a live one instead. Omitting this field made those
+          // target-only changes register as "no change", so the stale
+          // (deleted-contract) reference_id was never overwritten and the
+          // deep-link kept opening the wrong/deleted contract.
+          (oldRule.reference_id || null) !== (newRule.reference_id || null) ||
           oldRule.display_message_colour !== newRule.display_message_colour ||
           oldRule.display_message !== newRule.display_message ||
           oldRule.content !== newRule.content
