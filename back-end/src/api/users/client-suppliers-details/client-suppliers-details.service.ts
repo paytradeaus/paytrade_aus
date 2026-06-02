@@ -1275,6 +1275,7 @@ export class ClientSuppliersDetailsService {
         client_supplier_status: result.client_supplier_status,
         client_email_id: result.client_email_id,
         related_entity: result.related_entity,
+        is_archived: result.is_archived,
       };
     });
   }

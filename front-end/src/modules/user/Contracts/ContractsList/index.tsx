@@ -129,10 +129,12 @@ export default function ContractsList({ overViewDetails = {} }: any) {
       if (response) {
         const formatResponse: any = [
           { label: "All", value: "All" },
-          ...(response?.map((contact: any) => ({
-            label: contact?.client_supplier_name,
-            value: contact?.client_supplier_id,
-          })) || []),
+          ...(response
+            ?.filter((contact: any) => !contact?.is_archived)
+            ?.map((contact: any) => ({
+              label: contact?.client_supplier_name,
+              value: contact?.client_supplier_id,
+            })) || []),
         ];
         setContactOptions(formatResponse);
       } else {

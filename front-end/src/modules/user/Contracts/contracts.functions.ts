@@ -289,6 +289,7 @@ export const getClientSupplierLists = async (
               client_supplier_status
               client_supplier_type
               id
+              is_archived
               related_entity
             }
             message

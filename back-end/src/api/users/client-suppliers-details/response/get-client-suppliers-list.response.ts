@@ -55,4 +55,11 @@ export class GetClientSuppliersList {
     description: 'Entity related to the client or supplier.',
   })
   related_entity: RelatedEntity;
+
+  @Field({
+    nullable: true,
+    description:
+      'Whether the contact is archived (mirrors Xero ARCHIVED status). Archived contacts are excluded from active pickers.',
+  })
+  is_archived: boolean;
 }
