@@ -754,8 +754,20 @@ export default function AddEditContracts(props: any) {
   };
 
   useEffect(() => {
-    // ✅ Skip this block if routePathStoredData has any keys
-    if (routePathStoredData && Object.keys(routePathStoredData).length > 0) {
+    // Defer to the draft-restore effect ONLY for a genuine contract
+    // quick-add / draft round-trip (those carry `quickAddFromContract`
+    // or `fromDraftContract`). Previously this skipped on ANY stored
+    // `/api/route-data` blob — which is a process-wide shared draft that
+    // is never cleared — so a leftover draft from an earlier session (or
+    // another module) permanently suppressed hydration from the real
+    // fetched contract, leaving a stale Client/Supplier (e.g. a prior
+    // "1300 Locate" pick) on the Edit form. The fetched contract must be
+    // authoritative for a real edit-by-id load.
+    const hasContractDraftRoundTrip = !!(
+      routePathStoredData?.quickAddFromContract ||
+      routePathStoredData?.fromDraftContract
+    );
+    if (hasContractDraftRoundTrip) {
       return;
     }
     if (Object.keys(contractData).length > 0) {
@@ -823,7 +835,13 @@ export default function AddEditContracts(props: any) {
         Object.keys(projectOpts).length ? projectOpts : null
       );
     }
-  }, [isEdit, contractData, routePathStoredData]);
+  }, [
+    isEdit,
+    contractData,
+    routePathStoredData,
+    clientSupplierOptions,
+    projectOptions,
+  ]);
 
   let validationSchema = Yup.object().shape({
     ContractName: Yup.string()
