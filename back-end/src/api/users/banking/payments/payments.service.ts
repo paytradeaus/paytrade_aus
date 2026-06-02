@@ -5989,14 +5989,16 @@ export class PaymentsService {
          sp.sub_payment_id as sub_payment_id,
          sp.amount as amount,
          p.payment_type as reference,
-         p.payment_to_account_name as payee_name,
-         p.payment_to_account_number as account_number,
-         p.payment_to_account_bsb_number as bsb_number
+         toba.account_name as payee_name,
+         toba.account_number as account_number,
+         LPAD(CAST(toba.bsb_number AS TEXT), 6, '0') as bsb_number
        FROM aba_batch_sub_payments abp
        INNER JOIN sub_payments sp
          ON sp.sub_payment_id = abp.sub_payment_id
        LEFT JOIN payment_details p
          ON p.payment_id = sp.payment_id
+       LEFT JOIN bank_accounts toba
+         ON toba.bank_account_id = p.payment_to_account
        WHERE abp.aba_history_id = $1
        ORDER BY abp.created_on ASC, sp.sub_payment_id ASC`,
       [aba_history_id],
