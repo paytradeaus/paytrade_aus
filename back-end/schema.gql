@@ -10456,6 +10456,11 @@ type GetClientSuppliersList {
   """Unique identifier of the record."""
   id: String
 
+  """
+  Whether the contact is archived (mirrors Xero ARCHIVED status). Archived contacts are excluded from active pickers.
+  """
+  is_archived: Boolean
+
   """Entity related to the client or supplier."""
   related_entity: String
 }
