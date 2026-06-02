@@ -201,6 +201,17 @@ export class PaymentsService {
             data.payment_date = moment.tz(decoded?.timezone || 'UTC').toDate();
           }
 
+          // Canonical supplier for this payment. When the payment is tied to a
+          // claim, the claim's supplier is authoritative — never the payload's
+          // client_supplier_id, which a buggy/malicious client could set to a
+          // different same-company supplier. Both the mismatch guard and the
+          // auto-resolve below key off this single value so they can't disagree
+          // (the architect-flagged gap where a clear was followed by an
+          // auto-fill from the *wrong* supplier).
+          const effectiveSupplierId = payment_claim_id
+            ? claimDetails?.client_supplier_id ?? client_supplier_id
+            : client_supplier_id;
+
           // Validate any caller-supplied payment_to_account belongs to this
           // tenant. Without this an attacker (or a buggy client) could pass
           // any bank_account_id and have it rendered on the remittance PDF.
@@ -222,7 +233,7 @@ export class PaymentsService {
             } else if (
               // Supplier-mismatch guard: when the destination is a supplier-
               // owned cash account (client_supplier_id NOT NULL), it MUST
-              // belong to this claim's supplier. Without this, a stale/global
+              // belong to this payment's supplier. Without this, a stale/global
               // "to account" from a different same-company supplier is silently
               // persisted and the ABA/remittance routes money to the wrong
               // party (the supplier name still reads correctly, masking it).
@@ -233,14 +244,13 @@ export class PaymentsService {
               payment_type !== '3rd Party' &&
               ownedBank.client_supplier_id != null
             ) {
-              const claimSupplierId =
-                claimDetails?.client_supplier_id ?? client_supplier_id;
               if (
-                claimSupplierId &&
-                Number(ownedBank.client_supplier_id) !== Number(claimSupplierId)
+                effectiveSupplierId &&
+                Number(ownedBank.client_supplier_id) !==
+                  Number(effectiveSupplierId)
               ) {
                 this.logger.warn(
-                  `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — owned by supplier ${ownedBank.client_supplier_id}, not the claim's supplier ${claimSupplierId}; clearing for auto-resolve.`,
+                  `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — owned by supplier ${ownedBank.client_supplier_id}, not this payment's supplier ${effectiveSupplierId}; clearing for auto-resolve.`,
                 );
                 data.payment_to_account = null;
               }
@@ -252,13 +262,14 @@ export class PaymentsService {
           // Without this, the field stays NULL and downstream PDFs (Supplier
           // Payment Remittance Advice etc.) can't render the beneficiary's
           // bank details — the QBCC template requires them in the top block.
-          // Scoped by company_id for defence-in-depth.
-          if (!data.payment_to_account && client_supplier_id) {
+          // Keyed off effectiveSupplierId (the claim's supplier when claim-tied)
+          // and scoped by company_id for defence-in-depth.
+          if (!data.payment_to_account && effectiveSupplierId) {
             const supplierBank = await transactionalEntityManager.findOne(
               BankAccounts,
               {
                 where: {
-                  client_supplier_id,
+                  client_supplier_id: effectiveSupplierId,
                   company_id,
                   status: 'Open' as any,
                 },
@@ -271,7 +282,7 @@ export class PaymentsService {
             if (supplierBank) {
               data.payment_to_account = supplierBank.bank_account_id;
               this.logger.log(
-                `[addPayment] Auto-resolved payment_to_account=${supplierBank.bank_account_id} from supplier ${client_supplier_id} (company ${company_id})`,
+                `[addPayment] Auto-resolved payment_to_account=${supplierBank.bank_account_id} from supplier ${effectiveSupplierId} (company ${company_id})`,
               );
             }
           }
