@@ -5037,6 +5037,7 @@ export class ExportDataService {
         'contract.clientSuppliersDetails',
         'clientSuppliersDetails',
       )
+      .leftJoinAndSelect('contract.companyDetails', 'companyDetails')
       .leftJoinAndSelect('contract.variationDetails', 'variationDetails');
 
     queryBuilder.where(`contract.company_id = :companyId`, {
@@ -5070,6 +5071,47 @@ export class ExportDataService {
       queryBuilder.andWhere('contract.client_supplier_id = :contact_id', {
         contact_id: data.contact_id,
       });
+    }
+
+    if (data.data_status && data.data_status !== 'All') {
+      // Mirror the on-screen "Data Status" warning derivation
+      // (front-end Contracts list / missing_data_warnings) in SQL so the
+      // export only contains contracts matching the selected status.
+      const buyerExpr = `CASE WHEN clientSuppliersDetails.client_supplier_type = 'Client' THEN clientSuppliersDetails.client_supplier_name ELSE companyDetails.company_name END`;
+      const sellerExpr = `CASE WHEN clientSuppliersDetails.client_supplier_type = 'Supplier' THEN clientSuppliersDetails.client_supplier_name ELSE companyDetails.company_name END`;
+
+      const missingContractFile = `(contract.attachment_id IS NULL OR contract.attachment_id = '')`;
+      const missingBankAcc = `(contract.payment_from_account IS NULL OR contract.payment_to_account IS NULL)`;
+      const missingBuyer = `(${buyerExpr} IS NULL OR ${buyerExpr} = '')`;
+      const missingSeller = `(${sellerExpr} IS NULL OR ${sellerExpr} = '')`;
+      const missingProject = `(projectDetails.project_name IS NULL OR projectDetails.project_name = '')`;
+      const hasAnyWarning = `(${missingContractFile} OR ${missingBankAcc} OR ${missingBuyer} OR ${missingSeller} OR ${missingProject})`;
+
+      switch (data.data_status) {
+        case 'OK':
+          queryBuilder.andWhere(`NOT ${hasAnyWarning}`);
+          break;
+        case 'Warnings':
+          queryBuilder.andWhere(hasAnyWarning);
+          break;
+        case 'Contract file':
+          queryBuilder.andWhere(missingContractFile);
+          break;
+        case 'Bank A/C':
+          queryBuilder.andWhere(missingBankAcc);
+          break;
+        case 'Buyer':
+          queryBuilder.andWhere(missingBuyer);
+          break;
+        case 'Seller':
+          queryBuilder.andWhere(missingSeller);
+          break;
+        case 'Project':
+          queryBuilder.andWhere(missingProject);
+          break;
+        default:
+          break;
+      }
     }
 
     if (data.client_supplier_type) {

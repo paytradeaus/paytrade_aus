@@ -5166,6 +5166,11 @@ input ExportExcelDataInput {
   """Coupon ID"""
   coupon_id: Float
 
+  """
+  Contracts 'Data Status' filter (All / OK / Warnings / Contract file / Bank A/C / Buyer / Seller / Project)
+  """
+  data_status: String
+
   """Date filter type (e.g. today, this_month)"""
   date_filter: String
 

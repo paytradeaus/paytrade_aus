@@ -235,6 +235,13 @@ export class ExportExcelDataInput {
   })
   contact_id?: number;
 
+  @Field({
+    nullable: true,
+    description:
+      "Contracts 'Data Status' filter (All / OK / Warnings / Contract file / Bank A/C / Buyer / Seller / Project)",
+  })
+  data_status?: string;
+
   // ---------------- Retention / Payments ----------------
   @Field({
     nullable: true,

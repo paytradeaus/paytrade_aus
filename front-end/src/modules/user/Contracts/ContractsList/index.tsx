@@ -349,6 +349,10 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             ? Number(selectedProjectType)
             : selectedProjectType || null,
         contact_id: Number(selectedContact) || null,
+        data_status:
+          selectedDataStatus && selectedDataStatus !== "All"
+            ? selectedDataStatus
+            : null,
       });
 
       if (responseFileURL) {
@@ -391,6 +395,10 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             ? Number(selectedProjectType)
             : selectedProjectType || null,
         contact_id: Number(selectedContact) || null,
+        data_status:
+          selectedDataStatus && selectedDataStatus !== "All"
+            ? selectedDataStatus
+            : null,
       });
       setDisablePDFBtn(false);
     } catch (error) {
