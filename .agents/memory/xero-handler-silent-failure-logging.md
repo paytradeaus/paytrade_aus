@@ -35,3 +35,27 @@ follow" — with no following rows, leaving the failure undiagnosable.
   **Supplier**, auto-create (`smartCreateContract`) refuses it, `pt_contact_id`
   stays blank, and every sync dead-ends on "Contact details not mapped"
   (template 425/265).
+
+# Same rule for the CLAIM-CREATION import path
+
+`validateAndProcessWebhookInvoice` (the other webhook entry) calls
+`addPaymentClaim` (new claim) and `editDetailsOfAPaymentClaim` (existing claim).
+Both can THROW (the claim_amount-vs-line-items reconciliation guard in
+`payment-claims.service.ts` rethrows) or return falsy. Historically a throw
+escaped to the function-level outer catch — which logs 252/412 but with an
+ORPHANED reference (`xeroInvoice` is declared inside the non-DRAFT block and is
+out of scope there) — and a falsy return fell straight through to `return true`,
+producing PHANTOM success with no claim. Both classes left only the dispatcher
+trigger row (reference {} / reference_id null).
+
+**Rule:** wrap each of `addPaymentClaim` / `editDetailsOfAPaymentClaim` in its
+own try/catch AND give each `if (response)` an `else`. On throw OR falsy, persist
+template 636 (webhook) / 637 (manual/scheduler) stamped with the REAL record
+reference (`{ xeroId: xeroInvoice?.id, paytradeId: claimDetails?.id || null }`,
+reference_id `xeroInvoice?.id`) and the real error, then `return false`. Don't
+rely on the outer catch — its reference is orphaned.
+
+**Why:** the real prod loss was a ~$1.49M ACCREC invoice (ref `2501-1-1`, project
+"2501 - Alba") that passed all validation, saved its `xero_invoices_bills` row,
+then died inside `addPaymentClaim` with zero diagnostic. Logging here makes the
+reconciliation delta readable; it does NOT fix the reconciliation math itself.

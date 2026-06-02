@@ -4901,11 +4901,70 @@ export class XeroWebhookService {
                 : [],
           };
 
-          const response = await this.paymentClaimsService.addPaymentClaim(
-            decoded,
-            claimData,
-            decoded?.userId,
-          );
+          let response;
+          try {
+            response = await this.paymentClaimsService.addPaymentClaim(
+              decoded,
+              claimData,
+              decoded?.userId,
+            );
+          } catch (claimErr: any) {
+            // SILENT_FAILURE_FIX (Task #346, Alba 2501-1-1): addPaymentClaim
+            // rethrows on error (e.g. the claim_amount vs line-items
+            // reconciliation guard). Previously the throw escaped to the
+            // function's outer catch, which logs with an orphaned reference
+            // ({} / null) and no link to this Xero record — leaving the
+            // manual-resync trigger pointing at nothing. Persist a
+            // reference-stamped Failed sync log carrying the real error.
+            const claimErrMessage =
+              (claimErr && (claimErr.message || claimErr?.body?.Message)) ||
+              JSON.stringify(claimErr);
+            this.logger.error(
+              `[BILL_TRACE] addPaymentClaim threw for xero invoice ${xeroInvoice?.id} (${invoice?.invoiceID}): ${claimErrMessage}`,
+            );
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: data?.sync_id || null,
+              api_name: 'createClaimInPaytrade',
+              api_payload: {
+                sync_run_type,
+                invoice_id: invoice?.invoiceID,
+                tenant_id,
+                type:
+                  invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+              dynamic_values: {},
+              project_id: xeroProjectDetails?.id,
+              contract_id: xeroContractDetails?.id,
+              reference: {
+                xeroId: xeroInvoice?.id,
+                paytradeId: null,
+              },
+              reference_id: xeroInvoice?.id,
+              history: [
+                `API triggered from invoice ${sync_run_type}`,
+                'Import failed',
+              ],
+              important_checks: {
+                'Import data format validation': 'Ok',
+                'Import tracking id validation': 'Ok',
+                'Import account type validation': 'Ok',
+                'Import tax type validation': 'Ok',
+                'Client/Supplier mapping validation': 'Ok',
+                'Contract mapping validation': 'Ok',
+                'Project mapping validation': 'Ok',
+                'Claim creation': 'Failed',
+              },
+              error_message: claimErrMessage,
+              xero_records: [invoice],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return false;
+          }
           if (response) {
             xeroInvoice.pt_claim_id = response.payment_claim_id;
             xeroInvoice.mapped_status = 'System';
@@ -5017,6 +5076,58 @@ export class XeroWebhookService {
                 updated_records: null,
                 synced_records: null,
               });
+          } else {
+            // SILENT_FAILURE_FIX (Task #346): addPaymentClaim returned a
+            // falsy result instead of a created claim. Without this branch
+            // the code fell through and the function later returned `true`,
+            // reporting a phantom successful import with no claim. Persist a
+            // reference-stamped Failed sync log and stop.
+            this.logger.error(
+              `[BILL_TRACE] addPaymentClaim returned falsy for xero invoice ${xeroInvoice?.id} (${invoice?.invoiceID}); no claim created`,
+            );
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              id: data?.sync_id || null,
+              api_name: 'createClaimInPaytrade',
+              api_payload: {
+                sync_run_type,
+                invoice_id: invoice?.invoiceID,
+                tenant_id,
+                type:
+                  invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+              },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+              dynamic_values: {},
+              project_id: xeroProjectDetails?.id,
+              contract_id: xeroContractDetails?.id,
+              reference: {
+                xeroId: xeroInvoice?.id,
+                paytradeId: null,
+              },
+              reference_id: xeroInvoice?.id,
+              history: [
+                `API triggered from invoice ${sync_run_type}`,
+                'Import failed',
+              ],
+              important_checks: {
+                'Import data format validation': 'Ok',
+                'Import tracking id validation': 'Ok',
+                'Import account type validation': 'Ok',
+                'Import tax type validation': 'Ok',
+                'Client/Supplier mapping validation': 'Ok',
+                'Contract mapping validation': 'Ok',
+                'Project mapping validation': 'Ok',
+                'Claim creation': 'Failed',
+              },
+              error_message:
+                'Claim creation returned no result (addPaymentClaim produced no claim).',
+              xero_records: [invoice],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+            return false;
           }
         } else {
           //update invoice and payment code should come here
@@ -5849,12 +5960,71 @@ export class XeroWebhookService {
                   );
                 }
 
-                const response =
-                  await this.paymentClaimsService.editDetailsOfAPaymentClaim(
-                    decoded,
-                    claimData,
-                    decoded?.userId,
+                let response;
+                try {
+                  response =
+                    await this.paymentClaimsService.editDetailsOfAPaymentClaim(
+                      decoded,
+                      claimData,
+                      decoded?.userId,
+                    );
+                } catch (editErr: any) {
+                  // SILENT_FAILURE_FIX (Task #346): mirror the new-claim
+                  // path on the update/existing-claim branch. A throw here
+                  // (e.g. reconciliation guard) previously escaped to the
+                  // function's outer catch with an orphaned reference. Persist
+                  // a reference-stamped Failed sync log carrying the real error.
+                  const editErrMessage =
+                    (editErr && (editErr.message || editErr?.body?.Message)) ||
+                    JSON.stringify(editErr);
+                  this.logger.error(
+                    `[BILL_TRACE] editDetailsOfAPaymentClaim threw for xero invoice ${xeroInvoice?.id} (${invoice?.invoiceID}): ${editErrMessage}`,
                   );
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    id: data?.sync_id || null,
+                    api_name: 'createClaimInPaytrade',
+                    api_payload: {
+                      sync_run_type,
+                      invoice_id: invoice?.invoiceID,
+                      tenant_id,
+                      type:
+                        invoice?.type === Invoice.TypeEnum.ACCPAY
+                          ? 'bill'
+                          : 'invoice',
+                    },
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+                    dynamic_values: {},
+                    project_id: xeroProjectDetails?.id,
+                    contract_id: xeroContractDetails?.id,
+                    reference: {
+                      xeroId: xeroInvoice?.id,
+                      paytradeId: claimDetails?.id,
+                    },
+                    reference_id: xeroInvoice?.id,
+                    history: [
+                      `API triggered from invoice ${sync_run_type}`,
+                      'Import failed',
+                    ],
+                    important_checks: {
+                      'Import data format validation': 'Ok',
+                      'Import tracking id validation': 'Ok',
+                      'Import account type validation': 'Ok',
+                      'Import tax type validation': 'Ok',
+                      'Client/Supplier mapping validation': 'Ok',
+                      'Contract mapping validation': 'Ok',
+                      'Project mapping validation': 'Ok',
+                      'Claim update': 'Failed',
+                    },
+                    error_message: editErrMessage,
+                    xero_records: [invoice],
+                    paytrade_records: [claimDetails],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
+                  return false;
+                }
                 if (response) {
                   const paymentClaimDetails = await this.paymentClaims.findOne({
                     where: { id: response?.id },
@@ -5946,6 +6116,59 @@ export class XeroWebhookService {
                       updated_records: null,
                       synced_records: null,
                     });
+                } else {
+                  // SILENT_FAILURE_FIX (Task #346): editDetailsOfAPaymentClaim
+                  // returned falsy. Previously the code fell through and the
+                  // function later returned `true`, reporting a phantom
+                  // successful update. Persist a reference-stamped Failed log.
+                  this.logger.error(
+                    `[BILL_TRACE] editDetailsOfAPaymentClaim returned falsy for xero invoice ${xeroInvoice?.id} (${invoice?.invoiceID}); claim not updated`,
+                  );
+                  await this.xeroService.insertXeroSyncLogs(decoded, {
+                    id: data?.sync_id || null,
+                    api_name: 'createClaimInPaytrade',
+                    api_payload: {
+                      sync_run_type,
+                      invoice_id: invoice?.invoiceID,
+                      tenant_id,
+                      type:
+                        invoice?.type === Invoice.TypeEnum.ACCPAY
+                          ? 'bill'
+                          : 'invoice',
+                    },
+                    integration_id: xeroDetails.integration_id,
+                    log_template_id: sync_run_type === 'webhook' ? 636 : 637,
+                    dynamic_values: {},
+                    project_id: xeroProjectDetails?.id,
+                    contract_id: xeroContractDetails?.id,
+                    reference: {
+                      xeroId: xeroInvoice?.id,
+                      paytradeId: claimDetails?.id,
+                    },
+                    reference_id: xeroInvoice?.id,
+                    history: [
+                      `API triggered from invoice ${sync_run_type}`,
+                      'Import failed',
+                    ],
+                    important_checks: {
+                      'Import data format validation': 'Ok',
+                      'Import tracking id validation': 'Ok',
+                      'Import account type validation': 'Ok',
+                      'Import tax type validation': 'Ok',
+                      'Client/Supplier mapping validation': 'Ok',
+                      'Contract mapping validation': 'Ok',
+                      'Project mapping validation': 'Ok',
+                      'Claim update': 'Failed',
+                    },
+                    error_message:
+                      'Claim update returned no result (editDetailsOfAPaymentClaim produced no claim).',
+                    xero_records: [invoice],
+                    paytrade_records: [claimDetails],
+                    new_records: null,
+                    updated_records: null,
+                    synced_records: null,
+                  });
+                  return false;
                 }
               }
             }
