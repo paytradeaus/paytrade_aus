@@ -1,0 +1,49 @@
+No — I would **correct my wording** there.
+
+I should not have said the BIF Act expressly says the head contractor must **“assess the claim immediately.”** I do **not** think there is a specific section that uses that language or creates a separate “immediate assessment” obligation.
+
+What the law does say is that the respondent must **respond to the payment claim** by giving a payment schedule within a strict timeframe, unless they pay the full amount by the due date.
+
+Under **s 76(1) of the Building Industry Fairness (Security of Payment) Act 2017 (Qld)**:
+
+> If given a payment claim, a respondent must respond by giving a payment schedule within whichever period ends first:
+>
+> **(a)** the period stated in the relevant construction contract; or
+> **(b)** **15 business days after the payment claim is given**.
+>
+> Maximum penalty: **100 penalty units**. ([AustLII][1])
+
+Then **s 76(2)** says the respondent does **not** need to give a payment schedule if the claimed amount is paid in full on or before the due date. ([AustLII][1])
+
+So the more accurate position is:
+
+**They do not have a separate statutory “assessment period”. They have the payment schedule response period to assess the claim if they intend to pay less than the claimed amount.**
+
+In practical terms:
+
+| Situation                                                                                  |                                                                                                  Time they have |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------: |
+| They agree with the claim                                                                  |                                                                                     Pay in full by the due date |
+| They do not agree / intend to pay less / intend to withhold retention / dispute part of it | Give a payment schedule by the earlier of the contract period or **15 business days after receiving the claim** |
+| Contract says a shorter period for payment schedules                                       |                                                                             The shorter contract period applies |
+| Contract is silent on due date                                                             |                  The BIF Act default due date is generally **10 business days after the payment claim is made** |
+
+QBCC’s guidance says the same thing in plain English: if the respondent does not intend to pay the full claimed amount by the due date, they must give a payment schedule within **15 business days after receiving the claim or invoice**, or earlier if the contract states another timeframe. The payment schedule must identify the claim, state the amount proposed to be paid, and state **all reasons** for paying less or withholding payment. ([QBCC][2])
+
+For Pay Trade, I would therefore label this as:
+
+**“Assessment required before payment schedule deadline”**
+
+not:
+
+**“Assessment required immediately.”**
+
+A safer system rule would be:
+
+> On receipt of a payment claim, the head contractor must decide whether to pay in full or issue a payment schedule. If they will not pay the full claimed amount, Pay Trade should require the payment schedule to be issued by the earlier of the contractual response period or 15 business days after the claim was received. The assessment should be completed early enough to allow that schedule to include every reason for withholding, reducing, disputing, or retaining any amount.
+
+[1]: https://classic.austlii.edu.au/au/legis/qld/consol_act/bifopa2017514/s76.html "
+BUILDING INDUSTRY FAIRNESS (SECURITY OF PAYMENT) ACT 2017 - SECT 76
+Responding to payment claim
+"
+[2]: https://www.qbcc.qld.gov.au/running-your-business/getting-paid/respond-payment-request "Respond to payment request | Queensland Building and Construction Commission"
