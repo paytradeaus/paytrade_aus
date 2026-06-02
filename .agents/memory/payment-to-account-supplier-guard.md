@@ -17,8 +17,8 @@ right party. Two checks are required, in order:
    clear it and let auto-resolve repopulate.
 
 **Why:** A real bug routed claim payments to a different supplier's cash account
-(e.g. a Pacific Geotech claim whose to-account was owned by Richard Rowles).
-Validating only company ownership let a stale/global account through. The
+(a claim for supplier A whose to-account was owned by an unrelated same-company
+supplier B). Validating only company ownership let a stale/global account through. The
 supplier *name* on the payment still rendered correctly, masking the wrong
 destination — only the ABA/remittance bank details were wrong.
 

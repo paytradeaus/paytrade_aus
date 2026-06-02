@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { VariationDetails } from 'src/entities/variation-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
-import { Between, Repository } from 'typeorm';
+import { Between, Not, Repository } from 'typeorm';
 import { BankAccounts, PaymentClaims } from 'src/entities/banking.entity';
 import {
   ComplianceChecks,
@@ -2192,7 +2192,12 @@ export class CompliancePTAFunctions {
       });
 
       const presenceOfContracts = await this.contractsRepo.find({
-        where: { project_id },
+        // Exclude Deleted contracts. Otherwise this check flags a deleted
+        // contract as "missing its contract PDF" and emits its id as the
+        // EDIT_CONTRACT deep-link, routing the user to edit a deleted
+        // contract (which then loads the wrong supplier details). Deleted
+        // contracts must never be the target of a compliance action.
+        where: { project_id, contract_status: Not('Deleted') as any },
         // `id` is the UUID PK that the frontend's EDIT_CONTRACT route
         // (`/user/contracts/edit/:id`) and `viewContractDetailsById`
         // service both key on. `contract_id` is the human-readable
