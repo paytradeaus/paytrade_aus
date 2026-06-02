@@ -2389,6 +2389,128 @@ export class CompliancePTAFunctions {
         }
       }
 
+      // Check 6 rule 26/27 — s76 BIF Act response obligation.
+      // A Billable claim breaches s76 when it is (a) not paid in full, (b) has no
+      // payment schedule given to the claimant, and (c) is past its response
+      // deadline. The deadline is the EARLIER of (received_date + 15 business
+      // days) OR the claim's due_date — flag once today is past whichever comes
+      // first. If any claim breaches we surface a single FAILED row (rule 26)
+      // pointing at the first breaching claim; otherwise PASSED (rule 27).
+      const fetchedContentOfResponseRule = await filterComplianceContentDetails(
+        6,
+        26,
+        fetchedAllContents,
+      );
+      const fetchedContentOfResponsePassRule =
+        await filterComplianceContentDetails(6, 27, fetchedAllContents);
+
+      const unpaidBillableClaims = await this.paymentClaimsRepo.query(`
+        SELECT
+              payment_claim_id,
+              claim_reference,
+              status,
+              received_date,
+              due_date
+        FROM
+              public.payment_claims
+        WHERE
+              project_id = ${project_id}
+              AND claim_type = 'Billable'
+              AND status NOT IN ('No Match Required',
+              'Paid - Matched',
+              'Received - Matched',
+              'Deleted',
+              'Draft',
+              'Paid - Payment Unmatched - Retention Out Matched - Retention In Unmatched',
+              'Paid - Payment Unmatched - Retention Out Matched - Retention In Matched',
+              'Paid - Payment Unmatched - Retention Out Unmatched - Retention In Matched',
+              'Paid - Payment Matched - Retention Out Unmatched - Retention In Matched',
+              'Paid - Payment Matched - Retention Out Matched - Retention In Unmatched',
+              'Paid - Payment Matched - Retention Out Unmatched - Retention In Unmatched',
+              'Paid - Unmatched',
+              'Received - Unmatched');
+      `);
+
+      const unrespondedClaims = [];
+      if (unpaidBillableClaims.length) {
+        // A claim is compliant if a payment schedule has already been GIVEN
+        // (Supplier Payment Schedule Notice in a Sent state) — regardless of
+        // whether the money has gone out yet.
+        const claimIds = unpaidBillableClaims.map((c) => c.payment_claim_id);
+        const scheduledNotices = await this.noticeDetailsRepo
+          .createQueryBuilder('n')
+          .select(['n.payment_claim_id AS payment_claim_id'])
+          .where('n.payment_claim_id IN (:...claimIds)', { claimIds })
+          .andWhere('n.notice_type = :notice_type', {
+            notice_type: 'Supplier Payment Schedule Notice',
+          })
+          .andWhere('n.status IN (:...status)', {
+            status: ['Sent', 'Sent - Onboarded'],
+          })
+          .getRawMany();
+        const scheduledClaimIds = new Set(
+          scheduledNotices.map((n) => Number(n.payment_claim_id)),
+        );
+
+        const holidayDetails = await this.holidayDetails.find({
+          where: { holiday_status: 'Active' },
+        });
+
+        const todayDateOnlyForResponse = new Date();
+        todayDateOnlyForResponse.setHours(0, 0, 0, 0);
+
+        for (const claim of unpaidBillableClaims) {
+          if (scheduledClaimIds.has(Number(claim.payment_claim_id))) continue;
+
+          let pastDeadline = false;
+
+          // (received_date + 15 business days) — the s76 payment-schedule window.
+          if (claim.received_date) {
+            const past15BusinessDays =
+              await todayIsGreaterThanOpeningDatePlusBusinessDays({
+                startDate: claim.received_date,
+                businessDays: 15,
+                holidayDetails,
+              });
+            if (past15BusinessDays) pastDeadline = true;
+          }
+
+          // due_date — the date by which full payment had to be made.
+          if (!pastDeadline && claim.due_date) {
+            const dueDate = new Date(claim.due_date);
+            dueDate.setHours(0, 0, 0, 0);
+            if (todayDateOnlyForResponse.getTime() > dueDate.getTime()) {
+              pastDeadline = true;
+            }
+          }
+
+          if (pastDeadline) unrespondedClaims.push(claim);
+        }
+      }
+
+      if (unrespondedClaims.length) {
+        const fetchedRuleDetails = await fetchComplianceRuleDetails(
+          6,
+          26,
+          fetchedAllRules,
+        );
+        resultsOfCheck.push({
+          ...fetchedRuleDetails,
+          reference_id: String(unrespondedClaims[0].payment_claim_id),
+          ...fetchedContentOfResponseRule,
+        });
+      } else {
+        const fetchedRuleDetails = await fetchComplianceRuleDetails(
+          6,
+          27,
+          fetchedAllRules,
+        );
+        resultsOfCheck.push({
+          ...fetchedRuleDetails,
+          ...fetchedContentOfResponsePassRule,
+        });
+      }
+
       return resultsOfCheck;
     } catch (error) {
       this.logger.error(

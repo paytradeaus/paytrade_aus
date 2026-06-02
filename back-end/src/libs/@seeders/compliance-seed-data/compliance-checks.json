@@ -1,5 +1,23 @@
 [
   {
+    "id": "97326e27-3f64-4b24-ac8e-0e4d56661794",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 26,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Respond to every payment claim on time. If you will not pay the full claimed amount by the due date, you must give the claimant a payment schedule by the earlier of the period stated in your contract or 15 business days after the claim was received. The schedule must identify the claim, state the amount you propose to pay, and state all reasons for paying less or withholding any amount.\n      </p>",
+    "is_active": true
+  },
+  {
+    "id": "5d648e40-ceca-4497-89e0-4883e8e168cf",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "rule_number": 27,
+    "bank_account_type": "Project Trust Account",
+    "content": "<p>\n        Respond to every payment claim on time. If you will not pay the full claimed amount by the due date, you must give the claimant a payment schedule by the earlier of the period stated in your contract or 15 business days after the claim was received. The schedule must identify the claim, state the amount you propose to pay, and state all reasons for paying less or withholding any amount.\n      </p>",
+    "is_active": true
+  },
+  {
     "id": "0295cdc5-263c-4437-b7a1-5be51bb92e00",
     "check_number": 6,
     "check_name": "PAYMENTS TO SUBCONTRACTORS",

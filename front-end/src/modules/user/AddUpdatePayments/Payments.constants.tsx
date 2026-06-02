@@ -94,6 +94,9 @@ const payRetentionWarningMessage = {
     "The Total amount for a pay less part payment must be less than or equal to the outstanding amount",
 };
 
+const s76ResponseReminderMessage =
+  "This payment is less than the full claimed amount and the response deadline (the earlier of 15 business days after the claim was received, or the claim's due date) has passed. Under section 76 of the BIF Act you must give the claimant a payment schedule that states the amount you propose to pay and all reasons for paying less or withholding any amount. Recording this payment does not satisfy that obligation.";
+
 const checkBoxConfirmationMessage =
   "Are you sure you wish to mark this payment as";
 const checkBoxRTAConfirmationMessage =
@@ -175,4 +178,5 @@ export {
   paymentsTransactionsTableHeaders,
   fileUploadType,
   checkBoxConfirmationMessage,
+  s76ResponseReminderMessage,
 };

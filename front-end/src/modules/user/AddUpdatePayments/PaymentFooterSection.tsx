@@ -31,6 +31,7 @@ import {
   replaceDollarSymbol,
 } from "@/utils";
 import { projectOverviewTabs } from "../Projects/ProjectOverview/ProjectOverview.constant";
+import { tabTypes, s76ResponseReminderMessage } from "./Payments.constants";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
 import {
   getSubscriptionDetailsByCompanyId,
@@ -122,6 +123,10 @@ export default function PaymentFooterSection() {
       ? Number(localStorage.getItem("companyId"))
       : null;
   const [displayDelegationModel, setDisplayDelegationModel] = useState(false);
+  // s76 BIF Act non-gating reminder — shown once when a user records a less-than-full
+  // payment after the response deadline has already passed.
+  const [displayS76Reminder, setDisplayS76Reminder] = useState(false);
+  const [s76Acknowledged, setS76Acknowledged] = useState(false);
   const [multiSelectedData, setMultiSelectedData] = useState<
     { label: string; value: number }[]
   >([]);
@@ -219,7 +224,53 @@ export default function PaymentFooterSection() {
     fetchSubscription();
   }, []);
 
-  function onSubmit() {
+  // s76 BIF Act: a less-than-full payment recorded after the response deadline
+  // (earlier of received_date + 15 business days, or due_date) should remind the
+  // user that a payment schedule is still required. Holiday calendar isn't
+  // available client-side, so this weekend-aware estimate is a nudge only — the
+  // backend compliance check (Check 6, rule 26) is the source of truth.
+  function isPastResponseDeadline() {
+    // s76 applies to Billable claims (claims received from subcontractors that the
+    // head contractor must pay or respond to). Skip Receivable flows entirely.
+    if (formik?.values?.claim_type !== tabTypes.BILLABLES) return false;
+
+    const paymentType = formik?.values?.payment_type;
+    const isLessThanFull =
+      paymentType === tabTypes.PART ||
+      paymentType === tabTypes.PAY_LESS_FULL ||
+      paymentType === tabTypes.PAY_LESS_PART ||
+      paymentType === tabTypes.PAY_LESS_ZERO;
+    if (!isLessThanFull) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let pastDeadline = false;
+
+    const received = formik?.values?.received_date;
+    if (received) {
+      const deadline = new Date(received);
+      let added = 0;
+      while (added < 15) {
+        deadline.setDate(deadline.getDate() + 1);
+        const day = deadline.getDay();
+        if (day !== 0 && day !== 6) added++;
+      }
+      deadline.setHours(0, 0, 0, 0);
+      if (today.getTime() > deadline.getTime()) pastDeadline = true;
+    }
+
+    const due = formik?.values?.due_date;
+    if (!pastDeadline && due) {
+      const dueDate = new Date(due);
+      dueDate.setHours(0, 0, 0, 0);
+      if (today.getTime() > dueDate.getTime()) pastDeadline = true;
+    }
+
+    return pastDeadline;
+  }
+
+  function proceedSubmit() {
     if (
       bankAccountsOptions?.length > 0 &&
       Object.keys(formik?.errors ? formik?.errors : {}).length === 0 &&
@@ -229,6 +280,18 @@ export default function PaymentFooterSection() {
     else {
       formik.handleSubmit();
     }
+  }
+
+  function onSubmit() {
+    if (
+      !s76Acknowledged &&
+      Object.keys(formik?.errors ? formik?.errors : {}).length === 0 &&
+      isPastResponseDeadline()
+    ) {
+      setDisplayS76Reminder(true); // non-gating reminder, then proceed
+      return;
+    }
+    proceedSubmit();
   }
 
   async function getFetchBankAccountsLists() {
@@ -977,6 +1040,32 @@ export default function PaymentFooterSection() {
             <span className="pt_yellow">Note:</span> On close your notices will
             not be sent automatically. Visit the notices pages to send manually.
           </p>
+        </BaseModal>
+      )}
+      {displayS76Reminder && (
+        <BaseModal
+          displayModal={displayS76Reminder}
+          restrictOncloseFunctionInHeader
+          onHeaderIconClose={() => setDisplayS76Reminder(false)}
+          onClose={(e: any) => {
+            if (e === true) {
+              setDisplayS76Reminder(false);
+              setS76Acknowledged(true);
+              proceedSubmit();
+            }
+          }}
+          firstButtonName="Cancel"
+          secondButtonName="I understand, proceed"
+          onConfirm={() => {
+            setDisplayS76Reminder(false);
+            return true;
+          }}
+        >
+          <p className="text_center">
+            <span className="pt_yellow">Payment schedule reminder</span>
+          </p>
+          <br />
+          <p className="text_center">{s76ResponseReminderMessage}</p>
         </BaseModal>
       )}
       {showNoticePopup && (

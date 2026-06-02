@@ -1,5 +1,27 @@
 [
   {
+    "id": "5eb4ee8c-9f76-4c4d-a189-abb6c65a6d9a",
+    "bank_account_type": "Project Trust Account",
+    "display_message": "<div>\n      <p>\n        <span style=\"font-weight: 600; color: #e23b30;\">ACTION REQUIRED</span>\n      </p>\n      <span> One or more payment claims have not been paid in full or responded to with a payment schedule by the required deadline (the earlier of 15 business days after the claim was received, or the claim's due date). Under section 76 of the BIF Act you must either pay the claim in full by the due date or give the claimant a payment schedule stating all reasons for paying less.\n      </span>\n    </div>",
+    "display_message_colour": "#e23b30",
+    "action_button_type": "VIEW_PAYMENTS",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "check_status": "FAILED",
+    "rule_number": 26
+  },
+  {
+    "id": "722890a1-6122-4908-b1fd-599daa5167be",
+    "bank_account_type": "Project Trust Account",
+    "display_message": "<div style=\"font-weight: 500;\">\n        All payment claims have been paid in full or responded to with a payment schedule within the required timeframe.\n     </div>",
+    "display_message_colour": "#4C9B8A",
+    "action_button_type": "NONE",
+    "check_number": 6,
+    "check_name": "PAYMENTS TO SUBCONTRACTORS",
+    "check_status": "PASSED",
+    "rule_number": 27
+  },
+  {
     "id": "0641e9db-085e-47d2-ac80-1626f01beb21",
     "bank_account_type": "Project Trust Account",
     "display_message": "<div style=\"font-weight: 500;\">\n        Awaiting Project Trust Details to be added to the system.      </div>",
