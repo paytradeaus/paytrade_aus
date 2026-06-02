@@ -202,6 +202,7 @@ export const getContractListsForCompany = async (
           end_date: data?.endDate || null,
           contract_status: data?.contract_status || null,
           project_id: data?.project_id || null,
+          contact_id: data?.contact_id || null,
           client_supplier_type: data?.client_supplier_type || null,
           isAlphabeticalOrder: data?.isAlphabeticalOrder || null,
           sorting_field: data?.sorting_field || null,

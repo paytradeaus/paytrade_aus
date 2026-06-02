@@ -10841,6 +10841,11 @@ input GetContractListsInput {
   company_id: Float!
 
   """
+  Filter contracts to those involving a specific contact (client/supplier id) (optional).
+  """
+  contact_id: Float
+
+  """
   Filter contracts by their status (optional) (e.g., Draft, In Progress, Completed, Archived, Deleted).
   """
   contract_status: String

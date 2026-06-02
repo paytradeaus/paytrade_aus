@@ -25,6 +25,7 @@ import {
   getCompanyIdFromStorage,
 } from "@/utils";
 import {
+  getClientSupplierLists,
   getContractListsForCompany,
   getProjectsLists,
 } from "../contracts.functions";
@@ -56,6 +57,11 @@ export default function ContractsList({ overViewDetails = {} }: any) {
 
   const [selectedProjectType, setSelectedProjectType] = useState("");
   const [selectedProjectTypeObj, setSelectedProjectTypeObj] = useState<any>(null);
+  const [selectedContact, setSelectedContact] = useState("");
+  const [selectedContactObj, setSelectedContactObj] = useState<any>(null);
+  const [contactOptions, setContactOptions] = useState<any>([
+    { label: "All", value: "All" },
+  ]);
   const [selectedDataStatus, setSelectedDataStatus] = useState("All");
   const [selectedDataStatusObj, setSelectedDataStatusObj] = useState<any>({
     label: "All",
@@ -73,6 +79,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   const [emptySearchField, setEmptySearchField] = useState(false);
   const isAnyFilterActive =
     selectedProjectType ||
+    selectedContact ||
     searchValue ||
     (selectedDataStatus && selectedDataStatus !== "All");
 
@@ -114,12 +121,34 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   }, [tabStatus]);
 
   useEffect(() => {
+    if (overViewDetails?.overViewMode) return;
+    (async () => {
+      const response = await getClientSupplierLists(
+        getCompanyIdFromStorage() || 0
+      );
+      if (response) {
+        const formatResponse: any = [
+          { label: "All", value: "All" },
+          ...(response?.map((contact: any) => ({
+            label: contact?.client_supplier_name,
+            value: contact?.client_supplier_id,
+          })) || []),
+        ];
+        setContactOptions(formatResponse);
+      } else {
+        setContactOptions([{ label: "All", value: "All" }]);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     if (!overViewMode || (overViewMode && overviewData?.project_id))
       fetchContractsLists();
   }, [
     searchValue,
     tabStatus,
     selectedProjectType,
+    selectedContact,
     currentPage,
     entriesPerPage,
     overviewData,
@@ -207,6 +236,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
           Number(selectedProjectType) ||
           overViewDetails?.data?.project_id ||
           null,
+        contact_id: Number(selectedContact) || null,
         sorting_field: sortValues?.sortKey || "",
         sorting_order: sortValues?.direction || "",
       };
@@ -264,6 +294,8 @@ export default function ContractsList({ overViewDetails = {} }: any) {
     // setTotalRows(0);
     setSelectedProjectType("");
     setSelectedProjectTypeObj("");
+    setSelectedContact("");
+    setSelectedContactObj(null);
     setSelectedDataStatus("All");
     setSelectedDataStatusObj({ label: "All", value: "All" });
     setCurrentPage(1);
@@ -273,6 +305,8 @@ export default function ContractsList({ overViewDetails = {} }: any) {
   const handleResetFilters = () => {
     setSelectedProjectType("");
     setSelectedProjectTypeObj("");
+    setSelectedContact("");
+    setSelectedContactObj(null);
     setSelectedDataStatus("All");
     setSelectedDataStatusObj({ label: "All", value: "All" });
     setCurrentPage(1);
@@ -451,7 +485,9 @@ export default function ContractsList({ overViewDetails = {} }: any) {
         <div className="pt_filteroptions">
           {!overViewDetails?.overViewMode && (
             <FormikControl
-              placeholder={"Search by project name, contract name"}
+              placeholder={
+                "Search by project name, contract name, buyer or seller"
+              }
               control={InputType.SEARCH}
               onChange={(value: any) => {
                 if (currentPage !== 1) setCurrentPage(1);
@@ -487,6 +523,25 @@ export default function ContractsList({ overViewDetails = {} }: any) {
                 setCurrentPage(1);
                 setSelectedProjectType(selected?.value);
                 setSelectedProjectTypeObj(selected);
+              }}
+            />
+          )}
+          {!overViewDetails?.overViewMode && (
+            <FormikControl
+              control={InputType.SELECT}
+              placeholder="Select a contact"
+              name="contact"
+              options={contactOptions}
+              value={selectedContactObj?.value || ""}
+              renderKey="label"
+              valueKey="value"
+              returnSelectedObject
+              onChange={(selected: any) => {
+                setCurrentPage(1);
+                setSelectedContact(
+                  selected?.value === "All" ? "" : selected?.value
+                );
+                setSelectedContactObj(selected);
               }}
             />
           )}

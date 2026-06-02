@@ -49,6 +49,13 @@ export class GetContractListsInput {
   @Field({
     nullable: true,
     description:
+      'Filter contracts to those involving a specific contact (client/supplier id) (optional).',
+  })
+  contact_id?: number;
+
+  @Field({
+    nullable: true,
+    description:
       'Search keyword to filter contracts by name or other fields (optional).',
   })
   search?: string;

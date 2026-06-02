@@ -457,10 +457,18 @@ export class ContractDetailsService {
       );
     }
 
+    if (getContractListsInput.contact_id) {
+      queryBuilder.andWhere('contract.client_supplier_id = :contact_id', {
+        contact_id: getContractListsInput.contact_id,
+      });
+    }
+
     if (getContractListsInput.search) {
       queryBuilder.andWhere(
         `(LOWER(contract.contract_name) LIKE LOWER(:keyword) OR CAST(contract.contract_id AS TEXT) LIKE :keyword 
           OR LOWER(project.project_name) LIKE LOWER(:keyword)
+          OR LOWER(CASE WHEN clientSupplier.client_supplier_type = 'Client' THEN clientSupplier.client_supplier_name ELSE company.company_name END) LIKE LOWER(:keyword)
+          OR LOWER(CASE WHEN clientSupplier.client_supplier_type = 'Supplier' THEN clientSupplier.client_supplier_name ELSE company.company_name END) LIKE LOWER(:keyword)
           )`,
         { keyword: `%${getContractListsInput.search.toLowerCase()}%` },
       );
