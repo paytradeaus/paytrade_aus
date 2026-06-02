@@ -227,7 +227,9 @@ export type ActionButtonType =
   | 'PAY_NOW'
   | 'DELEGATE_NOW'
   | 'UPLOAD_CERTIFICATE'
-  | 'VIEW_PAYMENTS';
+  | 'VIEW_PAYMENTS'
+  | 'VIEW_CLAIMS'
+  | 'VIEW_CLAIMS_AND_PAYMENTS';
 export type ComplianceCheckStatus = 'PASSED' | 'FAILED';
 
 //Trust Accounting

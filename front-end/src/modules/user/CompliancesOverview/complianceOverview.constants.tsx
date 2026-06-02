@@ -33,6 +33,8 @@ export const actionButtonType = {
   UPLOAD_CERTIFICATE: "UPLOAD_CERTIFICATE",
   NONE: "NONE",
   VIEW_PAYMENTS: "VIEW_PAYMENTS",
+  VIEW_CLAIMS: "VIEW_CLAIMS",
+  VIEW_CLAIMS_AND_PAYMENTS: "VIEW_CLAIMS_AND_PAYMENTS",
 };
 
 export const getButtonType = (buttonType: string) => {
@@ -78,6 +80,8 @@ export const getButtonType = (buttonType: string) => {
       return "Upload Certificate";
     case actionButtonType.VIEW_PAYMENTS:
       return "View Payments";
+    case actionButtonType.VIEW_CLAIMS:
+      return "View Claims";
 
     case actionButtonType.NONE:
       return "";

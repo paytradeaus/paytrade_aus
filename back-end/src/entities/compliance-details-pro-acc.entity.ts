@@ -99,7 +99,9 @@ export class ComplianceRule {
             'PAY_NOW',
             'DELEGATE_NOW',
             'UPLOAD_CERTIFICATE',
-            'VIEW_PAYMENTS'
+            'VIEW_PAYMENTS',
+            'VIEW_CLAIMS',
+            'VIEW_CLAIMS_AND_PAYMENTS'
         ],
         nullable: true,
     })

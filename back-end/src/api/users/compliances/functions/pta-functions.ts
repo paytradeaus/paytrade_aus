@@ -11,6 +11,7 @@ import {
   PtaCompliances,
 } from 'src/entities/compliances.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
+import { ActionButtonType } from 'src/libs/@paytrade-types/paytrade-types';
 import {
   IFetchedAllContents,
   IFetchedAllRules,
@@ -2494,10 +2495,64 @@ export class CompliancePTAFunctions {
           26,
           fetchedAllRules,
         );
+
+        // Route the action button to where the breach can actually be
+        // remedied. A claim only shows up in the "Payments to do" list once a
+        // payment has been initiated against it (a payment_details row in an
+        // 'Unconfirmed - …' state). Claims with no such pending payment are
+        // still awaiting a response from the Claims list, so a "View Payments"
+        // button would land the user on an empty page. We therefore split the
+        // breaching claims into the two buckets and pick the button(s):
+        //   - claims only   -> VIEW_CLAIMS (Claims list)
+        //   - payments only -> VIEW_PAYMENTS (Payments to do list)
+        //   - a mix of both -> VIEW_CLAIMS_AND_PAYMENTS (frontend renders both)
+        const breachingClaimIds = unrespondedClaims.map(
+          (c) => c.payment_claim_id,
+        );
+        const pendingPaymentRows = await this.paymentClaimsRepo.query(
+          `
+          SELECT DISTINCT payment_claim_id
+          FROM public.payment_details
+          WHERE payment_claim_id = ANY($1)
+            AND current_status LIKE 'Unconfirmed%'
+        `,
+          [breachingClaimIds],
+        );
+        const pendingPaymentClaimIds = new Set(
+          pendingPaymentRows.map((r) => Number(r.payment_claim_id)),
+        );
+
+        const claimsAwaitingResponse = unrespondedClaims.filter(
+          (c) => !pendingPaymentClaimIds.has(Number(c.payment_claim_id)),
+        );
+        const paymentsInProgress = unrespondedClaims.filter((c) =>
+          pendingPaymentClaimIds.has(Number(c.payment_claim_id)),
+        );
+
+        let responseActionButtonType: ActionButtonType;
+        let responseReferenceId: string;
+        if (claimsAwaitingResponse.length && paymentsInProgress.length) {
+          responseActionButtonType = 'VIEW_CLAIMS_AND_PAYMENTS';
+          responseReferenceId = String(
+            claimsAwaitingResponse[0].payment_claim_id,
+          );
+        } else if (paymentsInProgress.length) {
+          responseActionButtonType = 'VIEW_PAYMENTS';
+          responseReferenceId = String(
+            paymentsInProgress[0].payment_claim_id,
+          );
+        } else {
+          responseActionButtonType = 'VIEW_CLAIMS';
+          responseReferenceId = String(
+            claimsAwaitingResponse[0].payment_claim_id,
+          );
+        }
+
         resultsOfCheck.push({
           ...fetchedRuleDetails,
-          reference_id: String(unrespondedClaims[0].payment_claim_id),
           ...fetchedContentOfResponseRule,
+          action_button_type: responseActionButtonType,
+          reference_id: responseReferenceId,
         });
       } else {
         const fetchedRuleDetails = await fetchComplianceRuleDetails(

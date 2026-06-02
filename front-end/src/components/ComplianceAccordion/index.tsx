@@ -201,6 +201,9 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
       case actionButtonType.VIEW_PAYMENTS:
         router.push(`${AppRoutes.USER_PAYMENTS_TO_DO}`);
         break;
+      case actionButtonType.VIEW_CLAIMS:
+        router.push(`${AppRoutes.USER_PAY_APPS}`);
+        break;
       default:
         break;
     }
@@ -389,8 +392,41 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
                           }}
                         >
                           {obj?.action_button_type &&
-                            obj?.action_button_type !==
-                              actionButtonType.NONE && (
+                            obj?.action_button_type !== actionButtonType.NONE &&
+                            (obj?.action_button_type ===
+                            actionButtonType.VIEW_CLAIMS_AND_PAYMENTS ? (
+                              <div
+                                className="pt_addnewbutton"
+                                style={{ display: "flex", gap: "8px" }}
+                              >
+                                <button
+                                  className="secondary mt-2"
+                                  onClick={() =>
+                                    handleActionTrigger({
+                                      ...obj,
+                                      action_button_type:
+                                        actionButtonType.VIEW_CLAIMS,
+                                    })
+                                  }
+                                >
+                                  {" "}
+                                  {getButtonType(actionButtonType.VIEW_CLAIMS)}
+                                </button>
+                                <button
+                                  className="secondary mt-2"
+                                  onClick={() =>
+                                    handleActionTrigger({
+                                      ...obj,
+                                      action_button_type:
+                                        actionButtonType.VIEW_PAYMENTS,
+                                    })
+                                  }
+                                >
+                                  {" "}
+                                  {getButtonType(actionButtonType.VIEW_PAYMENTS)}
+                                </button>
+                              </div>
+                            ) : (
                               <div className="pt_addnewbutton">
                                 <button
                                   className="secondary mt-2"
@@ -400,7 +436,7 @@ const DetailsItem: React.FC<DetailsItemProps> = ({
                                   {getButtonType(obj?.action_button_type)}
                                 </button>
                               </div>
-                            )}
+                            ))}
                         </div>
                       )}
                     </div>
