@@ -5066,6 +5066,12 @@ export class ExportDataService {
       });
     }
 
+    if (data.contact_id) {
+      queryBuilder.andWhere('contract.client_supplier_id = :contact_id', {
+        contact_id: data.contact_id,
+      });
+    }
+
     if (data.client_supplier_type) {
       queryBuilder.andWhere(
         'clientSuppliersDetails.client_supplier_type = :client_supplier_type',

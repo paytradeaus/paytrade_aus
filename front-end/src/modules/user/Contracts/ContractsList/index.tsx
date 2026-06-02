@@ -346,6 +346,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             : selectedProjectType
             ? Number(selectedProjectType)
             : selectedProjectType || null,
+        contact_id: Number(selectedContact) || null,
       });
 
       if (responseFileURL) {
@@ -387,6 +388,7 @@ export default function ContractsList({ overViewDetails = {} }: any) {
             : selectedProjectType
             ? Number(selectedProjectType)
             : selectedProjectType || null,
+        contact_id: Number(selectedContact) || null,
       });
       setDisablePDFBtn(false);
     } catch (error) {

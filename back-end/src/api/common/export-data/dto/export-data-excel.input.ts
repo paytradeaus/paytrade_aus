@@ -229,6 +229,12 @@ export class ExportExcelDataInput {
   })
   client_supplier_id?: number;
 
+  @Field({
+    nullable: true,
+    description: 'Contact (client/supplier) ID used to filter contracts',
+  })
+  contact_id?: number;
+
   // ---------------- Retention / Payments ----------------
   @Field({
     nullable: true,
