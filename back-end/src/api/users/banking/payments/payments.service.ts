@@ -4673,8 +4673,13 @@ export class PaymentsService {
       padRight = false,
     ) => {
       const safeValue = value ? value.toString().trim() : ''; // Ensure a string
+      // Enforce the exact fixed-width: pad short values AND truncate
+      // over-length ones. ABA records must be exactly 120 chars, so any
+      // text field whose value exceeds its allotted width (e.g. a payee
+      // name longer than 32 chars) must be sliced to length or it pushes
+      // the whole line past 120 and the bank rejects the file.
       return padRight
-        ? safeValue.padEnd(length, ' ')
+        ? safeValue.padEnd(length, ' ').slice(0, length)
         : safeValue.padStart(length, '0').slice(-length);
     };
 
@@ -4684,6 +4689,14 @@ export class PaymentsService {
       return `${paddedBSB.slice(0, 3)}-${paddedBSB.slice(3, 6)}`; // Format as XXX-XXX
       // return paddedBSB;
     };
+
+    // Final safety net: every ABA record MUST be exactly 120 characters.
+    // formatField now truncates over-length fields, so a line should
+    // never exceed 120, but if a future change introduces an un-bounded
+    // field this guard pads short lines and slices long ones so the bank
+    // can never reject the file for "line too big".
+    const enforceLineLength = (line: string): string =>
+      line.padEnd(120, ' ').slice(0, 120);
 
     try {
       //grouping the transactions from each 'from-accounts'
@@ -4876,7 +4889,7 @@ export class PaymentsService {
               ) + // Date in DDMMYY format
               ' '.repeat(40); // 40 spaces for unused space
 
-            abaFileContent = abaFileContent.padEnd(120, ' ') + '\n';
+            abaFileContent = enforceLineLength(abaFileContent) + '\n';
 
             let totalAmount = 0;
             let transactionCount = 0;
@@ -4921,7 +4934,7 @@ export class PaymentsService {
                 formatField(fromTxnDetails.remitterName, 16, true) + // remitter: 16 chars
                 `00000000`; // withholding tax
 
-              abaFileContent += transactionLine.padEnd(120, ' ') + '\n';
+              abaFileContent += enforceLineLength(transactionLine) + '\n';
 
               // Track credit vs debit separately so the File Total record
               // can be emitted correctly. Currently always credit, but
@@ -4963,7 +4976,7 @@ export class PaymentsService {
               ' '.repeat(24) +
               formatField(transactionCount.toString(), 6) +
               ' '.repeat(40);
-            abaFileContent += footerLine.padEnd(120, ' ') + '\n';
+            abaFileContent += enforceLineLength(footerLine) + '\n';
 
             const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
             const outputFolderName = 'generated_aba_files';
