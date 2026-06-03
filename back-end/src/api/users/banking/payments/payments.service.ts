@@ -4639,6 +4639,237 @@ export class PaymentsService {
     return { total_count, payments: rawResults };
   }
 
+  /**
+   * Task #350 — Shared ABA file builder.
+   *
+   * Builds the NAB CEMTEX ABA file content (header / transaction /
+   * footer records) for a single sender account's transactions,
+   * uploads it to object storage, and persists a `file_attachments`
+   * row. Returns the saved file plus the record-type-7 control totals
+   * so callers can persist them on the ABA history record.
+   *
+   * Extracted verbatim from `generateAbaFile` so that both the
+   * original generation flow AND the "Regenerate" flow
+   * (`regenerateAbaFile`) share the exact same line construction —
+   * any line-length / padding fixes therefore apply to both paths
+   * automatically. This helper does NOT touch ABA history rows, the
+   * `aba_batch_sub_payments` join table, or mark-paid state.
+   */
+  private async buildAndUploadAbaFile(
+    transactions: any[],
+    fromAccount: string,
+    FI_id: string,
+    apcaNumber: string | number | null,
+    decoded: any,
+  ): Promise<{
+    fileData: any;
+    creditTotalCents: number;
+    debitTotalCents: number;
+    netTotalCents: number;
+    transactionCount: number;
+  }> {
+    const formatField = (
+      value: string | null | undefined,
+      length: number,
+      padRight = false,
+    ) => {
+      const safeValue = value ? value.toString().trim() : ''; // Ensure a string
+      // Enforce the exact fixed-width: pad short values AND truncate
+      // over-length ones. ABA records must be exactly 120 chars, so any
+      // text field whose value exceeds its allotted width (e.g. a payee
+      // name longer than 32 chars) must be sliced to length or it pushes
+      // the whole line past 120 and the bank rejects the file.
+      return padRight
+        ? safeValue.padEnd(length, ' ').slice(0, length)
+        : safeValue.padStart(length, '0').slice(-length);
+    };
+
+    const formatBSB = (bsb: string | null | undefined): string => {
+      const safeBSB = bsb ? bsb.toString().trim() : ''; // Ensure a string
+      const paddedBSB = safeBSB.padStart(6, '0'); // Pad to ensure at least 6 digits
+      return `${paddedBSB.slice(0, 3)}-${paddedBSB.slice(3, 6)}`; // Format as XXX-XXX
+    };
+
+    // Final safety net: every ABA record MUST be exactly 120 characters.
+    // formatField now truncates over-length fields, so a line should
+    // never exceed 120, but if a future change introduces an un-bounded
+    // field this guard pads short lines and slices long ones so the bank
+    // can never reject the file for "line too big".
+    const enforceLineLength = (line: string): string =>
+      line.padEnd(120, ' ').slice(0, 120);
+
+    let abaFileContent = '';
+
+    const fromTxnDetails = {
+      apcaId: apcaNumber,
+      userName: transactions[0].payment_from_account_name.substring(0, 26), // Max 26 chars
+      lodgmentReference: `Payments from-${fromAccount}`.substring(0, 12), // Custom reference
+      traceBsb: formatBSB(transactions[0].payment_from_account_bsb_number), // Placeholder, adjust per account
+      traceAccount: fromAccount, // The current sending account
+      remitterName: transactions[0].payment_from_account_name.substring(0, 16), // Max 16 chars
+    };
+
+    // Header Record (Type 0)
+    abaFileContent +=
+      `0` + // Record type
+      ' '.repeat(17) +
+      `01` + // Service class
+      formatField(FI_id, 3, true) +
+      ' '.repeat(7) +
+      formatField(fromTxnDetails.userName, 26, true) + // User name, padded to 26 characters
+      // APCA User Identification Number: NAB spec is 6 numeric
+      // digits, right-justified, ZERO-filled (e.g. "001234").
+      // The previous `padEnd(' ')` produced "1234  " which the
+      // bank treats as malformed. "000000" is a valid placeholder
+      // many banks accept and is the column's stored form.
+      (fromTxnDetails.apcaId
+        ? fromTxnDetails.apcaId.toString().padStart(6, '0').slice(-6)
+        : '000000') +
+      formatField(
+        fromTxnDetails.lodgmentReference.trim().padEnd(12, ' '),
+        12,
+        true,
+      ) + // Lodgment reference, padded to 12 characters
+      formatField(
+        new Date().toISOString().slice(8, 10) + // Day (DD)
+          new Date().toISOString().slice(5, 7) + // Month (MM)
+          new Date().toISOString().slice(2, 4), // Year (YY)
+        6,
+      ) + // Date in DDMMYY format
+      ' '.repeat(40); // 40 spaces for unused space
+
+    abaFileContent = enforceLineLength(abaFileContent) + '\n';
+
+    let totalAmount = 0;
+    let transactionCount = 0;
+    let creditTotalCents = 0;
+    let debitTotalCents = 0;
+
+    // Transaction Records (Type 1) — NAB CEMTEX spec, 120 chars:
+    //   pos 1       record type     '1'
+    //   pos 2-8     recipient BSB   NNN-NNN
+    //   pos 9-17    recipient acct  9 chars, right-justified blank-filled
+    //   pos 18      indicator       blank
+    //   pos 19-20   txn code        '50' credit / '13' debit
+    //   pos 21-30   amount          10 digits, cents, right-justified zero-filled
+    //   pos 31-62   account title   32 chars, left-justified blank-filled
+    //   pos 63-80   lodgement ref   18 chars, left-justified blank-filled
+    //   pos 81-87   trace BSB       NNN-NNN
+    //   pos 88-96   trace account   9 chars, right-justified blank-filled
+    //   pos 97-112  remitter name   16 chars, left-justified blank-filled
+    //   pos 113-120 withholding tax 8 digits, zero-filled
+    transactions.forEach((tx) => {
+      const absoluteAmount = Math.abs(Math.round(tx.amount * 100)); // Convert to cents
+
+      // PayTrade only ever emits outbound supplier payments, which
+      // are always CREDITS to the recipient (txn code 50). The
+      // previous `tx.amount >= 0 ? '50' : '13'` heuristic emitted
+      // '13' (debit) whenever the upstream pipeline passed amounts
+      // as negative (sender-side view), which NAB rejects with
+      // "payment does not contain any credit transactions".
+      const transactionCode = '50';
+
+      let transactionLine =
+        `1` +
+        formatBSB(tx.payment_to_account_bsb_number) +
+        formatField(tx.payment_to_account_number, 9, true) + // recipient acct: 9 chars right-pad blank
+        ' ' +
+        transactionCode +
+        formatField(absoluteAmount.toString(), 10) +
+        formatField(tx.payment_to_account_name, 32, true) + // account title: 32 chars
+        formatField(tx.payment_type, 18, true) + // lodgement ref: 18 chars
+        fromTxnDetails.traceBsb +
+        formatField(fromTxnDetails.traceAccount, 9, true) + // trace acct: 9 chars right-pad blank
+        formatField(fromTxnDetails.remitterName, 16, true) + // remitter: 16 chars
+        `00000000`; // withholding tax
+
+      abaFileContent += enforceLineLength(transactionLine) + '\n';
+
+      // Track credit vs debit separately so the File Total record
+      // can be emitted correctly. Currently always credit, but
+      // structuring this way keeps the footer correct if a debit
+      // path is added later.
+      if (transactionCode === '50') {
+        creditTotalCents += absoluteAmount;
+      } else {
+        debitTotalCents += absoluteAmount;
+      }
+      totalAmount += Math.abs(tx.amount);
+      transactionCount++;
+    });
+
+    // File Total Record (Type 7) — NAB CEMTEX spec, 120 chars:
+    //   pos 1       record type     '7'
+    //   pos 2-8     BSB filler      '999-999'
+    //   pos 9-20    blank           12 spaces
+    //   pos 21-30   net total       |credit - debit| in cents, zero-filled
+    //   pos 31-40   credit total    in cents, zero-filled
+    //   pos 41-50   debit total     in cents, zero-filled
+    //   pos 51-74   blank           24 spaces
+    //   pos 75-80   record count    6 digits, zero-filled
+    //   pos 81-120  blank           40 spaces
+    const netTotalCents = Math.abs(creditTotalCents - debitTotalCents);
+
+    let footerLine =
+      `7` +
+      '999-999' +
+      ' '.repeat(12) +
+      formatField(netTotalCents.toString(), 10) +
+      formatField(creditTotalCents.toString(), 10) +
+      formatField(debitTotalCents.toString(), 10) +
+      ' '.repeat(24) +
+      formatField(transactionCount.toString(), 6) +
+      ' '.repeat(40);
+    abaFileContent += enforceLineLength(footerLine) + '\n';
+
+    void totalAmount;
+
+    const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
+    const outputFolderName = 'generated_aba_files';
+    const outputFileName = `${transactions[0].payment_from_account_number}-${transactions[0].payment_from_account_name.replace(/\s+/g, '_')}-${timestamp}.aba`;
+
+    const outputFilePath = `${outputFolderName}/${outputFileName}`;
+
+    // Upload ABA file to Object Storage
+    const fileBuffer = Buffer.from(abaFileContent, 'utf8');
+    const uploadSuccess = await this.objectStorageService.uploadFileDirect(
+      outputFilePath,
+      fileBuffer,
+    );
+
+    if (!uploadSuccess) {
+      this.logger.error(
+        `Failed to upload ABA file to Object Storage: ${outputFilePath}`,
+      );
+      throw new Error('Failed to upload ABA file to storage');
+    }
+
+    this.logger.log(
+      `ABA file uploaded successfully to Object Storage: ${outputFilePath}`,
+    );
+
+    const createFileUploadInput: Partial<CreateFileUploadInput> = {
+      bank_account_id: transactions[0].bank_account_id,
+      file_path: outputFilePath,
+      file_name: outputFileName,
+      file_type: 'text/plain',
+      attachment_type: 'Aba_file_upload',
+    };
+
+    const fileData = await this.fileUploadService.saveFile(
+      decoded,
+      createFileUploadInput as CreateFileUploadInput,
+    );
+
+    return {
+      fileData,
+      creditTotalCents,
+      debitTotalCents,
+      netTotalCents,
+      transactionCount,
+    };
+  }
+
   async generateAbaFile(
     paymentList: FetchDetailsOfSubPayment[],
     mark_paid: string,
@@ -4667,37 +4898,6 @@ export class PaymentsService {
         missing_fields: missingFields,
       });
     };
-    const formatField = (
-      value: string | null | undefined,
-      length: number,
-      padRight = false,
-    ) => {
-      const safeValue = value ? value.toString().trim() : ''; // Ensure a string
-      // Enforce the exact fixed-width: pad short values AND truncate
-      // over-length ones. ABA records must be exactly 120 chars, so any
-      // text field whose value exceeds its allotted width (e.g. a payee
-      // name longer than 32 chars) must be sliced to length or it pushes
-      // the whole line past 120 and the bank rejects the file.
-      return padRight
-        ? safeValue.padEnd(length, ' ').slice(0, length)
-        : safeValue.padStart(length, '0').slice(-length);
-    };
-
-    const formatBSB = (bsb: string | null | undefined): string => {
-      const safeBSB = bsb ? bsb.toString().trim() : ''; // Ensure a string
-      const paddedBSB = safeBSB.padStart(6, '0'); // Pad to ensure at least 6 digits
-      return `${paddedBSB.slice(0, 3)}-${paddedBSB.slice(3, 6)}`; // Format as XXX-XXX
-      // return paddedBSB;
-    };
-
-    // Final safety net: every ABA record MUST be exactly 120 characters.
-    // formatField now truncates over-length fields, so a line should
-    // never exceed 120, but if a future change introduces an un-bounded
-    // field this guard pads short lines and slices long ones so the bank
-    // can never reject the file for "line too big".
-    const enforceLineLength = (line: string): string =>
-      line.padEnd(120, ' ').slice(0, 120);
-
     try {
       //grouping the transactions from each 'from-accounts'
       const groupedTransactions: {
@@ -4838,177 +5038,25 @@ export class PaymentsService {
           // Always generate the ABA file - the mark_paid flag only determines if payments get marked as paid
           const { transactions, FI_id } = groupedTransactions[fromAccount];
 
-            let abaFileContent = '';
-
-            const fromTxnDetails = {
-              apcaId: accountDetails.apca_number,
-              userName: transactions[0].payment_from_account_name.substring(
-                0,
-                26,
-              ), // Max 26 chars
-              lodgmentReference: `Payments from-${fromAccount}`.substring(
-                0,
-                12,
-              ), // Custom reference
-              traceBsb: formatBSB(
-                transactions[0].payment_from_account_bsb_number,
-              ), // Placeholder, adjust per account
-              traceAccount: fromAccount, // The current sending account
-              remitterName: transactions[0].payment_from_account_name.substring(
-                0,
-                16,
-              ), // Max 16 chars
-            };
-
-            // Header Record (Type 0)
-            abaFileContent +=
-              `0` + // Record type
-              ' '.repeat(17) +
-              `01` + // Service class
-              formatField(FI_id, 3, true) +
-              ' '.repeat(7) +
-              formatField(fromTxnDetails.userName, 26, true) + // User name, padded to 26 characters
-              // APCA User Identification Number: NAB spec is 6 numeric
-              // digits, right-justified, ZERO-filled (e.g. "001234").
-              // The previous `padEnd(' ')` produced "1234  " which the
-              // bank treats as malformed. "000000" is a valid placeholder
-              // many banks accept and is the column's stored form.
-              (fromTxnDetails.apcaId
-                ? fromTxnDetails.apcaId.toString().padStart(6, '0').slice(-6)
-                : '000000') +
-              formatField(
-                fromTxnDetails.lodgmentReference.trim().padEnd(12, ' '),
-                12,
-                true,
-              ) + // Lodgment reference, padded to 12 characters
-              formatField(
-                new Date().toISOString().slice(8, 10) + // Day (DD)
-                new Date().toISOString().slice(5, 7) + // Month (MM)
-                new Date().toISOString().slice(2, 4), // Year (YY)
-                6,
-              ) + // Date in DDMMYY format
-              ' '.repeat(40); // 40 spaces for unused space
-
-            abaFileContent = enforceLineLength(abaFileContent) + '\n';
-
-            let totalAmount = 0;
-            let transactionCount = 0;
-            let creditTotalCents = 0;
-            let debitTotalCents = 0;
-
-            // Transaction Records (Type 1) — NAB CEMTEX spec, 120 chars:
-            //   pos 1       record type     '1'
-            //   pos 2-8     recipient BSB   NNN-NNN
-            //   pos 9-17    recipient acct  9 chars, right-justified blank-filled
-            //   pos 18      indicator       blank
-            //   pos 19-20   txn code        '50' credit / '13' debit
-            //   pos 21-30   amount          10 digits, cents, right-justified zero-filled
-            //   pos 31-62   account title   32 chars, left-justified blank-filled
-            //   pos 63-80   lodgement ref   18 chars, left-justified blank-filled
-            //   pos 81-87   trace BSB       NNN-NNN
-            //   pos 88-96   trace account   9 chars, right-justified blank-filled
-            //   pos 97-112  remitter name   16 chars, left-justified blank-filled
-            //   pos 113-120 withholding tax 8 digits, zero-filled
-            transactions.forEach((tx) => {
-              const absoluteAmount = Math.abs(Math.round(tx.amount * 100)); // Convert to cents
-
-              // PayTrade only ever emits outbound supplier payments, which
-              // are always CREDITS to the recipient (txn code 50). The
-              // previous `tx.amount >= 0 ? '50' : '13'` heuristic emitted
-              // '13' (debit) whenever the upstream pipeline passed amounts
-              // as negative (sender-side view), which NAB rejects with
-              // "payment does not contain any credit transactions".
-              const transactionCode = '50';
-
-              let transactionLine =
-                `1` +
-                formatBSB(tx.payment_to_account_bsb_number) +
-                formatField(tx.payment_to_account_number, 9, true) + // recipient acct: 9 chars right-pad blank
-                ' ' +
-                transactionCode +
-                formatField(absoluteAmount.toString(), 10) +
-                formatField(tx.payment_to_account_name, 32, true) + // account title: 32 chars
-                formatField(tx.payment_type, 18, true) + // lodgement ref: 18 chars
-                fromTxnDetails.traceBsb +
-                formatField(fromTxnDetails.traceAccount, 9, true) + // trace acct: 9 chars right-pad blank
-                formatField(fromTxnDetails.remitterName, 16, true) + // remitter: 16 chars
-                `00000000`; // withholding tax
-
-              abaFileContent += enforceLineLength(transactionLine) + '\n';
-
-              // Track credit vs debit separately so the File Total record
-              // can be emitted correctly. Currently always credit, but
-              // structuring this way keeps the footer correct if a debit
-              // path is added later.
-              if (transactionCode === '50') {
-                creditTotalCents += absoluteAmount;
-              } else {
-                debitTotalCents += absoluteAmount;
-              }
-              totalAmount += Math.abs(tx.amount);
-              transactionCount++;
-            });
-
-            // File Total Record (Type 7) — NAB CEMTEX spec, 120 chars:
-            //   pos 1       record type     '7'
-            //   pos 2-8     BSB filler      '999-999'
-            //   pos 9-20    blank           12 spaces
-            //   pos 21-30   net total       |credit - debit| in cents, zero-filled
-            //   pos 31-40   credit total    in cents, zero-filled
-            //   pos 41-50   debit total     in cents, zero-filled
-            //   pos 51-74   blank           24 spaces
-            //   pos 75-80   record count    6 digits, zero-filled
-            //   pos 81-120  blank           40 spaces
-            //
-            // Previously this hard-coded credit_total=0 and debit_total
-            // =absoluteTotalAmount regardless of transaction direction,
-            // which is why NAB rejected the file with "no credit
-            // transactions" even when the Type-1 codes were correct.
-            const netTotalCents = Math.abs(creditTotalCents - debitTotalCents);
-
-            let footerLine =
-              `7` +
-              '999-999' +
-              ' '.repeat(12) +
-              formatField(netTotalCents.toString(), 10) +
-              formatField(creditTotalCents.toString(), 10) +
-              formatField(debitTotalCents.toString(), 10) +
-              ' '.repeat(24) +
-              formatField(transactionCount.toString(), 6) +
-              ' '.repeat(40);
-            abaFileContent += enforceLineLength(footerLine) + '\n';
-
-            const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
-            const outputFolderName = 'generated_aba_files';
-            const outputFileName = `${transactions[0].payment_from_account_number}-${transactions[0].payment_from_account_name.replace(/\s+/g, '_')}-${timestamp}.aba`;
-
-            const outputFilePath = `${outputFolderName}/${outputFileName}`;
-
-            // Upload ABA file to Object Storage
-            const fileBuffer = Buffer.from(abaFileContent, 'utf8');
-            const uploadSuccess = await this.objectStorageService.uploadFileDirect(
-              outputFilePath,
-              fileBuffer,
-            );
-
-            if (!uploadSuccess) {
-              this.logger.error(`Failed to upload ABA file to Object Storage: ${outputFilePath}`);
-              throw new Error('Failed to upload ABA file to storage');
-            }
-
-            this.logger.log(`ABA file uploaded successfully to Object Storage: ${outputFilePath}`);
-
-            const createFileUploadInput: Partial<CreateFileUploadInput> = {
-              bank_account_id: transactions[0].bank_account_id,
-              file_path: outputFilePath,
-              file_name: outputFileName,
-              file_type: 'text/plain',
-              attachment_type: 'Aba_file_upload',
-            };
-
-            const fileData = await this.fileUploadService.saveFile(
+            // Task #350 — the ABA file content build + upload + file
+            // attachment save was extracted into `buildAndUploadAbaFile`
+            // so that the "Regenerate" action (regenerateAbaFile) can
+            // re-run the exact same generation path (and inherit any
+            // line-length / control-total fixes) without duplicating
+            // logic. This call is behaviour-equivalent to the previous
+            // inline block.
+            const {
+              fileData,
+              creditTotalCents,
+              debitTotalCents,
+              netTotalCents,
+              transactionCount,
+            } = await this.buildAndUploadAbaFile(
+              transactions,
+              fromAccount,
+              FI_id,
+              accountDetails.apca_number,
               decoded,
-              createFileUploadInput as CreateFileUploadInput,
             );
 
             if (fileData?.id) {
@@ -6169,6 +6217,185 @@ export class PaymentsService {
       },
     );
     return { status: 'SUCCESS', message: 'ABA file deleted.' };
+  }
+
+  /**
+   * Task #350 — Regenerate an ABA file IN PLACE.
+   *
+   * Re-builds the ABA file for an existing history record using the
+   * exact same linked sub-payments and sender bank account, then
+   * repoints the history row at the new file. This is a single-row
+   * recovery action for batches that the bank rejected (e.g. a
+   * line-length defect that the shared `buildAndUploadAbaFile` path
+   * has since been fixed for).
+   *
+   * Guarantees:
+   *  - No new history row, no duplicate `aba_batch_sub_payments`
+   *    links — the existing batch membership is reused as-is.
+   *  - Payments are NOT re-marked paid (mark-paid state is untouched).
+   *  - The previous file_attachments row is left in storage for audit;
+   *    it is simply no longer referenced by the history row
+   *    (superseded).
+   *  - Control totals (record-type-7) and the payment count are
+   *    recomputed from the same sub-payments, so they stay consistent.
+   */
+  async regenerateAbaFile(
+    aba_history_id: string,
+    company_id: number,
+    decoded: any,
+  ): Promise<{ status: string; message: string; data?: any }> {
+    if (!company_id) {
+      return { status: 'ERROR', message: 'Missing company context.' };
+    }
+
+    const row = await this.generateABAFileHistory.findOne({
+      where: { id: aba_history_id, company_id: Number(company_id) },
+    });
+    if (!row) {
+      return {
+        status: 'ERROR',
+        message: 'ABA file history record not found.',
+      };
+    }
+    if ((row.status as string) !== 'Active') {
+      return {
+        status: 'ERROR',
+        message: `This ABA file cannot be regenerated because it is ${String(
+          row.status,
+        ).trim()}.`,
+      };
+    }
+
+    // Reuse the EXACT batch membership recorded at generation time.
+    const linkRows: any[] = await this.subPaymentsRepo.manager.query(
+      `SELECT "sub_payment_id" FROM "aba_batch_sub_payments" WHERE "aba_history_id" = $1`,
+      [aba_history_id],
+    );
+    const subPaymentIds: number[] = (
+      Array.isArray(linkRows) ? linkRows : []
+    )
+      .map((r: any) => Number(r?.sub_payment_id))
+      .filter((v: number) => Number.isFinite(v));
+
+    if (subPaymentIds.length === 0) {
+      // Legacy batches (pre-Task-#286) have no membership rows, so we
+      // cannot reconstruct the file deterministically.
+      return {
+        status: 'ERROR',
+        message:
+          'This batch has no recorded payment breakdown and cannot be regenerated. Generate a new ABA file instead.',
+      };
+    }
+
+    // Reload the exact same sub-payments. `getListOfSubpayments`
+    // already supports filtering by `sub_payment_ids`.
+    // Filter strictly by the linked sub_payment_ids (no sub_payment_type
+    // restriction) so we reload the EXACT batch membership and never
+    // drop a linked payment because of a type whitelist mismatch.
+    const reload = await this.getListOfSubpayments(
+      {
+        company_id: Number(company_id),
+        sub_payment_ids: subPaymentIds,
+      } as any,
+      decoded?.userId,
+      decoded?.timezone || 'UTC',
+    );
+    const transactions: any[] = reload?.payments || [];
+
+    if (transactions.length === 0) {
+      return {
+        status: 'ERROR',
+        message:
+          'The payments linked to this ABA file could not be loaded (they may have been deleted).',
+      };
+    }
+
+    // The batch is always single-sender (one ABA file per sender
+    // account). Guard against drift before rebuilding.
+    const senderAccounts = Array.from(
+      new Set(
+        transactions.map((tx: any) => tx?.payment_from_account_number),
+      ),
+    ).filter((v) => v !== undefined && v !== null);
+    if (senderAccounts.length !== 1) {
+      return {
+        status: 'ERROR',
+        message:
+          'This batch spans more than one sender account and cannot be regenerated automatically.',
+      };
+    }
+    const fromAccount = senderAccounts[0] as string;
+
+    const accountDetails = await this.bankAccountsRepo.findOne({
+      where: { account_number: fromAccount },
+      select: ['account_name', 'apca_number', 'bank_account_id', 'company_id'],
+    });
+    if (!accountDetails || !accountDetails.apca_number) {
+      return {
+        status: 'ERROR',
+        message:
+          'The sender bank account is missing an APCA number, so the ABA file cannot be regenerated.',
+      };
+    }
+
+    const fromAccountFinInsId = transactions[0]?.payment_from_account_fin_ins;
+    const fromAccountFI = fromAccountFinInsId
+      ? await this.financialInsRepo.findOne({
+          where: { id: fromAccountFinInsId },
+        })
+      : null;
+    const FI_id = fromAccountFI ? fromAccountFI.institution_code : 'NIL';
+
+    // Rebuild + upload via the shared generation path so any
+    // line-length / padding fixes apply here automatically.
+    const {
+      fileData,
+      creditTotalCents,
+      debitTotalCents,
+      netTotalCents,
+      transactionCount,
+    } = await this.buildAndUploadAbaFile(
+      transactions,
+      fromAccount,
+      FI_id,
+      accountDetails.apca_number,
+      decoded,
+    );
+
+    if (!fileData?.id) {
+      return {
+        status: 'ERROR',
+        message: 'Failed to build the regenerated ABA file.',
+      };
+    }
+
+    // Repoint the EXISTING history row at the new file and refresh the
+    // record-type-7 control totals. The previous aba_file_id is
+    // superseded (its file_attachments row stays in storage for
+    // audit). No new history row, no new membership links, no
+    // mark-paid changes.
+    await this.generateABAFileHistory.update(
+      { id: aba_history_id, company_id: Number(company_id) },
+      {
+        aba_file_id: fileData.id,
+        control_credit_total_cents: String(creditTotalCents),
+        control_debit_total_cents: String(debitTotalCents),
+        control_net_total_cents: String(netTotalCents),
+        control_record_count: transactionCount,
+        updated_by: Number(decoded?.userId) || row.updated_by,
+      },
+    );
+
+    return {
+      status: 'SUCCESS',
+      message: 'ABA file regenerated.',
+      data: {
+        id: aba_history_id,
+        aba_file_id: fileData.id,
+        aba_file_name: (fileData as any)?.file_name || null,
+        aba_file_path: (fileData as any)?.file_path || null,
+      },
+    };
   }
 
   async fetchAllRetentionInPaymentsList(

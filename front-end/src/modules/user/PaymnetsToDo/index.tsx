@@ -18,6 +18,7 @@ import {
   fetchABAFileHistoryList,
   fetchABABatchSummary,
   deleteABAFileHistory,
+  regenerateABAFileHistory,
   fetchAllPaymentsList,
   TriggerPaymentNotices,
 } from "./paymentToDoList.functions";
@@ -126,6 +127,11 @@ export default function PaymentToDoList({ overViewDetails }: any) {
   // ABA-history row pending soft-delete (id + display name for the
   // confirm modal). null when no delete is in flight.
   const [abaDeleteTarget, setAbaDeleteTarget] = useState<
+    { id: string; name: string } | null
+  >(null);
+  // Task #350 — ABA-history row pending in-place regenerate (id +
+  // display name for the confirm modal). null when none is in flight.
+  const [abaRegenerateTarget, setAbaRegenerateTarget] = useState<
     { id: string; name: string } | null
   >(null);
   // Task #286 — ABA batch summary modal state.
@@ -560,6 +566,17 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       },
     },
     {
+      label: "Regenerate ABA file",
+      icon: "fa-light fa-rotate-right",
+      style: buttonType.PRIMARY,
+      onClick: (row: any) => {
+        setAbaRegenerateTarget({
+          id: row?.id,
+          name: row?.aba_file_name || "this ABA file",
+        });
+      },
+    },
+    {
       label: "Delete ABA file",
       icon: "fa-light fa-trash",
       style: buttonType.PRIMARY,
@@ -584,6 +601,39 @@ export default function PaymentToDoList({ overViewDetails }: any) {
       getABAFileHistoryList(page, perPage);
     } else {
       toast.error(result?.message || "Failed to delete ABA file.");
+    }
+  };
+
+  // Task #350 — regenerate the ABA file in place for the confirmed row,
+  // then refresh the list and offer an immediate download of the new
+  // file.
+  const confirmRegenerateAbaHistory = async () => {
+    if (!abaRegenerateTarget?.id) return;
+    setLoading(true);
+    const result = await regenerateABAFileHistory(
+      abaRegenerateTarget.id,
+      selectedCompanyId,
+    );
+    setAbaRegenerateTarget(null);
+    if (result?.status === "SUCCESS") {
+      toast.success(result?.message || "ABA file regenerated.");
+      let newFile: { aba_file_path?: string; aba_file_name?: string } | null =
+        null;
+      try {
+        newFile = result?.data ? JSON.parse(result.data) : null;
+      } catch {
+        newFile = null;
+      }
+      if (newFile?.aba_file_path) {
+        downloadABAFile({
+          file_path: newFile.aba_file_path,
+          file_name: newFile.aba_file_name,
+        });
+      }
+      getABAFileHistoryList(page, perPage);
+    } else {
+      setLoading(false);
+      toast.error(result?.message || "Failed to regenerate ABA file.");
     }
   };
 
@@ -1465,6 +1515,27 @@ export default function PaymentToDoList({ overViewDetails }: any) {
               <strong>{abaDeleteTarget.name}</strong>? The file will be
               removed from this list but kept in storage for audit
               purposes.
+            </div>
+          </BaseModal>
+        )}
+        {abaRegenerateTarget && (
+          <BaseModal
+            displayModal={!!abaRegenerateTarget}
+            onHeaderIconClose={() => setAbaRegenerateTarget(null)}
+            onClose={() => setAbaRegenerateTarget(null)}
+            firstButtonName="Cancel"
+            secondButtonName="Regenerate"
+            title="Regenerate ABA file?"
+            onConfirm={() => {
+              confirmRegenerateAbaHistory();
+              return true;
+            }}
+          >
+            <div className="text_center">
+              Rebuild <strong>{abaRegenerateTarget.name}</strong> for the
+              same payments and sender account? This replaces the file on
+              this record. Payments are not re-marked as paid, and the
+              previous file is kept in storage for audit.
             </div>
           </BaseModal>
         )}

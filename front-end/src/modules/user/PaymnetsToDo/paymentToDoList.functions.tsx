@@ -348,6 +348,40 @@ export const deleteABAFileHistory = async (
   }
 };
 
+// Task #350 — regenerate an ABA file in place. Re-builds the file for
+// the same linked sub-payments + sender account and relinks it to the
+// existing history record. `data` carries the new file path/name as a
+// JSON string so the caller can offer an immediate download.
+export const regenerateABAFileHistory = async (
+  aba_history_id: string,
+  company_id: number,
+): Promise<{ status: string; message: string; data?: string } | null> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation RegenerateABAFileHistory(
+          $aba_history_id: String!
+          $company_id: Float!
+        ) {
+          regenerateABAFileHistory(
+            aba_history_id: $aba_history_id
+            company_id: $company_id
+          ) {
+            status
+            message
+            data
+          }
+        }
+      `,
+      variables: { aba_history_id, company_id },
+      fetchPolicy: "no-cache",
+    });
+    return response?.data?.regenerateABAFileHistory || null;
+  } catch {
+    return null;
+  }
+};
+
 export const TriggerPaymentNotices = async (
   data: any,
   setLoading?: Function

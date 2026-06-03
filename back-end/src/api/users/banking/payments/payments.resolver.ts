@@ -852,6 +852,46 @@ export class PaymentsResolver {
     }
   }
 
+  // Task #350 — Regenerate an ABA file in place. Re-builds the file
+  // for the same linked sub-payments + sender account and repoints the
+  // existing history row at the new file. No new row, no duplicate
+  // links, no re-marking paid; the old file stays in storage for audit.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => ChangeStatusOfAPaymentResponse, {
+    name: 'regenerateABAFileHistory',
+    description:
+      'Regenerate the ABA file for an existing history record using the same linked sub-payments and sender account, then relink the new file in place (no new row, no re-marking paid).',
+  })
+  async regenerateABAFileHistory(
+    @Context() context,
+    @Args('aba_history_id', {
+      description: 'UUID of the ABA history row to regenerate.',
+    })
+    aba_history_id: string,
+    @Args('company_id', { description: 'Owning company id (for scoping).' })
+    company_id: number,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const result = await this.paymentsService.regenerateAbaFile(
+        aba_history_id,
+        company_id,
+        decoded,
+      );
+      return framedResponse(
+        result.status as any,
+        result.message,
+        result.data ? JSON.stringify(result.data) : null,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while regenerating ABA file history: ${error?.message || error}`,
+      );
+      return framedResponse('ERROR', `${error?.message || error}`);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => ChangeStatusOfAPaymentResponse, {

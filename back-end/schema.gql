@@ -16039,6 +16039,17 @@ type Mutation {
     company_id: Float!
   ): StringResponse!
 
+  """
+  Regenerate the ABA file for an existing history record using the same linked sub-payments and sender account, then relink the new file in place (no new row, no re-marking paid).
+  """
+  regenerateABAFileHistory(
+    """UUID of the ABA history row to regenerate."""
+    aba_history_id: String!
+
+    """Owning company id (for scoping)."""
+    company_id: Float!
+  ): ChangeStatusOfAPaymentResponse!
+
   "\n    Regenerates a previously failed notice.\n    Useful for retrying notice creation after failure.\n    Returns the regenerated notice details.\n    "
   regenerateFailedNotice(
     """Unique ID of the failed notice to regenerate"""
