@@ -249,7 +249,17 @@ export default function ContractsList({ overViewDetails = {} }: any) {
         const modifiedGridData = response?.contract_list.map((listObj: any) => {
           const warnings: string[] = [];
           if (!listObj?.attachment_id) warnings.push("Contract file");
-          if (!listObj?.payment_from_account || !listObj?.payment_to_account)
+          // Client (receivable) contracts only have a "payment to" account —
+          // the "payment from" account does not exist for them (it is entered
+          // inline only when a refund is required). Only Supplier contracts
+          // require both, so don't flag Bank A/C on clients for a missing
+          // payment_from_account.
+          const requiresPaymentFromAccount =
+            listObj?.client_supplier_type === "Supplier";
+          if (
+            !listObj?.payment_to_account ||
+            (requiresPaymentFromAccount && !listObj?.payment_from_account)
+          )
             warnings.push("Bank A/C");
           if (!listObj?.buyer_name) warnings.push("Buyer");
           if (!listObj?.seller_name) warnings.push("Seller");
