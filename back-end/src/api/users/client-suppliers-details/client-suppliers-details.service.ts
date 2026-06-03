@@ -123,6 +123,25 @@ export class ClientSuppliersDetailsService {
       this.logger.log(
         `Add client-supplier details service initiated with payload: ${JSON.stringify(createClientSuppliersDetailInput)}`,
       );
+      const duplicateByIdentifier = await this.findActiveDuplicateByIdentifier(
+        createClientSuppliersDetailInput.company_id,
+        createClientSuppliersDetailInput.client_supplier_type,
+        createClientSuppliersDetailInput.abn_number,
+        createClientSuppliersDetailInput.acn_number,
+      );
+      if (duplicateByIdentifier) {
+        const inputAbn = createClientSuppliersDetailInput.abn_number
+          ?.toString()
+          .replace(/\D/g, '');
+        const matchedOnAbn =
+          inputAbn &&
+          duplicateByIdentifier.abn_number?.toString().replace(/\D/g, '') ===
+            inputAbn;
+        const matchedIdentifier = matchedOnAbn
+          ? `ABN ${inputAbn}`
+          : `ACN ${createClientSuppliersDetailInput.acn_number?.toString().replace(/\D/g, '')}`;
+        throw `A ${createClientSuppliersDetailInput.client_supplier_type.toLowerCase()} with ${matchedIdentifier} already exists ("${duplicateByIdentifier.client_supplier_name}"). Please use the existing record instead of creating a duplicate.`;
+      }
       const checkExistence = await this.checkExistenceForClient(
         createClientSuppliersDetailInput.company_id,
         createClientSuppliersDetailInput.client_supplier_type,
@@ -1656,6 +1675,42 @@ export class ClientSuppliersDetailsService {
     }
 
     return { total_count: finalCount, client_suppliers_list: finalResult };
+  }
+
+  // Flags an active duplicate of the same business by ABN/ACN within the same
+  // company + type. Exact-name matching (checkExistenceForClient) misses the
+  // common case where the same entity is re-entered under a slightly different
+  // name (e.g. "FD Alba Pty Ltd & ..." vs "Partnership Of FD Alba ..."), which
+  // is what produces the duplicate client records that later break payment
+  // routing. ABN/ACN are the reliable business identifiers. Soft-deleted /
+  // archived records are ignored so a legitimate re-add isn't blocked.
+  async findActiveDuplicateByIdentifier(
+    company_id: number,
+    client_supplier_type: string,
+    abn_number?: string,
+    acn_number?: string,
+  ): Promise<ClientSuppliersDetails | null> {
+    // Canonicalize to digits only so formatting variants ("12 345 678 901")
+    // still match the stored value. (The columns are length-limited to clean
+    // digits, but normalize the input defensively.)
+    const abn = abn_number?.toString().replace(/\D/g, '');
+    const acn = acn_number?.toString().replace(/\D/g, '');
+    const orConditions: any[] = [];
+    if (abn) {
+      orConditions.push({ company_id, client_supplier_type, abn_number: ILike(abn) });
+    }
+    if (acn) {
+      orConditions.push({ company_id, client_supplier_type, acn_number: ILike(acn) });
+    }
+    if (orConditions.length === 0) {
+      return null;
+    }
+    const candidates = await this.clientSuppliersDetails.find({
+      where: orConditions,
+    });
+    return (
+      candidates.find((c) => !c.is_deleted && !c.is_archived) ?? null
+    );
   }
 
   async checkExistenceForClient(

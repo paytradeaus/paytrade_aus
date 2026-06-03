@@ -249,10 +249,38 @@ export class PaymentsService {
                 Number(ownedBank.client_supplier_id) !==
                   Number(effectiveSupplierId)
               ) {
-                this.logger.warn(
-                  `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — owned by supplier ${ownedBank.client_supplier_id}, not this payment's supplier ${effectiveSupplierId}; clearing for auto-resolve.`,
-                );
-                data.payment_to_account = null;
+                // Before clearing, confirm the owning client/supplier record is
+                // still active. A soft-deleted (`is_deleted`) or archived
+                // (`is_archived`) duplicate — the same real-world entity
+                // re-entered under a new id — leaves a stale binding on the bank
+                // account. Clearing on that stale mismatch nukes a legitimately
+                // set account (e.g. a Project/Retention Trust Account tagged to
+                // an old, since-deleted client duplicate) and the downstream
+                // journal then inserts a NULL bank_account_id. Treat an inactive
+                // owner as "no binding" and keep the caller-supplied account.
+                const owningClient =
+                  await transactionalEntityManager.findOne(
+                    ClientSuppliersDetails,
+                    {
+                      where: {
+                        client_supplier_id: ownedBank.client_supplier_id,
+                      },
+                    },
+                  );
+                const owningClientInactive =
+                  !owningClient ||
+                  !!owningClient.is_deleted ||
+                  !!owningClient.is_archived;
+                if (owningClientInactive) {
+                  this.logger.warn(
+                    `[addPayment] payment_to_account=${data.payment_to_account} is owned by client/supplier ${ownedBank.client_supplier_id}, which is deleted/archived; ignoring stale binding and keeping the account.`,
+                  );
+                } else {
+                  this.logger.warn(
+                    `[addPayment] Rejecting payment_to_account=${data.payment_to_account} — owned by supplier ${ownedBank.client_supplier_id}, not this payment's supplier ${effectiveSupplierId}; clearing for auto-resolve.`,
+                  );
+                  data.payment_to_account = null;
+                }
               }
             }
           }
