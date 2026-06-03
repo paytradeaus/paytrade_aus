@@ -1461,13 +1461,17 @@ export class XeroWebhookService {
         if (xeroContactDetails?.contact_status === 'ACTIVE') {
           const xeroAddress =
             contact.addresses?.find((a: any) => a.addressType === 'POBOX') ||
-            contact.addresses?.find((a: any) => a.addressType === 'STREET');
+            contact.addresses?.find((a: any) => a.addressType === 'STREET') ||
+            contact.addresses?.[0] ||
+            null;
           const xeroPhone =
             contact.phones?.find((p: any) => p.phoneType === 'MOBILE') ||
             contact.phones?.find((p: any) => p.phoneType === 'DEFAULT');
 
-          const syncedAddress = xeroAddress?.addressLine1
-            ? xeroAddress.addressLine1
+          const composedAddress =
+            this.xeroContactsService.composeXeroAddress(xeroAddress);
+          const syncedAddress = composedAddress
+            ? composedAddress
             : clientSuppliersDetails.client_supplier_address;
           const syncedCountry = xeroAddress?.country
             ? xeroAddress.country

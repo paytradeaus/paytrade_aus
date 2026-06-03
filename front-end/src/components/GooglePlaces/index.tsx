@@ -12,6 +12,7 @@ interface GooglePlacesAutocompleteProps {
   onChange?: any;
   onBlur?: any;
   disabled?: boolean;
+  allowManualEntry?: boolean;
 }
 
 const GooglePlacesInput: React.FC<GooglePlacesAutocompleteProps> = ({
@@ -21,6 +22,7 @@ const GooglePlacesInput: React.FC<GooglePlacesAutocompleteProps> = ({
   isInvalid,
   onBlur,
   disabled = false,
+  allowManualEntry = false,
 }) => {
   const getTheme: any = useAppSelector(
     (state: RootState) => state?.appTheme?.currentTheme
@@ -107,6 +109,7 @@ const GooglePlacesInput: React.FC<GooglePlacesAutocompleteProps> = ({
   };
 
   const [data, setData] = useState<any>(value);
+  const [manualMode, setManualMode] = useState<boolean>(false);
 
   useEffect(() => {
     setData({
@@ -114,6 +117,37 @@ const GooglePlacesInput: React.FC<GooglePlacesAutocompleteProps> = ({
       label: value || "",
     });
   }, [value]);
+
+  const manualInputStyle: React.CSSProperties = {
+    height: "46px",
+    width: "100%",
+    padding: "0 0.75rem",
+    border: "none",
+    boxShadow: `0 0 0 1px ${isLightTheme() ? "#ccc" : "#2a3042"}`,
+    borderRadius: "0.21rem",
+    backgroundColor: isLightTheme() ? "#fbfcfc" : "#1c212c",
+    color: isLightTheme() ? "black" : "white",
+    outline: "none",
+  };
+
+  const toggleButtonStyle: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    padding: "4px 0 0 0",
+    marginTop: "2px",
+    color: "#556ee6",
+    cursor: "pointer",
+    fontSize: "0.78rem",
+    textDecoration: "underline",
+  };
+
+  const handleManualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const typed = e.target.value;
+    setData({ value: { description: typed }, label: typed });
+    // No place selected — pass only the typed string so the consumer
+    // keeps the manual entry and clears any stale map-resolution fields.
+    onChange(typed);
+  };
 
   const handleChange = async (newValue?: any, actionMeta?: any) => {
     setData(newValue);
@@ -160,18 +194,41 @@ const GooglePlacesInput: React.FC<GooglePlacesAutocompleteProps> = ({
 
   return (
     <div className={"GoogleContainerStyle"}>
-      <GooglePlacesAutocomplete
-        apiKey={apiKey}
-        selectProps={{
-          styles: GoogleContainerStyle,
+      {allowManualEntry && manualMode ? (
+        <input
+          type="text"
+          style={manualInputStyle}
+          value={typeof value === "string" ? value : value?.description || ""}
+          onChange={handleManualChange}
+          onBlur={onBlur}
+          disabled={disabled}
+          placeholder="Enter address manually"
+        />
+      ) : (
+        <GooglePlacesAutocomplete
+          apiKey={apiKey}
+          selectProps={{
+            styles: GoogleContainerStyle,
 
-          noOptionsMessage: () => "No Results", // Display "No Results" when there are no suggestions
-          value: data,
-          onChange: handleChange,
-          onBlur: onBlur,
-          isDisabled: disabled,
-        }}
-      />
+            noOptionsMessage: () => "No Results", // Display "No Results" when there are no suggestions
+            value: data,
+            onChange: handleChange,
+            onBlur: onBlur,
+            isDisabled: disabled,
+          }}
+        />
+      )}
+      {allowManualEntry && !disabled && (
+        <button
+          type="button"
+          style={toggleButtonStyle}
+          onClick={() => setManualMode((prev) => !prev)}
+        >
+          {manualMode
+            ? "Search address with Google instead"
+            : "Can't find your address? Enter it manually"}
+        </button>
+      )}
     </div>
   );
 };

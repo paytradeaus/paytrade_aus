@@ -296,7 +296,17 @@ export default function AddClientsAndSuppliers() {
       : slugData[0].charAt(0).toUpperCase() + slugData[0].slice(1).toLowerCase()
     : "";
 
-  function handlePlacesInputChange(value: string, placeDetails: any) {
+  function handlePlacesInputChange(value: string, placeDetails?: any) {
+    // Manual entry (no Google place selected): keep the typed address and
+    // clear the stale map-resolution fields so a previously selected place
+    // can't be silently attached to a different, hand-typed address.
+    if (!placeDetails) {
+      formik.setFieldValue("client_supplier_address", value);
+      formik.setFieldValue("place_id", "");
+      formik.setFieldValue("latitude", "");
+      formik.setFieldValue("longitude", "");
+      return;
+    }
     const placeDetailsString = JSON.parse(JSON.stringify(placeDetails));
     // Handle the input change and place details here
     dispatch(setCompanyDetails({ placeDetails }));
@@ -724,6 +734,7 @@ export default function AddClientsAndSuppliers() {
                       onChange={handlePlacesInputChange}
                       onBlur={formik.handleBlur("client_supplier_address")}
                       disabled={isViewMode}
+                      allowManualEntry={true}
                     />
                     {formik.touched.client_supplier_address &&
                       formik.errors.client_supplier_address && (

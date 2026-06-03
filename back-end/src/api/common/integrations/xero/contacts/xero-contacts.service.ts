@@ -1070,6 +1070,44 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Build a single human-readable address string from a Xero Address
+   * object. Pay Trade stores the address as one `client_supplier_address`
+   * varchar (there are no separate suburb/postcode columns), so on import
+   * we must flatten every meaningful Xero address component into it —
+   * otherwise only `addressLine1` survives and the suburb/state/postcode
+   * are silently dropped (e.g. "PO Box 5288" instead of
+   * "PO Box 5288, Kenmore East 4069").
+   *
+   * Street lines (addressLine1-4) are joined with commas; the locality
+   * line (city / region / postalCode) is space-joined and appended.
+   * Returns null when Xero supplied no address parts at all.
+   */
+  composeXeroAddress(xeroAddress: any): string | null {
+    if (!xeroAddress) return null;
+    const clean = (s: any) => (s ? String(s).trim() : '');
+    const streetLines = [
+      xeroAddress.addressLine1,
+      xeroAddress.addressLine2,
+      xeroAddress.addressLine3,
+      xeroAddress.addressLine4,
+    ]
+      .map(clean)
+      .filter((s: string) => s.length > 0);
+    const localityLine = [
+      xeroAddress.city,
+      xeroAddress.region,
+      xeroAddress.postalCode,
+    ]
+      .map(clean)
+      .filter((s: string) => s.length > 0)
+      .join(' ');
+    const parts = [...streetLines];
+    if (localityLine) parts.push(localityLine);
+    const composed = parts.join(', ');
+    return composed.length > 0 ? composed : null;
+  }
+
+  /**
    * Task #283 — Single source of truth for "Xero Contact → Pay Trade
    * contact payload" used by the webhook create path. Mirrors the field
    * extraction the mapped-update branch in
@@ -1162,7 +1200,7 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       related_entity: 'No',
       entity_type: 'Organisation',
       place_id: null,
-      client_supplier_address: xeroAddress?.addressLine1 || null,
+      client_supplier_address: this.composeXeroAddress(xeroAddress),
       country: xeroAddress?.country || null,
       region: null,
       latitude: null,
