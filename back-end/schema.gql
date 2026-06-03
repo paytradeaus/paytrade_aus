@@ -22771,6 +22771,11 @@ input UpdateSettingsInput {
   simplified_retention_accounting: Boolean
 
   """
+  Task #356 — Smart-create contact on bill import: when ON, an inbound bill (ACCPAY) referencing an unmapped Xero contact auto-imports and maps that contact before the smart-contract step. Distinct from xero_to_pt_contact_auto_create.
+  """
+  smart_contact_auto_create: Boolean
+
+  """
   Auto-create contracts when Xero claims arrive with no matching contract
   """
   smart_contract_auto_create: Boolean
@@ -24390,6 +24395,11 @@ type XeroResponse {
   Whether simplified retention accounting is enabled (no liability accounts)
   """
   simplified_retention_accounting: Boolean
+
+  """
+  Task #356 — Smart-create contact on bill import: when ON, an inbound bill (ACCPAY) referencing an unmapped Xero contact auto-imports and maps that contact before the smart-contract step. Distinct from xero_to_pt_contact_auto_create.
+  """
+  smart_contact_auto_create: Boolean
 
   """
   Auto-create contracts when Xero claims arrive with no matching contract

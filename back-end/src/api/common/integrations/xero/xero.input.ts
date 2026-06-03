@@ -378,6 +378,9 @@ export class UpdateSettingsInput {
   @Field({ nullable: true, description: 'Auto-create contracts when Xero claims arrive with no matching contract' })
   smart_contract_auto_create: boolean;
 
+  @Field({ nullable: true, description: 'Task #356 — Smart-create contact on bill import: when ON, an inbound bill (ACCPAY) referencing an unmapped Xero contact auto-imports and maps that contact before the smart-contract step. Distinct from xero_to_pt_contact_auto_create.' })
+  smart_contact_auto_create: boolean;
+
   @Field({ nullable: true, description: 'Invoice tax code' })
   invoice_tax_code: string;
 

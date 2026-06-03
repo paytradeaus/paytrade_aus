@@ -251,6 +251,15 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   smart_contract_auto_create: boolean;
 
+  // Task #356 — Smart-create contact on bill import. When ON, an inbound
+  // bill (ACCPAY) referencing an unmapped Xero contact will auto-import and
+  // map that contact on the fly (BEFORE the smart-contract step), instead of
+  // hard-failing at the contact-mapping check. Distinct from
+  // `xero_to_pt_contact_auto_create` (the firehose that imports every new
+  // Xero contact).
+  @Column({ type: 'boolean', nullable: true, default: false })
+  smart_contact_auto_create: boolean;
+
   @Column({ type: 'text', nullable: true })
   invoice_tax_code: string;
 

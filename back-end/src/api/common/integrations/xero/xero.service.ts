@@ -595,6 +595,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.sync_contact_financial_to_xero AS sync_contact_financial_to_xero',
           'x.sync_contact_financial_to_pt AS sync_contact_financial_to_pt',
           'x.smart_contract_auto_create AS smart_contract_auto_create',
+          'x.smart_contact_auto_create AS smart_contact_auto_create',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -3397,6 +3398,9 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
       }
       if (data.smart_contract_auto_create !== undefined) {
         xeroDetails.smart_contract_auto_create = data.smart_contract_auto_create;
+      }
+      if (data.smart_contact_auto_create !== undefined) {
+        xeroDetails.smart_contact_auto_create = data.smart_contact_auto_create;
       }
       xeroDetails.bill_tax_code = data.bill_tax_code;
       xeroDetails.invoice_tax_code = data.invoice_tax_code;

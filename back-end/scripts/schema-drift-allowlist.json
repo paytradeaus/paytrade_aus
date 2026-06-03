@@ -628,6 +628,7 @@
     "site_address",
     "skip_xero_auto_create",
     "slug",
+    "smart_contact_auto_create",
     "smart_contract_auto_create",
     "source_bank_account_id",
     "spent_amount",

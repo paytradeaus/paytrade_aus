@@ -110,6 +110,7 @@ export default function XeroSettings() {
       setSyncContactFinancialToXero(!!data?.sync_contact_financial_to_xero);
       setSyncContactFinancialToPt(!!data?.sync_contact_financial_to_pt);
       setSmartContractAutoCreate(!!data?.smart_contract_auto_create);
+      setSmartContactAutoCreate(!!data?.smart_contact_auto_create);
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -260,6 +261,7 @@ export default function XeroSettings() {
   const [syncContactFinancialToXero, setSyncContactFinancialToXero] = useState(false);
   const [syncContactFinancialToPt, setSyncContactFinancialToPt] = useState(false);
   const [smartContractAutoCreate, setSmartContractAutoCreate] = useState(false);
+  const [smartContactAutoCreate, setSmartContactAutoCreate] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -393,6 +395,7 @@ export default function XeroSettings() {
         sync_contact_financial_to_xero: syncContactFinancialToXero,
         sync_contact_financial_to_pt: syncContactFinancialToPt,
         smart_contract_auto_create: smartContractAutoCreate,
+        smart_contact_auto_create: smartContactAutoCreate,
         retention_recording_mode: retention_recording_mode || "ex_gst",
         retention_tax_type: retention_tax_type || null,
         // Backend also enforces this invariant; FE mirrors it so the
@@ -1453,6 +1456,39 @@ export default function XeroSettings() {
                     {smartContractAutoCreate && (
                       <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
                         Note: Auto-created contracts use a placeholder contract sum of $99,999,999 and should be reviewed. Related Entity contacts and invalid role/claim combinations will not be auto-created.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Smart contact auto-creation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  When enabled, if a bill arrives from Xero for a contact that isn&apos;t yet mapped in PayTrade, PayTrade will automatically import and map that supplier on the fly (before the smart-contract step) instead of failing the bill. This is separate from &ldquo;Auto-create Xero contacts in PayTrade&rdquo;, which imports every new Xero contact.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create supplier contacts from bills?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      If a PayTrade supplier with the same name already exists, the bill is mapped to it; otherwise a new Supplier is created from the Xero contact. Only applies to supplier bills (ACCPAY) with valid account codes.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"smart_contact_auto_create"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setSmartContactAutoCreate(e === "Yes");
+                      }}
+                      value={smartContactAutoCreate ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
+                    {smartContactAutoCreate && (
+                      <p style={{ color: "#c0392b", fontSize: "12px", margin: "8px 0 0", fontStyle: "italic" }}>
+                        Note: Contacts are created even without bank details; the smart-contract step will then prompt you to add them. Archived Xero contacts and contacts missing mandatory fields are skipped with a clear sync log.
                       </p>
                     )}
                   </div>

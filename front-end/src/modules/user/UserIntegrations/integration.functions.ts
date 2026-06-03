@@ -378,6 +378,7 @@ export const getXeroDetailsForCompany = async (
               sync_contact_financial_to_xero
               sync_contact_financial_to_pt
               smart_contract_auto_create
+              smart_contact_auto_create
               project_category_id
               project_category_name
               pt_to_xero_bill_as_draft

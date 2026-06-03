@@ -5860,5 +5860,25 @@
     "from_xero": true,
     "error_code": "WH_CONTACT_IMPORT_PROCESSING_FAILED",
     "associated_log_ids": []
+  },
+  {
+    "id": 639,
+    "sync_type": "Contact webhook",
+    "description": "<p>A bill arrived from Xero for contact {{contact_name}} which was not yet in Pay Trade. Because smart-create contact on bill import is on, the contact was automatically created as a supplier and mapped, then bill processing continued.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": []
+  },
+  {
+    "id": 640,
+    "sync_type": "Contact webhook",
+    "description": "<p>A bill arrived from Xero for contact {{contact_name}} which was not yet linked in Pay Trade. Because smart-create contact on bill import is on, it was automatically mapped to your existing Pay Trade supplier of the same name, then bill processing continued.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": []
   }
 ]
