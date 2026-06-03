@@ -1969,21 +1969,27 @@ export class XeroWebhookService {
   /**
    * Task #356 — Smart-create contact on bill import.
    *
-   * Called from {@link handleInvoiceCreateUpdate} when a supplier bill
-   * (ACCPAY) arrives referencing a Xero contact that is not yet mapped to a
-   * PayTrade contact AND the company has enabled `smart_contact_auto_create`.
-   * It imports + maps the contact on the fly so bill processing can continue
-   * into the existing smart-contract step, instead of hard-failing.
+   * Called from {@link handleInvoiceCreateUpdate} when an invoice arrives
+   * referencing a Xero contact that is not yet mapped to a PayTrade contact
+   * AND the company has enabled `smart_contact_auto_create`. It imports + maps
+   * the contact on the fly so invoice processing can continue into the existing
+   * smart-contract step, instead of hard-failing.
    *
-   * Returns `true` only when the Xero contact ends up mapped to a PayTrade
+   * Direction-aware: an ACCPAY bill is a supplier document, so the contact is
+   * created/mapped as a **Supplier**; an ACCREC invoice is a client (customer)
+   * document, so the contact is created/mapped as a **Client**.
+   *
+   * Returns `'mapped'` only when the Xero contact ends up mapped to a PayTrade
    * contact (either created fresh or mapped to an existing same-name one).
-   * On any failure/skip it writes a specific sync log and returns `false`;
-   * the caller must NOT then write the generic 264/425 logs.
+   * Returns `'failed_logged'` when it has already written a specific sync log
+   * (archived / missing mandatory fields), or `'failed_generic'` when it wrote
+   * nothing and the caller should fall through to its generic 264/265/424/425
+   * mapping-failure log.
    *
    * Idempotent: re-checks the mirror mapping (webhook + ~15-min scheduler
    * re-runs) and short-circuits if it is already mapped.
    */
-  private async smartCreateContactFromBill(
+  private async smartCreateContactFromInvoice(
     invoice: any,
     xeroDetails: XeroIntegrationDetails,
     existingMirror: XeroContactDetails | null,
@@ -1997,6 +2003,15 @@ export class XeroWebhookService {
     if (!contactID) return 'failed_generic';
     const companyId = xeroDetails.company_id;
 
+    // ACCPAY bills are supplier documents; ACCREC invoices are client
+    // (customer) documents. Map/create the contact as the matching PT type and
+    // pick the correspondingly-worded success log templates.
+    const isReceivable = invoice?.type === Invoice.TypeEnum.ACCREC;
+    const ptType = isReceivable ? 'Client' : 'Supplier';
+    const ptTypeLabel = isReceivable ? 'client' : 'supplier';
+    const mappedExistingTemplateId = isReceivable ? 645 : 640;
+    const createdTemplateId = isReceivable ? 644 : 639;
+
     // Idempotency re-check: another webhook/scheduler pass may have already
     // mapped this contact between the caller's read and now.
     let mirror =
@@ -2006,7 +2021,7 @@ export class XeroWebhookService {
       }));
     if (mirror?.pt_contact_id) {
       this.logger.debug(
-        `[BILL_TRACE] smartCreateContactFromBill: contact ${contactID} already mapped (pt_contact_id=${mirror.pt_contact_id}); skipping.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: contact ${contactID} already mapped (pt_contact_id=${mirror.pt_contact_id}); skipping.`,
       );
       return 'mapped';
     }
@@ -2015,7 +2030,7 @@ export class XeroWebhookService {
     // the caller's normal failure log rather than force-creating.
     if (mirror?.permanently_unmapped) {
       this.logger.log(
-        `[BILL_TRACE] smartCreateContactFromBill: contact ${contactID} is permanently unmapped; not auto-creating.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: contact ${contactID} is permanently unmapped; not auto-creating.`,
       );
       return 'failed_generic';
     }
@@ -2029,7 +2044,7 @@ export class XeroWebhookService {
     const contact = response.body.contacts?.[0];
     if (!contact) {
       this.logger.warn(
-        `[BILL_TRACE] smartCreateContactFromBill: no Xero contact found for ${contactID}.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: no Xero contact found for ${contactID}.`,
       );
       // No live Xero contact to import — let the caller write its standard
       // contact-mapping failure log (264/424).
@@ -2058,7 +2073,7 @@ export class XeroWebhookService {
       String(Contact.ContactStatusEnum.ARCHIVED)
     ) {
       this.logger.log(
-        `[BILL_TRACE] smartCreateContactFromBill: contact ${contactID} (${contact.name}) is archived; skipping with log 623.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: contact ${contactID} (${contact.name}) is archived; skipping with log 623.`,
       );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
@@ -2091,14 +2106,14 @@ export class XeroWebhookService {
       return 'failed_logged';
     }
 
-    // Decision 1 — same-name auto-map. Bills are supplier documents, so we
-    // only consider Supplier-type PayTrade contacts. An exact, single match
-    // maps to that existing contact; an ambiguous (>1) or no match falls
-    // through to creating a fresh Supplier.
+    // Decision 1 — same-name auto-map. A bill (ACCPAY) only considers
+    // Supplier-type PayTrade contacts; an invoice (ACCREC) only considers
+    // Client-type ones. An exact, single match maps to that existing contact;
+    // an ambiguous (>1) or no match falls through to creating a fresh contact.
     const sameName =
       await this.clientSuppliersDetailsService.checkExistenceForClient(
         companyId,
-        'Supplier',
+        ptType,
         contact.name,
       );
     if (sameName && sameName.length === 1) {
@@ -2108,7 +2123,7 @@ export class XeroWebhookService {
       mirror.updated_on = new Date();
       await this.xeroContactDetails.save(mirror);
       this.logger.log(
-        `[BILL_TRACE] smartCreateContactFromBill: mapped contact ${contactID} (${contact.name}) to existing PT supplier ${existing.client_supplier_id}.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: mapped contact ${contactID} (${contact.name}) to existing PT ${ptTypeLabel} ${existing.client_supplier_id}.`,
       );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
@@ -2120,7 +2135,7 @@ export class XeroWebhookService {
           client_supplier_name: contact.name,
         },
         integration_id: xeroDetails.integration_id,
-        log_template_id: 640,
+        log_template_id: mappedExistingTemplateId,
         dynamic_values: { contact_name: contact.name },
         project_id: null,
         contract_id: null,
@@ -2128,7 +2143,7 @@ export class XeroWebhookService {
         reference_id: mirror?.id,
         history: [
           `API triggered from invoice ${sync_run_type}`,
-          'Mapped to existing Pay Trade supplier',
+          `Mapped to existing Pay Trade ${ptTypeLabel}`,
         ],
         important_checks: {
           'Import data format validation': 'Ok',
@@ -2143,7 +2158,7 @@ export class XeroWebhookService {
       return 'mapped';
     }
 
-    // Create a fresh Supplier and map it. Reuse handleContactCreate so the
+    // Create a fresh contact and map it. Reuse handleContactCreate so the
     // mandatory-field validation, creation and mirror-mapping all stay in one
     // place; `skipNameMatch` lets it create even on an ambiguous name match.
     const payload = this.xeroContactsService.buildContactPayloadFromXero(
@@ -2153,9 +2168,9 @@ export class XeroWebhookService {
     // Defensive: payload builder returned nothing. Let the caller write its
     // standard contact-mapping failure log (264/424) rather than fail silently.
     if (!payload) return 'failed_generic';
-    // Bills are supplier documents — always create as Supplier regardless of
-    // the Xero isCustomer/isSupplier flags.
-    payload.client_supplier_type = 'Supplier';
+    // Force the PT type by document direction (Supplier for a bill, Client for
+    // an invoice) regardless of the Xero isCustomer/isSupplier flags.
+    payload.client_supplier_type = ptType;
 
     const created = await this.handleContactCreate(
       contactID,
@@ -2169,7 +2184,7 @@ export class XeroWebhookService {
     );
     if (created && typeof created !== 'boolean') {
       this.logger.log(
-        `[BILL_TRACE] smartCreateContactFromBill: created + mapped new PT supplier for contact ${contactID} (${contact.name}).`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: created + mapped new PT ${ptTypeLabel} for contact ${contactID} (${contact.name}).`,
       );
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
@@ -2181,7 +2196,7 @@ export class XeroWebhookService {
           client_supplier_name: contact.name,
         },
         integration_id: xeroDetails.integration_id,
-        log_template_id: 639,
+        log_template_id: createdTemplateId,
         dynamic_values: { contact_name: contact.name },
         project_id: null,
         contract_id: null,
@@ -2714,23 +2729,25 @@ export class XeroWebhookService {
           },
         });
 
-        // Task #356 — Smart-create contact on bill import. When the company
-        // has enabled smart_contact_auto_create and this is a supplier bill
-        // (ACCPAY) whose line account codes are valid, auto-import + map the
-        // Xero contact on the fly (running BEFORE the smart-contract step)
-        // instead of hard-failing at the contact-mapping checks below. If the
-        // account codes are invalid, the gate is skipped and today's
-        // behaviour (the 264/265/424/425 failure logs) is preserved.
+        // Smart-create contact on invoice import. When the company has enabled
+        // smart_contact_auto_create and this is a supplier bill (ACCPAY) or a
+        // sales invoice (ACCREC) whose line account codes are valid, auto-import
+        // + map the Xero contact on the fly (running BEFORE the smart-contract
+        // step) instead of hard-failing at the contact-mapping checks below. An
+        // ACCPAY bill maps/creates the contact as a Supplier; an ACCREC invoice
+        // as a Client. If the account codes are invalid, the gate is skipped and
+        // today's behaviour (the 264/265/424/425 failure logs) is preserved.
         if (
           xeroDetails.smart_contact_auto_create &&
-          invoice?.type === Invoice.TypeEnum.ACCPAY &&
+          (invoice?.type === Invoice.TypeEnum.ACCPAY ||
+            invoice?.type === Invoice.TypeEnum.ACCREC) &&
           (!xeroContactDetails || !xeroContactDetails.pt_contact_id) &&
           this.isAccountCodeValid(invoice, xeroDetails)
         ) {
           this.logger.debug(
-            `[BILL_TRACE] Step 5b: smart_contact_auto_create ON and contact unmapped — attempting smartCreateContactFromBill for contactID=${invoice.contact?.contactID}`,
+            `[BILL_TRACE] Step 5b: smart_contact_auto_create ON and contact unmapped — attempting smartCreateContactFromInvoice for contactID=${invoice.contact?.contactID}`,
           );
-          const smartResult = await this.smartCreateContactFromBill(
+          const smartResult = await this.smartCreateContactFromInvoice(
             invoice,
             xeroDetails,
             xeroContactDetails,
@@ -2748,7 +2765,7 @@ export class XeroWebhookService {
               },
             });
           } else if (smartResult === 'failed_logged') {
-            // smartCreateContactFromBill already wrote a specific sync log for
+            // smartCreateContactFromInvoice already wrote a specific sync log for
             // the failure reason (missing fields, archived, etc.); don't also
             // write the generic 264/265/424/425 mapping-failure log.
             return false;

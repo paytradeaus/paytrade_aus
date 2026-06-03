@@ -5914,5 +5914,25 @@
     "from_xero": false,
     "error_code": "DELETE_PD_PAYMENT_RECONCILED",
     "associated_log_ids": null
+  },
+  {
+    "id": 644,
+    "sync_type": "Contact webhook",
+    "description": "<p>An invoice arrived from Xero for contact {{contact_name}} which was not yet in Pay Trade. Because smart-create contact on import is on, the contact was automatically created as a client and mapped, then invoice processing continued.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": []
+  },
+  {
+    "id": 645,
+    "sync_type": "Contact webhook",
+    "description": "<p>An invoice arrived from Xero for contact {{contact_name}} which was not yet linked in Pay Trade. Because smart-create contact on import is on, it was automatically mapped to your existing Pay Trade client of the same name, then invoice processing continued.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": null,
+    "associated_log_ids": []
   }
 ]
