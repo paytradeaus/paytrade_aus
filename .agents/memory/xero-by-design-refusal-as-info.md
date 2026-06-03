@@ -1,40 +1,42 @@
 ---
-name: Xero by-design refusals — Info vs genuine Failed hold (payment-delete nuance)
-description: When an inbound Xero handler refuses an op, decide Info-once vs idempotent-Failed-hold by whether the user must act; payment-delete refusals now split matched vs unmatched.
+name: Xero by-design payment-delete refusals — idempotent Failed hold (per family)
+description: Inbound Xero delete refusals for payments protected by-design must surface as ONE actionable Failed row that does not climb occurrence_count, scoped per refusal family.
 ---
 
-When an inbound Xero handler refuses an operation, the log class depends on
-whether the user must act:
+When an inbound Xero handler (webhook or the ~15-min scheduler) tries to delete a
+PayTrade payment that is protected from deletion for a valid by-design reason, the
+log must be a genuine, **idempotent Failed hold**: exactly ONE actionable Failed
+row per affected payment whose `occurrence_count` does NOT climb on re-delivery.
+Do NOT downgrade these to an Info note — the user wants them visible as Failed,
+and the re-delivery churn is what was actually wrong.
 
-- **Truly terminal by design, no user action needed** → reclassify to an **Info**
-  template, written at most once per affected resource. The webhook + ~15-min
-  scheduler re-deliver forever, so a Failed row's `occurrence_count` would climb
-  indefinitely and look broken.
-- **Refused because the user must fix something first** → a genuine, **idempotent
-  Failed hold** (one row whose occurrence does NOT climb), so it surfaces as an
-  actionable error, not a silent Info note.
+**Why:** the webhook + scheduler re-deliver the same delete event forever. A
+naive Failed write per delivery makes one protected payment look like a recurring
+sync failure (occurrence_count climbs ~96×/day per payment).
 
-**Payment-delete nuance (supersedes the original #359 "always Info" rule):**
-A Xero-inbound delete of a PT payment is now split by the PAYMENT leg's match
-state:
-- Payment-leg **UNMATCHED** (even if confirmed) → NOT refused. It is
-  auto-unchecked (reversing confirmation journals via the SERVICE
-  `editDetailsOfAPayment`) and then deleted. No sync error at all.
-- Payment-leg **MATCHED/reconciled** → genuine idempotent **Failed** hold
-  (error_code `WH/SCHEDULER_PAYMENT_MATCHED_DELETE_BLOCKED`), telling the user to
-  unmatch (uncheck) first. This intentionally REPLACED the quiet Info note
-  (641/642) that #359 introduced for the confirmed-payment case.
+**Refusal families (keep them separate):** there are distinct by-design
+delete-refusal reasons, and their holds must NOT collapse into each other for the
+same payment:
+- **matched/reconciled** — the payment leg is matched in PayTrade; the hold tells
+  the user to unmatch (uncheck) first. Has both Failed templates and legacy Info
+  templates in its candidate set.
+- **overpayment-refund** — the refund is intentionally protected from deletion in
+  PayTrade. Keep the call site's existing "cannot be deleted" message; just stamp
+  the standardized error_code + a hold_reason. No legacy Info template exists, so
+  its dedup target points at its own Failed template.
 
-**Idempotency mechanics:** the Failed-only dedup gate and Failed-only failure
-email in `insertXeroSyncLogs` mean: for a Failed HOLD you rely on the dedup gate
-keyed on (template, `reference_id`) so it stays one row; for an Info note you must
-add your OWN idempotency guard (Info bypasses the dedup gate) or rows pile up
-one-per-delivery.
-
-**How to apply:** prefer centralized interception inside `insertXeroSyncLogs`
-keyed on the incoming template id, rather than editing every catch block — the
-payment-delete refusal alone had ~16 identical webhook call sites. Match on the
-field every writer reliably sets: `reference_id` (= the `xero_payments` row id),
-with `api_payload.payment_id` as fallback. The matched-vs-unmatched decision and
-auto-uncheck happen centrally in `PaymentsService.changeStatusOfAPayment`
-(`maybeAutoUncheckBeforeDelete`), so the webhook path inherits the behaviour.
+**How to apply:** centralize interception inside `insertXeroSyncLogs` via
+`maybeHandleByDesignPaymentDeleteSkip`, keyed on the incoming `log_template_id`
+through `BY_DESIGN_PAYMENT_DELETE_SKIP_MAP`. Each map entry carries a `family`
+discriminator. The idempotency candidate-template lookup MUST be scoped to the
+same `family` as the incoming template, or two different holds for one payment
+dedupe against each other. Match the existing row on `reference_id` OR
+`api_payload->>'payment_id'` — different call sites set different identifiers
+(matched sites set `reference_id` = the `xero_payments` row id; overpayment-refund
+sites set `reference_id` null and `api_payload.payment_id` = the pt_payment_id).
+The guard only runs when at least one identifier is present, so any writer must
+set one; the overpayment-refund sites are already gated behind a present
+pt_payment_id. The matched-vs-unmatched auto-uncheck decision happens centrally in
+`PaymentsService.changeStatusOfAPayment` (`maybeAutoUncheckBeforeDelete`), so an
+unmatched-but-confirmed payment is auto-unchecked and deleted with NO sync error;
+only a truly matched/reconciled payment reaches the Failed hold.
