@@ -59,3 +59,25 @@ rely on the outer catch — its reference is orphaned.
 "2501 - Alba") that passed all validation, saved its `xero_invoices_bills` row,
 then died inside `addPaymentClaim` with zero diagnostic. Logging here makes the
 reconciliation delta readable; it does NOT fix the reconciliation math itself.
+
+# Helper that hands logging back to the caller needs a tri-state, not a bool
+
+When a pre-step helper inside `handleInvoiceCreateUpdate` (e.g. the smart-create-
+contact-on-bill hook) sometimes writes its own specific sync-log and sometimes
+wants the caller's existing generic mapping-failure log (264/424 missing mirror,
+265/425 unmapped) to fire, a boolean `false` is ambiguous: the caller can't tell
+"I already logged, suppress yours" from "I logged nothing, please log".
+
+**Rule:** return a tri-state — `'mapped'` (success, continue), `'failed_logged'`
+(helper wrote its own log; caller returns without the generic one), and
+`'failed_generic'` (helper wrote NOTHING; caller falls through to its standard
+264/265/424/425 log). A bare `false` that the caller maps to "suppress generic
+log" silently drops every helper exit that didn't log (permanently-unmapped,
+no live Xero contact, no payload).
+
+**How to apply:** the fall-through (`failed_generic`) relies on the caller's
+mutually-exclusive `!mirror`→264/424 / `!pt_contact_id`→265/425 checks below the
+hook, so exactly one log fires. The caller's `xeroContactDetails` is the pre-hook
+read, so a helper that created a mirror row mid-flight may log 264 instead of 265
+— acceptable (logged once); re-fetch before the generic block only if 264-vs-265
+precision matters.

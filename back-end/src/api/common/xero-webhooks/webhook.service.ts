@@ -1919,9 +1919,11 @@ export class XeroWebhookService {
     decoded: any,
     sync_run_type: string,
     sync_id?: string,
-  ): Promise<boolean> {
+  ): Promise<'mapped' | 'failed_logged' | 'failed_generic'> {
     const contactID = invoice?.contact?.contactID;
-    if (!contactID) return false;
+    // No contact id to work with — let the caller write its standard
+    // contact-mapping failure log (264/424).
+    if (!contactID) return 'failed_generic';
     const companyId = xeroDetails.company_id;
 
     // Idempotency re-check: another webhook/scheduler pass may have already
@@ -1935,7 +1937,7 @@ export class XeroWebhookService {
       this.logger.debug(
         `[BILL_TRACE] smartCreateContactFromBill: contact ${contactID} already mapped (pt_contact_id=${mirror.pt_contact_id}); skipping.`,
       );
-      return true;
+      return 'mapped';
     }
 
     // Respect the user's explicit "never re-link" choice — fall through to
@@ -1944,7 +1946,7 @@ export class XeroWebhookService {
       this.logger.log(
         `[BILL_TRACE] smartCreateContactFromBill: contact ${contactID} is permanently unmapped; not auto-creating.`,
       );
-      return false;
+      return 'failed_generic';
     }
 
     // Pull the live contact from Xero.
@@ -1958,7 +1960,9 @@ export class XeroWebhookService {
       this.logger.warn(
         `[BILL_TRACE] smartCreateContactFromBill: no Xero contact found for ${contactID}.`,
       );
-      return false;
+      // No live Xero contact to import — let the caller write its standard
+      // contact-mapping failure log (264/424).
+      return 'failed_generic';
     }
 
     // Ensure a mirror row exists so we have something to map.
@@ -2013,7 +2017,7 @@ export class XeroWebhookService {
         updated_records: null,
         synced_records: null,
       });
-      return false;
+      return 'failed_logged';
     }
 
     // Decision 1 — same-name auto-map. Bills are supplier documents, so we
@@ -2065,7 +2069,7 @@ export class XeroWebhookService {
         updated_records: null,
         synced_records: [existing],
       });
-      return true;
+      return 'mapped';
     }
 
     // Create a fresh Supplier and map it. Reuse handleContactCreate so the
@@ -2075,7 +2079,9 @@ export class XeroWebhookService {
       contact,
       companyId,
     );
-    if (!payload) return false;
+    // Defensive: payload builder returned nothing. Let the caller write its
+    // standard contact-mapping failure log (264/424) rather than fail silently.
+    if (!payload) return 'failed_generic';
     // Bills are supplier documents — always create as Supplier regardless of
     // the Xero isCustomer/isSupplier flags.
     payload.client_supplier_type = 'Supplier';
@@ -2124,12 +2130,12 @@ export class XeroWebhookService {
         updated_records: null,
         synced_records: [created],
       });
-      return true;
+      return 'mapped';
     }
 
     // handleContactCreate already wrote its own failure log (e.g. 368 missing
     // mandatory fields). Signal failure so the caller does not double-log.
-    return false;
+    return 'failed_logged';
   }
 
   async handleContactCreate(
@@ -2653,7 +2659,7 @@ export class XeroWebhookService {
           this.logger.debug(
             `[BILL_TRACE] Step 5b: smart_contact_auto_create ON and contact unmapped — attempting smartCreateContactFromBill for contactID=${invoice.contact?.contactID}`,
           );
-          const mapped = await this.smartCreateContactFromBill(
+          const smartResult = await this.smartCreateContactFromBill(
             invoice,
             xeroDetails,
             xeroContactDetails,
@@ -2661,7 +2667,7 @@ export class XeroWebhookService {
             sync_run_type,
             data?.sync_id,
           );
-          if (mapped) {
+          if (smartResult === 'mapped') {
             // Re-fetch the now-mapped mirror so the checks below pass and
             // processing continues into the smart-contract step.
             xeroContactDetails = await this.xeroContactDetails.findOne({
@@ -2670,12 +2676,16 @@ export class XeroWebhookService {
                 integration_id: xeroDetails.integration_id,
               },
             });
-          } else {
+          } else if (smartResult === 'failed_logged') {
             // smartCreateContactFromBill already wrote a specific sync log for
             // the failure reason (missing fields, archived, etc.); don't also
-            // write the generic 264/425 mapping-failure log.
+            // write the generic 264/265/424/425 mapping-failure log.
             return false;
           }
+          // smartResult === 'failed_generic': the helper deliberately did NOT
+          // write a log (permanently-unmapped, no live contact, etc.). Fall
+          // through so the standard 264/265/424/425 mapping-failure log below
+          // still records the outcome.
         }
 
         if (!xeroContactDetails) {
