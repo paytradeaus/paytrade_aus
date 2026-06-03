@@ -1335,10 +1335,25 @@ export class XeroWebhookService {
     sync_id?: string,
     data?: any,
     decoded?: any,
+    // Task #357 — optional out-param. When the handler writes (or dedups
+    // onto) a Failed detail sync-log on its way to returning a falsy
+    // result, it stamps that row's id here so the manual-sync dispatcher
+    // can link the trigger row directly to the real failure detail
+    // instead of telling the user to "check the rows that follow".
+    capture?: { detailLogId?: string | null; detailSyncId?: number | null },
   ) {
     this.logger.log(
       `[Xero Service] Contact Update initiated: ${resource_id} (Tenant: ${tenant_id})`,
     );
+
+    // Records the id of the most recent Failed detail sync-log this run
+    // produced (or deduped onto), so callers can route the user to it.
+    const stampCapture = (row: any) => {
+      if (!capture || !row) return;
+      if ((row as any).id) capture.detailLogId = (row as any).id;
+      if ((row as any).sync_id != null)
+        capture.detailSyncId = (row as any).sync_id;
+    };
 
     try {
       // Multi-row tenant guard: prefer the Connected - active integration
@@ -1555,7 +1570,7 @@ export class XeroWebhookService {
                   'This contact is linked to one or more contracts/claims or payments. You are unable to delete this contact from the Client/Supplier list to avoid system error.'.toLowerCase(),
                 )
             ) {
-              await this.xeroService.insertXeroSyncLogs(decoded, {
+              const linkedFailLog = await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: sync_id || null,
                 api_name: 'createContactInPaytradeThroughWebhook',
                 api_payload: {
@@ -1588,6 +1603,7 @@ export class XeroWebhookService {
                 updated_records: null,
                 synced_records: null,
               });
+              stampCapture(linkedFailLog);
               return false;
             }
           }
@@ -1624,7 +1640,7 @@ export class XeroWebhookService {
           this.logger.log(
             `[Xero Contact Webhook] Skipping unmapped archived contact ${contactID} (${name})`,
           );
-          await this.xeroService.insertXeroSyncLogs(decoded, {
+          const archivedFailLog = await this.xeroService.insertXeroSyncLogs(decoded, {
             id: sync_id || null,
             api_name: 'createContactInPaytradeThroughWebhook',
             api_payload: {
@@ -1653,6 +1669,7 @@ export class XeroWebhookService {
             updated_records: null,
             synced_records: null,
           });
+          stampCapture(archivedFailLog);
           return false;
         }
 
@@ -1759,6 +1776,58 @@ export class XeroWebhookService {
         });
         return pt_client_supplier;
       }
+
+      // Task #357 — Silent-failure guard. Several upstream branches set
+      // `pt_client_supplier` to a falsy value WITHOUT writing a detail
+      // sync-log and without returning: a permanently-unmapped contact,
+      // a name-match that resolves to null/false, or a swallowed
+      // updateClientSuppliersStatusById failure. Before this guard those
+      // paths fell straight through to an implicit `undefined` return,
+      // which the manual re-sync trigger reported as a "processing
+      // failure" with nothing to point at. Persist a Failed detail log
+      // (deduped onto any prior identical row) and capture it so the
+      // trigger can deep-link to a real, inspectable failure.
+      const unmappedReason = xeroContactDetails?.permanently_unmapped
+        ? 'This contact is marked permanently unmapped in Pay Trade, so it was not imported or linked. Remove the permanently-unmapped flag in the Xero contact mapping, then retry the import to bring it into Pay Trade.'
+        : 'Pay Trade could not import or link this Xero contact — no matching Pay Trade contact was created or found. Open the contact in the Xero contact mapping to map it manually, then retry the import.';
+      const fallThroughLog = await this.xeroService.insertXeroSyncLogs(
+        decoded,
+        {
+          id: sync_id || null,
+          api_name: 'createContactInPaytradeThroughWebhook',
+          api_payload: {
+            contact_id: contactID,
+            tenant_id: xeroDetails.tenant_id,
+            client_supplier_name: contact?.name,
+            client_email_id: contact?.emailAddress || '',
+          },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 638,
+          dynamic_values: { error_message: unmappedReason },
+          project_id: null,
+          contract_id: null,
+          reference: {
+            xeroId: xeroContactDetails?.id,
+            paytradeId: null,
+          },
+          reference_id: xeroContactDetails?.id || contactID,
+          history: [
+            `API triggered from contact webhook ${contact?.name || ''}`,
+            'Import failed — contact could not be mapped into Pay Trade',
+          ],
+          important_checks: {
+            'Contact import': 'Failed',
+          },
+          error_message: unmappedReason,
+          xero_records: contact ? [contact] : [],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        },
+      );
+      stampCapture(fallThroughLog);
+      return false;
     } catch (err) {
       const error = await handleAxiosError(err);
       this.logger.error(`[Xero Service] Failed to fetch contact:` + " " + JSON.stringify(error));
@@ -1804,7 +1873,7 @@ export class XeroWebhookService {
             companyAdmin?.user_timezone,
           );
 
-          await this.xeroService.insertXeroSyncLogs(decoded, {
+          const reAuthLog = await this.xeroService.insertXeroSyncLogs(decoded, {
             api_name: 'createContactInPaytradeThroughWebhook',
             api_payload: {
               contact_id: resource_id,
@@ -1829,6 +1898,7 @@ export class XeroWebhookService {
             updated_records: null,
             synced_records: null,
           });
+          stampCapture(reAuthLog);
         } catch (error) {
           this.logger.error(`[Xero Service] Failed to fetch contact:` + " " + JSON.stringify(error));
         }
@@ -1855,7 +1925,7 @@ export class XeroWebhookService {
             const errorMessage =
               (error && (error.message || JSON.stringify(error))) ||
               'Unknown error';
-            await this.xeroService.insertXeroSyncLogs(decoded, {
+            const nonAuthFailLog = await this.xeroService.insertXeroSyncLogs(decoded, {
               api_name: 'createContactInPaytradeThroughWebhook',
               api_payload: { contact_id: resource_id, tenant_id },
               integration_id: xeroDetails.integration_id,
@@ -1879,6 +1949,7 @@ export class XeroWebhookService {
               updated_records: null,
               synced_records: null,
             });
+            stampCapture(nonAuthFailLog);
           }
         } catch (logErr) {
           this.logger.error(
@@ -15676,6 +15747,12 @@ export class XeroWebhookService {
     message: string;
     syncLogId?: number | null;
     resolvedXeroId?: string | null;
+    // Task #357 — uuid + display id of the real detail failure log the
+    // handler produced (or deduped onto) on a failed run, so the trigger
+    // row can deep-link straight to it instead of telling the user to
+    // "check the rows that follow this trigger".
+    relatedLogId?: string | null;
+    relatedSyncId?: number | null;
   }> {
     const company_id = Number(input?.company_id);
     const rawType = String(input?.type || '').trim().toLowerCase();
@@ -15806,6 +15883,106 @@ export class XeroWebhookService {
       }
     };
 
+    // Task #357 — timestamp the start of this run so the related-failure
+    // resolver can scope to detail logs written DURING this run (covers
+    // the case where the handler's failure was deduped onto a PRIOR row
+    // — which sorts ABOVE the trigger and is therefore invisible to the
+    // "rows that follow this trigger" hint).
+    const runStartedAt = new Date();
+
+    // Find the real detail failure log this run produced. Prefers a row
+    // keyed to the resolved resource id (so dedup onto a prior row still
+    // resolves), then falls back to the newest non-trigger failure/warning
+    // log written since the run started.
+    const resolveRelatedFailureLog = async (
+      resourceKeys: Array<string | null | undefined>,
+    ): Promise<{ id: string; sync_id: number } | null> => {
+      try {
+        const keys = Array.from(
+          new Set(resourceKeys.filter(Boolean).map((k) => String(k))),
+        );
+        const rows = await this.xeroSyncLogs.query(
+          `SELECT l.id, l.sync_id
+             FROM xero_sync_logs l
+             INNER JOIN xero_log_templates t ON t.id = l.log_template_id
+            WHERE l.integration_id = $1
+              AND l.archived_at IS NULL
+              AND t.sync_status <> 'Succeeded'
+              AND l.log_template_id NOT IN (499, 518, 519, 520)
+              AND (
+                l.created_on >= $2
+                OR (
+                  cardinality($3::text[]) > 0
+                  AND COALESCE(
+                        l.api_payload->>'invoice_id',
+                        l.api_payload->>'contact_id',
+                        l.api_payload->>'account_id',
+                        l.api_payload->>'bank_transfer_id',
+                        l.api_payload->>'payment_id',
+                        l.api_payload->>'manual_journal_id',
+                        l.reference_id
+                      ) = ANY($3::text[])
+                )
+              )
+            ORDER BY
+              (
+                CASE WHEN cardinality($3::text[]) > 0
+                       AND COALESCE(
+                            l.api_payload->>'invoice_id',
+                            l.api_payload->>'contact_id',
+                            l.api_payload->>'account_id',
+                            l.api_payload->>'bank_transfer_id',
+                            l.api_payload->>'payment_id',
+                            l.api_payload->>'manual_journal_id',
+                            l.reference_id
+                          ) = ANY($3::text[])
+                     THEN 0 ELSE 1 END
+              ) ASC,
+              l.created_on DESC,
+              l.sync_id DESC
+            LIMIT 1`,
+          [integration_id, runStartedAt, keys],
+        );
+        return Array.isArray(rows) && rows.length
+          ? { id: rows[0].id, sync_id: Number(rows[0].sync_id) }
+          : null;
+      } catch (err: any) {
+        this.logger.warn(
+          `[MANUAL_RESYNC] resolveRelatedFailureLog failed: ${err?.message || err}`,
+        );
+        return null;
+      }
+    };
+
+    // Stamp the real failure-log pointer onto the legacy 499 trigger row
+    // (direct GraphQL path only — the two-sided dispatcher writes its own
+    // 518/519/520 row and stamps it separately). dynamic_values is a
+    // `json` column, so merge via a jsonb round-trip.
+    const linkTriggerToRelated = async (
+      triggerLogUuid: string | null,
+      related: { id: string; sync_id: number } | null,
+    ): Promise<void> => {
+      if (!triggerLogUuid || !related?.id) return;
+      try {
+        await this.xeroSyncLogs.query(
+          `UPDATE xero_sync_logs
+              SET dynamic_values = (
+                    COALESCE(dynamic_values::jsonb, '{}'::jsonb)
+                    || jsonb_build_object(
+                         'related_failure_log_id', $2::text,
+                         'related_failure_sync_id', $3::text
+                       )
+                  )::json
+            WHERE id = $1`,
+          [triggerLogUuid, related.id, String(related.sync_id ?? '')],
+        );
+      } catch (err: any) {
+        this.logger.warn(
+          `[MANUAL_RESYNC] linkTriggerToRelated failed: ${err?.message || err}`,
+        );
+      }
+    };
+
     try {
       // ───────────────────────────── INVOICE / BILL ─────────────────────────────
       if (rawType === 'invoice_bill') {
@@ -15881,11 +16058,17 @@ export class XeroWebhookService {
           decoded,
         );
         if (handlerOk !== true) {
+          const related = await resolveRelatedFailureLog([resolvedId]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
-            message: `Invoice/Bill ${resolvedId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row for details.`,
+            message: related
+              ? `Invoice/Bill ${resolvedId} was re-pulled from Xero but the handler reported a processing failure. Open the linked failure log for details.`
+              : `Invoice/Bill ${resolvedId} was re-pulled from Xero but the handler reported a processing failure.`,
             syncLogId,
             resolvedXeroId: resolvedId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
         return {
@@ -15954,11 +16137,17 @@ export class XeroWebhookService {
           decoded,
         );
         if (paymentHandlerOk !== true) {
+          const related = await resolveRelatedFailureLog([invoiceId, rawId]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
-            message: `Payment ${rawId} was resolved to invoice ${invoiceId} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            message: related
+              ? `Payment ${rawId} was resolved to invoice ${invoiceId} but the handler reported a processing failure. Open the linked failure log for details.`
+              : `Payment ${rawId} was resolved to invoice ${invoiceId} but the handler reported a processing failure.`,
             syncLogId,
             resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
         return {
@@ -16028,11 +16217,15 @@ export class XeroWebhookService {
               resolvedXeroId: rawId,
             };
           } catch (err: any) {
+            const related = await resolveRelatedFailureLog([rawId]);
+            await linkTriggerToRelated(syncLogId as any, related);
             return {
               success: false,
               message: `Inter Trust Transfer ${rawId} handler threw: ${err?.message || String(err)}`,
               syncLogId,
               resolvedXeroId: rawId,
+              relatedLogId: related?.id ?? null,
+              relatedSyncId: related?.sync_id ?? null,
             };
           }
         }
@@ -16100,11 +16293,21 @@ export class XeroWebhookService {
           decoded,
         );
         if (transferHandlerOk !== true) {
+          const related = await resolveRelatedFailureLog([
+            xeroInvoice.invoice_id,
+            String(ptPayment.id),
+            rawId,
+          ]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
-            message: `Bank transfer ${rawId} resolved to invoice ${xeroInvoice.invoice_id} but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            message: related
+              ? `Bank transfer ${rawId} resolved to invoice ${xeroInvoice.invoice_id} but the handler reported a processing failure. Open the linked failure log for details.`
+              : `Bank transfer ${rawId} resolved to invoice ${xeroInvoice.invoice_id} but the handler reported a processing failure.`,
             syncLogId,
             resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
         return {
@@ -16147,11 +16350,15 @@ export class XeroWebhookService {
               decoded,
             );
           if (!result?.success) {
+            const related = await resolveRelatedFailureLog([rawId]);
+            await linkTriggerToRelated(syncLogId as any, related);
             return {
               success: false,
               message: `Trust movement ${rawId} could not be imported: ${result?.message || 'unknown error'}.`,
               syncLogId,
               resolvedXeroId: rawId,
+              relatedLogId: related?.id ?? null,
+              relatedSyncId: related?.sync_id ?? null,
             };
           }
           return {
@@ -16164,11 +16371,15 @@ export class XeroWebhookService {
           };
         } catch (err: any) {
           const errMsg = err?.message || String(err);
+          const related = await resolveRelatedFailureLog([rawId]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
             message: `Trust movement ${rawId} handler threw: ${errMsg}`,
             syncLogId,
             resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
       }
@@ -16189,19 +16400,37 @@ export class XeroWebhookService {
           resolvedXeroId: rawId,
           message: '',
         });
+        const contactCapture: {
+          detailLogId?: string | null;
+          detailSyncId?: number | null;
+        } = {};
         const contactHandlerOk = await this.handleContactCreateUpdate(
           rawId,
           tenant_id,
           '',
           { sync_run_type: 'manual' },
           decoded,
+          contactCapture,
         );
         if (!contactHandlerOk) {
+          // Prefer the exact row the handler wrote/deduped onto; fall back
+          // to a resource-keyed lookup if the capture came back empty.
+          const related = contactCapture.detailLogId
+            ? {
+                id: contactCapture.detailLogId,
+                sync_id: Number(contactCapture.detailSyncId ?? 0),
+              }
+            : await resolveRelatedFailureLog([rawId]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
-            message: `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
+            message: related
+              ? `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure. Open the linked failure log for details.`
+              : `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure.`,
             syncLogId,
             resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
         return {
@@ -16238,11 +16467,17 @@ export class XeroWebhookService {
           decoded,
         );
         if (mjHandlerOk !== true) {
+          const related = await resolveRelatedFailureLog([rawId]);
+          await linkTriggerToRelated(syncLogId as any, related);
           return {
             success: false,
-            message: `Manual Journal ${rawId} was re-pulled from Xero but the handler reported a processing failure (or anti-echo skipped a self-posted journal). Check the sync log entries that follow this trigger row.`,
+            message: related
+              ? `Manual Journal ${rawId} was re-pulled from Xero but the handler reported a processing failure (or anti-echo skipped a self-posted journal). Open the linked failure log for details.`
+              : `Manual Journal ${rawId} was re-pulled from Xero but the handler reported a processing failure (or anti-echo skipped a self-posted journal).`,
             syncLogId,
             resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
           };
         }
         return {
@@ -21240,6 +21475,8 @@ export class XeroWebhookService {
           : 'import_completed'
         : 'import_failed',
       childSyncLogId: result.syncLogId || null,
+      relatedFailureLogId: result.relatedLogId || null,
+      relatedFailureSyncId: result.relatedSyncId || null,
     });
     return { ...result, direction };
   }
@@ -21259,6 +21496,11 @@ export class XeroWebhookService {
       preflightSnapshot?: any;
       outcome?: string;
       childSyncLogId?: number | null;
+      // Task #357 — the real detail failure log (uuid + display id) the
+      // suppressed import run produced, so the 520 trigger can deep-link
+      // to it instead of saying "check the rows that follow this trigger".
+      relatedFailureLogId?: string | null;
+      relatedFailureSyncId?: number | null;
     },
   ): Promise<number | null> {
     try {
@@ -21319,6 +21561,13 @@ export class XeroWebhookService {
       if (params.childSyncLogId) {
         history.push(`Linked import sync log id: ${params.childSyncLogId}`);
       }
+      if (params.relatedFailureLogId) {
+        history.push(
+          `Linked failure detail sync log id: ${
+            params.relatedFailureSyncId ?? params.relatedFailureLogId
+          }`,
+        );
+      }
       const log = await this.xeroService.insertXeroSyncLogs(decoded, {
         id: null,
         api_name: 'manualXeroTwoSidedSync',
@@ -21332,6 +21581,8 @@ export class XeroWebhookService {
           reviewed: !!params.reviewed,
           outcome: params.outcome || null,
           child_sync_log_id: params.childSyncLogId || null,
+          related_failure_log_id: params.relatedFailureLogId || null,
+          related_failure_sync_id: params.relatedFailureSyncId || null,
           preflight: snap || null,
         },
         integration_id,
@@ -21348,6 +21599,15 @@ export class XeroWebhookService {
           user_id: String(triggeredByUserId ?? ''),
           id: params.xero_id || params.pt_id,
           resolved_id: params.xero_id || params.pt_id,
+          // Task #357 — surfaced as a deep link in the sync-log detail UI.
+          ...(params.relatedFailureLogId
+            ? {
+                related_failure_log_id: params.relatedFailureLogId,
+                related_failure_sync_id: String(
+                  params.relatedFailureSyncId ?? '',
+                ),
+              }
+            : {}),
         },
         project_id: null,
         contract_id: null,

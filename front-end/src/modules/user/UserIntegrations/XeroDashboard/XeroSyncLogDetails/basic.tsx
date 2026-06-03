@@ -1776,6 +1776,38 @@ export default function SyncLogDetailsBasic() {
                 )}
               </div>
             </div>
+            {!loading &&
+              syncLogDetailsData?.dynamic_values?.related_failure_log_id && (
+                <div className="pt_infodata">
+                  <div className="pt_infolistdata">
+                    <h6>Related failure log</h6>
+                    <a
+                      href={`/user/integrations/xero/syncLogDetails/${syncLogDetailsData.dynamic_values.related_failure_log_id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push(
+                          `/user/integrations/xero/syncLogDetails/${syncLogDetailsData.dynamic_values.related_failure_log_id}`
+                        );
+                      }}
+                      style={{
+                        color: "#2563EB",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <i
+                        className="fa-light fa-arrow-up-right-from-square"
+                        style={{ marginRight: "8px" }}
+                      ></i>
+                      View the related failure log
+                      {syncLogDetailsData?.dynamic_values
+                        ?.related_failure_sync_id
+                        ? ` (#${syncLogDetailsData.dynamic_values.related_failure_sync_id})`
+                        : ""}
+                    </a>
+                  </div>
+                </div>
+              )}
             {loading ? (
               <div className="skeleton"></div>
             ) : (

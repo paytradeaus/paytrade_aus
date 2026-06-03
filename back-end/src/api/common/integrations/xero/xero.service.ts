@@ -1700,7 +1700,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         ];
 
         const existingDuplicate = await this.xeroSyncLogs.query(
-          `SELECT id, dynamic_values, created_on
+          `SELECT id, sync_id, dynamic_values, created_on
            FROM   xero_sync_logs
            WHERE  integration_id  = $1
              AND  log_template_id = ANY($2::int[])
