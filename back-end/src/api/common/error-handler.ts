@@ -314,6 +314,32 @@ export function extractAxiosErrorContext(axiosError: any): AxiosErrorContext {
   };
 }
 
+// Compose the richest human-readable one-liner we can from an already
+// extracted AxiosErrorContext. When a recognised Xero body shape matched,
+// `ctx.message` is already the best one-liner (validation feedback,
+// ProblemDetails, etc) so we return it unchanged. When we hit the generic
+// fallback (the body couldn't be decoded into a known shape — the case that
+// previously surfaced the bare "An error occurred in Xero"), append the
+// diagnostic breadcrumbs (status, method, endpoint, tenant, Xero error
+// number, body snippet) that today only go to the app logger so the sync
+// log row the user reads is actually debuggable.
+export function composeXeroErrorMessage(ctx: AxiosErrorContext): string {
+  if (!ctx || !ctx.usedGenericFallback) {
+    return ctx?.message ?? 'An error occurred in Xero';
+  }
+  const parts: string[] = [];
+  if (ctx.status != null) parts.push(`HTTP ${ctx.status}`);
+  if (ctx.url) parts.push(`${ctx.method || 'GET'} ${ctx.url}`);
+  if (ctx.tenantId) parts.push(`tenant ${ctx.tenantId}`);
+  if (ctx.xeroErrorNumberDescription) {
+    parts.push(ctx.xeroErrorNumberDescription);
+  } else if (ctx.xeroErrorNumber != null) {
+    parts.push(`Xero error ${ctx.xeroErrorNumber}`);
+  }
+  if (ctx.bodySnippet) parts.push(`body=${ctx.bodySnippet}`);
+  return parts.length ? `${ctx.message} (${parts.join(' — ')})` : ctx.message;
+}
+
 export async function handleAxiosError(axiosError): Promise<any> {
   return new Promise(async (resolve, reject) => {
     // If it's a string, try parsing it first so we can short-circuit the

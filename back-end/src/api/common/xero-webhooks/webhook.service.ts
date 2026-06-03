@@ -1,6 +1,6 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { buildMissingFieldsLog } from '../integrations/xero/utils/xero-missing-fields.util';
-import { extractAxiosErrorContext } from '../error-handler';
+import { extractAxiosErrorContext, composeXeroErrorMessage } from '../error-handler';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { jwtConstants } from 'src/api/auth/constants';
@@ -2864,6 +2864,14 @@ export class XeroWebhookService {
       return true;
     } catch (err) {
       const error = await handleAxiosError(err);
+      // Carry the rich diagnostic context (status, method, url, tenant, Xero
+      // error number + description, validation errors, body snippet) through
+      // to the 636/637 sync-log row so the user reads real detail instead of
+      // the bare "An error occurred in Xero". `error` (the flat resolved
+      // string) is left untouched so the refresh-token string-match below is
+      // unaffected.
+      const errorContext = extractAxiosErrorContext(err);
+      const detailedErrorMessage = composeXeroErrorMessage(errorContext);
       this.logger.error(`[BILL_TRACE] CATCH: handleInvoiceCreateUpdate failed — ${JSON.stringify(error)}`);
 
       const isRefreshToken = this.xeroResolver.refreshTokenReAuthenticate({
@@ -2966,6 +2974,22 @@ export class XeroWebhookService {
                 sync_run_type,
                 invoice_id: resource_id,
                 tenant_id,
+                // Persist the structured diagnostic fields alongside the
+                // composed message so support has the machine-readable detail
+                // (status / method / url / tenant / xero error number /
+                // validation errors / body snippet) for any failure.
+                error_context: {
+                  status: errorContext.status,
+                  method: errorContext.method,
+                  url: errorContext.url,
+                  tenantId: errorContext.tenantId,
+                  xeroErrorNumber: errorContext.xeroErrorNumber,
+                  xeroErrorNumberDescription:
+                    errorContext.xeroErrorNumberDescription,
+                  validationErrors: errorContext.validationErrors,
+                  bodySnippet: errorContext.bodySnippet,
+                  usedGenericFallback: errorContext.usedGenericFallback,
+                },
               },
               integration_id: xeroDetails.integration_id,
               log_template_id: sync_run_type === 'webhook' ? 636 : 637,
@@ -2981,9 +3005,7 @@ export class XeroWebhookService {
               important_checks: {
                 'Import data format validation': 'Failed',
               },
-              error_message:
-                (error && (error.message || error?.body?.Message)) ||
-                JSON.stringify(error),
+              error_message: detailedErrorMessage,
               xero_records: [],
               paytrade_records: [],
               new_records: null,
