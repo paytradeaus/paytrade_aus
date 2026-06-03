@@ -965,6 +965,10 @@ export class PaymentsResolver {
                 let xeroPayload: any = {
                   payment_id: payload.payment_id,
                   cash_retention: paymentDetails?.cash_retention,
+                  // Phase 4 — PT-side delete must not delete a payment that
+                  // is reconciled in Xero; deletePayment logs a clear 643
+                  // sync error and skips instead.
+                  block_if_reconciled: true,
                 };
                 await Promise.all(
                   paymentDetails.subPayments.map(async (element) => {

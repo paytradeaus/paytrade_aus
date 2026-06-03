@@ -5880,5 +5880,39 @@
     "from_xero": true,
     "error_code": null,
     "associated_log_ids": []
+  },
+  {
+    "id": 641,
+    "sync_type": "Invoice webhook",
+    "description": "<p>This payment is confirmed and protected in Pay Trade, so the deletion requested in Xero was intentionally not applied. No action is needed.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Info",
+    "from_xero": true,
+    "error_code": "WH_PAYMENT_PROTECTED_FROM_DELETE_SKIPPED",
+    "associated_log_ids": [
+      642
+    ]
+  },
+  {
+    "id": 642,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>This payment is confirmed and protected in Pay Trade, so the deletion requested in Xero was intentionally not applied. No action is needed.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Info",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYMENT_PROTECTED_FROM_DELETE_SKIPPED",
+    "associated_log_ids": [
+      641
+    ]
+  },
+  {
+    "id": 643,
+    "sync_type": "Payments",
+    "description": "<p>The payment was deleted in Pay Trade, but it could not be deleted in Xero because it is reconciled there. Un-reconcile it in Xero, then delete it manually.</p>",
+    "process": "Pay Trade > Xero",
+    "sync_status": "Failed",
+    "from_xero": false,
+    "error_code": "DELETE_PD_PAYMENT_RECONCILED",
+    "associated_log_ids": null
   }
 ]

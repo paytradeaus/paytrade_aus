@@ -1380,6 +1380,132 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     return;
   }
 
+  /**
+   * Task #359 (revised) — matched/reconciled payment-delete refusal HOLD.
+   *
+   * After the Task #359 follow-up, an Xero-initiated delete of a payment
+   * whose PAYMENT leg is UNMATCHED is auto uncheck-and-deleted upstream
+   * (changeStatusOfAPayment), so it never reaches here. The ONLY payments
+   * that still hit the "cannot be deleted" refusal (templates 378/webhook,
+   * 462/scheduler) are ones whose payment leg is MATCHED/reconciled in Pay
+   * Trade — a genuine sync conflict the user must resolve by unmatching the
+   * payment in Pay Trade first.
+   *
+   * That IS a real Failed sync error, but Xero re-sends the delete event on
+   * every webhook + ~15-minute scheduler run, so without a guard it would
+   * bump occurrence_count forever / look broken. So we KEEP the Failed log
+   * but HOLD it: write exactly ONE Failed row, then skip every re-delivery
+   * (idempotent) until the user acts.
+   *
+   * `target` (641/642) is retained ONLY so the idempotency lookup still
+   * matches any legacy Info rows written by the earlier #359 build.
+   */
+  private static readonly BY_DESIGN_PAYMENT_DELETE_SKIP_MAP: Record<
+    number,
+    { target: number; errorCode: string }
+  > = {
+    378: { target: 641, errorCode: 'WH_PAYMENT_MATCHED_DELETE_BLOCKED' },
+    462: {
+      target: 642,
+      errorCode: 'SCHEDULER_PAYMENT_MATCHED_DELETE_BLOCKED',
+    },
+  };
+
+  /**
+   * Hold the matched-payment delete refusal as a single Failed sync error.
+   *
+   * Returns 'skip' to tell insertXeroSyncLogs to short-circuit the persist
+   * when a "cannot be deleted" log already exists for this payment (current
+   * Failed 378/462, or a legacy Info 641/642 row) — so re-deliveries never
+   * add a new row nor bump occurrence_count. Otherwise rewrites the wording
+   * in place (telling the user to unmatch first) and returns void so a
+   * single Failed row is written.
+   */
+  private async maybeHandleByDesignPaymentDeleteSkip(
+    input: CreateXeroSyncLogInput,
+  ): Promise<'skip' | void> {
+    if (!input || input.id) return; // only intercept *new* rows
+    const incomingTemplateId = Number(input.log_template_id);
+    const mapping =
+      XeroService.BY_DESIGN_PAYMENT_DELETE_SKIP_MAP[incomingTemplateId];
+    if (!mapping) return;
+
+    const integrationId = Number(input.integration_id);
+    if (!integrationId) return;
+
+    // Stable identifiers for the protected payment. Every call site sets
+    // reference_id to the xero_payments row id; api_payload.payment_id is
+    // a secondary signal (some paths omit it).
+    const referenceId =
+      input.reference_id != null && String(input.reference_id).length
+        ? String(input.reference_id)
+        : null;
+    const ptPaymentId =
+      input.api_payload &&
+      typeof input.api_payload === 'object' &&
+      (input.api_payload as any).payment_id != null
+        ? String((input.api_payload as any).payment_id)
+        : null;
+
+    // Idempotency guard. Match against both the legacy Failed templates
+    // (378/462) and the new Info templates (641/642) so that:
+    //   - a payment that already carries a historical Failed row stops
+    //     bumping its occurrence_count and gets no new row, and
+    //   - a freshly-protected payment writes exactly ONE Info row, then
+    //     every subsequent re-delivery is skipped.
+    if (referenceId || ptPaymentId) {
+      const candidateTemplateIds = Array.from(
+        new Set([
+          ...Object.keys(XeroService.BY_DESIGN_PAYMENT_DELETE_SKIP_MAP).map(
+            Number,
+          ),
+          ...Object.values(XeroService.BY_DESIGN_PAYMENT_DELETE_SKIP_MAP).map(
+            (m) => m.target,
+          ),
+        ]),
+      );
+      try {
+        const existing = await this.xeroSyncLogs.query(
+          `SELECT id
+           FROM   xero_sync_logs
+           WHERE  integration_id  = $1
+             AND  log_template_id = ANY($2::int[])
+             AND  archived_at IS NULL
+             AND  (
+               ($3::text IS NOT NULL AND reference_id = $3)
+               OR ($4::text IS NOT NULL AND api_payload->>'payment_id' = $4)
+             )
+           LIMIT 1`,
+          [integrationId, candidateTemplateIds, referenceId, ptPaymentId],
+        );
+        if (Array.isArray(existing) && existing.length > 0) {
+          return 'skip';
+        }
+      } catch (guardErr: any) {
+        this.logger.warn(
+          `[maybeHandleByDesignPaymentDeleteSkip] idempotency lookup failed (non-fatal): ${guardErr?.message || guardErr}`,
+        );
+        // Fail open — fall through and write a single Info row rather
+        // than re-emitting a Failed log.
+      }
+    }
+
+    // First occurrence — keep it as a GENUINE Failed sync error (the
+    // payment is matched/reconciled in Pay Trade, so the deletion in Xero
+    // genuinely conflicts), but rewrite the wording so the user knows to
+    // unmatch (uncheck) the payment in Pay Trade first. The idempotency
+    // guard above holds it to a single actionable row; we keep the incoming
+    // Failed template and Failed important_checks set by the call site.
+    const paymentType =
+      (input.api_payload as any)?.payment_type || 'Confirmed';
+    (input as any).error_code = mapping.errorCode;
+    input.error_message = `${paymentType} payment is matched/reconciled in Pay Trade, so the deletion requested in Xero was not applied. Unmatch (uncheck) the payment in Pay Trade first, then it can be deleted to match Xero.`;
+    input.dynamic_values = {
+      ...(input.dynamic_values || {}),
+      hold_reason: 'payment_matched_unmatch_first',
+    };
+  }
+
   private async maybeDowngradeContactMirrorLog(
     input: CreateXeroSyncLogInput,
   ): Promise<'skip' | void> {
@@ -1623,6 +1749,25 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     } catch (skipErr: any) {
       this.logger.warn(
         `[insertXeroSyncLogs] record-mirror skip check failed (non-fatal): ${skipErr?.message || skipErr}`,
+      );
+    }
+
+    // Task #359 — reclassify the by-design "confirmed payment cannot be
+    // deleted" refusal (templates 378/462) as a single informational note
+    // and suppress recurring re-logs / occurrence bumps.
+    try {
+      const byDesignSkip = await this.maybeHandleByDesignPaymentDeleteSkip(
+        createXeroSyncLogInput,
+      );
+      if (byDesignSkip === 'skip') {
+        this.logger.log(
+          `[insertXeroSyncLogs] skipped repeat by-design payment-delete note — integration_id=${createXeroSyncLogInput.integration_id} reference_id=${createXeroSyncLogInput.reference_id} payment_id=${(createXeroSyncLogInput.api_payload as any)?.payment_id ?? null} original_template=${createXeroSyncLogInput.log_template_id}`,
+        );
+        return null;
+      }
+    } catch (byDesignErr: any) {
+      this.logger.warn(
+        `[insertXeroSyncLogs] by-design payment-delete reclassify failed (non-fatal): ${byDesignErr?.message || byDesignErr}`,
       );
     }
 

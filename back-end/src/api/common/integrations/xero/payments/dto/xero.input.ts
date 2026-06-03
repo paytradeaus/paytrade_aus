@@ -148,6 +148,13 @@ export class DeletePaymentInput {
       'Task #52 — When false, skip reversing the Xero BankTransfer leg (only the Payment delete fires). Default true (when cash_retention=true).',
   })
   delete_transfer?: boolean;
+
+  // Internal-only (intentionally NOT a GraphQL @Field). Set true by the
+  // PT-side delete path so deletePayment refuses to delete a Xero payment
+  // that is already reconciled there (Xero would reject it anyway); instead
+  // it logs a clear PT→Xero "reconciled" sync error and returns false. The
+  // per-leg un-tick path leaves this unset, preserving existing behaviour.
+  block_if_reconciled?: boolean;
 }
 
 @InputType({ description: 'Input for deleting an overpayment record' })

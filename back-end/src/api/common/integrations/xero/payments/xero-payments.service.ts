@@ -3981,6 +3981,49 @@ export class XeroPaymentsService {
       });
 
       // ---------------------------------------------------------
+      // Phase 4 — Reconciled guard (delete path only). When the PT-side
+      // delete path sets `block_if_reconciled`, refuse to delete a Xero
+      // payment that is already reconciled there. Xero will not allow the
+      // delete of a reconciled payment, so rather than emit a generic API
+      // rejection we surface a clear, actionable Failed sync error (643)
+      // telling the user to un-reconcile in Xero first. The PT record is
+      // already deleted; this leaves PT and Xero intentionally divergent
+      // until the user acts. The per-leg un-tick path never sets the flag,
+      // so its existing behaviour is unchanged.
+      // ---------------------------------------------------------
+      if (data.block_if_reconciled && xeroPayments && xeroPayments.is_reconciled) {
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          id: data?.sync_id,
+          api_name: 'deletePaymentInXero',
+          api_payload: { ...data, mapping_payment_id: payment_id },
+          integration_id: xeroDetails.integration_id,
+          log_template_id: 643,
+          dynamic_values: {},
+          project_id: xeroInvoicesBills?.project_id,
+          contract_id: xeroInvoicesBills?.contract_id,
+          reference: {
+            xeroId: xeroPayments?.payment_id || null,
+            paytradeId: paymentDetails?.id,
+          },
+          reference_id: paymentDetails?.id,
+          history: [
+            `API triggered from payment ${paymentDetails?.payment_id}`,
+            'Delete skipped — payment is reconciled in Xero',
+          ],
+          important_checks: {
+            'Import data format validation': 'Failed',
+          },
+          error_message: `The payment was deleted in Pay Trade but could NOT be deleted in Xero because it is already reconciled there. Un-reconcile it in Xero first, then delete it manually.`,
+          xero_records: [xeroPayments],
+          paytrade_records: [paymentDetails],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        return false;
+      }
+
+      // ---------------------------------------------------------
       // Task #52 — Per-leg delete path. When the caller explicitly
       // passes either delete_payment or delete_transfer (true OR
       // false), we route through the per-leg helper so that:

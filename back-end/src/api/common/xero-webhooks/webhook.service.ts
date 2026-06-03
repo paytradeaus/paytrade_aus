@@ -7345,7 +7345,7 @@ export class XeroWebhookService {
                     });
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.pt_payment_id,
@@ -7577,7 +7577,7 @@ export class XeroWebhookService {
                       });
                   } catch (error) {
                     const errMsg = error?.message ? error?.message : error;
-                    if (errMsg == `The confirmed payment cannot be deleted.`) {
+                    if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                       const paytradePayment = await this.paymentDetails.findOne(
                         {
                           where: {
@@ -7823,7 +7823,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: element.payment_id,
@@ -8302,7 +8302,7 @@ export class XeroWebhookService {
                             ? error?.message
                             : error;
                           if (
-                            errMsg == `The confirmed payment cannot be deleted.`
+                            errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`
                           ) {
                             const paytradePayment =
                               await this.paymentDetails.findOne({
@@ -8624,7 +8624,7 @@ export class XeroWebhookService {
                     });
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.pt_payment_id,
@@ -9195,7 +9195,7 @@ export class XeroWebhookService {
                       });
                   } catch (error) {
                     const errMsg = error?.message ? error?.message : error;
-                    if (errMsg == `The confirmed payment cannot be deleted.`) {
+                    if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                       const paytradePayment = await this.paymentDetails.findOne(
                         {
                           where: {
@@ -9461,7 +9461,7 @@ export class XeroWebhookService {
                       } catch (error) {
                         const errMsg = error?.message ? error?.message : error;
                         if (
-                          errMsg == `The confirmed payment cannot be deleted.`
+                          errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`
                         ) {
                           const paytradePayment =
                             await this.paymentDetails.findOne({
@@ -9679,7 +9679,7 @@ export class XeroWebhookService {
                   }
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.payment_id,
@@ -9988,7 +9988,7 @@ export class XeroWebhookService {
                     });
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.pt_payment_id,
@@ -10229,7 +10229,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: element.payment_id,
@@ -10459,7 +10459,7 @@ export class XeroWebhookService {
                     });
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.pt_payment_id,
@@ -10691,7 +10691,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: element.payment_id,
@@ -12849,7 +12849,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: element.payment_id,
@@ -13711,7 +13711,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: xeroPaymentEntity.pt_payment_id,
@@ -13947,7 +13947,7 @@ export class XeroWebhookService {
                     });
                 } catch (error) {
                   const errMsg = error?.message ? error?.message : error;
-                  if (errMsg == `The confirmed payment cannot be deleted.`) {
+                  if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                     const paytradePayment = await this.paymentDetails.findOne({
                       where: {
                         payment_id: element.payment_id,
@@ -14191,7 +14191,7 @@ export class XeroWebhookService {
                   });
               } catch (error) {
                 const errMsg = error?.message ? error?.message : error;
-                if (errMsg == `The confirmed payment cannot be deleted.`) {
+                if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                   const paytradePayment = await this.paymentDetails.findOne({
                     where: {
                       payment_id: element.payment_id,
@@ -15180,7 +15180,7 @@ export class XeroWebhookService {
                       });
                   } catch (error) {
                     const errMsg = error?.message ? error?.message : error;
-                    if (errMsg == `The confirmed payment cannot be deleted.`) {
+                    if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                       const paytradePayment = await this.paymentDetails.findOne(
                         {
                           where: {
@@ -15394,7 +15394,7 @@ export class XeroWebhookService {
                       });
                   } catch (error) {
                     const errMsg = error?.message ? error?.message : error;
-                    if (errMsg == `The confirmed payment cannot be deleted.`) {
+                    if (errMsg == `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`) {
                       const paytradePayment = await this.paymentDetails.findOne(
                         {
                           where: {

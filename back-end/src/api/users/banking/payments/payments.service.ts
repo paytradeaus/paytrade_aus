@@ -1443,12 +1443,101 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Task #359 follow-up — auto uncheck-and-delete.
+   *
+   * Shared by manual UI deletes and Xero-inbound deletes (the webhook
+   * routes through changeStatusOfAPayment). When a payment is being
+   * deleted and its PAYMENT leg is NOT matched/reconciled but the payment
+   * is still confirmed (the default post-Xero-sync state, e.g.
+   * 'Paid - Unmatched' / 'Received - Unmatched' / 'Paid - Payment Unmatched
+   * - Retention Out Matched - Retention In Matched'), first UNCHECK it by
+   * reusing the proven unconfirm flow (editDetailsOfAPayment), which
+   * reverses the confirmation journals + retention trust movements and
+   * lands the payment in a deletable 'Unconfirmed - ...' state. The delete
+   * below then succeeds — no guard widening, no hand-rolled journal codes.
+   *
+   * If the PAYMENT leg IS matched/reconciled we do NOTHING here, so the
+   * delete allow-list rejects it and the caller (manual user or Xero sync
+   * log) is told to unmatch it first.
+   *
+   * Runs in its OWN transaction (via editDetailsOfAPayment), sequentially
+   * before the delete transaction, to avoid nesting. Notices are suppressed
+   * (skipNoticeTrigger=true) since this is a deletion, not a status edit the
+   * payee should be notified about.
+   */
+  private async maybeAutoUncheckBeforeDelete(
+    decoded: any,
+    payment_id: number,
+    userId?: number,
+  ): Promise<void> {
+    try {
+      if (!payment_id) return;
+      const paymentDetails = await this.paymentsRepo.findOne({
+        where: { payment_id },
+      });
+      if (!paymentDetails || paymentDetails.current_status === 'Deleted') {
+        return;
+      }
+
+      const subs = await this.subPaymentsRepo.find({ where: { payment_id } });
+      if (!subs || subs.length === 0) return;
+
+      const isConfirmed = subs.some(
+        (s) =>
+          !!s.is_paid_confirmed ||
+          !!s.is_received_confirmed ||
+          !!s.is_retention_confirmed,
+      );
+      const paymentLegMatched = subs.some(
+        (s) =>
+          s.sub_payment_type === 'Payment' &&
+          (s.status === 'Matched' || s.status === 'Auto matched'),
+      );
+      // Only auto-uncheck a confirmed, payment-leg-UNMATCHED payment.
+      if (paymentLegMatched || !isConfirmed) return;
+
+      const unconfirmInput: any = { payment_id };
+      if (subs.some((s) => !!s.is_paid_confirmed))
+        unconfirmInput.is_paid_confirmed = false;
+      if (subs.some((s) => !!s.is_received_confirmed))
+        unconfirmInput.is_received_confirmed = false;
+      if (subs.some((s) => !!s.is_retention_confirmed))
+        unconfirmInput.is_retention_confirmed = false;
+
+      this.logger.log(
+        `[AUTO_UNCHECK_BEFORE_DELETE] payment_id=${payment_id} status=${paymentDetails.current_status} unconfirming before delete: ${JSON.stringify(
+          unconfirmInput,
+        )}`,
+      );
+      await this.editDetailsOfAPayment(decoded, unconfirmInput, userId, true);
+    } catch (err) {
+      // Non-fatal: if the auto-uncheck fails, fall through to the delete.
+      // The allow-list will gate it (and log a genuine error) rather than
+      // silently corrupting journals.
+      this.logger.error(
+        `[AUTO_UNCHECK_BEFORE_DELETE] failed for payment_id=${payment_id}: ${err?.message || err}. Proceeding to delete (allow-list will gate).`,
+      );
+    }
+  }
+
   async changeStatusOfAPayment(
     decoded,
     data: ChangeStatusOfAPaymentInput,
     userId?: number,
   ) {
     try {
+      // Task #359 follow-up — for a delete request, auto uncheck-and-delete
+      // a confirmed but payment-leg-unmatched payment first (reverses
+      // journals via the proven flow). Matched payments are left untouched
+      // and the delete allow-list below rejects them.
+      if (data?.status === 'Deleted') {
+        await this.maybeAutoUncheckBeforeDelete(
+          decoded,
+          data?.payment_id,
+          userId,
+        );
+      }
       const response = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           this.logger.log(
@@ -1507,7 +1596,7 @@ export class PaymentsService {
               'Paid - Payment Unmatched - Retention Out Matched - Retention In Matched',
             ].includes(paymentDetails.current_status)
           ) {
-            throw `The confirmed payment cannot be deleted.`;
+            throw `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`;
           }
           let allowDelete = true;
           if (
@@ -2173,7 +2262,7 @@ export class PaymentsService {
                 : `This payment has been deleted.`,
             );
           }
-          throw `The confirmed payment cannot be deleted.`;
+          throw `This payment is checked (confirmed/matched) and cannot be deleted. Please uncheck it first, then delete.`;
         },
       );
 
