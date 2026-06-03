@@ -1763,7 +1763,10 @@ const BookKeepingList = (props: any) => {
             (suggestedMatches?.exact_match_count || 0) +
             (suggestedMatches?.bulk_match_count || 0)
           }`}
-          onConfirm={handleBatchMatchAllExact}
+          onConfirm={() => {
+            handleBatchMatchAllExact();
+            return true;
+          }}
         >
           <h4 className="text_center">
             This will match{" "}

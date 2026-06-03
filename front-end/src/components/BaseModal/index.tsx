@@ -151,6 +151,21 @@ export default function BaseModal({
     modal.showModal();
   }
 
+  // Tear down all global page-lock state owned by the modal: the
+  // transition classes + `modal-is-open` class on <html> and the
+  // scrollbar-width CSS variable. Shared by the animated close path, the
+  // middle-button close path, and the unmount-time safety cleanup so the
+  // teardown logic lives in exactly one place and can't drift apart.
+  function teardownGlobalModalState() {
+    const { documentElement: html } = document;
+    html.classList.remove(
+      baseModalConstants.openingClass,
+      baseModalConstants.closingClass,
+      baseModalConstants.isOpenClass
+    );
+    html.style.removeProperty(baseModalConstants.scrollbarWidthCssVar);
+  }
+
   // Function to close the modal
   function closeModal(modal: HTMLDialogElement) {
     setVisibleModal(null); // Reset the visible modal
@@ -158,12 +173,15 @@ export default function BaseModal({
     // Add class for closing transition
     html.classList.add(baseModalConstants.closingClass);
     setTimeout(() => {
-      // Remove transition classes and reset the scrollbar width
-      html.classList.remove(
-        baseModalConstants.closingClass,
-        baseModalConstants.isOpenClass
-      );
-      html.style.removeProperty(baseModalConstants.scrollbarWidthCssVar);
+      // Remove transition classes and reset the scrollbar width, then
+      // actually close the native <dialog> so its top-layer backdrop is
+      // dismissed even if the consumer keeps the modal mounted.
+      teardownGlobalModalState();
+      try {
+        modal.close();
+      } catch {
+        /* dialog may already be detached */
+      }
     }, baseModalConstants.animationDuration);
     if (restrictOncloseFunctionInHeader) {
       onHeaderIconClose();
@@ -227,6 +245,28 @@ export default function BaseModal({
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
+  }, []);
+
+  // Safety net: whenever this modal unmounts (including when a parent
+  // screen closes it by flipping its own visibility state rather than
+  // going through the modal's buttons), force-close the native <dialog>
+  // and tear down the global page-lock state. Without this, a consumer
+  // whose confirm/cancel handler doesn't run `closeModal` (e.g. an async
+  // handler that returns undefined) would unmount the <dialog> while the
+  // `modal-is-open` class + backdrop stay stuck, blocking all clicks.
+  useEffect(() => {
+    return () => {
+      const modal = document.getElementById(
+        modalId || baseModalConstants.TYPE
+      ) as HTMLDialogElement | null;
+      try {
+        modal?.close();
+      } catch {
+        /* dialog may already be detached */
+      }
+      teardownGlobalModalState();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply dynamic classes
@@ -362,13 +402,7 @@ export default function BaseModal({
                       const { documentElement: html } = document;
                       html.classList.add(baseModalConstants.closingClass);
                       setTimeout(() => {
-                        html.classList.remove(
-                          baseModalConstants.closingClass,
-                          baseModalConstants.isOpenClass,
-                        );
-                        html.style.removeProperty(
-                          baseModalConstants.scrollbarWidthCssVar,
-                        );
+                        teardownGlobalModalState();
                         try {
                           modal.close();
                         } catch {
