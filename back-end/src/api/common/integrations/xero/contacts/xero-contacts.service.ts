@@ -424,9 +424,11 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
           row.contact_id,
         );
         const contact = resp?.body?.contacts?.[0];
+        // Strip whitespace + cap to abn_number's varchar(11) width; Xero
+        // stores ABNs space-formatted (14 chars) which would overflow.
         const incomingAbn =
           typeof contact?.taxNumber === 'string'
-            ? contact.taxNumber.trim()
+            ? contact.taxNumber.replace(/\s+/g, '').slice(0, 11)
             : '';
         if (!incomingAbn) { skipped += 1; continue; }
 
@@ -1210,9 +1212,12 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       // Task #326 — Mirror Xero's taxNumber onto PT abn_number on
       // the inbound create path so new Xero contacts arrive with
       // their ABN already populated.
+      // Strip whitespace and cap to the abn_number column width (11).
+      // Xero usually stores ABNs space-formatted (e.g. "53 004 085 616"
+      // = 14 chars) which overflows varchar(11), so normalise here too.
       abn_number:
         typeof contact.taxNumber === 'string' && contact.taxNumber.trim()
-          ? contact.taxNumber.trim()
+          ? contact.taxNumber.replace(/\s+/g, '').slice(0, 11)
           : '',
       account_details: accountDetails,
     };

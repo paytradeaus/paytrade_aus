@@ -1485,9 +1485,13 @@ export class XeroWebhookService {
           // Task #326 — Mirror Xero's taxNumber onto PT abn_number when
           // present. An empty/missing incoming taxNumber is treated as
           // "no change" so we never wipe an ABN the user typed in PT.
+          // Strip whitespace and cap to the abn_number column width (11).
+          // Xero usually stores ABNs space-formatted (e.g. "53 004 085 616"
+          // = 14 chars) which overflows varchar(11) and makes the whole
+          // save throw, so normalise before assigning.
           const incomingAbn =
             typeof contact.taxNumber === 'string'
-              ? contact.taxNumber.trim()
+              ? contact.taxNumber.replace(/\s+/g, '').slice(0, 11)
               : '';
           const syncedAbn = incomingAbn
             ? incomingAbn
@@ -1828,7 +1832,66 @@ export class XeroWebhookService {
         } catch (error) {
           this.logger.error(`[Xero Service] Failed to fetch contact:` + " " + JSON.stringify(error));
         }
+      } else {
+        // Non-auth error (e.g. a DB save failure while writing the contact
+        // into Pay Trade). Previously this path only logged to the server
+        // console and returned undefined, surfacing as a generic
+        // "processing failure" with no inspectable sync log. Persist a
+        // Failed sync log carrying the real error so the manual re-sync
+        // trigger has something to point at.
+        try {
+          const candidates = await this.xeroIntegrationDetails.find({
+            where: { tenant_id, status: 'ACTIVE' },
+            relations: ['integrationDetails'],
+          });
+          const xeroDetails =
+            candidates.find(
+              (c) =>
+                c?.integrationDetails?.integration_status ===
+                'Connected - active',
+            ) ?? candidates[0];
+
+          if (xeroDetails) {
+            const errorMessage =
+              (error && (error.message || JSON.stringify(error))) ||
+              'Unknown error';
+            await this.xeroService.insertXeroSyncLogs(decoded, {
+              api_name: 'createContactInPaytradeThroughWebhook',
+              api_payload: { contact_id: resource_id, tenant_id },
+              integration_id: xeroDetails.integration_id,
+              log_template_id: 638,
+              dynamic_values: { error_message: errorMessage },
+              project_id: null,
+              contract_id: null,
+              reference: { contact_id: resource_id },
+              reference_id: null,
+              history: [
+                `API triggered from contact webhook`,
+                'Import failed',
+              ],
+              important_checks: {
+                'Contact import': 'Failed',
+              },
+              error_message: errorMessage,
+              xero_records: [],
+              paytrade_records: [],
+              new_records: null,
+              updated_records: null,
+              synced_records: null,
+            });
+          }
+        } catch (logErr) {
+          this.logger.error(
+            `[Xero Service] Failed to write contact import failure log:` +
+              ' ' +
+              JSON.stringify(logErr),
+          );
+        }
       }
+      // Explicit failure contract: callers (e.g. manualXeroResync) treat a
+      // falsy result as a processing failure, so never fall through to an
+      // implicit undefined here.
+      return false;
     }
   }
 
@@ -15834,7 +15897,7 @@ export class XeroWebhookService {
           { sync_run_type: 'manual' },
           decoded,
         );
-        if (contactHandlerOk !== true) {
+        if (!contactHandlerOk) {
           return {
             success: false,
             message: `Contact ${rawId} was re-pulled from Xero but the handler reported a processing failure. Check the sync log entries that follow this trigger row.`,
