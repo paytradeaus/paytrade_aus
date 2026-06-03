@@ -2258,11 +2258,14 @@ export class BankAccountsService {
               'b.account_type AS account_type',
             ]);
           if (accountType.payment_to_account.length === 2) {
+            // A Project Trust Account is project-scoped (matched via
+            // project_ids), NOT owned by the contract's client_supplier. Do
+            // not filter the PTA clause by client_supplier_id or the project's
+            // PTA is silently excluded, leaving only Cash Accounts selectable.
             queryBuilder.where(
-              "((b.project_ids LIKE :project_id AND b.client_supplier_id = :client_supplier_id AND b.account_type = 'Project Trust Account') OR (b.account_type = 'Cash Account')) AND b.status = 'Open' AND b.added_by_client_supplier = false AND b.company_id = :company_id",
+              "((b.project_ids LIKE :project_id AND b.account_type = 'Project Trust Account') OR (b.account_type = 'Cash Account')) AND b.status = 'Open' AND b.added_by_client_supplier = false AND b.company_id = :company_id",
               {
                 project_id: `%${projectDetails.project_id}%`,
-                client_supplier_id,
                 company_id,
               },
             );
@@ -2270,12 +2273,10 @@ export class BankAccountsService {
             if (
               accountType.payment_to_account.includes('Project Trust Account')
             ) {
-              console;
               queryBuilder.where(
-                "b.project_ids LIKE :project_id AND b.client_supplier_id = :client_supplier_id AND b.account_type = 'Project Trust Account' AND b.status = 'Open' AND b.added_by_client_supplier = false AND b.company_id = :company_id",
+                "b.project_ids LIKE :project_id AND b.account_type = 'Project Trust Account' AND b.status = 'Open' AND b.added_by_client_supplier = false AND b.company_id = :company_id",
                 {
                   project_id: `%${projectDetails.project_id}%`,
-                  client_supplier_id,
                   company_id,
                 },
               );
@@ -2382,15 +2383,43 @@ export class BankAccountsService {
           accountType.payment_to_account &&
           accountType.payment_to_account.length > 0
         ) {
-          payment_to_account = await this.bankAccountsRepo.find({
-            where: {
-              client_supplier_id,
-              added_by_client_supplier: true,
-              account_type: In(accountType.payment_to_account),
-            },
-            select: ['id', 'bank_account_id', 'account_name', 'account_type'],
-            order: { account_name: 'ASC' },
-          });
+          if (
+            accountType.payment_to_account.includes('Project Trust Account')
+          ) {
+            // The project's PTA is company-owned and project-scoped
+            // (added_by_client_supplier = false, matched via project_ids), so
+            // it is not returned by the supplier-owned account lookup. Surface
+            // it alongside the supplier's own accounts so it can be selected.
+            payment_to_account = await this.bankAccountsRepo
+              .createQueryBuilder('b')
+              .select([
+                'b.id AS id',
+                'b.bank_account_id AS bank_account_id',
+                'b.account_name AS account_name',
+                'b.account_type AS account_type',
+              ])
+              .where(
+                "((b.client_supplier_id = :client_supplier_id AND b.added_by_client_supplier = true AND b.account_type IN (:...selfTypes)) OR (b.account_type = 'Project Trust Account' AND b.project_ids LIKE :project_id AND b.added_by_client_supplier = false AND b.company_id = :company_id)) AND b.status = 'Open'",
+                {
+                  client_supplier_id,
+                  selfTypes: accountType.payment_to_account,
+                  project_id: `%${projectDetails.project_id}%`,
+                  company_id,
+                },
+              )
+              .orderBy({ account_name: 'ASC' })
+              .getRawMany();
+          } else {
+            payment_to_account = await this.bankAccountsRepo.find({
+              where: {
+                client_supplier_id,
+                added_by_client_supplier: true,
+                account_type: In(accountType.payment_to_account),
+              },
+              select: ['id', 'bank_account_id', 'account_name', 'account_type'],
+              order: { account_name: 'ASC' },
+            });
+          }
         }
       }
     }
