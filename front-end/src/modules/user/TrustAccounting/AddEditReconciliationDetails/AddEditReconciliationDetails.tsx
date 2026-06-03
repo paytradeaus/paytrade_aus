@@ -496,13 +496,16 @@ export default function AddEditReconciliationDetails(props: any) {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     let { value } = event.target;
+    const isNegative = value.trim().startsWith("-"); // Allow negative adjustments
     let rawValue = value.replace(/[^0-9.]/g, ""); // Remove non-numeric characters
     // Get the bank balance and adjustments as numbers
     const bankBalance = getFormattedValue(formik.values.BankBalance);
 
     if (rawValue === "") {
-      formik.setFieldValue("modifiedAdjustments", "");
-      formik.setFieldValue("Adjustments", ""); // Clear formatted value
+      // Keep a lone "-" so the user can finish typing a negative value
+      const partialValue = isNegative ? "-" : "";
+      formik.setFieldValue("modifiedAdjustments", partialValue);
+      formik.setFieldValue("Adjustments", partialValue); // Clear formatted value
 
       const ExpectedBalanceValue = bankBalance
         ? `$${bankBalance.toLocaleString(undefined, {
@@ -547,7 +550,8 @@ export default function AddEditReconciliationDetails(props: any) {
       return; // Prevent more than 13 characters total (ignoring the decimal)
     }
 
-    const formattedValue = formatDollars(finalValue); // Assuming formatDollars is a function
+    const formattedValue =
+      (isNegative ? "-" : "") + formatDollars(finalValue); // Assuming formatDollars is a function
     formik.setFieldValue("modifiedAdjustments", formattedValue);
     formik.setFieldValue("Adjustments", formattedValue); // Formatted value with dollar sign
     const adjustments = getFormattedValue(formattedValue);
