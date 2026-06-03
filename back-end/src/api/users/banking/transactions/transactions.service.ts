@@ -3808,7 +3808,7 @@ export class TransactionsService {
 
             const foreignPayments = await this.subPaymentsRepo
               .createQueryBuilder('sp')
-              .innerJoin('sp.payment', 'p')
+              .innerJoin('sp.paymentDetails', 'p')
               .select('sp.sub_payment_id', 'sub_payment_id')
               .where('sp.sub_payment_id IN (:...ids)', { ids: pair.sub_payment_ids })
               .andWhere('p.company_id != :companyId', { companyId: callerCompanyId })
@@ -3931,7 +3931,7 @@ export class TransactionsService {
             }
             const foreignPayments = await this.subPaymentsRepo
               .createQueryBuilder('sp')
-              .innerJoin('sp.payment', 'p')
+              .innerJoin('sp.paymentDetails', 'p')
               .select('sp.sub_payment_id', 'sub_payment_id')
               .where('sp.sub_payment_id = :id', { id: pair.sub_payment_id })
               .andWhere('p.company_id != :companyId', { companyId: callerCompanyId })
