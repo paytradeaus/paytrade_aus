@@ -5934,5 +5934,53 @@
     "from_xero": true,
     "error_code": null,
     "associated_log_ids": []
+  },
+  {
+    "id": 646,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Bill not imported — line account codes are outside your configured bill settings</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Info",
+    "from_xero": true,
+    "error_code": "WH_BILL_CODE_NOT_ALIGNED",
+    "associated_log_ids": [
+      647
+    ]
+  },
+  {
+    "id": 647,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Bill not imported — line account codes are outside your configured bill settings</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Info",
+    "from_xero": true,
+    "error_code": "SCHEDULER_BILL_CODE_NOT_ALIGNED",
+    "associated_log_ids": [
+      646
+    ]
+  },
+  {
+    "id": 648,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Bill imported with a warning — amount exceeds the contract size</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_SIZE_WARNING",
+    "associated_log_ids": [
+      649
+    ]
+  },
+  {
+    "id": 649,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Bill imported with a warning — amount exceeds the contract size</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_SIZE_WARNING",
+    "associated_log_ids": [
+      648
+    ]
   }
 ]

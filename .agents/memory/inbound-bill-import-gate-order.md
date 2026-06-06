@@ -1,29 +1,26 @@
 ---
-name: Inbound Xero bill import gate order & account-code validity
-description: Why overhead bills with a valid project tracking id still hard-fail as contact-not-mapped, and why the contract-size gate hard-stops.
+name: Inbound Xero bill import gating rules
+description: How inbound ACCPAY bill outcomes are classified (ignore / Info / Warning / Failed) and the constraints that keep that classification correct.
 ---
 
-# Inbound bill import (Xero → PayTrade) gate order
+# Inbound bill import (Xero → PayTrade) gating
 
-Core handler: `handleInvoiceCreateUpdate` (back-end/src/api/common/xero-webhooks/webhook.service.ts), used by both webhook and scheduler fallback paths.
+Core handler: `handleInvoiceCreateUpdate` + `validateAndProcessWebhookInvoice` in `webhook.service.ts`, shared by the webhook and the ~15-min scheduler fallback. The contact-mapping gate runs *before* project/account-code validation, so an unmapped contact short-circuits early — any reclassification has to happen at that contact gate, not deep in validation.
 
-Gate order for an ACCPAY bill:
-1. Status check — **only DRAFT is skipped**. DELETED / VOIDED bills are NOT skipped, so they still flow through and can hard-error.
-2. Contact lookup in `xero_contact_details` mirror.
-3. Smart-create gate: fires only if `smart_contact_auto_create` AND `isAccountCodeValid(invoice)` are both true.
-4. **Hard contact-not-mapped failure** → logs template 425 (scheduler) / 265 (webhook) as `Failed`, `return false`. Short-circuits here.
-5. Only AFTER contact is mapped: `validateAndProcessWebhookInvoice` runs project-tracking validation, account-code validation, then size check.
+## Outcome rules (the durable decision)
+For an inbound bill, the correct outcome is NOT always "Failed":
+- **No in-sync PT project tracking id → ignore silently** (no sync log at all). It isn't a PayTrade cost.
+- **In-sync project but line account codes not aligned with settings → Info, do not import.** (e.g. overhead-coded bills.) Not a failure.
+- **In-sync project + aligned codes + contact simply unmapped → Failed** (genuine bill, user must map the contact). This is the only unmapped-contact case that should stay loud.
+- **`permanently_unmapped` contact → always ignore silently**, regardless of doc type.
+- **DELETED / VOIDED status → skip silently** before the DRAFT check.
+- **Over-contract (`invoice.total > initial_contract_sum`) → import WITH a Warning, never a hard stop.** PayTrade's own UI treats over-contract as a warning; sync must match.
 
-**Consequence:** the contact gate fails *before* project-tracking / account-code checks. A bill that carries a valid, in-sync project tracking id but is coded to overhead accounts (not the configured `bill_code`) still logs a recurring `Failed` contact-not-mapped error.
-
-## isAccountCodeValid (line ~14365)
-- If `bill_code_is_variable = true`: lenient — every line needs *some* accountCode, and at least one line must be a non-restricted (non-retention/liability) code.
-- If `bill_code_is_variable = false` (strict): **every** ACCPAY line's `accountCode` must be in the allow-list `[bill_code, retention_payable_retained_code, liability_payable_code, retention_payable_release_code]`. Overhead-coded bills fail → smart-create is skipped → falls through to the 425 hard error.
-
-**Why this matters:** turning smart contact-create ON does NOT make overhead-coded bills auto-import — `isAccountCodeValid` rejects them first. They keep hard-failing unless an Info-downgrade path is added.
-
-## Contract-size gate (V-Step 18, line ~4373)
-Hard-stops (`return false`, template 437 `Failed`) when `Number(invoice.total) > Number(contractDetails.initial_contract_sum)`. There's a leftover `//send warning email` comment — original intent was a warning. PayTrade's own UI treats over-contract as a validation *warning*, not a hard stop, so sync should import-with-warning, not reject.
+## Constraints that keep this correct
+- **Reclassification (ignore/Info) must be scoped to ACCPAY bills only.** ACCREC (receivable invoices) keep the original hard mapping-failure behaviour — the templates/messages are bill-specific.
+- **`isAccountCodeValid` is what separates Info from Failed.** Strict mode (`bill_code_is_variable=false`) requires every line's accountCode in the allow-list (`bill_code`, retention/liability codes); overhead bills fail it → Info. Turning smart-contact-create ON does NOT auto-import overhead bills — this gate rejects them first.
+- **Project tracking id must be read from ALL line items, not just `lineItems[0]`.** The canonical import path historically read only line 0; a classifier that does the same can mis-verdict a bill whose project tag sits on a later line and silently drop it. Scan all lines.
+- **Info/Warning logs need their OWN idempotency guard.** The Failed-dedup path in `insertXeroSyncLogs` only fires for `sync_status==='Failed'`. Since the handler re-runs every webhook + scheduler tick, an Info/Warning branch with no PT record to key on will accumulate ~96×/day. Guard by `(integration_id, log_template_id, api_payload->>'invoice_id', archived_at IS NULL)`; for the over-contract Warning, guard by `!existingXeroInvoice?.pt_claim_id`.
 
 ## Payload recording
-Inbound failure logs DO already persist the received invoice in `xero_sync_logs.xero_records` (confirmed for templates 425, 437, 638). For inbound, `xero_records` = what we received from Xero, so diagnosis can read the stored payload (line items, accountCode, tracking) directly — no live Xero call needed. (Contrast outbound: success logs historically stored the request, not the response — see xero-sync-log-capture-response.md.)
+Inbound logs persist the *received* invoice in `xero_sync_logs.xero_records`, so diagnosis can read stored line items / accountCode / tracking directly — no live Xero call. (Contrast outbound success logs, which historically stored the request not the response — see xero-sync-log-capture-response.md.)

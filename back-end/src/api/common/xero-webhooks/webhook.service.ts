@@ -2718,6 +2718,15 @@ export class XeroWebhookService {
 
       this.logger.debug(`[BILL_TRACE] Step 3 OK: Invoice fetched — invoiceID=${invoice.invoiceID}, type=${invoice.type}, status=${invoice.status}, contact=${invoice.contact?.name} (${invoice.contact?.contactID}), lineItems=${invoice.lineItems?.length ?? 0}`);
 
+      if (
+        invoice?.status === Invoice.StatusEnum.DELETED ||
+        invoice?.status === Invoice.StatusEnum.VOIDED
+      ) {
+        this.logger.debug(`[BILL_TRACE] Step 4: Invoice status=${invoice.status} (DELETED/VOIDED) — skipping import silently, no sync log.`);
+        this.logger.debug(`[BILL_TRACE] === END handleInvoiceCreateUpdate (deleted/voided skip) ===`);
+        return false;
+      }
+
       if (invoice?.status !== Invoice.StatusEnum.DRAFT) {
         this.logger.debug(`[BILL_TRACE] Step 4: Invoice is NOT Draft (status=${invoice.status}). Proceeding with processing...`);
 
@@ -2777,6 +2786,28 @@ export class XeroWebhookService {
         }
 
         if (!xeroContactDetails) {
+          // Bill-only (ACCPAY) gating. For receivable invoices (ACCREC) keep
+          // the original hard mapping-failure behaviour.
+          const verdict =
+            invoice?.type === Invoice.TypeEnum.ACCPAY
+              ? await this.classifyUnmappedInboundInvoice(invoice, xeroDetails)
+              : 'fail';
+          if (verdict === 'ignore') {
+            this.logger.debug(`[BILL_TRACE] Step 5: Contact not found and bill has no in-sync PT project (verdict=ignore) — skipping silently for contactID=${invoice.contact?.contactID}.`);
+            return false;
+          }
+          if (verdict === 'info') {
+            this.logger.debug(`[BILL_TRACE] Step 5: Contact not found, project in sync but account codes not aligned (verdict=info) — writing Info log for contactID=${invoice.contact?.contactID}.`);
+            await this.logInboundBillCodeNotAligned(
+              decoded,
+              invoice,
+              xeroDetails,
+              tenant_id,
+              sync_run_type,
+              data,
+            );
+            return false;
+          }
           this.logger.error(`[BILL_TRACE] Step 5 FAILED: Contact not found in xero mapping (contactID=${invoice.contact?.contactID}). Writing sync log template 264/424.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
@@ -2819,6 +2850,32 @@ export class XeroWebhookService {
         this.logger.debug(`[BILL_TRACE] Step 5 OK: Contact mapped — pt_contact_id=${xeroContactDetails.pt_contact_id}, contact_name=${xeroContactDetails.contact_name}`);
 
         if (!xeroContactDetails.pt_contact_id) {
+          if (xeroContactDetails.permanently_unmapped) {
+            this.logger.debug(`[BILL_TRACE] Step 5: Contact flagged permanently_unmapped (contactID=${invoice.contact?.contactID}) — skipping silently, no sync log.`);
+            return false;
+          }
+          // Bill-only (ACCPAY) gating. For receivable invoices (ACCREC) keep
+          // the original hard mapping-failure behaviour.
+          const verdict =
+            invoice?.type === Invoice.TypeEnum.ACCPAY
+              ? await this.classifyUnmappedInboundInvoice(invoice, xeroDetails)
+              : 'fail';
+          if (verdict === 'ignore') {
+            this.logger.debug(`[BILL_TRACE] Step 5: Contact unmapped and bill has no in-sync PT project (verdict=ignore) — skipping silently for contactID=${invoice.contact?.contactID}.`);
+            return false;
+          }
+          if (verdict === 'info') {
+            this.logger.debug(`[BILL_TRACE] Step 5: Contact unmapped, project in sync but account codes not aligned (verdict=info) — writing Info log for contactID=${invoice.contact?.contactID}.`);
+            await this.logInboundBillCodeNotAligned(
+              decoded,
+              invoice,
+              xeroDetails,
+              tenant_id,
+              sync_run_type,
+              data,
+            );
+            return false;
+          }
           this.logger.error(`[BILL_TRACE] Step 5 FAILED: Contact exists but pt_contact_id is null/empty. Writing sync log template 265/425.`);
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
@@ -4375,46 +4432,53 @@ export class XeroWebhookService {
         invoice?.status !== Invoice.StatusEnum.DRAFT &&
         Number(invoice.total) > Number(contractDetails.initial_contract_sum)
       ) {
-        this.logger.error(`[BILL_TRACE] V-Step 18 FAILED: Invoice total ${invoice.total} > contract sum ${contractDetails.initial_contract_sum}`);
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: data?.sync_id || null,
-          api_name: 'createClaimInPaytrade',
-          api_payload: {
-            sync_run_type,
-            invoice_id: invoice?.invoiceID,
-            tenant_id,
-            type:
-              invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: sync_run_type === 'webhook' ? 277 : 437,
-          dynamic_values: {},
-          project_id: xeroProjectDetails?.id,
-          contract_id: xeroContractDetails?.id,
-          reference: {},
-          reference_id: null,
-          history: [
-            `API triggered from invoice ${sync_run_type}`,
-            'Import failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Failed',
-            'Import tracking id validation': 'Ok',
-            'Import account type validation': 'Ok',
-            'Import tax type validation': 'Ok',
-            'Client/Supplier mapping validation': 'Ok',
-            'Contract mapping validation': 'Ok',
-            'Project mapping validation': 'Ok',
-          },
-          error_message: `Amount exceeds the contract size`,
-          xero_records: [invoice],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-        //send warning email
+        this.logger.warn(`[BILL_TRACE] V-Step 18 WARNING: Invoice total ${invoice.total} > contract sum ${contractDetails.initial_contract_sum} — importing with a warning (over-contract is a warning in PayTrade, not a hard stop).`);
+        // Only log the warning on first import. On subsequent UPDATE
+        // re-deliveries the claim already exists; re-logging would spam the
+        // sync trail (Warning logs aren't covered by the Failed dedup gate).
+        if (!existingXeroInvoice?.pt_claim_id) {
+          await this.xeroService.insertXeroSyncLogs(decoded, {
+            id: data?.sync_id || null,
+            api_name: 'createClaimInPaytrade',
+            api_payload: {
+              sync_run_type,
+              invoice_id: invoice?.invoiceID,
+              tenant_id,
+              type:
+                invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+            },
+            integration_id: xeroDetails.integration_id,
+            log_template_id: sync_run_type === 'webhook' ? 648 : 649,
+            dynamic_values: {},
+            project_id: xeroProjectDetails?.id,
+            contract_id: xeroContractDetails?.id,
+            reference: {},
+            reference_id: null,
+            history: [
+              `API triggered from invoice ${sync_run_type}`,
+              'Imported with warning — amount exceeds contract size',
+            ],
+            important_checks: {
+              'Import data format validation': 'Ok',
+              'Import tracking id validation': 'Ok',
+              'Import account type validation': 'Ok',
+              'Import tax type validation': 'Ok',
+              'Client/Supplier mapping validation': 'Ok',
+              'Contract mapping validation': 'Ok',
+              'Project mapping validation': 'Ok',
+              'Contract size validation': 'Warning',
+            },
+            error_message: `Amount (${invoice.total}) exceeds the contract size (${contractDetails.initial_contract_sum}). The bill was imported — please review the contract value in PayTrade.`,
+            xero_records: [invoice],
+            paytrade_records: [],
+            new_records: null,
+            updated_records: null,
+            synced_records: null,
+          });
+        } else {
+          this.logger.debug(`[BILL_TRACE] V-Step 18: over-contract bill already imported (pt_claim_id=${existingXeroInvoice.pt_claim_id}) — skipping duplicate size warning.`);
+        }
+        // Do NOT return — continue importing the over-contract bill.
       }
 
       this.logger.debug(`[BILL_TRACE] V-Step 18 OK: All validations passed`);
@@ -14360,6 +14424,158 @@ export class XeroWebhookService {
     return invoice?.lineItems?.every(
       (li) => li?.description && li?.unitAmount && li?.quantity,
     );
+  }
+
+  /**
+   * Classify an inbound bill/invoice whose Xero contact is NOT mapped to a
+   * PayTrade contact. Drives whether the unmapped-contact outcome is:
+   *   - 'ignore': the bill has no in-sync PayTrade project tracking, so it is
+   *     not a PayTrade cost/claim at all — skip silently, write no sync log.
+   *   - 'info': the bill IS tagged to an in-sync PayTrade project but its line
+   *     account codes are outside the company's configured bill settings
+   *     (e.g. overhead-coded bills). Record an informational log, don't import.
+   *   - 'fail': the bill is tagged to an in-sync project AND its account codes
+   *     align — a genuine cost bill from a supplier that simply isn't mapped
+   *     yet (smart contact auto-create off / unavailable). Keep the hard
+   *     mapping-failure log so the user maps the contact and retries.
+   */
+  private async classifyUnmappedInboundInvoice(
+    invoice: any,
+    xeroDetails: any,
+  ): Promise<'ignore' | 'info' | 'fail'> {
+    try {
+      let projectTrackingId: string | null = null;
+      if (
+        invoice?.status !== Invoice.StatusEnum.DRAFT &&
+        xeroDetails?.project_category_id &&
+        invoice?.lineItems?.some((li) => li?.tracking?.length)
+      ) {
+        // Scan ALL line items (not just the first) so a project tagged on a
+        // later line is still detected — prevents a genuine project-tracked
+        // bill from being misclassified as 'ignore' and silently dropped.
+        for (const li of invoice?.lineItems ?? []) {
+          for (const item of li?.tracking ?? []) {
+            if (
+              item?.trackingCategoryID === xeroDetails.project_category_id &&
+              item?.trackingOptionID
+            ) {
+              projectTrackingId = item.trackingOptionID;
+              break;
+            }
+          }
+          if (projectTrackingId) break;
+        }
+      }
+
+      if (!projectTrackingId) {
+        return 'ignore';
+      }
+
+      const xeroProjectDetails = await this.xeroProjectDetails.findOne({
+        where: {
+          project_id: projectTrackingId,
+          integration_id: xeroDetails.integration_id,
+        },
+      });
+      if (!xeroProjectDetails?.pt_project_id) {
+        return 'ignore';
+      }
+
+      const projectDetails = await this.projectDetails.findOne({
+        where: { project_id: xeroProjectDetails.pt_project_id },
+      });
+      if (!projectDetails) {
+        return 'ignore';
+      }
+
+      // Project is in sync — differentiate on account-code alignment.
+      return this.isAccountCodeValid(invoice, xeroDetails) ? 'fail' : 'info';
+    } catch (err) {
+      // On any lookup error, fall back to the safe (loud) outcome so a
+      // genuine bill is never silently dropped.
+      this.logger.warn(
+        `[BILL_TRACE] classifyUnmappedInboundInvoice failed (non-fatal), defaulting to 'fail': ${err?.message || err}`,
+      );
+      return 'fail';
+    }
+  }
+
+  /**
+   * Informational sync log for an inbound bill that is tagged to an in-sync
+   * PayTrade project but whose line account codes are outside the company's
+   * configured bill settings. Not a failure — no action is required unless the
+   * bill should actually be tracked in PayTrade.
+   */
+  private async logInboundBillCodeNotAligned(
+    decoded: any,
+    invoice: any,
+    xeroDetails: any,
+    tenant_id: any,
+    sync_run_type: any,
+    data: any,
+  ): Promise<void> {
+    // Idempotency: this branch re-runs on every webhook + ~15-min scheduler
+    // delivery and Info logs are NOT covered by the Failed-dedup gate, so skip
+    // if an active 646/647 log already exists for this invoice.
+    try {
+      const existing = await this.xeroSyncLogs
+        .createQueryBuilder('log')
+        .where('log.integration_id = :integrationId', {
+          integrationId: xeroDetails.integration_id,
+        })
+        .andWhere('log.log_template_id IN (:...templateIds)', {
+          templateIds: [646, 647],
+        })
+        .andWhere("log.api_payload->>'invoice_id' = :invoiceId", {
+          invoiceId: invoice?.invoiceID,
+        })
+        .andWhere('log.archived_at IS NULL')
+        .getOne();
+      if (existing) {
+        this.logger.debug(`[BILL_TRACE] Step 5: active bill-code-not-aligned log already exists for invoice ${invoice?.invoiceID} — skipping duplicate Info log.`);
+        return;
+      }
+    } catch (guardErr) {
+      this.logger.warn(
+        `[BILL_TRACE] logInboundBillCodeNotAligned idempotency check failed (non-fatal), proceeding to log: ${guardErr?.message || guardErr}`,
+      );
+    }
+    await this.xeroService.insertXeroSyncLogs(decoded, {
+      id: data?.sync_id || null,
+      api_name: 'createClaimInPaytrade',
+      api_payload: {
+        sync_run_type,
+        invoice_id: invoice?.invoiceID,
+        tenant_id,
+        contact_id: invoice?.contact?.contactID,
+        type: invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+      },
+      integration_id: xeroDetails.integration_id,
+      log_template_id: sync_run_type === 'webhook' ? 646 : 647,
+      dynamic_values: {},
+      project_id: null,
+      contract_id: null,
+      reference: {},
+      reference_id: null,
+      history: [
+        `API triggered from invoice ${sync_run_type}`,
+        'Import skipped — account codes outside configured bill settings',
+      ],
+      important_checks: {
+        'Import data format validation': 'Ok',
+        'Import tracking id validation': 'Ok',
+        'Import account type validation': 'Info',
+        'Import tax type validation': 'Ok',
+        'Client/Supplier mapping validation': 'Ok',
+      },
+      error_message:
+        'Bill not imported: the line account codes are outside your configured bill settings. No action required unless this bill should be tracked in PayTrade.',
+      xero_records: [{ ...invoice }],
+      paytrade_records: [],
+      new_records: null,
+      updated_records: null,
+      synced_records: null,
+    });
   }
 
   private isAccountCodeValid(
