@@ -1611,6 +1611,26 @@ export class XeroWebhookService {
           pt_client_supplier = clientSuppliersDetails;
           this.logger.log(JSON.stringify({ pt_client_supplier3: pt_client_supplier }));
         }
+      } else if (!xeroDetails.xero_to_pt_contact_auto_create) {
+        // Xero→Pay Trade contact auto-create is OFF for this company. The
+        // local xero_contact_details mirror was already upserted above, so
+        // our Xero-side view stays fresh — but we must NOT create or link a
+        // brand-new PT contact, and crucially must NOT write a Failed sync
+        // log. This mirrors the scheduler's webhookFallbackSync gate
+        // (`if (xeroDetails.xero_to_pt_contact_auto_create)`), which simply
+        // skips unmapped Xero contacts when the toggle is off.
+        //
+        // This gate is deliberately scoped to the live contact-webhook path
+        // ONLY. The bill/invoice smart-contact-create flow
+        // (`smart_contact_auto_create` → smartCreateContactFromInvoice in
+        // handleInvoiceCreateUpdate) is independent and still runs — its
+        // whole purpose is to create the supplier on a bill precisely WHEN
+        // this Xero→PT contact toggle is off. Already-linked contacts (with
+        // a pt_contact_id) are handled by the branch above and keep syncing.
+        this.logger.log(
+          `[Xero Contact Webhook] Skipping unmapped contact ${contactID} (${name}) — xero_to_pt_contact_auto_create is off; no import and no failure log.`,
+        );
+        return true;
       } else if (xeroContactDetails?.permanently_unmapped) {
         // Task #289 — Skip the name-match re-link path for any row the
         // user has marked as permanently unmapped. The Xero-side fields
