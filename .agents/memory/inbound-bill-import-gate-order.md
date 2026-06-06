@@ -24,3 +24,9 @@ For an inbound bill, the correct outcome is NOT always "Failed":
 
 ## Payload recording
 Inbound logs persist the *received* invoice in `xero_sync_logs.xero_records`, so diagnosis can read stored line items / accountCode / tracking directly — no live Xero call. (Contrast outbound success logs, which historically stored the request not the response — see xero-sync-log-capture-response.md.)
+
+## A recurring inbound Failed log usually does NOT mean the record is missing
+A bill can be fully imported (`xero_invoices_bills.pt_claim_id` set) yet still show a recurring `Failed` sync log, because every webhook + ~15-min scheduler pass re-runs the handler and re-hits a downstream gate (e.g. contract-size 437), deduping onto the same row (occurrence_count bumps). **Before "re-importing" any inbound Failed, check `xero_invoices_bills` by `invoice_id` for a `pt_claim_id` first** — if present, the bill is already in PayTrade and the Failed is just re-processing noise to archive, not a missing import. The over-contract path explicitly skips its Warning when `pt_claim_id` already exists and continues without failing.
+
+## Manual re-sync always writes a trigger log — a toast alone proves nothing
+`manualXeroResync` (invoice_bill path) writes a trigger log *before* running the handler: template 499 (direct GraphQL) or 518/519/520 (two-sided dispatcher). If a user reports a "success" toast but you find NO 499/518/519/520 row for that integration around that time, the full import re-sync did NOT run — they likely clicked a check-level "Re-run check"/"Retry" button (re-runs one validation check only), not the import retry. Verify by trigger-log presence, not the toast.
