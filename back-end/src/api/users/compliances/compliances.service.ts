@@ -261,7 +261,83 @@ export class CompliancesService {
       );
     }
 
+    // Keep the dashboard "System Status" snapshot (`compliance_of_projects`
+    // jsonb, read by `ComplianceChecker`) in lockstep with the live
+    // checkpoint/rule tables we just rebuilt above. The Task #297 refresh
+    // path (syncCompliancesOfProject) only writes the live tables; without
+    // this the dashboard jsonb stays stale until the daily 08:00 cron, so a
+    // user who resolves a compliance issue keeps seeing it flagged. Placing
+    // it here covers EVERY recompute path that funnels through this method:
+    // the BullMQ freshness worker, the manual "Refresh now" mutation, and
+    // the read-time safety net. Best-effort: a snapshot rebuild failure must
+    // never fail the refresh itself.
+    try {
+      await this.syncComplianceDashboardSnapshotFromCheckpoints(projectId);
+    } catch (err: any) {
+      this.logger.error(
+        `refreshProjectComplianceCache: dashboard snapshot rebuild failed for project ${projectId}: ${err?.message || err}`,
+      );
+    }
+
     return summary;
+  }
+
+  /**
+   * Rebuild the dashboard `compliance_of_projects` jsonb snapshot from the
+   * already-fresh live `compliance_checkpoint` / `compliance_rule` tables.
+   *
+   * This is a projection, NOT a recompute: it reads the persisted live
+   * state and feeds it through the canonical `saveComplianceData` writer so
+   * the jsonb shape is byte-identical to the inline activity / daily-cron
+   * path (`fetchComplianceResultsOfAProject`). Deliberately does NOT touch
+   * `is_stale` / `last_synced_at`, so it cannot interfere with the Task #297
+   * freshness invariants or the worker's stillDirty race-recovery.
+   */
+  async syncComplianceDashboardSnapshotFromCheckpoints(projectId: number) {
+    if (!projectId) return;
+
+    for (const bankAccountType of [
+      'Project Trust Account',
+      'Retention Trust Account',
+    ] as const) {
+      const checkpoints = await this.checkpointRepo.find({
+        where: { project_id: projectId, bank_account_type: bankAccountType },
+        relations: ['rules'],
+        order: { check_number: 'ASC' },
+      });
+
+      // No live checkpoints for this bank type → nothing fresh to project;
+      // leave any existing jsonb untouched rather than wiping it.
+      if (!checkpoints || checkpoints.length === 0) continue;
+
+      // Reconstruct the canonical `responseData` shape consumed by
+      // `saveComplianceData`. NOTE: results must NOT carry `check_number` —
+      // `saveComplianceData` keys its dedupe on `result.check_number`, and
+      // omitting it preserves the existing one-entry-per-rule jsonb layout.
+      const responseData = checkpoints.map((cp) => ({
+        check_number: cp.check_number,
+        check_colour_code: cp.check_colour_code ?? null,
+        results: (cp.rules || [])
+          .slice()
+          .sort((a, b) => (a.rule_number ?? 0) - (b.rule_number ?? 0))
+          .map((r) => ({
+            rule_number: r.rule_number,
+            check_name: r.check_name,
+            check_status: r.check_status,
+            action_button_type: r.action_button_type ?? null,
+            display_message_colour: r.display_message_colour ?? null,
+            display_message: r.display_message ?? null,
+            reference_id: r.reference_id ?? null,
+            content: r.content ?? null,
+          })),
+      }));
+
+      await this.saveComplianceData(
+        responseData,
+        bankAccountType === 'Project Trust Account',
+        projectId,
+      );
+    }
   }
 
   private log(message: string) {
