@@ -1123,6 +1123,15 @@ export class CompliancePTAFunctions {
                 .andWhere('pc.claim_type = :claim_type', {
                   claim_type: 'Receivable',
                 })
+                // Exclude deleted receivable payments. When a principal
+                // deposit is deleted and re-recorded, the deleted payment's
+                // stale unconfirmed sub-payments would otherwise be counted as
+                // "late / not recorded in the journal within 3 business days",
+                // raising a false FAILED on Check 5 rule 6 even though the live
+                // replacement payment is already confirmed and matched. Mirrors
+                // the `current_status != 'Deleted'` guard used by
+                // paymentsToSubcontractors (Check 6).
+                .andWhere(`p.current_status != 'Deleted'`)
                 .getRawMany();
 
               const unmatchedPayments = fetchedPayments.filter((payment) => {
