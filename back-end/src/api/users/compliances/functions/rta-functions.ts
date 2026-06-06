@@ -1281,7 +1281,7 @@ export class ComplianceRTAFunctions {
             'pd.payment_id AS payment_id',
           ])
           .leftJoin(PaymentDetails, 'pd', 'pd.payment_id = sp.payment_id')
-          .leftJoin(ContractDetails, 'c', 'c.contract_id = c.contract_id')
+          .leftJoin(ContractDetails, 'c', 'c.contract_id = pd.contract_id')
           .where('sp.sub_payment_type = :sub_payment_type', {
             sub_payment_type: 'Retention In',
           })
@@ -1513,7 +1513,7 @@ export class ComplianceRTAFunctions {
                 'pd.payment_id AS payment_id',
               ])
               .leftJoin(PaymentDetails, 'pd', 'pd.payment_id = sp.payment_id')
-              .leftJoin(ContractDetails, 'c', 'c.contract_id = c.contract_id')
+              .leftJoin(ContractDetails, 'c', 'c.contract_id = pd.contract_id')
               .where('sp.sub_payment_type IN(:...sub_payment_types)', {
                 sub_payment_types: ['Retention', 'Payment'],
               })
@@ -2109,7 +2109,7 @@ export class ComplianceRTAFunctions {
                     .leftJoin(
                       ContractDetails,
                       'c',
-                      'c.contract_id = c.contract_id',
+                      'c.contract_id = pd.contract_id',
                     )
                     .where('sp.sub_payment_type = :sub_payment_type', {
                       sub_payment_type: 'Retention',
