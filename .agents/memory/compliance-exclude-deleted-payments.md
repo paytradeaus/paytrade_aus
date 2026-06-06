@@ -1,9 +1,26 @@
 ---
-name: Compliance payment checks must exclude Deleted payments
-description: Why PTA/RTA compliance queries over payment_details must filter current_status != 'Deleted', and how a deleted+replaced payment's stale sub-payment causes a false late-deposit FAIL.
+name: Compliance checks must exclude Deleted records (payments, claims, contracts, sub-payments)
+description: Every PTA/RTA compliance query over a soft-deletable entity must exclude its 'Deleted' status, or a deleted+replaced record causes a false compliance result. RTA originally had ZERO such filters.
 ---
 
-# Compliance payment checks must exclude Deleted payments
+# Compliance checks must exclude Deleted records
+
+Records are soft-deleted via a status column, never row-deleted. Every compliance
+query that reads one of these must exclude the deleted state:
+- `contract_details.contract_status != 'Deleted'` (enum; use `Not('Deleted') as any` in a where-object)
+- `payment_claims.status != 'Deleted'`
+- `payment_details.current_status != 'Deleted'`
+- `sub_payments`: filter the JOINED parent payment (`pd.current_status != 'Deleted'`) — sub-payments are NOT cascade-deleted, so a deleted parent leaves stale sub-rows.
+
+**Why (broad):** A deleted+replaced record keeps its children/old rows. Any
+"presence" check (does a retention contract/claim/payment exist?), SUM
+(eligibility totals over `initial_contract_sum`), or COUNT/late check over those
+children will count the dead record and produce a false PASS/FAIL. The whole
+`rta-functions.ts` (Retention Trust Account checks 1/2/3/5/6/8) originally had
+NO deleted filters at all and was swept to add them; `pta-functions.ts` is the
+reference pattern (its payment guards were added incrementally).
+
+## Original concrete case (PTA Check 5 rule 6)
 
 Compliance checks that gather payments from `payment_details` (mapped by the
 `Payments` entity) and then derive `sub_payments` from them must filter

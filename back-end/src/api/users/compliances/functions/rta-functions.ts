@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ContractDetails } from 'src/entities/contract-details.entity';
 import { VariationDetails } from 'src/entities/variation-details.entity';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
-import { Between, Repository } from 'typeorm';
+import { Between, Not, Repository } from 'typeorm';
 import { BankAccounts, PaymentClaims } from 'src/entities/banking.entity';
 import {
   ComplianceChecks,
@@ -122,7 +122,7 @@ export class ComplianceRTAFunctions {
       const resultsOfCheck = [];
 
       const fetchedContractDetails = await this.contractsRepo.find({
-        where: { project_id },
+        where: { project_id, contract_status: Not('Deleted') as any },
         select: ['initial_contract_sum'],
       });
       const fetchedVariationDetails = await this.variationsRepo.find({
@@ -285,7 +285,7 @@ export class ComplianceRTAFunctions {
       } = data;
       const resultsOfCheck = [];
       const fetchedContractDetails = await this.contractsRepo.find({
-        where: { project_id },
+        where: { project_id, contract_status: Not('Deleted') as any },
         select: ['initial_contract_sum'],
       });
       const fetchedVariationDetails = await this.variationsRepo.find({
@@ -514,6 +514,7 @@ export class ComplianceRTAFunctions {
           .andWhere('cs.client_supplier_type = :client_supplier_type', {
             client_supplier_type: 'Supplier',
           })
+          .andWhere("c.contract_status != 'Deleted'")
           .getRawMany();
 
         if (fetchedContractDetails && fetchedContractDetails.length) {
@@ -643,6 +644,7 @@ export class ComplianceRTAFunctions {
         .andWhere('cs.client_supplier_type = :client_supplier_type', {
           client_supplier_type: 'Supplier',
         })
+        .andWhere("c.contract_status != 'Deleted'")
         .getRawMany();
 
       const filteredContractsWithoutRetentionTrustAccount =
@@ -799,6 +801,7 @@ export class ComplianceRTAFunctions {
         .andWhere('cs.client_supplier_type = :client_supplier_type', {
           client_supplier_type: 'Supplier',
         })
+        .andWhere("c.contract_status != 'Deleted'")
         .getRawMany();
 
       const clientSupplierDetails =
@@ -1115,6 +1118,7 @@ export class ComplianceRTAFunctions {
         .andWhere('cs.client_supplier_type = :client_supplier_type', {
           client_supplier_type: 'Supplier',
         })
+        .andWhere("c.contract_status != 'Deleted'")
         .getRawMany();
 
       //Fetch rule details if no retention trust account has been created yet.
@@ -1134,12 +1138,12 @@ export class ComplianceRTAFunctions {
       } else {
         if (contractDetails && contractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
-            where: { project_id, cash_retention_type: 'Claim' },
+            where: { project_id, cash_retention_type: 'Claim', status: Not('Deleted') },
           });
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
-              { where: { project_id, cash_retention: true } },
+              { where: { project_id, cash_retention: true, current_status: Not('Deleted') } },
             );
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
@@ -1288,6 +1292,7 @@ export class ComplianceRTAFunctions {
           .andWhere('c.retention_type = :retention_type', {
             retention_type: 'Cash',
           })
+          .andWhere("pd.current_status != 'Deleted'")
           .getRawMany();
 
         if (fetchedSubPayments && fetchedSubPayments.length) {
@@ -1376,12 +1381,12 @@ export class ComplianceRTAFunctions {
           }
         } else {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
-            where: { project_id, cash_retention_type: 'Claim' },
+            where: { project_id, cash_retention_type: 'Claim', status: Not('Deleted') },
           });
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
-              { where: { project_id, cash_retention: true } },
+              { where: { project_id, cash_retention: true, current_status: Not('Deleted') } },
             );
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
@@ -1488,11 +1493,12 @@ export class ComplianceRTAFunctions {
           .andWhere('cs.client_supplier_type = :client_supplier_type', {
             client_supplier_type: 'Supplier',
           })
+          .andWhere("c.contract_status != 'Deleted'")
           .getRawMany();
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
-            where: { project_id, cash_retention_type: 'Retention claim' },
+            where: { project_id, cash_retention_type: 'Retention claim', status: Not('Deleted') },
           });
 
           if (paymentClaimDetails) {
@@ -1516,6 +1522,7 @@ export class ComplianceRTAFunctions {
               .andWhere('c.retention_type = :retention_type', {
                 retention_type: 'Cash',
               })
+              .andWhere("pd.current_status != 'Deleted'")
               .getRawMany();
             //   'fetchedRetentionSubPayments',
             //   fetchedRetentionSubPayments,
@@ -1749,11 +1756,12 @@ export class ComplianceRTAFunctions {
           .andWhere('cs.client_supplier_type = :client_supplier_type', {
             client_supplier_type: 'Supplier',
           })
+          .andWhere("c.contract_status != 'Deleted'")
           .getRawMany();
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
-            where: { project_id, cash_retention_type: 'Retention claim' },
+            where: { project_id, cash_retention_type: 'Retention claim', status: Not('Deleted') },
           });
 
           if (paymentClaimDetails) {
@@ -1778,6 +1786,7 @@ export class ComplianceRTAFunctions {
               .andWhere('pc.claim_type = :claim_type', {
                 claim_type: 'Billable',
               })
+              .andWhere("pd.current_status != 'Deleted'")
               .getRawMany();
 
             //Filter completed retention payments.
@@ -2046,16 +2055,17 @@ export class ComplianceRTAFunctions {
             client_supplier_type: 'Supplier',
           })
           .orderBy({ 'c.created_on': 'DESC' })
+          .andWhere("c.contract_status != 'Deleted'")
           .getRawMany();
 
         if (supplierContractDetails && supplierContractDetails.length) {
           const paymentClaimDetails = await this.paymentClaimsRepo.findOne({
-            where: { project_id, cash_retention_type: 'Retention claim' },
+            where: { project_id, cash_retention_type: 'Retention claim', status: Not('Deleted') },
           });
 
           if (paymentClaimDetails) {
             const paymentWithRetentionDetails = await this.paymentsRepo.findOne(
-              { where: { project_id, cash_retention: true } },
+              { where: { project_id, cash_retention: true, current_status: Not('Deleted') } },
             );
             //   'paymentWithRetentionDetails',
             //   paymentWithRetentionDetails,
@@ -2109,6 +2119,7 @@ export class ComplianceRTAFunctions {
                       retention_type: 'Cash',
                     })
                     .andWhere('sp.status = :status', { status: 'Unmatched' })
+                    .andWhere("pd.current_status != 'Deleted'")
                     .getRawMany();
                 //   'fetchedUnmatchedRetentionSubPayments',
                 //   fetchedUnmatchedRetentionSubPayments,
@@ -2435,6 +2446,7 @@ export class ComplianceRTAFunctions {
           .andWhere('cs.client_supplier_type = :client_supplier_type', {
             client_supplier_type: 'Supplier',
           })
+          .andWhere("c.contract_status != 'Deleted'")
           .getRawMany();
 
         if (contractDetails && contractDetails.length) {
@@ -2490,6 +2502,7 @@ export class ComplianceRTAFunctions {
                 where:
                 {
                   project_id,
+                  current_status: Not('Deleted'),
                   cash_retention: true,
                   retention_account: Number(bank_account_id),
                   payment_date: Between(
