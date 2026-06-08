@@ -2386,6 +2386,67 @@ export class JournalsService {
     return updatedAudit;
   }
 
+  async deleteAuditReportDetails(decoded: any, id: string, companyId: number) {
+    const auditDetails = await this.auditReportRepo.findOne({
+      where: { id },
+    });
+
+    if (!auditDetails) throw new Error('Audit report not found');
+
+    if (Number(auditDetails.company_id) !== Number(companyId)) {
+      throw new Error(
+        'You are not authorised to delete this audit report.',
+      );
+    }
+
+    const attachmentIds = auditDetails.attachment_ids || [];
+
+    if (attachmentIds.length > 0) {
+      const files = await this.fileAttachments
+        .createQueryBuilder('f')
+        .select(['f.id', 'f.file_path'])
+        .where('f.id IN (:...ids)', { ids: attachmentIds })
+        .getMany();
+
+      for (const file of files) {
+        if (file.file_path) {
+          try {
+            await this.objectStorageService.deleteFile(file.file_path);
+          } catch (error) {
+            this.logger.error(
+              `Failed to delete audit file from storage (${file.file_path}): ${error?.message || error}`,
+            );
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        await this.fileAttachments.delete(files.map((file) => file.id));
+      }
+    }
+
+    // Keep notices consistent with edit: mark related notices as deleted.
+    const auditNotices = await this.noticesRepo.find({
+      where: {
+        bank_account_id: auditDetails.bank_account_id,
+        audit_id: auditDetails.audit_id,
+      },
+    });
+
+    for (const notice of auditNotices) {
+      const updatedStatus =
+        notice.status === 'Sent' ? 'Delete-Sent' : 'Delete-Unsent';
+
+      await this.noticesRepo.update(notice.id, {
+        status: updatedStatus,
+      });
+    }
+
+    await this.auditReportRepo.delete({ id });
+
+    return auditDetails;
+  }
+
   async viewAuditReportById(id: string) {
     const audit = await this.auditReportRepo
       .createQueryBuilder('a')
@@ -2474,8 +2535,12 @@ export class JournalsService {
           'report.bank_account_id AS bank_account_id',
           'ba.account_name AS account_name',
           'ba.account_type AS account_type',
+          'ba.account_number AS account_number',
           'report.audit_date AS audit_date',
           'report.nil_return AS nil_return',
+          'report.project_id AS project_id',
+          'report.aud_gen_from_date AS aud_gen_from_date',
+          'report.aud_gen_to_date AS aud_gen_to_date',
           'report.created_on AS report_date',
           'report.attachment_ids AS attachment_ids',
           'b.bank_statement_id AS statement_id',

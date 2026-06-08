@@ -4581,6 +4581,15 @@ input DecodedTokenInput {
   userId: String
 }
 
+"""Input payload for deleting an audit report and its files."""
+input DeleteAuditReportInput {
+  """Company identifier the audit report must belong to (ownership guard)."""
+  company_id: Float!
+
+  """Unique identifier of the audit report to delete."""
+  id: String!
+}
+
 """Input for deleting a credit note"""
 input DeleteCreditNotesInput {
   """Payment ID associated with the credit note to delete"""
@@ -15298,6 +15307,14 @@ type Mutation {
   """Delete an AI chat thread and all of its messages."""
   deleteAiChatThread(input: ThreadIdInput!): AiChatThreadMutationResponse!
 
+  """
+  Delete an audit report along with its stored pack file(s) and attachments.
+  """
+  deleteAuditReportDetails(
+    """Payload containing the audit report id and company id"""
+    payload: DeleteAuditReportInput!
+  ): AuditReportResponse!
+
   """Remove a payment method permanently from the company billing profile."""
   deleteCardByPaymentMethodId(
     """ID of the company whose card is being deleted."""
@@ -23435,6 +23452,9 @@ type VariationDetailsResponse {
 type ViewAuditReport {
   """Name of the bank account."""
   account_name: String!
+
+  """Bank account number (used to password-protect the pack)."""
+  account_number: String
 
   """Type of bank account."""
   account_type: String!

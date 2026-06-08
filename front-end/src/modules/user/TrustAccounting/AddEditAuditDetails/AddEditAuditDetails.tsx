@@ -51,10 +51,7 @@ import {
   showWarningToast,
 } from "@/components/Toaster";
 import SearchableSelect from "@/components/SearchableSelect/SearchableSelect";
-import {
-  downloadAuditZipFromAPI,
-  downloadAuditZipFromPath,
-} from "@/utils/export";
+import { downloadAuditZipFromPath } from "@/utils/export";
 import { setReduxAuditData } from "@/redux/slices/auditDetails";
 import { getSubscriptionDetailsByCompanyId } from "../../Subscriptions/subscriptions.function";
 const AUTO_CLOSE_TIME = 30;
@@ -639,16 +636,35 @@ export default function AddEditAuditDetails(props: any) {
       }
       if (isAdd) {
         setLoaderInfo("Saving audit report...");
+        // ✅ Save & Download: build the Audit Pack as part of the save path
+        // (right before insert) so a pack is never produced without a saved
+        // row. There is no standalone pre-save generate step in Add mode.
+        const packForDelivery: any = await buildAuditPack();
+        if (!packForDelivery) {
+          // Gating modal / error already surfaced by buildAuditPack
+          setLoader(false);
+          return;
+        }
+        setGeneratedFile(packForDelivery);
         payload.aud_gen_from_date = getDatePickerFormat(auditStartDate);
         payload.aud_gen_to_date = getDatePickerFormat(auditEndDate);
         payload.min_aud_from_date = getDatePickerFormat(minStartAuditDate);
-        // ✅ Include attachment_id only if generatedFile is a non-empty object
-        if (generatedFile && Object.keys(generatedFile)?.length > 0) {
-          payload.attachment_id = generatedFile?.file?.attachment_id || "";
+        // ✅ Include attachment_id only if the pack is a non-empty object
+        if (packForDelivery && Object.keys(packForDelivery)?.length > 0) {
+          payload.attachment_id = packForDelivery?.file?.attachment_id || "";
         }
         // Call the insert service when isEdit is false
         let result = await insertAuditReportDetails(payload);
         if (result) {
+          // ✅ Save & Download: deliver the pack right after the row is saved,
+          // before any notices / route-back early returns.
+          if (packForDelivery?.file?.file_path) {
+            await downloadAuditZipFromPath(
+              packForDelivery?.file?.file_path,
+              packForDelivery?.file?.file_name,
+              selectedAccount?.bankAccount
+            );
+          }
           if (values?.AuditReport.length > 0) {
             const uploadPayload = {
               audit_id: result?.audit_id,
@@ -754,18 +770,37 @@ export default function AddEditAuditDetails(props: any) {
         }
       }
       if (isAdd) {
+        // ✅ Save & Download: build the Audit Pack as part of the save path
+        // (right before insert) so a pack is never produced without a saved
+        // row. There is no standalone pre-save generate step in Add mode.
+        const packForDelivery: any = await buildAuditPack();
+        if (!packForDelivery) {
+          // Gating modal / error already surfaced by buildAuditPack
+          setLoader(false);
+          return;
+        }
+        setGeneratedFile(packForDelivery);
         // ✅ Add generated date range to payload
         payload.aud_gen_from_date = getDatePickerFormat(auditStartDate);
         payload.aud_gen_to_date = getDatePickerFormat(auditEndDate);
         payload.min_aud_from_date = getDatePickerFormat(minStartAuditDate);
-        // ✅ Include attachment_id only if generatedFile is a non-empty object
-        if (generatedFile && Object.keys(generatedFile)?.length > 0) {
-          payload.attachment_id = generatedFile?.file?.attachment_id || "";
+        // ✅ Include attachment_id only if the pack is a non-empty object
+        if (packForDelivery && Object.keys(packForDelivery)?.length > 0) {
+          payload.attachment_id = packForDelivery?.file?.attachment_id || "";
         }
         // Call the insert service when isEdit is false
         let result = await insertAuditReportDetails(payload);
 
         if (result) {
+          // ✅ Save & Download: deliver the pack right after the row is saved,
+          // before any notices / route-back early returns.
+          if (packForDelivery?.file?.file_path) {
+            await downloadAuditZipFromPath(
+              packForDelivery?.file?.file_path,
+              packForDelivery?.file?.file_name,
+              selectedAccount?.bankAccount
+            );
+          }
           if (values?.AuditReport.length > 0) {
             const uploadPayload = {
               audit_id: result?.audit_id,
@@ -1183,28 +1218,37 @@ export default function AddEditAuditDetails(props: any) {
     }
   }
 
+  // Build (and store on the server) the Audit Pack from the current form
+  // params. Returns the generated file response, or null when blocked by the
+  // subscription gate / on failure. Does NOT deliver the file to the user —
+  // delivery happens via "Save & Download" or the list Download action.
+  async function buildAuditPack(): Promise<any> {
+    // 🔹 Check subscription first (gating left as-is)
+    if (!auditExportAllowed) {
+      setModalHeading("Upgrade Subscription");
+      setModalBodyContent(
+        "Your current subscription does not allow generate audit export. Please upgrade your plan to access this feature."
+      );
+      setOpenPlanModal(true);
+      return null; // stop further execution
+    }
+
+    const payload = {
+      payload: {
+        bank_account_id: +formik?.values?.AccountName,
+        start_date: getDatePickerFormat(auditStartDate),
+        end_date: getDatePickerFormat(auditEndDate),
+        project_id: selectedProject?.project_id,
+      },
+    };
+    const response: any = await GenerateAuditReport(payload);
+    return response || null;
+  }
+
   async function handleGenerateAudit() {
     try {
-      // 🔹 Check subscription first
-      if (!auditExportAllowed) {
-        setModalHeading("Upgrade Subscription");
-        setModalBodyContent(
-          "Your current subscription does not allow generate audit export. Please upgrade your plan to access this feature."
-        );
-        setOpenPlanModal(true);
-        return; // stop further execution
-      }
-
       setLoader(true);
-      const payload = {
-        payload: {
-          bank_account_id: +formik?.values?.AccountName,
-          start_date: getDatePickerFormat(auditStartDate),
-          end_date: getDatePickerFormat(auditEndDate),
-          project_id: selectedProject?.project_id,
-        },
-      };
-      const response: any = await GenerateAuditReport(payload);
+      const response: any = await buildAuditPack();
 
       if (response) {
         setGeneratedFile(response);
@@ -1212,10 +1256,6 @@ export default function AddEditAuditDetails(props: any) {
           // Save generated response separately during edit
           setGeneratedEditAuditResponse(response);
         }
-        await downloadAuditZipFromAPI(
-          response?.message,
-          selectedAccount?.bankAccount
-        );
       }
       setLoader(false);
     } catch {
@@ -1658,25 +1698,28 @@ export default function AddEditAuditDetails(props: any) {
                       </div>
                     </>
                   ) : (
-                    <div className="width_20">
-                      <CustomButton
-                        buttonName={"Generate audit"}
-                        buttonType={buttonType.SECONDARY}
-                        actionType="submit"
-                        onClick={() => handleGenerateAudit()}
-                        // disabled={
-                        //   loader || !formik.values.AccountName || isView
-                        // }
-                        disabled={
-                          loader ||
-                          !formik.values.AccountName ||
-                          isView ||
-                          !auditStartDate ||
-                          !auditEndDate
-                        }
-                        inputButton
-                      />
-                    </div>
+                    // Standalone "Generate audit" is only available in Edit mode
+                    // (which already has a saved audit row). In Add mode the pack
+                    // is produced solely by "Save & Download", so a pack is never
+                    // created server-side without a corresponding saved record.
+                    isEdit && (
+                      <div className="width_20">
+                        <CustomButton
+                          buttonName={"Generate audit"}
+                          buttonType={buttonType.SECONDARY}
+                          actionType="submit"
+                          onClick={() => handleGenerateAudit()}
+                          disabled={
+                            loader ||
+                            !formik.values.AccountName ||
+                            isView ||
+                            !auditStartDate ||
+                            !auditEndDate
+                          }
+                          inputButton
+                        />
+                      </div>
+                    )
                   )}
 
                   <FormikControl
@@ -1726,7 +1769,7 @@ export default function AddEditAuditDetails(props: any) {
                     />
                     {!isView && (
                       <CustomButton
-                        buttonName={isEdit ? "Update" : "Save"}
+                        buttonName={isEdit ? "Update" : "Save & Download"}
                         buttonType={buttonType.SECONDARY}
                         actionType="submit"
                         onClick={() => {

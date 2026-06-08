@@ -726,6 +726,22 @@ export class EditAuditReportInput extends PartialType(AddAuditReportInput) {
 }
 
 @InputType({
+  description: 'Input payload for deleting an audit report and its files.',
+})
+export class DeleteAuditReportInput {
+  @Field({
+    description: 'Unique identifier of the audit report to delete.',
+  })
+  id: string;
+
+  @Field({
+    description:
+      'Company identifier the audit report must belong to (ownership guard).',
+  })
+  company_id: number;
+}
+
+@InputType({
   description:
     'Input payload for fetching audit reports with filters and pagination.',
 })

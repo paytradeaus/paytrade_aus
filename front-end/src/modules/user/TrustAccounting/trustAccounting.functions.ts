@@ -31,11 +31,15 @@ export const getAllAuditReportList = async (
               report_list {
                 account_name
                 account_type
+                account_number
                 attachment_ids
                 audit_date
                 audit_id
+                aud_gen_from_date
+                aud_gen_to_date
                 bank_account_id
                 company_id
+                project_id
                 file_details {
                   attachment_type
                   file
@@ -197,6 +201,53 @@ export const deleteReconciliationReportDetails = async (
         response?.data?.deleteReconciliationReportDetails?.message
       );
       console.error(response?.data?.deleteReconciliationReportDetails?.message);
+      return false;
+    }
+
+    return false;
+  } catch (error: any) {
+    showErrorToast(error.message || "Something went wrong in API");
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const deleteAuditReportDetails = async (
+  data: { id: string; company_id: number },
+  setLoading?: (loading: boolean) => void
+): Promise<boolean | null> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation DeleteAuditReportDetails($payload: DeleteAuditReportInput!) {
+          deleteAuditReportDetails(payload: $payload) {
+            data {
+              id
+              audit_id
+              company_id
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: {
+        payload: {
+          id: data?.id,
+          company_id: data?.company_id,
+        },
+      },
+      fetchPolicy: "no-cache",
+    });
+
+    if (response?.data?.deleteAuditReportDetails?.status === "SUCCESS") {
+      showSuccessToast(response?.data?.deleteAuditReportDetails?.message);
+      return true;
+    } else if (response?.data?.deleteAuditReportDetails?.status === "ERROR") {
+      showErrorToast(response?.data?.deleteAuditReportDetails?.message);
+      console.error(response?.data?.deleteAuditReportDetails?.message);
       return false;
     }
 

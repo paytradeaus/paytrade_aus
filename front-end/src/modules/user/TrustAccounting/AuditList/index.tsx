@@ -6,7 +6,12 @@ import React, { useEffect, useState } from "react";
 import { AuditReportType } from "../trustAccounting.types";
 import { auditRenderData, auditListHeaders } from "../trustAccounting.constant";
 import { connectWebSocket, formatDate } from "@/utils";
-import { getAllAuditReportList } from "../trustAccounting.functions";
+import {
+  getAllAuditReportList,
+  deleteAuditReportDetails,
+} from "../trustAccounting.functions";
+import { GenerateAuditReport } from "../AddEditAuditDetails/AddEditAuditDetails.functions";
+import BaseModal from "@/components/BaseModal";
 import { format, isValid } from "date-fns";
 import { FetchAllBankAccounts } from "../../BankAccounts/bankAccount.functions";
 import Link from "next/link";
@@ -16,10 +21,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import {
   downloadExcelFileFromAPI,
+  downloadAuditZipFromPath,
   GenerateSignedUrl,
   getPDFUrl,
 } from "@/utils/export";
-import { showErrorToast } from "@/components/Toaster";
+import {
+  showErrorToast,
+  showInfoToast,
+  showSuccessToast,
+} from "@/components/Toaster";
 import { setReduxAuditData } from "@/redux/slices/auditDetails";
 import { useDispatch } from "react-redux";
 
@@ -55,6 +65,9 @@ export default function AuditList(props: any) {
   const [selectedActivityRangeType, setSelectedActivityRangeType] =
     useState("All dates");
   const [role, setRole] = useState<string | null>(null);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [actionDeleteData, setActionDeleteData] = useState<any>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const defaultAccount =
     bankOptions.find(
       (account: any) => account.account_type === "Retention Trust Account"
@@ -93,12 +106,28 @@ export default function AuditList(props: any) {
       },
     },
     {
+      label: "Download",
+      icon: "fa-light fa-download",
+      onClick: (row: AuditReportType) => {
+        handleDownloadAudit(row);
+      },
+    },
+    {
       label: "Edit",
       icon: "fa-light fa-file-pen",
       onClick: (row: AuditReportType) => {
         router.push(
           `${AppRoutes.USER_TRUST_ACCOUNTING_AUDIT_EDIT}/${row?.id}?routedFrom=auditList`
         );
+      },
+    },
+    {
+      label: "Delete",
+      style: "contrast",
+      icon: "fa-light fa-trash",
+      onClick: (row: AuditReportType) => {
+        setActionDeleteData(row);
+        setOpenDeleteModal(true);
       },
     },
   ];
@@ -229,6 +258,55 @@ export default function AuditList(props: any) {
       setTableLoader(false);
     }
   }
+  // Regenerate the Audit Pack fresh from the saved params and deliver the ZIP.
+  const handleDownloadAudit = async (row: AuditReportType) => {
+    if (downloadingId) return;
+    try {
+      setDownloadingId(row?.id);
+      showInfoToast("Generating audit pack...");
+      const response: any = await GenerateAuditReport({
+        payload: {
+          bank_account_id: row?.bank_account_id,
+          start_date: row?.aud_gen_from_date,
+          end_date: row?.aud_gen_to_date,
+          project_id: row?.project_id,
+        },
+      });
+
+      if (response?.file?.file_path) {
+        await downloadAuditZipFromPath(
+          response?.file?.file_path,
+          response?.file?.file_name,
+          row?.account_number || ""
+        );
+        showSuccessToast("Audit pack downloaded.");
+      } else {
+        showErrorToast("Unable to generate the audit pack.");
+      }
+    } catch (error) {
+      console.error("Audit download failed:", error);
+      showErrorToast("Failed to download the audit pack.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteFunction = async () => {
+    const target = actionDeleteData;
+    setOpenDeleteModal(false);
+    if (!target?.id) return;
+    const deleted = await deleteAuditReportDetails({
+      id: target?.id,
+      company_id: AdminCompanyId
+        ? Number(AdminCompanyId)
+        : selectedCompanyId,
+    });
+    setActionDeleteData(null);
+    if (deleted) {
+      getAuditLists();
+    }
+  };
+
   const handleFileDownload = async (rowData: any) => {
     const pdfFiles = rowData?.file_details?.filter(
       (file: any) => file?.file_type === "application/pdf"
@@ -671,6 +749,26 @@ export default function AuditList(props: any) {
           />
         </div>
       </div>
+      {openDeleteModal && (
+        <BaseModal
+          modalId={"Delete audit confirmation"}
+          displayModal={openDeleteModal}
+          onClose={() => setOpenDeleteModal(false)}
+          onHeaderIconClose={() => setOpenDeleteModal(false)}
+          onConfirm={() => {
+            handleDeleteFunction();
+            return true;
+          }}
+          firstButtonName="No"
+          secondButtonName="Yes"
+          restrictOncloseFunctionInHeader
+        >
+          <h4 className="text_center width_100">
+            Are you sure you wish to delete this audit report? This will remove
+            the saved record and its stored files.
+          </h4>
+        </BaseModal>
+      )}
     </div>
   );
 }

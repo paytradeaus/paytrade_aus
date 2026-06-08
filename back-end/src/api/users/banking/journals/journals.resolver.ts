@@ -33,6 +33,7 @@ import {
   CheckNilReturnForAuditInput,
   CheckReportExistenceByAccountIdInput,
   EditAuditReportInput,
+  DeleteAuditReportInput,
   EditReconciliationReportInput,
   FetchAccountLedgerByAccountIdInput,
   FetchDepositsAndWithdrawalsByAccountIdInput,
@@ -1301,6 +1302,67 @@ export class JournalsResolver {
       );
       const errMsg = await handleError(error).catch((error) => {
         // Handle any rejections or errors
+        return error;
+      });
+      return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Mutation(() => AuditReportResponse, {
+    name: 'deleteAuditReportDetails',
+    description:
+      'Delete an audit report along with its stored pack file(s) and attachments.',
+  })
+  async deleteAuditReportDetails(
+    @Context() context,
+    @Args('payload', {
+      description: 'Payload containing the audit report id and company id',
+    })
+    payload: DeleteAuditReportInput,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for deleting audit report with payload: ${JSON.stringify(payload)}`,
+      );
+      // decodeJwtToken validates the request's `companyid` header against the
+      // JWT's companySpecificRoles, throwing if the caller is not authorised for
+      // that company. The authenticated header — NOT the client-supplied
+      // payload.company_id — is the trusted ownership scope.
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const companyId = Number(context?.req?.headers?.companyid);
+      if (!companyId) {
+        return framedResponse('ERROR', 'Missing company context');
+      }
+      const deleted = await this.journalsService.deleteAuditReportDetails(
+        decoded,
+        payload.id,
+        companyId,
+      );
+      this.logger.log(
+        `Response received after deleting audit report: ${JSON.stringify(deleted)}`,
+      );
+      if (deleted) {
+        return framedResponse(
+          'SUCCESS',
+          `The audit report has been deleted.`,
+          deleted,
+        );
+      }
+      throw new Error(`Unable to delete audit report details`);
+    } catch (error) {
+      errorMessage = error.message ? error.message : error;
+      this.logger.error(
+        `Errored inside the client with message: ${errorMessage}`,
+      );
+      const errMsg = await handleError(error).catch((error) => {
         return error;
       });
       return framedResponse('ERROR', errMsg);

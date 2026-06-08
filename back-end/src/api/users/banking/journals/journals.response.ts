@@ -1300,6 +1300,12 @@ export class ViewAuditReport {
   @Field({ description: 'Name of the bank account.' })
   account_name: string;
 
+  @Field({
+    nullable: true,
+    description: 'Bank account number (used to password-protect the pack).',
+  })
+  account_number: string;
+
   @Field(() => [String], {
     nullable: true,
     description: 'List of associated attachment identifiers.',

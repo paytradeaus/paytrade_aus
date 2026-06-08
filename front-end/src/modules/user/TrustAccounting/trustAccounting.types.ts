@@ -1,9 +1,13 @@
 export interface AuditReportType {
   audit_date: string;
   account_name: string;
+  account_number?: string;
   audit_id: number;
+  aud_gen_from_date?: string;
+  aud_gen_to_date?: string;
   bank_account_id: number;
   company_id: number;
+  project_id?: number;
   id: string;
   nil_return: string;
   report_date: string;
