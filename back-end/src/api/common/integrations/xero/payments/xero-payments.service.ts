@@ -366,12 +366,10 @@ export class XeroPaymentsService {
         return false;
       }
 
-      const xeroBankAccountDetails = await this.xeroBankAccountDetails.findOne({
-        where: {
-          pt_bank_account_id: bank_account_id,
-          integration_id: xeroDetails.integration_id,
-        },
-      });
+      const xeroBankAccountDetails = await this.resolvePostableXeroBankAccount(
+        bank_account_id,
+        xeroDetails.integration_id,
+      );
       if (!xeroBankAccountDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id,
@@ -442,12 +440,10 @@ export class XeroPaymentsService {
       }
 
       const xeroRetentionBankAccountDetails = cash_retention
-        ? await this.xeroBankAccountDetails.findOne({
-            where: {
-              pt_bank_account_id: retention_account,
-              integration_id: xeroDetails.integration_id,
-            },
-          })
+        ? await this.resolvePostableXeroBankAccount(
+            retention_account,
+            xeroDetails.integration_id,
+          )
         : null;
       if (cash_retention && !xeroRetentionBankAccountDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -2354,12 +2350,10 @@ export class XeroPaymentsService {
         return false;
       }
 
-      const xeroBankAccountDetails = await this.xeroBankAccountDetails.findOne({
-        where: {
-          pt_bank_account_id: bank_account_id,
-          integration_id: xeroDetails.integration_id,
-        },
-      });
+      const xeroBankAccountDetails = await this.resolvePostableXeroBankAccount(
+        bank_account_id,
+        xeroDetails.integration_id,
+      );
       if (!xeroBankAccountDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {
           id: data?.sync_id,
@@ -3754,18 +3748,14 @@ export class XeroPaymentsService {
         if (!xeroPayments.bank_transfer_id) {
           return false;
         }
-        const opAcc = await this.xeroBankAccountDetails.findOne({
-          where: {
-            pt_bank_account_id: bank_account_id,
-            integration_id: xeroDetails.integration_id,
-          },
-        });
-        const retAcc = await this.xeroBankAccountDetails.findOne({
-          where: {
-            pt_bank_account_id: retention_account,
-            integration_id: xeroDetails.integration_id,
-          },
-        });
+        const opAcc = await this.resolvePostableXeroBankAccount(
+          bank_account_id,
+          xeroDetails.integration_id,
+        );
+        const retAcc = await this.resolvePostableXeroBankAccount(
+          retention_account,
+          xeroDetails.integration_id,
+        );
         if (!opAcc || !retAcc) {
           throw `Bank account mapping not found for retention transfer reversal`;
         }
@@ -4164,12 +4154,10 @@ export class XeroPaymentsService {
         }
 
         const xeroBankAccountDetails =
-          await this.xeroBankAccountDetails.findOne({
-            where: {
-              pt_bank_account_id: bank_account_id,
-              integration_id: xeroDetails.integration_id,
-            },
-          });
+          await this.resolvePostableXeroBankAccount(
+            bank_account_id,
+            xeroDetails.integration_id,
+          );
         if (!xeroBankAccountDetails) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id,
@@ -4239,12 +4227,10 @@ export class XeroPaymentsService {
         }
 
         const xeroRetentionBankAccountDetails = cash_retention
-          ? await this.xeroBankAccountDetails.findOne({
-              where: {
-                pt_bank_account_id: retention_account,
-                integration_id: xeroDetails.integration_id,
-              },
-            })
+          ? await this.resolvePostableXeroBankAccount(
+              retention_account,
+              xeroDetails.integration_id,
+            )
           : null;
         if (cash_retention && !xeroRetentionBankAccountDetails) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
@@ -4672,20 +4658,16 @@ export class XeroPaymentsService {
     let preResolvedRetentionAccount: any = null;
     if (doPaymentLeg && doTransferLeg) {
       preResolvedFromAccount = bank_account_id
-        ? await this.xeroBankAccountDetails.findOne({
-            where: {
-              pt_bank_account_id: bank_account_id,
-              integration_id: xeroDetails.integration_id,
-            },
-          })
+        ? await this.resolvePostableXeroBankAccount(
+            bank_account_id,
+            xeroDetails.integration_id,
+          )
         : null;
       preResolvedRetentionAccount = retention_account
-        ? await this.xeroBankAccountDetails.findOne({
-            where: {
-              pt_bank_account_id: retention_account,
-              integration_id: xeroDetails.integration_id,
-            },
-          })
+        ? await this.resolvePostableXeroBankAccount(
+            retention_account,
+            xeroDetails.integration_id,
+          )
         : null;
 
       if (!preResolvedFromAccount || !preResolvedRetentionAccount) {
@@ -4841,22 +4823,18 @@ export class XeroPaymentsService {
       const xeroBankAccountDetails =
         preResolvedFromAccount ??
         (bank_account_id
-          ? await this.xeroBankAccountDetails.findOne({
-              where: {
-                pt_bank_account_id: bank_account_id,
-                integration_id: xeroDetails.integration_id,
-              },
-            })
+          ? await this.resolvePostableXeroBankAccount(
+              bank_account_id,
+              xeroDetails.integration_id,
+            )
           : null);
       const xeroRetentionBankAccountDetails =
         preResolvedRetentionAccount ??
         (retention_account
-          ? await this.xeroBankAccountDetails.findOne({
-              where: {
-                pt_bank_account_id: retention_account,
-                integration_id: xeroDetails.integration_id,
-              },
-            })
+          ? await this.resolvePostableXeroBankAccount(
+              retention_account,
+              xeroDetails.integration_id,
+            )
           : null);
 
       if (!xeroBankAccountDetails || !xeroRetentionBankAccountDetails) {
@@ -5999,16 +5977,12 @@ export class XeroPaymentsService {
         ].includes(paymentDetails?.payment_type)
       ) {
         const xeroBankAccountDetails =
-          await this.xeroBankAccountDetails.findOne({
-            where: {
-              pt_bank_account_id:
-                paymentDetails.payment_type ===
-                'Overpayment refund from supplier'
-                  ? paymentDetails.payment_to_account
-                  : paymentDetails.payment_from_account,
-              integration_id: xeroDetails.integration_id,
-            },
-          });
+          await this.resolvePostableXeroBankAccount(
+            paymentDetails.payment_type === 'Overpayment refund from supplier'
+              ? paymentDetails.payment_to_account
+              : paymentDetails.payment_from_account,
+            xeroDetails.integration_id,
+          );
         if (!xeroBankAccountDetails) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id,
@@ -8398,6 +8372,35 @@ export class XeroPaymentsService {
    * payment's from/to accounts don't form a trust↔associated_cash
    * pair owned by the same company.
    */
+  /**
+   * Resolve the Xero bank-account mapping PT should POST to for a given
+   * PT bank account. A single PT account can carry MULTIPLE Xero mappings
+   * — e.g. an auto-created DRAFT/ARCHIVED placeholder created on connect
+   * PLUS the real, manually-mapped ACTIVE account. Xero only transacts on
+   * ACTIVE accounts, so a plain findOne (no ordering) can return a
+   * non-postable row, and Xero then rejects the payment/transfer with
+   * "Account could not be found" / "FromBankAccount could not be located".
+   *
+   * Selection order: ACTIVE first, then explicit (non-Auto) mappings,
+   * then most recently updated. Single-mapping accounts are unaffected.
+   */
+  private async resolvePostableXeroBankAccount(
+    ptBankAccountId: number | string,
+    integrationId: number,
+  ): Promise<XeroBankAccountDetails | null> {
+    return await this.xeroBankAccountDetails
+      .createQueryBuilder('ba')
+      .where('ba.pt_bank_account_id = :ptBankAccountId', { ptBankAccountId })
+      .andWhere('ba.integration_id = :integrationId', { integrationId })
+      .addOrderBy(
+        `CASE WHEN ba.account_status = 'ACTIVE' THEN 0 ELSE 1 END`,
+        'ASC',
+      )
+      .addOrderBy(`CASE WHEN ba.mapped_status = 'Auto' THEN 1 ELSE 0 END`, 'ASC')
+      .addOrderBy('ba.updated_on', 'DESC')
+      .getOne();
+  }
+
   private async resolveTrustMovementPair(paymentDetails: any): Promise<{
     trustAccount: BankAccounts;
     cashAccount: BankAccounts;
@@ -8484,12 +8487,14 @@ export class XeroPaymentsService {
 
     // Resolve Xero account ids for both sides.
     const [fromXa, toXa] = await Promise.all([
-      this.xeroBankAccountDetails.findOne({
-        where: { pt_bank_account_id: paymentDetails.payment_from_account as any, integration_id: xeroDetails.integration_id },
-      }),
-      this.xeroBankAccountDetails.findOne({
-        where: { pt_bank_account_id: paymentDetails.payment_to_account as any, integration_id: xeroDetails.integration_id },
-      }),
+      this.resolvePostableXeroBankAccount(
+        paymentDetails.payment_from_account,
+        xeroDetails.integration_id,
+      ),
+      this.resolvePostableXeroBankAccount(
+        paymentDetails.payment_to_account,
+        xeroDetails.integration_id,
+      ),
     ]);
     if (!fromXa?.account_id || !toXa?.account_id) {
       const msg = `Trust movement push aborted — one or both bank accounts are not mapped to Xero (from=${!!fromXa?.account_id}, to=${!!toXa?.account_id}).`;
@@ -8666,12 +8671,14 @@ export class XeroPaymentsService {
     if (!pair) return { success: false, message: 'pair no longer resolvable' };
 
     const [fromXa, toXa] = await Promise.all([
-      this.xeroBankAccountDetails.findOne({
-        where: { pt_bank_account_id: paymentDetails.payment_from_account as any, integration_id: xeroDetails.integration_id },
-      }),
-      this.xeroBankAccountDetails.findOne({
-        where: { pt_bank_account_id: paymentDetails.payment_to_account as any, integration_id: xeroDetails.integration_id },
-      }),
+      this.resolvePostableXeroBankAccount(
+        paymentDetails.payment_from_account,
+        xeroDetails.integration_id,
+      ),
+      this.resolvePostableXeroBankAccount(
+        paymentDetails.payment_to_account,
+        xeroDetails.integration_id,
+      ),
     ]);
     if (!fromXa?.account_id || !toXa?.account_id) {
       return { success: false, message: 'bank account mappings missing' };

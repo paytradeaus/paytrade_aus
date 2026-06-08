@@ -1116,7 +1116,7 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
    * `XeroWebhookService.handleContactCreateUpdate` already uses (POBOX
    * preferred, then first STREET address; MOBILE phone preferred, then
    * DEFAULT), and fills the import-time UI defaults that Xero cannot
-   * supply (`related_entity: 'No'`, `entity_type: 'Organisation'`,
+   * supply (`related_entity: 'No'`, `entity_type: 'Business'`,
    * `client_supplier_status: 'Completed'`).
    *
    * Place ID / Region / Latitude / Longitude are intentionally left
@@ -1200,7 +1200,12 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       client_supplier_type: type,
       client_supplier_status: 'Completed',
       related_entity: 'No',
-      entity_type: 'Organisation',
+      // Xero has no PT-equivalent entity-type; its contacts are
+      // organisations. Default to the valid PT enum value 'Business'.
+      // The enum only allows Business / Sole Trader / Personal /
+      // Partnership — 'Organisation' is NOT a member, so inserting it
+      // raw throws and fails the whole inbound bill/contact import.
+      entity_type: 'Business',
       place_id: null,
       client_supplier_address: this.composeXeroAddress(xeroAddress),
       country: xeroAddress?.country || null,
