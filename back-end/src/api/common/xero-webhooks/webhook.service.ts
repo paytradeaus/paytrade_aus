@@ -1987,6 +1987,50 @@ export class XeroWebhookService {
   }
 
   /**
+   * Read a single Xero contact, retrying on a transient empty/failed read.
+   *
+   * The inbound smart-create path relies on this live read for the contact's
+   * address / phone / ABN — the synced `xero_contact_details` mirror only
+   * stores name + type, which is not enough to pass the mandatory-field check.
+   * A momentary Xero hiccup (an HTTP 200 with an empty `contacts` array, or a
+   * thrown 429/5xx) was being converted straight into a terminal
+   * "Contact details not mapped" (265/425) failure that stranded the whole
+   * invoice/bill import even though the same contact was perfectly fetchable
+   * seconds later. Retrying a few times with a short backoff lets these
+   * transient reads recover instead of stranding the import. Returns the
+   * contact, or null when every attempt comes back empty/failed.
+   */
+  private async fetchXeroContactWithRetry(
+    tenantId: string,
+    contactID: string,
+    maxAttempts = 4,
+  ): Promise<any | null> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      let contact: any = null;
+      try {
+        const response = await this.xero.accountingApi.getContact(
+          tenantId,
+          contactID,
+        );
+        contact = response?.body?.contacts?.[0] ?? null;
+      } catch (err) {
+        this.logger.warn(
+          `[BILL_TRACE] fetchXeroContactWithRetry: getContact attempt ${attempt}/${maxAttempts} for ${contactID} threw: ${err?.message || err}`,
+        );
+      }
+      if (contact) return contact;
+      if (attempt < maxAttempts) {
+        const delayMs = 500 * attempt;
+        this.logger.debug(
+          `[BILL_TRACE] fetchXeroContactWithRetry: empty/failed read for ${contactID} (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms.`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
+  }
+
+  /**
    * Task #356 — Smart-create contact on bill import.
    *
    * Called from {@link handleInvoiceCreateUpdate} when an invoice arrives
@@ -2055,16 +2099,20 @@ export class XeroWebhookService {
       return 'failed_generic';
     }
 
-    // Pull the live contact from Xero.
+    // Pull the live contact from Xero. The whole inbound import depends on
+    // this single read for the contact's address / phone / ABN — the synced
+    // `xero_contact_details` mirror only carries name + type, which is not
+    // enough to satisfy the mandatory-field check — so a transient empty or
+    // failed read must NOT be turned straight into a terminal contact-mapping
+    // failure. Retry a few times before giving up.
     await this.xeroService.refreshTokenSet(companyId, this.xero);
-    const response = await this.xero.accountingApi.getContact(
+    const contact = await this.fetchXeroContactWithRetry(
       xeroDetails.tenant_id,
       contactID,
     );
-    const contact = response.body.contacts?.[0];
     if (!contact) {
       this.logger.warn(
-        `[BILL_TRACE] smartCreateContactFromInvoice: no Xero contact found for ${contactID}.`,
+        `[BILL_TRACE] smartCreateContactFromInvoice: no Xero contact returned for ${contactID} after retries.`,
       );
       // No live Xero contact to import — let the caller write its standard
       // contact-mapping failure log (264/424).
