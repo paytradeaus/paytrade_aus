@@ -456,11 +456,17 @@ export async function resolveList(data: any) {
     case "PD_ADD_PAYMENT_TO_XERO": {
       await CreatePaymentInXero({
         payload: {
-          amount: data?.api_payload?.amount ?? null,
+          amount:
+            data?.api_payload?.amount != null
+              ? Number(data?.api_payload?.amount)
+              : null,
           bank_account_id: +data?.api_payload?.bank_account_id,
           cash_retention: data?.api_payload?.cash_retention ?? null,
           payment_date: data?.api_payload?.payment_date ?? null,
-          payment_id: data?.api_payload?.payment_id ?? null,
+          payment_id:
+            data?.api_payload?.payment_id != null
+              ? Number(data?.api_payload?.payment_id)
+              : null,
           retention_account: +data?.api_payload?.retention_account || null,
           retention_amount: +data?.api_payload?.retention_amount,
           sync_id: data?.id ?? null,

@@ -826,7 +826,9 @@ export async function CreatePaymentInXero(postData: any): Promise<any> {
       return false;
     }
   } catch (error: any) {
-    showErrorToast(error);
+    showErrorToast(
+      error?.message || "Failed to add payment in Xero. Please try again."
+    );
     return false;
   } finally {
     return false;
