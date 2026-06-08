@@ -345,6 +345,9 @@ export class UpdateSettingsInput {
   @Field({ nullable: true, description: 'Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".' })
   auto_gross_up_retention_journals: boolean;
 
+  @Field({ nullable: true, description: 'When ON, inbound Xero bills/invoices that exceed the contract size auto-create an "Agreed" variation for the cumulative shortfall and log a success instead of an over-contract warning.' })
+  auto_create_variation_on_over_contract: boolean;
+
   @Field({ nullable: true, description: 'Auto-create new PayTrade bank accounts in Xero' })
   pt_to_xero_bank_auto_create: boolean;
 

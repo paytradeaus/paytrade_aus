@@ -138,6 +138,9 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
     useState(false);
   const [displayContractValueExceedModal, setDisplayContractValueExceedModal] =
     useState(false);
+  // Opt-in: when the claim exceeds the contract value, also auto-create an
+  // "Agreed" contract variation for the cumulative over-contract shortfall.
+  const [autoCreateVariation, setAutoCreateVariation] = useState(false);
   const [displayRetentionWarning, setDisplayRetentionWarning] = useState(false);
   const [subscriptionPlanName, setSubscriptionPlanName] =
     useState<string>("Basic"); //company or user's current subscription plan
@@ -606,6 +609,7 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
             unit_price: Number(paymentValues) || 0,
           };
         }),
+        auto_create_variation: !!autoCreateVariation,
       };
 
       // Build pending_claims_with_reason array
@@ -1143,6 +1147,8 @@ export const AddUpdateClaimsContextProvider = ({ children }: any) => {
         initialPatchedValues,
         setInitialPatchedValues,
         setProceedWithExceedingAmount,
+        autoCreateVariation,
+        setAutoCreateVariation,
         loader,
         CashRetentionType,
         RetentionId,

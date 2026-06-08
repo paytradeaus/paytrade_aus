@@ -111,6 +111,9 @@ export default function XeroSettings() {
       setSyncContactFinancialToPt(!!data?.sync_contact_financial_to_pt);
       setSmartContractAutoCreate(!!data?.smart_contract_auto_create);
       setSmartContactAutoCreate(!!data?.smart_contact_auto_create);
+      setAutoCreateVariationOnOverContract(
+        !!data?.auto_create_variation_on_over_contract
+      );
       const formValue = {
         retention_receivable_retained_code:
           data?.retention_receivable_retained_code || "",
@@ -262,6 +265,10 @@ export default function XeroSettings() {
   const [syncContactFinancialToPt, setSyncContactFinancialToPt] = useState(false);
   const [smartContractAutoCreate, setSmartContractAutoCreate] = useState(false);
   const [smartContactAutoCreate, setSmartContactAutoCreate] = useState(false);
+  const [
+    autoCreateVariationOnOverContract,
+    setAutoCreateVariationOnOverContract,
+  ] = useState(false);
 
   const validationSchemaXeroAccountCode = Yup.object().shape({
     invoice_code: Yup.string().required("Invoice code is required"),
@@ -396,6 +403,8 @@ export default function XeroSettings() {
         sync_contact_financial_to_pt: syncContactFinancialToPt,
         smart_contract_auto_create: smartContractAutoCreate,
         smart_contact_auto_create: smartContactAutoCreate,
+        auto_create_variation_on_over_contract:
+          autoCreateVariationOnOverContract,
         retention_recording_mode: retention_recording_mode || "ex_gst",
         retention_tax_type: retention_tax_type || null,
         // Backend also enforces this invariant; FE mirrors it so the
@@ -1491,6 +1500,41 @@ export default function XeroSettings() {
                         Note: Contacts are created even without bank details; the smart-contract step will then prompt you to add them. Archived Xero contacts and contacts missing mandatory fields are skipped with a clear sync log.
                       </p>
                     )}
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="pt_expandtable">
+              <details open>
+                <summary>Over-contract auto-variation</summary>
+                <p style={{ color: "#666", fontSize: "13px", margin: "8px 0 16px", lineHeight: "1.5" }}>
+                  When enabled, if an imported Xero bill or invoice takes the
+                  contract over its agreed value, PayTrade automatically creates
+                  an &ldquo;Agreed&rdquo; contract variation for the cumulative
+                  over-contract amount and imports the claim with a success log
+                  instead of an over-contract warning.
+                </p>
+                <div className="grid pt_infocol">
+                  <div>
+                    <h5>Auto-create variations for over-contract bills/invoices?</h5>
+                    <p style={{ color: "#888", fontSize: "12px", margin: "0 0 8px" }}>
+                      The variation amount equals the cumulative shortfall (claim
+                      total minus the initial contract sum plus agreed variations,
+                      less prior claims). Applies to both bills (ACCPAY) and
+                      invoices (ACCREC). Hourly contracts are excluded.
+                    </p>
+                    <FormikControl
+                      control={InputType.SELECT}
+                      name={"auto_create_variation_on_over_contract"}
+                      placeholder=""
+                      renderKey={"value"}
+                      valueKey={"label"}
+                      onChange={(e: any) => {
+                        setAutoCreateVariationOnOverContract(e === "Yes");
+                      }}
+                      value={autoCreateVariationOnOverContract ? "Yes" : "No"}
+                      options={yesNoOptions}
+                    />
                   </div>
                 </div>
               </details>

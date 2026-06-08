@@ -186,6 +186,12 @@ export class XeroIntegrationDetails {
   @Column({ type: 'boolean', nullable: true, default: false })
   auto_gross_up_retention_journals: boolean;
 
+  // When ON, inbound Xero bills/invoices whose amount takes the contract over
+  // its current size auto-create an "Agreed" variation for the cumulative
+  // shortfall and log a Success (instead of the over-contract Warning).
+  @Column({ type: 'boolean', nullable: true, default: false })
+  auto_create_variation_on_over_contract: boolean;
+
   // Task #53 — Daily retro re-check of legacy unmatched retention
   // transfers. When ON (default), the XeroSchedulerService cron walks
   // xero_payments rows with payment_id IS NOT NULL AND bank_transfer_id

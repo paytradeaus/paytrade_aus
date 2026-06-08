@@ -4504,7 +4504,16 @@ export class XeroWebhookService {
         // Only log the warning on first import. On subsequent UPDATE
         // re-deliveries the claim already exists; re-logging would spam the
         // sync trail (Warning logs aren't covered by the Failed dedup gate).
-        if (!existingXeroInvoice?.pt_claim_id) {
+        // When the per-company setting is ON, the inbound claim creation
+        // (addPaymentClaim below) auto-creates an "Agreed" variation for the
+        // cumulative over-contract shortfall. In that case the Success log
+        // (650/651) is emitted ONLY after the import is confirmed (in the
+        // response block below) — never here, so a failed import can't leave a
+        // phantom "variation created" success in the sync trail. When the
+        // setting is OFF we keep the legacy behaviour: warn now, import anyway.
+        const autoVariationOnOverContract =
+          !!xeroDetails?.auto_create_variation_on_over_contract;
+        if (!existingXeroInvoice?.pt_claim_id && !autoVariationOnOverContract) {
           await this.xeroService.insertXeroSyncLogs(decoded, {
             id: data?.sync_id || null,
             api_name: 'createClaimInPaytrade',
@@ -4544,7 +4553,7 @@ export class XeroWebhookService {
             synced_records: null,
           });
         } else {
-          this.logger.debug(`[BILL_TRACE] V-Step 18: over-contract bill already imported (pt_claim_id=${existingXeroInvoice.pt_claim_id}) — skipping duplicate size warning.`);
+          this.logger.debug(`[BILL_TRACE] V-Step 18: over-contract bill already imported or auto-variation enabled (pt_claim_id=${existingXeroInvoice?.pt_claim_id}) — deferring/skipping size warning.`);
         }
         // Do NOT return — continue importing the over-contract bill.
       }
@@ -5507,6 +5516,11 @@ export class XeroWebhookService {
               claimNotPaidCount > 0 && data.claims_with_reason
                 ? data.claims_with_reason
                 : [],
+            // When the per-company setting is ON, addPaymentClaim auto-creates
+            // an "Agreed" variation for any cumulative over-contract shortfall
+            // (applies to both ACCPAY bills and ACCREC invoices).
+            auto_create_variation:
+              !!xeroDetails?.auto_create_variation_on_over_contract,
           };
 
           let response;
@@ -5579,6 +5593,67 @@ export class XeroWebhookService {
             xeroInvoice.updated_on = moment().toISOString();
             xeroInvoice.updated_group = 'SYSTEM';
             const xero_invoice = await this.xeroInvoicesBills.save(xeroInvoice);
+
+            // Over-contract auto-variation success log (templates 650/651).
+            // Emitted ONLY here — after the claim is confirmed created — for the
+            // setting-ON over-contract path (first import only). addPaymentClaim
+            // self-gates the variation on the cumulative shortfall, so this log
+            // mirrors that outcome. Recompute the over-contract condition
+            // (V-Step 18's local flag is out of scope here). A failed import
+            // returns earlier in the catch above, so this can never produce a
+            // phantom "variation created" success.
+            if (
+              !existingXeroInvoice?.pt_claim_id &&
+              !!xeroDetails?.auto_create_variation_on_over_contract &&
+              contractDetails &&
+              invoice?.status !== Invoice.StatusEnum.DRAFT &&
+              Number(invoice.total) >
+                Number(contractDetails.initial_contract_sum)
+            ) {
+              await this.xeroService.insertXeroSyncLogs(decoded, {
+                id: data?.sync_id || null,
+                api_name: 'createClaimInPaytrade',
+                api_payload: {
+                  sync_run_type,
+                  invoice_id: invoice?.invoiceID,
+                  tenant_id,
+                  type:
+                    invoice?.type === Invoice.TypeEnum.ACCPAY
+                      ? 'bill'
+                      : 'invoice',
+                },
+                integration_id: xeroDetails.integration_id,
+                log_template_id: sync_run_type === 'webhook' ? 650 : 651,
+                dynamic_values: {},
+                project_id: xeroProjectDetails?.id,
+                contract_id: xeroContractDetails?.id,
+                reference: {
+                  xeroId: xeroInvoice?.id,
+                  paytradeId: response?.payment_claim_id || null,
+                },
+                reference_id: xeroInvoice?.id,
+                history: [
+                  `API triggered from invoice ${sync_run_type}`,
+                  'Imported — variation auto-created for the over-contract amount',
+                ],
+                important_checks: {
+                  'Import data format validation': 'Ok',
+                  'Import tracking id validation': 'Ok',
+                  'Import account type validation': 'Ok',
+                  'Import tax type validation': 'Ok',
+                  'Client/Supplier mapping validation': 'Ok',
+                  'Contract mapping validation': 'Ok',
+                  'Project mapping validation': 'Ok',
+                  'Contract size validation': 'Ok',
+                },
+                error_message: `Amount (${invoice.total}) exceeds the contract size (${contractDetails.initial_contract_sum}). The over-contract amount was handled automatically (an "Agreed" variation is created for any cumulative shortfall) and the bill was imported.`,
+                xero_records: [invoice],
+                paytrade_records: [],
+                new_records: null,
+                updated_records: null,
+                synced_records: null,
+              });
+            }
 
             const claimDetails = await this.paymentClaims.findOne({
               where: { id: response?.id },

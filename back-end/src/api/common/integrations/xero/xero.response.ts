@@ -193,6 +193,9 @@ export class XeroResponse {
   @Field({ nullable: true, description: 'Task #356 — Smart-create contact on bill import: when ON, an inbound bill (ACCPAY) referencing an unmapped Xero contact auto-imports and maps that contact before the smart-contract step. Distinct from xero_to_pt_contact_auto_create.' })
   smart_contact_auto_create: boolean;
 
+  @Field({ nullable: true, description: 'When ON, an inbound bill/invoice that takes the contract over its agreed value auto-creates an "Agreed" variation for the cumulative over-contract shortfall and imports with a success log instead of an over-contract warning. Applies to ACCPAY + ACCREC; Hourly contracts excluded.' })
+  auto_create_variation_on_over_contract: boolean;
+
   @Field({ nullable: true, description: 'Invoice tax code' })
   invoice_tax_code: string;
 

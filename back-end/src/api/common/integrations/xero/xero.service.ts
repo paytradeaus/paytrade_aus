@@ -596,6 +596,7 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           'x.sync_contact_financial_to_pt AS sync_contact_financial_to_pt',
           'x.smart_contract_auto_create AS smart_contract_auto_create',
           'x.smart_contact_auto_create AS smart_contact_auto_create',
+          'x.auto_create_variation_on_over_contract AS auto_create_variation_on_over_contract',
           'x.invoice_tax_code AS invoice_tax_code',
           'x.bill_tax_code AS bill_tax_code',
           'x.reference_format AS reference_format',
@@ -3549,6 +3550,10 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
           xeroDetails.simplified_retention_accounting === false &&
           xeroDetails.retention_recording_mode === 'ex_gst';
         xeroDetails.auto_gross_up_retention_journals = wantsOn && eligible;
+      }
+      if (data.auto_create_variation_on_over_contract !== undefined) {
+        xeroDetails.auto_create_variation_on_over_contract =
+          !!data.auto_create_variation_on_over_contract;
       }
       if (data.pt_to_xero_bank_auto_create !== undefined) {
         xeroDetails.pt_to_xero_bank_auto_create = data.pt_to_xero_bank_auto_create;

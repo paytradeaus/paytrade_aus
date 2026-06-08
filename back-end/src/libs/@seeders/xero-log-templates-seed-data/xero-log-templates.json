@@ -5982,5 +5982,29 @@
     "associated_log_ids": [
       648
     ]
+  },
+  {
+    "id": 650,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Bill imported — variation auto-created for the over-contract amount</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "WH_CONTRACT_SIZE_AUTO_VARIATION",
+    "associated_log_ids": [
+      651
+    ]
+  },
+  {
+    "id": 651,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Bill imported — variation auto-created for the over-contract amount</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "SCHEDULER_CONTRACT_SIZE_AUTO_VARIATION",
+    "associated_log_ids": [
+      650
+    ]
   }
 ]

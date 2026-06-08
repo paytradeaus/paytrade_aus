@@ -130,6 +130,8 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
     noticesListData,
     setInitialPatchedValues,
     setProceedWithExceedingAmount,
+    autoCreateVariation,
+    setAutoCreateVariation,
     setIsViewMode,
     isViewMode,
     router,
@@ -553,7 +555,10 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
           title="Claim amount exceeds contract value"
           modalId={"Claim Amount Exceeds Contract Value"}
           displayModal={displayContractValueExceedModal}
-          onClose={() => setDisplayContractValueExceedModal(false)}
+          onClose={() => {
+            setAutoCreateVariation(false);
+            setDisplayContractValueExceedModal(false);
+          }}
           onConfirm={() => {
             setProceedWithExceedingAmount(true);
             setDisplayContractValueExceedModal(false);
@@ -566,6 +571,36 @@ export default function AddUpdateClaims({ editMode, viewMode }: any) {
             The claim amount is more than the contract value do you want to
             proceed?
           </h4>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              marginTop: "12px",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={autoCreateVariation}
+              onChange={(e) => setAutoCreateVariation(e.target.checked)}
+            />
+            <span>
+              Also create an &quot;Agreed&quot; contract variation for the
+              over-contract amount
+              {Number(formik?.values?.subTotal) >
+              Number(formik?.values?.contractTotal)
+                ? ` ($${(
+                    Number(formik?.values?.subTotal) -
+                    Number(formik?.values?.contractTotal)
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })})`
+                : ""}
+              .
+            </span>
+          </label>
         </BaseModal>
       )}
       {displayRetentionWarning && (

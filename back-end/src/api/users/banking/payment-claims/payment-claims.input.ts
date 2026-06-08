@@ -135,6 +135,13 @@ export class AddPaymentClaimInput {
   @Field({ nullable: true, description: 'Whether GST is optional.' })
   is_gst_optional?: boolean;
 
+  @Field({
+    nullable: true,
+    description:
+      'When true, auto-create an "Agreed" contract variation covering the cumulative over-contract shortfall for this claim.',
+  })
+  auto_create_variation?: boolean;
+
   @Field({ nullable: true, description: 'Beneficiary type for the claim.' })
   beneficiary_type?: BeneficiaryType;
 

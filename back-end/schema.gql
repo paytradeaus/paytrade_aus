@@ -837,6 +837,11 @@ input AddPaymentClaimInput {
   """Associated retention sub-payment ID."""
   associated_retention_sub_payment_id: Float
 
+  """
+  When true, auto-create an "Agreed" contract variation covering the cumulative over-contract shortfall for this claim.
+  """
+  auto_create_variation: Boolean
+
   """Beneficiary type for the claim."""
   beneficiary_type: String
 
@@ -22690,6 +22695,11 @@ input UpdateSeoKeywordInput {
 """Input for updating company or project accounting settings"""
 input UpdateSettingsInput {
   """
+  When ON, inbound Xero bills/invoices that exceed the contract size auto-create an "Agreed" variation for the cumulative shortfall and log a success instead of an over-contract warning.
+  """
+  auto_create_variation_on_over_contract: Boolean
+
+  """
   Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".
   """
   auto_gross_up_retention_journals: Boolean
@@ -24293,6 +24303,11 @@ type XeroReauthStatusResponse {
 type XeroResponse {
   """Action buttons available for the integration"""
   action_buttons: JSONObject
+
+  """
+  When ON, an inbound bill/invoice that takes the contract over its agreed value auto-creates an "Agreed" variation for the cumulative over-contract shortfall and imports with a success log instead of an over-contract warning. Applies to ACCPAY + ACCREC; Hourly contracts excluded.
+  """
+  auto_create_variation_on_over_contract: Boolean
 
   """
   Phase 3 — Auto-post a balanced GST gross-up Manual Journal in Xero each time retention is recorded. Only meaningful when simplified_retention_accounting=false AND retention_recording_mode="ex_gst".
