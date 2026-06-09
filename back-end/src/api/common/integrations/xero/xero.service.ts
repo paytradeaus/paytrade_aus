@@ -1984,6 +1984,31 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
               `[insertXeroSyncLogs] immediate-mode failure email send threw (non-fatal): ${immediateMailErr?.message || immediateMailErr}`,
             );
           }
+
+          // Moderate supersede: a fresh Failed row means the same record's
+          // failure reason has progressed to a NEW template (the dedup gate
+          // already collapses identical repeats, so reaching here implies a
+          // different reason). Archive prior active Failed rows for the same
+          // resource on the same inbound import pipeline so the obsolete
+          // breadcrumb stops showing while staying auditable when archived.
+          try {
+            const supersededCount =
+              await this.autoArchiveSupersededFailedLogs(
+                createXeroSyncLogInput.integration_id,
+                createXeroSyncLogInput.api_payload,
+                xeroSyncLog.sync_id,
+                createXeroSyncLogInput.log_template_id,
+              );
+            if (supersededCount > 0) {
+              this.logger.log(
+                `[insertXeroSyncLogs] Auto-superseded ${supersededCount} prior failed log(s) — newer reason in sync_id=${xeroSyncLog.sync_id} (integration_id=${createXeroSyncLogInput.integration_id})`,
+              );
+            }
+          } catch (supersedeErr: any) {
+            this.logger.warn(
+              `[insertXeroSyncLogs] Auto-supersede of prior failed logs threw (non-fatal): ${supersedeErr?.message || supersedeErr}`,
+            );
+          }
         }
 
         // Self-heal: when a Succeeded row lands, archive prior active
@@ -2234,6 +2259,36 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
    * stop showing the stale failure, but the row is preserved for audit.
    * Returns the number of rows archived.
    */
+  // Defensive denylist: failure classes whose resolution is NOT proven by
+  // a later successful import — nor by a different failure reason landing —
+  // on the same resource key. These are user-initiated intents (delete /
+  // edit) or hard gates (subscription/feature lock-outs) that must stay
+  // visible until their own resolution path clears them. Shared by both the
+  // success-resolved sweep and the moderate supersede-by-newer-reason sweep.
+  private static readonly FORBIDDEN_AUTO_ARCHIVE_TEMPLATES: number[] = [
+    31,  // EDIT_BANK_NOT_MAPPED → edit failure
+    32,  // EDIT_CONTACT_NOT_MAPPED → edit failure
+    33,  // DELETE_BANK → delete intent
+    34,  // DELETE_CONTACT → delete intent
+    36,  // DELETE_CONTRACT → delete intent
+    39,  // DELETE_BANK_NOT_MAPPED → delete intent
+    40,  // DELETE_CONTACT_NOT_MAPPED → delete intent
+    42,  // DELETE_CONTRACT_NOT_MAPPED → delete intent
+    281, // EDIT_BANK_NOT_FOUND_IN_XERO
+    282, // DELETE_BANK_NOT_FOUND_IN_XERO
+    284, // EDIT_CONTACT_NOT_FOUND_IN_XERO
+    285, // DELETE_CONTACT_NOT_FOUND_IN_XERO
+    292, // DELETE_CONTRACT_MISSING_CATEGORY
+    293, // DELETE_CONTRACT_NOT_FOUND_IN_XERO
+    295, // UNDO_DELETE_CONTRACT
+    387, // SUBSCRIPTION_GATE (bank)
+    388, // SUBSCRIPTION_GATE (bank)
+    389, // CONTACT_CANNOT_BE_DELETED
+    390, // CONTACT_CANNOT_BE_DELETED
+    403, // CONTRACT_CANNOT_BE_EDITED
+    406, // CONTRACT_CANNOT_BE_DELETED
+  ];
+
   private async autoArchivePriorFailedLogs(
     integrationId: number,
     apiPayload: any,
@@ -2260,35 +2315,10 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
     // Defensive denylist (Task #303): regardless of what a Failed
     // template's `associated_log_ids` claims, never auto-archive
     // failure classes whose resolution is NOT proven by a later
-    // successful import on the same resource key:
-    //   - delete-intent failures (user asked Xero to delete it)
-    //   - edit-not-found failures (resource missing on edit)
-    //   - subscription-gate failures (plan/feature lock-outs)
-    // A bad/legacy linkage in `associated_log_ids` (preserved by
-    // the seeder UNION) cannot bypass this filter.
-    const FORBIDDEN_AUTO_ARCHIVE_TEMPLATES = [
-      31,  // EDIT_BANK_NOT_MAPPED → edit failure
-      32,  // EDIT_CONTACT_NOT_MAPPED → edit failure
-      33,  // DELETE_BANK → delete intent
-      34,  // DELETE_CONTACT → delete intent
-      36,  // DELETE_CONTRACT → delete intent
-      39,  // DELETE_BANK_NOT_MAPPED → delete intent
-      40,  // DELETE_CONTACT_NOT_MAPPED → delete intent
-      42,  // DELETE_CONTRACT_NOT_MAPPED → delete intent
-      281, // EDIT_BANK_NOT_FOUND_IN_XERO
-      282, // DELETE_BANK_NOT_FOUND_IN_XERO
-      284, // EDIT_CONTACT_NOT_FOUND_IN_XERO
-      285, // DELETE_CONTACT_NOT_FOUND_IN_XERO
-      292, // DELETE_CONTRACT_MISSING_CATEGORY
-      293, // DELETE_CONTRACT_NOT_FOUND_IN_XERO
-      295, // UNDO_DELETE_CONTRACT
-      387, // SUBSCRIPTION_GATE (bank)
-      388, // SUBSCRIPTION_GATE (bank)
-      389, // CONTACT_CANNOT_BE_DELETED
-      390, // CONTACT_CANNOT_BE_DELETED
-      403, // CONTRACT_CANNOT_BE_EDITED
-      406, // CONTRACT_CANNOT_BE_DELETED
-    ];
+    // successful import on the same resource key (delete intents,
+    // edit-not-found, subscription gates). See the shared static.
+    const FORBIDDEN_AUTO_ARCHIVE_TEMPLATES =
+      XeroService.FORBIDDEN_AUTO_ARCHIVE_TEMPLATES;
     // Match Failed log_templates whose `associated_log_ids` list contains
     // the SUCCEEDED template's id, OR whose own id is in the resolved set.
     // This is the inverse linkage to the dedup gate: a Failed template
@@ -2322,6 +2352,98 @@ export class XeroService implements OnModuleInit, OnModuleDestroy {
         archiveNote,
         resolvedTemplateIds,
         FORBIDDEN_AUTO_ARCHIVE_TEMPLATES,
+      ],
+    );
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+
+  /**
+   * Moderate supersede sweep (auto-supersede stale breadcrumbs).
+   *
+   * When a NEW inbound-import (`from_xero = true`) Failed log is freshly
+   * persisted for a record, the underlying problem has *progressed* to a
+   * different reason — e.g. "Contact details not mapped" (265) is fixed by
+   * the auto-created contact and the actionable item is now "Contact missing
+   * email + bank details" (486). The dedup gate only collapses an identical
+   * repeat of the SAME reason; a genuinely different template writes a fresh
+   * row and leaves the prior, now-obsolete failure sitting active in the UI.
+   *
+   * This archives (never deletes) prior ACTIVE Failed rows for the SAME
+   * resource key on the SAME import pipeline whose template DIFFERS from the
+   * new one, stamping `archive_note` so the trail stays auditable under the
+   * Archived filter. Scope guards keep it from over-archiving:
+   *   - both the new and prior templates must be inbound (`from_xero = true`)
+   *     so an inbound import failure never wipes an outbound push failure
+   *     that happens to share the same resource id (different pipeline);
+   *   - resource match is on the SAME resource-key FIELD + value, not a
+   *     cross-type COALESCE — an invoice-keyed failure can only ever archive
+   *     other invoice-keyed rows, so it can never wipe a row that merely
+   *     shares the same id under a different field (e.g. a payment_id that
+   *     coincidentally equals an invoice_id), and invoice vs contact-level
+   *     failures stay independently fixable;
+   *   - the FORBIDDEN denylist (delete/edit/subscription-gate intents) is
+   *     never superseded — those clear via their own resolution path only;
+   *   - the just-created row is excluded by template id and sync_id.
+   *
+   * Returns the number of rows archived.
+   */
+  private async autoArchiveSupersededFailedLogs(
+    integrationId: number,
+    apiPayload: any,
+    newSyncId: number,
+    newTemplateId: number,
+  ): Promise<number> {
+    // Resolve the resource by the FIRST present field (same precedence as the
+    // dedup gate), keeping the field name so we match prior rows on that exact
+    // field rather than a cross-type COALESCE.
+    const RESOURCE_FIELDS = [
+      'invoice_id',
+      'contact_id',
+      'account_id',
+      'bank_transfer_id',
+      'payment_id',
+    ];
+    let resourceField: string | null = null;
+    let resourceKey: string | null = null;
+    for (const field of RESOURCE_FIELDS) {
+      if (apiPayload?.[field]) {
+        resourceField = field;
+        resourceKey = String(apiPayload[field]);
+        break;
+      }
+    }
+    if (!resourceField || !resourceKey || !integrationId || !newTemplateId) {
+      return 0;
+    }
+
+    const archiveNote = `Superseded: newer failure reason for the same record (sync_id ${newSyncId})`;
+    const rows = await this.xeroSyncLogs.query(
+      `UPDATE xero_sync_logs l
+       SET    archived_at = now(),
+              archive_note = $3,
+              updated_on = now()
+       FROM   xero_log_templates t,
+              xero_log_templates nt
+       WHERE  l.log_template_id = t.id
+         AND  nt.id = $4
+         AND  nt.from_xero = true
+         AND  t.from_xero = true
+         AND  t.sync_status = 'Failed'
+         AND  t.id <> $4
+         AND  l.integration_id = $1
+         AND  l.archived_at IS NULL
+         AND  l.sync_id <> $5
+         AND  NOT (t.id = ANY($6::int[]))
+         AND  l.api_payload->>$7 = $2
+       RETURNING l.id`,
+      [
+        integrationId,
+        resourceKey,
+        archiveNote,
+        newTemplateId,
+        newSyncId,
+        XeroService.FORBIDDEN_AUTO_ARCHIVE_TEMPLATES,
+        resourceField,
       ],
     );
     return Array.isArray(rows) ? rows.length : 0;
