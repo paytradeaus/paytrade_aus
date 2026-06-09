@@ -1,0 +1,49 @@
+**My reading:** the BIF Act does **not** require the project trust account to be fully topped up for every claim the moment the claim arrives. The hard top-up obligation is triggered when there is an insufficient amount in the trust account **to pay an amount due to be paid** to a beneficiary.
+
+The key section is **BIF Act s 51 — Trustee to cover shortfalls**:
+
+> If there is an insufficient amount available in a trust account to pay an amount **due to be paid** to a beneficiary, the trustee must **immediately deposit** an amount equal to the shortfall.
+> Maximum penalty: 100 penalty units or 1 year’s imprisonment. ([Queensland Legislation][1])
+
+So, for your example:
+
+| Date                         | Event                                  | Does the trust need full funds sitting there?                                                                         |
+| ---------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 9 May                        | Subcontractor claim received           | Not simply because the claim arrived. It must be recorded/tracked.                                                    |
+| By payment schedule deadline | If paying less, issue payment schedule | The scheduled amount becomes a liability to manage.                                                                   |
+| 9 June                       | Payment due date                       | The trustee must have enough in the project trust account to pay the due amount, or immediately top up the shortfall. |
+
+The Act also makes clear that the obligation to pay from the project trust account applies **whether or not the money is already in the account when it is to be paid**. That is **s 20(2)**, which points back to s 51 for shortfalls. ([Queensland Legislation][1])
+
+## Important nuance: the trustee cannot freely take money out before then
+
+Even though the top-up obligation is tied to amounts **due to be paid**, the trustee must be careful about withdrawals to itself. Under **s 20B**, the trustee must not withdraw money from the project trust account to pay itself unless, after that withdrawal, there would still be enough in the account to pay **all amounts the contracted party is liable to pay subcontractor beneficiaries at the time of the withdrawal**. ([Queensland Legislation][1])
+
+That matters because **s 10B** defines when an amount is “liable to be paid” to a subcontractor. It includes, among other things, where the amount is due under the subcontract, has been certified or assessed as payable, where the person gives a payment schedule for the amount, where liability arises under s 77, adjudication, court order, etc. ([Queensland Legislation][1])
+
+So:
+
+**Claim received only:** record it; assess it; not necessarily top-up immediately.
+**Payment schedule issued for $X:** that scheduled amount is now a liability for trust-priority purposes.
+**Payment due date arrives:** if insufficient funds are available to pay the due amount, the trustee must immediately top up under s 51.
+
+## Regulation point: claims must still be recorded promptly
+
+The Regulation supports this by treating a payment claim and payment schedule as “relevant transactions” for trust record purposes. Under **BIF Regulation s 10F**, each relevant transaction must be recorded in the ledger accounts within **3 business days**, and relevant transactions for a project trust include a claimant giving a payment claim and a respondent giving a payment schedule. ([Queensland Legislation][2])
+
+Under **BIF Act s 52**, the trustee must keep the prescribed trust records and retain them for at least **7 years after the trust is dissolved**. ([Queensland Legislation][1])
+
+## Practical compliance rule for Pay Trade
+
+I would model it like this:
+
+1. **On claim receipt:** create the trust journal / beneficiary ledger entry / claim liability record, but do not force a cash top-up merely because the claim arrived.
+2. **On assessment/payment schedule:** update the amount proposed to be paid and flag that amount as a liability.
+3. **Before trustee withdrawal to itself:** check s 20B — sufficient funds must remain for subcontractor liabilities.
+4. **On or before payment due date:** ensure the project trust account has enough to pay the amount due.
+5. **If short:** immediately create a trustee top-up/shortfall deposit under s 51 before making the beneficiary payment.
+
+So the answer is: **not automatically on claim arrival; the strict top-up obligation is when there is a shortfall for an amount due to be paid. But once liabilities exist, the trustee is restricted from withdrawing money to itself unless sufficient funds remain for subcontractor beneficiaries.**
+
+[1]: https://www.legislation.qld.gov.au/view/whole/html/current/act-2017-043 "View - Queensland Legislation - Queensland Government"
+[2]: https://www.legislation.qld.gov.au/view/whole/html/inforce/current/sl-2018-0016 "View - Queensland Legislation - Queensland Government"
