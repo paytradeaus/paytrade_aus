@@ -2401,11 +2401,14 @@ export class CompliancePTAFunctions {
 
       // Check 6 rule 26/27 — s76 BIF Act response obligation.
       // A Billable claim breaches s76 when it is (a) not paid in full, (b) has no
-      // payment schedule given to the claimant, and (c) is past its response
-      // deadline. The deadline is the EARLIER of (received_date + 15 business
-      // days) OR the claim's due_date — flag once today is past whichever comes
-      // first. If any claim breaches we surface a single FAILED row (rule 26)
-      // pointing at the first breaching claim; otherwise PASSED (rule 27).
+      // payment schedule given to the claimant, and (c) is past its PAYMENT DUE
+      // DATE. Under BIF Act s76 a respondent paying in full owes no payment
+      // schedule provided full payment is made by the due date, so the breach
+      // only crystallises once the due date passes while still unpaid and
+      // unanswered — the 15-business-day schedule window is NOT an independent
+      // trigger (it is only the deadline to GIVE a schedule when paying less).
+      // If any claim breaches we surface a single FAILED row (rule 26) pointing
+      // at the first breaching claim; otherwise PASSED (rule 27).
       const fetchedContentOfResponseRule = await filterComplianceContentDetails(
         6,
         26,
@@ -2462,39 +2465,28 @@ export class CompliancePTAFunctions {
           scheduledNotices.map((n) => Number(n.payment_claim_id)),
         );
 
-        const holidayDetails = await this.holidayDetails.find({
-          where: { holiday_status: 'Active' },
-        });
-
         const todayDateOnlyForResponse = new Date();
         todayDateOnlyForResponse.setHours(0, 0, 0, 0);
 
         for (const claim of unpaidBillableClaims) {
+          // Compliant if a payment schedule has already been GIVEN.
           if (scheduledClaimIds.has(Number(claim.payment_claim_id))) continue;
 
-          let pastDeadline = false;
+          // s76 only crystallises a breach at the PAYMENT DUE DATE. Until then
+          // the respondent can still discharge the claim by paying it IN FULL,
+          // and no payment schedule is required when paying in full by the due
+          // date (BIF Act s76). The 15-business-day window is only the deadline
+          // to GIVE a payment schedule when paying LESS — missing it is not, on
+          // its own, a breach while full payment by the due date is still
+          // possible. So a claim is non-compliant only once today is past its
+          // due date, still unpaid and with no payment schedule given.
+          if (!claim.due_date) continue;
 
-          // (received_date + 15 business days) — the s76 payment-schedule window.
-          if (claim.received_date) {
-            const past15BusinessDays =
-              await todayIsGreaterThanOpeningDatePlusBusinessDays({
-                startDate: claim.received_date,
-                businessDays: 15,
-                holidayDetails,
-              });
-            if (past15BusinessDays) pastDeadline = true;
+          const dueDate = new Date(claim.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          if (todayDateOnlyForResponse.getTime() > dueDate.getTime()) {
+            unrespondedClaims.push(claim);
           }
-
-          // due_date — the date by which full payment had to be made.
-          if (!pastDeadline && claim.due_date) {
-            const dueDate = new Date(claim.due_date);
-            dueDate.setHours(0, 0, 0, 0);
-            if (todayDateOnlyForResponse.getTime() > dueDate.getTime()) {
-              pastDeadline = true;
-            }
-          }
-
-          if (pastDeadline) unrespondedClaims.push(claim);
         }
       }
 

@@ -1,0 +1,50 @@
+Under the **Queensland BIF Act**, the key distinction is:
+
+## 1. If the trustee / respondent intends to pay the claim in full
+
+They **do not need to issue a payment schedule**, provided they pay the full claimed amount **on or before the payment due date**. The Act says a respondent is not required to give a payment schedule if the amount claimed is paid in full by the due date. ([Queensland Legislation][1])
+
+So in your example:
+
+| Claim received | Payment due date | If paying in full                                                        |
+| -------------- | ---------------: | ------------------------------------------------------------------------ |
+| 9 May          |           9 June | No payment schedule required, but the full amount must be paid by 9 June |
+
+The QBCC guidance says the same thing: if you agree with the claimed amount, simply pay the full amount by the due date. ([QBCC][2])
+
+## 2. If the trustee / respondent intends to pay less than the claim
+
+They must give the subcontractor a **payment schedule** by the earlier of:
+
+1. the time required under the contract; or
+2. **15 business days after the payment claim is given**. ([Queensland Legislation][1])
+
+The payment schedule must identify the claim, state the amount proposed to be paid, and if less than claimed, give the reasons for withholding or reducing payment. ([Queensland Legislation][1])
+
+Using your example, assuming Queensland business days and no relevant public holiday in the count:
+
+| Claim received | 15 business day deadline | Payment due date | If paying less                                                       |
+| -------------- | -----------------------: | ---------------: | -------------------------------------------------------------------- |
+| 9 May 2026     |              29 May 2026 |      9 June 2026 | Payment schedule due by 29 May, then scheduled amount paid by 9 June |
+
+If the example is **9 May 2025**, the 15-business-day deadline would be **30 May 2025**.
+
+## 3. What if no payment schedule is given?
+
+If no valid payment schedule is given in time, and the full amount is not paid by the due date, the respondent becomes liable to pay the **full amount claimed** on the due date. ([Queensland Legislation][1])
+
+So in your example, if no payment schedule is issued by the 15-business-day deadline and the contractor does not pay in full by **9 June**, the unpaid amount becomes recoverable/adjudicable as the full claimed amount.
+
+## 4. Project trust account overlay
+
+The project trust framework does **not replace** the BIF Act payment schedule timing. If the subcontractor is a project trust beneficiary, the payment must be made from the project trust account to the beneficiary’s nominated financial institution account. ([Queensland Legislation][1])
+
+There is also a **post-payment notice** obligation: when a withdrawal is made from the project trust account to pay a subcontractor beneficiary, the trustee must give the beneficiary a notice of the withdrawal within **5 business days after making the withdrawal**, unless there is a reasonable excuse. ([Queensland Legislation][1])
+
+So the clean compliance rule is:
+
+**Pay full:** no payment schedule required; pay by due date; then issue project trust withdrawal/payment notice within 5 business days after payment.
+**Pay less:** payment schedule within 15 business days, or earlier contract period; pay scheduled amount by due date; then issue project trust withdrawal/payment notice within 5 business days after payment.
+
+[1]: https://www.legislation.qld.gov.au/view/whole/html/inforce/2026-04-28/act-2017-043 "View - Queensland Legislation - Queensland Government"
+[2]: https://www.qbcc.qld.gov.au/running-your-business/getting-paid/respond-payment-request "Respond to payment request | Queensland Building and Construction Commission"
