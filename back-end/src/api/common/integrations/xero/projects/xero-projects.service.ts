@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
 import { TrackingOption, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import {
@@ -520,25 +519,6 @@ export class XeroProjectsService {
     try {
       const { company_id, project_id, sync_id } = data;
 
-      const {
-        project_name,
-        project_role,
-        project_date,
-        project_description,
-        site_address,
-        country,
-        region,
-        place_id,
-        latitude,
-        longitude,
-        head_contract_sum,
-        retention_type,
-        number_of_units,
-        pta_eligibility,
-        rta_eligibility,
-        project_status,
-      } = data.payload || {};
-
       const xeroDetails = await this.xeroIntegrationDetails.findOne({
         where: { company_id, status: 'ACTIVE' },
         relations: ['integrationDetails'],
@@ -661,64 +641,16 @@ export class XeroProjectsService {
         return false;
       }
 
-      const _missing: string[] = [];
-      if (!project_name) _missing.push('Project name');
-      if (!project_role) _missing.push('Project role');
-      if (!project_date) _missing.push('Project date');
-      if (!project_description) _missing.push('Project description');
-      if (!site_address) _missing.push('Site address');
-      if (!country) _missing.push('Country');
-      if (!region) _missing.push('Region');
-      if (!place_id) _missing.push('Place ID');
-      if (!latitude) _missing.push('Latitude');
-      if (!longitude) _missing.push('Longitude');
-      if (!head_contract_sum) _missing.push('Head contract sum');
-      if (!retention_type) _missing.push('Retention type');
-      if (!number_of_units) _missing.push('Number of units');
-      if (!pta_eligibility) _missing.push('PTA eligibility');
-      if (!rta_eligibility) _missing.push('RTA eligibility');
-      if (!project_status) _missing.push('Project status');
-      if (_missing.length > 0) {
-        const _missingFieldsLog = buildMissingFieldsLog(
-          'project',
-          project?.name,
-          _missing,
-        );
-        await this.xeroService.insertXeroSyncLogs(decoded, {
-          id: sync_id || null,
-          api_name: 'createProjectInPaytrade',
-          api_payload: {
-            project_id,
-            project_name: project.name,
-          },
-          integration_id: xeroDetails.integration_id,
-          log_template_id: 372,
-          dynamic_values: {},
-          project_id: checkExistenceInDb?.id,
-          contract_id: null,
-          reference: {
-            xeroId: checkExistenceInDb?.id,
-            paytradeId: null,
-          },
-          reference_id: checkExistenceInDb?.id,
-          history: [
-            `API triggered from project ${checkExistenceInDb?.project_name}`,
-            'Import failed',
-          ],
-          important_checks: {
-            'Import data format validation': 'Failed',
-          },
-          error_message: _missingFieldsLog.error_message,
-          notification: _missingFieldsLog.notification,
-          information_required: _missingFieldsLog.information_required,
-          xero_records: [project],
-          paytrade_records: [],
-          new_records: null,
-          updated_records: null,
-          synced_records: null,
-        });
-        return false;
-      } else {
+      // "Create in PayTrade" imports the Xero project as a DRAFT mirror with
+      // only its name populated. Every other field is intentionally left empty
+      // for the user to complete inside PayTrade later, so we ignore any inbound
+      // payload and never block the import on missing fields.
+      data.payload = {
+        company_id,
+        project_name: project?.name,
+        project_status: 'Draft',
+      };
+      {
         const checkNameExistence = await this.checkProjectName(
           company_id,
           project?.name,
