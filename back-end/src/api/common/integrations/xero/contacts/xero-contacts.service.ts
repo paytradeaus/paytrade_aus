@@ -1213,7 +1213,12 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
       latitude: null,
       longitude: null,
       client_phone_no: phoneNumber,
-      client_email_id: contact.emailAddress || null,
+      // client_email_id is NOT NULL with no DB default; emailless Xero
+      // contacts are allowed to import (the needs_email / pending_email_actions
+      // flags carry that state), so coerce a missing email to '' — passing
+      // null here throws a not-null violation that fails the WHOLE inbound
+      // invoice/bill webhook. Matches the '' convention used everywhere else.
+      client_email_id: contact.emailAddress || '',
       // Task #326 — Mirror Xero's taxNumber onto PT abn_number on
       // the inbound create path so new Xero contacts arrive with
       // their ABN already populated.
