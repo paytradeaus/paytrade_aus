@@ -297,6 +297,17 @@
     "rule_number": 5
   },
   {
+    "id": "179da2f0-5dc4-4829-86ce-ab2ea5bc225f",
+    "bank_account_type": "Project Trust Account",
+    "display_message": "<div>\n      <span>\n        The balance of the Project Trust Account is currently less than the total of all payment claims added to the system (adjusted for payments already made). This is for your information only and is not a breach on its own \u2014 it only becomes an action item when an amount is actually due to be paid to a subcontractor beneficiary, or when funds are withdrawn from the trust account to pay yourself as trustee. Before withdrawing funds to yourself, ensure sufficient funds remain to pay beneficiaries amounts that are due to be paid.\n</span>\n    </div>",
+    "display_message_colour": "#cfad50",
+    "action_button_type": "NONE",
+    "check_number": 7,
+    "check_name": "PAYMENTS TO YOURSELF AS TRUSTEE",
+    "check_status": "PASSED",
+    "rule_number": 8
+  },
+  {
     "id": "61ee3151-878b-40cc-bcee-171236601f3d",
     "bank_account_type": "Project Trust Account",
     "display_message": "<div style=\"font-weight: 500;\">\nThe balance of the Project Trust Account currently matched all the payment claims unmatched added to the system.\n     </div>",

@@ -2737,9 +2737,25 @@ export class CompliancePTAFunctions {
           } else if (diffInDays < 7 && sumOfUnpaidClaims >= current_balance) {
             const shortfallAmount = sumOfUnpaidClaims - current_balance;
 
+            // BIF s51 / s20B: a shortfall against the TOTAL of all outstanding
+            // claims is NOT a breach on its own — funds only need to be present
+            // when an amount is actually due to be paid. It only escalates to a
+            // Rule 5 breach (ACTION REQUIRED) once the trustee has actually
+            // recorded a Withdrawal payment out of the Project Trust Account.
+            // Otherwise we surface a non-failing amber Rule 8 warning.
+            const trusteeWithdrawalCount = await this.paymentsRepo.count({
+              where: {
+                project_id,
+                payment_from_account: projectTrustAccount.bank_account_id,
+                payment_type: 'Withdrawal' as any,
+                current_status: Not('Deleted'),
+              },
+            });
+            const hasTrusteeWithdrawal = trusteeWithdrawalCount > 0;
+
             const fetchedRuleDetails = await fetchComplianceRuleDetails(
               7,
-              5,
+              hasTrusteeWithdrawal ? 5 : 8,
               fetchedAllRules,
             );
 
