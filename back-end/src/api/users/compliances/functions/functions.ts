@@ -60,6 +60,62 @@ export async function todayIsGreaterThanOpeningDatePlusBusinessDays(data: {
   }
 }
 
+// Returns startDate + N business days (skipping weekends and Active holidays),
+// mirroring the date arithmetic in todayIsGreaterThanOpeningDatePlusBusinessDays.
+// Useful when the actual deadline DATE is needed (e.g. for display) rather than
+// just the boolean comparison.
+export function getDateAfterBusinessDays(data: {
+  startDate: Date;
+  businessDays: number;
+  holidayDetails: {
+    holiday_date: Date;
+    recurring_every_year: boolean;
+    holiday_status: 'Active' | 'Inactive' | 'Deleted';
+  }[];
+}): Date {
+  const { startDate, businessDays, holidayDetails } = data;
+
+  let date = new Date(startDate);
+  date.setHours(0, 0, 0, 0);
+  let addedDays = 0;
+
+  while (addedDays < businessDays) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+
+    // Skip weekends
+    if (day === 0 || day === 6) {
+      continue;
+    }
+
+    const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const monthDay = formattedDate.slice(5); // MM-DD
+
+    const isHoliday = (holidayDetails || []).some((holiday) => {
+      if (holiday.holiday_status !== 'Active') return false;
+
+      const holidayDate = new Date(holiday.holiday_date);
+      holidayDate.setHours(0, 0, 0, 0);
+      const holidayDateStr = holidayDate.toISOString().split('T')[0];
+      const holidayMonthDay = holidayDateStr.slice(5);
+
+      if (!holiday.recurring_every_year) {
+        return holidayDateStr === formattedDate;
+      } else {
+        return holidayMonthDay === monthDay;
+      }
+    });
+
+    if (isHoliday) {
+      continue;
+    }
+
+    addedDays++;
+  }
+
+  return date;
+}
+
 //Check for the payment date to check whether TODAY > PAYMENT DATE + 5 days
 export function filterPendingLatePayments(unsentNoticeDetails) {
   return unsentNoticeDetails.filter((notice) => {

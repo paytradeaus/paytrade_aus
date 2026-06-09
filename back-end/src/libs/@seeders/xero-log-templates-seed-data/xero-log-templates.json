@@ -6006,5 +6006,29 @@
     "associated_log_ids": [
       650
     ]
+  },
+  {
+    "id": 652,
+    "sync_type": "Invoice webhook",
+    "description": "<p>Part / pay-less payment imported after the section 76 payment-schedule response window with no payment schedule on record</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "WH_PAYLESS_NO_SCHEDULE_PAST_WINDOW",
+    "associated_log_ids": [
+      653
+    ]
+  },
+  {
+    "id": 653,
+    "sync_type": "Invoice schedulers",
+    "description": "<p>Part / pay-less payment imported after the section 76 payment-schedule response window with no payment schedule on record</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Warning",
+    "from_xero": true,
+    "error_code": "SCHEDULER_PAYLESS_NO_SCHEDULE_PAST_WINDOW",
+    "associated_log_ids": [
+      652
+    ]
   }
 ]

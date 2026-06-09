@@ -20,3 +20,11 @@ recency by `created_on`. Pull the candidate detail row by `reference_id` and rea
 the user's latest re-run, that row IS the answer and the failure is unchanged. Confirmed
 on Alba 2501-1-1 (company 1012): template 456 row, occurrence_count 6, last_occurred_at
 = the post-deploy re-run timestamp.
+
+**Dedup is Failed-only — non-Failed logs need their own idempotency.** The dedup/merge
+gate in `insertXeroSyncLogs` only fires for `sync_status === 'Failed'`. A `Warning` (or
+`Info`/`Succeeded`) template therefore inserts a FRESH row on EVERY call. Inbound Xero
+handlers re-run on every webhook AND the ~15-min scheduler tick, so any non-Failed log
+will multiply ~96×/day unless the producer does its OWN existence check before inserting
+(e.g. `findOne` on `log_template_id` + `reference_id`). Do NOT filter `archived_at` in
+that check, or a user's dismissal (archive) un-sticks and the warning re-appears.

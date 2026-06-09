@@ -37,6 +37,12 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { ProjectDetails } from 'src/entities/project-details.entity';
 import { BankAccounts, PaymentClaims } from 'src/entities/banking.entity';
+import { HolidayDetails } from 'src/entities/holiday-details.entity';
+import { NoticeDetails } from 'src/entities/notices-details.entity';
+import {
+  todayIsGreaterThanOpeningDatePlusBusinessDays,
+  getDateAfterBusinessDays,
+} from 'src/api/users/compliances/functions/functions';
 import {
   AddPaymentClaimInput,
   EditDetailsOfAPaymentClaimInput,
@@ -110,6 +116,10 @@ export class XeroWebhookService {
     private userDetails: Repository<UserDetails>,
     @InjectRepository(ClientSupplierProjectXeroAccountCodes)
     private supplierProjectAccountCodes: Repository<ClientSupplierProjectXeroAccountCodes>,
+    @InjectRepository(HolidayDetails)
+    private holidayDetails: Repository<HolidayDetails>,
+    @InjectRepository(NoticeDetails)
+    private noticeDetails: Repository<NoticeDetails>,
     @Inject(forwardRef(() => XeroResolver))
     private readonly xeroResolver: XeroResolver,
     private readonly xeroService: XeroService,
@@ -11143,6 +11153,188 @@ export class XeroWebhookService {
     }
   }
 
+  /**
+   * s76 (QLD BIF Act) inbound part / pay-less warning.
+   *
+   * When an inbound Xero -> PayTrade payment records a NON-full payment
+   * ('Part', 'Pay Less - Full', 'Pay Less - Part', 'Pay - Zero') on a Billable
+   * claim, AFTER the claim's received_date + 15 business days, AND no Supplier
+   * Payment Schedule Notice has been created for the project, the sync still
+   * SUCCEEDS (the payment + journals are already created by the caller) but we
+   * additionally write a NON-FAILING, dismissible Warning sync log so the user
+   * is nudged to issue a payment schedule.
+   *
+   * Per product decision the 15-business-day window is measured against the
+   * XERO PAYMENT DATE (when the part / pay-less payment was actually made). The
+   * warning is purely informational — it must never throw or affect the sync
+   * outcome, so the whole body is wrapped in try/catch.
+   */
+  private async maybeWarnLatePartPaymentWithoutSchedule(params: {
+    decoded: any;
+    paymentClaimDetails: any;
+    payment: any;
+    paymentType: string;
+    invoice: any;
+    xeroDetails: any;
+    xeroProjectDetails: any;
+    xeroContractDetails: any;
+    xeroPaymentEntity: any;
+    paytradeDetails: any;
+    sync_run_type: string;
+    tenant_id: string;
+  }): Promise<void> {
+    try {
+      const {
+        decoded,
+        paymentClaimDetails,
+        payment,
+        paymentType,
+        invoice,
+        xeroDetails,
+        xeroProjectDetails,
+        xeroContractDetails,
+        xeroPaymentEntity,
+        paytradeDetails,
+        sync_run_type,
+        tenant_id,
+      } = params;
+
+      // Only Billable claims carry the s76 "respond to a payment claim" duty.
+      if (paymentClaimDetails?.claim_type !== 'Billable') {
+        return;
+      }
+
+      // Only the explicit non-full payment categories that carry the s76
+      // payment-schedule duty. Anything else (e.g. 'Full', or any future
+      // category) must NOT raise this warning.
+      const payLessPaymentTypes = [
+        'Part',
+        'Pay Less - Full',
+        'Pay Less - Part',
+        'Pay - Zero',
+      ];
+      if (!paymentType || !payLessPaymentTypes.includes(paymentType)) {
+        return;
+      }
+
+      const receivedDate = paymentClaimDetails?.received_date;
+      const xeroPaymentDate = payment?.date;
+      if (!receivedDate || !xeroPaymentDate || !xeroPaymentEntity?.id) {
+        return;
+      }
+
+      // Active holidays so the weekend/holiday-aware business-day maths matches
+      // the compliance engine.
+      const holidayDetails = await this.holidayDetails.find({
+        where: { holiday_status: 'Active' },
+      });
+
+      // Window test — measured against the Xero payment date.
+      const isPastWindow =
+        await todayIsGreaterThanOpeningDatePlusBusinessDays({
+          startDate: receivedDate,
+          compareDate: xeroPaymentDate,
+          businessDays: 15,
+          holidayDetails,
+        });
+      if (!isPastWindow) {
+        return;
+      }
+
+      // Skip if a Supplier Payment Schedule Notice already exists for the
+      // project in any non-deleted state (matches the compliance engine's
+      // "schedule created" signal).
+      const existingSchedule = await this.noticeDetails.findOne({
+        where: {
+          project_id: xeroProjectDetails?.pt_project_id,
+          notice_type: 'Supplier Payment Schedule Notice' as any,
+          status: In(['Sent', 'Not Sent', 'Sent - Onboarded', 'Draft']) as any,
+        },
+      });
+      if (existingSchedule) {
+        return;
+      }
+
+      // Idempotency — Warning templates bypass the Failed-only dedup gate in
+      // insertXeroSyncLogs, and the inbound handler re-runs on every webhook +
+      // ~15-min scheduler tick. Guard with an explicit existence check that
+      // ignores archived_at so a user's dismissal stays dismissed.
+      const existingWarning = await this.xeroSyncLogs.findOne({
+        where: [
+          { log_template_id: 652, reference_id: xeroPaymentEntity?.id },
+          { log_template_id: 653, reference_id: xeroPaymentEntity?.id },
+        ],
+      });
+      if (existingWarning) {
+        return;
+      }
+
+      const deadlineDate = getDateAfterBusinessDays({
+        startDate: receivedDate,
+        businessDays: 15,
+        holidayDetails,
+      });
+      const deadlineLabel = moment(deadlineDate).format('DD MMM YYYY');
+
+      const templateId = sync_run_type === 'webhook' ? 652 : 653;
+
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        id: null,
+        api_name: 'createClaimInPaytrade',
+        api_payload: {
+          sync_run_type,
+          invoice_id: invoice?.invoiceID,
+          tenant_id,
+          type: invoice?.type === Invoice.TypeEnum.ACCPAY ? 'bill' : 'invoice',
+          payment_type: paymentType,
+          claim_id: paymentClaimDetails?.payment_claim_id,
+        },
+        integration_id: xeroDetails.integration_id,
+        log_template_id: templateId,
+        dynamic_values: {
+          payment_type: paymentType,
+          response_deadline: deadlineLabel,
+        },
+        project_id: xeroProjectDetails?.id,
+        contract_id: xeroContractDetails?.id,
+        reference: {
+          xeroId: xeroPaymentEntity?.id,
+          paytradeId: paytradeDetails?.id,
+        },
+        reference_id: xeroPaymentEntity?.id,
+        history: [
+          `API triggered from invoice ${sync_run_type}`,
+          'Import successful',
+          `Flagged: ${paymentType} payment recorded after the payment-schedule response window (${deadlineLabel}) with no payment schedule on record`,
+        ],
+        important_checks: {
+          'Import data format validation': 'Ok',
+          'Import tracking id validation': 'Ok',
+          'Import account type validation': 'Ok',
+          'Import tax type validation': 'Ok',
+          'Client/Supplier mapping validation': 'Ok',
+          'Contract mapping validation': 'Ok',
+          'Project mapping validation': 'Ok',
+        },
+        notification:
+          'A part / pay-less payment was recorded after the payment-schedule response window with no payment schedule on record.',
+        information_required: `Under section 76 of the BIF Act, paying less than the full claimed amount after ${deadlineLabel} (15 business days after the claim was received) should be accompanied by a payment schedule stating the reasons for paying less. No Supplier Payment Schedule Notice was found for this project. Please give the claimant a payment schedule, or dismiss this warning if one has already been provided outside PayTrade.`,
+        error_message: null,
+        xero_records: [invoice],
+        paytrade_records: [paytradeDetails],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+    } catch (warnErr: any) {
+      this.logger.warn(
+        `[maybeWarnLatePartPaymentWithoutSchedule] non-fatal: ${
+          warnErr?.message || warnErr
+        }`,
+      );
+    }
+  }
+
   async processPayment(paymentPayload, decoded) {
     try {
       const {
@@ -13713,6 +13905,26 @@ export class XeroWebhookService {
                     updated_records: null,
                     synced_records: null,
                   });
+
+                // s76 inbound part / pay-less warning (non-failing). The
+                // payment + journals above succeeded; this only adds a
+                // dismissible Warning sync log when a non-full payment lands on
+                // a Billable claim past the 15-business-day response window
+                // with no payment schedule on record.
+                await this.maybeWarnLatePartPaymentWithoutSchedule({
+                  decoded,
+                  paymentClaimDetails,
+                  payment,
+                  paymentType,
+                  invoice,
+                  xeroDetails,
+                  xeroProjectDetails,
+                  xeroContractDetails,
+                  xeroPaymentEntity,
+                  paytradeDetails,
+                  sync_run_type,
+                  tenant_id,
+                });
               } else if (
                 ['Confirm payment', 'Confirm receipt'].includes(
                   paymentClaimDetails.list_status,
