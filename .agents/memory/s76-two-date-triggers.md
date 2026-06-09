@@ -27,3 +27,14 @@ Never reintroduce a `received_date + 15bd` early-breach into the compliance flag
 and never base the payment-dialog schedule-window warning on `due_date`. Client-side
 the 15bd estimate is weekend-aware only (no holiday calendar); the backend
 compliance check is the source of truth.
+
+**Banner copy:** the s76 breach banner (check_name "PAYMENTS TO SUBCONTRACTORS")
+must say claims are flagged when unpaid/unresponded **by their due date** — NOT
+"the earlier of 15bd or due date". The copy is seeded from
+`back-end/src/libs/@seeders/compliance-seed-data/pta-compliances.json` (seeder
+inserts-only, never overwrites existing rows) and is also cached live in three DB
+places that must be patched directly for existing companies: `pta_compliances`
+(template), `compliance_rule` (per-project live rows), and the dashboard
+`compliance_of_projects.pta_compliances` jsonb. Apply to dev AND prod. The
+separate `compliance_checks.content` guidance ("earlier of contract period or 15
+business days") is legally accurate (schedule-giving deadline) — leave it.
