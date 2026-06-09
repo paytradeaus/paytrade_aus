@@ -19,6 +19,7 @@ import {
   FetchAutoPopulatableFieldsWhileAddingAPaymentResponse,
   FetchDetailsOfAPaymentResponse,
   FetchRetentionSummaryResponse,
+  GetTrusteeWithdrawalShortfallResponse,
   generateAbaFilesResponse,
   GetAbaWizardOutstandingPaymentsResponse,
   GetAbaWizardSenderAccountsResponse,
@@ -36,6 +37,7 @@ import {
   FetchAutoPopulatableFieldsWhileAddingAPaymentInput,
   FetchDetailsOfAPaymentInput,
   FetchRetentionSummaryInput,
+  GetTrusteeWithdrawalShortfallInput,
   GetABAFileHistoryInput,
   GetABABatchSummaryInput,
   GetAbaWizardOutstandingPaymentsInput,
@@ -476,6 +478,36 @@ export class PaymentsResolver {
         'ERROR',
         // `Errored while adding a payment with message: ${error.message}`,
         error.message ? error.message : error,
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PORTAL_ADMIN, Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Query(() => GetTrusteeWithdrawalShortfallResponse, {
+    name: 'getTrusteeWithdrawalShortfall',
+    description:
+      'BIF s51/s20B trustee pre-check: returns whether drawing the proposed amount from a Project Trust Account would leave its balance below total outstanding claims. Non-blocking — drives a dismissible warning on the manual Withdrawal form.',
+  })
+  async getTrusteeWithdrawalShortfall(
+    @Args('payload', {
+      description:
+        'Input containing the Project Trust Account bank_account_id and the proposed withdrawal amount.',
+    })
+    payload: GetTrusteeWithdrawalShortfallInput,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `Request received for trustee withdrawal shortfall pre-check with payload: ${JSON.stringify(payload)}`,
+      );
+      return this.paymentsService.getTrusteeWithdrawalShortfall(payload);
+    } catch (error) {
+      this.logger.error(
+        `Errored while computing trustee withdrawal shortfall with message: ${error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored while computing trustee withdrawal shortfall with message: ${error}`,
       );
     }
   }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { setScreenDetails } from "@/redux/slices/dashboardSlices";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -17,6 +17,7 @@ import { showErrorToast, showInfoToast } from "@/components/Toaster";
 import {
   DeletePayments,
   GetPaymentAttachments,
+  GetTrusteeWithdrawalShortfall,
   UpdateInterestChargesPaymentStatus,
 } from "../otherPayments.functions";
 import { useTokenDetails } from "@/hooks";
@@ -98,6 +99,10 @@ const WithdrawalForm = (props: any) => {
   const [openModal, setOpenModal] = useState(false);
   const [displayOnCancel, setDisplayOnCancel] = useState(false);
   const [accountError, setAccountError] = useState<any>();
+  // BIF s51/s20B trustee withdrawal shortfall warning (non-blocking, dismissible).
+  const [withdrawalWarningOpen, setWithdrawalWarningOpen] = useState(false);
+  const [withdrawalWarningData, setWithdrawalWarningData] = useState<any>(null);
+  const shortfallAcknowledgedRef = useRef(false);
   const retrieveAfterAddingQuickRecord: any =
     queryParams.get("retrieve-record");
 
@@ -322,6 +327,22 @@ const WithdrawalForm = (props: any) => {
         retention_id:
           claimType === "RetentionClaim" ? Number(retentionId) : null,
       };
+      // BIF s51/s20B trustee pre-check: adding a NEW withdrawal that would
+      // leave a Project Trust Account below total outstanding claims surfaces a
+      // dismissible "proceed anyway" warning. Non-blocking — the user can still
+      // proceed. Only runs for new withdrawals and only once per acknowledgement.
+      if (!isEdit && !shortfallAcknowledgedRef.current) {
+        const shortfall = await GetTrusteeWithdrawalShortfall({
+          bankAccountId: Number(values?.fromAccount),
+          paymentAmount: onlyValues ? Number(onlyValues) : 0,
+        });
+        if (shortfall && shortfall.applicable && shortfall.has_shortfall) {
+          setWithdrawalWarningData(shortfall);
+          setWithdrawalWarningOpen(true);
+          setLoader(false);
+          return;
+        }
+      }
       try {
         let paymentResponse;
         if (!isEdit) {
@@ -357,6 +378,9 @@ const WithdrawalForm = (props: any) => {
       } catch {
       } finally {
         setLoader(false);
+        // Reset so a subsequent manual submit (e.g. after editing the amount)
+        // re-runs the trustee shortfall pre-check.
+        shortfallAcknowledgedRef.current = false;
       }
     },
   });
@@ -1142,6 +1166,43 @@ const WithdrawalForm = (props: any) => {
           <h4 className="text_center">
             {`${checkBoxConfirmationMessage} Paid?`}
           </h4>
+        </BaseModal>
+      )}
+
+      {withdrawalWarningOpen && (
+        <BaseModal
+          modalId={"trustee withdrawal shortfall warning"}
+          title={"Trust balance warning"}
+          displayModal={withdrawalWarningOpen}
+          onHeaderIconClose={() => setWithdrawalWarningOpen(false)}
+          restrictOncloseFunctionInHeader
+          onClose={() => setWithdrawalWarningOpen(false)}
+          onConfirm={() => {
+            shortfallAcknowledgedRef.current = true;
+            setWithdrawalWarningOpen(false);
+            formik?.handleSubmit();
+            return true;
+          }}
+          firstButtonName="Cancel"
+          secondButtonName="Proceed anyway"
+        >
+          <h4 className="text_center">
+            This withdrawal would leave the Project Trust Account below the total
+            of outstanding claims.
+          </h4>
+          <p className="text_center">
+            Projected balance after withdrawal:{" "}
+            {formatDollars(withdrawalWarningData?.balance_after)}
+            <br />
+            Total outstanding claims:{" "}
+            {formatDollars(withdrawalWarningData?.outstanding_claims)}
+            <br />
+            Shortfall: {formatDollars(withdrawalWarningData?.shortfall_amount)}
+          </p>
+          <p className="text_center">
+            Only withdraw funds to yourself after ensuring enough remains to pay
+            beneficiaries amounts due. Do you want to proceed anyway?
+          </p>
         </BaseModal>
       )}
 

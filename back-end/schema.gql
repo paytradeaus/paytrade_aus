@@ -12505,6 +12505,31 @@ type GetTrustAccountingBalanceResponse {
 }
 
 """
+Input for the trustee-withdrawal shortfall pre-check (Project Trust Account).
+"""
+input GetTrusteeWithdrawalShortfallInput {
+  """
+  bank_account_id of the Project Trust Account the withdrawal is drawn from.
+  """
+  bank_account_id: Float!
+
+  """Proposed withdrawal amount."""
+  payment_amount: Float!
+}
+
+"""Response wrapper for the trustee-withdrawal shortfall pre-check."""
+type GetTrusteeWithdrawalShortfallResponse {
+  """Shortfall pre-check result."""
+  data: TrusteeWithdrawalShortfallData
+
+  """Response message."""
+  message: String!
+
+  """API response status."""
+  status: String!
+}
+
+"""
 Response object containing a user's email preferences along with status and message.
 """
 type GetUserEmailPreferenceResponse {
@@ -19545,6 +19570,16 @@ type Query {
   ): GetFileDetailsResponse!
 
   """
+  BIF s51/s20B trustee pre-check: returns whether drawing the proposed amount from a Project Trust Account would leave its balance below total outstanding claims. Non-blocking — drives a dismissible warning on the manual Withdrawal form.
+  """
+  getTrusteeWithdrawalShortfall(
+    """
+    Input containing the Project Trust Account bank_account_id and the proposed withdrawal amount.
+    """
+    payload: GetTrusteeWithdrawalShortfallInput!
+  ): GetTrusteeWithdrawalShortfallResponse!
+
+  """
   Returns the current user's UI shell preferences and AI live-follow flag.
   """
   getUiPreferences: UiPreferencesResponse!
@@ -21815,6 +21850,36 @@ type TrustAccountTransfer {
   transfer_date: DateTime!
   transfer_id: Int!
   transfer_payment_id: Int
+}
+
+"""
+Result of the trustee-withdrawal shortfall pre-check for a Project Trust Account.
+"""
+type TrusteeWithdrawalShortfallData {
+  """
+  True only when the from-account is a Project Trust Account (otherwise the BIF trustee rule does not apply).
+  """
+  applicable: Boolean!
+
+  """Projected balance after the withdrawal."""
+  balance_after: Float!
+
+  """Current Project Trust Account balance."""
+  current_balance: Float!
+
+  """
+  True when the balance after the withdrawal would be less than total outstanding claims.
+  """
+  has_shortfall: Boolean!
+
+  """Total outstanding claims across the project(s) served."""
+  outstanding_claims: Float!
+
+  """Shortfall amount (outstanding claims minus projected balance)."""
+  shortfall_amount: Float!
+
+  """Proposed withdrawal amount."""
+  withdrawal_amount: Float!
 }
 
 """

@@ -65,6 +65,8 @@ import { CreateFileUploadInput } from '../../file-upload/dto/create-file-upload.
 import { FileUploadService } from '../../file-upload/file-upload.service';
 import { GenerateABAFileHistory } from 'src/entities/generate-aba-history.entity';
 import { CompliancesService } from '../../compliances/compliances.service';
+import { computeTrusteeWithdrawalShortfall } from './trustee-withdrawal-shortfall';
+import { GetTrusteeWithdrawalShortfallInput } from './payments.input';
 import { NoticesService } from '../../notices/notices.service';
 import { RetentionReversalFunctions } from './retentions/retention-reversal-functions';
 import { EmailTypeEnum } from 'src/entities/email-logs.entity';
@@ -3745,6 +3747,46 @@ export class PaymentsService {
         `Errored while fetching the details of a payment with message: ${error}`,
       );
       throw new Error(error);
+    }
+  }
+
+  // BIF s51/s20B trustee pre-check: does drawing `payment_amount` from this
+  // Project Trust Account leave its balance below total outstanding claims?
+  // Non-blocking — drives the dismissible "proceed anyway" warning on the
+  // manual Withdrawal form. Returns applicable=false for non-trust accounts.
+  async getTrusteeWithdrawalShortfall(data: GetTrusteeWithdrawalShortfallInput) {
+    try {
+      const result = await computeTrusteeWithdrawalShortfall(
+        {
+          bankAccountsRepo: this.bankAccountsRepo,
+          paymentClaimsRepo: this.paymentClaimsRepo,
+        },
+        {
+          bankAccountId: Number(data?.bank_account_id),
+          withdrawalAmount: Number(data?.payment_amount),
+        },
+      );
+      return framedResponse(
+        'SUCCESS',
+        'Trustee withdrawal shortfall pre-check completed.',
+        {
+          applicable: result.applicable,
+          has_shortfall: result.hasShortfall,
+          current_balance: result.currentBalance,
+          outstanding_claims: result.outstandingClaims,
+          withdrawal_amount: result.withdrawalAmount,
+          balance_after: result.balanceAfter,
+          shortfall_amount: result.shortfallAmount,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Errored while computing trustee withdrawal shortfall with message: ${error}`,
+      );
+      return framedResponse(
+        'ERROR',
+        `Errored while computing trustee withdrawal shortfall with message: ${error}`,
+      );
     }
   }
 

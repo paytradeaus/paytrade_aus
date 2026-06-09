@@ -63,6 +63,7 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import axios from 'axios';
 import { PaymentsService } from 'src/api/users/banking/payments/payments.service';
 import { PaymentClaimsService } from 'src/api/users/banking/payment-claims/payment-claims.service';
+import { computeTrusteeWithdrawalShortfall } from 'src/api/users/banking/payments/trustee-withdrawal-shortfall';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { StatusService } from 'src/api/users/banking/ui-status.service';
 import { XeroContractDetails } from 'src/entities/xero-contract-details.entity';
@@ -9207,6 +9208,47 @@ export class XeroPaymentsService {
         'en-AU',
         { minimumFractionDigits: 2, maximumFractionDigits: 2 },
       )}`;
+
+      // BIF s51/s20B advisory: when this trust → cash movement would be a
+      // Withdrawal that leaves the Project Trust Account below the total of
+      // outstanding claims, surface a NON-FAILING warning note alongside the
+      // type-confirmation hold (mirrors the manual Withdrawal-form warning).
+      // It never changes the log status — it is purely informational.
+      let trusteeShortfallNote: string | null = null;
+      try {
+        if (movementDirection === 'withdrawal') {
+          const fmt = (n: number) =>
+            `$${Number(n).toLocaleString('en-AU', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`;
+          const shortfall = await computeTrusteeWithdrawalShortfall(
+            {
+              bankAccountsRepo: this.bankAccounts,
+              paymentClaimsRepo: this.paymentClaims,
+            },
+            {
+              bankAccountId: Number(trustBank.bank_account_id),
+              withdrawalAmount: amountAbsForSuggest,
+            },
+          );
+          if (shortfall.applicable && shortfall.hasShortfall) {
+            trusteeShortfallNote = `Warning: if confirmed as a Withdrawal, the Project Trust Account would fall ${fmt(
+              shortfall.shortfallAmount,
+            )} short of total outstanding claims (projected balance ${fmt(
+              shortfall.balanceAfter,
+            )} vs outstanding claims ${fmt(
+              shortfall.outstandingClaims,
+            )}). Only withdraw funds to yourself after ensuring enough remains to pay beneficiaries amounts due.`;
+          }
+        }
+      } catch (e) {
+        this.logger.error(
+          `Trustee withdrawal shortfall advisory failed for BankTransfer ${bank_transfer_id}: ${
+            (e as any)?.message || e
+          }`,
+        );
+      }
       await this.xeroService.insertXeroSyncLogs(decoded, {
         api_name: 'handleInboundTrustMovementBankTransfer',
         api_payload: {
@@ -9244,10 +9286,17 @@ export class XeroPaymentsService {
               : 'trust → cash withdrawal'
           } of ${amountAbsForSuggest.toFixed(2)}.`,
           `Trust money is not auto-classified — confirm the movement type in PayTrade (suggested: ${suggestedMovementType}).`,
+          ...(trusteeShortfallNote ? [trusteeShortfallNote] : []),
         ],
         important_checks: {
           'Trust pair validation': 'Ok',
           'Type classification': 'Required',
+          ...(trusteeShortfallNote
+            ? {
+                'Funds coverage':
+                  'Warning: withdrawal would leave funds below outstanding claims',
+              }
+            : {}),
         },
         error_message: 'Trust movement type confirmation required',
         xero_records: [bt],

@@ -2424,3 +2424,59 @@ export class FetchAllABAGeneratedFileHistoryResponse {
   })
   data: ABAGeneratedFileHistoryObj;
 }
+
+@ObjectType({
+  description:
+    'Result of the trustee-withdrawal shortfall pre-check for a Project Trust Account.',
+})
+export class TrusteeWithdrawalShortfallData {
+  @Field({
+    description:
+      'True only when the from-account is a Project Trust Account (otherwise the BIF trustee rule does not apply).',
+  })
+  applicable: boolean;
+
+  @Field({
+    description:
+      'True when the balance after the withdrawal would be less than total outstanding claims.',
+  })
+  has_shortfall: boolean;
+
+  @Field(() => Float, { description: 'Current Project Trust Account balance.' })
+  current_balance: number;
+
+  @Field(() => Float, {
+    description: 'Total outstanding claims across the project(s) served.',
+  })
+  outstanding_claims: number;
+
+  @Field(() => Float, { description: 'Proposed withdrawal amount.' })
+  withdrawal_amount: number;
+
+  @Field(() => Float, {
+    description: 'Projected balance after the withdrawal.',
+  })
+  balance_after: number;
+
+  @Field(() => Float, {
+    description: 'Shortfall amount (outstanding claims minus projected balance).',
+  })
+  shortfall_amount: number;
+}
+
+@ObjectType({
+  description: 'Response wrapper for the trustee-withdrawal shortfall pre-check.',
+})
+export class GetTrusteeWithdrawalShortfallResponse {
+  @Field({ description: 'API response status.' })
+  status: ApiStatusType;
+
+  @Field({ description: 'Response message.' })
+  message: string;
+
+  @Field(() => TrusteeWithdrawalShortfallData, {
+    nullable: true,
+    description: 'Shortfall pre-check result.',
+  })
+  data: TrusteeWithdrawalShortfallData;
+}

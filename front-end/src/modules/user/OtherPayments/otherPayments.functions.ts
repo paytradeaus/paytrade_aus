@@ -100,6 +100,59 @@ export const UpdateInterestChargesPaymentStatus = async (
   }
 };
 
+export const GetTrusteeWithdrawalShortfall = async (
+  payload: any
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetTrusteeWithdrawalShortfall(
+          $bankAccountId: Float!
+          $paymentAmount: Float!
+        ) {
+          getTrusteeWithdrawalShortfall(
+            payload: {
+              bank_account_id: $bankAccountId
+              payment_amount: $paymentAmount
+            }
+          ) {
+            data {
+              applicable
+              has_shortfall
+              current_balance
+              outstanding_claims
+              balance_after
+              shortfall_amount
+            }
+            message
+            status
+          }
+        }
+      `,
+      variables: payload,
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getTrusteeWithdrawalShortfall?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      return response?.data?.getTrusteeWithdrawalShortfall?.data;
+    }
+    if (
+      response?.data?.getTrusteeWithdrawalShortfall?.status ===
+      ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.getTrusteeWithdrawalShortfall?.message);
+      return false;
+    }
+    return false;
+  } catch (error: any) {
+    console.error("GraphQL Error:", error);
+    return false;
+  }
+};
+
 export const GetProjectList = async (payload: any): Promise<any> => {
   try {
     const response = await apolloClient.query({

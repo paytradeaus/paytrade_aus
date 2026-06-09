@@ -8,6 +8,23 @@ import {
   RetentionListStatus,
 } from 'src/libs/@paytrade-types/paytrade-types';
 
+@InputType({
+  description:
+    'Input for the trustee-withdrawal shortfall pre-check (Project Trust Account).',
+})
+export class GetTrusteeWithdrawalShortfallInput {
+  @Field(() => Float, {
+    description:
+      'bank_account_id of the Project Trust Account the withdrawal is drawn from.',
+  })
+  bank_account_id: number;
+
+  @Field(() => Float, {
+    description: 'Proposed withdrawal amount.',
+  })
+  payment_amount: number;
+}
+
 @InputType({ description: 'Input for adding a payment.' })
 export class AddPaymentInput {
   @Field({ description: 'ID of the business associated with this payment.' })
