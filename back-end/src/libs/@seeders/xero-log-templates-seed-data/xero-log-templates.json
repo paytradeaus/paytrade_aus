@@ -6030,5 +6030,15 @@
     "associated_log_ids": [
       652
     ]
+  },
+  {
+    "id": 654,
+    "sync_type": "Account schedulers",
+    "description": "<p>Scheduler for bank account in paytrade failed</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "SCHEDULER_BANK_CANNOT_BE_DELETED",
+    "associated_log_ids": null
   }
 ]

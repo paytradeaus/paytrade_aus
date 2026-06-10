@@ -2867,24 +2867,92 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             xeroAccountDetails?.account_status !== 'ACTIVE' &&
             ['Draft', 'Open', 'Active']?.includes(accountDetails?.status)
           ) {
-            const deleteBankDetails =
-              await this.bankAccountsService.changeStatusOfBankAccount(
-                decoded,
-                {
-                  bank_account_id: accountDetails?.bank_account_id,
-                  status: 'Deleted',
+            // One PT bank account can map to multiple Xero rows (e.g. an
+            // Auto-created ARCHIVED duplicate sitting alongside the real
+            // Manual ACTIVE mapping). If ANY other Xero mapping for this PT
+            // account is still ACTIVE, the account is not really archived —
+            // skip the deletion so a stale duplicate row can never delete a
+            // live account.
+            const activeMappingElsewhere =
+              await this.xeroBankAccountDetails.findOne({
+                where: {
+                  integration_id: xeroDetails?.integration_id,
+                  pt_bank_account_id: xeroAccountDetails?.pt_bank_account_id,
+                  account_status: 'ACTIVE',
+                  id: Not(xeroAccountDetails?.id),
                 },
+              });
+            if (activeMappingElsewhere) {
+              this.logger.log(
+                `Skipping inbound archive→delete for PT bank account ${accountDetails?.bank_account_id}: another Xero mapping (${activeMappingElsewhere?.id}) is still ACTIVE.`,
               );
-            this.logger.log(`deleteBankDetails: ${JSON.stringify(deleteBankDetails)}`);
-            if (
-              deleteBankDetails &&
-              deleteBankDetails?.warning &&
-              deleteBankDetails?.warningMessage
-                ?.toLowerCase()
-                ?.includes(
-                  'Please upgrade your subscription plan'.toLowerCase(),
-                )
-            ) {
+              return accountDetails;
+            }
+
+            // Attempt to mirror the Xero archive as a PT deletion. The
+            // deletion can be legitimately refused (trust-account
+            // association, attached contracts/payments, etc.) by throwing.
+            // Catch it so a single refusal never aborts the whole scheduler
+            // pass, and record it as a Failed sync log with the reason
+            // (insertXeroSyncLogs dedups repeats via occurrence_count).
+            try {
+              const deleteBankDetails =
+                await this.bankAccountsService.changeStatusOfBankAccount(
+                  decoded,
+                  {
+                    bank_account_id: accountDetails?.bank_account_id,
+                    status: 'Deleted',
+                  },
+                );
+              this.logger.log(`deleteBankDetails: ${JSON.stringify(deleteBankDetails)}`);
+              if (
+                deleteBankDetails &&
+                deleteBankDetails?.warning &&
+                deleteBankDetails?.warningMessage
+                  ?.toLowerCase()
+                  ?.includes(
+                    'Please upgrade your subscription plan'.toLowerCase(),
+                  )
+              ) {
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: sync_id || null,
+                  api_name: 'createOrUpdateAccountInPaytrade',
+                  api_payload: {
+                    account_id,
+                    bank_account_id: accountDetails?.bank_account_id,
+                    account_status: data?.account_status,
+                  },
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 388,
+                  dynamic_values: {},
+                  project_id: null,
+                  contract_id: null,
+                  reference: {
+                    xeroId: xeroAccountDetails?.id,
+                    paytradeId: accountDetails?.id,
+                  },
+                  reference_id: xeroAccountDetails?.id,
+                  history: [
+                    `API triggered from bank account scheduler ${accountDetails?.account_name}`,
+                    'Import failed',
+                  ],
+                  important_checks: {
+                    'Import data format validation': 'Failed',
+                  },
+                  error_message: deleteBankDetails?.warningMessage,
+                  xero_records: [],
+                  paytrade_records: [accountDetails],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+                return false;
+              }
+            } catch (error) {
+              const errMsg = error?.message ? error?.message : error;
+              this.logger.error(
+                `Failed to archive/delete PT bank account ${accountDetails?.bank_account_id} during inbound sync: ${errMsg}`,
+              );
               await this.xeroService.insertXeroSyncLogs(decoded, {
                 id: sync_id || null,
                 api_name: 'createOrUpdateAccountInPaytrade',
@@ -2894,7 +2962,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                   account_status: data?.account_status,
                 },
                 integration_id: xeroDetails.integration_id,
-                log_template_id: 388,
+                log_template_id: 654,
                 dynamic_values: {},
                 project_id: null,
                 contract_id: null,
@@ -2910,7 +2978,7 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 important_checks: {
                   'Import data format validation': 'Failed',
                 },
-                error_message: deleteBankDetails?.warningMessage,
+                error_message: errMsg,
                 xero_records: [],
                 paytrade_records: [accountDetails],
                 new_records: null,
