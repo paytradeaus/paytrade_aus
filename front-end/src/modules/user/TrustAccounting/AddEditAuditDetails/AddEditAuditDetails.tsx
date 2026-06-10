@@ -154,7 +154,7 @@ export default function AddEditAuditDetails(props: any) {
     AccountName: Yup.string().required("Account is required"),
     MonthEnd: Yup.string().required("Audit Date is required"),
 
-    AuditReport: Yup.mixed().required("Audit Report is required"),
+    AuditReport: Yup.mixed().nullable().notRequired(),
 
     NilReturn: Yup.string().required("Nil Return is required"),
   });
@@ -665,7 +665,7 @@ export default function AddEditAuditDetails(props: any) {
               selectedAccount?.bankAccount
             );
           }
-          if (values?.AuditReport.length > 0) {
+          if (values?.AuditReport?.length > 0) {
             const uploadPayload = {
               audit_id: result?.audit_id,
               uploaded_by: decodeTokenData?.emailId || "unknown", // Default to "unknown" if emailId is not available
@@ -801,7 +801,7 @@ export default function AddEditAuditDetails(props: any) {
               selectedAccount?.bankAccount
             );
           }
-          if (values?.AuditReport.length > 0) {
+          if (values?.AuditReport?.length > 0) {
             const uploadPayload = {
               audit_id: result?.audit_id,
               uploaded_by: decodeTokenData?.emailId || "unknown",
@@ -1589,7 +1589,6 @@ export default function AddEditAuditDetails(props: any) {
                     <>
                       <label htmlFor="Audit Report">
                         <small>Audit Report</small>
-                        <span className="required">*</span>
                       </label>
                       <input
                         type="file"
