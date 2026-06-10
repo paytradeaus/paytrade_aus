@@ -3,6 +3,7 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import * as archiver from 'archiver';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import { jwtConstants } from 'src/api/auth/constants';
 import * as jwt from 'jsonwebtoken';
 import * as ExcelJS from 'exceljs';
@@ -39,6 +40,57 @@ import { XeroInvoicesBills } from 'src/entities/xero-invoices-bills.entity';
 import { XeroInvoicesService } from 'src/api/common/integrations/xero/invoicesAndBills/xero-invoices.service';
 import { In } from 'typeorm';
 var moment = require('moment-timezone');
+
+/**
+ * Lightweight, archiver-compatible collector used by the audit-pack builder.
+ *
+ * It exposes the same `.append(data, { name })` surface the existing helper
+ * methods already call, but instead of streaming straight into a zip it buffers
+ * every entry in memory. The final zip is then written by
+ * `buildWindowsFriendlyZip` WITHOUT data descriptors, which is what lets the
+ * Windows built-in extractor open the pack natively (archiver's streamed output
+ * sets the data-descriptor flag, which Windows mis-reads as "password
+ * protected" and fails to extract with error 0x80004005).
+ */
+class ZipEntryCollector {
+  private items: { name: string; data: Buffer | Promise<Buffer> }[] = [];
+
+  append(
+    data: Buffer | string | Readable | NodeJS.ReadableStream,
+    opts: { name: string },
+  ): void {
+    const name = opts?.name;
+    if (Buffer.isBuffer(data)) {
+      this.items.push({ name, data });
+    } else if (typeof data === 'string') {
+      this.items.push({ name, data: Buffer.from(data, 'utf8') });
+    } else if (data && typeof (data as any).pipe === 'function') {
+      this.items.push({
+        name,
+        data: ZipEntryCollector.streamToBuffer(data as Readable),
+      });
+    } else {
+      this.items.push({ name, data: Buffer.from(data as any) });
+    }
+  }
+
+  private static streamToBuffer(stream: Readable): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (c) =>
+        chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)),
+      );
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+
+  async resolve(): Promise<{ name: string; data: Buffer }[]> {
+    return Promise.all(
+      this.items.map(async (it) => ({ name: it.name, data: await it.data })),
+    );
+  }
+}
 
 @Injectable()
 export class AuditReportExportDataService {
@@ -96,10 +148,18 @@ export class AuditReportExportDataService {
               projectName = project?.project_name;
             }
           }
+          // Cap the bank/project names that go into the pack file name. This
+          // name becomes the extraction folder on Windows, so very long
+          // account/project names push the nested file paths past the Windows
+          // 260-char limit ("destination file could not be created").
+          const cap = (s: string | null, n = 24): string => {
+            const v = (s ?? '').trim();
+            return v.length > n ? v.slice(0, n).trim() : v;
+          };
           if (projectName) {
-            fileName = `Audit Pack - ${bankName} - ${projectName} - ${startDate} - ${endDate}`;
+            fileName = `Audit Pack - ${cap(bankName)} - ${cap(projectName)} - ${startDate} - ${endDate}`;
           } else {
-            fileName = `Audit Pack - ${bankName} - ${startDate} - ${endDate}`;
+            fileName = `Audit Pack - ${cap(bankName)} - ${startDate} - ${endDate}`;
           }
         }
         break;
@@ -2136,6 +2196,221 @@ Each file contains records relevant to that category as part of the audit trail.
     return name.replace(/[:\\/?*\[\]]/g, '').substring(0, 31);
   }
 
+  // Precomputed CRC-32 lookup table (IEEE 802.3 polynomial), used by the
+  // Windows-friendly zip writer below.
+  private static readonly CRC32_TABLE: Uint32Array = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  private crc32(buf: Buffer): number {
+    const table = AuditReportExportDataService.CRC32_TABLE;
+    let crc = 0xffffffff;
+    for (let i = 0; i < buf.length; i++) {
+      crc = (crc >>> 8) ^ table[(crc ^ buf[i]) & 0xff];
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  // Convert a JS Date to the MS-DOS time/date fields used in zip headers.
+  private toDosDateTime(d: Date): { time: number; date: number } {
+    const year = Math.max(1980, d.getFullYear());
+    const time =
+      ((d.getHours() & 0x1f) << 11) |
+      ((d.getMinutes() & 0x3f) << 5) |
+      ((Math.floor(d.getSeconds() / 2)) & 0x1f);
+    const date =
+      (((year - 1980) & 0x7f) << 9) |
+      (((d.getMonth() + 1) & 0xf) << 5) |
+      (d.getDate() & 0x1f);
+    return { time, date };
+  }
+
+  /**
+   * Build a standard, Windows-Explorer-friendly zip from in-memory entries.
+   *
+   * Unlike archiver's streamed output, this writes the CRC-32 and the
+   * compressed/uncompressed sizes directly into each local file header and does
+   * NOT set the data-descriptor flag (bit 3). That combination is what makes the
+   * Windows built-in extractor open the archive natively — the streamed
+   * data-descriptor format is what it mis-reports as "password protected" and
+   * fails to extract with error 0x80004005.
+   *
+   * Each entry is deflated; if deflation would not shrink the data (already
+   * compressed PDFs etc.) it is stored uncompressed instead. UTF-8 file names
+   * are flagged via general-purpose bit 11.
+   */
+  private buildWindowsFriendlyZip(
+    entries: { name: string; data: Buffer }[],
+  ): Buffer {
+    const { time: dosTime, date: dosDate } = this.toDosDateTime(new Date());
+    const fileParts: Buffer[] = [];
+    const centralParts: Buffer[] = [];
+    let offset = 0;
+
+    for (const entry of entries) {
+      const nameBuf = Buffer.from(entry.name.replace(/\\/g, '/'), 'utf8');
+      const raw = entry.data ?? Buffer.alloc(0);
+      const crc = this.crc32(raw);
+
+      const deflated = zlib.deflateRawSync(raw, { level: 9 });
+      const useDeflate = deflated.length < raw.length;
+      const method = useDeflate ? 8 : 0;
+      const stored = useDeflate ? deflated : raw;
+
+      const localHeader = Buffer.alloc(30);
+      localHeader.writeUInt32LE(0x04034b50, 0); // local file header signature
+      localHeader.writeUInt16LE(20, 4); // version needed to extract (2.0)
+      localHeader.writeUInt16LE(0x0800, 6); // GP flag: UTF-8 names, no data descriptor
+      localHeader.writeUInt16LE(method, 8);
+      localHeader.writeUInt16LE(dosTime, 10);
+      localHeader.writeUInt16LE(dosDate, 12);
+      localHeader.writeUInt32LE(crc, 14);
+      localHeader.writeUInt32LE(stored.length, 18); // compressed size
+      localHeader.writeUInt32LE(raw.length, 22); // uncompressed size
+      localHeader.writeUInt16LE(nameBuf.length, 26);
+      localHeader.writeUInt16LE(0, 28); // extra field length
+
+      fileParts.push(localHeader, nameBuf, stored);
+
+      const centralHeader = Buffer.alloc(46);
+      centralHeader.writeUInt32LE(0x02014b50, 0); // central dir header signature
+      centralHeader.writeUInt16LE(20, 4); // version made by
+      centralHeader.writeUInt16LE(20, 6); // version needed to extract
+      centralHeader.writeUInt16LE(0x0800, 8); // GP flag
+      centralHeader.writeUInt16LE(method, 10);
+      centralHeader.writeUInt16LE(dosTime, 12);
+      centralHeader.writeUInt16LE(dosDate, 14);
+      centralHeader.writeUInt32LE(crc, 16);
+      centralHeader.writeUInt32LE(stored.length, 20);
+      centralHeader.writeUInt32LE(raw.length, 24);
+      centralHeader.writeUInt16LE(nameBuf.length, 28);
+      centralHeader.writeUInt16LE(0, 30); // extra field length
+      centralHeader.writeUInt16LE(0, 32); // file comment length
+      centralHeader.writeUInt16LE(0, 34); // disk number start
+      centralHeader.writeUInt16LE(0, 36); // internal file attributes
+      centralHeader.writeUInt32LE(0, 38); // external file attributes
+      centralHeader.writeUInt32LE(offset, 42); // local header offset
+
+      centralParts.push(centralHeader, nameBuf);
+
+      offset += localHeader.length + nameBuf.length + stored.length;
+
+      // We use 32-bit offsets/sizes (no ZIP64). Audit packs are a few MB, but
+      // fail loudly rather than silently emit a corrupt archive if that ever
+      // changes.
+      if (offset > 0xffffffff) {
+        throw new Error(
+          'Audit pack exceeds 4GB; ZIP64 support is required but not implemented.',
+        );
+      }
+    }
+
+    const centralDir = Buffer.concat(centralParts);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0); // end of central dir signature
+    eocd.writeUInt16LE(0, 4); // number of this disk
+    eocd.writeUInt16LE(0, 6); // disk with central dir
+    eocd.writeUInt16LE(entries.length, 8); // entries on this disk
+    eocd.writeUInt16LE(entries.length, 10); // total entries
+    eocd.writeUInt32LE(centralDir.length, 12); // size of central dir
+    eocd.writeUInt32LE(offset, 16); // offset of central dir
+    eocd.writeUInt16LE(0, 20); // comment length
+
+    return Buffer.concat([...fileParts, centralDir, eocd]);
+  }
+
+  /**
+   * Shorten an in-zip entry path so the extracted path stays under the Windows
+   * 260-char limit. Strips redundant bank/project name prefixes from the file
+   * name (they are already implied by the folder it lives in), hard-caps the
+   * basename length, and de-duplicates against names already used.
+   */
+  private shortenZipEntryName(
+    rawName: string,
+    bankName: string | null,
+    projectName: string | null,
+    used: Set<string>,
+  ): string {
+    const normalized = rawName.replace(/\\/g, '/');
+    const segments = normalized.split('/').filter((s) => s.length > 0);
+    let base = segments.pop() ?? normalized;
+    const dir = segments.join('/');
+
+    const prefixes = [bankName, projectName]
+      .filter((p): p is string => !!p && p.trim().length > 3)
+      .flatMap((p) => {
+        const t = p.trim();
+        return [`${t} - `, `${t}-`, `${t} `, `${t}_`];
+      });
+
+    let stripped = true;
+    while (stripped) {
+      stripped = false;
+      for (const pre of prefixes) {
+        if (base.toLowerCase().startsWith(pre.toLowerCase())) {
+          base = base.slice(pre.length);
+          stripped = true;
+        }
+      }
+    }
+    base = base.trim() || 'file';
+
+    const MAX_BASE = 60;
+    if (base.length > MAX_BASE) {
+      const ext = path.extname(base);
+      const stem = base.slice(0, base.length - ext.length);
+      base = `${stem.slice(0, Math.max(1, MAX_BASE - ext.length - 1))}~${ext}`;
+    }
+
+    let candidate = dir ? `${dir}/${base}` : base;
+    if (used.has(candidate)) {
+      const ext = path.extname(base);
+      const stem = base.slice(0, base.length - ext.length);
+      let i = 2;
+      let next: string;
+      do {
+        const numbered = `${stem} (${i})${ext}`;
+        next = dir ? `${dir}/${numbered}` : numbered;
+        i++;
+      } while (used.has(next));
+      candidate = next;
+    }
+    used.add(candidate);
+    return candidate;
+  }
+
+  private async getBankNameSafe(
+    bankAccountId?: number,
+  ): Promise<string | null> {
+    if (!bankAccountId) return null;
+    try {
+      const bank = await this.getBankDetail({ bank_account_id: bankAccountId });
+      return bank?.account_name ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getProjectNameSafe(
+    projectId?: number,
+  ): Promise<string | null> {
+    if (!projectId) return null;
+    try {
+      const project = await this.getProjectDetail({ project_id: projectId });
+      return project?.project_name ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   // Generate zip file to buffer for Object Storage upload
   async generateZipFileToBuffer({
     zipDetails,
@@ -2144,21 +2419,19 @@ Each file contains records relevant to that category as part of the audit trail.
     zipDetails: Record<string, any>;
     payload: AuditReportServiceInput;
   }): Promise<Buffer> {
-    return new Promise(async (resolve, reject) => {
-      const archive = archiver('zip', { zlib: { level: 9 } });
-      const chunks: Buffer[] = [];
-      const masterSummary = [];
+    // We collect every entry in memory (instead of streaming straight into
+    // archiver) so the final archive can be written WITHOUT data descriptors —
+    // see ZipEntryCollector / buildWindowsFriendlyZip for why this is required
+    // for the Windows built-in extractor.
+    const archive = new ZipEntryCollector();
+    const masterSummary = [];
 
-      archive.on('data', (chunk) => chunks.push(chunk));
-      archive.on('end', () => resolve(Buffer.concat(chunks)));
-      archive.on('error', (err) => reject(err));
-
-      const addToArchive = async ({
-        zipDetails,
-        currentPath = '',
-      }: {
-        zipDetails: any[];
-        currentPath?: string;
+    const addToArchive = async ({
+      zipDetails,
+      currentPath = '',
+    }: {
+      zipDetails: any[];
+      currentPath?: string;
       }) => {
         type ModuleObject = {
           moduleName: string;
@@ -2418,22 +2691,35 @@ Each file contains records relevant to that category as part of the audit trail.
         }
       };
 
-      try {
-        await addToArchive({ zipDetails: zipDetails.folders });
+    await addToArchive({ zipDetails: zipDetails.folders });
 
-        // Add master summary
-        const summaryBuffer = await this.createExcelBuffer({
-          payload: { ...payload, module_name: AuditReportModuleEnum.AuditReport },
-          records: masterSummary,
-          sheetName: 'Summary',
-        });
-        archive.append(summaryBuffer, { name: 'Summary.xlsx' });
-
-        archive.finalize();
-      } catch (err) {
-        reject(err);
-      }
+    // Add master summary
+    const summaryBuffer = await this.createExcelBuffer({
+      payload: { ...payload, module_name: AuditReportModuleEnum.AuditReport },
+      records: masterSummary,
+      sheetName: 'Summary',
     });
+    archive.append(summaryBuffer, { name: 'Summary.xlsx' });
+
+    // Resolve every collected entry to a Buffer, then shorten the in-zip paths
+    // (strip redundant bank/project name prefixes + hard-cap basename length) so
+    // no extracted path exceeds the Windows 260-char limit, and finally write a
+    // Windows-friendly zip (no data descriptors).
+    const rawEntries = await archive.resolve();
+    const bankName = await this.getBankNameSafe(payload?.bank_account_id);
+    const projectName = await this.getProjectNameSafe(payload?.project_id);
+    const usedNames = new Set<string>();
+    const finalEntries = rawEntries.map((entry) => ({
+      name: this.shortenZipEntryName(
+        entry.name,
+        bankName,
+        projectName,
+        usedNames,
+      ),
+      data: entry.data,
+    }));
+
+    return this.buildWindowsFriendlyZip(finalEntries);
   }
 
   // zipFromStructure - legacy method for local file system
