@@ -761,6 +761,61 @@ export class XeroProjectsService {
               )
             : null;
           if (!checkExistenceInXero) {
+            // Recover from a previous failed import: if the same-named PayTrade
+            // project is an unlinked Draft (created by an earlier failed
+            // "Create in PayTrade"), adopt it by linking it to this Xero project
+            // instead of refusing.
+            if (checkNameExistence[0]?.project_status === 'Draft') {
+              const xeroProjectDetails = await this.xeroProjectDetails.findOne({
+                where: {
+                  project_id,
+                  integration_id: xeroDetails.integration_id,
+                },
+              });
+              if (xeroProjectDetails) {
+                xeroProjectDetails.pt_project_id =
+                  checkNameExistence[0].project_id;
+                xeroProjectDetails.mapped_status = 'System';
+                await this.xeroProjectDetails.save(xeroProjectDetails);
+
+                await this.xeroService.insertXeroSyncLogs(decoded, {
+                  id: sync_id || null,
+                  api_name: 'createProjectInPaytrade',
+                  integration_id: xeroDetails.integration_id,
+                  log_template_id: 15,
+                  dynamic_values: {
+                    project_name: checkNameExistence[0]?.project_name,
+                    status: String(project?.status)?.toLowerCase(),
+                  },
+                  project_id: xeroProjectDetails?.id,
+                  contract_id: null,
+                  reference: {
+                    xeroId: xeroProjectDetails?.id,
+                    paytradeId: checkNameExistence[0]?.id,
+                  },
+                  reference_id: xeroProjectDetails?.id,
+                  history: [
+                    `API triggered from project ${checkNameExistence[0]?.project_name}`,
+                    'Import successful',
+                  ],
+                  important_checks: { 'Import tracking id validation': 'Ok' },
+                  error_message: null,
+                  xero_records: [project],
+                  paytrade_records: [checkNameExistence[0]],
+                  new_records: null,
+                  updated_records: null,
+                  synced_records: null,
+                });
+
+                return {
+                  id: checkNameExistence[0].id,
+                  project_id: checkNameExistence[0].project_id,
+                  project_name: checkNameExistence[0].project_name,
+                  project_status: checkNameExistence[0].project_status,
+                };
+              }
+            }
+
             await this.xeroService.insertXeroSyncLogs(decoded, {
               id: sync_id || null,
               api_name: 'createProjectInPaytrade',

@@ -146,34 +146,38 @@ export class ProjectsService {
         };
         await this.activityLogService.insertActivityLog(createActivityLogInput);
 
-        this.logger.log(
-          `Compliance update for new project added initiated for project: ${JSON.stringify(projectDetails.project_id)}`,
-        );
+        // Draft projects (e.g. the Xero "Create in PayTrade" name-only import)
+        // have no compliance-relevant fields yet; running compliance here would
+        // dereference their empty values and throw, orphaning the new project.
+        // Compliance is recomputed once the project is populated / activated.
+        if (createProjectInput.project_status !== 'Draft') {
+          this.logger.log(
+            `Compliance update for new project added initiated for project: ${JSON.stringify(projectDetails.project_id)}`,
+          );
 
-        const compliance_pta_init =
           await this.complianceService.fetchComplianceResultsOfAProject({
             project_id: projectDetails.project_id,
             bank_account_type: 'Project Trust Account',
             failedFilter: false,
           });
 
-        const compliance_rta_init =
           await this.complianceService.fetchComplianceResultsOfAProject({
             project_id: projectDetails.project_id,
             bank_account_type: 'Retention Trust Account',
             failedFilter: false,
           });
 
-        // Invalidate cached compliance so the freshness layer recomputes.
-        try {
-          await this.complianceService.markComplianceDirty(
-            projectDetails.project_id,
-            'project.create',
-          );
-        } catch (err) {
-          this.logger.error(
-            `markComplianceDirty failed for project ${projectDetails.project_id}: ${err?.message || err}`,
-          );
+          // Invalidate cached compliance so the freshness layer recomputes.
+          try {
+            await this.complianceService.markComplianceDirty(
+              projectDetails.project_id,
+              'project.create',
+            );
+          } catch (err) {
+            this.logger.error(
+              `markComplianceDirty failed for project ${projectDetails.project_id}: ${err?.message || err}`,
+            );
+          }
         }
       }
       return projectDetails;
