@@ -7,13 +7,6 @@ import { gql } from "@apollo/client";
 import { ApiResponse } from "@/shared/constant/messages";
 import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import { jwtDecode } from "jwt-decode";
-import {
-  ZipReader,
-  BlobReader,
-  ZipWriter,
-  BlobWriter,
-  TextReader,
-} from "@zip.js/zip.js";
 
 interface ColumnStyle {
   cellWidth: number | string; // Allow both number and string types for cellWidth
@@ -393,7 +386,7 @@ export const downloadAuditZipFromAPI = async (
 
     const decodedData: any = jwtDecode(signedUrl);
     const blob = await response.blob();
-    await passwordProtectedZip(blob, decodedData?.fileName, password);
+    triggerBlobDownload(blob, decodedData?.fileName || "data.zip");
   } catch (error: any) {
     showErrorToast(
       error.message || "An error occurred while downloading the file"
@@ -413,7 +406,7 @@ export const downloadAuditZipFromPath = async (
       throw new Error("Failed to generate ZIP file");
     }
     const blob = await response.blob();
-    await passwordProtectedZip(blob, fileName, password);
+    triggerBlobDownload(blob, fileName || "data.zip");
     return true;
   } catch (error: any) {
     showErrorToast(
@@ -444,68 +437,15 @@ export const getPDFUrl = async (clientId: any, payload: any) => {
   }
 };
 
-async function passwordProtectedZip(
-  originalZipBlob: Blob,
-  fileName: string,
-  password: string
-) {
-  const zipReader = new ZipReader(new BlobReader(originalZipBlob));
-  const entries = await zipReader.getEntries();
-  const writer = new BlobWriter("application/zip");
-  const zipWriter = new ZipWriter(writer, {
-    password: password?.toString()?.slice(-4),
-    encryptionStrength: 3,
-  });
-  // zip.js rejects duplicate entry names with "File already exists", which
-  // aborts the whole download. The source audit pack can legitimately contain
-  // files with identical names, so de-duplicate by appending " (n)" before the
-  // extension to keep every entry while still producing a valid zip.
-  const usedNames = new Set<string>();
-  const makeUniqueName = (name: string): string => {
-    if (!usedNames.has(name)) {
-      usedNames.add(name);
-      return name;
-    }
-    const dotIdx = name.lastIndexOf(".");
-    const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
-    const ext = dotIdx > 0 ? name.slice(dotIdx) : "";
-    let counter = 2;
-    let candidate = `${base} (${counter})${ext}`;
-    while (usedNames.has(candidate)) {
-      counter += 1;
-      candidate = `${base} (${counter})${ext}`;
-    }
-    usedNames.add(candidate);
-    return candidate;
-  };
-  for (const entry of entries) {
-    if (!entry.directory) {
-      const entryData = await entry.getData(new BlobWriter());
-      await zipWriter.add(makeUniqueName(entry.filename), new BlobReader(entryData));
-    }
-  }
-  const protectedInnerZipBlob = await zipWriter.close();
-  const outerWriter = new BlobWriter("application/zip");
-  const outerZipWriter = new ZipWriter(outerWriter);
-
-  await outerZipWriter.add(
-    "protected-files.zip",
-    new BlobReader(protectedInnerZipBlob)
-  );
-
-  await outerZipWriter.add(
-    "password-hint.txt",
-    new TextReader("Last 4 digits of the bank account number!")
-  );
-  const final = await outerZipWriter.close();
-
-  const fileURL = URL.createObjectURL(final);
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const fileURL = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = fileURL;
   a.download = fileName || "data.zip";
   document.body.appendChild(a);
   a.click();
   a.remove();
+  URL.revokeObjectURL(fileURL);
 }
 
 export async function downloadABAFile(file: any) {

@@ -5,6 +5,23 @@ description: Why audit-pack zips must avoid data descriptors and long paths to o
 
 # Audit-pack ZIP must be Windows-Explorer-native
 
+> **REAL ROOT CAUSE of the "won't open on Windows" report was the FRONTEND, not
+> the backend zip format.** The backend serves a clean, valid, unencrypted zip
+> (verify by pulling the actual object from R2 — `audit_reports/...` — never
+> trust files the user attaches in chat: Replit's upload-protection wraps every
+> attachment into `protected-files.zip` + `password-hint.txt`, which looks
+> identical to the real bug). The frontend `front-end/src/utils/export.ts`
+> re-wrapped the downloaded blob with `@zip.js/zip.js` AES-256
+> (`encryptionStrength: 3`) into `protected-files.zip` + `password-hint.txt`
+> ("Last 4 digits of the bank account number!"). **Windows Explorer cannot open
+> AES-encrypted zips at all** → "Password protected: Yes", 0x80004005,
+> "destination file could not be created". Fix (user-approved): download the
+> plain backend blob directly (`triggerBlobDownload`), no client-side
+> encryption. **Lesson: when a download "won't open", check EVERY layer that
+> touches the bytes (backend generator AND frontend post-processing) before
+> deep-diving one — the backend zip-format work below was correct but not the
+> blocker.**
+
 The audit-pack download (`generateZipFileToBuffer`) must produce a zip the
 Windows built-in extractor can open with no third-party tool.
 
