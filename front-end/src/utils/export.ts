@@ -405,7 +405,7 @@ export const downloadAuditZipFromPath = async (
   path: string,
   fileName: string,
   password: string
-) => {
+): Promise<boolean> => {
   try {
     const response = await fetch(path);
 
@@ -414,10 +414,12 @@ export const downloadAuditZipFromPath = async (
     }
     const blob = await response.blob();
     await passwordProtectedZip(blob, fileName, password);
+    return true;
   } catch (error: any) {
     showErrorToast(
       error.message || "An error occurred while downloading the file"
     );
+    return false;
   }
 };
 
@@ -454,10 +456,32 @@ async function passwordProtectedZip(
     password: password?.toString()?.slice(-4),
     encryptionStrength: 3,
   });
+  // zip.js rejects duplicate entry names with "File already exists", which
+  // aborts the whole download. The source audit pack can legitimately contain
+  // files with identical names, so de-duplicate by appending " (n)" before the
+  // extension to keep every entry while still producing a valid zip.
+  const usedNames = new Set<string>();
+  const makeUniqueName = (name: string): string => {
+    if (!usedNames.has(name)) {
+      usedNames.add(name);
+      return name;
+    }
+    const dotIdx = name.lastIndexOf(".");
+    const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
+    const ext = dotIdx > 0 ? name.slice(dotIdx) : "";
+    let counter = 2;
+    let candidate = `${base} (${counter})${ext}`;
+    while (usedNames.has(candidate)) {
+      counter += 1;
+      candidate = `${base} (${counter})${ext}`;
+    }
+    usedNames.add(candidate);
+    return candidate;
+  };
   for (const entry of entries) {
     if (!entry.directory) {
       const entryData = await entry.getData(new BlobWriter());
-      await zipWriter.add(entry.filename, new BlobReader(entryData));
+      await zipWriter.add(makeUniqueName(entry.filename), new BlobReader(entryData));
     }
   }
   const protectedInnerZipBlob = await zipWriter.close();

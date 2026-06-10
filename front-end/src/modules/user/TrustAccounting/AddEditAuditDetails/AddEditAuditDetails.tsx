@@ -659,11 +659,16 @@ export default function AddEditAuditDetails(props: any) {
           // ✅ Save & Download: deliver the pack right after the row is saved,
           // before any notices / route-back early returns.
           if (packForDelivery?.file?.file_path) {
-            await downloadAuditZipFromPath(
+            const downloaded = await downloadAuditZipFromPath(
               packForDelivery?.file?.file_path,
               packForDelivery?.file?.file_name,
               selectedAccount?.bankAccount
             );
+            if (!downloaded) {
+              showInfoToast(
+                "Audit saved. The audit pack couldn't be downloaded automatically — you can download it anytime from the audit list."
+              );
+            }
           }
           if (values?.AuditReport?.length > 0) {
             const uploadPayload = {
@@ -795,11 +800,16 @@ export default function AddEditAuditDetails(props: any) {
           // ✅ Save & Download: deliver the pack right after the row is saved,
           // before any notices / route-back early returns.
           if (packForDelivery?.file?.file_path) {
-            await downloadAuditZipFromPath(
+            const downloaded = await downloadAuditZipFromPath(
               packForDelivery?.file?.file_path,
               packForDelivery?.file?.file_name,
               selectedAccount?.bankAccount
             );
+            if (!downloaded) {
+              showInfoToast(
+                "Audit saved. The audit pack couldn't be downloaded automatically — you can download it anytime from the audit list."
+              );
+            }
           }
           if (values?.AuditReport?.length > 0) {
             const uploadPayload = {
@@ -1662,12 +1672,24 @@ export default function AddEditAuditDetails(props: any) {
                       </label>
 
                       <div className="pt_itemwithremove">
-                        <span>{generatedFile?.file?.file_name}</span>
-                        <div>
+                        <span
+                          title={generatedFile?.file?.file_name}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            marginRight: "8px",
+                          }}
+                        >
+                          {generatedFile?.file?.file_name}
+                        </span>
+                        <div style={{ flexShrink: 0, display: "flex" }}>
                           <CustomButton
-                            buttonName={"View"}
+                            buttonName={"Download"}
                             buttonType={`${buttonType.SECONDARY} ${buttonType.SMALL_BUTTON}`}
-                            iconClassName={"fa-light fa-eye"}
+                            iconClassName={"fa-light fa-download"}
                             actionType="button"
                             onClick={() =>
                               handleViewFileFromPath(

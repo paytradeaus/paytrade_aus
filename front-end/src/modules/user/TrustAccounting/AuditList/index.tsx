@@ -274,12 +274,14 @@ export default function AuditList(props: any) {
       });
 
       if (response?.file?.file_path) {
-        await downloadAuditZipFromPath(
+        const downloaded = await downloadAuditZipFromPath(
           response?.file?.file_path,
           response?.file?.file_name,
           row?.account_number || ""
         );
-        showSuccessToast("Audit pack downloaded.");
+        if (downloaded) {
+          showSuccessToast("Audit pack downloaded.");
+        }
       } else {
         showErrorToast("Unable to generate the audit pack.");
       }
