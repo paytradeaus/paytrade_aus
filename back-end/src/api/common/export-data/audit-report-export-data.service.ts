@@ -321,6 +321,17 @@ export class AuditReportExportDataService {
     let headers = [];
 
     switch (module_name) {
+      case AuditReportModuleEnum.AuditReport:
+        {
+          headers = [
+            { key: 'folder', header: 'Folder' },
+            { key: 'file_name', header: 'File' },
+            { key: 'record_count', header: 'Records' },
+            { key: 'attachment_count', header: 'Attachments' },
+            { key: 'description', header: 'Description' },
+          ];
+        }
+        break;
       case AuditReportModuleEnum.ContractWithClient:
         {
           headers = [
@@ -687,6 +698,15 @@ export class AuditReportExportDataService {
 
     // set width for each column
     switch (module_name) {
+      case AuditReportModuleEnum.AuditReport:
+        worksheet.columns = [
+          { width: 42 }, // folder
+          { width: 30 }, // file_name
+          { width: 10 }, // record_count
+          { width: 13 }, // attachment_count
+          { width: 70 }, // description
+        ];
+        break;
       case AuditReportModuleEnum.ContractWithClient:
       case AuditReportModuleEnum.ContractWithSupplier:
         {
@@ -2424,7 +2444,33 @@ Each file contains records relevant to that category as part of the audit trail.
     // see ZipEntryCollector / buildWindowsFriendlyZip for why this is required
     // for the Windows built-in extractor.
     const archive = new ZipEntryCollector();
-    const masterSummary = [];
+    // Flat, one-row-per-section index for the master Summary.xlsx. Each included
+    // folder pushes a row with its main file, record count, attachment count and
+    // a plain-English description so an auditor gets a contents page + counts.
+    const summaryRows: Array<{
+      folder: string;
+      file_name: string;
+      record_count: number;
+      attachment_count: number;
+      description: string;
+    }> = [];
+
+    const moduleDescriptions: Partial<Record<AuditReportModuleEnum, string>> = {
+      [AuditReportModuleEnum.AccountingRecords]:
+        'Trial Balance, Ledger, Deposits & Withdrawals, and Journal',
+      [AuditReportModuleEnum.ClientPaymentClaim]:
+        'Payment claims to/from clients, with supporting and Xero attachments',
+      [AuditReportModuleEnum.ClientNotice]: 'Notices issued for this project',
+      [AuditReportModuleEnum.ReceivedNotice]:
+        'Notices received for this project',
+      [AuditReportModuleEnum.SupplierSubConPaymentClaim]:
+        'Payment claims from suppliers/subcontractors, with supporting and Xero attachments',
+      [AuditReportModuleEnum.SupplierSubConPaymentSchedule]:
+        'Payment schedules to suppliers/subcontractors, with Xero attachments',
+      [AuditReportModuleEnum.BankStatement]: 'Trust account bank statements',
+      [AuditReportModuleEnum.PaymentInstructionFile]:
+        'ABA payment instruction files',
+    };
 
     const addToArchive = async ({
       zipDetails,
@@ -2480,15 +2526,17 @@ Each file contains records relevant to that category as part of the audit trail.
               name: path.join(folderName, 'Accounting Records.xlsx'),
             });
 
-            masterSummary.push({
-              module_name: AuditReportModuleEnum.AccountingRecords,
-              records: [
-                {
-                  file_name: 'Accounting Records.xlsx',
-                  description:
-                    'Contains Trial Balance, Ledger, Deposits & Withdrawals, and Journal',
-                },
-              ],
+            summaryRows.push({
+              folder: folderName,
+              file_name: 'Accounting Records.xlsx',
+              record_count: formattedRecords.reduce(
+                (sum, r) => sum + (r?.records?.length || 0),
+                0,
+              ),
+              attachment_count: 0,
+              description:
+                moduleDescriptions[AuditReportModuleEnum.AccountingRecords] ||
+                '',
             });
 
             if (moduleObj?.readMeFile?.fileName) {
@@ -2553,6 +2601,8 @@ Each file contains records relevant to that category as part of the audit trail.
             // Append cached Xero invoice/bill PDFs FIRST so each record's
             // `xero_pdf_path` is populated before we generate the Excel sheet
             // — otherwise the new "Xero PDF File" column would be empty.
+            let xeroAttachedCount = 0;
+            let xeroSummaryNote = '';
             if (
               moduleObj?.moduleName ===
                 AuditReportModuleEnum.ClientPaymentClaim ||
@@ -2568,19 +2618,8 @@ Each file contains records relevant to that category as part of the audit trail.
                 payload?.decodedToken?.company_id ?? null,
               );
               if (xeroStats) {
-                // Per-affected-module marker line in the existing master
-                // Summary sheet so reviewers see at-a-glance which folders
-                // contain a Xero invoices index and how many PDFs were
-                // attached vs missing (matches the AccountingRecords pattern).
-                masterSummary.push({
-                  module_name: moduleObj.moduleName,
-                  records: [
-                    {
-                      file_name: `${folderName}/Attachments/Xero-Invoices-Index.csv`,
-                      description: `Xero PDFs: ${xeroStats.attached} attached / ${xeroStats.missing} missing of ${xeroStats.totalLinked} Xero-linked record(s). See ${folderName}/Attachments/Xero-Invoices-Index.csv (or .xlsx).`,
-                    },
-                  ],
-                });
+                xeroAttachedCount = xeroStats.attached || 0;
+                xeroSummaryNote = ` Xero PDFs: ${xeroStats.attached} attached / ${xeroStats.missing} missing of ${xeroStats.totalLinked} linked.`;
               }
             }
 
@@ -2596,6 +2635,7 @@ Each file contains records relevant to that category as part of the audit trail.
             }
 
             // Add attachments from Object Storage
+            let attachmentCount = xeroAttachedCount;
             for (const attachment of attachments) {
               if (attachment?.file_path) {
                 try {
@@ -2606,12 +2646,25 @@ Each file contains records relevant to that category as part of the audit trail.
                     archive.append(fileBuffer, {
                       name: path.join(folderName, 'Attachments', attachment.file_name),
                     });
+                    attachmentCount += 1;
                   }
                 } catch (e) {
                   this.logger.error(`Failed to download attachment: ${attachment.file_path}`);
                 }
               }
             }
+
+            summaryRows.push({
+              folder: folderName,
+              file_name: records?.length > 0 ? `${folderName}.xlsx` : '',
+              record_count: records?.length ?? 0,
+              attachment_count: attachmentCount,
+              description: `${
+                moduleDescriptions[
+                  moduleObj.moduleName as AuditReportModuleEnum
+                ] || ''
+              }${xeroSummaryNote}`.trim(),
+            });
 
             if (moduleObj?.readMeFile?.fileName) {
               await this.createReadMeFile({
@@ -2649,6 +2702,7 @@ Each file contains records relevant to that category as part of the audit trail.
                 });
 
                 // Add file attachments from records
+                let subAttachmentCount = 0;
                 for (const record of records) {
                   if (record?.file_path) {
                     try {
@@ -2659,12 +2713,21 @@ Each file contains records relevant to that category as part of the audit trail.
                         archive.append(fileBuffer, {
                           name: path.join(subFolderPath, 'Attachments', record.file_name),
                         });
+                        subAttachmentCount += 1;
                       }
                     } catch (e) {
                       this.logger.error(`Failed to download: ${record.file_path}`);
                     }
                   }
                 }
+
+                summaryRows.push({
+                  folder: path.join(folderName, subFolderName),
+                  file_name: `${subFolderName}.xlsx`,
+                  record_count: records.length,
+                  attachment_count: subAttachmentCount,
+                  description: subFolderName,
+                });
               }
 
               if (subFolder?.readMeFile?.fileName) {
@@ -2693,10 +2756,11 @@ Each file contains records relevant to that category as part of the audit trail.
 
     await addToArchive({ zipDetails: zipDetails.folders });
 
-    // Add master summary
+    // Add master summary — a contents index (one row per included folder/file)
+    // with record + attachment counts so an auditor gets a table of contents.
     const summaryBuffer = await this.createExcelBuffer({
       payload: { ...payload, module_name: AuditReportModuleEnum.AuditReport },
-      records: masterSummary,
+      records: summaryRows,
       sheetName: 'Summary',
     });
     archive.append(summaryBuffer, { name: 'Summary.xlsx' });
