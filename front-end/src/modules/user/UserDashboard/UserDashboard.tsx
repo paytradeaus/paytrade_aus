@@ -57,6 +57,16 @@ export default function UserDashboard() {
     const id = issue.affectedRecordId;
     const projectId = issue.projectId;
     const hasId = id !== null && id !== undefined && String(id).length > 0;
+    // Compliance issues must deep-link to the project's compliance panel
+    // (USER_COMPLIANCE_OVERVIEW expects a `project` query param), not the
+    // project overview page. The compliance checker tags these as type
+    // "project", so route on category before the type switch below.
+    if (issue.category === "compliance") {
+      const complianceProjectId = hasId ? id : projectId;
+      return complianceProjectId
+        ? `${AppRoutes.USER_COMPLIANCE_OVERVIEW}?project=${complianceProjectId}`
+        : AppRoutes.USER_COMPLIANCE;
+    }
     switch (type) {
       case "xero_sync_log":
         return hasId ? `${AppRoutes.USER_SYNC_LOG}${id}` : AppRoutes.USER_XERO;
