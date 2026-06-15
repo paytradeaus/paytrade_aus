@@ -93,6 +93,14 @@ export class XeroInvoicesBills {
   @Column({ type: 'bigint', nullable: true })
   pt_claim_id: number;
 
+  // Task #368 — When true, this bill/invoice is deliberately excluded
+  // from Xero auto-import/re-link (webhook + scheduler). It remains
+  // queryable as "unmapped" (pt_claim_id IS NULL, mapped_status IS NULL)
+  // but lives in its own "Permanently unmapped" view until a user
+  // explicitly re-enables it.
+  @Column({ type: 'boolean', default: false })
+  permanently_unmapped: boolean;
+
   @Column({ type: 'text', nullable: true })
   cached_pdf_object_key: string;
 

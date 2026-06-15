@@ -17,6 +17,8 @@ import {
   getXeroDetailsForCompany,
   getXeroPaymentsListsForCompany,
   manualMappingPayments,
+  permanentlyUnmapPayment,
+  reEnablePaymentMapping,
   syncAllPaymentsByCompanyId,
   unMappingPayments,
 } from "../../integration.functions";
@@ -28,6 +30,8 @@ import {
   paymentsTabOptions,
   paytradePaymentsHeaders,
   paytradePaymentsRenderData,
+  permanentlyUnmappedPaymentsHeaders,
+  permanentlyUnmappedPaymentsRenderData,
   statusOptions,
   xeroPaymentsHeaders,
   xeroPaymentsRenderData,
@@ -113,6 +117,8 @@ export default function XeroPayments() {
           secondButtonName: "Unmap",
           firstButtonName: "Cancel",
           id: "Unmap_from?",
+          // Task #368 — Offer plain Unmap (may be re-linked on next sync)
+          // or Unmap permanently (sticky exclusion from inbound import).
           description: (
             <>
               Do you wish to unmap the below payment?
@@ -135,6 +141,49 @@ export default function XeroPayments() {
                   </>
                 )}
               </p>
+              <p style={{ fontSize: "0.9em", color: "#555" }}>
+                Choose <b>Unmap</b> to clear the link (the payment may be
+                re-linked automatically on the next Xero sync or webhook).
+                Choose <b>Unmap permanently</b> to exclude this payment from
+                all future inbound import and re-linking.
+              </p>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <CustomButton
+                  buttonName="UNMAP PERMANENTLY"
+                  iconClassName="fa-light fa-ban"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={async () => {
+                    setModelConfig((prev: any) => ({ ...prev, show: false }));
+                    await handlePermanentlyUnmapPayment(row);
+                  }}
+                />
+              </div>
+            </>
+          ),
+        });
+      },
+      displayByDefault: true,
+    },
+  ];
+
+  // Task #368 — Per-row action on the "Permanently unmapped" tab.
+  const permanentlyUnmappedPaymentsActions = [
+    {
+      label: "Re-enable mapping",
+      icon: "fa-light fa-rotate-left",
+      onClick: (row: any) => {
+        setSelectedContact(row);
+        setModelConfig({
+          show: true,
+          title: "Re-enable mapping",
+          secondButtonName: "Re-enable",
+          firstButtonName: "Cancel",
+          id: "Re_enable_mapping?",
+          description: (
+            <>
+              Re-enable mapping for this payment? It will return to the normal
+              unmapped pool so it can be imported or re-linked again.
             </>
           ),
         });
@@ -162,6 +211,12 @@ export default function XeroPayments() {
           headers: mappedPaymentsHeaders,
           gridActions: mappedPaymentsActions,
           renderRowList: mappedPaymentsRenderData,
+        };
+      case "Permanently unmapped":
+        return {
+          headers: permanentlyUnmappedPaymentsHeaders,
+          gridActions: permanentlyUnmappedPaymentsActions,
+          renderRowList: permanentlyUnmappedPaymentsRenderData,
         };
       default:
         return {
@@ -338,6 +393,48 @@ export default function XeroPayments() {
     };
   };
 
+  // Task #368 — Re-use the Xero payment list endpoint with the dedicated
+  // `Permanently unmapped` filter value.
+  const fetchPermanentlyUnmappedPayments = async (
+    currentPage: number,
+    entriesPerPage: number,
+    search: string,
+    setTableLoader: (loading: boolean) => void
+  ) => {
+    const data = await getXeroPaymentsListsForCompany(
+      {
+        payload: {
+          company_id: +(localStorage.getItem("companyId") || 0),
+          page_number: currentPage,
+          page_size: entriesPerPage,
+          search: search || "",
+          sorting_field: sortValues?.sortKey || "",
+          sorting_order: sortValues?.direction || "",
+          mapped_status: "Permanently unmapped",
+        },
+      },
+      setTableLoader
+    );
+    return {
+      contacts:
+        data?.payment_list.map((val: any) => {
+          return {
+            ...val,
+            payment_amount: `$ ${
+              val?.payment_amount
+                ? Number(val?.payment_amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : "0.00"
+            }`,
+            payment_date: formatDate(val?.payment_date),
+          };
+        }) || [],
+      totalCount: data?.total_count || 0,
+    };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setTableLoader(true);
@@ -367,6 +464,16 @@ export default function XeroPayments() {
           search,
           setTableLoader
         );
+        setGridData(contacts);
+        setTotalRows(totalCount);
+      } else if (tabStatus === "Permanently unmapped") {
+        const { contacts, totalCount } =
+          await fetchPermanentlyUnmappedPayments(
+            currentPage,
+            entriesPerPage,
+            search,
+            setTableLoader
+          );
         setGridData(contacts);
         setTotalRows(totalCount);
       }
@@ -453,7 +560,46 @@ export default function XeroPayments() {
       handleAutoMappingPayments();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapPayments();
+    } else if (modelConfig.id === "Re_enable_mapping?") {
+      handleReEnablePaymentMapping();
     }
+  };
+
+  // Task #368 — Mark a mapped payment as permanently unmapped, then refresh
+  // the mapped list (the row drops out once the link is cleared).
+  const handlePermanentlyUnmapPayment = async (row?: any) => {
+    const payment = row || selectedContact;
+    setTableLoader(true);
+    await permanentlyUnmapPayment(
+      { paymentId: payment?.payment_id },
+      setTableLoader
+    );
+    const { contacts, totalCount } = await fetchMappedPayments(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  // Task #368 — Reverse a permanent-unmap, then refresh the
+  // "Permanently unmapped" tab.
+  const handleReEnablePaymentMapping = async () => {
+    setTableLoader(true);
+    await reEnablePaymentMapping(
+      { paymentId: selectedContact?.payment_id },
+      setTableLoader
+    );
+    const { contacts, totalCount } = await fetchPermanentlyUnmappedPayments(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
   };
 
   const handleUnmapPayments = async () => {
@@ -579,6 +725,7 @@ export default function XeroPayments() {
   const checkActionCondition = () => {
     const actionMapping: any = {
       "Mapped payments": mappedPaymentsActions,
+      "Permanently unmapped": permanentlyUnmappedPaymentsActions,
       "Xero payments":
         xeroData?.integration_status === "Connected - active"
           ? xeroPaymentsActions

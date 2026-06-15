@@ -1012,4 +1012,70 @@ export class XeroPaymentsResolver {
       return framedResponse('ERROR', error.message ? error.message : error);
     }
   }
+
+  /**
+   * Task #368 — Permanently exclude a Xero payment from inbound
+   * import/re-link (webhook + scheduler). Sticky until re-enabled.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'permanentlyUnmapPayment',
+    description:
+      'Marks a Xero payment as permanently unmapped so it is excluded from inbound import/re-link (webhook + scheduler).',
+  })
+  async permanentlyUnmapPayment(
+    @Context() context,
+    @Args('payment_id', {
+      description: 'Xero payment id to permanently unmap.',
+    })
+    payment_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response = await this.xeroPaymentsService.permanentlyUnmapPayment(
+        payment_id,
+        companyId,
+        decoded,
+      );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Task #368 — Reverse a permanent-unmap so the payment is eligible for
+   * inbound import/re-link again.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'reEnablePaymentMapping',
+    description:
+      'Reverses a permanent-unmap so the Xero payment is eligible for inbound import/re-link again.',
+  })
+  async reEnablePaymentMapping(
+    @Context() context,
+    @Args('payment_id', {
+      description: 'Xero payment id to re-enable mapping for.',
+    })
+    payment_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response = await this.xeroPaymentsService.reEnablePaymentMapping(
+        payment_id,
+        companyId,
+        decoded,
+      );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
 }

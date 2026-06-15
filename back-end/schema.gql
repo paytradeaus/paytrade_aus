@@ -16006,6 +16006,22 @@ type Mutation {
   ): StringResponse!
 
   """
+  Marks a Xero bill/invoice as permanently unmapped so it is excluded from inbound import/re-link (webhook + scheduler).
+  """
+  permanentlyUnmapInvoiceBill(
+    """Xero invoice/bill id to permanently unmap."""
+    invoice_id: String!
+  ): StringResponse!
+
+  """
+  Marks a Xero payment as permanently unmapped so it is excluded from inbound import/re-link (webhook + scheduler).
+  """
+  permanentlyUnmapPayment(
+    """Xero payment id to permanently unmap."""
+    payment_id: String!
+  ): StringResponse!
+
+  """
   Validate and filter uploaded CSV transactions before final confirmation and import.
   """
   processUploadedTransactionsCsv(
@@ -16034,6 +16050,22 @@ type Mutation {
   reEnableContactMapping(
     """Xero contact id to re-enable for mapping."""
     contact_id: String!
+  ): StringResponse!
+
+  """
+  Reverses a permanent-unmap so the Xero bill/invoice is eligible for inbound import/re-link again.
+  """
+  reEnableInvoiceBillMapping(
+    """Xero invoice/bill id to re-enable mapping for."""
+    invoice_id: String!
+  ): StringResponse!
+
+  """
+  Reverses a permanent-unmap so the Xero payment is eligible for inbound import/re-link again.
+  """
+  reEnablePaymentMapping(
+    """Xero payment id to re-enable mapping for."""
+    payment_id: String!
   ): StringResponse!
 
   """

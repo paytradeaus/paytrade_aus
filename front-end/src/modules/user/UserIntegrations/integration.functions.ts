@@ -3422,6 +3422,157 @@ export const unMappingPayments = async (
     setLoading && setLoading(false);
   }
 };
+
+// Task #368 — Permanent unmap & re-enable for Xero bills/invoices.
+export const permanentlyUnmapInvoiceBill = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation PermanentlyUnmapInvoiceBill($invoiceId: String!) {
+          permanentlyUnmapInvoiceBill(invoice_id: $invoiceId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.permanentlyUnmapInvoiceBill?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.permanentlyUnmapInvoiceBill.message);
+      return true;
+    }
+    if (
+      response?.data?.permanentlyUnmapInvoiceBill?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.permanentlyUnmapInvoiceBill.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const reEnableInvoiceBillMapping = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation ReEnableInvoiceBillMapping($invoiceId: String!) {
+          reEnableInvoiceBillMapping(invoice_id: $invoiceId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.reEnableInvoiceBillMapping?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.reEnableInvoiceBillMapping.message);
+      return true;
+    }
+    if (
+      response?.data?.reEnableInvoiceBillMapping?.status === ApiResponse.ERROR
+    ) {
+      showErrorToast(response?.data?.reEnableInvoiceBillMapping.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+// Task #368 — Permanent unmap & re-enable for Xero payments.
+export const permanentlyUnmapPayment = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation PermanentlyUnmapPayment($paymentId: String!) {
+          permanentlyUnmapPayment(payment_id: $paymentId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.permanentlyUnmapPayment?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.permanentlyUnmapPayment.message);
+      return true;
+    }
+    if (response?.data?.permanentlyUnmapPayment?.status === ApiResponse.ERROR) {
+      showErrorToast(response?.data?.permanentlyUnmapPayment.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
+
+export const reEnablePaymentMapping = async (
+  data: any,
+  setLoading?: Function
+): Promise<any> => {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation ReEnablePaymentMapping($paymentId: String!) {
+          reEnablePaymentMapping(payment_id: $paymentId) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.reEnablePaymentMapping?.status === ApiResponse.SUCCESS
+    ) {
+      showSuccessToast(response?.data?.reEnablePaymentMapping.message);
+      return true;
+    }
+    if (response?.data?.reEnablePaymentMapping?.status === ApiResponse.ERROR) {
+      showErrorToast(response?.data?.reEnablePaymentMapping.message);
+      return null;
+    }
+  } catch (error: any) {
+    showErrorToast(ApiResponse.ERROR);
+    console.error("GraphQL Error:", error);
+    return null;
+  } finally {
+    setLoading && setLoading(false);
+  }
+};
 export async function CreateBankAccountsInPaytrade(
   postData: any,
   setLoading?: Function

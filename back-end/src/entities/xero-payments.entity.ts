@@ -87,6 +87,14 @@ export class XeroPayments {
   @Column({ type: 'varchar', length: 50, nullable: true })
   credit_note_status: string;
 
+  // Task #368 — When true, this payment is deliberately excluded from
+  // Xero auto-import/re-link (webhook + scheduler). It remains queryable
+  // as "unmapped" (pt_payment_id IS NULL, mapped_status IS NULL) but
+  // lives in its own "Permanently unmapped" view until a user explicitly
+  // re-enables it.
+  @Column({ type: 'boolean', default: false })
+  permanently_unmapped: boolean;
+
   @Column({ type: 'decimal', precision: 55, scale: 2, nullable: true })
   credit_amount: number;
 

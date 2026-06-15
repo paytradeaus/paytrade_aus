@@ -817,6 +817,74 @@ export class XeroInvoicesResolver {
     }
   }
 
+  /**
+   * Task #368 — Permanently exclude a Xero bill/invoice from inbound
+   * import/re-link (webhook + scheduler). Sticky until re-enabled.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'permanentlyUnmapInvoiceBill',
+    description:
+      'Marks a Xero bill/invoice as permanently unmapped so it is excluded from inbound import/re-link (webhook + scheduler).',
+  })
+  async permanentlyUnmapInvoiceBill(
+    @Context() context,
+    @Args('invoice_id', {
+      description: 'Xero invoice/bill id to permanently unmap.',
+    })
+    invoice_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response =
+        await this.xeroInvoicesService.permanentlyUnmapInvoiceBill(
+          invoice_id,
+          companyId,
+          decoded,
+        );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
+  /**
+   * Task #368 — Reverse a permanent-unmap so the bill/invoice is eligible
+   * for inbound import/re-link again.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'reEnableInvoiceBillMapping',
+    description:
+      'Reverses a permanent-unmap so the Xero bill/invoice is eligible for inbound import/re-link again.',
+  })
+  async reEnableInvoiceBillMapping(
+    @Context() context,
+    @Args('invoice_id', {
+      description: 'Xero invoice/bill id to re-enable mapping for.',
+    })
+    invoice_id: string,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const { headers } = context.req;
+      const companyId = headers?.companyid;
+      const response =
+        await this.xeroInvoicesService.reEnableInvoiceBillMapping(
+          invoice_id,
+          companyId,
+          decoded,
+        );
+      return framedResponse('SUCCESS', response);
+    } catch (error) {
+      return framedResponse('ERROR', error.message ? error.message : error);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
   @Mutation(() => GetPaytradeInvoicesResponse, {

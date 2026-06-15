@@ -7693,9 +7693,16 @@ export class XeroPaymentsService {
         .addSelect('payment.payment_amount', 'payment_amount')
         .addSelect('payment.pt_payment_id', 'pt_payment_id')
         .addSelect(
-          `CASE WHEN payment.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped' ELSE 'Unmapped' END`,
+          // Task #368 — Surface "Permanently unmapped" as a distinct
+          // status so the UI can render it alongside Mapped / Unmapped.
+          `CASE
+             WHEN payment.permanently_unmapped = true THEN 'Permanently unmapped'
+             WHEN payment.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped'
+             ELSE 'Unmapped'
+           END`,
           'mapped_status',
         )
+        .addSelect('payment.permanently_unmapped', 'permanently_unmapped')
         .addSelect('xero.company_id', 'company_id')
         .innerJoin(
           XeroIntegrationDetails,
@@ -7719,14 +7726,19 @@ export class XeroPaymentsService {
 
       if (data.mapped_status) {
         if (data.mapped_status === 'Mapped') {
-          queryBuilder.andWhere(
-            `payment.mapped_status IN (:...mappedStatuses)`,
-            {
+          queryBuilder
+            .andWhere(`payment.mapped_status IN (:...mappedStatuses)`, {
               mappedStatuses: ['Manual', 'Auto', 'System'],
-            },
-          );
+            })
+            // Task #368 — Permanently unmapped rows must never appear in
+            // the Mapped or plain Unmapped views.
+            .andWhere('payment.permanently_unmapped = false');
+        } else if (data.mapped_status === 'Permanently unmapped') {
+          queryBuilder.andWhere('payment.permanently_unmapped = true');
         } else {
-          queryBuilder.andWhere(`payment.mapped_status IS NULL`);
+          queryBuilder
+            .andWhere(`payment.mapped_status IS NULL`)
+            .andWhere('payment.permanently_unmapped = false');
         }
       }
 
@@ -9673,6 +9685,99 @@ export class XeroPaymentsService {
       } else {
         return `Payment is not unmapped`;
       }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Task #368 — Mark a Xero payment as permanently unmapped. Clears any
+   * current PT link (same as unMappingPayment) and sets the sticky
+   * `permanently_unmapped` flag so inbound import/re-link (webhook +
+   * scheduler) skip it until a user explicitly re-enables it.
+   */
+  async permanentlyUnmapPayment(
+    payment_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const response = await this.xeroPayments
+        .createQueryBuilder()
+        .update(XeroPayments)
+        .set({
+          pt_payment_id: null,
+          mapped_status: null,
+          permanently_unmapped: true,
+          updated_by: decoded.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'payment_id = :payment_id AND integration_id = :integration_id',
+          {
+            payment_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      if (response?.affected > 0) {
+        return `Payment permanently unmapped from Xero sync`;
+      }
+      return `Payment is not permanently unmapped`;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Task #368 — Reverse a previous permanent-unmap so the payment returns
+   * to the normal "unmapped" pool and becomes eligible for import/re-link
+   * again.
+   */
+  async reEnablePaymentMapping(
+    payment_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const response = await this.xeroPayments
+        .createQueryBuilder()
+        .update(XeroPayments)
+        .set({
+          permanently_unmapped: false,
+          updated_by: decoded.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'payment_id = :payment_id AND integration_id = :integration_id',
+          {
+            payment_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      if (response?.affected > 0) {
+        return `Payment mapping re-enabled`;
+      }
+      return `Payment mapping is not re-enabled`;
     } catch (error) {
       throw error;
     }

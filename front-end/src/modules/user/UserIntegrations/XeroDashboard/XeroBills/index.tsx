@@ -17,6 +17,8 @@ import {
   getXeroBillsListsForCompany,
   getXeroDetailsForCompany,
   manualMappingBills,
+  permanentlyUnmapInvoiceBill,
+  reEnableInvoiceBillMapping,
   syncAllBillsByCompanyId,
   unMappingBills,
 } from "../../integration.functions";
@@ -27,6 +29,8 @@ import {
   mappedBillsRenderData,
   paytradeBillsHeaders,
   paytradeBillsRenderData,
+  permanentlyUnmappedBillsHeaders,
+  permanentlyUnmappedBillsRenderData,
   statusOptions,
   xeroBillsHeaders,
   xeroBillsRenderData,
@@ -112,6 +116,8 @@ export default function XeroBills() {
           secondButtonName: "Unmap",
           firstButtonName: "Cancel",
           id: "Unmap_from?",
+          // Task #368 — Offer plain Unmap (may be re-linked on next sync)
+          // or Unmap permanently (sticky exclusion from inbound import).
           description: (
             <>
               Do you wish to unmap the below bill?
@@ -134,6 +140,49 @@ export default function XeroBills() {
                   </>
                 )}
               </p>
+              <p style={{ fontSize: "0.9em", color: "#555" }}>
+                Choose <b>Unmap</b> to clear the link (the bill may be
+                re-linked automatically on the next Xero sync or webhook).
+                Choose <b>Unmap permanently</b> to exclude this bill from all
+                future inbound import and re-linking.
+              </p>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <CustomButton
+                  buttonName="UNMAP PERMANENTLY"
+                  iconClassName="fa-light fa-ban"
+                  buttonType={buttonType.CONTRAST_SMALL}
+                  actionType="button"
+                  onClick={async () => {
+                    setModelConfig((prev: any) => ({ ...prev, show: false }));
+                    await handlePermanentlyUnmapBill(row);
+                  }}
+                />
+              </div>
+            </>
+          ),
+        });
+      },
+      displayByDefault: true,
+    },
+  ];
+
+  // Task #368 — Per-row action on the "Permanently unmapped" tab.
+  const permanentlyUnmappedBillsActions = [
+    {
+      label: "Re-enable mapping",
+      icon: "fa-light fa-rotate-left",
+      onClick: (row: any) => {
+        setSelectedContact(row);
+        setModelConfig({
+          show: true,
+          title: "Re-enable mapping",
+          secondButtonName: "Re-enable",
+          firstButtonName: "Cancel",
+          id: "Re_enable_mapping?",
+          description: (
+            <>
+              Re-enable mapping for this bill? It will return to the normal
+              unmapped pool so it can be imported or re-linked again.
             </>
           ),
         });
@@ -161,6 +210,12 @@ export default function XeroBills() {
           headers: mappedBillsHeaders,
           gridActions: mappedBillsActions,
           renderRowList: mappedBillsRenderData,
+        };
+      case "Permanently unmapped":
+        return {
+          headers: permanentlyUnmappedBillsHeaders,
+          gridActions: permanentlyUnmappedBillsActions,
+          renderRowList: permanentlyUnmappedBillsRenderData,
         };
       default:
         return {
@@ -339,6 +394,48 @@ export default function XeroBills() {
     };
   };
 
+  // Task #368 — Re-use the Xero bill list endpoint with the dedicated
+  // `Permanently unmapped` filter value.
+  const fetchPermanentlyUnmappedBills = async (
+    currentPage: number,
+    entriesPerPage: number,
+    search: string,
+    setTableLoader: (loading: boolean) => void
+  ) => {
+    const data = await getXeroBillsListsForCompany(
+      {
+        payload: {
+          company_id: +(localStorage.getItem("companyId") || 0),
+          page_number: currentPage,
+          page_size: entriesPerPage,
+          search: search || "",
+          sorting_field: sortValues?.sortKey || "",
+          sorting_order: sortValues?.direction || "",
+          mapped_status: "Permanently unmapped",
+        },
+      },
+      setTableLoader
+    );
+    return {
+      contacts:
+        data?.invoice_list.map((val: any) => {
+          return {
+            ...val,
+            total_amount: `$ ${
+              val?.total_amount
+                ? Number(val?.total_amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : "0.00"
+            }`,
+            due_date: formatDate(val?.due_date),
+          };
+        }) || [],
+      totalCount: data?.total_count || 0,
+    };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setTableLoader(true);
@@ -363,6 +460,15 @@ export default function XeroBills() {
         setTotalRows(totalCount);
       } else if (tabStatus === "Mapped bills") {
         const { contacts, totalCount } = await fetchMappedBills(
+          currentPage,
+          entriesPerPage,
+          search,
+          setTableLoader
+        );
+        setGridData(contacts);
+        setTotalRows(totalCount);
+      } else if (tabStatus === "Permanently unmapped") {
+        const { contacts, totalCount } = await fetchPermanentlyUnmappedBills(
           currentPage,
           entriesPerPage,
           search,
@@ -455,7 +561,46 @@ export default function XeroBills() {
       handleAutoMappingBills();
     } else if (modelConfig.id === "Unmap_from?") {
       handleUnmapBills();
+    } else if (modelConfig.id === "Re_enable_mapping?") {
+      handleReEnableBillMapping();
     }
+  };
+
+  // Task #368 — Mark a mapped bill as permanently unmapped, then refresh
+  // the mapped list (the row drops out once the link is cleared).
+  const handlePermanentlyUnmapBill = async (row?: any) => {
+    const bill = row || selectedContact;
+    setTableLoader(true);
+    await permanentlyUnmapInvoiceBill(
+      { invoiceId: bill?.invoice_id },
+      setTableLoader
+    );
+    const { contacts, totalCount } = await fetchMappedBills(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
+  };
+
+  // Task #368 — Reverse a permanent-unmap, then refresh the
+  // "Permanently unmapped" tab.
+  const handleReEnableBillMapping = async () => {
+    setTableLoader(true);
+    await reEnableInvoiceBillMapping(
+      { invoiceId: selectedContact?.invoice_id },
+      setTableLoader
+    );
+    const { contacts, totalCount } = await fetchPermanentlyUnmappedBills(
+      currentPage,
+      entriesPerPage,
+      search,
+      setTableLoader
+    );
+    setGridData(contacts);
+    setTotalRows(totalCount);
   };
 
   const handleUnmapBills = async () => {
@@ -581,6 +726,7 @@ export default function XeroBills() {
   const checkActionCondition = () => {
     const actionMapping: any = {
       "Mapped bills": mappedBillsActions,
+      "Permanently unmapped": permanentlyUnmappedBillsActions,
       "Xero bills":
         xeroData?.integration_status === "Connected - active"
           ? xeroBillsActions

@@ -70,6 +70,9 @@ export const billsTabOptions = [
   { label: "Mapped bills" },
   { label: "Paytrade bills" },
   { label: "Xero bills" },
+  // Task #368 — Tab listing bills marked as permanently excluded from
+  // Xero sync, with a per-row Re-enable action.
+  { label: "Permanently unmapped" },
 ];
 
 export const invoicesTabOptions = [
@@ -82,6 +85,9 @@ export const paymentsTabOptions = [
   { label: "Mapped payments" },
   { label: "Paytrade payments" },
   { label: "Xero payments" },
+  // Task #368 — Tab listing payments marked as permanently excluded from
+  // Xero sync, with a per-row Re-enable action.
+  { label: "Permanently unmapped" },
 ];
 
 export const paytradeContactsHeaders = [
@@ -438,6 +444,38 @@ export const permanentlyUnmappedContactsHeaders = [
 export const permanentlyUnmappedContactsRenderData = [
   { key: "contact_name" },
   { key: "mapped_status" },
+];
+
+// Task #368 — Headers / render config for the "Permanently unmapped"
+// bills tab.
+export const permanentlyUnmappedBillsHeaders = [
+  { dataKey: "invoice_id", title: "xero bill id" },
+  { dataKey: "total_amount", title: "Total Amount" },
+  { dataKey: "due_date", title: "Due Date" },
+  { dataKey: "contact_name", title: "Contact" },
+  { dataKey: "", title: "Actions", restrictSorting: true },
+];
+export const permanentlyUnmappedBillsRenderData = [
+  { key: "invoice_id" },
+  { key: "total_amount" },
+  { key: "due_date" },
+  { key: "contact_name" },
+];
+
+// Task #368 — Headers / render config for the "Permanently unmapped"
+// payments tab.
+export const permanentlyUnmappedPaymentsHeaders = [
+  { dataKey: "payment_id", title: "xero payment id" },
+  { dataKey: "payment_amount", title: "Amount" },
+  { dataKey: "payment_date", title: "Payment Date" },
+  { dataKey: "contact_name", title: "Contact" },
+  { dataKey: "", title: "Actions", restrictSorting: true },
+];
+export const permanentlyUnmappedPaymentsRenderData = [
+  { key: "payment_id" },
+  { key: "payment_amount" },
+  { key: "payment_date" },
+  { key: "contact_name" },
 ];
 
 export const integrationStatus = {

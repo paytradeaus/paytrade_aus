@@ -3500,6 +3500,18 @@ export class XeroWebhookService {
 
       this.logger.debug(`[BILL_TRACE] V-Step 1: existingXeroInvoice=${existingXeroInvoice ? `id=${existingXeroInvoice.id}, pt_claim_id=${existingXeroInvoice.pt_claim_id}` : 'null'}`);
 
+      // Task #368 — Sticky permanent-unmap. When a user has deliberately
+      // excluded this bill/invoice, never re-import or re-link it on any
+      // inbound trigger (webhook + scheduler), regardless of eventType.
+      // Skip silently (no sync log) to stay idempotent and noise-free,
+      // matching the contacts permanent-unmap behaviour.
+      if (existingXeroInvoice?.permanently_unmapped) {
+        this.logger.debug(
+          `[BILL_TRACE] V-Step 1 EXIT: invoice ${invoice.invoiceID} is permanently_unmapped. Skipping inbound import/re-link.`,
+        );
+        return false;
+      }
+
       if (
         existingXeroInvoice &&
         existingXeroInvoice?.pt_claim_id &&
@@ -11363,6 +11375,17 @@ export class XeroWebhookService {
           status: Not('DELETED'),
         },
       });
+
+      // Task #368 — Sticky permanent-unmap. When a user has deliberately
+      // excluded this payment, never re-import or re-link it on any inbound
+      // trigger (webhook + scheduler). Skip silently to stay idempotent and
+      // noise-free, matching the bill/invoice + contacts behaviour.
+      if (existingPayment?.permanently_unmapped) {
+        this.logger.debug(
+          `[PAYMENT_TRACE] processPayment EXIT: payment ${payment.paymentID} is permanently_unmapped. Skipping inbound import/re-link.`,
+        );
+        return false;
+      }
 
       const paymentResponse = await this.xero.accountingApi.getPayment(
         tenant_id,

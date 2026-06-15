@@ -5716,9 +5716,16 @@ export class XeroInvoicesService {
         .addSelect('invoice.line_amount_types', 'line_amount_types')
         .addSelect('invoice.pt_claim_id', 'pt_claim_id')
         .addSelect(
-          `CASE WHEN invoice.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped' ELSE 'Unmapped' END`,
+          // Task #368 — Surface "Permanently unmapped" as a distinct
+          // status so the UI can render it alongside Mapped / Unmapped.
+          `CASE
+             WHEN invoice.permanently_unmapped = true THEN 'Permanently unmapped'
+             WHEN invoice.mapped_status IN ('Manual', 'Auto', 'System') THEN 'Mapped'
+             ELSE 'Unmapped'
+           END`,
           'mapped_status',
         )
+        .addSelect('invoice.permanently_unmapped', 'permanently_unmapped')
         .addSelect('xero.company_id', 'company_id')
         .innerJoin(
           XeroIntegrationDetails,
@@ -5745,14 +5752,19 @@ export class XeroInvoicesService {
 
       if (data.mapped_status) {
         if (data.mapped_status === 'Mapped') {
-          queryBuilder.andWhere(
-            `invoice.mapped_status IN (:...mappedStatuses)`,
-            {
+          queryBuilder
+            .andWhere(`invoice.mapped_status IN (:...mappedStatuses)`, {
               mappedStatuses: ['Manual', 'Auto', 'System'],
-            },
-          );
+            })
+            // Task #368 — Permanently unmapped rows must never appear in
+            // the Mapped or plain Unmapped views.
+            .andWhere('invoice.permanently_unmapped = false');
+        } else if (data.mapped_status === 'Permanently unmapped') {
+          queryBuilder.andWhere('invoice.permanently_unmapped = true');
         } else {
-          queryBuilder.andWhere(`invoice.mapped_status IS NULL`);
+          queryBuilder
+            .andWhere(`invoice.mapped_status IS NULL`)
+            .andWhere('invoice.permanently_unmapped = false');
         }
       }
 
@@ -6271,6 +6283,107 @@ export class XeroInvoicesService {
       } else {
         return `${xeroInvoicesBills.type === 'ACCPAY' ? 'Bill' : 'Invoice'} is not unmapped`;
       }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Task #368 — Mark a Xero bill/invoice as permanently unmapped. Clears
+   * any current PT link (same as unMappingInvoiceBill) and sets the
+   * sticky `permanently_unmapped` flag so inbound import/re-link (webhook
+   * + scheduler) skip it until a user explicitly re-enables it.
+   */
+  async permanentlyUnmapInvoiceBill(
+    invoice_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const xeroInvoicesBills = await this.xeroInvoicesBills.findOne({
+        where: { invoice_id, integration_id: xeroDetails.integration_id },
+      });
+      const response = await this.xeroInvoicesBills
+        .createQueryBuilder()
+        .update(XeroInvoicesBills)
+        .set({
+          pt_claim_id: null,
+          mapped_status: null,
+          permanently_unmapped: true,
+          updated_by: decoded.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'invoice_id = :invoice_id AND integration_id = :integration_id',
+          {
+            invoice_id: invoice_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      const label = xeroInvoicesBills?.type === 'ACCPAY' ? 'Bill' : 'Invoice';
+      if (response?.affected > 0) {
+        return `${label} permanently unmapped from Xero sync`;
+      }
+      return `${label} is not permanently unmapped`;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Task #368 — Reverse a previous permanent-unmap so the bill/invoice
+   * returns to the normal "unmapped" pool and becomes eligible for
+   * import/re-link again. Writes nothing else.
+   */
+  async reEnableInvoiceBillMapping(
+    invoice_id: string,
+    company_id: number,
+    decoded: any,
+  ) {
+    try {
+      const xeroDetails = company_id
+        ? await this.xeroIntegrationDetails.findOne({
+            where: { company_id, status: 'ACTIVE' },
+          })
+        : null;
+      if (!xeroDetails) throw `No xero integration found`;
+
+      const xeroInvoicesBills = await this.xeroInvoicesBills.findOne({
+        where: { invoice_id, integration_id: xeroDetails.integration_id },
+      });
+      const response = await this.xeroInvoicesBills
+        .createQueryBuilder()
+        .update(XeroInvoicesBills)
+        .set({
+          permanently_unmapped: false,
+          updated_by: decoded.userId,
+          updated_on: moment.tz('UTC'),
+          updated_group: decoded?.isAdmin ? 'ADMIN' : 'USER',
+        })
+        .where(
+          'invoice_id = :invoice_id AND integration_id = :integration_id',
+          {
+            invoice_id: invoice_id,
+            integration_id: xeroDetails.integration_id,
+          },
+        )
+        .execute();
+
+      const label = xeroInvoicesBills?.type === 'ACCPAY' ? 'Bill' : 'Invoice';
+      if (response?.affected > 0) {
+        return `${label} mapping re-enabled`;
+      }
+      return `${label} mapping is not re-enabled`;
     } catch (error) {
       throw error;
     }
