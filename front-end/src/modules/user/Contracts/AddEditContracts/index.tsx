@@ -820,6 +820,33 @@ export default function AddEditContracts(props: any) {
       };
 
       formik.setFieldValue("PaymentDetails", editpaymentdata);
+      // When a contract's Client/Supplier has since been soft-deleted or
+      // archived, getClientSupplierLists excludes it from the picker, so
+      // there is no <option> matching the contract's supplier name. A native
+      // <select> given a value with no matching option silently falls back to
+      // rendering the FIRST option (e.g. "1300 Locate"), showing a supplier
+      // that belongs to a different contract. Re-inject the contract's own
+      // supplier so the form displays the correct value. The guard prevents
+      // the effect (which depends on clientSupplierOptions) from looping.
+      const contractCsName = contractData?.client_supplier_name;
+      if (
+        contractCsName &&
+        clientSupplierOptions.length > 0 &&
+        !clientSupplierOptions.some(
+          (each: any) => each.value === contractCsName
+        )
+      ) {
+        setClientSupplierOptions((prev: any) => [
+          ...prev,
+          {
+            value: contractCsName,
+            label: contractCsName,
+            related_entity: contractData?.related_entity,
+            client_supplier_type: contractData?.client_supplier_type,
+            client_supplier_id: contractData?.client_supplier_id,
+          },
+        ]);
+      }
       let clientOpts =
         clientSupplierOptions.find(
           (each: any) => each.value === contractData?.client_supplier_name
