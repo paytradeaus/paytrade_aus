@@ -2979,8 +2979,6 @@ export class PaymentClaimsService {
 
     const receivedSentDatePlus15BusinessDays =
       await this.addBusinessDaysWithTimezone(receivedSentDate, 15, timeZone);
-    const receivedSentDatePlus10BusinessDays =
-      await this.addBusinessDaysWithTimezone(receivedSentDate, 10, timeZone);
 
     let list_status = '',
       overview_status = '';
@@ -2991,17 +2989,13 @@ export class PaymentClaimsService {
             'Warning Payment Overdue - Add and Send Payment Schedule';
           list_status = 'Overdue';
         } else if (
-          (receivedSentDatePlus15BusinessDays > today && today > dueDate) ||
-          (receivedSentDatePlus15BusinessDays > today &&
-            today > receivedSentDatePlus10BusinessDays)
+          receivedSentDatePlus15BusinessDays > today &&
+          today > dueDate
         ) {
           this.logger.log(
             `receivedSentDatePlus15BusinessDays > today: ${receivedSentDatePlus15BusinessDays > today}`,
           );
           this.logger.log(`today > dueDate: ${today > dueDate}`);
-          this.logger.log(
-            `today > receivedSentDatePlus10BusinessDays: ${today > receivedSentDatePlus10BusinessDays}`,
-          );
           overview_status = 'Due date passed - Add and send Payment Schedule';
           list_status = 'Overdue';
         }
