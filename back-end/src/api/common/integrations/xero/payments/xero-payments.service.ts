@@ -36,6 +36,7 @@ import {
 } from 'src/entities/banking.entity';
 import { XeroService } from '../xero.service';
 import { handleAxiosError } from 'src/api/common/error-handler';
+import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ClientSuppliersDetails } from 'src/entities/client-suppliers-details.entity';
@@ -129,6 +130,7 @@ export class XeroPaymentsService {
     // status and no actions.
     private readonly statusService: StatusService,
     private readonly complianceService: CompliancesService,
+    private readonly activityLogService: ActivityLogService,
   ) {
     this.xero = new XeroClient({
       clientId: process.env.XERO_CLIENT_ID,
@@ -9709,6 +9711,10 @@ export class XeroPaymentsService {
         : null;
       if (!xeroDetails) throw `No xero integration found`;
 
+      const existing = await this.xeroPayments.findOne({
+        where: { payment_id, integration_id: xeroDetails.integration_id },
+      });
+
       const response = await this.xeroPayments
         .createQueryBuilder()
         .update(XeroPayments)
@@ -9730,6 +9736,26 @@ export class XeroPaymentsService {
         .execute();
 
       if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_payment_permanently_unmapped',
+              payment_id,
+              previous_pt_payment_id: existing?.pt_payment_id ?? null,
+              previous_mapped_status: existing?.mapped_status ?? null,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #368] activity log insert failed for permanentlyUnmapPayment: ${err?.message || err}`,
+          );
+        }
         return `Payment permanently unmapped from Xero sync`;
       }
       return `Payment is not permanently unmapped`;
@@ -9775,6 +9801,24 @@ export class XeroPaymentsService {
         .execute();
 
       if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_payment_mapping_re_enabled',
+              payment_id,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #368] activity log insert failed for reEnablePaymentMapping: ${err?.message || err}`,
+          );
+        }
         return `Payment mapping re-enabled`;
       }
       return `Payment mapping is not re-enabled`;

@@ -3506,7 +3506,7 @@ export class XeroWebhookService {
       // Skip silently (no sync log) to stay idempotent and noise-free,
       // matching the contacts permanent-unmap behaviour.
       if (existingXeroInvoice?.permanently_unmapped) {
-        this.logger.debug(
+        this.logger.log(
           `[BILL_TRACE] V-Step 1 EXIT: invoice ${invoice.invoiceID} is permanently_unmapped. Skipping inbound import/re-link.`,
         );
         return false;
@@ -11381,7 +11381,7 @@ export class XeroWebhookService {
       // trigger (webhook + scheduler). Skip silently to stay idempotent and
       // noise-free, matching the bill/invoice + contacts behaviour.
       if (existingPayment?.permanently_unmapped) {
-        this.logger.debug(
+        this.logger.log(
           `[PAYMENT_TRACE] processPayment EXIT: payment ${payment.paymentID} is permanently_unmapped. Skipping inbound import/re-link.`,
         );
         return false;

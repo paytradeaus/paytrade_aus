@@ -25,6 +25,7 @@ import {
 } from 'src/entities/banking.entity';
 import { XeroService } from '../xero.service';
 import { handleAxiosError } from 'src/api/common/error-handler';
+import { ActivityLogService } from 'src/api/common/activity-log/activity-log.service';
 import { IntegrationDetails } from 'src/entities/integration-details.entity';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { ClientSuppliersDetails, ClientSupplierType, RelatedEntity } from 'src/entities/client-suppliers-details.entity';
@@ -98,6 +99,7 @@ export class XeroInvoicesService {
     private readonly emailQueueProducer: EmailQueueProducer,
     private readonly objectStorageService: ObjectStorageService,
     private readonly xeroManualJournalService: XeroManualJournalService,
+    private readonly activityLogService: ActivityLogService,
     @Optional()
     private readonly xeroContractsService?: XeroContractsService,
   ) {
@@ -6332,6 +6334,27 @@ export class XeroInvoicesService {
 
       const label = xeroInvoicesBills?.type === 'ACCPAY' ? 'Bill' : 'Invoice';
       if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_invoice_bill_permanently_unmapped',
+              invoice_id,
+              type: xeroInvoicesBills?.type ?? null,
+              previous_pt_claim_id: xeroInvoicesBills?.pt_claim_id ?? null,
+              previous_mapped_status: xeroInvoicesBills?.mapped_status ?? null,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #368] activity log insert failed for permanentlyUnmapInvoiceBill: ${err?.message || err}`,
+          );
+        }
         return `${label} permanently unmapped from Xero sync`;
       }
       return `${label} is not permanently unmapped`;
@@ -6381,6 +6404,25 @@ export class XeroInvoicesService {
 
       const label = xeroInvoicesBills?.type === 'ACCPAY' ? 'Bill' : 'Invoice';
       if (response?.affected > 0) {
+        try {
+          await this.activityLogService.insertActivityLog({
+            company_id,
+            from_user: decoded?.userId,
+            is_admin: !!decoded?.isAdmin,
+            admin_id: decoded?.isAdmin ? decoded?.userId : null,
+            created_by: decoded?.userId,
+            dynamic_values: {
+              action: 'xero_invoice_bill_mapping_re_enabled',
+              invoice_id,
+              type: xeroInvoicesBills?.type ?? null,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(
+            `[Task #368] activity log insert failed for reEnableInvoiceBillMapping: ${err?.message || err}`,
+          );
+        }
         return `${label} mapping re-enabled`;
       }
       return `${label} mapping is not re-enabled`;
