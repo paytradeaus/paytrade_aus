@@ -874,6 +874,14 @@ export class ClientSuppliersDetailsService {
             updateClientSuppliersDetailInput,
           );
           if (response) {
+            // Clear the stale needs_email soft-fail flag once a real email
+            // has been saved through the edit flow. The flag is set true by
+            // the inbound Xero import paths when a contact arrives without an
+            // email; nothing cleared it when the user later filled one in.
+            const savedEmail = updateClientSuppliersDetailInput.client_email_id;
+            if (savedEmail && savedEmail.trim() !== '') {
+              await this.markNeedsEmail(response.id, false);
+            }
             if (
               updateClientSuppliersDetailInput.account_details &&
               updateClientSuppliersDetailInput.account_details.length > 0
