@@ -54,6 +54,32 @@ export const uploadMarketingImage = async (
   }
 };
 
+export const deleteMarketingImage = async (
+  name: string
+): Promise<{ status: string; message: string }> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation DeleteMarketingImage($name: String!) {
+          deleteMarketingImage(name: $name) {
+            status
+            message
+          }
+        }
+      `,
+      variables: { name },
+    });
+    return (
+      response?.data?.deleteMarketingImage || {
+        status: "ERROR",
+        message: "Could not delete image.",
+      }
+    );
+  } catch (err: any) {
+    return { status: "ERROR", message: err?.message || "Could not delete image." };
+  }
+};
+
 export const listMarketingImages = async (): Promise<MarketingImageItem[]> => {
   try {
     const response = await apolloClient.query({

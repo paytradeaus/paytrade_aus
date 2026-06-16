@@ -5,6 +5,7 @@ import { showErrorToast, showSuccessToast } from "@/components/Toaster";
 import {
   listMarketingImages,
   uploadMarketingImage,
+  deleteMarketingImage,
   MarketingImageItem,
 } from "./marketingImages.function";
 
@@ -22,6 +23,7 @@ export default function AdminMarketingImages() {
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
   const [copiedUrl, setCopiedUrl] = useState<string>("");
+  const [deletingName, setDeletingName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,6 +79,24 @@ export default function AdminMarketingImages() {
     }
 
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleDelete(image: MarketingImageItem) {
+    const confirmed = window.confirm(
+      `Delete "${image.name}"? This cannot be undone, and any email already using this URL will no longer show the image.`
+    );
+    if (!confirmed) return;
+
+    setDeletingName(image.name);
+    const result = await deleteMarketingImage(image.name);
+    setDeletingName("");
+
+    if (result?.status === "SUCCESS") {
+      showSuccessToast("Image deleted.");
+      setImages((prev) => prev.filter((img) => img.name !== image.name));
+    } else {
+      showErrorToast(result?.message || "Could not delete image.");
+    }
   }
 
   async function handleCopy(url: string) {
@@ -164,6 +184,15 @@ export default function AdminMarketingImages() {
                       {copiedUrl === image.url ? "Copied" : "Copy"}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    style={styles.deleteBtn}
+                    disabled={deletingName === image.name}
+                    onClick={() => handleDelete(image)}
+                  >
+                    <i className="fa-light fa-trash-can"></i>
+                    {deletingName === image.name ? " Deleting..." : " Delete"}
+                  </button>
                 </div>
               </div>
             ))}
@@ -253,4 +282,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     whiteSpace: "nowrap",
   },
   copyBtnDone: { background: "#16a34a" },
+  deleteBtn: {
+    marginTop: "8px",
+    width: "100%",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    background: "#fff",
+    color: "#dc2626",
+  },
 };

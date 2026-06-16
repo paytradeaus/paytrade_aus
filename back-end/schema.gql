@@ -15452,6 +15452,14 @@ type Mutation {
   ): GetXeroInvoicesResponse!
 
   """
+  Deletes a previously uploaded marketing image from object storage by its file name. Admin only.
+  """
+  deleteMarketingImage(
+    """The file name of the marketing image to delete."""
+    name: String!
+  ): StringResponse!
+
+  """
   Deletes an overpayment in Xero based on the provided overpayment details.
   """
   deleteOverPaymentInXero(

@@ -812,6 +812,59 @@ export class FileUploadResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Mutation(() => StringResponse, {
+    name: 'deleteMarketingImage',
+    description:
+      'Deletes a previously uploaded marketing image from object storage by its file name. Admin only.',
+  })
+  async deleteMarketingImage(
+    @Context() context,
+    @Args('name', {
+      type: () => String,
+      description: 'The file name of the marketing image to delete.',
+    })
+    name: string,
+  ): Promise<StringResponse> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded?.isAdmin) {
+        return { status: 'ERROR', message: 'Unauthorized to perform this action' };
+      }
+
+      const safeName = (name || '').trim();
+      if (!safeName || safeName.includes('/') || safeName.includes('..')) {
+        return { status: 'ERROR', message: 'Invalid image name.' };
+      }
+
+      const deleted = await this.objectStorageService.deleteFile(
+        `marketing_images/${safeName}`,
+      );
+
+      if (!deleted) {
+        return {
+          status: 'ERROR',
+          message: 'Could not delete image. Please try again.',
+        };
+      }
+
+      this.logger.log(`Marketing image deleted: marketing_images/${safeName}`);
+      return { status: 'SUCCESS', message: 'Image deleted successfully.' };
+    } catch (error) {
+      this.logger.error(`Delete marketing image failed: ${error.message}`);
+      return {
+        status: 'ERROR',
+        message: `Could not delete image: ${error.message}`,
+      };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
     Role.BASIC_USER,
     Role.STANDARD_USER,
     Role.ADMIN,
