@@ -136,6 +136,9 @@ export class ObjectStorageService {
       case 'Content_image':
         baseDir = 'content_images';
         break;
+      case 'Marketing_image':
+        baseDir = 'marketing_images';
+        break;
       default:
         baseDir = 'misc';
     }

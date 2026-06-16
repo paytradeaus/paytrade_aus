@@ -14284,6 +14284,39 @@ input ManualTopupInput {
   is_sandbox: Boolean = false
 }
 
+"""A single marketing image stored in object storage."""
+type MarketingImageItem {
+  """The file name of the marketing image."""
+  name: String!
+
+  """The full public URL of the marketing image."""
+  url: String!
+}
+
+"""Response returned when listing marketing images."""
+type MarketingImageListResponse {
+  """The list of stored marketing images."""
+  data: [MarketingImageItem!]
+
+  """Human readable message describing the result."""
+  message: String!
+
+  """Status of the list operation (SUCCESS / ERROR)."""
+  status: String!
+}
+
+"""Response returned after uploading a marketing image."""
+type MarketingImageUploadResponse {
+  """Human readable message describing the result."""
+  message: String!
+
+  """Status of the upload operation (SUCCESS / ERROR)."""
+  status: String!
+
+  """The full public URL of the uploaded image, if successful."""
+  url: String
+}
+
 """Response for matched transaction payments."""
 type MatchedTxnPaymentsResponse {
   """Matched payments and transactions."""
@@ -16825,6 +16858,14 @@ type Mutation {
     """
     createOrUpdateSubscriptionInput: CreateOrUpdateSubscriptionInput!
   ): SubscriptionDetailsResponse!
+
+  """
+  Uploads a marketing image to object storage and returns its full public URL for use in marketing emails. Admin only.
+  """
+  uploadMarketingImage(
+    """The image file to upload."""
+    file: Upload!
+  ): MarketingImageUploadResponse!
 
   "\n    Uploads metadata for a received notice.\n    Rejects QBCC notices and validates required fields (company_id, project_id, notice_type, bank_account_id).\n    Marks the notice as a received notice and saves it.\n    Returns the created notice details.\n    "
   uploadReceivedNotice(
@@ -19935,6 +19976,11 @@ type Query {
     """
     listAnsCmtInput: getAnsCommentInput!
   ): listAnsCommentsResponse!
+
+  """
+  Lists all previously uploaded marketing images with their public URLs. Admin only.
+  """
+  listMarketingImages: MarketingImageListResponse!
   listOpenTrustAccountTransfers(payload: ListOpenTransfersInput!): TransferListResponse!
 
   """

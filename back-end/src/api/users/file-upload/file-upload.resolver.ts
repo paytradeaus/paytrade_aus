@@ -24,6 +24,10 @@ import { PtContentsService } from 'src/api/admin/pt-contents/pt-contents.service
 import { PtAdminAccessService } from 'src/api/admin/pt-admin-access/pt-admin-access.service';
 import * as path from 'path';
 import { ObjectStorageService } from 'src/libs/@object-storage';
+import {
+  MarketingImageUploadResponse,
+  MarketingImageListResponse,
+} from './response/marketing-image.response';
 
 function formatPublicPath(filePath: string | null | undefined): string {
   if (!filePath) return '';
@@ -653,6 +657,156 @@ export class FileUploadResolver {
         return error;
       });
       return framedResponse('ERROR', errMsg);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Mutation(() => MarketingImageUploadResponse, {
+    name: 'uploadMarketingImage',
+    description:
+      'Uploads a marketing image to object storage and returns its full public URL for use in marketing emails. Admin only.',
+  })
+  async uploadMarketingImage(
+    @Context() context,
+    @Args({
+      name: 'file',
+      type: () => GraphQLUpload,
+      description: 'The image file to upload.',
+    })
+    { createReadStream, filename, mimetype }: Upload,
+  ): Promise<MarketingImageUploadResponse> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded?.isAdmin) {
+        return { status: 'ERROR', message: 'Unauthorized to perform this action' };
+      }
+
+      const allowedImageTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+      ];
+      if (!allowedImageTypes.includes(mimetype)) {
+        return {
+          status: 'ERROR',
+          message:
+            'Invalid file type. Please upload a JPG, PNG, GIF, WEBP or SVG image.',
+        };
+      }
+
+      const chunks: Buffer[] = [];
+      let fileSize = 0;
+      await new Promise<void>((resolveStream, rejectStream) => {
+        const stream = createReadStream();
+        stream.on('data', (chunk) => {
+          fileSize += chunk.length;
+          chunks.push(chunk);
+        });
+        stream.on('end', () => resolveStream());
+        stream.on('error', (err) => rejectStream(err));
+      });
+
+      const maxFileSize = 5 * 1024 * 1024;
+      if (fileSize > maxFileSize) {
+        return {
+          status: 'ERROR',
+          message: 'Image is too large. Maximum size is 5MB.',
+        };
+      }
+
+      const fileBuffer = Buffer.concat(chunks);
+      const ext = (path.extname(filename || '') || '').toLowerCase();
+      const safeBase =
+        path
+          .basename(filename || 'image', path.extname(filename || ''))
+          .replace(/[^a-zA-Z0-9-_]/g, '-')
+          .toLowerCase()
+          .slice(0, 60) || 'image';
+      const uniqueName = `${Date.now()}-${safeBase}${ext}`;
+
+      const uploadResult = await this.objectStorageService.uploadFile(
+        fileBuffer,
+        'Marketing_image',
+        uniqueName,
+        mimetype,
+      );
+
+      if (!uploadResult?.success) {
+        return {
+          status: 'ERROR',
+          message: 'Could not save image. Please try again.',
+        };
+      }
+
+      const url = this.objectStorageService.getPublicUrl(
+        uploadResult.objectPath,
+      );
+      this.logger.log(`Marketing image uploaded: ${uploadResult.objectPath}`);
+      return {
+        status: 'SUCCESS',
+        message: 'Image uploaded successfully.',
+        url,
+      };
+    } catch (error) {
+      this.logger.error(`Marketing image upload failed: ${error.message}`);
+      return {
+        status: 'ERROR',
+        message: `Could not save image: ${error.message}`,
+      };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.RESTRICTED_PORTAL_ADMIN,
+  )
+  @Query(() => MarketingImageListResponse, {
+    name: 'listMarketingImages',
+    description:
+      'Lists all previously uploaded marketing images with their public URLs. Admin only.',
+  })
+  async listMarketingImages(
+    @Context() context,
+  ): Promise<MarketingImageListResponse> {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      if (!decoded?.isAdmin) {
+        return { status: 'ERROR', message: 'Unauthorized to perform this action' };
+      }
+
+      const keys = await this.objectStorageService.listFiles(
+        'marketing_images/',
+      );
+      const items = (keys || [])
+        .filter((k) => k && !k.endsWith('/'))
+        .map((k) => ({
+          name: k.replace(/^marketing_images\//, ''),
+          url: this.objectStorageService.getPublicUrl(k),
+        }))
+        .sort((a, b) => b.name.localeCompare(a.name));
+
+      return {
+        status: 'SUCCESS',
+        message: 'Marketing images fetched successfully.',
+        data: items,
+      };
+    } catch (error) {
+      this.logger.error(`List marketing images failed: ${error.message}`);
+      return {
+        status: 'ERROR',
+        message: `Could not fetch images: ${error.message}`,
+      };
     }
   }
 

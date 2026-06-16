@@ -188,6 +188,7 @@ export const AppRoutes = {
 
   ADMIN_BLOG: "/admin/blog",
   ADMIN_BLOG_EDIT: "/admin/blog/edit/",
+  ADMIN_MARKETING_IMAGES: "/admin/marketing-images",
   USER_BLOG_RECOMMENDED: "/blog/",
 
   ADMIN_COMMUNITY_DISCUSSIONS: "/admin/community/discussions",

@@ -45,6 +45,7 @@ const MASTER_MENUS: MenuSeed[] = [
   { id: 'a0000001-0000-0000-0000-000000000021', menu_name: 'Admin Guides',      route_path: '/admin/admin-guides',           menu_order: 21, menu_icon: 'fa-light fa-book-bookmark',      sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000022', menu_name: 'Admin Menus',       route_path: '/admin/admin-menus',            menu_order: 22, menu_icon: 'fa-light fa-bars',               sub_menus: [{ name: '', route: '', icon: '' }] },
   { id: 'a0000001-0000-0000-0000-000000000023', menu_name: 'AI Purchases',     route_path: '/admin/ai-purchases',           menu_order: 23, menu_icon: 'fa-light fa-robot',              sub_menus: [{ name: '', route: '', icon: '' }] },
+  { id: 'a0000001-0000-0000-0000-000000000024', menu_name: 'Marketing Images', route_path: '/admin/marketing-images',       menu_order: 24, menu_icon: 'fa-light fa-image',              sub_menus: [{ name: '', route: '', icon: '' }] },
 ];
 
 @Injectable()
