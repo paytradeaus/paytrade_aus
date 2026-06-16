@@ -79,20 +79,37 @@ export default function UserDashboard() {
           ? `${AppRoutes.USER_CONTRACTS_OVERVIEW}/${id}`
           : AppRoutes.USER_CONTRACTS_LIST;
       case "payment_claim":
+        // Open the claim itself (USER_VIEW_CLAIMS catch-all expects the
+        // payment_claim_id in the path), not the payments list.
         return hasId
-          ? `${AppRoutes.USER_PAYMENTS_LIST}?partclaimid=${id}`
+          ? `${AppRoutes.USER_VIEW_CLAIMS}/${id}?mode=view`
           : AppRoutes.USER_PAYMENTS_LIST;
       case "payment":
       case "sub_payment":
-        return AppRoutes.USER_PAYMENTS_LIST;
+        // Open the specific payment in view mode. The view page fetches by
+        // payment_id alone (the claim id comes from the fetched record), so no
+        // claim param is required here.
+        return hasId
+          ? `${AppRoutes.USER_ADD_PAYMENT}?mode=view&payment=${id}`
+          : AppRoutes.USER_PAYMENTS_LIST;
       case "notice":
         return hasId
           ? `${AppRoutes.USER_NOTICES_VIEW}/${id}`
           : AppRoutes.USER_NOTICES;
       case "client_supplier":
-        return AppRoutes.USER_CLIENTS_AND_SUPPLIERS;
-      case "bank_account":
+        // Open the contact's detail view (catch-all expects the uuid id in the
+        // path), not the bare clients & suppliers list.
+        return hasId
+          ? `${AppRoutes.USER_VIEW_CLIENTS_AND_SUPPLIERS}/${id}?tab=current`
+          : AppRoutes.USER_CLIENTS_AND_SUPPLIERS;
       case "reconciliation_report":
+        // Reconciliation reports open in the trust-accounting reconciliation
+        // record view (keyed by the report's uuid id), not the bank account
+        // overview page.
+        return hasId
+          ? `${AppRoutes.USER_TRUST_ACCOUNTING_RECONCIALIATION_RECORD_VIEW}/${id}`
+          : AppRoutes.USER_TRUST_ACCOUNTING_RECONCIALIATION_RECORD;
+      case "bank_account":
       case "audit_report":
         return hasId
           ? `${AppRoutes.USER_BANK_ACCOUNTS_OVERVIEW}/${id}`

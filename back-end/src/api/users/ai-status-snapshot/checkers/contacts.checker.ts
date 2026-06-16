@@ -39,7 +39,11 @@ export class ContactsChecker {
           ? `Contact #${r.client_supplier_id} (${r.business_name ?? r.client_email_id ?? 'unnamed'}) was imported from Xero with no email and has queued actions waiting on it.`
           : `Contact #${r.client_supplier_id} (${r.business_name ?? 'unnamed'}) has no email — notices and remittances cannot be delivered.`,
         affectedRecordType: 'client_supplier',
-        affectedRecordId: r.client_supplier_id,
+        // Deep-link by the uuid PK (`id`): the contact view page fetches via
+        // viewClientSuppliersDetails(id: String!). `client_supplier_id` is a
+        // separate integer business key the view cannot resolve. The stable
+        // `id` above keeps using client_supplier_id for human readability.
+        affectedRecordId: r.id,
         suggestedAction: 'Open the contact and add an email address.',
         agentCanHelp: false,
         requiresApproval: true,

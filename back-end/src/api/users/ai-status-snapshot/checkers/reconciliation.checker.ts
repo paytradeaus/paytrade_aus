@@ -52,7 +52,11 @@ export class ReconciliationChecker {
           periodEnd?.toISOString().slice(0, 10) ?? 'n/a'
         } is still 'Unbalanced'.`,
         affectedRecordType: 'reconciliation_report',
-        affectedRecordId: r.report_id,
+        // Deep-link by the uuid PK (`id`): the reconciliation record view page
+        // fetches via viewReconciliationReportById({ id }). `report_id` is a
+        // separate integer business key the view cannot resolve. The stable
+        // `id` above keeps using report_id for human readability.
+        affectedRecordId: r.id,
         suggestedAction: overdue
           ? 'Open the reconciliation, resolve unmatched transactions, and balance it.'
           : 'Finish the reconciliation so it balances.',

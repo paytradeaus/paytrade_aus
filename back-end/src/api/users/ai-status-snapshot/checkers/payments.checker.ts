@@ -43,8 +43,12 @@ export class PaymentsChecker {
         severity: r.status === 'Unmatched' ? 'warning' : 'info',
         title: 'Payment leg awaiting confirmation',
         description: `Sub-payment #${r.sub_payment_id} on payment #${r.payment_id} (${r.sub_payment_type ?? ''}) is unconfirmed (status: ${r.status}).`,
-        affectedRecordType: 'sub_payment',
-        affectedRecordId: r.sub_payment_id,
+        // Point at the parent payment (not the sub-payment leg): the leg is
+        // confirmed from inside the payment view, so the dashboard deep-links
+        // to the payment using payment_id. The stable `id` above still carries
+        // sub_payment_id so each leg remains a distinct row.
+        affectedRecordType: 'payment',
+        affectedRecordId: r.payment_id,
         suggestedAction: 'Open the payment and confirm the matching leg(s).',
         agentCanHelp: false,
         requiresApproval: true,
