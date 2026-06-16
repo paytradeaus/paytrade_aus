@@ -20,9 +20,11 @@ export class ContactsChecker {
       .createQueryBuilder('c')
       .where('c.company_id = :cid', { cid: companyId })
       .andWhere('c.is_deleted = false')
-      .andWhere(
-        "(c.needs_email = true OR c.client_email_id IS NULL OR c.client_email_id = '')",
-      )
+      // Only surface contacts whose email is genuinely missing. The
+      // `needs_email` flag (set at Xero import time) can go stale once a user
+      // adds an email later, so it must NOT trigger on its own — gate on the
+      // actual email value being empty.
+      .andWhere("(c.client_email_id IS NULL OR TRIM(c.client_email_id) = '')")
       .orderBy('c.updated_on', 'DESC')
       .limit(200)
       .getMany();

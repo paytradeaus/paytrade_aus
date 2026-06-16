@@ -26,3 +26,22 @@ the fetched patchData, so no second param is needed.
 **Verify-before-trusting:** `rg`/explore obfuscate identifiers in this repo (show `n`/`ln`);
 confirm the view page's fetch key with the `read` tool / plain `grep` before changing a
 checker's emitted id.
+
+## Checkers must exclude deleted/archived + non-actionable rows
+
+Every status-snapshot checker MUST filter out deleted/archived records, or the dashboard
+surfaces voided items whose deep-link opens a dead record. The canonical payment filter is
+`pd.current_status NOT IN ('Deleted','Archived')` (current_status is non-nullable, so NOT IN
+is safe). Other entities use their own status: claims `status NOT IN ('Archived','Deleted',…)`,
+reconciliation `report_status='Active'`, contracts/compliance via project/contract status.
+
+Also exclude rows the user **cannot act on**: bank/trust money-movement payment types
+(Withdrawal, Top Up, Top Up Retention, Inter Trust Transfer, Interest Received/Withdrawal,
+Bank Charge Applied/Top Up) have NO per-leg confirm checkbox, so an unconfirmed leg on them
+can never be cleared — exclude them from "Payment leg awaiting confirmation". They auto-match
+so they never legitimately fire anyway. `payment_type` is nullable: use
+`(pd.payment_type IS NULL OR pd.payment_type NOT IN (...))` to keep NULL-type legs eligible.
+
+The contacts `needs_email` flag (set at Xero import) goes **stale** once a user adds an email
+later — never gate the "missing email" issue on `needs_email` alone; gate on the actual value
+being empty: `(client_email_id IS NULL OR TRIM(client_email_id) = '')`.

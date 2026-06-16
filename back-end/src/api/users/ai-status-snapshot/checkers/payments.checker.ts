@@ -6,6 +6,25 @@ import { PaymentDetails } from 'src/entities/payment-details.entity';
 import { StatusIssue } from '../types';
 
 /**
+ * Payment types that are bank/trust money movements imported from Xero or the
+ * trust-transfer wizard. They are auto-matched and have NO per-leg "confirm"
+ * checkbox in the payment view, so a `is_*_confirmed = false` leg on one of
+ * them can never be actioned by the user and must not surface as an awaiting-
+ * confirmation issue. Claim payments (Full/Part/Pay Less…) and over/under-
+ * payments keep their confirm flow and stay eligible.
+ */
+const NO_CONFIRM_PAYMENT_TYPES = [
+  'Withdrawal',
+  'Top Up',
+  'Top Up Retention',
+  'Inter Trust Transfer',
+  'Interest Received',
+  'Interest Withdrawal',
+  'Bank Charge Applied',
+  'Bank Charge Top Up',
+];
+
+/**
  * Surfaces unconfirmed sub-payments for the company. SubPayments has no
  * company_id column, so we scope by joining to PaymentDetails (which does).
  */
@@ -31,6 +50,15 @@ export class PaymentsChecker {
         '(sp.is_paid_confirmed = false OR sp.is_received_confirmed = false OR sp.is_retention_confirmed = false)',
       )
       .andWhere("sp.status IS DISTINCT FROM 'Matched'")
+      // Exclude deleted/archived (voided) payments — the leg can no longer be
+      // confirmed and the deep-link would open a void record.
+      .andWhere("pd.current_status NOT IN ('Deleted', 'Archived')")
+      // Exclude money-movement types that have no per-leg confirm checkbox.
+      // (payment_type is nullable; keep NULL-type legs eligible.)
+      .andWhere(
+        '(pd.payment_type IS NULL OR pd.payment_type NOT IN (:...noConfirmTypes))',
+        { noConfirmTypes: NO_CONFIRM_PAYMENT_TYPES },
+      )
       .orderBy('sp.updated_on', 'DESC')
       .limit(200)
       .getMany();
