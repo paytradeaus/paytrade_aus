@@ -8,6 +8,7 @@ import { Public } from 'src/api/auth/jwt-guard/public.decorator';
 import { framedResponse } from 'src/libs/@response-framer/response-framer';
 import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 import { SeoKeywordsService } from './seo-keywords.service';
+import { SeoDraftService } from './seo-draft.service';
 import { AddSeoKeywordInput } from './dto/add-seo-keyword.dto';
 import { UpdateSeoKeywordInput } from './dto/update-seo-keyword.dto';
 import { ListSeoKeywordsInput } from './dto/list-seo-keywords.dto';
@@ -16,12 +17,21 @@ import {
   SeoKeywordListResponse,
   SeoKeywordDeleteResponse,
 } from './response/seo-keyword.response';
+import {
+  SeoKeywordPageResponse,
+  SeoDraftResponse,
+  SeoBulkDraftResponse,
+  SeoBulkDraftResultItem,
+} from './response/seo-keyword-page.response';
 
 @Resolver()
 export class SeoKeywordsResolver {
   private logger = new PaytradeLogger('SEO_KEYWORDS_RESOLVER');
 
-  constructor(private readonly seoKeywordsService: SeoKeywordsService) {}
+  constructor(
+    private readonly seoKeywordsService: SeoKeywordsService,
+    private readonly seoDraftService: SeoDraftService,
+  ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
@@ -184,6 +194,173 @@ export class SeoKeywordsResolver {
         seoKeywords: [],
         totalCount: 0,
       };
+    }
+  }
+
+  @Public()
+  @Query(() => SeoKeywordPageResponse, {
+    name: 'getSeoKeywordPageData',
+    description:
+      'Get an active SEO keyword by slug along with keyword-matched community posts and how-to guides/blogs for SSR landing pages (public).',
+  })
+  async getSeoKeywordPageData(
+    @Args('slug', { description: 'URL slug of the SEO keyword.' })
+    slug: string,
+  ): Promise<SeoKeywordPageResponse> {
+    try {
+      const result = await this.seoKeywordsService.getPageData(slug);
+      if (!result) {
+        return { status: 'ERROR', message: 'SEO keyword not found.' };
+      }
+      return {
+        status: 'SUCCESS',
+        message: 'SEO keyword page data retrieved.',
+        data: result.keyword,
+        community: result.community,
+        guides: result.guides,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting SEO keyword page data: ${error.message}`);
+      return { status: 'ERROR', message: error.message };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Mutation(() => SeoDraftResponse, {
+    name: 'adminGenerateSeoKeywordDraft',
+    description:
+      'Generate AI draft page_content HTML for a keyword. When save is true, the generated copy overwrites the stored page_content.',
+  })
+  async adminGenerateSeoKeywordDraft(
+    @Args('id', {
+      nullable: true,
+      description:
+        'ID of an existing SEO keyword to draft content for. Omit to draft from inline fields (add form).',
+    })
+    id?: string,
+    @Args('save', {
+      nullable: true,
+      description:
+        'When true, persist the generated draft as the keyword page_content (overwrites existing). Requires id.',
+    })
+    save?: boolean,
+    @Args('keyword', { nullable: true }) keyword?: string,
+    @Args('page_title', { nullable: true }) page_title?: string,
+    @Args('meta_description', { nullable: true }) meta_description?: string,
+    @Args('tags', { type: () => [String], nullable: true }) tags?: string[],
+  ): Promise<SeoDraftResponse> {
+    try {
+      if (save && !id) {
+        return {
+          status: 'ERROR',
+          message: 'Cannot save a draft without an existing keyword id.',
+        };
+      }
+
+      let draftInput = { keyword, page_title, meta_description, tags };
+
+      if (id) {
+        const existing = await this.seoKeywordsService.findById(id);
+        if (!existing) {
+          return { status: 'ERROR', message: 'SEO keyword not found.' };
+        }
+        // Use persisted values as the base, but let any inline fields
+        // (e.g. unsaved edits in the form) override them.
+        draftInput = {
+          keyword: keyword ?? existing.keyword,
+          page_title: page_title ?? existing.page_title,
+          meta_description: meta_description ?? existing.meta_description,
+          tags: tags ?? existing.tags,
+        };
+      }
+
+      if (!draftInput.keyword) {
+        return {
+          status: 'ERROR',
+          message: 'A keyword is required to generate a draft.',
+        };
+      }
+
+      const draft = await this.seoDraftService.generateDraft({
+        keyword: draftInput.keyword,
+        page_title: draftInput.page_title,
+        meta_description: draftInput.meta_description,
+        tags: draftInput.tags,
+      });
+
+      if (save && id) {
+        await this.seoKeywordsService.update({ id, page_content: draft });
+      }
+
+      return {
+        status: 'SUCCESS',
+        message: save
+          ? 'Draft generated and saved.'
+          : 'Draft generated.',
+        draft,
+      };
+    } catch (error) {
+      this.logger.error(`Error generating SEO draft: ${error.message}`);
+      return { status: 'ERROR', message: error.message };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Mutation(() => SeoBulkDraftResponse, {
+    name: 'adminGenerateAllSeoKeywordDrafts',
+    description:
+      'Regenerate AI draft page_content for ALL SEO keywords, overwriting every existing page_content. Returns a per-keyword success/failure summary.',
+  })
+  async adminGenerateAllSeoKeywordDrafts(): Promise<SeoBulkDraftResponse> {
+    try {
+      const keywords = await this.seoKeywordsService.getAllKeywords();
+      const results: SeoBulkDraftResultItem[] = [];
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const kw of keywords) {
+        try {
+          const draft = await this.seoDraftService.generateDraft({
+            keyword: kw.keyword,
+            page_title: kw.page_title,
+            meta_description: kw.meta_description,
+            tags: kw.tags,
+          });
+          await this.seoKeywordsService.update({ id: kw.id, page_content: draft });
+          succeeded += 1;
+          results.push({
+            id: kw.id,
+            keyword: kw.keyword,
+            status: 'SUCCESS',
+            message: 'Regenerated.',
+          });
+        } catch (itemError) {
+          failed += 1;
+          this.logger.error(
+            `Error generating draft for keyword ${kw.id} (${kw.keyword}): ${itemError.message}`,
+          );
+          results.push({
+            id: kw.id,
+            keyword: kw.keyword,
+            status: 'ERROR',
+            message: itemError.message,
+          });
+        }
+      }
+
+      return {
+        status: failed === 0 ? 'SUCCESS' : 'PARTIAL',
+        message: `Processed ${keywords.length} keyword(s): ${succeeded} succeeded, ${failed} failed.`,
+        total: keywords.length,
+        succeeded,
+        failed,
+        results,
+      };
+    } catch (error) {
+      this.logger.error(`Error generating all SEO drafts: ${error.message}`);
+      return { status: 'ERROR', message: error.message };
     }
   }
 }

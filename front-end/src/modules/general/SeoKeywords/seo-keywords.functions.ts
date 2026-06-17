@@ -39,6 +39,61 @@ export async function getSeoKeywordBySlug(slug: string) {
   }
 }
 
+export async function getSeoKeywordPageData(slug: string) {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetSeoKeywordPageData($slug: String!) {
+          getSeoKeywordPageData(slug: $slug) {
+            status
+            message
+            data {
+              id
+              keyword
+              slug
+              page_title
+              meta_description
+              page_content
+              tags
+              status
+              created_on
+              updated_on
+            }
+            community {
+              type
+              title
+              excerpt
+              url
+              category
+              meta
+            }
+            guides {
+              type
+              title
+              excerpt
+              url
+              category
+              meta
+            }
+          }
+        }
+      `,
+      variables: { slug },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getSeoKeywordPageData?.status === ApiResponse.SUCCESS
+    ) {
+      return response.data.getSeoKeywordPageData;
+    }
+    return null;
+  } catch (error: any) {
+    console.log("getSeoKeywordPageData ~ error:", error);
+    return null;
+  }
+}
+
 export async function getActiveSeoKeywords() {
   try {
     const response = await apolloClient.query({

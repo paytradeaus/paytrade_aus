@@ -40,49 +40,64 @@ function getRelevanceScore(
   return score;
 }
 
+function computeRelated(
+  others: SeoKeyword[],
+  currentSlug: string,
+  currentKeyword: string,
+  currentTags: string[] | null
+): SeoKeyword[] {
+  const currentItem: SeoKeyword = {
+    id: "",
+    keyword: currentKeyword,
+    slug: currentSlug,
+    page_title: "",
+    tags: currentTags,
+  };
+
+  const scored = others
+    .map((kw) => ({ kw, score: getRelevanceScore(currentItem, kw) }))
+    .sort(
+      (a, b) =>
+        b.score - a.score || a.kw.page_title.localeCompare(b.kw.page_title)
+    );
+
+  return scored.slice(0, 12).map((s) => s.kw);
+}
+
 export default function RelatedTopics({
   currentSlug,
   currentKeyword,
   currentTags,
+  initialKeywords = [],
 }: {
   currentSlug: string;
   currentKeyword: string;
   currentTags: string[] | null;
+  initialKeywords?: SeoKeyword[];
 }) {
-  const [relatedKeywords, setRelatedKeywords] = useState<SeoKeyword[]>([]);
-  const [allKeywords, setAllKeywords] = useState<SeoKeyword[]>([]);
+  const initialOthers = initialKeywords.filter(
+    (kw) => kw.slug !== currentSlug
+  );
+  const [relatedKeywords, setRelatedKeywords] = useState<SeoKeyword[]>(
+    computeRelated(initialOthers, currentSlug, currentKeyword, currentTags)
+  );
+  const [allKeywords, setAllKeywords] = useState<SeoKeyword[]>(initialOthers);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
+    if (initialKeywords.length > 0) return;
     getActiveSeoKeywords().then((result) => {
       if (result?.seoKeywords) {
         const others = result.seoKeywords.filter(
           (kw: SeoKeyword) => kw.slug !== currentSlug
         );
         setAllKeywords(others);
-
-        const currentItem: SeoKeyword = {
-          id: "",
-          keyword: currentKeyword,
-          slug: currentSlug,
-          page_title: "",
-          tags: currentTags,
-        };
-
-        const scored = others
-          .map((kw: SeoKeyword) => ({
-            kw,
-            score: getRelevanceScore(currentItem, kw),
-          }))
-          .sort((a: { kw: SeoKeyword; score: number }, b: { kw: SeoKeyword; score: number }) =>
-            b.score - a.score || a.kw.page_title.localeCompare(b.kw.page_title)
-          );
-
-        const top = scored.slice(0, 12).map((s: { kw: SeoKeyword }) => s.kw);
-        setRelatedKeywords(top);
+        setRelatedKeywords(
+          computeRelated(others, currentSlug, currentKeyword, currentTags)
+        );
       }
     });
-  }, [currentSlug, currentKeyword, currentTags]);
+  }, [currentSlug, currentKeyword, currentTags, initialKeywords.length]);
 
   if (allKeywords.length === 0) return null;
 

@@ -14675,6 +14675,30 @@ type Mutation {
   """Permanently deletes a user and all associated data. Super admin only."""
   adminDeleteUser(user_id: Float!): StringResponse!
 
+  """
+  Regenerate AI draft page_content for ALL SEO keywords, overwriting every existing page_content. Returns a per-keyword success/failure summary.
+  """
+  adminGenerateAllSeoKeywordDrafts: SeoBulkDraftResponse!
+
+  """
+  Generate AI draft page_content HTML for a keyword. When save is true, the generated copy overwrites the stored page_content.
+  """
+  adminGenerateSeoKeywordDraft(
+    """
+    ID of an existing SEO keyword to draft content for. Omit to draft from inline fields (add form).
+    """
+    id: String
+    keyword: String
+    meta_description: String
+    page_title: String
+
+    """
+    When true, persist the generated draft as the keyword page_content (overwrites existing). Requires id.
+    """
+    save: Boolean
+    tags: [String!]
+  ): SeoDraftResponse!
+
   """Import a user profile from a PayTrade JSON export file."""
   adminImportUserData(jsonData: String!): StringResponse!
 
@@ -19582,6 +19606,14 @@ type Query {
     slug: String!
   ): SeoKeywordResponse!
 
+  """
+  Get an active SEO keyword by slug along with keyword-matched community posts and how-to guides/blogs for SSR landing pages (public).
+  """
+  getSeoKeywordPageData(
+    """URL slug of the SEO keyword."""
+    slug: String!
+  ): SeoKeywordPageResponse!
+
   """Fetches side menus available for the logged-in admin."""
   getSideMenusForAdmin: SideMenuResponse!
 
@@ -20359,6 +20391,25 @@ type RegenerateNoticeResponse {
   status: String!
 }
 
+type RelatedContentItem {
+  category: String
+
+  """Plain-text excerpt of the content"""
+  excerpt: String
+
+  """
+  Short meta line, e.g. "4 replies"
+  """
+  meta: String
+  title: String
+
+  """'community' or 'guide'"""
+  type: String
+
+  """Reachable public URL for the item"""
+  url: String
+}
+
 """
 Task #249 — relocate one or more stranded `retention_details` rows left behind on a Transferred RTA to a different Open RTA in the same company. Moves the parent payment_details.retention_account in-place; all Retained rows on a given payment must be relocated together (single-valued column).
 """
@@ -20598,6 +20649,36 @@ input SentMailForMultipleNoticesInput {
   ids: [String!]!
 }
 
+type SeoBulkDraftResponse {
+  """Number of keywords that failed"""
+  failed: Float
+  message: String
+  results: [SeoBulkDraftResultItem!]
+  status: String
+
+  """Number of keywords successfully regenerated"""
+  succeeded: Float
+
+  """Total keywords processed"""
+  total: Float
+}
+
+type SeoBulkDraftResultItem {
+  id: String
+  keyword: String
+  message: String
+
+  """'SUCCESS' or 'ERROR'"""
+  status: String
+}
+
+type SeoDraftResponse {
+  """Generated HTML draft for page_content"""
+  draft: String
+  message: String
+  status: String
+}
+
 type SeoKeywordDeleteResponse {
   message: String
   status: String
@@ -20608,6 +20689,14 @@ type SeoKeywordListResponse {
   seoKeywords: [SeoKeywordType!]
   status: String
   totalCount: Int
+}
+
+type SeoKeywordPageResponse {
+  community: [RelatedContentItem!]
+  data: SeoKeywordType
+  guides: [RelatedContentItem!]
+  message: String
+  status: String
 }
 
 type SeoKeywordResponse {

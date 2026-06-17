@@ -1,7 +1,15 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSeoKeywordBySlug } from "@/modules/general/SeoKeywords/seo-keywords.functions";
+import {
+  getSeoKeywordBySlug,
+  getSeoKeywordPageData,
+  getActiveSeoKeywords,
+} from "@/modules/general/SeoKeywords/seo-keywords.functions";
 import SeoLandingPage from "@/modules/general/SeoLandingPage";
+import SiteHeader from "@/components/SiteHeader";
+import GuestFooter from "@/components/GuestFooter";
+
+export const dynamic = "force-dynamic";
 
 const baseUrl = process.env.NEXT_PUBLIC_DEPLOYED_URL ?? "https://paytrade.app/";
 const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -58,11 +66,20 @@ export default async function Page({
 }: {
   params: { slug: string };
 }) {
-  const keywordData = await getSeoKeywordBySlug(params.slug);
+  const [pageData, activeKeywords] = await Promise.all([
+    getSeoKeywordPageData(params.slug),
+    getActiveSeoKeywords(),
+  ]);
+
+  const keywordData = pageData?.data;
 
   if (!keywordData) {
     notFound();
   }
+
+  const community = pageData?.community ?? [];
+  const guides = pageData?.guides ?? [];
+  const allKeywords = activeKeywords?.seoKeywords ?? [];
 
   const schemaData = {
     "@context": "https://schema.org",
@@ -89,7 +106,18 @@ export default async function Page({
           __html: JSON.stringify(schemaData),
         }}
       />
-      <SeoLandingPage initialData={keywordData} />
+      <div className="pt_wrap">
+        <div className="pt_page">
+          <SiteHeader />
+          <SeoLandingPage
+            initialData={keywordData}
+            community={community}
+            guides={guides}
+            allKeywords={allKeywords}
+          />
+          <GuestFooter />
+        </div>
+      </div>
     </>
   );
 }

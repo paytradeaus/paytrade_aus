@@ -152,20 +152,87 @@
   margin-bottom: 24px;
 }
 
-.ctaButton {
-  display: inline-block;
-  padding: 14px 32px;
-  background-color: #1a73e8;
-  color: #fff;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.2s ease;
+.heroCta {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
 }
 
-.ctaButton:hover {
-  background-color: #1557b0;
+.relatedContent {
+  padding: 40px 0;
+  border-top: 1px solid #eee;
+}
+
+.sectionHeading {
+  font-size: 1.8rem;
+  color: #1a1a2e;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.sectionSub {
+  text-align: center;
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 28px;
+}
+
+.contentCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.contentCard {
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #ececf1;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.contentCard:hover {
+  box-shadow: 0 10px 24px rgba(20, 20, 40, 0.08);
+  transform: translateY(-2px);
+  border-color: #dcdce6;
+}
+
+.cardCategory {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4px 12px;
+  margin-bottom: 12px;
+  background-color: #f0f4ff;
+  color: #4a4af0;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cardTitle {
+  font-size: 1.1rem;
+  color: #1a1a2e;
+  margin: 0 0 10px;
+  line-height: 1.35;
+}
+
+.cardExcerpt {
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.cardMeta {
+  margin-top: auto;
+  color: #888;
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

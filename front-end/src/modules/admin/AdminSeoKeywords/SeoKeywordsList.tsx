@@ -10,6 +10,7 @@ import {
   adminDeleteSeoKeyword,
   adminUpdateSeoKeyword,
   adminAddSeoKeyword,
+  adminGenerateAllSeoKeywordDrafts,
 } from "./seo-keywords.functions";
 import { formatDate } from "@/utils";
 import { DD_MM_YYYY } from "@/shared/constant/identificationNumbers";
@@ -49,6 +50,8 @@ export default function SeoKeywordsList() {
   const [selectedKeyword, setSelectedKeyword] = useState<any>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [generateAllModal, setGenerateAllModal] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -266,6 +269,38 @@ export default function SeoKeywordsList() {
     }
   };
 
+  const handleGenerateAll = async () => {
+    setGenerateAllModal(false);
+    setGeneratingAll(true);
+    try {
+      const result = await adminGenerateAllSeoKeywordDrafts();
+
+      if (result?.status === "ERROR") {
+        showErrorToast(result?.message || "Failed to generate copy for all.");
+      } else {
+        const succeeded = result?.succeeded ?? 0;
+        const failed = result?.failed ?? 0;
+        if (succeeded > 0) {
+          showSuccessToast(
+            `Generated and saved copy for ${succeeded} keyword(s).`
+          );
+        }
+        if (failed > 0) {
+          const failures: string[] = (result?.results || [])
+            .filter((r: any) => r?.status === "ERROR")
+            .map((r: any) => `"${r.keyword}": ${r.message || "failed"}`);
+          showErrorToast(
+            `${failed} failed: ${failures.slice(0, 3).join("; ")}`
+          );
+        }
+      }
+      fetchKeywords();
+    } catch (error: any) {
+      showErrorToast(error.message || "Failed to generate copy for all.");
+    }
+    setGeneratingAll(false);
+  };
+
   const actions = [
     {
       label: "View",
@@ -359,6 +394,28 @@ export default function SeoKeywordsList() {
                 </button>
               </a>
             </Link>
+            <a
+              className="pt_addnewbutton"
+              onClick={() => !generatingAll && setGenerateAllModal(true)}
+            >
+              <button
+                disabled={generatingAll}
+                style={{
+                  backgroundColor: "#111",
+                  borderColor: "#111",
+                  color: "#fff",
+                }}
+              >
+                <i
+                  className={
+                    generatingAll
+                      ? "fa-light fa-spinner fa-spin"
+                      : "fa-light fa-wand-magic-sparkles"
+                  }
+                ></i>
+                {generatingAll ? "Generating..." : "Generate copy for all"}
+              </button>
+            </a>
           </div>
         </div>
       </div>
@@ -423,6 +480,24 @@ export default function SeoKeywordsList() {
             {selectedKeyword?.keyword}&quot;? This will also remove the
             associated landing page.
           </p>
+        </BaseModal>
+      )}
+
+      {generateAllModal && (
+        <BaseModal
+          displayModal={generateAllModal}
+          title="Generate Copy for All Keywords"
+          onClose={() => setGenerateAllModal(false)}
+          onConfirm={handleGenerateAll}
+          secondButtonName="Yes, overwrite all"
+          firstButtonName="Cancel"
+        >
+          <p>
+            This will use AI to generate fresh page content for{" "}
+            <strong>every</strong> SEO keyword and{" "}
+            <strong>overwrite all existing copy</strong>. This cannot be undone.
+          </p>
+          <p>Are you sure you want to continue?</p>
         </BaseModal>
       )}
     </div>

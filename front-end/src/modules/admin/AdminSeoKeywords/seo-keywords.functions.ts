@@ -138,6 +138,78 @@ export async function adminUpdateSeoKeyword(inputData: any) {
   }
 }
 
+export async function adminGenerateSeoKeywordDraft(input: {
+  id?: string;
+  save?: boolean;
+  keyword?: string;
+  page_title?: string;
+  meta_description?: string;
+  tags?: string[];
+}) {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminGenerateSeoKeywordDraft(
+          $id: String
+          $save: Boolean
+          $keyword: String
+          $page_title: String
+          $meta_description: String
+          $tags: [String!]
+        ) {
+          adminGenerateSeoKeywordDraft(
+            id: $id
+            save: $save
+            keyword: $keyword
+            page_title: $page_title
+            meta_description: $meta_description
+            tags: $tags
+          ) {
+            status
+            message
+            draft
+          }
+        }
+      `,
+      variables: input,
+    });
+
+    return response?.data?.adminGenerateSeoKeywordDraft;
+  } catch (error: any) {
+    console.log("adminGenerateSeoKeywordDraft ~ error:", error);
+    return { status: "ERROR", message: error.message };
+  }
+}
+
+export async function adminGenerateAllSeoKeywordDrafts() {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminGenerateAllSeoKeywordDrafts {
+          adminGenerateAllSeoKeywordDrafts {
+            status
+            message
+            total
+            succeeded
+            failed
+            results {
+              id
+              keyword
+              status
+              message
+            }
+          }
+        }
+      `,
+    });
+
+    return response?.data?.adminGenerateAllSeoKeywordDrafts;
+  } catch (error: any) {
+    console.log("adminGenerateAllSeoKeywordDrafts ~ error:", error);
+    return { status: "ERROR", message: error.message };
+  }
+}
+
 export async function adminDeleteSeoKeyword(id: string) {
   try {
     const response = await apolloClient.mutate({

@@ -8,6 +8,7 @@ import {
   adminAddSeoKeyword,
   adminUpdateSeoKeyword,
   adminGetSeoKeyword,
+  adminGenerateSeoKeywordDraft,
 } from "./seo-keywords.functions";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import slugify from "slugify";
@@ -19,6 +20,7 @@ export default function AddEditSeoKeyword() {
   const isEdit = !!editId;
 
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [formData, setFormData] = useState({
     keyword: "",
     slug: "",
@@ -61,6 +63,39 @@ export default function AddEditSeoKeyword() {
       }
       return updated;
     });
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!formData.keyword.trim()) {
+      showErrorToast("Enter a keyword first to generate a draft.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const tagsArray = formData.tags
+        ? formData.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+      const result = await adminGenerateSeoKeywordDraft({
+        id: isEdit ? editId : undefined,
+        save: false,
+        keyword: formData.keyword,
+        page_title: formData.page_title || undefined,
+        meta_description: formData.meta_description || undefined,
+        tags: tagsArray.length > 0 ? tagsArray : undefined,
+      });
+      if (result?.status === "SUCCESS" && result?.draft) {
+        setFormData((prev) => ({ ...prev, page_content: result.draft }));
+        showSuccessToast("Draft generated. Review and save when ready.");
+      } else {
+        showErrorToast(result?.message || "Failed to generate draft.");
+      }
+    } catch (error: any) {
+      showErrorToast(error.message || "Failed to generate draft.");
+    }
+    setGenerating(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,7 +270,32 @@ export default function AddEditSeoKeyword() {
               </div>
 
               <div className="col-12">
-                <label htmlFor="page_content">Page Content (HTML)</label>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <label htmlFor="page_content">Page Content (HTML)</label>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={handleGenerateDraft}
+                    disabled={generating || loading}
+                    title="Generate draft copy with AI from the keyword"
+                  >
+                    <i
+                      className={
+                        generating
+                          ? "fa-light fa-spinner fa-spin"
+                          : "fa-light fa-wand-magic-sparkles"
+                      }
+                    ></i>
+                    {generating ? "Generating..." : "Generate draft"}
+                  </button>
+                </div>
                 <textarea
                   id="page_content"
                   name="page_content"

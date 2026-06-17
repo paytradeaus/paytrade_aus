@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
-import { getSeoKeywordBySlug } from "../SeoKeywords/seo-keywords.functions";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getSeoKeywordPageData } from "../SeoKeywords/seo-keywords.functions";
 import { useParams } from "next/navigation";
+import { AppRoutes } from "@/shared/constant/appRoutes";
+
+import DOMPurify from "isomorphic-dompurify";
 
 const sanitizeHtml = (html: string, options?: any): string => {
-  if (typeof window === "undefined") return html;
-  const DOMPurify = require("dompurify");
-  return DOMPurify.default ? DOMPurify.default.sanitize(html, options) : DOMPurify.sanitize(html, options);
+  return DOMPurify.sanitize(html, options) as unknown as string;
 };
 import styles from "./SeoLandingPage.module.css";
 import RelatedTopics from "./RelatedTopics";
@@ -21,24 +23,104 @@ interface SeoKeywordData {
   tags: string[] | null;
 }
 
+interface RelatedContentItem {
+  type: string;
+  title: string;
+  excerpt: string;
+  url: string;
+  category: string | null;
+  meta: string | null;
+}
+
+interface RelatedKeyword {
+  id: string;
+  keyword: string;
+  slug: string;
+  page_title: string;
+  tags: string[] | null;
+}
+
+function CtaCard({ keyword }: { keyword: string }) {
+  return (
+    <div className={styles.ctaSection}>
+      <h2>Ready to simplify {keyword.toLowerCase()}?</h2>
+      <p>
+        Join builders and subcontractors using PayTrade to manage construction
+        trust accounting, claims and compliance with confidence.
+      </p>
+      <Link href={AppRoutes.USER_LOGIN} className="cta">
+        <button>
+          Get Started Free
+          <i className="fa-light fa-arrow-right right"></i>
+        </button>
+      </Link>
+    </div>
+  );
+}
+
+function ContentCards({
+  title,
+  subtitle,
+  items,
+}: {
+  title: string;
+  subtitle: string;
+  items: RelatedContentItem[];
+}) {
+  if (!items || items.length === 0) return null;
+  return (
+    <section className={styles.relatedContent}>
+      <h2 className={styles.sectionHeading}>{title}</h2>
+      <p className={styles.sectionSub}>{subtitle}</p>
+      <div className={styles.contentCards}>
+        {items.map((item, i) => (
+          <Link key={i} href={item.url} className={styles.contentCard}>
+            {item.category && (
+              <span className={styles.cardCategory}>{item.category}</span>
+            )}
+            <h3 className={styles.cardTitle}>{item.title}</h3>
+            {item.excerpt && <p className={styles.cardExcerpt}>{item.excerpt}</p>}
+            {item.meta && <span className={styles.cardMeta}>{item.meta}</span>}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function SeoLandingPage({
   initialData,
+  community = [],
+  guides = [],
+  allKeywords = [],
 }: {
   initialData?: SeoKeywordData | null;
+  community?: RelatedContentItem[];
+  guides?: RelatedContentItem[];
+  allKeywords?: RelatedKeyword[];
 }) {
   const params = useParams();
   const [keywordData, setKeywordData] = useState<SeoKeywordData | null>(
     initialData || null
   );
+  const [communityItems, setCommunityItems] =
+    useState<RelatedContentItem[]>(community);
+  const [guideItems, setGuideItems] = useState<RelatedContentItem[]>(guides);
+  const [keywordList, setKeywordList] =
+    useState<RelatedKeyword[]>(allKeywords);
   const [loading, setLoading] = useState(!initialData);
 
   useEffect(() => {
     if (!initialData && params?.slug) {
       const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
       setLoading(true);
-      getSeoKeywordBySlug(slug)
+      getSeoKeywordPageData(slug)
         .then((data) => {
-          setKeywordData(data);
+          if (data) {
+            setKeywordData(data.data);
+            setCommunityItems(data.community || []);
+            setGuideItems(data.guides || []);
+          }
         })
         .finally(() => setLoading(false));
     }
@@ -62,7 +144,7 @@ export default function SeoLandingPage({
   }
 
   return (
-    <div className={styles.landingPage}>
+    <main className={styles.landingPage}>
       <div className={styles.heroSection}>
         <h1 className={styles.title}>{keywordData.page_title}</h1>
         <p className={styles.description}>{keywordData.meta_description}</p>
@@ -75,6 +157,14 @@ export default function SeoLandingPage({
             ))}
           </div>
         )}
+        <div className={styles.heroCta}>
+          <Link href={AppRoutes.USER_LOGIN} className="cta">
+            <button>
+              Get Started Free
+              <i className="fa-light fa-arrow-right right"></i>
+            </button>
+          </Link>
+        </div>
       </div>
 
       {keywordData.page_content && (
@@ -96,22 +186,28 @@ export default function SeoLandingPage({
         </div>
       )}
 
+      <ContentCards
+        title={`Community discussions about ${keywordData.keyword}`}
+        subtitle="Real questions and answers from the PayTrade construction community."
+        items={communityItems}
+      />
+
+      <ContentCards
+        title={`Guides & articles on ${keywordData.keyword}`}
+        subtitle="Step-by-step how-to guides and articles to help you stay compliant."
+        items={guideItems}
+      />
+
+      <CtaCard keyword={keywordData.keyword} />
+
       <RelatedTopics
         currentSlug={keywordData.slug}
         currentKeyword={keywordData.keyword}
         currentTags={keywordData.tags}
+        initialKeywords={keywordList}
       />
 
-      <div className={styles.ctaSection}>
-        <h2>Ready to get started?</h2>
-        <p>
-          Sign up for PayTrade today and simplify your construction trust
-          accounting.
-        </p>
-        <a href="/user/signup" className={styles.ctaButton}>
-          Get Started Free
-        </a>
-      </div>
-    </div>
+      <CtaCard keyword={keywordData.keyword} />
+    </main>
   );
 }
