@@ -12,6 +12,13 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
+# node:20-slim ships npm 10.8.2, which intermittently crashes during `npm ci`
+# with "npm error Exit handler never called!" (exits leaving deps half-installed,
+# so the later `next build` fails with "next: not found"). Pin a newer npm that
+# fixes the broken exit handler. lockfileVersion 3 + --legacy-peer-deps remain
+# fully supported.
+RUN npm install -g npm@11.17.0
+
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_SKIP_DOWNLOAD=true
