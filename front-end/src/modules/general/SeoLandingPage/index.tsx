@@ -16,6 +16,7 @@ import BusinessHighlights from "@/components/HomeScreen/sections/BusinessHighlig
 import OnboardingSupport from "@/components/HomeScreen/sections/OnboardingSupport";
 import UserGuidesLinks from "@/components/HomeScreen/sections/UserGuidesLinks";
 import FinalCta from "@/components/HomeScreen/sections/FinalCta";
+import FeaturesSection from "@/components/HomeScreen/sections/FeaturesSection";
 
 interface SeoKeywordData {
   id: string;
@@ -24,6 +25,7 @@ interface SeoKeywordData {
   page_title: string;
   meta_description: string;
   page_content: string | null;
+  hero_image_url: string | null;
   tags: string[] | null;
 }
 
@@ -151,29 +153,48 @@ export default function SeoLandingPage({
     <main>
       <div className="pt_hometop">
         <div className="container-fluid">
-          <div className={styles.seoHero}>
-            <h1 className="oceantext">{keywordData.page_title}</h1>
-            <p className={styles.heroLead}>{keywordData.meta_description}</p>
-            {keywordData.tags && keywordData.tags.length > 0 && (
-              <div className={styles.tags}>
-                {keywordData.tags.map((tag, index) => (
-                  <span key={index} className={styles.tag}>
-                    {tag}
-                  </span>
-                ))}
+          <div className="grid">
+            <div className="pt_hometoptext">
+              <div className="pt_hometoptextinner">
+                <h1 className="oceantext">{keywordData.page_title}</h1>
+                <p>{keywordData.meta_description}</p>
+                {keywordData.tags && keywordData.tags.length > 0 && (
+                  <div className={styles.tags}>
+                    {keywordData.tags.map((tag, index) => (
+                      <span key={index} className={styles.tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Link href={AppRoutes.USER_LOGIN} className="cta">
+                  <button>
+                    Get Started Free
+                    <i className="fa-light fa-arrow-right right"></i>
+                  </button>
+                </Link>
               </div>
-            )}
-            <div className={styles.heroCta}>
-              <Link href={AppRoutes.USER_LOGIN} className="cta">
-                <button>
-                  Get Started Free
-                  <i className="fa-light fa-arrow-right right"></i>
-                </button>
-              </Link>
+              <div className="blurblobtheme"></div>
+            </div>
+            <div className="pt_hometopimage">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={keywordData.page_title}
+                src={
+                  keywordData.hero_image_url || "/images/mockupshots.png?v=3"
+                }
+                className="mockupshots"
+                loading="eager"
+                decoding="async"
+              />
+              <div className="blurblobriver"></div>
+              <div className="blurblobcoral"></div>
             </div>
           </div>
         </div>
       </div>
+
+      <FeaturesSection />
 
       <div className={styles.landingPage}>
         {keywordData.page_content && (

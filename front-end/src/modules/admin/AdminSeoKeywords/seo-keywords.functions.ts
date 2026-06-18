@@ -60,6 +60,7 @@ export async function adminGetSeoKeyword(id: string) {
               page_title
               meta_description
               page_content
+              hero_image_url
               tags
               status
             }

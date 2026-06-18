@@ -20,6 +20,9 @@ export class SeoKeywordType {
   @Field({ nullable: true })
   page_content?: string;
 
+  @Field({ nullable: true })
+  hero_image_url?: string;
+
   @Field(() => [String], { nullable: true })
   tags?: string[];
 

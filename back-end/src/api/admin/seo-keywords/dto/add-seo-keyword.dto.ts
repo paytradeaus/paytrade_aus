@@ -17,6 +17,9 @@ export class AddSeoKeywordInput {
   @Field({ nullable: true, description: 'HTML content for the landing page' })
   page_content?: string;
 
+  @Field({ nullable: true, description: 'Hero image URL for the landing page' })
+  hero_image_url?: string;
+
   @Field(() => [String], { nullable: true, description: 'Associated tags' })
   tags?: string[];
 }

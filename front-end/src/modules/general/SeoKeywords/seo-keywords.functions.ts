@@ -17,6 +17,7 @@ export async function getSeoKeywordBySlug(slug: string) {
               page_title
               meta_description
               page_content
+              hero_image_url
               tags
               status
               created_on
@@ -54,6 +55,7 @@ export async function getSeoKeywordPageData(slug: string) {
               page_title
               meta_description
               page_content
+              hero_image_url
               tags
               status
               created_on
@@ -109,6 +111,7 @@ export async function getActiveSeoKeywords() {
               page_title
               meta_description
               page_content
+              hero_image_url
               tags
               status
               created_on

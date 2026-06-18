@@ -12,6 +12,9 @@ import {
 } from "./seo-keywords.functions";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import slugify from "slugify";
+import { uploadMarketingImage } from "@/modules/admin/AdminMarketingImages/marketingImages.function";
+
+const HOME_HERO_FALLBACK_IMAGE = "/images/mockupshots.png?v=3";
 
 export default function AddEditSeoKeyword() {
   const router = useRouter();
@@ -21,12 +24,14 @@ export default function AddEditSeoKeyword() {
 
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [formData, setFormData] = useState({
     keyword: "",
     slug: "",
     page_title: "",
     meta_description: "",
     page_content: "",
+    hero_image_url: "",
     tags: "",
   });
 
@@ -46,6 +51,7 @@ export default function AddEditSeoKeyword() {
         page_title: data.page_title || "",
         meta_description: data.meta_description || "",
         page_content: data.page_content || "",
+        hero_image_url: data.hero_image_url || "",
         tags: data.tags?.join(", ") || "",
       });
     }
@@ -98,6 +104,31 @@ export default function AddEditSeoKeyword() {
     setGenerating(false);
   };
 
+  const handleHeroImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showErrorToast("Please select an image file.");
+      return;
+    }
+    setUploadingHero(true);
+    try {
+      const result = await uploadMarketingImage(file);
+      if (result?.status === "SUCCESS" && result?.url) {
+        setFormData((prev) => ({ ...prev, hero_image_url: result.url! }));
+        showSuccessToast("Hero image uploaded.");
+      } else {
+        showErrorToast(result?.message || "Could not upload image.");
+      }
+    } catch (error: any) {
+      showErrorToast(error?.message || "Could not upload image.");
+    }
+    setUploadingHero(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -134,6 +165,7 @@ export default function AddEditSeoKeyword() {
             page_title: formData.page_title,
             meta_description: formData.meta_description,
             page_content: formData.page_content || undefined,
+            hero_image_url: formData.hero_image_url || null,
             tags: tagsArray.length > 0 ? tagsArray : undefined,
           },
         });
@@ -145,6 +177,7 @@ export default function AddEditSeoKeyword() {
             page_title: formData.page_title,
             meta_description: formData.meta_description,
             page_content: formData.page_content || undefined,
+            hero_image_url: formData.hero_image_url || undefined,
             tags: tagsArray.length > 0 ? tagsArray : undefined,
           },
         });
@@ -287,6 +320,58 @@ export default function AddEditSeoKeyword() {
                   onChange={handleChange}
                   placeholder="e.g., QBCC, project trust, construction"
                 />
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="hero_image">Hero Image</label>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ width: "240px", maxWidth: "100%" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      alt="Hero preview"
+                      src={formData.hero_image_url || HOME_HERO_FALLBACK_IMAGE}
+                      style={{
+                        width: "100%",
+                        borderRadius: "8px",
+                        border: "1px solid var(--shade, #e0e0e0)",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <input
+                      type="file"
+                      id="hero_image"
+                      accept="image/*"
+                      onChange={handleHeroImageUpload}
+                      disabled={uploadingHero}
+                    />
+                    {uploadingHero && <small>Uploading...</small>}
+                    {formData.hero_image_url ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ width: "auto" }}
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, hero_image_url: "" }))
+                        }
+                      >
+                        Remove (use home image)
+                      </button>
+                    ) : (
+                      <small>
+                        No image set — the home page hero image will be used.
+                      </small>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="col-12">

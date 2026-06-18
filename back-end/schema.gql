@@ -1111,6 +1111,9 @@ input AddReconciliationReportInput {
 }
 
 input AddSeoKeywordInput {
+  """Hero image URL for the landing page"""
+  hero_image_url: String
+
   """The SEO keyword phrase"""
   keyword: String!
 
@@ -20707,6 +20710,7 @@ type SeoKeywordResponse {
 
 type SeoKeywordType {
   created_on: DateTime
+  hero_image_url: String
   id: String
   keyword: String
   meta_description: String
@@ -22907,6 +22911,9 @@ input UpdateProjectInput {
 }
 
 input UpdateSeoKeywordInput {
+  """Hero image URL for the landing page"""
+  hero_image_url: String
+
   """ID of the SEO keyword to update"""
   id: String!
 

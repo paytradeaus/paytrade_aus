@@ -143,6 +143,7 @@ import { ContactArchivedStatusSchemaSeederModule } from './libs/@seeders/contact
 import { XeroSmartContactSchemaSeederModule } from './libs/@seeders/xero-smart-contact-schema-seeder.module';
 import { ContactLogNoiseSweepSeederModule } from './libs/@seeders/contact-log-noise-sweep-seeder.module';
 import { TempCsvUploadSchemaSeederModule } from './libs/@seeders/temp-csv-upload-schema-seeder.module';
+import { SeoKeywordHeroImageSchemaSeederModule } from './libs/@seeders/seo-keyword-hero-image-schema-seeder.module';
 import { AiCostMultiplierSeederModule } from './libs/@seeders/ai-cost-multiplier-seeder.module';
 import { AiSchemaBackfillSeederModule } from './libs/@seeders/ai-schema-backfill-seeder.module';
 import { AiChatFoundationSeederModule } from './libs/@seeders/ai-chat-foundation-seeder.module';
@@ -397,6 +398,7 @@ import { AiBillingModule } from './api/common/ai-billing/ai-billing.module';
     XeroSmartContactSchemaSeederModule,
     ContactLogNoiseSweepSeederModule,
     TempCsvUploadSchemaSeederModule,
+    SeoKeywordHeroImageSchemaSeederModule,
     AiCostMultiplierSeederModule,
     AiSchemaBackfillSeederModule,
     AiChatFoundationSeederModule,
