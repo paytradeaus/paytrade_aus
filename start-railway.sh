@@ -51,7 +51,13 @@ else
     echo "[xero-contacts-cleanup] Non-zero exit (see output above) — continuing deploy."
 fi
 
-cd /app/front-end && npx next start -p $FRONTEND_PORT -H 0.0.0.0 &
+# Invoke Next.js directly via node — NOT `npx`. The build-stage npm (pinned newer
+# in the Dockerfile) is incompatible with this image's Node at runtime and its
+# `npx` code path crashes with "Class extends value undefined is not a constructor
+# or null", so the frontend never binds and the healthcheck fails. Running the
+# next binary under node sidesteps npm/npx entirely (the backend already does the
+# same with `node dist/main`).
+cd /app/front-end && node node_modules/next/dist/bin/next start -p $FRONTEND_PORT -H 0.0.0.0 &
 FRONTEND_PID=$!
 
 echo "Waiting for frontend on port $FRONTEND_PORT..."
