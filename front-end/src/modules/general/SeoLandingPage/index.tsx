@@ -194,8 +194,6 @@ export default function SeoLandingPage({
         </div>
       </div>
 
-      <FeaturesSection />
-
       <div className={styles.landingPage}>
         {keywordData.page_content && (
           <div className={styles.contentSection}>
@@ -237,6 +235,8 @@ export default function SeoLandingPage({
           initialKeywords={keywordList}
         />
       </div>
+
+      <FeaturesSection />
 
       <BusinessHighlights />
       <OnboardingSupport />
