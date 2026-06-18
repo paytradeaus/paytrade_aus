@@ -157,7 +157,7 @@ export default function SeoLandingPage({
             <div className="pt_hometoptext">
               <div className="pt_hometoptextinner">
                 <h1 className="oceantext">{keywordData.page_title}</h1>
-                <p>{keywordData.meta_description}</p>
+                <h2>{keywordData.meta_description}</h2>
                 {keywordData.tags && keywordData.tags.length > 0 && (
                   <div className={styles.tags}>
                     {keywordData.tags.map((tag, index) => (
