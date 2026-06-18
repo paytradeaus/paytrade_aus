@@ -47,6 +47,24 @@
   padding: 60px 20px 40px;
 }
 
+.seoHero {
+  text-align: center;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.seoHero h1 {
+  margin-bottom: 16px;
+}
+
+.heroLead {
+  font-size: 1.2rem;
+  color: #555;
+  max-width: 720px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
 .title {
   font-size: 2.5rem;
   font-weight: 700;

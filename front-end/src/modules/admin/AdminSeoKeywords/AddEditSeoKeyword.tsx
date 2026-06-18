@@ -193,6 +193,26 @@ export default function AddEditSeoKeyword() {
           <div className="pt_pagetitle">
             <h1>{isEdit ? "Edit SEO Keyword" : "Add SEO Keyword"}</h1>
           </div>
+          <div className="pt_pageactions">
+            <a className="pt_addnewbutton">
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleGenerateDraft}
+                disabled={generating || loading}
+                title="Generate draft copy with AI from the keyword"
+              >
+                <i
+                  className={
+                    generating
+                      ? "fa-light fa-spinner fa-spin"
+                      : "fa-light fa-wand-magic-sparkles"
+                  }
+                ></i>
+                {generating ? "Generating..." : "Generate draft"}
+              </button>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -270,32 +290,7 @@ export default function AddEditSeoKeyword() {
               </div>
 
               <div className="col-12">
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "10px",
-                  }}
-                >
-                  <label htmlFor="page_content">Page Content (HTML)</label>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={handleGenerateDraft}
-                    disabled={generating || loading}
-                    title="Generate draft copy with AI from the keyword"
-                  >
-                    <i
-                      className={
-                        generating
-                          ? "fa-light fa-spinner fa-spin"
-                          : "fa-light fa-wand-magic-sparkles"
-                      }
-                    ></i>
-                    {generating ? "Generating..." : "Generate draft"}
-                  </button>
-                </div>
+                <label htmlFor="page_content">Page Content (HTML)</label>
                 <textarea
                   id="page_content"
                   name="page_content"

@@ -12,6 +12,10 @@ const sanitizeHtml = (html: string, options?: any): string => {
 };
 import styles from "./SeoLandingPage.module.css";
 import RelatedTopics from "./RelatedTopics";
+import BusinessHighlights from "@/components/HomeScreen/sections/BusinessHighlights";
+import OnboardingSupport from "@/components/HomeScreen/sections/OnboardingSupport";
+import UserGuidesLinks from "@/components/HomeScreen/sections/UserGuidesLinks";
+import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 
 interface SeoKeywordData {
   id: string;
@@ -144,70 +148,79 @@ export default function SeoLandingPage({
   }
 
   return (
-    <main className={styles.landingPage}>
-      <div className={styles.heroSection}>
-        <h1 className={styles.title}>{keywordData.page_title}</h1>
-        <p className={styles.description}>{keywordData.meta_description}</p>
-        {keywordData.tags && keywordData.tags.length > 0 && (
-          <div className={styles.tags}>
-            {keywordData.tags.map((tag, index) => (
-              <span key={index} className={styles.tag}>
-                {tag}
-              </span>
-            ))}
+    <main>
+      <div className="pt_hometop">
+        <div className="container-fluid">
+          <div className={styles.seoHero}>
+            <h1 className="oceantext">{keywordData.page_title}</h1>
+            <p className={styles.heroLead}>{keywordData.meta_description}</p>
+            {keywordData.tags && keywordData.tags.length > 0 && (
+              <div className={styles.tags}>
+                {keywordData.tags.map((tag, index) => (
+                  <span key={index} className={styles.tag}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className={styles.heroCta}>
+              <Link href={AppRoutes.USER_LOGIN} className="cta">
+                <button>
+                  Get Started Free
+                  <i className="fa-light fa-arrow-right right"></i>
+                </button>
+              </Link>
+            </div>
           </div>
-        )}
-        <div className={styles.heroCta}>
-          <Link href={AppRoutes.USER_LOGIN} className="cta">
-            <button>
-              Get Started Free
-              <i className="fa-light fa-arrow-right right"></i>
-            </button>
-          </Link>
         </div>
       </div>
 
-      {keywordData.page_content && (
-        <div className={styles.contentSection}>
-          <div
-            className={styles.content}
-            dangerouslySetInnerHTML={{
-              __html: sanitizeHtml(keywordData.page_content, {
-                ALLOWED_TAGS: [
-                  "p", "h1", "h2", "h3", "h4", "h5", "h6",
-                  "ul", "ol", "li", "a", "strong", "em", "b", "i",
-                  "br", "hr", "blockquote", "img", "table", "thead",
-                  "tbody", "tr", "th", "td", "span", "div", "pre", "code",
-                ],
-                ALLOWED_ATTR: ["href", "src", "alt", "class", "target", "rel"],
-              }),
-            }}
-          />
-        </div>
-      )}
+      <div className={styles.landingPage}>
+        {keywordData.page_content && (
+          <div className={styles.contentSection}>
+            <div
+              className={styles.content}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(keywordData.page_content, {
+                  ALLOWED_TAGS: [
+                    "p", "h1", "h2", "h3", "h4", "h5", "h6",
+                    "ul", "ol", "li", "a", "strong", "em", "b", "i",
+                    "br", "hr", "blockquote", "img", "table", "thead",
+                    "tbody", "tr", "th", "td", "span", "div", "pre", "code",
+                  ],
+                  ALLOWED_ATTR: ["href", "src", "alt", "class", "target", "rel"],
+                }),
+              }}
+            />
+          </div>
+        )}
 
-      <ContentCards
-        title={`Community discussions about ${keywordData.keyword}`}
-        subtitle="Real questions and answers from the PayTrade construction community."
-        items={communityItems}
-      />
+        <ContentCards
+          title={`Community discussions about ${keywordData.keyword}`}
+          subtitle="Real questions and answers from the PayTrade construction community."
+          items={communityItems}
+        />
 
-      <ContentCards
-        title={`Guides & articles on ${keywordData.keyword}`}
-        subtitle="Step-by-step how-to guides and articles to help you stay compliant."
-        items={guideItems}
-      />
+        <ContentCards
+          title={`Guides & articles on ${keywordData.keyword}`}
+          subtitle="Step-by-step how-to guides and articles to help you stay compliant."
+          items={guideItems}
+        />
 
-      <CtaCard keyword={keywordData.keyword} />
+        <CtaCard keyword={keywordData.keyword} />
 
-      <RelatedTopics
-        currentSlug={keywordData.slug}
-        currentKeyword={keywordData.keyword}
-        currentTags={keywordData.tags}
-        initialKeywords={keywordList}
-      />
+        <RelatedTopics
+          currentSlug={keywordData.slug}
+          currentKeyword={keywordData.keyword}
+          currentTags={keywordData.tags}
+          initialKeywords={keywordList}
+        />
+      </div>
 
-      <CtaCard keyword={keywordData.keyword} />
+      <BusinessHighlights />
+      <OnboardingSupport />
+      <UserGuidesLinks />
+      <FinalCta />
     </main>
   );
 }

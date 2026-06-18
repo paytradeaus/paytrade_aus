@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   BUTTON_DEMO_TEXT,
-  BUTTON_EXPLORE_FEATURES_TEXT,
   BUTTON_SIGNUP_TEXT,
   BUTTON_TRUST_TOOL_TEXT,
-  BUTTON_TUTORIALS_TEXT,
   BUTTON_VIEWFAQ_TEXT,
   FAQ_HEAD,
   FAQ_SUB_HEAD,
@@ -29,12 +27,7 @@ import {
   FEATURE_SUPPORT_CENTRE,
   FEATURE_SUPPORT_CENTRE_DESC,
   FEATURES_TITLE,
-  HIGHLIGHTS_SUBTITLE,
-  HIGHLIGHTS_TITLE,
   HOME_DESCRIPTION,
-  HOME_LAST_DESC,
-  HOME_LAST_HEADING,
-  HOME_LAST_SUBHEAD,
   HOME_SUBHEADER,
   MAIN_HOME_TEXT,
   TOOL_DESCRIPTION,
@@ -48,6 +41,10 @@ import { FAQ, fetchFaqList } from "@/modules/general/FAQS/Faq.functions";
 import Link from "next/link";
 import { AppRoutes } from "@/shared/constant/appRoutes";
 import { usePathname, useRouter } from "next/navigation";
+import BusinessHighlights from "./sections/BusinessHighlights";
+import OnboardingSupport from "./sections/OnboardingSupport";
+import UserGuidesLinks from "./sections/UserGuidesLinks";
+import FinalCta from "./sections/FinalCta";
 export default function HomeScreenPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
@@ -497,175 +494,11 @@ export default function HomeScreenPage() {
         </div>
       </div>
 
-      <div className="pt_highlights">
-        <div className="pt_highlightsinner">
-          <div className="container-fluid">
-            <div className="center">
-              <h3>{HIGHLIGHTS_TITLE}</h3>
-              <p>{HIGHLIGHTS_SUBTITLE}</p>
-            </div>
-            <div className="grid">
-              <div className="pt_highlightbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/coins.json"
-                ></lottie-player>
-                <h4>Pay or get paid</h4>
-                <p>
-                  Send and receive payment claims, process payments and issue
-                  notices all whilst ensuring compliance with the project trust
-                  framework.
-                </p>
-              </div>
-              <div className="pt_highlightbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/finance.json"
-                ></lottie-player>
-                <h4>Connected bank data</h4>
-                <p>
-                  Connect your bank general account, project and retention trust
-                  accounts for real-time data.
-                </p>
-              </div>
-              <div className="pt_highlightbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/planning.json"
-                ></lottie-player>
-                <h4>Smart transaction matching</h4>
-                <p>
-                  Our smart software can find the closest matches for your
-                  transactions speeding up your audit process.
-                </p>
-              </div>
-              <div className="pt_highlightbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/success.json"
-                ></lottie-player>
-                <h4>Trust account</h4>
-                <p>
-                  Automate your trust accounts and reconciliation processes.
-                </p>
-              </div>
-            </div>
-            <div className="pt_highlightscta">
-              <div className="pt_highlightsctatext">
-                <h4>Explore all our features</h4>
-                <p>
-                  Everything you need to ensure you are fully compliant with the
-                  project trust framework
-                </p>
-              </div>
-              <div className="pt_highlightsctabutton">
-                <Link href={"/features"}>
-                  <button className="contrast">
-                    {BUTTON_EXPLORE_FEATURES_TEXT}
-                    <i className="fa-light fa-arrow-right right"></i>
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BusinessHighlights />
 
-      <div className="container-fluid">
-        <div className="pt_split">
-          <div className="grid">
-            <div className="pt_splitimage">
-              <lottie-player
-                autoplay
-                loop
-                mode="normal"
-                src="/json/bankservice.json?v=1"
-              ></lottie-player>
-            </div>
-            <div className="pt_splittext">
-              <h2>Free onboarding session</h2>
-              <h4>Get up and running easily with free support</h4>
-              <p>
-                Check out our video tutorials and guides or contact our support
-                team who can schedule a free support call to help your
-                onboarding.
-              </p>
-              <p>
-                <b>New to PayTrade?</b> Once you've signed up, raise a support
-                ticket and book a free 45-minute onboarding session with our
-                experts. They will walk you through the setup and everything you
-                need to get setup and where needed, onboard your existing data.
-              </p>
-              <br />
-              <Link href={"/how-to-guides"}>
-                <button className="secondary">
-                  <i className="fa-light fa-film"></i>
-                  {BUTTON_TUTORIALS_TEXT}
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <OnboardingSupport />
 
-      <div className="pt_links">
-        <div className="pt_linksinner">
-          <div className="container-fluid">
-            <div className="center">
-              <h3>User Guides</h3>
-              <p>
-                Let us take you step by step through our process to keep you
-                compliant and produce your trust accounts with ease
-              </p>
-            </div>
-            <div className="grid">
-              <Link className="pt_linksbox" href="/how-to-guides">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/graduationhat.json"
-                ></lottie-player>
-                <h4 className="oceantext">Get setup with PayTrade</h4>
-                <p>
-                  Learn how to setup your account and get started with PayTrade
-                </p>
-              </Link>
-              <Link href={"/community"} className="pt_linksbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/users.json"
-                ></lottie-player>
-                <h4 className="oceantext">Our community</h4>
-                <p>Ask questions and share product and industry insights</p>
-              </Link>
-              <Link href={"/blog"} className="pt_linksbox">
-                <lottie-player
-                  autoplay
-                  loop
-                  mode="normal"
-                  src="/json/rbicons/book.json"
-                ></lottie-player>
-                <h4 className="oceantext">Project trust blog</h4>
-                <p>
-                  Keep track of industry updates related to project trusts on
-                  our blog
-                </p>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <UserGuidesLinks />
 
       <div>
         <div className="container-fluid">
@@ -698,31 +531,7 @@ export default function HomeScreenPage() {
         </div>
       </div>
 
-      <div>
-        <div className="container-fluid">
-          <div className="finalcta center">
-            <div className="logolarge"></div>
-            <br />
-            <br />
-            <h5>{HOME_LAST_HEADING}</h5>
-            <div className="pt_highlightscta">
-              <div className="pt_highlightsctatext">
-                <h3 className="crabtext">{HOME_LAST_SUBHEAD}</h3>
-                <p>{HOME_LAST_DESC}</p>
-              </div>
-              <div className="pt_highlightsctabutton">
-                <Link href={AppRoutes.USER_LOGIN} className="cta">
-                  <button>
-                    {BUTTON_SIGNUP_TEXT}
-                    <i className="fa-light fa-arrow-right right"></i>
-                  </button>
-                </Link>
-              </div>
-            </div>
-            <div className="blurblobthemecta"></div>
-          </div>
-        </div>
-      </div>
+      <FinalCta />
     </main>
   );
 }

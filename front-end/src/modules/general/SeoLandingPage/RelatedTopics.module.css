@@ -74,23 +74,10 @@
   font-weight: 500;
 }
 
-.showAllButton {
-  display: block;
-  margin: 32px auto 0;
-  padding: 0;
-  background: none;
-  border: none;
-  color: #1a73e8;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.showAllButton:hover {
-  color: #1557b0;
-  text-decoration: underline;
+.showAllWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
 }
 
 @media (max-width: 768px) {

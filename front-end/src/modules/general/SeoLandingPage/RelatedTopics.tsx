@@ -134,20 +134,19 @@ export default function RelatedTopics({
         ))}
       </div>
       {!showAll && allKeywords.length > 12 && (
-        <button
-          className={styles.showAllButton}
-          onClick={() => setShowAll(true)}
-        >
-          View All {allKeywords.length} Topics
-        </button>
+        <div className={styles.showAllWrap}>
+          <button className="contrast" onClick={() => setShowAll(true)}>
+            View All {allKeywords.length} Topics
+            <i className="fa-light fa-arrow-right right"></i>
+          </button>
+        </div>
       )}
       {showAll && (
-        <button
-          className={styles.showAllButton}
-          onClick={() => setShowAll(false)}
-        >
-          Show Related Only
-        </button>
+        <div className={styles.showAllWrap}>
+          <button className="contrast" onClick={() => setShowAll(false)}>
+            Show Related Only
+          </button>
+        </div>
       )}
     </div>
   );
