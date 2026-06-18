@@ -95,11 +95,12 @@ export class CommunityBotService {
     const questionCount = this.randomBetween(2, 7);
     this.logger.log(`This run will create ${questionCount} questions`);
 
-    const category = await this.getDiscussionCategory();
-    if (!category) {
+    const categories = await this.getDiscussionCategories();
+    if (categories.length === 0) {
       this.logger.error('Cannot generate bot content: No MasterTypes record found with master_type = "Discussion Topic". Bot posts require a valid category to avoid null category_id in the database.');
       return { questionsCreated: 0, answersCreated: 0, botsCreated: 0 };
     }
+    const categoryNames = categories.map((c) => c.value).filter(Boolean) as string[];
     const existingTitles = await this.getRecentTitles();
 
     let totalQuestions = 0;
@@ -126,11 +127,13 @@ export class CommunityBotService {
         usedQuestionerIds.push(questionUser.id);
 
         const topic = await this.selectTopic();
-        const generated = await this.generateQAndA(topic, existingTitles);
+        const generated = await this.generateQAndA(topic, existingTitles, categoryNames);
         if (!generated) {
           this.logger.error(`Failed to generate Q&A for question ${q + 1}`);
           continue;
         }
+
+        const category = this.resolveCategory(generated.category, categories);
 
         const discussion = this.discussionsIdeas.create({
           title: generated.questionTitle,
@@ -391,11 +394,30 @@ Return ONLY a JSON object:
     return DEFAULT_TOPICS[Math.floor(Math.random() * DEFAULT_TOPICS.length)];
   }
 
-  private async getDiscussionCategory(): Promise<MasterTypes | null> {
-    const category = await this.masterTypes.findOne({
+  private async getDiscussionCategories(): Promise<MasterTypes[]> {
+    return this.masterTypes.find({
       where: { master_type: 'Discussion Topic' },
     });
-    return category;
+  }
+
+  private resolveCategory(
+    categoryName: string | null,
+    categories: MasterTypes[],
+  ): MasterTypes | null {
+    if (categories.length === 0) return null;
+
+    if (categoryName) {
+      const wanted = categoryName.trim().toLowerCase();
+      const match = categories.find(
+        (c) => (c.value || '').trim().toLowerCase() === wanted,
+      );
+      if (match) return match;
+    }
+
+    const general = categories.find(
+      (c) => (c.value || '').trim().toLowerCase() === 'general',
+    );
+    return general || categories[0];
   }
 
   private async getRecentTitles(): Promise<string[]> {
@@ -410,10 +432,15 @@ Return ONLY a JSON object:
   private async generateQAndA(
     topic: string,
     existingTitles: string[],
-  ): Promise<{ questionTitle: string; questionContent: string; answerContent: string } | null> {
+    categoryNames: string[] = [],
+  ): Promise<{ questionTitle: string; questionContent: string; answerContent: string; category: string | null } | null> {
     try {
       const titlesContext = existingTitles.length > 0
         ? `\n\nExisting discussion titles (do NOT duplicate these):\n${existingTitles.slice(0, 30).map((t) => `- ${t}`).join('\n')}`
+        : '';
+
+      const categoryContext = categoryNames.length > 0
+        ? `\n\nChoose the single most appropriate category for this discussion from this exact list (return the category name EXACTLY as written, do not invent new categories):\n${categoryNames.map((c) => `- ${c}`).join('\n')}`
         : '';
 
       const response = await this.openai.responses.create({
@@ -451,13 +478,14 @@ The ANSWER should:
 - Provide practical, actionable advice
 - Sound like an experienced trust accounting professional
 - Use HTML formatting (paragraphs, lists where appropriate)
-${titlesContext}
+${titlesContext}${categoryContext}
 
 Respond with ONLY this JSON:
 {
   "questionTitle": "Clear, specific title for the discussion",
   "questionContent": "<p>The question body in HTML...</p>",
-  "answerContent": "<p>The detailed answer in HTML...</p>"
+  "answerContent": "<p>The detailed answer in HTML...</p>",
+  "category": "The exact category name from the provided list that best fits this discussion"
 }`,
       });
 
@@ -482,7 +510,12 @@ Respond with ONLY this JSON:
         parsed.questionTitle = `${parsed.questionTitle} - ${new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}`;
       }
 
-      return parsed;
+      return {
+        questionTitle: parsed.questionTitle,
+        questionContent: parsed.questionContent,
+        answerContent: parsed.answerContent,
+        category: typeof parsed.category === 'string' ? parsed.category : null,
+      };
     } catch (error) {
       this.logger.error(`Q&A generation error: ${error.message}`);
       return null;
@@ -547,10 +580,11 @@ Return ONLY the HTML answer content, no JSON wrapping.`,
 
     this.logger.log('Manual single question generation triggered');
 
-    const category = await this.getDiscussionCategory();
-    if (!category) {
+    const categories = await this.getDiscussionCategories();
+    if (categories.length === 0) {
       throw new Error('No MasterTypes record found with master_type = "Discussion Topic". Bot posts require a valid category.');
     }
+    const categoryNames = categories.map((c) => c.value).filter(Boolean) as string[];
     const existingTitles = await this.getRecentTitles();
     let botsCreated = 0;
 
@@ -565,10 +599,12 @@ Return ONLY the HTML answer content, no JSON wrapping.`,
     }
 
     const topic = await this.selectTopic();
-    const generated = await this.generateQAndA(topic, existingTitles);
+    const generated = await this.generateQAndA(topic, existingTitles, categoryNames);
     if (!generated) {
       throw new Error('Failed to generate Q&A content');
     }
+
+    const category = this.resolveCategory(generated.category, categories);
 
     const discussion = this.discussionsIdeas.create({
       title: generated.questionTitle,
