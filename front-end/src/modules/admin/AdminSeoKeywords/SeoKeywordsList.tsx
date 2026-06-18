@@ -10,7 +10,7 @@ import {
   adminDeleteSeoKeyword,
   adminUpdateSeoKeyword,
   adminAddSeoKeyword,
-  adminGenerateAllSeoKeywordDrafts,
+  adminGenerateSeoKeywordDraft,
 } from "./seo-keywords.functions";
 import { formatDate } from "@/utils";
 import { DD_MM_YYYY } from "@/shared/constant/identificationNumbers";
@@ -52,6 +52,10 @@ export default function SeoKeywordsList() {
   const [exporting, setExporting] = useState(false);
   const [generateAllModal, setGenerateAllModal] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [generateProgress, setGenerateProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -272,33 +276,61 @@ export default function SeoKeywordsList() {
   const handleGenerateAll = async () => {
     setGenerateAllModal(false);
     setGeneratingAll(true);
+    // Generate one keyword at a time from the browser. Each request is short
+    // (~15-20s) so it stays well under the proxy timeout — generating them all
+    // inside a single backend request would run for minutes and 500.
     try {
-      const result = await adminGenerateAllSeoKeywordDrafts();
+      const allKeywords = await fetchAllExistingKeywords();
+      const total = allKeywords.length;
 
-      if (result?.status === "ERROR") {
-        showErrorToast(result?.message || "Failed to generate copy for all.");
-      } else {
-        const succeeded = result?.succeeded ?? 0;
-        const failed = result?.failed ?? 0;
-        if (succeeded > 0) {
-          showSuccessToast(
-            `Generated and saved copy for ${succeeded} keyword(s).`
-          );
+      if (total === 0) {
+        showErrorToast("There are no keywords to generate copy for.");
+        return;
+      }
+
+      setGenerateProgress({ current: 0, total });
+
+      let succeeded = 0;
+      let failed = 0;
+      const failures: string[] = [];
+
+      for (let i = 0; i < total; i++) {
+        const kw = allKeywords[i];
+        try {
+          const result = await adminGenerateSeoKeywordDraft({
+            id: kw.id,
+            save: true,
+          });
+          if (result?.status === "SUCCESS") {
+            succeeded += 1;
+          } else {
+            failed += 1;
+            failures.push(`"${kw.keyword}": ${result?.message || "failed"}`);
+          }
+        } catch (itemError: any) {
+          failed += 1;
+          failures.push(`"${kw.keyword}": ${itemError?.message || "failed"}`);
         }
-        if (failed > 0) {
-          const failures: string[] = (result?.results || [])
-            .filter((r: any) => r?.status === "ERROR")
-            .map((r: any) => `"${r.keyword}": ${r.message || "failed"}`);
-          showErrorToast(
-            `${failed} failed: ${failures.slice(0, 3).join("; ")}`
-          );
-        }
+        setGenerateProgress({ current: i + 1, total });
+      }
+
+      if (succeeded > 0) {
+        showSuccessToast(
+          `Generated and saved copy for ${succeeded} of ${total} keyword(s).`
+        );
+      }
+      if (failed > 0) {
+        showErrorToast(
+          `${failed} failed: ${failures.slice(0, 3).join("; ")}`
+        );
       }
       fetchKeywords();
     } catch (error: any) {
       showErrorToast(error.message || "Failed to generate copy for all.");
+    } finally {
+      setGeneratingAll(false);
+      setGenerateProgress(null);
     }
-    setGeneratingAll(false);
   };
 
   const actions = [
@@ -413,7 +445,11 @@ export default function SeoKeywordsList() {
                       : "fa-light fa-wand-magic-sparkles"
                   }
                 ></i>
-                {generatingAll ? "Generating..." : "Generate copy for all"}
+                {generatingAll
+                  ? generateProgress
+                    ? `Generating ${generateProgress.current}/${generateProgress.total}...`
+                    : "Generating..."
+                  : "Generate copy for all"}
               </button>
             </a>
           </div>
