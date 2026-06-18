@@ -84,9 +84,10 @@
 .tags {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .tag {
