@@ -167,11 +167,53 @@ export class SeoKeywordsService {
     return text.substring(0, max).replace(/\s+\S*$/, '') + '…';
   }
 
+  // Upper bound on rows pulled from the DB before in-memory relevance ranking.
+  // Keeps this public endpoint safe from unbounded fetches; comfortably larger
+  // than the community/guide tables so it never silently truncates real matches.
+  private static readonly RELATED_CANDIDATE_CAP = 200;
+
+  // Stop-words stripped from the keyword before matching so common filler
+  // words don't dilute the relevance score.
+  private static readonly STOP_WORDS = new Set([
+    'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'can',
+    'are', 'you', 'your', 'have', 'has', 'had', 'was', 'were', 'will', 'would',
+    'should', 'into', 'out', 'about', 'over', 'under', 'when', 'where', 'which',
+    'who', 'why', 'not', 'but', 'all', 'any', 'per', 'via', 'does', 'did', 'use',
+  ]);
+
+  // Tokenise the keyword phrase into its individual significant words.
+  // Tags are deliberately NOT used: they are reused across many keywords and
+  // match too broadly, drowning out keyword-specific relevance.
   private buildSearchTerms(keyword: SeoKeyword): string[] {
-    const terms = [keyword.keyword, ...(keyword.tags || [])]
-      .map((t) => (t || '').trim())
-      .filter((t) => t.length > 2);
-    return Array.from(new Set(terms));
+    const words = (keyword.keyword || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length > 2 && !SeoKeywordsService.STOP_WORDS.has(w));
+    return Array.from(new Set(words));
+  }
+
+  // Weighted overlap score: each matched word counts more in the title than
+  // in the body. Used to rank related content by how many of the keyword's
+  // words actually appear, rather than by raw popularity.
+  private scoreTermOverlap(
+    title: string | null,
+    content: string | null,
+    terms: string[],
+  ): number {
+    const t = (title || '').toLowerCase();
+    const c = (content || '').toLowerCase();
+    let score = 0;
+    for (const term of terms) {
+      // Leading word-boundary match: counts "payment"/"payments" but not "act"
+      // inside "contract". Terms are alphanumeric (sanitised in
+      // buildSearchTerms) so they are safe to embed in the regex.
+      const re = new RegExp(`\\b${term}`);
+      if (re.test(t)) score += 2;
+      if (re.test(c)) score += 1;
+    }
+    return score;
   }
 
   private async findRelatedCommunity(terms: string[]): Promise<RelatedItem[]> {
@@ -188,12 +230,27 @@ export class SeoKeywordsService {
           });
         }),
       )
-      .orderBy('c.view_count', 'DESC')
-      .addOrderBy('c.created_on', 'DESC')
-      .take(6);
+      .orderBy('c.created_on', 'DESC')
+      .take(SeoKeywordsService.RELATED_CANDIDATE_CAP);
 
     const rows = await qb.getMany();
-    return rows.map((r) => {
+    const ranked = rows
+      .map((r) => ({
+        r,
+        score: this.scoreTermOverlap(r.title, r.content, terms),
+      }))
+      .filter(({ score }) => score > 0)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          (b.r.view_count || 0) - (a.r.view_count || 0) ||
+          ((b.r.created_on?.getTime?.() ?? 0) -
+            (a.r.created_on?.getTime?.() ?? 0)),
+      )
+      .slice(0, 6)
+      .map(({ r }) => r);
+
+    return ranked.map((r) => {
       const pageLink = r.cmty_content_type === 'Idea' ? 'product-ideas' : 'discussions';
       const cat = slugify(r.category?.value || 'All', { lower: true, strict: true });
       const titleSlug = slugify(r.title || '', { lower: true, strict: true });
@@ -226,12 +283,28 @@ export class SeoKeywordsService {
           });
         }),
       )
-      .orderBy('b.published_on', 'DESC')
-      .addOrderBy('b.created_on', 'DESC')
-      .take(6);
+      .orderBy('b.created_on', 'DESC')
+      .take(SeoKeywordsService.RELATED_CANDIDATE_CAP);
 
     const rows = await qb.getMany();
-    return rows.map((r) => {
+    const ranked = rows
+      .map((r) => ({
+        r,
+        score: this.scoreTermOverlap(r.title, r.content, terms),
+      }))
+      .filter(({ score }) => score > 0)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          ((b.r.published_on?.getTime?.() ?? 0) -
+            (a.r.published_on?.getTime?.() ?? 0)) ||
+          ((b.r.created_on?.getTime?.() ?? 0) -
+            (a.r.created_on?.getTime?.() ?? 0)),
+      )
+      .slice(0, 6)
+      .map(({ r }) => r);
+
+    return ranked.map((r) => {
       const cat = slugify(r.category?.value || 'All', { lower: true, strict: true });
       const itemSlug =
         (r.urlSlug && r.urlSlug.trim()) ||
