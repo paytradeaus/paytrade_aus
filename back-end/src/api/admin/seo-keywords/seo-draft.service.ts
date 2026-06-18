@@ -16,9 +16,14 @@ export class SeoDraftService {
   private systemGuideContent = '';
   private bifReferenceContent = '';
 
-  // Defaults to gpt-5.1 (best-quality flagship). Override with SEO_DRAFT_MODEL
-  // (e.g. gpt-5-pro for maximum reasoning, or gpt-4o to revert).
-  private readonly model = process.env.SEO_DRAFT_MODEL || 'gpt-5.1';
+  // Defaults to gpt-5.1-chat-latest: the newest flagship, non-reasoning chat
+  // model. We deliberately do NOT use the gpt-5.1 *reasoning* model here — its
+  // thinking time (>55s even at low effort with our grounding prompt) blows past
+  // the synchronous request/proxy timeout and surfaces as an opaque 500. The
+  // chat-latest variant returns high-quality output in ~15-20s.
+  // Override with SEO_DRAFT_MODEL (e.g. gpt-4.1 or gpt-4o to revert).
+  private readonly model =
+    process.env.SEO_DRAFT_MODEL || 'gpt-5.1-chat-latest';
 
   constructor() {
     // Guard like the other OpenAI services (ai-support, community-bot,
@@ -26,7 +31,16 @@ export class SeoDraftService {
     // and an unguarded throw in a boot-loaded provider constructor crashes the
     // whole Nest app on startup (manifesting as a failed Railway healthcheck).
     if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      // Bound the call so a stuck model fails fast with a clear, structured error
+      // instead of hanging until the upstream proxy resets the socket (opaque
+      // 500). The timeout is deliberately set BELOW the ~42s proxy cutoff so our
+      // app, not the proxy, owns the failure. chat-latest returns in ~16s, so 35s
+      // is comfortable headroom; no retries (a retry would blow past the proxy).
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        timeout: 35000,
+        maxRetries: 0,
+      });
     } else {
       this.logger.warn(
         'OPENAI_API_KEY not set — SEO draft generation will refuse to run.',
@@ -104,6 +118,9 @@ export class SeoDraftService {
       '  meet the relevant obligation (use the PayTrade system knowledge below for accuracy).',
       '',
       'STRICT OUTPUT RULES:',
+      '- Output ONLY the HTML body content. No preamble, no explanation, no closing',
+      '  remarks, no "Below is..." sentence — your response must BEGIN with the first',
+      '  HTML tag and END with the last HTML tag.',
       '- Output valid semantic HTML only. No markdown, no code fences, no <html>, <head> or <body> tags.',
       '- Do NOT include an <h1> (the page already renders one).',
       '- Start with a short intro <p> explaining the problem.',
@@ -122,10 +139,18 @@ export class SeoDraftService {
   }
 
   private stripFences(html: string): string {
-    return html
+    let out = html
       .replace(/^```(?:html)?\s*/i, '')
       .replace(/```\s*$/i, '')
       .trim();
+    // Defensive: if the model still prefixes a chatty preamble (e.g. "Below is
+    // the HTML..."), drop everything before the first real HTML tag so it never
+    // renders as visible text on the landing page.
+    const firstTag = out.indexOf('<');
+    if (firstTag > 0) {
+      out = out.slice(firstTag).trim();
+    }
+    return out;
   }
 
   async generateDraft(input: {
