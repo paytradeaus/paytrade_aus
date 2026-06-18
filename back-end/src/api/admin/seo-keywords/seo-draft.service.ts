@@ -12,14 +12,24 @@ import { PaytradeLogger } from 'src/libs/@loggers/logger.service';
 @Injectable()
 export class SeoDraftService {
   private logger = new PaytradeLogger('SEO_DRAFT_SERVICE');
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
   private systemGuideContent = '';
 
   // Defaults to gpt-4o (proven in this codebase). Override with SEO_DRAFT_MODEL.
   private readonly model = process.env.SEO_DRAFT_MODEL || 'gpt-4o';
 
   constructor() {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Guard like the other OpenAI services (ai-support, community-bot,
+    // openai.llm-provider): the OpenAI v4 SDK throws when apiKey is missing,
+    // and an unguarded throw in a boot-loaded provider constructor crashes the
+    // whole Nest app on startup (manifesting as a failed Railway healthcheck).
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    } else {
+      this.logger.warn(
+        'OPENAI_API_KEY not set — SEO draft generation will refuse to run.',
+      );
+    }
     this.loadSystemGuide();
   }
 
@@ -82,7 +92,7 @@ export class SeoDraftService {
     meta_description?: string;
     tags?: string[];
   }): Promise<string> {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!this.openai) {
       throw new Error('OPENAI_API_KEY is not configured.');
     }
 
