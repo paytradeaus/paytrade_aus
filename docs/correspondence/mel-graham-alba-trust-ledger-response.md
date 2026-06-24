@@ -89,9 +89,25 @@ Separately from the above, we did find **two genuinely duplicated withdrawals** 
 | $20,000.00 | 04/06 | Duplicate of an existing withdrawal |
 | $25,000.00 | 08/06 | Duplicate of an existing withdrawal |
 
-These were re-entered on 24/06 and overstate the trust withdrawals by **$45,000 in total**. Our recommendation is to **delete both**, which will also remove their linked bank-transfer entries.
+These overstate the trust withdrawals by **$45,000 in total**.
 
-*How to action:* we can remove these for you on your confirmation, or you can delete each from the trust account ledger. We'd recommend we do it together so the linked entries are cleaned up correctly.
+### How this happened
+
+Each of these is a single real debit at the bank — there is **one** $20,000 (04/06) and **one** $25,000 (08/06) on the NAB statement. The reason they appear twice in PayTrade is that the **bank statement was uploaded into bookkeeping a second time on 24/06**, which re-imported those two transactions. Each re-imported line was then matched to a second, duplicate withdrawal.
+
+It slipped through because the dates were read differently on the two uploads — the first upload read 04/06 and 08/06 as **6 April** and **6 August**, while the 24/06 re-upload read them correctly as **4 June** and **8 June** — so the system saw them as different transactions rather than duplicates. (PayTrade matches one bank line to one payment, so the only way a second withdrawal could be matched was for a second bank line to exist.)
+
+### How to self-remedy (creates the reversing journals and resolves it)
+
+For **each** of the two duplicated transactions, in order:
+
+1. **Unmatch the transaction** in bookkeeping (remove the match between the duplicate bank line and its payment).
+2. **Exclude the transaction** in bookkeeping so the duplicate bank line is no longer treated as a real movement.
+3. Go to the payments — the two payments that were attached to those lines will now show as **Unmatched**. **Delete** those two payments.
+
+Deleting the payments posts the **reversing journals** automatically, which removes the $45,000 overstatement and brings the trust ledger back into agreement with the bank. We're happy to do this with you, or to action it on your confirmation.
+
+> **Tip for future uploads:** before importing a bank statement, check it isn't one that's already been brought in. A re-upload of an earlier statement will re-create transactions that are already matched.
 
 ---
 
@@ -102,7 +118,7 @@ These were re-entered on 24/06 and overstate the trust withdrawals by **$45,000 
 | Reversal/re-entry pairs | ✅ Correct — edits, not duplicates | None |
 | $1,791.63 + $3,760.35 held in trust | ⚠️ Confirmed claims, unpaid | Pay, record existing payment, or delete claim — depending on real position |
 | $390,993.02 at 30/05 | ✅ Timing difference, self-reverses 01/06 | Note as a reconciling item at month end (wording above) |
-| $45,000 duplicate withdrawals | ❌ Genuine duplicates | Delete both |
+| $45,000 duplicate withdrawals | ❌ Genuine duplicates (re-uploaded statement) | Unmatch → exclude the duplicate bank lines → delete the two now-unmatched payments (posts reversing journals) |
 
 Happy to jump on a quick call to walk through any of this, and to action the deletions / payment records for you once you confirm how you'd like each handled.
 
