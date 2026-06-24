@@ -34,6 +34,7 @@ import {
 import { parse } from 'csv-parse/sync';
 import { ObjectStorageService } from 'src/libs/@object-storage/object-storage.service';
 import { csvTemplateFileDetailsResponse } from './transactions.response';
+import { parseBankTxnDate } from './transactions-date.util';
 import { SubPayments } from 'src/entities/sub-payments.entity';
 import { RetentionDetails } from 'src/entities/retention-details.entity';
 import { PaymentDetails } from 'src/entities/payment-details.entity';
@@ -2964,12 +2965,11 @@ export class TransactionsService {
 
       const tempRecords = [];
       filteredRecords.map((record, idx) => {
-        const dateRegex = /^\d{2}[-\/]\d{2}[-\/]\d{4}$/;
-        let txnDate = new Date(record.txn_date);
-        if (dateRegex.test(record.txn_date)) {
-          const [day, month, year] = record.txn_date.split(/[-\/]/);
-          txnDate = new Date(`${year}-${month}-${day}`);
-        }
+        // Day-first parse (handles ANZ/NAB single-digit-day dates like
+        // "4/06/2026"). Never use the native US-month-first fallback, which
+        // silently shifted the month and let the same debit be re-imported
+        // under a different date — defeating the amount+date duplicate check.
+        const txnDate = parseBankTxnDate(record.txn_date);
         if (isNaN(record.txn_amount)) {
           validationErrors.push(`Txn_amount`);
           singleValidationError.push(

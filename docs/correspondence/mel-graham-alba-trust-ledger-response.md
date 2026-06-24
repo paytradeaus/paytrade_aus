@@ -93,9 +93,23 @@ These overstate the trust withdrawals by **$45,000 in total**.
 
 ### How this happened
 
-Each of these is a single real debit at the bank — there is **one** $20,000 (04/06) and **one** $25,000 (08/06) on the NAB statement. The reason they appear twice in PayTrade is that the **bank statement was uploaded into bookkeeping a second time on 24/06**, which re-imported those two transactions. Each re-imported line was then matched to a second, duplicate withdrawal.
+Each of these is a single real debit at the bank — there is **one** $20,000 (4 June) and **one** $25,000 (8 June) on the ANZ statement. The bank statement was **uploaded into bookkeeping a second time on 24/06**, which brought those two transactions in again.
 
-It slipped through because the dates were read differently on the two uploads — the first upload read 04/06 and 08/06 as **6 April** and **6 August**, while the 24/06 re-upload read them correctly as **4 June** and **8 June** — so the system saw them as different transactions rather than duplicates. (PayTrade matches one bank line to one payment, so the only way a second withdrawal could be matched was for a second bank line to exist.)
+What went wrong, step by step:
+
+1. **The duplicates were not detected on upload.** The system did not recognise that these two transactions had already been imported, so they were **imported anyway** — creating two duplicate bank transactions. *(This is the part we are improving — see below.)*
+2. **Extra withdrawals were then created to match them.** Rather than recognising that these duplicate transactions did not correspond to any outstanding trust withdrawal, **two additional withdrawals were created so the duplicate transactions could be matched**. Those two extra withdrawals are what overstated the trust by **$45,000**.
+
+*(For completeness: the duplicate check compares each transaction's amount and date, and the same debit was read under two slightly different dates across the two uploads, which is why the duplicate was not caught. We are correcting this.)*
+
+**We are updating the duplicate-detection system so these cases are identified more reliably.**
+
+### Recommended practice when uploading statements
+
+To minimise the chance of a missed duplicate in the meantime, we recommend:
+
+- **Keep a record of what was last uploaded** (the last statement date or file), and
+- **Remove any previously uploaded transactions for the overlapping period before uploading again**, so the same transactions are never brought in twice.
 
 ### How to self-remedy (creates the reversing journals and resolves it)
 

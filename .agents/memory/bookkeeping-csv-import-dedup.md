@@ -17,10 +17,15 @@ transaction was already imported. Those new rows look "unmatched" and can be mat
 a second (duplicate) payment. Net effect: one real bank debit → two bookkeeping lines →
 two matched payments → phantom duplicate withdrawal/payment overstating the ledger.
 
-**What makes it invisible:** CSV date parsing can differ between uploads (DD/MM vs
-MM/DD). A real debit dated 04/06 was stored as **6 Apr** on the first upload but **4 Jun**
-on a later re-upload of the same statement — so even a date+amount dedup check would treat
-them as different transactions.
+**What made it invisible (root cause, now fixed):** the old CSV date parser fell back to
+native `new Date('4/06/2026')`, which JS treats as **US month-first** → 6 Apr instead of
+4 Jun. AU bank exports are day-first and ship single-digit days, so the same real debit
+was stored under two different dates across uploads, defeating the amount+date dedup screen.
+Fix: `parseBankTxnDate()` in `transactions-date.util.ts` parses numeric dates explicitly as
+day-first (`D/M/YYYY`) / ISO via regex into UTC, rejecting rollover invalids; native parse
+only remains for non-numeric (textual) shapes. Wired into `storeInTemporaryTable`. NOTE:
+moment 2.30.1 strict mode rejects single-digit days even with the `D` token — do not rely
+on moment strict array parsing for these; the manual regex is the canonical path.
 
 **Why:** observed on the ALBA project trust account — a $20k (04/06) and $25k (08/06)
 debit each existed once at the bank but twice in bookkeeping after a 24/06 re-upload, each
