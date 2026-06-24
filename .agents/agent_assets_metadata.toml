@@ -30,3 +30,9 @@ id = "gBUDDfUF_oYtTpC4QggyQ"
 uri = "file://reports/Signature_MultiRes_System_Health_Report.md"
 type = "text"
 title = "Signature Multi-Res — System Health & Compliance Report (live from Railway prod)"
+
+[[outputs]]
+id = "oobOMh7k4x2zKBJHU58zR"
+uri = "file://docs/correspondence/mel-graham-alba-trust-ledger-response.md"
+type = "text"
+title = "ALBA Trust Ledger — Email Response Draft for Mel Graham"
