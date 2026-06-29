@@ -81,7 +81,11 @@ export class ActivityLogService {
       ? 'ADMIN'
       : 'USER';
 
-    if (!createActivityLogInput.is_admin && !createActivityLogInput.from_user) {
+    if (
+      !createActivityLogInput.is_admin &&
+      !createActivityLogInput.from_user &&
+      !createActivityLogInput.admin_id
+    ) {
       this.log('Skipping activity log insert: from_user is null for non-admin event');
       return null;
     }
