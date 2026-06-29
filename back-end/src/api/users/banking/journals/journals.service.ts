@@ -621,7 +621,19 @@ export class JournalsService {
         .addSelect('journal.bank_account_id', 'bank_account_id')
         // .addSelect('account.account_name', 'account_name')
         .addSelect(
-          `CASE WHEN account.account_name IS NULL AND journalType.beneficiary_type = 'client' THEN client.client_supplier_name ELSE account.account_name END`,
+          // Resolve supplier/client beneficiary names from the journal's OWN
+          // supplier_id (`client`), NOT the transaction_account_id-keyed
+          // `account` subquery. That subquery maps account_name per
+          // (transaction_account_id, beneficiary_type); when a stale journal leg
+          // points one cash account at a second supplier, that account resolves
+          // to TWO names and the join fans every leg on it onto BOTH sub-account
+          // ledgers (the "duplicate audit id" symptom). Keying off the journal's
+          // own supplier makes the ledger robust to a bad account pointer;
+          // identical fanned rows then collapse via DISTINCT.
+          `CASE 
+            WHEN journalType.beneficiary_type IN ('supplier', 'client') THEN client.client_supplier_name 
+            ELSE account.account_name 
+          END`,
           'account_name',
         )
         .addSelect('journal.journal_number', 'journal_number')
@@ -1049,7 +1061,19 @@ export class JournalsService {
         .addSelect('journal.bank_account_id', 'bank_account_id')
         // .addSelect('account.account_name', 'account_name')
         .addSelect(
-          `CASE WHEN account.account_name IS NULL AND journalType.beneficiary_type = 'client' THEN client.client_supplier_name ELSE account.account_name END`,
+          // Resolve supplier/client beneficiary names from the journal's OWN
+          // supplier_id (`client`), NOT the transaction_account_id-keyed
+          // `account` subquery. That subquery maps account_name per
+          // (transaction_account_id, beneficiary_type); when a stale journal leg
+          // points one cash account at a second supplier, that account resolves
+          // to TWO names and the join fans every leg on it onto BOTH sub-account
+          // ledgers (the "duplicate audit id" symptom). Keying off the journal's
+          // own supplier makes the ledger robust to a bad account pointer;
+          // identical fanned rows then collapse via DISTINCT.
+          `CASE 
+            WHEN journalType.beneficiary_type IN ('supplier', 'client') THEN client.client_supplier_name 
+            ELSE account.account_name 
+          END`,
           'account_name',
         )
         .addSelect('journal.journal_number', 'journal_number')
@@ -1221,7 +1245,19 @@ export class JournalsService {
         .addSelect('journalType.beneficiary_type', 'beneficiary_type')
         // .addSelect('account.account_name', 'account_name')
         .addSelect(
-          `CASE WHEN account.account_name IS NULL AND journalType.beneficiary_type = 'client' THEN client.client_supplier_name ELSE account.account_name END`,
+          // Resolve supplier/client beneficiary names from the journal's OWN
+          // supplier_id (`client`), NOT the transaction_account_id-keyed
+          // `account` subquery. That subquery maps account_name per
+          // (transaction_account_id, beneficiary_type); when a stale journal leg
+          // points one cash account at a second supplier, that account resolves
+          // to TWO names and the join fans every leg on it onto BOTH sub-account
+          // ledgers (the "duplicate audit id" symptom). Keying off the journal's
+          // own supplier makes the ledger robust to a bad account pointer;
+          // identical fanned rows then collapse via DISTINCT.
+          `CASE 
+            WHEN journalType.beneficiary_type IN ('supplier', 'client') THEN client.client_supplier_name 
+            ELSE account.account_name 
+          END`,
           'account_name',
         )
         .addSelect(

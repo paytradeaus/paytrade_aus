@@ -3183,6 +3183,23 @@ export class PaymentClaimsService {
             })
           )?.last_journal_id || 0;
 
+        // Defensive guard for the supplier beneficiary leg (Billable claims):
+        // the leg historically copied payment_to_account verbatim. If that
+        // account is owned by a DIFFERENT (active) client/supplier — the
+        // supplier-mismatch bug — the journal captures the wrong cash account
+        // and the beneficiary ledger cross-contaminates two sub-accounts.
+        // Resolve to the claim supplier's own account here so neither the
+        // original nor its later reversal can record a foreign account.
+        const supplierLegAccountId =
+          journalRelatedDetails.claim_type === 'Billable'
+            ? await this.resolveSupplierLegAccountId(
+                transactionalEntityManager,
+                journalRelatedDetails.payment_to_account,
+                journalRelatedDetails.client_supplier_id,
+                claim_details?.company_id ?? payment_details?.company_id,
+              )
+            : journalRelatedDetails.payment_to_account;
+
         const journalPayload: AddJournalInput[] = await Promise.all(
           journalTypeDetails.map(async (entry) => {
             let journalDescription = entry.process_description;
@@ -3245,7 +3262,7 @@ export class PaymentClaimsService {
               entry.beneficiary_account === 'supplier' &&
               journalRelatedDetails.claim_type === 'Billable'
             ) {
-              transactionAccountId = journalRelatedDetails.payment_to_account;
+              transactionAccountId = supplierLegAccountId;
             } else if (
               entry.beneficiary_account === 'PTA' &&
               journalRelatedDetails.claim_type === 'Billable'
@@ -3490,6 +3507,85 @@ export class PaymentClaimsService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Validate the supplier beneficiary leg's cash account against the claim's
+   * supplier and realign it when it belongs to a different active supplier.
+   *
+   * The supplier leg of a Billable claim historically copied
+   * `payment_to_account` verbatim into the journal's `transaction_account_id`.
+   * If `payment_to_account` is later corrected without regenerating journals —
+   * or was bound to another supplier's account in the first place — the journal
+   * keeps pointing at a foreign cash account, which the beneficiary ledger then
+   * fans across two sub-accounts (the duplicate-audit-id symptom).
+   *
+   * Rules (mirrors the addPayment supplier guard):
+   *  - No account / no claim supplier  -> leave as-is.
+   *  - Account has no client/supplier owner (company-owned / trust) -> leave.
+   *  - Account already owned by the claim supplier -> leave.
+   *  - Account owned by a DELETED/ARCHIVED supplier (stale duplicate) -> leave
+   *    (this is a known soft-deleted-duplicate binding; do not disturb it).
+   *  - Account owned by a DIFFERENT ACTIVE supplier -> realign to the claim
+   *    supplier's own Open account when one exists; otherwise keep the original
+   *    (never null an otherwise-valid pointer).
+   */
+  private async resolveSupplierLegAccountId(
+    transactionalEntityManager,
+    paymentToAccount: number,
+    claimSupplierId: number,
+    companyId: number,
+  ): Promise<number> {
+    if (!paymentToAccount || !claimSupplierId) {
+      return paymentToAccount;
+    }
+
+    const ptAccount = await transactionalEntityManager.findOne(BankAccounts, {
+      where: { bank_account_id: paymentToAccount },
+    });
+
+    // Company-owned / trust accounts (no client/supplier owner) are valid here.
+    if (!ptAccount || ptAccount.client_supplier_id == null) {
+      return paymentToAccount;
+    }
+
+    // Already the claim supplier's own account — nothing to fix.
+    if (Number(ptAccount.client_supplier_id) === Number(claimSupplierId)) {
+      return paymentToAccount;
+    }
+
+    const owner = await transactionalEntityManager.findOne(
+      ClientSuppliersDetails,
+      { where: { client_supplier_id: ptAccount.client_supplier_id } },
+    );
+    const ownerInactive =
+      !owner || owner.is_deleted === true || owner.is_archived === true;
+    if (ownerInactive) {
+      // Stale binding to a soft-deleted/archived duplicate supplier; the cash
+      // account itself is still the intended one. Leave it untouched.
+      return paymentToAccount;
+    }
+
+    const supplierBank = await transactionalEntityManager.findOne(BankAccounts, {
+      where: {
+        client_supplier_id: claimSupplierId,
+        company_id: companyId,
+        status: 'Open' as any,
+      },
+      order: { added_by_client_supplier: 'DESC', created_on: 'DESC' },
+    });
+
+    if (supplierBank) {
+      this.logger.warn(
+        `[createJournalEntries] supplier-leg payment_to_account=${paymentToAccount} is owned by supplier ${ptAccount.client_supplier_id}, not claim supplier ${claimSupplierId}; realigning to claim supplier's own account ${supplierBank.bank_account_id}.`,
+      );
+      return supplierBank.bank_account_id;
+    }
+
+    this.logger.warn(
+      `[createJournalEntries] supplier-leg payment_to_account=${paymentToAccount} is owned by supplier ${ptAccount.client_supplier_id}, not claim supplier ${claimSupplierId}, but no Open account exists for the claim supplier; keeping original to avoid a null account.`,
+    );
+    return paymentToAccount;
   }
 
   async getJournalRelatedDetailsForClaimsPayments(
