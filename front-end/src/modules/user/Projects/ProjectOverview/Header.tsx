@@ -9,18 +9,57 @@ import { viewContractDetailsById } from "../../Contracts/contracts.functions";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import BreadCrumbs from "@/components/BreadCrumbs";
 import { useProjectOverviewContext } from "./ProjectOverviewContext";
-import { viewProjectDetails } from "./ProjectOverview.function";
+import {
+  viewProjectDetails,
+  setProjectCompliancePaused,
+} from "./ProjectOverview.function";
 
 export default function Header() {
   const [wrongIdCheck, setWrongIdCheck] = useState(false);
   const { setLoader }: any = useLoaderContext();
   const [projectData, setProjectData] = useState<any>({});
   const [contractData, setContractData] = useState<any>({});
+  const [pauseUpdating, setPauseUpdating] = useState(false);
   const params = useParams();
   const { router, getBankAccountId }: any = useProjectOverviewContext();
   useEffect(() => {
     getProjectOverview();
   }, []);
+
+  async function handleToggleCompliancePause() {
+    const isPaused = !!projectData?.compliance_paused;
+    const projectId = Number(projectData?.project_id);
+    if (!projectId) return;
+
+    if (isPaused) {
+      const ok = window.confirm(
+        "Resume compliance monitoring for this project? This will re-run compliance checks and re-enable alerts and emails."
+      );
+      if (!ok) return;
+      setPauseUpdating(true);
+      const success = await setProjectCompliancePaused({
+        projectId,
+        paused: false,
+      });
+      setPauseUpdating(false);
+      if (success) await getProjectOverview();
+      return;
+    }
+
+    const ok = window.confirm(
+      "Pause compliance monitoring for this project? Alerts, system issues and compliance emails will be suppressed until you resume."
+    );
+    if (!ok) return;
+    const reason = window.prompt("Optional reason for pausing:") || undefined;
+    setPauseUpdating(true);
+    const success = await setProjectCompliancePaused({
+      projectId,
+      paused: true,
+      reason,
+    });
+    setPauseUpdating(false);
+    if (success) await getProjectOverview();
+  }
 
   async function getProjectOverview() {
     setLoader(true);
@@ -62,10 +101,51 @@ export default function Header() {
       <div className="grid pt_topfilters">
         <div className="pt_pagetitle">
           <h1>{projectData?.project_name || "Loading..."}</h1>
-          <h4> {projectData?.project_status}</h4>
+          <h4>
+            {projectData?.project_status}
+            {projectData?.compliance_paused ? (
+              <span
+                style={{
+                  marginLeft: "10px",
+                  padding: "2px 10px",
+                  borderRadius: "12px",
+                  background: "#fdeccd",
+                  color: "#9a6700",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  verticalAlign: "middle",
+                }}
+                title={
+                  projectData?.compliance_paused_reason
+                    ? `Reason: ${projectData.compliance_paused_reason}`
+                    : "Compliance monitoring is paused"
+                }
+              >
+                Compliance Paused
+              </span>
+            ) : null}
+          </h4>
         </div>
         <div className="pt_pageactions">
-          <div className="pt_addnewbutton">
+          <div className="pt_addnewbutton" style={{ display: "flex", gap: "8px" }}>
+            <CustomButton
+              buttonName={
+                pauseUpdating
+                  ? "Updating..."
+                  : projectData?.compliance_paused
+                    ? "Resume compliance"
+                    : "Pause compliance"
+              }
+              buttonType={buttonType.SECONDARY}
+              iconClassName={
+                projectData?.compliance_paused
+                  ? "fa-light fa-play"
+                  : "fa-light fa-pause"
+              }
+              actionType={"button"}
+              disabled={pauseUpdating || !projectData?.project_id}
+              onClick={handleToggleCompliancePause}
+            />
             <CustomButton
               buttonName={"Edit"}
               buttonType={buttonType.SECONDARY}

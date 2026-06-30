@@ -492,6 +492,8 @@ export class ProjectsService {
         complianceResultsOfProject.data.rta_compliance == 'Action required'
           ? 'Action required'
           : 'Ok',
+      compliance_paused: result.compliance_paused,
+      compliance_paused_reason: result.compliance_paused_reason,
     };
   }
 

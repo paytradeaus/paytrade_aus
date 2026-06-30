@@ -307,6 +307,81 @@ export class CompliancesResolver {
     }
   }
 
+  // Manual per-project compliance pause toggle. When paused, all
+  // compliance recompute / system-issue generation, dashboard issue
+  // counting and compliance emails are suppressed for the project.
+  // Resuming re-runs the full compliance recompute and snapshot rebuild.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    Role.RESTRICTED_PORTAL_ADMIN,
+    Role.PORTAL_ADMIN,
+    Role.STANDARD_USER,
+    Role.ADMIN,
+    Role.PRIMARY_ADMIN,
+  )
+  @Mutation(() => FetchAllCompliancesResponse, {
+    name: 'setProjectCompliancePaused',
+    description:
+      'Pause or resume compliance monitoring (alerts, system issues and emails) for a project. Resuming re-runs compliance.',
+  })
+  async setProjectCompliancePaused(
+    @Context() context,
+    @Args('projectId', {
+      description:
+        'The unique identifier of the project whose compliance pause state should change',
+    })
+    projectId: number,
+    @Args('paused', {
+      description: 'True to pause compliance monitoring, false to resume',
+    })
+    paused: boolean,
+    @Args('reason', {
+      nullable: true,
+      description: 'Optional reason recorded when pausing',
+    })
+    reason?: string,
+  ): Promise<any> {
+    try {
+      // Authorize the same way as forceRefreshProjectCompliance: the
+      // caller's company (from the companyid header, validated by the
+      // JWT guard) must own the project, otherwise any authenticated
+      // user could pause compliance on any project across tenants.
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      const headerCompanyId = Number(context?.req?.headers?.companyid);
+      if (!headerCompanyId || Number.isNaN(headerCompanyId)) {
+        return framedResponse('ERROR', 'Missing company context.');
+      }
+      const project = await this.compliancesService.getProjectCompanyId(
+        Number(projectId),
+      );
+      if (!project) {
+        return framedResponse('ERROR', 'Project not found.');
+      }
+      if (Number(project.company_id) !== headerCompanyId) {
+        return framedResponse(
+          'ERROR',
+          'Not authorized to change compliance pause for this project.',
+        );
+      }
+
+      const userId = Number((decoded as any)?.userId) || undefined;
+      await this.compliancesService.setProjectCompliancePaused(
+        Number(projectId),
+        Boolean(paused),
+        userId,
+        reason,
+      );
+      return framedResponse(
+        'SUCCESS',
+        paused
+          ? 'Compliance monitoring paused for this project.'
+          : 'Compliance monitoring resumed for this project.',
+      );
+    } catch (error) {
+      return framedResponse('ERROR', error.message);
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     Role.RESTRICTED_PORTAL_ADMIN,

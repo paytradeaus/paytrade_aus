@@ -36,6 +36,8 @@ export const viewProjectDetails = async (data: {
               rta_compliance
               rta_eligibility
               site_address
+              compliance_paused
+              compliance_paused_reason
             }
             message
             status
@@ -56,5 +58,53 @@ export const viewProjectDetails = async (data: {
   } catch (error: any) {
     showErrorToast(error.message || "Something went wrong in API");
     return null;
+  }
+};
+
+export const setProjectCompliancePaused = async (data: {
+  projectId: number;
+  paused: boolean;
+  reason?: string;
+}): Promise<boolean> => {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation SetProjectCompliancePaused(
+          $projectId: Float!
+          $paused: Boolean!
+          $reason: String
+        ) {
+          setProjectCompliancePaused(
+            projectId: $projectId
+            paused: $paused
+            reason: $reason
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: data,
+      fetchPolicy: "no-cache",
+    });
+    if (
+      response?.data?.setProjectCompliancePaused?.status === "SUCCESS"
+    ) {
+      showSuccessToast(
+        response?.data?.setProjectCompliancePaused?.message ||
+          (data.paused
+            ? "Compliance monitoring paused."
+            : "Compliance monitoring resumed.")
+      );
+      return true;
+    }
+    showErrorToast(
+      response?.data?.setProjectCompliancePaused?.message ||
+        "Could not update compliance pause."
+    );
+    return false;
+  } catch (error: any) {
+    showErrorToast(error.message || "Something went wrong in API");
+    return false;
   }
 };

@@ -22,13 +22,21 @@ export class ComplianceChecker {
   async check(companyId: number): Promise<StatusIssue[]> {
     const projects = await this.projectRepo.find({
       where: { company_id: companyId },
-      select: ['project_id', 'project_name', 'project_status'],
+      select: [
+        'project_id',
+        'project_name',
+        'project_status',
+        'compliance_paused',
+      ],
     });
     const activeProjects = projects.filter(
       (p) =>
         p.project_status !== 'Archived' &&
         p.project_status !== 'Deleted' &&
-        p.project_status !== 'Draft',
+        p.project_status !== 'Draft' &&
+        // Manual compliance pause: a paused project must not surface any
+        // compliance system issues until it is explicitly resumed.
+        p.compliance_paused !== true,
     );
     if (activeProjects.length === 0) return [];
 

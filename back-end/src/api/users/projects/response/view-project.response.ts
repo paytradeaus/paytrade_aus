@@ -135,6 +135,19 @@ export class ViewProjectRes {
     description: 'Overall compliance status of the project.',
   })
   compliance: ComplianceStatus;
+
+  @Field({
+    nullable: true,
+    description:
+      'Whether compliance monitoring is manually paused for the project.',
+  })
+  compliance_paused: boolean;
+
+  @Field({
+    nullable: true,
+    description: 'Optional reason recorded when compliance was paused.',
+  })
+  compliance_paused_reason: string;
 }
 
 @ObjectType({

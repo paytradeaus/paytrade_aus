@@ -7440,6 +7440,9 @@ type FetchComplianceResultsOfAProjectResponse {
 
 """Compliance status summary of a project."""
 type FetchComplianceStatusesOfAProject {
+  """Indicates if compliance monitoring is manually paused for the project."""
+  compliance_paused: Boolean
+
   """Number of compliance issues in PTA."""
   number_of_issues_in_pta: Float
 
@@ -16371,6 +16374,22 @@ type Mutation {
     payload: SetContractValueToCheckContractEligibilityInput!
   ): SetContractValueToCheckContractEligibilityResponse!
 
+  """
+  Pause or resume compliance monitoring (alerts, system issues and emails) for a project. Resuming re-runs compliance.
+  """
+  setProjectCompliancePaused(
+    """True to pause compliance monitoring, false to resume"""
+    paused: Boolean!
+
+    """
+    The unique identifier of the project whose compliance pause state should change
+    """
+    projectId: Float!
+
+    """Optional reason recorded when pausing"""
+    reason: String
+  ): FetchAllCompliancesResponse!
+
   """Set the user smart match toggle preference."""
   setSmartMatchPreference(
     """Whether smart match is enabled."""
@@ -24244,6 +24263,12 @@ type ViewProjectRes {
 
   """Overall compliance status of the project."""
   compliance: String
+
+  """Whether compliance monitoring is manually paused for the project."""
+  compliance_paused: Boolean
+
+  """Optional reason recorded when compliance was paused."""
+  compliance_paused_reason: String
 
   """Number of contracts linked to the project."""
   contract_count: Float

@@ -145,11 +145,95 @@ export class CompliancesService {
     return { company_id: Number((row as any).company_id) };
   }
 
+  /**
+   * Per-project manual compliance pause. When true, all recompute /
+   * system-issue generation, dashboard issue counting and compliance
+   * emails are suppressed for the project until it is explicitly resumed.
+   */
+  async isCompliancePaused(projectId: number): Promise<boolean> {
+    if (!projectId) return false;
+    const row = await this.projectsRepo.findOne({
+      where: { project_id: Number(projectId) } as any,
+      select: ['project_id', 'compliance_paused'] as any,
+    });
+    return !!(row && (row as any).compliance_paused);
+  }
+
+  /**
+   * Toggle the manual compliance pause for a project.
+   *
+   * On PAUSE: stamp the flag/reason/by/at and clear `is_stale` on every
+   * checkpoint so the freshness worker's stillDirty race-recovery stops
+   * re-enqueuing a project we deliberately froze (the entity default for
+   * `is_stale` is `true`, so leaving rows stale would loop forever).
+   *
+   * On RESUME: clear the flag and re-run the full compliance recompute +
+   * dashboard snapshot rebuild so the project immediately reflects its
+   * true current state and future digests/alerts fire again.
+   */
+  async setProjectCompliancePaused(
+    projectId: number,
+    paused: boolean,
+    userId?: number,
+    reason?: string,
+  ): Promise<void> {
+    const project = await this.projectsRepo.findOne({
+      where: { project_id: Number(projectId) } as any,
+      select: ['project_id', 'company_id'] as any,
+    });
+    if (!project) throw new Error('Project not found.');
+
+    await this.projectsRepo.update(
+      { project_id: Number(projectId) } as any,
+      {
+        compliance_paused: paused,
+        compliance_paused_reason: paused ? reason ?? null : null,
+        compliance_paused_by: paused ? userId ?? null : null,
+        compliance_paused_at: paused ? new Date() : null,
+      } as any,
+    );
+
+    if (paused) {
+      try {
+        await this.checkpointRepo.update(
+          { project_id: Number(projectId) },
+          { is_stale: false, last_synced_at: new Date() },
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `setProjectCompliancePaused: clear is_stale failed for project ${projectId}: ${err?.message || err}`,
+        );
+      }
+    } else {
+      await this.refreshProjectComplianceCache(Number(projectId));
+    }
+  }
+
   async refreshProjectComplianceCache(
     projectId: number,
   ): Promise<{ pta: number; rta: number; failed: number }> {
     const summary = { pta: 0, rta: 0, failed: 0 };
     if (!projectId) return summary;
+
+    // Manual pause: skip ALL recompute and snapshot work for a paused
+    // project. Mark every checkpoint fresh so the freshness worker's
+    // stillDirty race-recovery doesn't loop forever on a project we
+    // deliberately froze. This guard covers every recompute path that
+    // funnels through here (BullMQ worker, read-time safety net, manual
+    // refresh button).
+    if (await this.isCompliancePaused(projectId)) {
+      try {
+        await this.checkpointRepo.update(
+          { project_id: Number(projectId) },
+          { is_stale: false, last_synced_at: new Date() },
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `refreshProjectComplianceCache: clear is_stale for paused project ${projectId} failed: ${err?.message || err}`,
+        );
+      }
+      return summary;
+    }
 
     // Watermark for orphan cleanup at the end.
     const startedAt = new Date();
@@ -640,6 +724,27 @@ export class CompliancesService {
       );
 
       const { project_id } = data;
+
+      // Manual pause short-circuit: a paused project reports zero issues
+      // and a `compliance_paused` flag so the dashboard "Compliance to do"
+      // count and the project status badge both reflect the paused state
+      // instead of the (now frozen) last computed critical results.
+      if (await this.isCompliancePaused(project_id)) {
+        const pausedProject = await this.projectsRepo.findOne({
+          where: { project_id },
+          select: ['project_name'],
+        });
+        return framedResponse('SUCCESS', 'Project compliance is paused.', {
+          project_name: pausedProject?.project_name,
+          pta_compliance: 'Ok',
+          rta_compliance: 'Ok',
+          number_of_issues_in_pta: 0,
+          number_of_issues_in_rta: 0,
+          pta_compliance_silenced: false,
+          rta_compliance_silenced: false,
+          compliance_paused: true,
+        });
+      }
 
       let pta_compliance;
       let rta_compliance;
@@ -1864,6 +1969,8 @@ export class CompliancesService {
         .where('p.project_status = :project_status', {
           project_status: 'In Progress',
         })
+        // Manual pause: never include paused projects in the daily digest.
+        .andWhere('p.compliance_paused IS DISTINCT FROM true')
         .andWhere(
           `(u.email_preferences ->> 'compliance') IS DISTINCT FROM 'false'`,
         )
@@ -2024,6 +2131,9 @@ export class CompliancesService {
     });
     if (!projectdetails) return null;
 
+    // Manual pause: suppress this project's compliance email data entirely.
+    if ((projectdetails as any).compliance_paused) return null;
+
     const complianceResults = [
       {
         type: 'PTA',
@@ -2081,6 +2191,15 @@ export class CompliancesService {
         where: { project_id: projectId },
         relations: ['companyDetails'],
       });
+
+      // Manual pause: do not send failed-compliance emails for a paused
+      // project.
+      if (!projectdetails || (projectdetails as any).compliance_paused) {
+        this.logger.log(
+          `Compliance emails skipped — project ${projectId} is paused or missing.`,
+        );
+        return;
+      }
 
       const projectOwnerdetails = projectdetails.companyDetails;
 

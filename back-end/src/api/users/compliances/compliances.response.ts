@@ -184,6 +184,13 @@ export class FetchComplianceStatusesOfAProject {
     description: 'Indicates if RTA compliance issues are silenced.',
   })
   rta_compliance_silenced?: boolean;
+
+  @Field({
+    nullable: true,
+    description:
+      'Indicates if compliance monitoring is manually paused for the project.',
+  })
+  compliance_paused?: boolean;
 }
 
 @ObjectType({

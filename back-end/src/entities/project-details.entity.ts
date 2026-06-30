@@ -129,6 +129,22 @@ export class ProjectDetails {
   })
   project_status: ProjectStatus;
 
+  // Manual per-project compliance pause. When true, all compliance
+  // recompute / system-issue generation, dashboard issue counting and
+  // compliance emails are suppressed for this project until it is
+  // explicitly resumed (which re-runs the full recompute).
+  @Column({ type: 'boolean', default: false })
+  compliance_paused: boolean;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  compliance_paused_reason: string;
+
+  @Column({ type: 'integer', nullable: true })
+  compliance_paused_by: number;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  compliance_paused_at: Date;
+
   @Column({ type: 'integer', nullable: true })
   created_by: number;
 
