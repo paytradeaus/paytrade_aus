@@ -127,7 +127,7 @@ export default function Header() {
           </h4>
         </div>
         <div className="pt_pageactions">
-          <div className="pt_addnewbutton" style={{ display: "flex", gap: "8px" }}>
+          <div className="pt_addnewbutton">
             <CustomButton
               buttonName={
                 pauseUpdating
@@ -136,7 +136,7 @@ export default function Header() {
                     ? "Resume compliance"
                     : "Pause compliance"
               }
-              buttonType={buttonType.SECONDARY}
+              buttonType={buttonType.CONTRAST}
               iconClassName={
                 projectData?.compliance_paused
                   ? "fa-light fa-play"
@@ -146,6 +146,8 @@ export default function Header() {
               disabled={pauseUpdating || !projectData?.project_id}
               onClick={handleToggleCompliancePause}
             />
+          </div>
+          <div className="pt_addnewbutton">
             <CustomButton
               buttonName={"Edit"}
               buttonType={buttonType.SECONDARY}
