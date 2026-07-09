@@ -143,6 +143,61 @@ export default function GuestFooter() {
               </li>
             </ul>
           </div>
+          <div className="footerlinks">
+            <h6>Trust Account Software</h6>
+            <ul>
+              <li>
+                <Link href="/about-pay-trade" className="contrast">
+                  About PayTrade
+                </Link>
+              </li>
+              <li>
+                <Link href="/pay-trade-facts" className="contrast">
+                  PayTrade facts
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/project-trust-account-software"
+                  className="contrast"
+                >
+                  Project trust account software
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/xero-project-trust-account-software"
+                  className="contrast"
+                >
+                  Xero trust account software
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/audit-ready-project-trust-account-software"
+                  className="contrast"
+                >
+                  Audit-ready trust software
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/retention-trust-account-software"
+                  className="contrast"
+                >
+                  Retention trust software
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/compare/project-trust-account-software"
+                  className="contrast"
+                >
+                  Compare trust software
+                </Link>
+              </li>
+            </ul>
+          </div>
           <div>
             <h6>Region</h6>
             <details className="dropdown countrybutton">

@@ -25,6 +25,7 @@ import OnboardingSupport from "./sections/OnboardingSupport";
 import UserGuidesLinks from "./sections/UserGuidesLinks";
 import FinalCta from "./sections/FinalCta";
 import FeaturesSection from "./sections/FeaturesSection";
+import TrustSoftwareLinks from "./sections/TrustSoftwareLinks";
 export default function HomeScreenPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(false);
@@ -255,6 +256,8 @@ export default function HomeScreenPage() {
       <OnboardingSupport />
 
       <UserGuidesLinks />
+
+      <TrustSoftwareLinks />
 
       <div>
         <div className="container-fluid">
