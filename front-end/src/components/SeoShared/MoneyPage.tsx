@@ -22,7 +22,7 @@ export interface MoneyPageSection {
   heading: string;
   paragraphs?: string[];
   list?: string[];
-  placeholders?: { label: string; description?: string }[];
+  placeholders?: { label: string; description?: string; src?: string }[];
   links?: { href: string; label: string }[];
 }
 
@@ -122,6 +122,7 @@ export default function MoneyPage({ config }: { config: MoneyPageConfig }) {
                       key={phIndex}
                       label={placeholder.label}
                       description={placeholder.description}
+                      src={placeholder.src}
                     />
                   ))}
                   {section.links && (

@@ -38,7 +38,9 @@ const config: MoneyPageConfig = {
       placeholders: [
         {
           label: "Beneficiary statement",
-          description: "Sample beneficiary statement showing claims, payments and retention held.",
+          description:
+            "The account ledger filtered by account and beneficiary — each entry references the payment claim it belongs to.",
+          src: "/images/seo-screenshots/account-ledger.png",
         },
       ],
     },
@@ -50,7 +52,9 @@ const config: MoneyPageConfig = {
       placeholders: [
         {
           label: "Trust ledger",
-          description: "Sample trust ledger showing claim-linked entries per beneficiary.",
+          description:
+            "Sample trust ledger showing claim-linked entries with references and running balance.",
+          src: "/images/seo-screenshots/account-ledger.png",
         },
       ],
     },
@@ -61,8 +65,16 @@ const config: MoneyPageConfig = {
       ],
       placeholders: [
         {
-          label: "Reconciliation statement",
-          description: "Sample reconciliation statement with matched bank transactions.",
+          label: "Matched bank transactions",
+          description:
+            "Bank transactions matched to their trust records in the bookkeeping transaction list.",
+          src: "/images/seo-screenshots/reconciliation-transactions.png",
+        },
+        {
+          label: "Reconciliation record",
+          description:
+            "A stored month-end reconciliation record with the bank statement balance and adjustments.",
+          src: "/images/seo-screenshots/reconciliation-record.png",
         },
       ],
     },
@@ -74,7 +86,9 @@ const config: MoneyPageConfig = {
       placeholders: [
         {
           label: "Notice record",
-          description: "Sample trust account notice stored against its trust record.",
+          description:
+            "Trust account notices stored with the account, project and notice type they relate to.",
+          src: "/images/seo-screenshots/notices.png",
         },
       ],
     },
@@ -86,7 +100,8 @@ const config: MoneyPageConfig = {
       placeholders: [
         {
           label: "Change history",
-          description: "Sample activity history for a trust record.",
+          description: "Activity history showing who changed what, and when.",
+          src: "/images/seo-screenshots/activity-log.png",
         },
       ],
     },
@@ -98,7 +113,9 @@ const config: MoneyPageConfig = {
       placeholders: [
         {
           label: "Sample audit pack",
-          description: "Sample audit pack export with summary and supporting documents.",
+          description:
+            "An exported audit pack: bank statements, claims, contracts, notices and a summary workbook in one bundle.",
+          src: "/images/seo-screenshots/audit-pack.png",
         },
       ],
     },

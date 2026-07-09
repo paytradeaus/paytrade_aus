@@ -3,10 +3,44 @@ import React from "react";
 export default function PlaceholderImage({
   label,
   description,
+  src,
 }: {
   label: string;
   description?: string;
+  src?: string;
 }) {
+  if (src) {
+    return (
+      <figure
+        style={{
+          margin: "1.25rem 0",
+          border: "1px solid var(--muted-border-color, #e0e0e0)",
+          borderRadius: "8px",
+          overflow: "hidden",
+          background: "#fff",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={description ? `${label} — ${description}` : label}
+          loading="lazy"
+          style={{ display: "block", width: "100%", height: "auto" }}
+        />
+        <figcaption
+          style={{
+            fontSize: "0.85rem",
+            opacity: 0.75,
+            padding: "0.6rem 1rem",
+            borderTop: "1px solid var(--muted-border-color, #eee)",
+          }}
+        >
+          <strong>{label}.</strong> {description}
+        </figcaption>
+      </figure>
+    );
+  }
+
   return (
     <figure
       style={{

@@ -31,6 +31,14 @@ const config: MoneyPageConfig = {
         "Trust account notices and document records",
         "Bank reconciliation with audit-ready evidence",
       ],
+      placeholders: [
+        {
+          label: "PayTrade dashboard",
+          description:
+            "Payments, notices, compliance and trust account balances in one view.",
+          src: "/images/seo-screenshots/dashboard.png",
+        },
+      ],
     },
     {
       heading: "Built for the whole team",

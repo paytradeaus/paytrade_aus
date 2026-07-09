@@ -23,6 +23,14 @@ const config: MoneyPageConfig = {
       paragraphs: [
         "Xero tracks the accounting position, but Queensland trustees also have to show who trust money is held for, which project and contract each movement relates to, and how the trust account reconciles. Xero project trust account software adds that layer without duplicating your bookkeeping.",
       ],
+      placeholders: [
+        {
+          label: "Xero integration dashboard",
+          description:
+            "Bank accounts, contacts, contracts, projects, invoices, bills and payments syncing between PayTrade and Xero, with a full sync log.",
+          src: "/images/seo-screenshots/xero-integration.png",
+        },
+      ],
     },
     {
       heading: "Xero bank account mapping",
