@@ -35,6 +35,9 @@ export class SeoKeyword {
   @Column({ type: 'text', nullable: true })
   hero_image_url: string;
 
+  @Column({ type: 'text', nullable: true })
+  redirect_url: string;
+
   @Column({
     type: 'enum',
     enum: ['Active', 'Inactive'],

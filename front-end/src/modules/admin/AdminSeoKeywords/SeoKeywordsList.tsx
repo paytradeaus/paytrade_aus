@@ -31,7 +31,7 @@ const seoKeywordsHeaders = [
 
 const seoKeywordsRenderData = [
   { key: "keyword" },
-  { key: "slug" },
+  { key: "slug_display" },
   { key: "page_title" },
   { key: "status" },
   { key: "created_on" },
@@ -374,6 +374,9 @@ export default function SeoKeywordsList() {
     id: kw.id,
     keyword: kw.keyword,
     slug: kw.slug,
+    slug_display: kw.redirect_url
+      ? `${kw.slug} → ${kw.redirect_url}`
+      : kw.slug,
     page_title:
       kw.page_title?.substring(0, 60) +
       (kw.page_title?.length > 60 ? "..." : ""),

@@ -23,6 +23,9 @@ export class SeoKeywordType {
   @Field({ nullable: true })
   hero_image_url?: string;
 
+  @Field({ nullable: true })
+  redirect_url?: string;
+
   @Field(() => [String], { nullable: true })
   tags?: string[];
 

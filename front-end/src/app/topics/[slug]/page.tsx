@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   getSeoKeywordBySlug,
   getSeoKeywordPageData,
@@ -26,6 +26,13 @@ export async function generateMetadata({
       title: "Page Not Found | Paytrade",
       robots: { index: false, follow: false },
     };
+  }
+
+  // Redirected pages should not render under their own slug. With the root
+  // loading boundary, Next may deliver this as a streamed in-body redirect
+  // (meta refresh + NEXT_REDIRECT) rather than a 3xx; browsers follow both.
+  if (keywordData.redirect_url) {
+    redirect(keywordData.redirect_url);
   }
 
   return {
@@ -75,6 +82,12 @@ export default async function Page({
 
   if (!keywordData) {
     notFound();
+  }
+
+  // Optional admin-configured redirect: when set, this slug forwards to the
+  // specified URL instead of rendering its own landing page.
+  if (keywordData.redirect_url) {
+    redirect(keywordData.redirect_url);
   }
 
   const community = pageData?.community ?? [];

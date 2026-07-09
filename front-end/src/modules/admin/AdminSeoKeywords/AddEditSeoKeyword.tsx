@@ -32,6 +32,7 @@ export default function AddEditSeoKeyword() {
     meta_description: "",
     page_content: "",
     hero_image_url: "",
+    redirect_url: "",
     tags: "",
   });
 
@@ -52,6 +53,7 @@ export default function AddEditSeoKeyword() {
         meta_description: data.meta_description || "",
         page_content: data.page_content || "",
         hero_image_url: data.hero_image_url || "",
+        redirect_url: data.redirect_url || "",
         tags: data.tags?.join(", ") || "",
       });
     }
@@ -166,6 +168,7 @@ export default function AddEditSeoKeyword() {
             meta_description: formData.meta_description,
             page_content: formData.page_content || undefined,
             hero_image_url: formData.hero_image_url || null,
+            redirect_url: formData.redirect_url.trim(),
             tags: tagsArray.length > 0 ? tagsArray : undefined,
           },
         });
@@ -178,6 +181,7 @@ export default function AddEditSeoKeyword() {
             meta_description: formData.meta_description,
             page_content: formData.page_content || undefined,
             hero_image_url: formData.hero_image_url || undefined,
+            redirect_url: formData.redirect_url.trim() || undefined,
             tags: tagsArray.length > 0 ? tagsArray : undefined,
           },
         });
@@ -307,6 +311,23 @@ export default function AddEditSeoKeyword() {
                 />
                 <small>
                   {formData.meta_description.length}/160 characters recommended
+                </small>
+              </div>
+
+              <div className="col-12">
+                <label htmlFor="redirect_url">Redirect URL (optional)</label>
+                <input
+                  type="text"
+                  id="redirect_url"
+                  name="redirect_url"
+                  value={formData.redirect_url}
+                  onChange={handleChange}
+                  placeholder="e.g., /topics/project-trust-account-software or https://..."
+                />
+                <small>
+                  {formData.redirect_url.trim()
+                    ? `Visitors to /topics/${formData.slug || "your-slug"} will be redirected to ${formData.redirect_url.trim()} instead of seeing this page.`
+                    : "Leave empty to show this page normally. If set, visitors are redirected to the specified URL (relative path or full URL)."}
                 </small>
               </div>
 

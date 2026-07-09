@@ -20,6 +20,13 @@ export class AddSeoKeywordInput {
   @Field({ nullable: true, description: 'Hero image URL for the landing page' })
   hero_image_url?: string;
 
+  @Field({
+    nullable: true,
+    description:
+      'Optional redirect target. When set, /topics/[slug] redirects to this URL instead of rendering the page.',
+  })
+  redirect_url?: string;
+
   @Field(() => [String], { nullable: true, description: 'Associated tags' })
   tags?: string[];
 }

@@ -1126,6 +1126,11 @@ input AddSeoKeywordInput {
   """Page title for SEO"""
   page_title: String!
 
+  """
+  Optional redirect target. When set, /topics/[slug] redirects to this URL instead of rendering the page.
+  """
+  redirect_url: String
+
   """URL-friendly slug for the landing page"""
   slug: String!
 
@@ -20735,6 +20740,7 @@ type SeoKeywordType {
   meta_description: String
   page_content: String
   page_title: String
+  redirect_url: String
   slug: String
   status: String
   tags: [String!]
@@ -22947,6 +22953,11 @@ input UpdateSeoKeywordInput {
 
   """Page title for SEO"""
   page_title: String
+
+  """
+  Optional redirect target. When set, /topics/[slug] redirects to this URL instead of rendering the page. Send an empty string to clear.
+  """
+  redirect_url: String
 
   """URL-friendly slug for the landing page"""
   slug: String

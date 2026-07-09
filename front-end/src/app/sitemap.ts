@@ -292,7 +292,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const seoData = await getActiveSeoKeywords();
     if (seoData?.seoKeywords?.length > 0) {
-      seoKeywordRoutes = seoData.seoKeywords.map((kw: any) => ({
+      seoKeywordRoutes = seoData.seoKeywords
+        .filter((kw: any) => !kw.redirect_url)
+        .map((kw: any) => ({
         url: `${baseUrl}topics/${kw.slug}`,
         lastModified: kw.updated_on || new Date(),
         changeFrequency: "weekly" as const,

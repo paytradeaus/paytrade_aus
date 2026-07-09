@@ -32,11 +32,53 @@ export class SeoKeywordsService {
     private blogRepo: Repository<BlogResource>,
   ) {}
 
+  /**
+   * Normalise the optional redirect target: trim, treat empty as "no
+   * redirect" (null), and only accept a relative path ("/...") or an
+   * absolute http(s) URL so the public page can't be pointed at
+   * javascript:/data: style values.
+   */
+  private normalizeRedirectUrl(value: string, slug: string): string | null {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return null;
+    const isRelative = trimmed.startsWith('/') && !trimmed.startsWith('//');
+    const isAbsolute = /^https?:\/\//i.test(trimmed);
+    if (!isRelative && !isAbsolute) {
+      throw new Error(
+        'Redirect URL must be a relative path (e.g. /topics/other-slug) or start with http:// or https://',
+      );
+    }
+
+    // Guard against a slug redirecting to itself (infinite redirect loop).
+    let path = trimmed;
+    if (isAbsolute) {
+      try {
+        path = new URL(trimmed).pathname;
+      } catch {
+        throw new Error('Redirect URL is not a valid URL.');
+      }
+    } else {
+      path = trimmed.split(/[?#]/)[0];
+    }
+    const normalizedPath = path.replace(/\/+$/, '') || '/';
+    if (normalizedPath.toLowerCase() === `/topics/${slug}`.toLowerCase()) {
+      throw new Error(
+        'Redirect URL cannot point at this page itself (that would create a redirect loop).',
+      );
+    }
+
+    return trimmed;
+  }
+
   async create(input: AddSeoKeywordInput): Promise<SeoKeyword> {
     const slug = slugify(input.slug || input.keyword, {
       lower: true,
       strict: true,
     });
+
+    if (input.redirect_url !== undefined) {
+      input.redirect_url = this.normalizeRedirectUrl(input.redirect_url, slug);
+    }
 
     const existing = await this.seoKeywordRepo.findOne({ where: { slug } });
     if (existing) {
@@ -69,6 +111,14 @@ export class SeoKeywordsService {
         throw new Error(`SEO keyword with slug "${newSlug}" already exists.`);
       }
       input.slug = newSlug;
+    }
+
+    if (input.redirect_url !== undefined) {
+      const finalSlug = input.slug || seoKeyword.slug;
+      input.redirect_url = this.normalizeRedirectUrl(
+        input.redirect_url,
+        finalSlug,
+      );
     }
 
     Object.keys(input).forEach((key) => {

@@ -18,6 +18,7 @@ export async function getSeoKeywordBySlug(slug: string) {
               meta_description
               page_content
               hero_image_url
+              redirect_url
               tags
               status
               created_on
@@ -56,6 +57,7 @@ export async function getSeoKeywordPageData(slug: string) {
               meta_description
               page_content
               hero_image_url
+              redirect_url
               tags
               status
               created_on
@@ -112,6 +114,7 @@ export async function getActiveSeoKeywords() {
               meta_description
               page_content
               hero_image_url
+              redirect_url
               tags
               status
               created_on

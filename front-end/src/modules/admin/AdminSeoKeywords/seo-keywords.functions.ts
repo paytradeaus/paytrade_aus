@@ -20,6 +20,7 @@ export async function adminListSeoKeywords(inputData: any) {
               page_title
               meta_description
               page_content
+              redirect_url
               tags
               status
               created_on
@@ -61,6 +62,7 @@ export async function adminGetSeoKeyword(id: string) {
               meta_description
               page_content
               hero_image_url
+              redirect_url
               tags
               status
             }
