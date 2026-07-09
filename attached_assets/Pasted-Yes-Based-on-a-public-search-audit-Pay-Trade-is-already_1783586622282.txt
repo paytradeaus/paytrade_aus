@@ -1,0 +1,219 @@
+Yes. Based on a public-search audit, **Pay Trade is already indexed for the trust-account topic**, but it is not yet structured strongly enough to win the two main keywords:
+
+1. **project trust account**
+2. **project trust account software**
+
+I cannot see your Google Search Console, Analytics, server logs, or full rendered HTML, so this is a public SERP/content audit rather than a full crawl audit.
+
+## Executive verdict
+
+**Pay Trade has a good foundation but weak keyword architecture.**
+
+The homepage is indexed with the title/theme **“QBCC Trust Accounting Software for the Australian Construction Industry”**, and Google is picking up that Pay Trade helps with “project and retention trust accounts.” ([Paytrade][1]) Pay Trade is also listed on the Queensland Government “assessed trust account software solutions” page, which is a major trust signal, although the department notes the software capabilities are self-assessed and not verified by the department. ([Housing Queensland][2])
+
+The issue is that Pay Trade appears to be relying on the homepage, FAQ, pricing, features, subcontractor pages, and many community Q&A pages to rank, rather than having two strong, dedicated landing pages for the exact search intents.
+
+## Keyword 1: “project trust account”
+
+This keyword is mostly **informational / compliance intent**. Searchers are usually asking:
+
+“What is a project trust account?”
+“When is one required?”
+“How do I open one?”
+“What are the QBCC/BIF Act rules?”
+“Who gets paid from it?”
+“What changed in 2025/2026?”
+
+This SERP is dominated by authority sources like QBCC, Queensland legislation, Master Builders Queensland, HIA, banks, and government pages. QBCC explains that the framework protects subcontractor payments and that a PTA is required for eligible Queensland contracts, with a separate PTA for each eligible contract. ([QBCC][3]) The Department confirms the framework currently applies to eligible Queensland Government contracts of **$1m+** and private/local/statutory/GOC contracts of **$10m+**, following the paused rollout below $10m. ([Housing Queensland][4])
+
+**Audit conclusion:**
+Pay Trade should not try to rank the homepage for this keyword. You need a dedicated evergreen guide:
+
+**Recommended URL:**
+`/project-trust-account`
+
+**Recommended title tag:**
+`Project Trust Account QLD: Requirements, Rules & Software Help | Pay Trade`
+
+**Recommended H1:**
+`Project Trust Account Requirements in Queensland`
+
+This page should be a neutral, authoritative guide first, and a product CTA second. It should explain:
+
+* What a project trust account is.
+* Who needs one.
+* Current 2026 thresholds.
+* When it must be opened.
+* Why the rollout pause matters.
+* What records/notices are required.
+* Common mistakes.
+* How software helps administer the account.
+* CTA: “Check whether Pay Trade can help manage your project trust obligations.”
+
+## Keyword 2: “project trust account software”
+
+This keyword is much more valuable. It has **commercial / buying intent**.
+
+The current SERP includes the Queensland Government software list, BuildTrust, Cabanet, Workbench Central, and Pay Trade. The government list includes Pay Trade alongside Premier, BuildTrust, CSSP, E2EFi and Bizprac, and describes Pay Trade as software to “make construction project and trust administration and accounting easy.” ([Housing Queensland][2]) BuildTrust has a direct “Manage Project Trust Account” page that targets the exact phrase and lists features like automated payment processing, reconciliation, reporting, security and integrations. ([BuildTrust][5]) Cabanet also has a dedicated QBCC project trust accounting page that talks about PTA ledgers, reconciliation, notices, reporting and secure recordkeeping. ([Cabenet][6])
+
+**Audit conclusion:**
+This is the keyword Pay Trade should prioritise. It is more commercially valuable and more winnable than the broad informational keyword.
+
+**Recommended URL:**
+`/project-trust-account-software`
+
+**Recommended title tag:**
+`Project Trust Account Software for Queensland Builders | Pay Trade`
+
+**Recommended H1:**
+`Project Trust Account Software for QBCC Trust Compliance`
+
+This page should be built like a sales page, not a blog post. It needs:
+
+* Hero section: “Manage project trust accounts, retention trusts, notices, ledgers and reconciliation in one simple system.”
+* Proof: “Listed by Queensland Government as an assessed trust account software solution.”
+* Feature blocks:
+
+  * Project trust account setup records
+  * PTA ledger
+  * Retention trust support
+  * Beneficiary records
+  * Notices
+  * Reconciliation
+  * Audit trail
+  * Reports
+  * Subcontractor/payment claim workflow
+* Comparison section:
+
+  * Pay Trade vs spreadsheets
+  * Pay Trade vs standard accounting software
+  * Pay Trade vs manual compliance
+* Pricing CTA.
+* Demo CTA.
+* FAQ schema.
+* Internal links to the broader guide, FAQ, features, pricing, and community discussions.
+
+## Current Pay Trade SEO strengths
+
+Pay Trade has several good assets already:
+
+* The homepage is indexed for QBCC trust accounting software. ([Paytrade][1])
+* The FAQ is indexed and says Pay Trade helps principals and head contractors comply with BIF Act requirements, including notices and account records. ([Paytrade][7])
+* The pricing page is indexed and includes a CTA around taking control of project trust accounts. ([Paytrade][8])
+* Multiple community Q&A pages are indexed around project trust accounts, bank requirements, compliance, penalties, disputes, and software recommendations. ([Paytrade][9])
+* Pay Trade has a very valuable external trust signal from the Queensland Government assessed software list. ([Housing Queensland][2])
+
+## Current weaknesses
+
+The biggest weakness is **page targeting**.
+
+Right now, Pay Trade seems to be targeting the broader phrase **“QBCC trust accounting software”** better than **“project trust account software.”** That is not bad, but users may search in plain English before they search “QBCC trust accounting software.”
+
+Second, there is a risk of **content cannibalisation** from many community pages that all partly answer the same questions. The community content is useful for long-tail rankings, but Google needs one obvious “main page” for:
+
+* project trust account
+* project trust account software
+* QBCC trust accounting software
+* retention trust account software
+* BIF Act trust account compliance
+
+Third, the site needs more visible **E-E-A-T**. This topic is quasi-legal/compliance/accounting. Each key page should show:
+
+* Author name.
+* Reviewer name.
+* “Reviewed by” accountant, lawyer, compliance specialist, or experienced industry operator.
+* Last reviewed date.
+* Disclaimer: general information only, not legal/accounting advice.
+* Links to QBCC, Queensland Government and legislation sources.
+
+## Recommended page cluster
+
+Build this structure:
+
+| Priority | Page                                     | Target keyword                        |
+| -------- | ---------------------------------------- | ------------------------------------- |
+| 1        | `/project-trust-account-software`        | project trust account software        |
+| 2        | `/project-trust-account`                 | project trust account                 |
+| 3        | `/qbcc-trust-accounting-software`        | QBCC trust accounting software        |
+| 4        | `/retention-trust-account-software`      | retention trust account software      |
+| 5        | `/bif-act-trust-account-compliance`      | BIF Act trust account compliance      |
+| 6        | `/project-trust-account-ledger`          | project trust account ledger          |
+| 7        | `/project-trust-account-reconciliation`  | project trust account reconciliation  |
+| 8        | `/project-trust-account-notices`         | project trust account notices         |
+| 9        | `/how-to-open-project-trust-account-qld` | how to open project trust account QLD |
+
+Then link all relevant community posts back to these hub pages.
+
+## On-page fixes for the main software page
+
+Use this structure:
+
+**Title:**
+`Project Trust Account Software for Queensland Builders | Pay Trade`
+
+**Meta description:**
+`Pay Trade helps Queensland builders and head contractors administer project trust accounts, retention trusts, notices, ledgers, reconciliation and QBCC trust account records.`
+
+**H1:**
+`Project Trust Account Software for Queensland Builders`
+
+**Opening copy:**
+“Pay Trade helps head contractors, principals and construction teams administer project trust account and retention trust account obligations under Queensland’s BIF Act framework.”
+
+**Primary CTA:**
+`Book a Pay Trade demo`
+
+**Secondary CTA:**
+`See pricing`
+
+**FAQ questions:**
+
+* What is project trust account software?
+* Do I need software for a project trust account?
+* Can I manage a project trust account in Xero, MYOB or spreadsheets?
+* What records does project trust account software need to produce?
+* Is Pay Trade listed as a trust account software solution?
+* Does Pay Trade handle retention trust accounts?
+* Does Pay Trade help with QBCC notices?
+* Is Pay Trade legal or accounting advice?
+
+## Technical SEO checklist
+
+I would check these next inside the site/app:
+
+* Make sure the new pages are server-rendered or pre-rendered, not hidden behind JavaScript.
+* Add them to XML sitemap.
+* Add clean canonical tags.
+* Add breadcrumbs.
+* Add FAQ schema.
+* Add SoftwareApplication schema to the software page.
+* Add Organization schema.
+* Internally link from homepage hero/footer.
+* Internally link from pricing, features, FAQ, blog and community pages.
+* Avoid duplicate title tags across community pages.
+* Add “last reviewed” dates to compliance pages.
+* Make sure Google can index public community pages without login/session issues.
+* Use short, readable URLs.
+* Add comparison tables and screenshots.
+
+## 30-day action plan
+
+**Week 1:** Build `/project-trust-account-software` and make it the commercial hub.
+
+**Week 2:** Build `/project-trust-account` as the educational guide and link it heavily to the software page.
+
+**Week 3:** Add supporting pages for retention trust, QBCC trust accounting software, notices, ledgers and reconciliation.
+
+**Week 4:** Update all indexed community Q&A pages so each one links back to the right hub page with exact-match internal anchor text.
+
+The highest-value move is simple: **create the exact-match “Project Trust Account Software” landing page and make every relevant community/blog/FAQ page point to it.**
+
+[1]: https://paytrade.app/?utm_source=chatgpt.com "Paytrade: QBCC Trust Accounting Software for the Australian ..."
+[2]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/assessed-trust-solutions "Assessed trust account software solutions | Department of Housing and Public Works"
+[3]: https://www.qbcc.qld.gov.au/running-your-business/trust-accounts "Trust accounts | Queensland Building and Construction Commission"
+[4]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/trust-account-framework?utm_source=chatgpt.com "Trust account framework"
+[5]: https://buildtrust.com.au/features/manage-project-trust-account/?utm_source=chatgpt.com "Manage Project Trust Accounts QLD | PTA Accounting Software"
+[6]: https://www.cabenet.au/newera/page2.html "Features - QBCC Trust accounting"
+[7]: https://paytrade.app/faq?utm_source=chatgpt.com "FAQs - Paytrade"
+[8]: https://paytrade.app/pricing?utm_source=chatgpt.com "Pricing - Paytrade"
+[9]: https://paytrade.app/community/discussions/compliance/examples-of-common-disputes-in-qbcc-project-trust-accounts/2c7a3a0e-8dc9-4b5c-9df7-c3b1d6d2a9ad?utm_source=chatgpt.com "Community - Discussions - Examples of Common Disputes in QBCC ..."
