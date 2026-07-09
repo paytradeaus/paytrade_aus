@@ -109,9 +109,22 @@ export function middleware(request: NextRequest) {
   if (!parsedVerificationData) {
     if (unAuthorizedPaths) {
       return NextResponse.next();
-    } else {
-      return NextResponse.redirect(new URL(AppRoutes.HOME, request.url));
     }
+    // Session missing/expired: send the visitor to the matching login page
+    // instead of the homepage so they can sign back in and continue.
+    if (
+      request.nextUrl.pathname === "/admin" ||
+      request.nextUrl.pathname.startsWith("/admin/")
+    ) {
+      return NextResponse.redirect(new URL(AppRoutes.ADMIN_LOGIN, request.url));
+    }
+    if (
+      request.nextUrl.pathname === "/user" ||
+      request.nextUrl.pathname.startsWith("/user/")
+    ) {
+      return NextResponse.redirect(new URL(AppRoutes.USER_LOGIN, request.url));
+    }
+    return NextResponse.redirect(new URL(AppRoutes.HOME, request.url));
   }
 
   if (isAdminLoginPath) {
