@@ -17,6 +17,9 @@ import OnboardingSupport from "@/components/HomeScreen/sections/OnboardingSuppor
 import UserGuidesLinks from "@/components/HomeScreen/sections/UserGuidesLinks";
 import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 import FeaturesSection from "@/components/HomeScreen/sections/FeaturesSection";
+import CompareCtaBlock, {
+  isTrustAccountRelated,
+} from "@/components/SeoShared/CompareCtaBlock";
 
 interface SeoKeywordData {
   id: string;
@@ -225,6 +228,12 @@ export default function SeoLandingPage({
           subtitle="Step-by-step how-to guides and articles to help you stay compliant."
           items={guideItems}
         />
+
+        {isTrustAccountRelated(
+          keywordData.keyword,
+          keywordData.page_title,
+          (keywordData.tags || []).join(" ")
+        ) && <CompareCtaBlock />}
 
         <CtaCard keyword={keywordData.keyword} />
 

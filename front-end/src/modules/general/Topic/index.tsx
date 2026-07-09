@@ -40,6 +40,9 @@ import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { uploadFile, UploadImage } from "@/shared/constant/general";
 import { deleteAttachment, multipleFileUploadApi } from "@/app/api/commonApi";
 import BaseModal from "@/components/BaseModal";
+import CompareCtaBlock, {
+  isTrustAccountRelated,
+} from "@/components/SeoShared/CompareCtaBlock";
 import { isEqual } from "lodash";
 
 export default function Topic() {
@@ -850,6 +853,11 @@ export default function Topic() {
                             );
                           }
                         )}
+                        {isTrustAccountRelated(
+                          discussionData?.title,
+                          discussionData?.category?.value,
+                          discussionData?.content
+                        ) && <CompareCtaBlock />}
                       </div>
                       <div className="pt_discussfooter">
                         <div>
