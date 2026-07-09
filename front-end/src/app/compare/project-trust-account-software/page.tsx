@@ -9,7 +9,7 @@ import BuyerQuestionsSection from "@/components/SeoShared/Comparison/BuyerQuesti
 import EvidenceProofSection from "@/components/SeoShared/Comparison/EvidenceProofSection";
 import RelatedComparisonLinks from "@/components/SeoShared/Comparison/RelatedComparisonLinks";
 import FAQAccordion from "@/components/SeoShared/FAQAccordion";
-import DemoCTA from "@/components/SeoShared/DemoCTA";
+import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 import DisclaimerBox from "@/components/SeoShared/DisclaimerBox";
 import SourceNoteBox from "@/components/SeoShared/SourceNoteBox";
 import {
@@ -195,10 +195,7 @@ export default function ComparisonHubPage() {
 
       <FAQAccordion faqs={HUB_FAQS} />
 
-      <DemoCTA
-        heading="Compare PayTrade with your current workflow"
-        description="Book a demo and ask us to show the Xero mapping, trust record structure, reconciliation workflow and audit evidence pack."
-      />
+      <FinalCta />
 
       <section>
         <h2>Individual comparisons</h2>

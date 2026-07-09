@@ -7,8 +7,9 @@ import SeoJsonLd from "./SeoJsonLd";
 import DisclaimerBox from "./DisclaimerBox";
 import LastReviewed from "./LastReviewed";
 import FAQAccordion from "./FAQAccordion";
-import DemoCTA from "./DemoCTA";
+import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 import PlaceholderImage from "./PlaceholderImage";
+import KeywordAlignedContent from "./KeywordAlignedContent";
 import {
   absoluteUrl,
   buildOrganizationSchema,
@@ -72,7 +73,7 @@ export function buildMoneyPageMetadata(config: MoneyPageConfig): Metadata {
   };
 }
 
-export default function MoneyPage({ config }: { config: MoneyPageConfig }) {
+export default async function MoneyPage({ config }: { config: MoneyPageConfig }) {
   const schemas = [
     buildOrganizationSchema(),
     buildSoftwareApplicationSchema(),
@@ -139,7 +140,9 @@ export default function MoneyPage({ config }: { config: MoneyPageConfig }) {
 
               <FAQAccordion faqs={config.faqs} heading={config.faqHeading} />
 
-              <DemoCTA />
+              <KeywordAlignedContent keyword={config.keyword} />
+
+              <FinalCta />
 
               <section>
                 <h2>Related trust account software pages</h2>

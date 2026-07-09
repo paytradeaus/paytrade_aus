@@ -9,7 +9,7 @@ import BuyerQuestionsSection from "./BuyerQuestionsSection";
 import EvidenceProofSection from "./EvidenceProofSection";
 import RelatedComparisonLinks from "./RelatedComparisonLinks";
 import FAQAccordion from "../FAQAccordion";
-import DemoCTA from "../DemoCTA";
+import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 import DisclaimerBox from "../DisclaimerBox";
 import SourceNoteBox from "../SourceNoteBox";
 import {
@@ -165,10 +165,7 @@ export default function CompetitorPage({
 
       <FAQAccordion faqs={copy.faqs} />
 
-      <DemoCTA
-        heading="Compare PayTrade on a live demo"
-        description="Book a demo and ask us to show the Xero mapping, trust record structure, reconciliation workflow and audit evidence pack."
-      />
+      <FinalCta />
 
       <RelatedComparisonLinks currentPath={path} />
 

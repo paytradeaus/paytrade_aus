@@ -234,8 +234,8 @@ export class SeoKeywordsService {
   // Tokenise the keyword phrase into its individual significant words.
   // Tags are deliberately NOT used: they are reused across many keywords and
   // match too broadly, drowning out keyword-specific relevance.
-  private buildSearchTerms(keyword: SeoKeyword): string[] {
-    const words = (keyword.keyword || '')
+  private buildSearchTerms(keywordText: string): string[] {
+    const words = (keywordText || '')
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
@@ -371,6 +371,167 @@ export class SeoKeywordsService {
     });
   }
 
+  // ---------------------------------------------------------------------
+  // Keyword-aligned related content for the static money/SEO pages.
+  //
+  // Unlike the per-word OR matching above (which is fine when ranking within
+  // a single keyword page), the money pages need CLOSELY aligned content:
+  // matching each slug word in isolation would surface almost everything.
+  // So here a candidate must contain EITHER the full keyword phrase OR every
+  // significant word of it (ANDed). Phrase hits are boosted so exact-phrase
+  // content always ranks first.
+  // ---------------------------------------------------------------------
+
+  private buildPhrase(keywordText: string): string {
+    return (keywordText || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private scorePhraseAlignment(
+    title: string | null,
+    content: string | null,
+    phrase: string,
+    terms: string[],
+  ): number {
+    let score = this.scoreTermOverlap(title, content, terms);
+    if (phrase) {
+      if ((title || '').toLowerCase().includes(phrase)) score += 8;
+      if ((content || '').toLowerCase().includes(phrase)) score += 4;
+    }
+    return score;
+  }
+
+  private async findAlignedCommunity(
+    phrase: string,
+    terms: string[],
+    limit: number,
+  ): Promise<RelatedItem[]> {
+    if (!terms.length) return [];
+    const qb = this.cmtyRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.category', 'category')
+      .where('c.discussion_idea_status = :status', { status: 'Active' });
+
+    // Every significant term must appear somewhere in title or content.
+    terms.forEach((t, i) => {
+      qb.andWhere(`(c.title ILIKE :at${i} OR c.content ILIKE :at${i})`, {
+        [`at${i}`]: `%${t}%`,
+      });
+    });
+
+    const rows = await qb
+      .orderBy('c.created_on', 'DESC')
+      .take(SeoKeywordsService.RELATED_CANDIDATE_CAP)
+      .getMany();
+
+    return rows
+      .map((r) => ({
+        r,
+        score: this.scorePhraseAlignment(r.title, r.content, phrase, terms),
+      }))
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          (b.r.view_count || 0) - (a.r.view_count || 0) ||
+          ((b.r.created_on?.getTime?.() ?? 0) -
+            (a.r.created_on?.getTime?.() ?? 0)),
+      )
+      .slice(0, limit)
+      .map(({ r }) => {
+        const pageLink =
+          r.cmty_content_type === 'Idea' ? 'product-ideas' : 'discussions';
+        const cat = slugify(r.category?.value || 'All', {
+          lower: true,
+          strict: true,
+        });
+        const titleSlug = slugify(r.title || '', { lower: true, strict: true });
+        const replies = r.answer_comment_count || 0;
+        return {
+          type: 'community',
+          title: r.title,
+          excerpt: this.makeExcerpt(r.content),
+          url: `/community/${pageLink}/${cat}/${titleSlug}/${r.id}`,
+          category: r.category?.value || null,
+          meta: `${replies} ${replies === 1 ? 'reply' : 'replies'}`,
+        };
+      });
+  }
+
+  private async findAlignedGuides(
+    phrase: string,
+    terms: string[],
+    limit: number,
+  ): Promise<RelatedItem[]> {
+    if (!terms.length) return [];
+    const qb = this.blogRepo
+      .createQueryBuilder('b')
+      .leftJoinAndSelect('b.category', 'category')
+      .where('b.blog_status = :status', { status: 'Published' })
+      .andWhere('b.content_type IN (:...types)', {
+        types: ['howToGuide', 'Blog'],
+      });
+
+    terms.forEach((t, i) => {
+      qb.andWhere(`(b.title ILIKE :at${i} OR b.content ILIKE :at${i})`, {
+        [`at${i}`]: `%${t}%`,
+      });
+    });
+
+    const rows = await qb
+      .orderBy('b.created_on', 'DESC')
+      .take(SeoKeywordsService.RELATED_CANDIDATE_CAP)
+      .getMany();
+
+    return rows
+      .map((r) => ({
+        r,
+        score: this.scorePhraseAlignment(r.title, r.content, phrase, terms),
+      }))
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          ((b.r.published_on?.getTime?.() ?? 0) -
+            (a.r.published_on?.getTime?.() ?? 0)) ||
+          ((b.r.created_on?.getTime?.() ?? 0) -
+            (a.r.created_on?.getTime?.() ?? 0)),
+      )
+      .slice(0, limit)
+      .map(({ r }) => {
+        const cat = slugify(r.category?.value || 'All', {
+          lower: true,
+          strict: true,
+        });
+        const itemSlug =
+          (r.urlSlug && r.urlSlug.trim()) ||
+          slugify(r.title || '', { lower: true, strict: true });
+        const base = r.content_type === 'howToGuide' ? 'how-to-guides' : 'blog';
+        return {
+          type: 'guide',
+          title: r.title,
+          excerpt: this.makeExcerpt(r.content),
+          url: `/${base}/${cat}/${itemSlug}/${r.id}`,
+          category: r.category?.value || null,
+          meta: r.content_type === 'howToGuide' ? 'How-to guide' : 'Article',
+        };
+      });
+  }
+
+  async getRelatedContentForKeyword(rawKeyword: string): Promise<{
+    community: RelatedItem[];
+    guides: RelatedItem[];
+  }> {
+    const phrase = this.buildPhrase(rawKeyword);
+    const terms = this.buildSearchTerms(rawKeyword);
+    const [community, guides] = await Promise.all([
+      this.findAlignedCommunity(phrase, terms, 3),
+      this.findAlignedGuides(phrase, terms, 6),
+    ]);
+    return { community, guides };
+  }
+
   async getPageData(slug: string): Promise<{
     keyword: SeoKeyword;
     community: RelatedItem[];
@@ -379,7 +540,7 @@ export class SeoKeywordsService {
     const keyword = await this.findBySlug(slug);
     if (!keyword) return null;
 
-    const terms = this.buildSearchTerms(keyword);
+    const terms = this.buildSearchTerms(keyword.keyword);
     const [community, guides] = await Promise.all([
       this.findRelatedCommunity(terms),
       this.findRelatedGuides(terms),

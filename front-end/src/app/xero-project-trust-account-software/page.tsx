@@ -129,6 +129,8 @@ const config: MoneyPageConfig = {
   relatedLinks: relatedLinksFor("xero-project-trust-account-software"),
 };
 
+export const dynamic = "force-dynamic";
+
 export const metadata = buildMoneyPageMetadata(config);
 
 export default function Page() {

@@ -225,6 +225,33 @@ export class SeoKeywordsResolver {
     }
   }
 
+  @Public()
+  @Query(() => SeoKeywordPageResponse, {
+    name: 'getRelatedContentForKeyword',
+    description:
+      'Get community posts and how-to guides/blogs closely aligned with a full keyword phrase (phrase match or all significant words, not per-word OR). Used by the static SEO money pages (public).',
+  })
+  async getRelatedContentForKeyword(
+    @Args('keyword', { description: 'Full keyword phrase to align against.' })
+    keyword: string,
+  ): Promise<SeoKeywordPageResponse> {
+    try {
+      const result =
+        await this.seoKeywordsService.getRelatedContentForKeyword(keyword);
+      return {
+        status: 'SUCCESS',
+        message: 'Related content retrieved.',
+        community: result.community,
+        guides: result.guides,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error getting related content for keyword: ${error.message}`,
+      );
+      return { status: 'ERROR', message: error.message };
+    }
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
   @Mutation(() => SeoDraftResponse, {

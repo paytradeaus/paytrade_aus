@@ -151,6 +151,8 @@ const config: MoneyPageConfig = {
   relatedLinks: relatedLinksFor("audit-ready-project-trust-account-software"),
 };
 
+export const dynamic = "force-dynamic";
+
 export const metadata = buildMoneyPageMetadata(config);
 
 export default function Page() {

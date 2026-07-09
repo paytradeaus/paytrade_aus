@@ -19627,6 +19627,14 @@ type Query {
     is_archived: Boolean
   ): GetProjectsListResponse!
 
+  """
+  Get community posts and how-to guides/blogs closely aligned with a full keyword phrase (phrase match or all significant words, not per-word OR). Used by the static SEO money pages (public).
+  """
+  getRelatedContentForKeyword(
+    """Full keyword phrase to align against."""
+    keyword: String!
+  ): SeoKeywordPageResponse!
+
   """Get an active SEO keyword by its URL slug (public)."""
   getSeoKeywordBySlug(
     """URL slug of the SEO keyword."""

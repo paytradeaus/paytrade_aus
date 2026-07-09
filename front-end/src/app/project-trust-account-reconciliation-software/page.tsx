@@ -84,6 +84,8 @@ const config: MoneyPageConfig = {
   relatedLinks: relatedLinksFor("project-trust-account-reconciliation-software"),
 };
 
+export const dynamic = "force-dynamic";
+
 export const metadata = buildMoneyPageMetadata(config);
 
 export default function Page() {

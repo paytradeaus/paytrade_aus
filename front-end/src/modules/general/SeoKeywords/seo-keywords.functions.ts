@@ -136,3 +136,50 @@ export async function getActiveSeoKeywords() {
     return { seoKeywords: [], totalCount: 0 };
   }
 }
+
+export async function getRelatedContentForKeyword(keyword: string) {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        query GetRelatedContentForKeyword($keyword: String!) {
+          getRelatedContentForKeyword(keyword: $keyword) {
+            status
+            message
+            community {
+              type
+              title
+              excerpt
+              url
+              category
+              meta
+            }
+            guides {
+              type
+              title
+              excerpt
+              url
+              category
+              meta
+            }
+          }
+        }
+      `,
+      variables: { keyword },
+      fetchPolicy: "no-cache",
+    });
+
+    if (
+      response?.data?.getRelatedContentForKeyword?.status ===
+      ApiResponse.SUCCESS
+    ) {
+      return {
+        community: response.data.getRelatedContentForKeyword.community || [],
+        guides: response.data.getRelatedContentForKeyword.guides || [],
+      };
+    }
+    return { community: [], guides: [] };
+  } catch (error: any) {
+    console.log("getRelatedContentForKeyword ~ error:", error);
+    return { community: [], guides: [] };
+  }
+}

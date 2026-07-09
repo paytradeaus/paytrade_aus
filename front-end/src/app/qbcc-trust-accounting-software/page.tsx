@@ -77,6 +77,8 @@ const config: MoneyPageConfig = {
   relatedLinks: relatedLinksFor("qbcc-trust-accounting-software"),
 };
 
+export const dynamic = "force-dynamic";
+
 export const metadata = buildMoneyPageMetadata(config);
 
 export default function Page() {
