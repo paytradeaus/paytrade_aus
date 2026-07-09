@@ -37,6 +37,10 @@ export function relatedLinksFor(currentPath: string) {
   const path = `/${currentPath.replace(/^\//, "")}`;
   return [
     ...MONEY_PAGE_LINKS.filter((link) => link.href !== path),
+    {
+      href: "/compare/project-trust-account-software",
+      label: "Compare project trust account software",
+    },
     { href: "/pricing", label: "PayTrade pricing" },
     { href: "/faq", label: "Frequently asked questions" },
     { href: "/get-support", label: "Contact us for a demo" },

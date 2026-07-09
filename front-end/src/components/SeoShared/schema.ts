@@ -96,6 +96,25 @@ export function buildBreadcrumbSchema(items: BreadcrumbItem[]) {
   };
 }
 
+export function buildItemListSchema(input: {
+  name: string;
+  path: string;
+  items: { name: string; url?: string }[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: input.name,
+    url: absoluteUrl(input.path),
+    itemListElement: input.items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      ...(item.url ? { url: item.url } : {}),
+    })),
+  };
+}
+
 export interface FaqItem {
   question: string;
   answer: string;

@@ -234,6 +234,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    ...[
+      "compare/project-trust-account-software",
+      "compare/pay-trade-vs-buildtrust",
+      "compare/buildtrust-alternative",
+      "compare/pay-trade-vs-cabenet",
+      "compare/cabenet-alternative",
+      "compare/pay-trade-vs-e2efi",
+      "compare/e2efi-alternative",
+      "compare/pay-trade-vs-cheops",
+      "compare/cheops-alternative",
+      "compare/pay-trade-vs-premier-construction-software",
+      "compare/premier-construction-software-alternative",
+      "compare/pay-trade-vs-bizprac",
+      "compare/bizprac-alternative",
+    ].map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.9,
+    })),
   ];
 
   const validBlogList = blogList.filter((post: any) => post?.category?.value);
