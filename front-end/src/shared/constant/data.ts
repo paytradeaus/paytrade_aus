@@ -37,7 +37,7 @@ const listTabOptions = [
 ];
 
 const ABOUT_SECTION_FOOTER_CONTENT =
-  "QBCC Complaint Trust & Accounting Software Built for the Australian Construction Industry. Our simple trust account administration software helps you to implement and administer the QBCC regulatory requirements for project and retention trust accounts.";
+  "QBCC Compliant Trust & Accounting Software Built for the Australian Construction Industry. Our simple trust account administration software helps you to implement and administer the QBCC regulatory requirements for project and retention trust accounts.";
 
 const ACKNOWLEDGEMENT_OF_COUNTRY =
   "We acknowledge the Traditional Owners of the land on which we work and live, and recognise their continuing connection to land, water and community. We pay respect to Elders past, present and emerging.";

@@ -1,0 +1,176 @@
+Yes. I searched the new/near-match page titles and slugs shown in your screenshots. **The key finding is: those new pages do not yet appear to be surfacing as clean standalone indexed results for the exact target terms.** What is surfacing is still mostly the homepage, features/FAQ/pricing pages, and community discussion pages.
+
+## What I can see publicly
+
+The new pages from the screenshot look like this:
+
+### Informational cluster
+
+You appear to have pages like:
+
+* `how-project-trust-accounts-work`
+* `do-i-need-a-project-trust-account-in-queensland`
+* `need-project-trust-account-qld`
+* `setup-project-trust-account`
+* `how-to-open-and-operate-a-project-trust-account-in-queensland`
+* `open-project-trust-account-qld`
+
+These are good supporting pages, but Google still seems to be finding mostly **community/discussion pages** for these topics rather than a clear hub page. For example, a Pay Trade community result published 5 days ago appears for a “how do I set up a project trust account” style search, and other recent Pay Trade community results appear around eligibility, setup, bank requirements, and compliance timelines. ([Paytrade][1])
+
+### Commercial cluster
+
+You appear to have near-miss pages like:
+
+* `project-trust-account-software-for-queensland-builders`
+* `project-trust-software-australia`
+* `trust-software-qld`
+
+The first one is the best. The title **“Project Trust Account Software for Queensland Builders”** is very close to what you need. But the exact commercial keyword is still better served by a shorter canonical page:
+
+`/project-trust-account-software`
+
+Search still appears to surface your homepage, features, FAQ, pricing, bookkeepers, subcontractor page and community content more than a dedicated exact-match commercial page. The homepage is currently recognised as **“QBCC Trust Accounting Software for the Australian Construction Industry”**, and Pay Trade snippets repeatedly say the software helps administer QBCC project and retention trust requirements. ([Paytrade][2])
+
+## Main audit finding
+
+You now have **content coverage**, but not yet **SEO architecture clarity**.
+
+Google is seeing lots of related pages, but the structure still looks fragmented:
+
+* several “how to / do I need / setup” pages for the informational intent;
+* several “software / QLD / Australia / Queensland builders” pages for the commercial intent;
+* lots of community discussions also targeting similar phrases.
+
+That creates a cannibalisation risk. Google may not know which page is the main result for:
+
+* **project trust account**
+* **project trust account software**
+* **QBCC trust accounting software**
+* **project trust account QLD**
+* **project trust account software Queensland**
+
+## My recommendation
+
+Create or confirm these two canonical pages:
+
+### 1. Main informational hub
+
+Use:
+
+`/project-trust-account`
+
+Title:
+
+`Project Trust Account QLD: Rules, Requirements & Setup Guide | Pay Trade`
+
+Purpose: rank for **project trust account**.
+
+This page should be a proper guide, not a sales page. It should explain what a PTA is, when one is required, current thresholds, setup steps, notices, ledgers, reconciliation, retention trusts, and common mistakes.
+
+It should cite the current framework clearly. Queensland Government says the trust account framework currently applies to eligible Queensland Government contracts of **$1m+** and private/local/statutory/GOC contracts of **$10m+**. ([Housing Queensland][3]) QBCC also says a PTA is needed for eligible Queensland construction contracts and that a separate PTA is required for each eligible contract. ([QBCC][4])
+
+### 2. Main commercial hub
+
+Use:
+
+`/project-trust-account-software`
+
+Title:
+
+`Project Trust Account Software for Queensland Builders | Pay Trade`
+
+Purpose: rank for **project trust account software**.
+
+This should be the money page. It should include:
+
+* project trust account software
+* retention trust account software
+* QBCC trust account compliance
+* ledgers
+* reconciliation statements
+* notices
+* audit trail
+* payment claim workflow
+* reporting
+* demo CTA
+* pricing CTA
+* “listed on Queensland Government assessed software solutions” proof
+
+The Queensland Government assessed software page is important because it lists Pay Trade and says these products self-assess capability to produce trust ledgers and reconciliation statements required under the BIF Act. It also notes the department has not verified the products’ compliance, so the page copy should be careful and not overclaim. ([Housing Queensland][5])
+
+## What to do with the current near-miss pages
+
+| Current page                                             |                         Keep, merge or redirect? | Reason                                                                                                          |
+| -------------------------------------------------------- | -----------------------------------------------: | --------------------------------------------------------------------------------------------------------------- |
+| `project-trust-account-software-for-queensland-builders` | Keep or 301 to `/project-trust-account-software` | Good title, but slug is too long. Best as canonical commercial page if you do not want to create a shorter one. |
+| `project-trust-software-australia`                       |                                  Supporting page | Broader keyword, useful but not the exact buying term.                                                          |
+| `trust-software-qld`                                     |                              Redirect or rewrite | Too vague. “Trust software” could mean legal trust, accounting trust, property trust, etc.                      |
+| `how-project-trust-accounts-work`                        |                                  Supporting page | Good internal link to `/project-trust-account`.                                                                 |
+| `setup-project-trust-account`                            |                                  Supporting page | Good long-tail.                                                                                                 |
+| `do-i-need-a-project-trust-account-in-queensland`        |                                  Supporting page | Good lead-capture page.                                                                                         |
+| `open-project-trust-account-qld`                         |                                  Supporting page | Good for people closer to action.                                                                               |
+
+## Internal linking fix
+
+Every related page should link up to the two hubs.
+
+Use exact-match anchors naturally:
+
+* “project trust account”
+* “project trust account software”
+* “QBCC trust accounting software”
+* “project trust account requirements”
+* “project trust account setup”
+* “retention trust account software”
+
+Example:
+
+> For a full overview, see our guide to **project trust account requirements in Queensland**.
+> To manage records, notices, ledgers and reconciliation, see **Pay Trade project trust account software**.
+
+## Serious copy issue to fix
+
+I noticed snippets showing **“QBCC Complaint Trust & Accounting Software”** on some Pay Trade results. That looks like it should be **“QBCC Compliant Trust & Accounting Software.”** ([Paytrade][6])
+
+That typo is worth fixing immediately. It damages trust, especially in a compliance/accounting niche.
+
+## Bigger SEO/GEO issue
+
+The community engine is working. Recent community pages are being indexed. That is good. But because this is a legal/compliance-adjacent topic, the hub pages need stronger authority signals:
+
+* “Last reviewed” date.
+* Author/reviewer.
+* “General information only, not legal/accounting advice.”
+* Links to QBCC and Queensland Government.
+* Clear current thresholds.
+* Clear note about the paused rollout.
+* Screenshots or product examples.
+* FAQ schema.
+* SoftwareApplication schema.
+* Breadcrumb schema.
+
+Competitors and adjacent solutions are positioning around dedicated statutory trust/accounting software, PTA/RTA compliance, reconciliation, reporting and integrations, so Pay Trade needs a page that directly says why it is a better/simpler option. ([BuildTrust][7])
+
+## Priority order
+
+Do this in order:
+
+1. Fix typo: **Complaint → Compliant**.
+2. Create/canonicalise `/project-trust-account-software`.
+3. Create/canonicalise `/project-trust-account`.
+4. Add both pages to sitemap.
+5. Add homepage, features, FAQ, pricing and footer links to both pages.
+6. Link every community discussion back to one of the two hubs.
+7. Add FAQ schema to both hub pages.
+8. Add “Pay Trade is listed on the Queensland Government assessed software solutions page” carefully, with wording that avoids overclaiming.
+9. Use Search Console URL inspection to request indexing of the two hub pages.
+
+My blunt view: **the content machine is now creating the right raw material, but you need two dominant canonical pages or Google will keep spreading relevance across too many near-duplicate/supporting pages.**
+
+[1]: https://paytrade.app/community/discussions/project-trust/how-do-i-set-up-a-project-trust-account-for-a-private-sector-construction-project-in-queensland/593476cd-c1dd-4197-ba3c-0a7b25006cc3?utm_source=chatgpt.com "Community - Discussions - How Do I Set Up a Project Trust Account ..."
+[2]: https://paytrade.app/?utm_source=chatgpt.com "Paytrade: QBCC Trust Accounting Software for the Australian ..."
+[3]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/trust-account-framework?utm_source=chatgpt.com "Trust account framework"
+[4]: https://www.qbcc.qld.gov.au/running-your-business/trust-accounts?utm_source=chatgpt.com "Trust accounts | Queensland Building and Construction ..."
+[5]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/assessed-trust-solutions?utm_source=chatgpt.com "Assessed trust account software solutions"
+[6]: https://paytrade.app/community/discussions/software-subies/understanding-project-trust-account-eligibility-criteria-in-queensland/27664eae-c982-4616-8f34-f716bc6dbdc4?utm_source=chatgpt.com "Community - Discussions - Understanding Project Trust Account ..."
+[7]: https://buildtrust.com.au/?utm_source=chatgpt.com "BuildTrust: Statutory Trust Accounting Software for Builders in ..."

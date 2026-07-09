@@ -2,7 +2,7 @@
 export const MAIN_HOME_TEXT =
   "Make construction project and trust administration and accounting easy!";
 export const HOME_SUBHEADER =
-  "QBCC Complaint Trust & Accounting Software Built for the Australian Construction Industry";
+  "QBCC Compliant Trust & Accounting Software Built for the Australian Construction Industry";
 export const HOME_DESCRIPTION =
   "Our simple trust account administration software helps you to implement and administer the QBCC regulatory requirements for project and retention trust accounts.";
 
