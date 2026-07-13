@@ -1,6 +1,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { XeroContractsService } from '../contracts/xero-contracts.service';
 import {
+  composeXeroAddress,
+  pickXeroAddress,
+} from '../xero-address.util';
+import {
   Contact,
   Invoice,
   LineAmountTypes,
@@ -6631,6 +6635,80 @@ export class XeroInvoicesService {
         synced_records: null,
       });
       return null;
+    }
+
+    // Backfill missing address/email on the PT contact from the live Xero
+    // contact BEFORE validating completeness. The smart-create pipeline
+    // already holds this data in Xero (it auto-imports bank details from the
+    // same live read further down), so failing the import and asking the
+    // user to re-type an address Xero already sent is a self-inflicted
+    // failure. Blank-fill only — never overwrite anything typed in PayTrade.
+    if (
+      !clientSuppliersDetails.client_supplier_address ||
+      !clientSuppliersDetails.client_email_id
+    ) {
+      try {
+        const mirrorForBackfill = await this.xeroContactDetails
+          .createQueryBuilder('xcd')
+          .where('xcd.integration_id = :integrationId', {
+            integrationId: xeroDetails.integration_id,
+          })
+          .andWhere('xcd.pt_contact_id::text = :ptId', {
+            ptId: String(clientSuppliersDetails.client_supplier_id),
+          })
+          .andWhere('xcd.contact_status = :status', { status: 'ACTIVE' })
+          .getOne();
+        if (mirrorForBackfill?.contact_id) {
+          await this.xeroService.refreshTokenSet(company_id, this.xero);
+          const liveContactResp = await this.xero.accountingApi.getContact(
+            xeroDetails.tenant_id,
+            mirrorForBackfill.contact_id,
+          );
+          const liveContact = liveContactResp?.body?.contacts?.[0];
+          if (liveContact) {
+            const backfill: Partial<ClientSuppliersDetails> = {};
+            if (!clientSuppliersDetails.client_supplier_address) {
+              const xeroAddress = pickXeroAddress(liveContact);
+              const composedAddress = composeXeroAddress(xeroAddress);
+              if (composedAddress) {
+                backfill.client_supplier_address = composedAddress;
+                if (xeroAddress?.country && !clientSuppliersDetails.country) {
+                  backfill.country = xeroAddress.country;
+                }
+              }
+            }
+            if (
+              !clientSuppliersDetails.client_email_id &&
+              liveContact.emailAddress
+            ) {
+              backfill.client_email_id = liveContact.emailAddress;
+            }
+            if (Object.keys(backfill).length > 0) {
+              await this.clientSuppliersDetails.update(
+                { id: clientSuppliersDetails.id },
+                {
+                  ...backfill,
+                  updated_by: decoded?.userId,
+                  updated_on: new Date(),
+                  updated_group: 'SYSTEM' as Group,
+                },
+              );
+              Object.assign(clientSuppliersDetails, backfill);
+              this.logger.log(
+                `Auto-backfilled ${Object.keys(backfill).join(', ')} from Xero contact for '${contactName}' (company ${company_id})`,
+              );
+            }
+          }
+        }
+      } catch (backfillErr) {
+        const errMsg =
+          backfillErr instanceof Error
+            ? backfillErr.message
+            : String(backfillErr);
+        this.logger.warn(
+          `Failed to backfill contact details from Xero for '${contactName}' (company ${company_id}): ${errMsg}`,
+        );
+      }
     }
 
     const allIssues: string[] = [];

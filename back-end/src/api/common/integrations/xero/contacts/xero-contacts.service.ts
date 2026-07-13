@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { buildMissingFieldsLog } from '../utils/xero-missing-fields.util';
+import { composeXeroAddress as composeXeroAddressUtil } from '../xero-address.util';
 import { Address, Contact, Phone, XeroClient } from 'xero-node';
 import * as dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -1085,28 +1086,7 @@ export class XeroContactsService implements OnModuleInit, OnModuleDestroy {
    * Returns null when Xero supplied no address parts at all.
    */
   composeXeroAddress(xeroAddress: any): string | null {
-    if (!xeroAddress) return null;
-    const clean = (s: any) => (s ? String(s).trim() : '');
-    const streetLines = [
-      xeroAddress.addressLine1,
-      xeroAddress.addressLine2,
-      xeroAddress.addressLine3,
-      xeroAddress.addressLine4,
-    ]
-      .map(clean)
-      .filter((s: string) => s.length > 0);
-    const localityLine = [
-      xeroAddress.city,
-      xeroAddress.region,
-      xeroAddress.postalCode,
-    ]
-      .map(clean)
-      .filter((s: string) => s.length > 0)
-      .join(' ');
-    const parts = [...streetLines];
-    if (localityLine) parts.push(localityLine);
-    const composed = parts.join(', ');
-    return composed.length > 0 ? composed : null;
+    return composeXeroAddressUtil(xeroAddress);
   }
 
   /**

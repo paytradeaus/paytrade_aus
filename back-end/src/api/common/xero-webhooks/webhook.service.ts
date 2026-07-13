@@ -1,5 +1,9 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { buildMissingFieldsLog } from '../integrations/xero/utils/xero-missing-fields.util';
+import {
+  composeXeroAddress,
+  pickXeroAddress,
+} from '../integrations/xero/xero-address.util';
 import { extractAxiosErrorContext, composeXeroErrorMessage } from '../error-handler';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
@@ -66,7 +70,7 @@ import { XeroWaitQueueService } from './waitQueue/webhookWait.service';
 import { TransactionDetails } from 'src/entities/transaction-details.entity';
 import { XeroResolver } from '../integrations/xero/xero.resolver';
 import { CompanyUserRoles } from 'src/entities/company-user-roles.entity';
-import { UserDetails } from 'src/entities/user-details.entity';
+import { UserDetails, Group } from 'src/entities/user-details.entity';
 import { isWebhookProcessableStatus } from './integration-status.constants';
 var moment = require('moment-timezone');
 moment.tz.setDefault('UTC');
@@ -2203,6 +2207,53 @@ export class XeroWebhookService {
       this.logger.log(
         `[BILL_TRACE] smartCreateContactFromInvoice: mapped contact ${contactID} (${contact.name}) to existing PT ${ptTypeLabel} ${existing.client_supplier_id}.`,
       );
+      // Backfill blank address/email on the just-mapped PT contact from the
+      // live Xero contact we already fetched. Without this, mapping a
+      // hand-created (incomplete) PT contact leaves it blank and the very
+      // next smart-contract step hard-fails on "missing Address/Email" even
+      // though Xero supplied both. Blank-fill only — never overwrite
+      // anything the user typed in PayTrade. Direct repository update on
+      // purpose: these values just came FROM Xero, so routing through the
+      // edit service (which can push back to Xero) would only create echo.
+      try {
+        const mappedBackfill: Partial<ClientSuppliersDetails> = {};
+        if (!existing.client_supplier_address) {
+          const xeroAddress = pickXeroAddress(contact);
+          const composedAddress = composeXeroAddress(xeroAddress);
+          if (composedAddress) {
+            mappedBackfill.client_supplier_address = composedAddress;
+            if (xeroAddress?.country && !existing.country) {
+              mappedBackfill.country = xeroAddress.country;
+            }
+          }
+        }
+        if (!existing.client_email_id && contact.emailAddress) {
+          mappedBackfill.client_email_id = contact.emailAddress;
+        }
+        if (Object.keys(mappedBackfill).length > 0) {
+          await this.clientSuppliersDetails.update(
+            { id: existing.id },
+            {
+              ...mappedBackfill,
+              updated_by: decoded?.userId,
+              updated_on: new Date(),
+              updated_group: 'SYSTEM' as Group,
+            },
+          );
+          Object.assign(existing, mappedBackfill);
+          this.logger.log(
+            `[BILL_TRACE] smartCreateContactFromInvoice: backfilled ${Object.keys(mappedBackfill).join(', ')} from Xero onto existing PT ${ptTypeLabel} ${existing.client_supplier_id}.`,
+          );
+        }
+      } catch (backfillErr) {
+        const errMsg =
+          backfillErr instanceof Error
+            ? backfillErr.message
+            : String(backfillErr);
+        this.logger.warn(
+          `[BILL_TRACE] smartCreateContactFromInvoice: failed to backfill contact details from Xero for PT ${ptTypeLabel} ${existing.client_supplier_id}: ${errMsg}`,
+        );
+      }
       await this.xeroService.insertXeroSyncLogs(decoded, {
         id: sync_id || null,
         api_name: 'createContactInPaytradeThroughWebhook',
