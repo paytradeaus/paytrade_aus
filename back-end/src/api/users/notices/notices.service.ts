@@ -5897,7 +5897,10 @@ export class NoticesService {
         });
 
         pdfData = {
-          paytradeLogo: paytradeLogo,
+          // Client Payment Claim Notice is the company's own invoice, so use
+          // the company's uploaded logo (fall back to the PayTrade brand logo
+          // only when the company has none).
+          paytradeLogo: logoBase64 ? logoBase64 : paytradeLogo,
           claimInvoiceDetails: {
             due: convertToLocalDate(payment_claim_details.due_date),
             contract: contracts.contract_name,
