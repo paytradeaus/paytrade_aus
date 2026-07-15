@@ -652,6 +652,7 @@ export class PaymentsService {
                 'subpayment.is_received_confirmed AS is_received_confirmed',
                 'subpayment.is_retention_confirmed AS is_retention_confirmed',
                 'payment.cash_retention AS cash_retention',
+                'payment.payment_type AS payment_type',
                 'claim.claim_type AS claim_type',
               ])
               .leftJoin('subpayment.paymentDetails', 'payment')
@@ -690,6 +691,22 @@ export class PaymentsService {
                   subPayment?.claim_type === 'Receivable' &&
                   subPayment?.sub_payment_type === 'Payment' &&
                   subPayment?.is_received_confirmed
+                ) {
+                  payments.push(subPayment);
+                } else if (
+                  // Other payments (trust movements: Withdrawal, Top Up,
+                  // Interest, Bank Charge, Overpayment/Underpayment legs)
+                  // have no claim. Historically these were skipped here, so a
+                  // payment created with "Confirm - Paid" (or Received)
+                  // already ticked was saved as confirmed WITHOUT its forward
+                  // journal — and a later unconfirm/delete blindly reversed a
+                  // journal that never existed (phantom reversal). Journal
+                  // them at creation exactly like the confirm-via-edit path
+                  // (editDetailsOfAPayment -> confirmedPayments) does.
+                  !subPayment?.claim_type &&
+                  subPayment?.sub_payment_type === 'Payment' &&
+                  (subPayment?.is_paid_confirmed === true ||
+                    subPayment?.is_received_confirmed === true)
                 ) {
                   payments.push(subPayment);
                 }
