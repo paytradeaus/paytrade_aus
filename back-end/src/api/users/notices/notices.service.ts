@@ -4850,6 +4850,7 @@ export class NoticesService {
 
       const addFilePath = (filePath: string | null) => {
         if (!filePath) return null;
+        if (/^https?:\/\//i.test(filePath)) return filePath;
         const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
         return UPLOAD_BASE_URL + '/' + normalized;
       };
@@ -5187,6 +5188,7 @@ export class NoticesService {
 
       const addFilePath = (filePath: string | null) => {
         if (!filePath) return null;
+        if (/^https?:\/\//i.test(filePath)) return filePath;
         const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
         return UPLOAD_BASE_URL + '/' + normalized;
       };
@@ -7764,6 +7766,7 @@ export class NoticesService {
 
         const addFilePath = (filePath: string | null) => {
           if (!filePath) return null;
+          if (/^https?:\/\//i.test(filePath)) return filePath;
           const normalized = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
           return UPLOAD_BASE_URL + '/' + normalized;
         };
