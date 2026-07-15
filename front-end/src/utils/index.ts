@@ -195,9 +195,12 @@ function generateUniqueId() {
   );
 }
 
-const formatDollars = (value: string): string => {
+const formatDollars = (value: string | number): string => {
+  // Coerce to string so numeric values (e.g. raw GraphQL number fields)
+  // don't throw "value.split is not a function" and crash the page.
+  const str = value === null || value === undefined ? "" : String(value);
   // Split the number by the decimal point
-  const parts = value.split(".");
+  const parts = str.split(".");
   // Add commas to the integer part
   const integerValue = parts[0].replace(/[^0-9.]/g, "");
   parts[0] = integerValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
