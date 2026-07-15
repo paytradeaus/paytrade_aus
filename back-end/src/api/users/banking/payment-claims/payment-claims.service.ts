@@ -3160,6 +3160,22 @@ export class PaymentClaimsService {
           this.logger.log(JSON.stringify({ updatePreviousJournals }));
         }
 
+        // Guard: a REVERSAL journal type must only be written when a forward
+        // (non-reversed) journal actually exists for this audit_id. Without
+        // this, deleting a payment that never had its confirmation journals
+        // (e.g. an unconfirmed withdrawal) inserts a phantom REVERSAL entry
+        // that silently cancels a *different*, still-valid journal in the
+        // ledger balance.
+        const isReversalProcess = journalTypeDetails?.some((type) =>
+          type?.process_name?.toUpperCase()?.startsWith('REVERSAL'),
+        );
+        if (isReversalProcess && !checkPreviousJournalExistence) {
+          this.logger.log(
+            `[createJournalEntries] Skipping reversal processType=${processType} for audit_id=${auditId}: no forward journal exists to reverse.`,
+          );
+          return resolve(false);
+        }
+
         const checkPaymentJournalExistence =
           await transactionalEntityManager.find(JournalEntries, {
             where: {

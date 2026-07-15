@@ -187,6 +187,80 @@ export class SupportService {
     }
   }
 
+  /**
+   * Persist a client-side (browser) error report as a support ticket and
+   * notify the support inbox. Unlike createSupportTicket this never emails
+   * the end user (the reporter may be anonymous) and never throws — error
+   * reporting must not cascade into further failures.
+   */
+  async createClientErrorTicket(report: {
+    message: string;
+    stack?: string;
+    digest?: string;
+    url?: string;
+    userAgent?: string;
+    userEmail?: string;
+    companyId?: string;
+  }) {
+    try {
+      const clip = (value: string | undefined, max: number) =>
+        typeof value === 'string' ? value.slice(0, max) : undefined;
+
+      const messageLines = [
+        `Client-side error auto-report`,
+        `Error: ${clip(report.message, 1000) || 'Unknown error'}`,
+        report.digest ? `Digest: ${clip(report.digest, 200)}` : null,
+        report.url ? `Page: ${clip(report.url, 500)}` : null,
+        report.companyId ? `Company ID: ${clip(report.companyId, 50)}` : null,
+        report.userAgent ? `Browser: ${clip(report.userAgent, 300)}` : null,
+        report.stack ? `Stack:\n${clip(report.stack, 4000)}` : null,
+      ].filter(Boolean);
+      const message = messageLines.join('\n');
+
+      const ticket = this.ticketsRepo.create({
+        name: 'System Error Report',
+        email: clip(report.userEmail, 200) || 'noreply@paytrade.app',
+        message,
+        created_group: 'SYSTEM',
+      } as Partial<SupportTickets>);
+      const savedTicket = await this.ticketsRepo.save(ticket);
+
+      this.logger.error(
+        `[CLIENT_ERROR] Ticket #${savedTicket.ticket_id ?? savedTicket.id} raised: ${message}`,
+      );
+
+      // Notify the support inbox (fire-and-forget; plain body, no template
+      // dependency so a missing template can't break error reporting).
+      if (process.env.SUPPORT_EMAIL) {
+        this.emailQueueProducer
+          .emailQueueProducer({
+            fromEmail: process.env.EMAIL_USER,
+            toEmail: process.env.SUPPORT_EMAIL,
+            subject: `PayTrade client error auto-report${report.userEmail ? ` from ${clip(report.userEmail, 200)}` : ''}`,
+            template: 'header-footer-email',
+            mailBody: `<pre style="white-space:pre-wrap;font-family:monospace;">${message
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')}</pre>`,
+            isSupport: true,
+            mail_type: EmailTypeEnum.notificationEmailOnTicketSubmission,
+          })
+          .catch((err) =>
+            this.logger.error(
+              `Failed to queue client-error notification email: ${err?.message || err}`,
+            ),
+          );
+      }
+
+      return { ticketId: savedTicket.ticket_id ?? savedTicket.id };
+    } catch (error) {
+      this.logger.error(
+        `Errored while saving client error report: ${error?.message || error}`,
+      );
+      return null;
+    }
+  }
+
   async handleInboundMail(payload: {
     from: string;
     to: string;

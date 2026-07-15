@@ -1,9 +1,7 @@
 "use client";
-import BaseModal from "@/components/BaseModal";
 import CustomButton from "@/components/CustomButton/CustomButton";
 import { buttonType } from "@/shared/constant/general";
-import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 export default function GlobalError({
   error,
@@ -12,25 +10,40 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.log("GlobalError mounted");
-    return () => {
-      console.log("GlobalError unmounted");
-    };
-  }, []);
+  const reportedRef = useRef(false);
 
-  const [displayConfirmationModal, setDisplayConfirmationModal] =
-    useState(true);
+  useEffect(() => {
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    try {
+      const companyId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("companyId") ||
+            localStorage.getItem("UserCompanyId") ||
+            undefined
+          : undefined;
+      fetch("/support-ticket/client-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: error?.message || String(error) || "Unknown client error",
+          stack: error?.stack || undefined,
+          digest: error?.digest || undefined,
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+          companyId: companyId || undefined,
+        }),
+        keepalive: true,
+      }).catch(() => {
+        // Reporting must never cause a secondary failure.
+      });
+    } catch {
+      // Ignore - error reporting is best-effort.
+    }
+  }, [error]);
 
   function resetHandler() {
-    console.log("Attempting to recover from error");
     reset();
   }
-
-  const handleRefresh = () => {
-    console.log("Refreshing the page");
-    window.location.reload();
-  };
 
   return (
     <html>
@@ -45,13 +58,9 @@ export default function GlobalError({
           <p>Sorry for any inconvenience.</p>
           <p>
             <small>
-              {`Error details: ${error ? error : "Not available"}`}
-              {/* Display error details */}
+              {`Error details: ${error?.message ? error.message : "Not available"}`}
             </small>
           </p>
-          {/* <button onClick={resetHandler} className="reload-button">
-            Reload Page
-          </button> */}
           <CustomButton
             actionType={"button"}
             buttonName={"Try again"}
