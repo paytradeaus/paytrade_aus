@@ -4188,7 +4188,7 @@ export class XeroInvoicesService {
         return false;
       }
 
-      const xeroContractDetails = claimDetails.contract_id
+      let xeroContractDetails = claimDetails.contract_id
         ? await this.xeroContractDetails.findOne({
             where: {
               pt_contract_id: claimDetails.contract_id,
@@ -4196,6 +4196,42 @@ export class XeroInvoicesService {
             },
           })
         : null;
+
+      // Self-heal: contracts created before contract-sync was enabled (or
+      // whose auto-push failed) have no xero_contract_details mirror row and
+      // previously hard-failed here with template 116/128 ("Contract details
+      // not mapped"). When the company has opted in to
+      // pt_to_xero_contract_auto_create, push the contract to Xero now (the
+      // helper is idempotent: it links an existing same-name tracking option
+      // or creates a new one, and writes its own sync logs on failure), then
+      // re-read the mirror before deciding to fail.
+      if (
+        claimDetails.status !== 'Draft' &&
+        !xeroContractDetails &&
+        claimDetails.contract_id &&
+        xeroDetails?.pt_to_xero_contract_auto_create === true &&
+        this.xeroContractsService
+      ) {
+        try {
+          this.logger.log(
+            `Contract ${claimDetails.contract_id} not mapped for claim ${claimDetails.payment_claim_id}; attempting auto-push to Xero before failing the bill/invoice edit.`,
+          );
+          await this.xeroContractsService.createContractTrackingOptions(
+            decoded,
+            { contract_id: claimDetails.contract_id, mapped_status: 'System' },
+          );
+          xeroContractDetails = await this.xeroContractDetails.findOne({
+            where: {
+              pt_contract_id: claimDetails.contract_id,
+              integration_id: xeroDetails.integration_id,
+            },
+          });
+        } catch (autoPushErr) {
+          this.logger.error(
+            `Contract auto-push during edit failed for contract ${claimDetails.contract_id}: ${autoPushErr?.message ?? autoPushErr}`,
+          );
+        }
+      }
 
       if (claimDetails.status !== 'Draft' && !xeroContractDetails) {
         await this.xeroService.insertXeroSyncLogs(decoded, {

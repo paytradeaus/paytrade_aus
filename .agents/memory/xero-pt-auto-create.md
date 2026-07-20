@@ -34,3 +34,16 @@ had the toggle on but the tracking option never appeared in Xero.
   see `undefined` so they don't echo Xero contracts back to Xero.
 - `mapped_status: 'System'` distinguishes auto-pushes from manual user
   pushes ('User') in sync log audit trails.
+
+Self-heal at the outbound edit gate
+
+- Contracts created BEFORE the toggle/contract-sync was enabled have no
+  `xero_contract_details` mirror row, and there is no manual re-sync type for
+  contracts (`manualXeroResync` allowedTypes excludes 'contract'), so
+  `editInvoiceOrBillInXero` used to hard-fail with template 116/128
+  ("Contract details not mapped") with no user-fixable path.
+- Fix: the edit gate now attempts `createContractTrackingOptions` (idempotent:
+  links an existing same-name tracking option or creates one) when the mirror
+  row is missing and the toggle is on, then re-fetches the mirror before
+  failing. The create path never hard-failed — it proceeds without contract
+  tracking — the edit path was the only hard-fail.
