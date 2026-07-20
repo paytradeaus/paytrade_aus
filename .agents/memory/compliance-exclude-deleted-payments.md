@@ -43,6 +43,13 @@ sub-payments query — this excludes deleted payments from every downstream bran
 at once. `paymentsToSubcontractors` (Check 6) already does this; keep sibling
 payment-based checks consistent.
 
+**Recurrence (Check 7 rule 6):** the same defect fired again in
+`paymentsToYourselfAsTrustee` (trustee 3-business-day journal check) — its
+payments query had no Deleted guard, so deleted+re-recorded deposits produced
+an ACTION REQUIRED whose View Payments page was empty. Guard added; all three
+`businessDays: 3` late checks (Checks 5/6/7) are now filtered. NULL confirm
+flags count as unconfirmed (JS falsy check), so stale rows always qualify.
+
 **Aftermath:** the stale `compliance_rule` cache row persists until the
 compliance refresh recomputes the project (post-deploy). The fix is code-only;
 no migration needed.

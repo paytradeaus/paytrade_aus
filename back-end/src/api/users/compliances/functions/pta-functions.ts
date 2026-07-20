@@ -2859,6 +2859,15 @@ export class CompliancePTAFunctions {
           .andWhere(`ba.account_type = :account_type`, {
             account_type: 'Project Trust Account',
           })
+          // Exclude deleted payments. When a payment is deleted and
+          // re-recorded, the deleted payment's stale unconfirmed
+          // sub-payments would otherwise be counted as "late / not recorded
+          // in the journal within 3 business days", raising a false
+          // ACTION REQUIRED on Check 7 rule 6 that points at a payment the
+          // "Payments to do" screen (correctly) no longer shows. Mirrors
+          // the guard on Check 5 (depositsFromThePrincipal) and Check 6
+          // (paymentsToSubcontractors).
+          .andWhere(`p.current_status != 'Deleted'`)
           .getRawMany();
 
         const paymentIds = fetchedAllPayments.map((p) => p.payment_id);
