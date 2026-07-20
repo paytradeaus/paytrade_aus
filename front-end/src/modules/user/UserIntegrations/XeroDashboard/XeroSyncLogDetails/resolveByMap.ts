@@ -458,11 +458,41 @@ export const handleResolveByErrorCodeMap = async (
       break;
     }
 
+    case "EDIT_BILL_CONTRACT_NOT_MAPPED":
+    case "EDIT_INVOICE_CONTRACT_NOT_MAPPED": {
+      // Retry the edit first — the backend can now auto-create/link the
+      // contract in Xero (self-heal). Only fall back to manual mapping if
+      // the retry still fails.
+      const paymentClaimId = +viewLogData?.api_payload?.payment_claim_id;
+      if (paymentClaimId) {
+        const retried = await EditInvoiceOrBillInXero({
+          paymentClaimId,
+          syncId: viewLogData?.id,
+        });
+        if (retried) {
+          break;
+        }
+      }
+      const contract_name =
+        viewLogData?.paytrade_details?.contract_name ||
+        viewLogData?.paytrade_records[0]?.contractDetails?.contract_name;
+      const data = await getXeroContractsListsForCompany({
+        payload: { company_id: companyId },
+      });
+      setModelConfigSelect({
+        title: "Contract mapping",
+        placeHolder: "Select contracts",
+        renderKey: "contract_name",
+        valueKey: "contract_id",
+        description: `Map <b>${contract_name}</b> to:`,
+        options: data?.contract_list || [],
+      });
+      setShowManualMapping(true);
+      break;
+    }
     case "DELETE_CONTRACT_NOT_MAPPED":
     case "ADD_BILL_CONTRACT_NOT_MAPPED":
     case "ADD_INVOICE_CONTRACT_NOT_MAPPED":
-    case "EDIT_BILL_CONTRACT_NOT_MAPPED":
-    case "EDIT_INVOICE_CONTRACT_NOT_MAPPED":
     case "PD_CONTRACT_NOT_MAPPED": {
       const contract_name =
         viewLogData?.paytrade_details?.contract_name ||

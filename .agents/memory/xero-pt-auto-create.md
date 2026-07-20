@@ -42,6 +42,13 @@ Self-heal at the outbound edit gate
   contracts (`manualXeroResync` allowedTypes excludes 'contract'), so
   `editInvoiceOrBillInXero` used to hard-fail with template 116/128
   ("Contract details not mapped") with no user-fixable path.
+- IMPORTANT: `editInvoiceOrBillInXero` is ONLY invoked from the sync-log
+  "Resolve & retry" flow — re-saving a claim in PT does NOT push edits to
+  Xero. The FE resolve dispatch for EDIT_*_CONTRACT_NOT_MAPPED must retry the
+  edit first (letting the backend self-heal) and only fall back to the manual
+  contract-mapping modal on failure; the modal lists Xero-side unmapped
+  tracking options, which is EMPTY when the contract never reached Xero,
+  leaving users stuck otherwise.
 - Fix: the edit gate now attempts `createContractTrackingOptions` (idempotent:
   links an existing same-name tracking option or creates one) when the mirror
   row is missing and the toggle is on, then re-fetches the mirror before
