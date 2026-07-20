@@ -6040,5 +6040,25 @@
     "from_xero": true,
     "error_code": "SCHEDULER_BANK_CANNOT_BE_DELETED",
     "associated_log_ids": null
+  },
+  {
+    "id": 655,
+    "sync_type": "Payments",
+    "description": "<p>Credit note {{credit_note_number}} from {{contact_name}} includes a cash refund of {{refund_amount}} (dated {{refund_date}}) into {{account_name}}. Pay Trade needs you to confirm how this refund should be recorded before anything is posted to the trust ledger. Link it to an existing \"Overpayment refund from supplier\" payment, record a new one, or dismiss it.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CREDIT_NOTE_REFUND_CONFIRM_REQUIRED",
+    "associated_log_ids": null
+  },
+  {
+    "id": 656,
+    "sync_type": "Payments",
+    "description": "<p>Credit note {{credit_note_number}} cash refund of {{refund_amount}} was recorded in Pay Trade as {{resolution}}.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Succeeded",
+    "from_xero": true,
+    "error_code": "CREDIT_NOTE_REFUND_RECORDED",
+    "associated_log_ids": null
   }
 ]

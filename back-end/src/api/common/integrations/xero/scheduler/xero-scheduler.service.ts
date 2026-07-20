@@ -8453,6 +8453,56 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
             );
           }
 
+          // Task #376 — ACCPAY credit-note settlement poll. Xero fires no
+          // webhooks for credit notes, so the 15-minute fallback sweep is
+          // the primary driver: pull recently modified ACCPAY credit notes
+          // and hand each to the inbound handler (allocation legs re-run
+          // the bill pipeline; cash refund legs park a template-655
+          // confirm-hold — nothing is ever auto-posted to the trust
+          // ledger). Handler-side mirror rows + hold dedup make repeated
+          // 15-minute re-runs idempotent.
+          let xeroCreditNotes: any[] = [];
+          try {
+            const cnSinceDate = new Date(sinceMoment.valueOf());
+            const cnResp = await this.xero.accountingApi.getCreditNotes(
+              refreshedXero.tenant_id,
+              cnSinceDate,
+              `Type=="ACCPAYCREDIT"`,
+            );
+            xeroCreditNotes = cnResp?.body?.creditNotes || [];
+          } catch (apiErr) {
+            this.logger.error(
+              `${PREFIX} Failed to fetch credit notes for company ${companyId}: ${apiErr?.message || apiErr}`,
+            );
+          }
+
+          this.logger.log(
+            `${PREFIX} Company ${companyId}: found ${xeroCreditNotes.length} recently modified ACCPAY credit notes`,
+          );
+
+          for (const creditNote of xeroCreditNotes) {
+            const creditNoteId = creditNote.creditNoteID;
+            if (!creditNoteId) continue;
+            try {
+              const cnResult =
+                await this.xeroWebhookService.handleInboundAccpayCreditNote(
+                  {
+                    resource_id: creditNoteId,
+                    tenant_id: refreshedXero.tenant_id,
+                    sync_run_type: 'fallback',
+                  },
+                  decoded,
+                );
+              this.logger.log(
+                `${PREFIX} Company ${companyId}: credit note ${creditNoteId}: ${cnResult?.message}`,
+              );
+            } catch (procErr) {
+              this.logger.error(
+                `${PREFIX} Company ${companyId}: Failed to process credit note ${creditNoteId}: ${procErr?.message || procErr}`,
+              );
+            }
+          }
+
         } catch (companyErr) {
           this.logger.error(`${PREFIX} Error processing company ${companyId}: ${companyErr?.message || companyErr}`);
         }

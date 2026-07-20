@@ -1979,4 +1979,74 @@ export class XeroResolver {
       );
     }
   }
+
+  /**
+   * Task #376 — Resolve a credit-note refund confirmation hold
+   * (template 655). Actions: 'link' (bind mirror refund leg to an
+   * existing "Overpayment refund from supplier" payment) or 'dismiss'
+   * (sticky skip). Recording a new payment happens through the standard
+   * payment form; the user then clicks Link.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STANDARD_USER, Role.ADMIN, Role.PRIMARY_ADMIN)
+  @Mutation(() => StringResponse, {
+    name: 'resolveCreditNoteRefundFromSyncLog',
+    description:
+      'Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "dismiss" permanently skips the leg.',
+  })
+  async resolveCreditNoteRefundFromSyncLog(
+    @Context() context,
+    @Args('sync_log_id', {
+      description: 'The uuid of the template-655 credit-note refund hold.',
+    })
+    sync_log_id: string,
+    @Args('action', { description: 'One of: link, dismiss.' })
+    action: string,
+    @Args('pt_payment_id', {
+      nullable: true,
+      description:
+        'Optional explicit PT payment id to link (required when multiple candidates match).',
+    })
+    pt_payment_id?: number,
+  ) {
+    try {
+      const decoded = await this.jwtInternalService.decodeJwtToken(context);
+      // IDOR guard. decodeJwtToken has already validated that
+      // headers.companyid corresponds to a real role on the user's JWT,
+      // so it IS the caller's active company. Pass it down so the service
+      // can verify the sync log belongs to that company before mutating.
+      const headerCompanyId = context?.req?.headers?.companyid
+        ? Number(context.req.headers.companyid)
+        : null;
+      if (!headerCompanyId) {
+        return framedResponse(
+          'ERROR',
+          'Unauthorized: no active company on this session.',
+        );
+      }
+      const result =
+        await this.xeroWebhookService.resolveCreditNoteRefundFromSyncLog(
+          decoded,
+          {
+            sync_log_id,
+            action,
+            pt_payment_id: pt_payment_id ?? null,
+            company_id: headerCompanyId,
+          } as any,
+        );
+      return framedResponse(
+        result.success ? 'SUCCESS' : 'ERROR',
+        result.message,
+        JSON.stringify(result),
+      );
+    } catch (error: any) {
+      return framedResponse(
+        'ERROR',
+        JSON.stringify({
+          success: false,
+          message: error?.message ?? String(error),
+        }),
+      );
+    }
+  }
 }

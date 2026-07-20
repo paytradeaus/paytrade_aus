@@ -32,6 +32,7 @@ import {
   createInvoiceOrBillInPaytradeTable,
   RetryRetentionTransferFromSyncLog,
   ResolveTrustMovementFromSyncLog,
+  ResolveCreditNoteRefundFromSyncLog,
 } from "./syncLog.functions";
 import MultipleFileHandler from "@/components/MultipleFileHandler";
 import { useTokenDetails } from "@/hooks";
@@ -55,6 +56,10 @@ export default function SyncLogDetailsBasic() {
   const [retentionRetryInprogress, setRetentionRetryInprogress] = useState(false);
   const [trustMovementInprogress, setTrustMovementInprogress] = useState(false);
   const [trustMovementChosenType, setTrustMovementChosenType] = useState<string>("");
+  const [creditNoteRefundInprogress, setCreditNoteRefundInprogress] =
+    useState(false);
+  const [creditNoteChosenPaymentId, setCreditNoteChosenPaymentId] =
+    useState<string>("");
   const statusColors = {
     Ok: "#22bb33",
     Failed: "#FF2C2C",
@@ -791,6 +796,54 @@ export default function SyncLogDetailsBasic() {
       setLoading(false);
       setTrustMovementInprogress(false);
       setTrustMovementChosenType("");
+      getViewSyncLogDetails();
+    }
+  }
+
+  // Credit-note refund confirmation lane (template 655). The backend parks a
+  // Failed hold carrying a JSON `information_required` payload with the Xero
+  // refund leg details and any matching PT "Overpayment refund from supplier"
+  // payment candidates. Never auto-posted to the trust ledger — the user
+  // either links an existing PT payment or dismisses the leg permanently.
+  const creditNoteRefundInfo = (() => {
+    if (viewLogData?.log_template_id !== 655) return null;
+    const raw = viewLogData?.information_required;
+    if (!raw || raw === "NA") return null;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (parsed?.kind !== "credit_note_refund") return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  })();
+  const isCreditNoteRefundConfirm =
+    viewLogData?.sync_status === "Failed" &&
+    !viewLogData?.archived_at &&
+    !!creditNoteRefundInfo;
+
+  async function resolveCreditNoteRefundHandle(action: "link" | "dismiss") {
+    if (!viewLogData?.id || !creditNoteRefundInfo) return;
+    const candidates = creditNoteRefundInfo?.candidates || [];
+    let ptPaymentId: number | null = null;
+    if (action === "link") {
+      const chosen =
+        creditNoteChosenPaymentId ||
+        (candidates.length === 1 ? String(candidates[0]?.payment_id) : "");
+      if (chosen) ptPaymentId = Number(chosen);
+    }
+    setCreditNoteRefundInprogress(true);
+    setLoading(true);
+    try {
+      await ResolveCreditNoteRefundFromSyncLog(
+        viewLogData.id,
+        action,
+        ptPaymentId
+      );
+    } finally {
+      setLoading(false);
+      setCreditNoteRefundInprogress(false);
+      setCreditNoteChosenPaymentId("");
       getViewSyncLogDetails();
     }
   }
@@ -2052,6 +2105,122 @@ export default function SyncLogDetailsBasic() {
                               {trustMovementInprogress
                                 ? "Confirming..."
                                 : "Confirm movement type"}
+                            </button>
+                          </div>
+                        )}
+                        {isCreditNoteRefundConfirm && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {(creditNoteRefundInfo?.candidates || []).length >
+                              0 && (
+                              <select
+                                value={
+                                  creditNoteChosenPaymentId ||
+                                  ((creditNoteRefundInfo?.candidates || [])
+                                    .length === 1
+                                    ? String(
+                                        creditNoteRefundInfo.candidates[0]
+                                          ?.payment_id
+                                      )
+                                    : "")
+                                }
+                                onChange={(e) =>
+                                  setCreditNoteChosenPaymentId(e.target.value)
+                                }
+                                disabled={creditNoteRefundInprogress}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  border: "1px solid #cbd5e1",
+                                  height: "fit-content",
+                                  fontSize: "0.92em",
+                                }}
+                                title="Matching PayTrade 'Overpayment refund from supplier' payments (same supplier, amount and date window). Pick the one this Xero refund corresponds to."
+                              >
+                                <option value="">Select PT payment…</option>
+                                {(creditNoteRefundInfo?.candidates || []).map(
+                                  (c: any) => (
+                                    <option
+                                      key={c.payment_id}
+                                      value={String(c.payment_id)}
+                                    >
+                                      #{c.payment_id} — $
+                                      {Number(c.total_amount || 0).toFixed(2)}{" "}
+                                      on {c.payment_date}
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            )}
+                            <button
+                              style={{
+                                whiteSpace: "nowrap",
+                                padding: "6px 14px",
+                                backgroundColor: "#2563EB",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "fit-content",
+                                margin: 0,
+                              }}
+                              onClick={() =>
+                                resolveCreditNoteRefundHandle("link")
+                              }
+                              disabled={creditNoteRefundInprogress}
+                              title="Links the Xero refund leg to the selected (or single matching) PayTrade 'Overpayment refund from supplier' payment. Nothing is auto-posted to the trust ledger."
+                            >
+                              <i
+                                className="fa-light fa-link"
+                                style={{
+                                  marginRight: "10px",
+                                  marginLeft: "10px",
+                                }}
+                              ></i>
+                              {creditNoteRefundInprogress
+                                ? "Working..."
+                                : "Link to PT payment"}
+                            </button>
+                            <button
+                              style={{
+                                whiteSpace: "nowrap",
+                                padding: "6px 14px",
+                                backgroundColor: "#fff",
+                                color: "#334155",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "fit-content",
+                                margin: 0,
+                              }}
+                              onClick={() =>
+                                resolveCreditNoteRefundHandle("dismiss")
+                              }
+                              disabled={creditNoteRefundInprogress}
+                              title="Permanently skips this Xero refund leg — use when it does not belong in PayTrade. It will not be re-imported by the scheduler."
+                            >
+                              <i
+                                className="fa-light fa-ban"
+                                style={{
+                                  marginRight: "10px",
+                                  marginLeft: "10px",
+                                }}
+                              ></i>
+                              {creditNoteRefundInprogress
+                                ? "Working..."
+                                : "Dismiss"}
                             </button>
                           </div>
                         )}

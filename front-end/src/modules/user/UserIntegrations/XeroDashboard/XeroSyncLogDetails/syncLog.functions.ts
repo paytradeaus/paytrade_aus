@@ -910,6 +910,49 @@ export async function ResolveTrustMovementFromSyncLog(
   }
 }
 
+export async function ResolveCreditNoteRefundFromSyncLog(
+  syncLogId: string,
+  action: "link" | "dismiss",
+  ptPaymentId?: number | null
+): Promise<any> {
+  try {
+    const response = await apolloClient.query({
+      query: gql`
+        mutation ResolveCreditNoteRefundFromSyncLog(
+          $syncLogId: String!
+          $action: String!
+          $ptPaymentId: Float
+        ) {
+          resolveCreditNoteRefundFromSyncLog(
+            sync_log_id: $syncLogId
+            action: $action
+            pt_payment_id: $ptPaymentId
+          ) {
+            message
+            status
+          }
+        }
+      `,
+      variables: { syncLogId, action, ptPaymentId: ptPaymentId ?? null },
+      fetchPolicy: "no-cache",
+    });
+    const res = response?.data?.resolveCreditNoteRefundFromSyncLog;
+    if (res?.status === ApiResponse.XERO_REFRESH && res?.message) {
+      handleXeroReauthRequired(res.message);
+      return null;
+    }
+    if (res?.status === ApiResponse.SUCCESS) {
+      showSuccessToast(res?.message);
+      return true;
+    }
+    showErrorToast(res?.message);
+    return false;
+  } catch (error: any) {
+    showErrorToast(error);
+    return false;
+  }
+}
+
 export async function CreateOverPaymentRefundInXero(
   postData: any
 ): Promise<any> {

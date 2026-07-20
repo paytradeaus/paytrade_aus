@@ -16452,6 +16452,9 @@ export class XeroWebhookService {
       // Task #231 — re-pull a single Xero BankTransfer between a
       // trust account and its associated cash account.
       'trust_movement',
+      // Task #376 — re-pull a single ACCPAY credit note (allocation +
+      // refund legs) through handleInboundAccpayCreditNote.
+      'credit_note',
     ]);
 
     if (!company_id || !rawType || !rawId) {
@@ -17125,6 +17128,63 @@ export class XeroWebhookService {
         };
       }
 
+      // ───────────────────────────── CREDIT NOTE ─────────────────────────────
+      if (rawType === 'credit_note') {
+        if (!uuidRegex.test(rawId)) {
+          const msg = 'Credit note id must be a Xero CreditNote GUID.';
+          const syncLogId = await writeTriggerLog({
+            status: 'Failed',
+            resolvedXeroId: null,
+            message: msg,
+          });
+          return { success: false, message: msg, syncLogId };
+        }
+        const syncLogId = await writeTriggerLog({
+          status: 'Succeeded',
+          resolvedXeroId: rawId,
+          message: '',
+          extraHistory: [
+            `Dispatching ACCPAY credit note ${rawId} to handleInboundAccpayCreditNote (manual)`,
+          ],
+        });
+        try {
+          const result = await this.handleInboundAccpayCreditNote(
+            { resource_id: rawId, tenant_id, sync_run_type: 'manual' },
+            decoded,
+          );
+          if (!result?.success) {
+            const related = await resolveRelatedFailureLog([rawId]);
+            await linkTriggerToRelated(syncLogId as any, related);
+            return {
+              success: false,
+              message: `Credit note ${rawId} could not be processed: ${result?.message || 'unknown error'}.`,
+              syncLogId,
+              resolvedXeroId: rawId,
+              relatedLogId: related?.id ?? null,
+              relatedSyncId: related?.sync_id ?? null,
+            };
+          }
+          return {
+            success: true,
+            message: `Credit note ${rawId} processed: ${result.message}`,
+            syncLogId,
+            resolvedXeroId: rawId,
+          };
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          const related = await resolveRelatedFailureLog([rawId]);
+          await linkTriggerToRelated(syncLogId as any, related);
+          return {
+            success: false,
+            message: `Credit note ${rawId} handler threw: ${errMsg}`,
+            syncLogId,
+            resolvedXeroId: rawId,
+            relatedLogId: related?.id ?? null,
+            relatedSyncId: related?.sync_id ?? null,
+          };
+        }
+      }
+
       // ───────────────────────────── MANUAL JOURNAL ─────────────────────────────
       if (rawType === 'manual_journal') {
         if (!uuidRegex.test(rawId)) {
@@ -17264,6 +17324,8 @@ export class XeroWebhookService {
       'trust_movement',
       'contact',
       'manual_journal',
+      // Task #376 — ACCPAY credit-note lookup by number / contact name.
+      'credit_note',
     ]);
     // Task #231 — trust_movement lookup reuses the bank_transfer branch
     // (BankTransfers + PT-MOV-{id} reference search) since they share
@@ -17893,6 +17955,58 @@ export class XeroWebhookService {
         };
       }
 
+      // ─── CREDIT NOTE (Task #376) ──────────────────────────────────────
+      if (rawType === 'credit_note') {
+        const since = fromDate || moment().subtract(365, 'days').toDate();
+        const cnPageSize = 100;
+        // Signature: tenantId, ifModifiedSince, where, order, page, unitdp, pageSize.
+        const resp = await this.xero.accountingApi.getCreditNotes(
+          tenant_id,
+          since,
+          `Type=="ACCPAYCREDIT"`,
+          'UpdatedDateUTC DESC',
+          page,
+          undefined,
+          cnPageSize,
+        );
+        const rawList = resp?.body?.creditNotes || [];
+        const list = toDate
+          ? rawList.filter((cn: any) => {
+              const u = cn?.updatedDateUTC ? moment(cn.updatedDateUTC) : null;
+              return !u || !u.isValid() || u.toDate() <= toDate;
+            })
+          : rawList;
+        const matched = list.filter((cn: any) => {
+          const number = String(cn?.creditNoteNumber || '').toLowerCase();
+          const contactName = String(cn?.contact?.name || '').toLowerCase();
+          const ref = String(cn?.reference || '').toLowerCase();
+          const total = String(cn?.total ?? '');
+          return (
+            number.includes(lower) ||
+            contactName.includes(lower) ||
+            ref.includes(lower) ||
+            total.includes(lower)
+          );
+        });
+        const out = matched.slice(0, 10).map((cn: any) => ({
+          id: String(cn?.creditNoteID || ''),
+          label: `${cn?.creditNoteNumber || '(no number)'} — ${cn?.contact?.name || 'unknown contact'}`,
+          sublabel: `${fmtDate(cn?.date)} • ${cn?.status || ''} • $${Number(
+            cn?.total || 0,
+          ).toFixed(2)}${Number(cn?.remainingCredit || 0) > 0 ? ` • $${Number(cn.remainingCredit).toFixed(2)} unallocated` : ''}`,
+        }));
+        return {
+          success: true,
+          candidates: out,
+          has_more: rawList.length >= cnPageSize || matched.length > out.length,
+          page,
+          window: {
+            from: since.toISOString(),
+            to: toDate ? toDate.toISOString() : undefined,
+          },
+        };
+      }
+
       return {
         success: false,
         message: `Unsupported type "${rawType}".`,
@@ -18248,6 +18362,703 @@ export class XeroWebhookService {
     } catch {
       return true;
     }
+  }
+
+  /**
+   * Task #376 — Inbound ACCPAY credit-note settlement sync.
+   *
+   * Xero fires no webhooks for credit notes, so this handler is driven by
+   * the 15-minute scheduler poll (`webhookFallbackSync`) and the Manual
+   * Xero Sync tool ("Credit note" record type). It mirrors each credit
+   * note settlement leg into `xero_payments` and NEVER auto-posts anything
+   * to the trust ledger:
+   *
+   *  - Allocation legs (credit applied against a mapped bill): re-trigger
+   *    the existing `handleInvoiceCreateUpdate` pipeline for the allocated
+   *    invoice — the battle-tested pay-less/credit-note claim adjustment
+   *    path owns the outcome. A mirror row (payment_type
+   *    'ACCPAYCREDIT-ALLOCATION', keyed credit_note_id + allocated
+   *    invoiceID) makes the re-trigger idempotent.
+   *  - Cash refund legs (`creditNote.payments[]` — supplier refunded the
+   *    remaining credit in cash): park an idempotent template-655
+   *    "needs your input" hold suggesting an "Overpayment refund from
+   *    supplier" recording. Dedup key: reference->>'xeroId' =
+   *    `${creditNoteID}:${paymentID}` on open (non-archived) 655 rows.
+   *  - Unmapped contact / unmapped refund account / voided credit note:
+   *    sticky skip via `permanently_unmapped` on the mirror row so the
+   *    poller does not reprocess every 15 minutes. A manual run
+   *    (`sync_run_type: 'manual'`) bypasses the sticky skip so a user can
+   *    re-attempt after fixing the mapping.
+   */
+  async handleInboundAccpayCreditNote(
+    input: {
+      resource_id: string;
+      tenant_id: string;
+      sync_run_type?: string;
+      credit_note?: any;
+    },
+    decoded: any,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    holds_created?: number;
+    allocations_triggered?: number;
+  }> {
+    const PREFIX = '[CREDIT_NOTE_SYNC]';
+    const creditNoteId = String(input?.resource_id || '').trim();
+    const tenant_id = String(input?.tenant_id || '').trim();
+    const sync_run_type = input?.sync_run_type || 'scheduler';
+    const isManualRun = sync_run_type === 'manual';
+    if (!creditNoteId || !tenant_id) {
+      return { success: false, message: 'resource_id and tenant_id are required' };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { tenant_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails) {
+      return { success: false, message: `No active Xero integration for tenant ${tenant_id}` };
+    }
+    const integration_id = xeroDetails.integration_id;
+
+    // Fetch the live credit note (list-poll passes a summary; we need
+    // allocations[] + payments[] which only the single fetch reliably has).
+    let cn: any = null;
+    try {
+      const resp = await this.xero.accountingApi.getCreditNote(
+        tenant_id,
+        creditNoteId,
+        4,
+      );
+      cn = resp?.body?.creditNotes?.[0] || null;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Failed to fetch credit note ${creditNoteId}: ${err?.message || err}`,
+      };
+    }
+    if (!cn) {
+      return { success: false, message: `Credit note ${creditNoteId} not found in Xero` };
+    }
+    if (String(cn.type) !== 'ACCPAYCREDIT') {
+      return {
+        success: true,
+        message: `Credit note ${creditNoteId} is ${cn.type} — only ACCPAY credit notes are in scope; skipped.`,
+      };
+    }
+
+    const cnNumber = cn.creditNoteNumber || creditNoteId;
+    const cnStatus = String(cn.status || '');
+
+    // Voided/deleted: sticky-close everything for this credit note —
+    // update mirror leg statuses and archive any open template-655 holds.
+    if (['VOIDED', 'DELETED'].includes(cnStatus)) {
+      await this.xeroPayments
+        .createQueryBuilder()
+        .update(XeroPayments)
+        .set({ credit_note_status: cnStatus, updated_group: 'SYSTEM' })
+        .where('credit_note_id = :cnId AND integration_id = :integrationId', {
+          cnId: creditNoteId,
+          integrationId: integration_id,
+        })
+        .execute();
+      const openHolds = await this.xeroSyncLogs
+        .createQueryBuilder('log')
+        .where('log.integration_id = :integrationId', { integrationId: integration_id })
+        .andWhere('log.log_template_id = :tpl', { tpl: 655 })
+        .andWhere('log.archived_at IS NULL')
+        .andWhere(`log.reference ->> 'xeroId' LIKE :key`, { key: `${creditNoteId}:%` })
+        .getMany();
+      for (const hold of openHolds) {
+        hold.archived_at = new Date();
+        hold.archive_note = `Credit note ${cnNumber} was ${cnStatus.toLowerCase()} in Xero — refund confirmation no longer required.`;
+        hold.history = [
+          ...(hold.history || []),
+          `Auto-archived: credit note ${cnNumber} became ${cnStatus} in Xero.`,
+        ];
+        await this.xeroSyncLogs.save(hold);
+      }
+      return {
+        success: true,
+        message: `Credit note ${cnNumber} is ${cnStatus}; mirror rows updated and ${openHolds.length} open hold(s) archived.`,
+      };
+    }
+
+    // Contact mapping gate. Unmapped → sticky skip (CN-level mirror row)
+    // so the poller stops burning API calls on it; a manual run bypasses
+    // the sticky row to allow a retry after the contact is mapped.
+    const xeroContact = cn?.contact?.contactID
+      ? await this.xeroContactDetails.findOne({
+          where: { contact_id: cn.contact.contactID, integration_id },
+        })
+      : null;
+    const cnLevelRow = await this.xeroPayments.findOne({
+      where: {
+        credit_note_id: creditNoteId,
+        integration_id,
+        credit_note_allocation_id: IsNull(),
+        payment_id: IsNull(),
+      },
+    });
+    if (!xeroContact?.pt_contact_id) {
+      if (!cnLevelRow) {
+        const sticky = this.xeroPayments.create({
+          integration_id,
+          tenant_id,
+          credit_note_id: creditNoteId,
+          credit_note_type: 'ACCPAYCREDIT',
+          credit_note_status: cnStatus,
+          credit_note_date: cn.date,
+          credit_amount: Number(cn.total || 0),
+          reference: cnNumber,
+          payment_type: 'ACCPAYCREDIT',
+          permanently_unmapped: true,
+          created_group: 'SYSTEM',
+        } as any);
+        await this.xeroPayments.save(sticky);
+      }
+      this.logger.warn(
+        `${PREFIX} Credit note ${cnNumber} (${creditNoteId}) skipped — contact ${cn?.contact?.contactID} not mapped to a PT supplier (sticky skip recorded).`,
+      );
+      return {
+        success: false,
+        message: `Credit note ${cnNumber} contact is not mapped to a PayTrade supplier — skipped (sticky). Map the contact, then re-run via Manual Xero Sync.`,
+      };
+    }
+    if (cnLevelRow?.permanently_unmapped && !isManualRun) {
+      return {
+        success: true,
+        message: `Credit note ${cnNumber} is marked permanently unmapped — skipped.`,
+      };
+    }
+    if (cnLevelRow?.permanently_unmapped && isManualRun) {
+      // Manual retry after mapping fix — clear the CN-level sticky flag.
+      cnLevelRow.permanently_unmapped = false;
+      cnLevelRow.updated_group = 'SYSTEM';
+      await this.xeroPayments.save(cnLevelRow);
+    }
+
+    let allocationsTriggered = 0;
+    let holdsCreated = 0;
+
+    // ── Allocation legs → existing invoice pipeline ──
+    for (const alloc of Array.isArray(cn.allocations) ? cn.allocations : []) {
+      const allocInvoiceId = alloc?.invoice?.invoiceID;
+      if (!allocInvoiceId) continue;
+      const existingLeg = await this.xeroPayments.findOne({
+        where: {
+          credit_note_id: creditNoteId,
+          credit_note_allocation_id: allocInvoiceId,
+          integration_id,
+        },
+      });
+      if (existingLeg && !isManualRun) continue;
+      const mappedBill = await this.xeroInvoicesBills.findOne({
+        where: { invoice_id: allocInvoiceId, integration_id },
+      });
+      if (!mappedBill) {
+        // Bill not mirrored — the invoice pipeline will import it (and its
+        // credit notes) whenever it lands; nothing to do on the CN side.
+        continue;
+      }
+      try {
+        await this.handleInvoiceCreateUpdate(
+          {
+            resource_id: allocInvoiceId,
+            tenant_id,
+            eventType: 'UPDATE',
+            sync_run_type,
+          },
+          decoded,
+        );
+        allocationsTriggered++;
+      } catch (err: any) {
+        this.logger.error(
+          `${PREFIX} Allocation re-trigger failed for invoice ${allocInvoiceId} (credit note ${cnNumber}): ${err?.message || err}`,
+        );
+      }
+      if (!existingLeg) {
+        const legRow = this.xeroPayments.create({
+          integration_id,
+          tenant_id,
+          contact_id: xeroContact.id,
+          credit_note_id: creditNoteId,
+          credit_note_allocation_id: allocInvoiceId,
+          credit_note_type: 'ACCPAYCREDIT',
+          credit_note_status: cnStatus,
+          credit_note_date: cn.date,
+          credit_amount: Number(alloc?.amount || 0),
+          payment_date: alloc?.date || cn.date,
+          reference: cnNumber,
+          payment_type: 'ACCPAYCREDIT-ALLOCATION',
+          status: 'AUTHORISED',
+          created_group: 'SYSTEM',
+        } as any);
+        await this.xeroPayments.save(legRow);
+      }
+    }
+
+    // ── Cash refund legs → confirm-hold (never auto-post) ──
+    for (const p of Array.isArray(cn.payments) ? cn.payments : []) {
+      const refundPaymentId = p?.paymentID;
+      if (!refundPaymentId) continue;
+      const refundAmount = Math.abs(Number(p?.amount || 0));
+      if (!refundAmount) continue;
+
+      let mirror = await this.xeroPayments.findOne({
+        where: { payment_id: refundPaymentId, integration_id },
+      });
+      if (mirror?.pt_payment_id) continue; // already recorded/linked
+      if (mirror?.permanently_unmapped && !isManualRun) continue; // dismissed / sticky
+
+      // Resolve the refund's bank account from the full payment fetch —
+      // the embedded credit-note payment stub does not carry the account.
+      let refundAccountXeroId: string | null = null;
+      let refundDate: any = p?.date || null;
+      try {
+        const payResp = await this.xero.accountingApi.getPayment(
+          tenant_id,
+          refundPaymentId,
+        );
+        const fullPay: any = payResp?.body?.payments?.[0];
+        refundAccountXeroId = fullPay?.account?.accountID || null;
+        refundDate = fullPay?.date || refundDate;
+      } catch (err: any) {
+        this.logger.error(
+          `${PREFIX} getPayment failed for refund leg ${refundPaymentId} of credit note ${cnNumber}: ${err?.message || err}`,
+        );
+      }
+      const accountMap = refundAccountXeroId
+        ? await this.xeroBankAccountDetails.findOne({
+            where: { account_id: refundAccountXeroId, integration_id },
+          })
+        : null;
+
+      // Upsert the mirror leg first so the sticky/dedup state is durable.
+      if (!mirror) {
+        mirror = this.xeroPayments.create({
+          payment_id: refundPaymentId,
+          integration_id,
+          tenant_id,
+          contact_id: xeroContact.id,
+          account_id: accountMap?.id || null,
+          credit_note_id: creditNoteId,
+          credit_note_type: 'ACCPAYCREDIT',
+          credit_note_status: cnStatus,
+          credit_note_date: cn.date,
+          credit_amount: Number(cn.total || 0),
+          payment_amount: refundAmount,
+          payment_date: refundDate,
+          reference: cnNumber,
+          payment_type: 'ACCPAYCREDIT-REFUND',
+          status: 'AUTHORISED',
+          created_group: 'SYSTEM',
+        } as any) as any;
+        mirror = await this.xeroPayments.save(mirror);
+      } else {
+        mirror.account_id = accountMap?.id || mirror.account_id;
+        mirror.payment_amount = refundAmount;
+        mirror.payment_date = refundDate;
+        mirror.credit_note_status = cnStatus;
+        if (isManualRun && mirror.permanently_unmapped) {
+          mirror.permanently_unmapped = false;
+        }
+        mirror.updated_group = 'SYSTEM';
+        mirror = await this.xeroPayments.save(mirror);
+      }
+
+      if (!accountMap?.pt_bank_account_id) {
+        // Refund landed in an account PT does not track — sticky skip.
+        mirror.permanently_unmapped = true;
+        await this.xeroPayments.save(mirror);
+        this.logger.warn(
+          `${PREFIX} Refund leg ${refundPaymentId} of credit note ${cnNumber} skipped — Xero account ${refundAccountXeroId || 'unknown'} is not mapped to a PT bank account (sticky skip).`,
+        );
+        continue;
+      }
+
+      // Idempotency: one open hold per (credit note, refund payment) leg.
+      const dedupKey = `${creditNoteId}:${refundPaymentId}`;
+      const existingHold = await this.xeroSyncLogs
+        .createQueryBuilder('log')
+        .where('log.integration_id = :integrationId', { integrationId: integration_id })
+        .andWhere('log.log_template_id = :tpl', { tpl: 655 })
+        .andWhere('log.archived_at IS NULL')
+        .andWhere(`log.reference ->> 'xeroId' = :key`, { key: dedupKey })
+        .getOne();
+      if (existingHold) continue;
+
+      // Duplicate matcher — offer "link to existing" when a manual
+      // "Overpayment refund from supplier" payment already matches
+      // (same supplier, amount ±0.01, date ±2 days, not already linked).
+      const candidates: Array<{
+        payment_id: number;
+        total_amount: number;
+        payment_date: any;
+      }> = [];
+      try {
+        const ptCandidates = await this.paymentDetails.find({
+          where: {
+            company_id: xeroDetails.company_id,
+            payment_type: 'Overpayment refund from supplier',
+            client_supplier_id: Number(xeroContact.pt_contact_id),
+            current_status: Not('Deleted'),
+          },
+          order: { payment_id: 'DESC' },
+          take: 50,
+        });
+        for (const cand of ptCandidates) {
+          if (
+            !this.compareAmountAndDate(
+              Number(cand.total_amount || 0),
+              refundAmount,
+              cand.payment_date,
+              refundDate,
+            )
+          ) {
+            continue;
+          }
+          const alreadyLinked = await this.xeroPayments.findOne({
+            where: { pt_payment_id: cand.payment_id, integration_id },
+          });
+          if (alreadyLinked) continue;
+          candidates.push({
+            payment_id: Number(cand.payment_id),
+            total_amount: Number(cand.total_amount || 0),
+            payment_date: cand.payment_date,
+          });
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `${PREFIX} Candidate matcher failed for refund leg ${refundPaymentId}: ${err?.message || err}`,
+        );
+      }
+
+      const refundDateDisplay = (() => {
+        try {
+          const d = refundDate instanceof Date ? refundDate : new Date(refundDate);
+          return isNaN(d.getTime()) ? String(refundDate) : d.toLocaleDateString('en-AU');
+        } catch {
+          return String(refundDate);
+        }
+      })();
+      const refundAmountDisplay = `$${refundAmount.toLocaleString('en-AU', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+      const accountName =
+        (accountMap as any)?.account_name || refundAccountXeroId || 'unknown account';
+
+      const informationRequired = {
+        kind: 'credit_note_refund',
+        credit_note_id: creditNoteId,
+        credit_note_number: cnNumber,
+        xero_payment_id: refundPaymentId,
+        tenant_id,
+        amount: refundAmount,
+        date: refundDate ? String(refundDate) : null,
+        contact_name: cn?.contact?.name || xeroContact.contact_name || null,
+        client_supplier_id: Number(xeroContact.pt_contact_id),
+        pt_bank_account_id: Number(accountMap.pt_bank_account_id),
+        suggested_payment_type: 'Overpayment refund from supplier',
+        candidates,
+      };
+
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'handleInboundAccpayCreditNote',
+        api_payload: {
+          credit_note_id: creditNoteId,
+          payment_id: refundPaymentId,
+          tenant_id,
+          sync_run_type,
+        },
+        integration_id,
+        log_template_id: 655,
+        dynamic_values: {
+          // Keys MUST mirror template 655's placeholders.
+          credit_note_number: cnNumber,
+          contact_name: cn?.contact?.name || xeroContact.contact_name || 'supplier',
+          refund_amount: refundAmountDisplay,
+          refund_date: refundDateDisplay,
+          account_name: accountName,
+        },
+        information_required: JSON.stringify(informationRequired),
+        reference: { xeroId: dedupKey, paytradeId: null },
+        history: [
+          `Inbound ACCPAY credit note ${cnNumber} carries a cash refund leg of ${refundAmountDisplay} (Xero payment ${refundPaymentId}).`,
+          candidates.length > 0
+            ? `${candidates.length} matching PayTrade "Overpayment refund from supplier" payment(s) found — link instead of creating a duplicate.`
+            : 'No matching PayTrade refund payment found — record it as "Overpayment refund from supplier", then link.',
+          'Nothing is posted to the trust ledger until you confirm.',
+        ],
+        important_checks: {
+          'Contact mapping': 'Ok',
+          'Refund account mapping': 'Ok',
+          'Refund recording confirmation': 'Required',
+          'Duplicate check': candidates.length > 0 ? `${candidates.length} candidate(s) found` : 'No existing match',
+        },
+        error_message: 'Credit note refund confirmation required',
+        xero_records: [cn],
+        paytrade_records: [],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+      holdsCreated++;
+    }
+
+    return {
+      success: true,
+      message: `Credit note ${cnNumber} processed: ${allocationsTriggered} allocation leg(s) re-triggered through the bill pipeline, ${holdsCreated} refund confirmation hold(s) created.`,
+      holds_created: holdsCreated,
+      allocations_triggered: allocationsTriggered,
+    };
+  }
+
+  /**
+   * Task #376 — Human resolution for a template-655 credit-note refund
+   * hold. Three actions:
+   *  - 'link'    — bind the mirror refund leg to an existing PT
+   *                "Overpayment refund from supplier" payment. If no
+   *                pt_payment_id is passed, a live re-match must find
+   *                exactly one candidate (0 → tell the user to record it
+   *                first; >1 → ask for an explicit id).
+   *  - 'dismiss' — sticky-skip the refund leg (`permanently_unmapped`).
+   *  - Creation itself always goes through the standard "Overpayment
+   *    refund from supplier" form (claim/associated-payment selection is
+   *    mandatory there); once created, 'link' picks it up.
+   */
+  async resolveCreditNoteRefundFromSyncLog(
+    decoded: any,
+    input: { sync_log_id: string; action: string; pt_payment_id?: number | null },
+  ): Promise<{ success: boolean; message: string; linked_payment_id?: number }> {
+    const syncLogId = String(input?.sync_log_id || '').trim();
+    const action = String(input?.action || '').trim().toLowerCase();
+    const callerCompanyId = Number((input as any)?.company_id) || 0;
+    if (!syncLogId || !['link', 'dismiss'].includes(action)) {
+      return {
+        success: false,
+        message: 'sync_log_id and a valid action ("link" or "dismiss") are required',
+      };
+    }
+    if (!callerCompanyId) {
+      return {
+        success: false,
+        message: 'Unauthorized: no active company on this session.',
+      };
+    }
+
+    const log = await this.xeroSyncLogs.findOne({ where: { id: syncLogId } });
+    if (!log) return { success: false, message: `sync log ${syncLogId} not found` };
+    if (log.log_template_id !== 655) {
+      return {
+        success: false,
+        message: `sync log ${syncLogId} is not a credit-note refund confirmation log`,
+      };
+    }
+    if (log.archived_at) {
+      return { success: false, message: `sync log ${syncLogId} has already been resolved` };
+    }
+
+    let info: any = {};
+    try {
+      info =
+        log.information_required && log.information_required !== 'NA'
+          ? JSON.parse(log.information_required)
+          : {};
+    } catch {
+      info = {};
+    }
+    if (
+      info?.kind !== 'credit_note_refund' ||
+      !info?.xero_payment_id ||
+      !info?.tenant_id
+    ) {
+      return {
+        success: false,
+        message: `sync log ${syncLogId} is missing credit-note refund data`,
+      };
+    }
+
+    const xeroDetails = await this.xeroIntegrationDetails.findOne({
+      where: { tenant_id: info.tenant_id, status: 'ACTIVE' },
+    });
+    if (!xeroDetails || xeroDetails.integration_id !== log.integration_id) {
+      return { success: false, message: 'Active Xero integration not found for this log' };
+    }
+    // IDOR guard — the hold must belong to the caller's active company
+    // (headers.companyid, already role-validated by decodeJwtToken and
+    // matched at the resolver). Without this, any user who obtained a
+    // sync-log UUID could link/dismiss another company's hold.
+    if (Number(xeroDetails.company_id) !== callerCompanyId) {
+      return {
+        success: false,
+        message: 'Unauthorized: this sync log does not belong to your active company.',
+      };
+    }
+    const integration_id = xeroDetails.integration_id;
+
+    const mirror = await this.xeroPayments.findOne({
+      where: { payment_id: info.xero_payment_id, integration_id },
+    });
+    if (!mirror) {
+      return {
+        success: false,
+        message: `Mirror row for Xero refund payment ${info.xero_payment_id} not found — re-run the credit note sync first`,
+      };
+    }
+
+    if (action === 'dismiss') {
+      mirror.permanently_unmapped = true;
+      mirror.pt_payment_id = null;
+      mirror.mapped_status = null;
+      mirror.updated_by = decoded?.userId ?? null;
+      mirror.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
+      await this.xeroPayments.save(mirror);
+      log.archived_at = new Date();
+      log.archived_by_user_id = decoded?.userId ?? null;
+      log.archive_note = `Dismissed — credit note ${info.credit_note_number} refund will not be recorded in PayTrade (sticky skip).`;
+      log.history = [
+        ...(log.history || []),
+        `Dismissed by user ${decoded?.userId ?? 'n/a'} on ${new Date().toISOString()} — refund leg marked permanently unmapped.`,
+      ];
+      await this.xeroSyncLogs.save(log);
+      return {
+        success: true,
+        message: `Credit note ${info.credit_note_number} refund dismissed — it will no longer be offered for import.`,
+      };
+    }
+
+    // action === 'link' — re-run the matcher LIVE (the stored candidate
+    // list may be stale: the user typically records the refund payment
+    // after the hold was written).
+    const matchOne = async (): Promise<
+      { ok: true; payment: any } | { ok: false; message: string }
+    > => {
+      const ptCandidates = await this.paymentDetails.find({
+        where: {
+          company_id: xeroDetails.company_id,
+          payment_type: 'Overpayment refund from supplier',
+          client_supplier_id: Number(info.client_supplier_id),
+          current_status: Not('Deleted'),
+        },
+        order: { payment_id: 'DESC' },
+        take: 50,
+      });
+      const matches: any[] = [];
+      for (const cand of ptCandidates) {
+        if (
+          !this.compareAmountAndDate(
+            Number(cand.total_amount || 0),
+            Number(info.amount || 0),
+            cand.payment_date,
+            info.date,
+          )
+        ) {
+          continue;
+        }
+        const alreadyLinked = await this.xeroPayments.findOne({
+          where: { pt_payment_id: cand.payment_id, integration_id },
+        });
+        if (alreadyLinked) continue;
+        matches.push(cand);
+      }
+      if (input?.pt_payment_id) {
+        const chosen = matches.find(
+          (m) => Number(m.payment_id) === Number(input.pt_payment_id),
+        );
+        if (!chosen) {
+          return {
+            ok: false,
+            message: `PT payment #${input.pt_payment_id} does not match this refund (type/supplier/amount ±$0.01/date ±2 days) or is already linked to Xero.`,
+          };
+        }
+        return { ok: true, payment: chosen };
+      }
+      if (matches.length === 0) {
+        return {
+          ok: false,
+          message: `No matching "Overpayment refund from supplier" payment found for ${info.credit_note_number} ($${Number(
+            info.amount || 0,
+          ).toFixed(2)}). Record it first, then click Link again.`,
+        };
+      }
+      if (matches.length > 1) {
+        return {
+          ok: false,
+          message: `Multiple matching payments found (#${matches
+            .map((m) => m.payment_id)
+            .join(', #')}). Re-run with an explicit pt_payment_id.`,
+        };
+      }
+      return { ok: true, payment: matches[0] };
+    };
+
+    const matched: any = await matchOne();
+    if (!matched.ok) return { success: false, message: matched.message };
+
+    mirror.pt_payment_id = Number(matched.payment.payment_id);
+    mirror.mapped_status = 'Manual' as any;
+    mirror.permanently_unmapped = false;
+    mirror.updated_by = decoded?.userId ?? null;
+    mirror.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
+    await this.xeroPayments.save(mirror);
+
+    log.archived_at = new Date();
+    log.archived_by_user_id = decoded?.userId ?? null;
+    log.archive_note = `Resolved — linked to PT payment #${matched.payment.payment_id}`;
+    log.history = [
+      ...(log.history || []),
+      `Linked to PT payment #${matched.payment.payment_id} by user ${decoded?.userId ?? 'n/a'} on ${new Date().toISOString()}.`,
+    ];
+    await this.xeroSyncLogs.save(log);
+
+    const refundAmountDisplay = `$${Number(info.amount || 0).toLocaleString('en-AU', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    try {
+      await this.xeroService.insertXeroSyncLogs(decoded, {
+        api_name: 'resolveCreditNoteRefundFromSyncLog',
+        api_payload: {
+          credit_note_id: info.credit_note_id,
+          payment_id: info.xero_payment_id,
+          tenant_id: info.tenant_id,
+          sync_run_type: 'manual_resolution',
+        },
+        integration_id,
+        log_template_id: 656,
+        dynamic_values: {
+          credit_note_number: info.credit_note_number,
+          refund_amount: refundAmountDisplay,
+          resolution: `a link to existing PT payment #${matched.payment.payment_id}`,
+        },
+        reference: {
+          xeroId: `${info.credit_note_id}:${info.xero_payment_id}`,
+          paytradeId: String(matched.payment.payment_id),
+        },
+        history: [
+          `Credit note ${info.credit_note_number} refund of ${refundAmountDisplay} linked to PT payment #${matched.payment.payment_id}.`,
+        ],
+        important_checks: { 'Refund recording confirmation': 'Ok' },
+        error_message: null,
+        xero_records: [],
+        paytrade_records: [matched.payment],
+        new_records: null,
+        updated_records: null,
+        synced_records: null,
+      });
+    } catch (err: any) {
+      this.logger.error(
+        `[CREDIT_NOTE_SYNC] success log write failed: ${err?.message || err}`,
+      );
+    }
+
+    return {
+      success: true,
+      message: `Credit note ${info.credit_note_number} refund linked to PT payment #${matched.payment.payment_id}.`,
+      linked_payment_id: Number(matched.payment.payment_id),
+    };
   }
 
   /**
@@ -20254,6 +21065,9 @@ export class XeroWebhookService {
       'trust_movement',
       'contact',
       'manual_journal',
+      // Task #376 — re-pull a single ACCPAY credit note (allocation +
+      // refund legs) through handleInboundAccpayCreditNote.
+      'credit_note',
     ]);
     if (!company_id || !rawType) {
       return { success: false, message: 'company_id and type are required.' };

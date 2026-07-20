@@ -2212,7 +2212,7 @@ function ManualXeroSyncDialog({
   onSuccess?: () => void;
 }) {
   const [type, setType] = useState<
-    "invoice_bill" | "payment" | "bank_transfer" | "trust_movement" | "contact" | "manual_journal"
+    "invoice_bill" | "payment" | "bank_transfer" | "trust_movement" | "contact" | "manual_journal" | "credit_note"
   >("invoice_bill");
   const [id, setId] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
@@ -3094,6 +3094,7 @@ function ManualXeroSyncDialog({
           <option value="trust_movement">Trust movement</option>
           <option value="contact">Contact</option>
           <option value="manual_journal">Manual journal</option>
+          <option value="credit_note">Credit note</option>
         </select>
       </div>
       {/* Task #72 — inline lookup widget. Optional shortcut so the admin
@@ -3109,6 +3110,8 @@ function ManualXeroSyncDialog({
             ? "reference, PT payment id, amount, bank account or date"
             : type === "contact"
             ? "contact name"
+            : type === "credit_note"
+            ? "credit note number, contact name, reference or amount"
             : "narration or reference"}
           <span style={{ opacity: 0.6, fontWeight: 400 }}> (optional)</span>
         </h5>

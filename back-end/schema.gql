@@ -16243,6 +16243,22 @@ type Mutation {
   ): StringResponse!
 
   """
+  Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "dismiss" permanently skips the leg.
+  """
+  resolveCreditNoteRefundFromSyncLog(
+    """One of: link, dismiss."""
+    action: String!
+
+    """
+    Optional explicit PT payment id to link (required when multiple candidates match).
+    """
+    pt_payment_id: Float
+
+    """The uuid of the template-655 credit-note refund hold."""
+    sync_log_id: String!
+  ): StringResponse!
+
+  """
   Trust-movement classification lane — admin confirm step. Re-invokes the inbound BankTransfer handler in apply mode with the chosen movement type for a Failed classification sync log (template 632), then archives that log. The chosen type is re-validated against the live transfer.
   """
   resolveTrustMovementFromSyncLog(
