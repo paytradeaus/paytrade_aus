@@ -1992,7 +1992,7 @@ export class XeroResolver {
   @Mutation(() => StringResponse, {
     name: 'resolveCreditNoteRefundFromSyncLog',
     description:
-      'Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "dismiss" permanently skips the leg.',
+      'Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "create" atomically records a new one from the hold and links it; action "dismiss" permanently skips the leg.',
   })
   async resolveCreditNoteRefundFromSyncLog(
     @Context() context,
@@ -2000,7 +2000,7 @@ export class XeroResolver {
       description: 'The uuid of the template-655 credit-note refund hold.',
     })
     sync_log_id: string,
-    @Args('action', { description: 'One of: link, dismiss.' })
+    @Args('action', { description: 'One of: link, create, dismiss.' })
     action: string,
     @Args('pt_payment_id', {
       nullable: true,

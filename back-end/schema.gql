@@ -16243,10 +16243,10 @@ type Mutation {
   ): StringResponse!
 
   """
-  Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "dismiss" permanently skips the leg.
+  Resolve a credit-note refund confirmation sync log (template 655): action "link" binds the Xero refund leg to an existing PT "Overpayment refund from supplier" payment; action "create" atomically records a new one from the hold and links it; action "dismiss" permanently skips the leg.
   """
   resolveCreditNoteRefundFromSyncLog(
-    """One of: link, dismiss."""
+    """One of: link, create, dismiss."""
     action: String!
 
     """

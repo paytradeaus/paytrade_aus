@@ -6060,5 +6060,15 @@
     "from_xero": true,
     "error_code": "CREDIT_NOTE_REFUND_RECORDED",
     "associated_log_ids": null
+  },
+  {
+    "id": 657,
+    "sync_type": "Payments",
+    "description": "<p>Credit note {{credit_note_number}} was voided or deleted in Xero AFTER its cash refund of {{refund_amount}} was recorded in Pay Trade as payment #{{pt_payment_id}}. Please review that payment — if the refund never actually happened, reverse or delete it via the payments screen. Nothing is changed automatically.</p>",
+    "process": "Xero > Pay Trade",
+    "sync_status": "Failed",
+    "from_xero": true,
+    "error_code": "CREDIT_NOTE_VOIDED_AFTER_IMPORT",
+    "associated_log_ids": null
   }
 ]

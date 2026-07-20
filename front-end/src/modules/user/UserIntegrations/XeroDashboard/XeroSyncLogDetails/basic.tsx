@@ -822,7 +822,9 @@ export default function SyncLogDetailsBasic() {
     !viewLogData?.archived_at &&
     !!creditNoteRefundInfo;
 
-  async function resolveCreditNoteRefundHandle(action: "link" | "dismiss") {
+  async function resolveCreditNoteRefundHandle(
+    action: "link" | "create" | "dismiss"
+  ) {
     if (!viewLogData?.id || !creditNoteRefundInfo) return;
     const candidates = creditNoteRefundInfo?.candidates || [];
     let ptPaymentId: number | null = null;
@@ -2189,6 +2191,38 @@ export default function SyncLogDetailsBasic() {
                               {creditNoteRefundInprogress
                                 ? "Working..."
                                 : "Link to PT payment"}
+                            </button>
+                            <button
+                              style={{
+                                whiteSpace: "nowrap",
+                                padding: "6px 14px",
+                                backgroundColor: "#059669",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "fit-content",
+                                margin: 0,
+                              }}
+                              onClick={() =>
+                                resolveCreditNoteRefundHandle("create")
+                              }
+                              disabled={creditNoteRefundInprogress}
+                              title="Records a new 'Overpayment refund from supplier' payment in PayTrade from this Xero refund (supplier, amount, date and mapped account are taken from the hold) and links it in one step. Nothing is posted until you click this."
+                            >
+                              <i
+                                className="fa-light fa-circle-plus"
+                                style={{
+                                  marginRight: "10px",
+                                  marginLeft: "10px",
+                                }}
+                              ></i>
+                              {creditNoteRefundInprogress
+                                ? "Working..."
+                                : "Create payment"}
                             </button>
                             <button
                               style={{

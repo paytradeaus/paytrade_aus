@@ -18478,9 +18478,75 @@ export class XeroWebhookService {
         ];
         await this.xeroSyncLogs.save(hold);
       }
+
+      // Voided AFTER a refund leg was already linked/created in PT: the
+      // PT payment (and its trust-ledger journal) may now be wrong, but
+      // reversal is never automatic (trust-ledger safety) — raise ONE
+      // idempotent "needs your input" hold (template 657) per linked leg
+      // pointing at the affected PT payment. Dedup key includes the
+      // Xero payment id so multi-leg credit notes get one hold per leg.
+      let voidedHoldsRaised = 0;
+      const linkedMirrors = await this.xeroPayments.find({
+        where: {
+          credit_note_id: creditNoteId,
+          integration_id,
+          pt_payment_id: Not(IsNull()),
+        },
+      });
+      for (const lm of linkedMirrors) {
+        const dedupKey = `${creditNoteId}:voided:${lm.payment_id || lm.id}`;
+        const existing = await this.xeroSyncLogs
+          .createQueryBuilder('log')
+          .where('log.integration_id = :integrationId', {
+            integrationId: integration_id,
+          })
+          .andWhere('log.log_template_id = :tpl', { tpl: 657 })
+          .andWhere('log.archived_at IS NULL')
+          .andWhere(`log.reference ->> 'xeroId' = :key`, { key: dedupKey })
+          .getOne();
+        if (existing) continue;
+        const amountDisplay = `$${Number(lm.payment_amount || 0).toLocaleString(
+          'en-AU',
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+        )}`;
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'handleInboundAccpayCreditNote',
+          api_payload: {
+            credit_note_id: creditNoteId,
+            payment_id: lm.payment_id,
+            tenant_id,
+            sync_run_type,
+          },
+          integration_id,
+          log_template_id: 657,
+          dynamic_values: {
+            // Keys MUST mirror template 657's placeholders.
+            credit_note_number: cnNumber,
+            refund_amount: amountDisplay,
+            pt_payment_id: String(lm.pt_payment_id),
+          },
+          reference: { xeroId: dedupKey, paytradeId: String(lm.pt_payment_id) },
+          history: [
+            `Credit note ${cnNumber} became ${cnStatus} in Xero AFTER its cash refund of ${amountDisplay} was recorded/linked as PT payment #${lm.pt_payment_id}.`,
+            'Review PT payment and reverse/delete it via the payments screen if the refund never happened — nothing is changed automatically.',
+          ],
+          important_checks: {
+            'Credit note status': cnStatus,
+            'Linked PT payment review': 'Required',
+          },
+          error_message: `Credit note ${cnStatus.toLowerCase()} after refund import — linked PT payment needs review`,
+          xero_records: [cn],
+          paytrade_records: [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+        voidedHoldsRaised++;
+      }
+
       return {
         success: true,
-        message: `Credit note ${cnNumber} is ${cnStatus}; mirror rows updated and ${openHolds.length} open hold(s) archived.`,
+        message: `Credit note ${cnNumber} is ${cnStatus}; mirror rows updated, ${openHolds.length} open hold(s) archived${voidedHoldsRaised > 0 ? `, ${voidedHoldsRaised} linked-payment review hold(s) raised` : ''}.`,
       };
     }
 
@@ -18824,9 +18890,13 @@ export class XeroWebhookService {
    *                exactly one candidate (0 → tell the user to record it
    *                first; >1 → ask for an explicit id).
    *  - 'dismiss' — sticky-skip the refund leg (`permanently_unmapped`).
-   *  - Creation itself always goes through the standard "Overpayment
-   *    refund from supplier" form (claim/associated-payment selection is
-   *    mandatory there); once created, 'link' picks it up.
+   *  - 'create'  — atomically record a NEW "Overpayment refund from
+   *                supplier" payment from the hold's data (mapped trust
+   *                account, supplier, amount, refund date), link the
+   *                mirror in the SAME transaction (anti-echo: the inbound
+   *                matcher can never re-import this refund) and archive
+   *                the hold. Goes through paymentsService.addPayment so
+   *                the confirmed-at-creation forward journal is written.
    */
   async resolveCreditNoteRefundFromSyncLog(
     decoded: any,
@@ -18835,10 +18905,11 @@ export class XeroWebhookService {
     const syncLogId = String(input?.sync_log_id || '').trim();
     const action = String(input?.action || '').trim().toLowerCase();
     const callerCompanyId = Number((input as any)?.company_id) || 0;
-    if (!syncLogId || !['link', 'dismiss'].includes(action)) {
+    if (!syncLogId || !['link', 'dismiss', 'create'].includes(action)) {
       return {
         success: false,
-        message: 'sync_log_id and a valid action ("link" or "dismiss") are required',
+        message:
+          'sync_log_id and a valid action ("link", "create" or "dismiss") are required',
       };
     }
     if (!callerCompanyId) {
@@ -18926,6 +18997,127 @@ export class XeroWebhookService {
       return {
         success: true,
         message: `Credit note ${info.credit_note_number} refund dismissed — it will no longer be offered for import.`,
+      };
+    }
+
+    // action === 'create' — atomically record a new "Overpayment refund
+    // from supplier" payment from the hold's data and link the mirror in
+    // the SAME transaction (anti-echo), then archive the hold. On any
+    // failure everything rolls back — nothing enters the trust ledger.
+    if (action === 'create') {
+      if (
+        !Number(info.pt_bank_account_id) ||
+        !Number(info.client_supplier_id) ||
+        !(Number(info.amount) > 0)
+      ) {
+        return {
+          success: false,
+          message:
+            'This hold is missing the mapped bank account, supplier or amount needed to create the payment — re-run the credit note sync, then try again.',
+        };
+      }
+      let createdPaymentId: number | null = null;
+      try {
+        await this.xeroPayments.manager.transaction(async (em) => {
+          const paytradePayload: any = {
+            company_id: xeroDetails.company_id,
+            payment_type: 'Overpayment refund from supplier',
+            payment_from_account: null,
+            payment_to_account: Number(info.pt_bank_account_id),
+            payment_amount: Number(info.amount),
+            total_amount: Number(info.amount),
+            payment_date: info.date ? new Date(info.date) : new Date(),
+            input_date: moment.tz('UTC').toDate(),
+            current_status: 'Draft',
+            client_supplier_id: Number(info.client_supplier_id),
+            contract_id: null,
+            // Confirmed at creation → addPayment's no-claim branch writes
+            // the forward journal inside this same transaction.
+            is_received_confirmed: true,
+            memo: `Cash refund for Xero credit note ${info.credit_note_number}`,
+          };
+          const newPayment = await this.paymentsService.addPayment(
+            decoded,
+            paytradePayload,
+            decoded?.userId,
+            em,
+          );
+          createdPaymentId = Number(newPayment?.data?.payment_id) || null;
+          if (!createdPaymentId) {
+            throw new Error(
+              newPayment?.message || 'Payment creation returned no payment_id',
+            );
+          }
+          mirror.pt_payment_id = createdPaymentId;
+          mirror.mapped_status = 'Manual' as any;
+          mirror.permanently_unmapped = false;
+          mirror.updated_by = decoded?.userId ?? null;
+          mirror.updated_group = decoded?.isAdmin ? 'ADMIN' : 'USER';
+          await em.save(mirror);
+          log.archived_at = new Date();
+          log.archived_by_user_id = decoded?.userId ?? null;
+          log.archive_note = `Resolved — created PT payment #${createdPaymentId}`;
+          log.history = [
+            ...(log.history || []),
+            `Created PT payment #${createdPaymentId} ("Overpayment refund from supplier") by user ${decoded?.userId ?? 'n/a'} on ${new Date().toISOString()}.`,
+          ];
+          await em.save(log);
+        });
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `Payment creation failed — nothing was recorded: ${err?.message || err}`,
+        };
+      }
+
+      const createdAmountDisplay = `$${Number(info.amount || 0).toLocaleString(
+        'en-AU',
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      )}`;
+      try {
+        const createdPayment = await this.paymentDetails.findOne({
+          where: { payment_id: createdPaymentId },
+        });
+        await this.xeroService.insertXeroSyncLogs(decoded, {
+          api_name: 'resolveCreditNoteRefundFromSyncLog',
+          api_payload: {
+            credit_note_id: info.credit_note_id,
+            payment_id: info.xero_payment_id,
+            tenant_id: info.tenant_id,
+            sync_run_type: 'manual_resolution',
+          },
+          integration_id,
+          log_template_id: 656,
+          dynamic_values: {
+            credit_note_number: info.credit_note_number,
+            refund_amount: createdAmountDisplay,
+            resolution: `a new PT payment #${createdPaymentId}`,
+          },
+          reference: {
+            xeroId: `${info.credit_note_id}:${info.xero_payment_id}`,
+            paytradeId: String(createdPaymentId),
+          },
+          history: [
+            `Credit note ${info.credit_note_number} refund of ${createdAmountDisplay} recorded as new PT payment #${createdPaymentId} ("Overpayment refund from supplier").`,
+          ],
+          important_checks: { 'Refund recording confirmation': 'Ok' },
+          error_message: null,
+          xero_records: [],
+          paytrade_records: createdPayment ? [createdPayment] : [],
+          new_records: null,
+          updated_records: null,
+          synced_records: null,
+        });
+      } catch (err: any) {
+        this.logger.error(
+          `[CREDIT_NOTE_SYNC] success log write failed: ${err?.message || err}`,
+        );
+      }
+
+      return {
+        success: true,
+        message: `Credit note ${info.credit_note_number} refund recorded as new PT payment #${createdPaymentId}.`,
+        linked_payment_id: Number(createdPaymentId),
       };
     }
 

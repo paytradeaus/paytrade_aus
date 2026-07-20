@@ -912,7 +912,7 @@ export async function ResolveTrustMovementFromSyncLog(
 
 export async function ResolveCreditNoteRefundFromSyncLog(
   syncLogId: string,
-  action: "link" | "dismiss",
+  action: "link" | "create" | "dismiss",
   ptPaymentId?: number | null
 ): Promise<any> {
   try {
