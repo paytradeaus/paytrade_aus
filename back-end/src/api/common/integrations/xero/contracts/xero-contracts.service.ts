@@ -152,6 +152,16 @@ export class XeroContractsService {
         return false;
       }
 
+      // Xero rejects tracking option names longer than 100 characters
+      // ("Tracking option name must be less than or equal to 100 characters
+      // in length"), and PT contract names — especially smart-created ones —
+      // routinely exceed that. Truncate the name used for BOTH the Xero-side
+      // existence match and the create call, so long-named contracts sync
+      // instead of hard-failing, and re-runs still find the truncated option.
+      const xeroOptionName = (contractDetails.contract_name || '')
+        .trim()
+        .slice(0, 100);
+
       const checkExistence =
         await this.xero.accountingApi.getTrackingCategories(
           xeroDetails.tenant_id,
@@ -165,7 +175,7 @@ export class XeroContractsService {
           const matchedOptions = category.options.filter(
             (option) =>
               option.name?.trim()?.toLowerCase() ===
-              contractDetails.contract_name?.trim()?.toLowerCase(),
+              xeroOptionName.toLowerCase(),
           );
 
           return matchedOptions.length > 0
@@ -306,7 +316,7 @@ export class XeroContractsService {
       } else {
         try {
           const trackingOption: any = {
-            name: contractDetails.contract_name,
+            name: xeroOptionName,
             status: TrackingOption.StatusEnum.ACTIVE,
             trackingCategoryID: xeroDetails.contract_category_id,
           };

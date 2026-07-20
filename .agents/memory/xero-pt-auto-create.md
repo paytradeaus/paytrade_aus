@@ -47,3 +47,19 @@ Self-heal at the outbound edit gate
   row is missing and the toggle is on, then re-fetches the mirror before
   failing. The create path never hard-failed — it proceeds without contract
   tracking — the edit path was the only hard-fail.
+
+Xero tracking-option name limit (100 chars)
+
+- Xero rejects tracking-option names >100 chars ("Tracking option name must
+  be less than or equal to 100 characters in length"). Smart-created contract
+  names (project + supplier + " - Smart Contract") routinely exceed this, so
+  their auto-push silently fails (tpl 30) and they stay unmapped forever.
+- Fix: `createContractTrackingOptions` truncates the name to 100 chars for
+  BOTH the existence match and the create call, so retries converge on the
+  truncated option. Residual risk: two contracts sharing the same first 100
+  chars collide — the second hits tpl 291 (already mapped elsewhere). Watch
+  tpl-291 frequency if this ever matters.
+- Diagnosis lesson: when a cohort of contracts is unmapped, don't assume one
+  cause — check BOTH the enablement-date cutover (rows before the feature
+  went live never pushed) AND per-row push failures (name length). Correlate
+  `LENGTH(contract_name)` + created_on vs mirror rows.
