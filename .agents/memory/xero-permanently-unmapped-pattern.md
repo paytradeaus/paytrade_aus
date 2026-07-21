@@ -37,7 +37,15 @@ plain Unmap AND add a separate permanent variant — they are distinct actions.
   non-optionally and boots — so a plain (non-@Optional) injection is safe.
 - **Skip gate is the whole point:** EVERY inbound import/re-link path must
   early-return when the existing mirror is `permanently_unmapped` — webhook
-  handler AND the scheduled-fallback path. Log the skip at INFO level
+  handler AND the scheduled-fallback path. For contacts that means THREE
+  scheduler-side selectors too: the name-match autoMappingRecords query and
+  the `xero_to_pt_contact_auto_create` loop both needed an explicit
+  `permanently_unmapped = false` filter (`pt_contact_id IS NULL` alone is not
+  enough — permanent-unmap NULLs the link, making flagged rows look like
+  ordinary unmapped candidates). Symptom of a missed path: rows with
+  `permanently_unmapped = true` AND `pt_contact_id` set, relinking weekly.
+  After fixing the code, REPAIR existing rows (clear pt_contact_id +
+  mapped_status where the flag is true) or the stale links persist. Log the skip at INFO level
   (`logger.log`, matching contacts), idempotent and noise-free (no sync-log
   row). Missing any one path silently defeats the feature.
 - List/filter: add a distinct "Permanently unmapped" mapped_status view and

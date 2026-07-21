@@ -3831,6 +3831,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
               },
             )
             .andWhere('contact.pt_contact_id IS NULL')
+            // Task #289 — never re-link contacts the user has explicitly
+            // marked as permanently unmapped.
+            .andWhere('contact.permanently_unmapped = false')
             .orderBy({ 'contact.contact_name': 'ASC' })
             .getRawMany();
 
@@ -4081,6 +4084,9 @@ export class XeroSchedulerService implements OnApplicationBootstrap {
                 integration_id: xeroDetails.integration_id,
                 pt_contact_id: null as any,
                 contact_status: 'ACTIVE',
+                // Task #289 — respect the sticky "never re-link" choice on
+                // the scheduler path too (webhook path already skips).
+                permanently_unmapped: false,
               },
             });
 
