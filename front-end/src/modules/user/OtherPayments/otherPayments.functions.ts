@@ -35,6 +35,10 @@ export const AddInterestChargesPayment = async (data: any): Promise<any> => {
     }
   } catch (error: any) {
     console.error("GraphQL Error:", error);
+    showErrorToast(
+      error?.message ||
+        "Something went wrong while saving this payment. Please try again."
+    );
     return false;
   }
 };

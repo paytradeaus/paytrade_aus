@@ -341,6 +341,7 @@ const OverPaymentRefundToClient = (props: any) => {
         payment_amount: onlyValues ? Number(onlyValues) : 0,
         total_amount: onlyValues ? Number(onlyValues) : 0,
         payment_date: values?.paymentDate || null,
+        input_date: new Date().toISOString(),
         payment_claim_id: Number(values?.paymentClaimId),
         associated_payment_id: Number(values?.associatedPaymentId),
         associated_overpayment_id: Number(values?.overpayment),
