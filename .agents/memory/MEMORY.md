@@ -62,5 +62,6 @@
 - [Journal reversal requires forward journal](journal-reversal-forward-guard.md) — deleting a never-journaled payment wrote phantom REVERSAL entries that cancelled valid ledger journals (~$286k drift); guard on audit_id forward existence.
 - [Activity log impersonation skip](activity-log-impersonation-skip.md) — admin login-as-user actions wrote NO history: insertActivityLog guard dropped is_admin=false+from_user=null rows; fix is `&& !admin_id`, keep is_admin=false (true would hide row from the user view).
 - [Xero smart-create blank backfill](xero-smart-create-blank-backfill.md) — completeness gates must blank-fill address/email from the live Xero contact before hard-failing; mapped-to-existing branch copies nothing by default.
+- [Notice 'Sending' = delegated in-flight, not stuck](notice-sending-status.md) — QBCC delegated notices sit in Sending until PayTrade admin lodges them; monitors need a 72h grace before flagging.
 - [RTA/PTA compliance check parity](rta-pta-check-parity.md) — RTA & PTA checks are copy-paste twins; port every fix to both. Reconciliation checks anchor to last ENDED month, order by month_end_date.
 - [Sync-log resolve mutations need company scoping](sync-log-resolve-idor.md) — any mutation resolving a xero_sync_logs UUID must match the log company to headers.companyid or it is an IDOR.
