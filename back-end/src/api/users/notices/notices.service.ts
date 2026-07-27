@@ -2473,8 +2473,19 @@ export class NoticesService {
         `?from=log`;
       this.logger.log(`auditLink: ${auditLink}`);
 
+      // BIFOLA Act 2024 (effective 1 July 2024): trustees are no longer
+      // required to engage an auditor for routine trust-account reviews —
+      // the QBCC now only DIRECTS a review case-by-case. There is therefore
+      // no standing review obligation to be exempted from, so the TA5
+      // "Notice of no trust account review" nil-return notice must NOT be
+      // auto-generated (or auto-emailed for lodgement) when an audit run is
+      // finalised. Audit packs are still collated so they are ready if the
+      // regulator directs a review. Manual notice generation remains
+      // available should a QBCC direction ever require it.
       if (auditDetails.nil_return == 'Yes') {
-        auditNotice = true;
+        this.logger.log(
+          `Audit ${audit_id} is a nil return; skipping TA5 auto-generation (not required post-BIFOLA 2024).`,
+        );
       }
       trustAccDelegation = await this.getSubscriptionType(
         auditDetails.company_id,
