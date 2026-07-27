@@ -2275,7 +2275,13 @@ export class ComplianceRTAFunctions {
             ...fetchedContentOf1stRule,
           });
         } else {
-          //Check whether monthly reconciliation report is added and completed before the month end date or not.
+          //Check whether the most recently *ended* month has a Balanced
+          //reconciliation within its 15-business-day grace window. The old
+          //logic measured 15 business days from the latest report's own
+          //month-end date, so a fully compliant account false-fired from
+          //~day 21 of every month until the *next* month's reconciliation
+          //(which wasn't even due yet) was completed. Mirrors the corrected
+          //PTA check-8 implementation.
           const fetchedReconcileReportDetails = await this.reconcileReportRepo
             .createQueryBuilder('rr')
             .select([
@@ -2290,54 +2296,60 @@ export class ComplianceRTAFunctions {
             .andWhere('rr.report_status = :report_status', {
               report_status: 'Active',
             })
-            .orderBy({ 'rr.created_on': 'DESC' })
+            .orderBy({ 'rr.month_end_date': 'DESC' })
             .getRawOne();
-          //   'fetchedReconcileReportDetails',
-          //   fetchedReconcileReportDetails,
-          // );
+
           const today = new Date();
+          const firstDayOfCurrentMonth = new Date(
+            Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
+          );
+          const lastMonthEndDate = new Date(
+            firstDayOfCurrentMonth.getTime() - 1,
+          ); // Previous month's end date
+          const lastMonth = lastMonthEndDate.getUTCMonth();
+          const lastMonthYear = lastMonthEndDate.getUTCFullYear();
+
           if (fetchedReconcileReportDetails) {
-            if (
-              today > fetchedReconcileReportDetails.month_end_date &&
-              fetchedReconcileReportDetails.reconcile_status != 'Balanced' &&
-              (await todayIsGreaterThanOpeningDatePlusBusinessDays({
-                startDate: retentionTrustAccount.opening_date,
-                businessDays: 30,
-                holidayDetails,
-              }))
-            ) {
-              const fetchedRuleDetails = await fetchComplianceRuleDetails(
-                9,
-                3,
-                fetchedAllRules,
-              );
+            const reconMonthEnd = new Date(
+              fetchedReconcileReportDetails.month_end_date,
+            );
+            const reconIsForLastMonth =
+              reconMonthEnd.getUTCMonth() === lastMonth &&
+              reconMonthEnd.getUTCFullYear() === lastMonthYear;
 
-              resultsOfCheck.push({
-                ...fetchedRuleDetails,
-                ...fetchedContentOf1stRule,
-              });
-            } else if (
-              today > fetchedReconcileReportDetails.month_end_date &&
-              fetchedReconcileReportDetails.reconcile_status != 'Balanced'
-            ) {
-              const fetchedRuleDetails = await fetchComplianceRuleDetails(
-                9,
-                4,
-                fetchedAllRules,
-              );
-
-              resultsOfCheck.push({
-                ...fetchedRuleDetails,
-                ...fetchedContentOf1stRule,
-              });
-            } else if (
-              (await todayIsGreaterThanOpeningDatePlusBusinessDays({
-                startDate: fetchedReconcileReportDetails.month_end_date,
+            // 15-business-day grace window after each month end. If today is
+            // still within the window for last month, a Balanced
+            // reconciliation for the month *before* last is still sufficient —
+            // last month's reconciliation isn't overdue yet, just not done.
+            const pastGraceWindow =
+              await todayIsGreaterThanOpeningDatePlusBusinessDays({
+                startDate: lastMonthEndDate,
                 businessDays: 15,
                 holidayDetails,
-              })) == false &&
-              fetchedReconcileReportDetails.reconcile_status == 'Balanced'
+              });
+            const withinGraceWindow = !pastGraceWindow;
+
+            const firstDayOfLastMonth = new Date(
+              Date.UTC(lastMonthYear, lastMonth, 1),
+            );
+            const monthBeforeLastEnd = new Date(
+              firstDayOfLastMonth.getTime() - 1,
+            );
+            const reconIsForMonthBeforeLast =
+              reconMonthEnd.getUTCMonth() ===
+                monthBeforeLastEnd.getUTCMonth() &&
+              reconMonthEnd.getUTCFullYear() ===
+                monthBeforeLastEnd.getUTCFullYear();
+
+            const reconSatisfiesRequirement =
+              reconIsForLastMonth ||
+              (withinGraceWindow && reconIsForMonthBeforeLast);
+
+            if (
+              reconSatisfiesRequirement &&
+              fetchedReconcileReportDetails.reconcile_status === 'Balanced'
             ) {
+              // Reconciliations are up to date.
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
                 9,
                 5,
@@ -2348,7 +2360,24 @@ export class ComplianceRTAFunctions {
                 ...fetchedRuleDetails,
                 ...fetchedContentOf1stRule,
               });
+            } else if (
+              reconSatisfiesRequirement &&
+              fetchedReconcileReportDetails.reconcile_status !== 'Balanced'
+            ) {
+              // The due month's report exists but isn't Balanced — late alert.
+              const fetchedRuleDetails = await fetchComplianceRuleDetails(
+                9,
+                4,
+                fetchedAllRules,
+              );
+
+              resultsOfCheck.push({
+                ...fetchedRuleDetails,
+                ...fetchedContentOf1stRule,
+              });
             } else {
+              // The most recently ended month has no covering reconciliation
+              // and its grace window has lapsed — action required.
               const fetchedRuleDetails = await fetchComplianceRuleDetails(
                 9,
                 3,
@@ -2361,18 +2390,16 @@ export class ComplianceRTAFunctions {
               });
             }
           } else {
-            {
-              const fetchedRuleDetails = await fetchComplianceRuleDetails(
-                9,
-                3,
-                fetchedAllRules,
-              );
+            const fetchedRuleDetails = await fetchComplianceRuleDetails(
+              9,
+              3,
+              fetchedAllRules,
+            );
 
-              resultsOfCheck.push({
-                ...fetchedRuleDetails,
-                ...fetchedContentOf1stRule,
-              });
-            }
+            resultsOfCheck.push({
+              ...fetchedRuleDetails,
+              ...fetchedContentOf1stRule,
+            });
           }
         }
       }
