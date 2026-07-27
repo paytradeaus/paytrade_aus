@@ -625,9 +625,14 @@ export class AiChatInspectionService {
         : 0;
       const issues: string[] = [];
       if (n.status === 'Sending') {
-        issues.push(
-          `Stuck in Sending${ageDays > 0 ? ` for ${ageDays} day${ageDays === 1 ? '' : 's'}` : ''}.`,
-        );
+        // 'Sending' is a normal in-flight state for delegated QBCC notices
+        // (awaiting PayTrade admin lodgement). Only flag as stuck once it
+        // has sat there beyond a grace period.
+        const nowMs = Date.now();
+        const sinceMs = n.updated_on ? new Date(n.updated_on).getTime() : nowMs;
+        if (nowMs - sinceMs <= 3 * 86400000) continue;
+        const sendingAgeDays = Math.floor((nowMs - sinceMs) / 86400000);
+        issues.push(`Stuck in Sending for ${sendingAgeDays} days.`);
       } else if (noticeDate && ageDays > threshold) {
         issues.push(
           `Overdue — status "${n.status}" and dated ${ageDays} day${ageDays === 1 ? '' : 's'} ago.`,

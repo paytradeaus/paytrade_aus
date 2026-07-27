@@ -6,6 +6,12 @@ import { StatusIssue } from '../types';
 
 const UNSENT_STATUSES: ReadonlyArray<string> = ['Not Sent', 'Draft', 'Sending'];
 
+// 'Sending' is a NORMAL in-flight state for delegated QBCC notices: the
+// notice has been emailed to the PayTrade delegated-notices inbox and is
+// awaiting an admin to lodge it with QBCC and mark it Sent. Only treat it
+// as "stuck" once it has sat there beyond this grace period.
+const STUCK_SENDING_AFTER_DAYS = 3;
+
 @Injectable()
 export class NoticesChecker {
   constructor(
@@ -32,8 +38,17 @@ export class NoticesChecker {
       .getMany();
 
     const issues: StatusIssue[] = [];
+    const now = Date.now();
     for (const r of rows) {
-      const isStuck = r.status === 'Sending';
+      const isSending = r.status === 'Sending';
+      if (isSending) {
+        const since = r.updated_on ? new Date(r.updated_on).getTime() : now;
+        // Freshly delegated notices are being processed — not an issue.
+        // NOTE: updated_on is an approximation of "entered Sending" (any row
+        // update resets it), which can only delay — never fabricate — an alert.
+        if (now - since <= STUCK_SENDING_AFTER_DAYS * 86400000) continue;
+      }
+      const isStuck = isSending;
       issues.push({
         id: `notices:notice:${r.notice_id}:unsent`,
         category: 'notices',

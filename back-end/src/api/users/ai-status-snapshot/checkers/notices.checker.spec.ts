@@ -27,15 +27,34 @@ describe('NoticesChecker', () => {
     checker = moduleRef.get(NoticesChecker);
   });
 
-  it('marks Sending notices as critical, others as warning', async () => {
+  it('skips fresh Sending notices (delegated lodgement in flight), keeps Draft warning', async () => {
     qb.getMany.mockResolvedValue([
       { id: 'a', notice_id: 1, notice_type: 'Payment', status: 'Sending', project_id: 1, updated_on: new Date() },
       { id: 'b', notice_id: 2, notice_type: 'Payment', status: 'Draft', project_id: 1, updated_on: new Date() },
     ]);
     const issues = await checker.check(7);
-    expect(issues).toHaveLength(2);
-    expect(issues.find((i) => i.title.includes('stuck'))?.severity).toBe('critical');
-    expect(issues.find((i) => i.title.includes('Unsent'))?.severity).toBe('warning');
+    expect(issues).toHaveLength(1);
+    expect(issues[0].title).toContain('Unsent');
+    expect(issues[0].severity).toBe('warning');
+  });
+
+  it('marks Sending notices older than the grace period as critical', async () => {
+    const fourDaysAgo = new Date(Date.now() - 4 * 86400000);
+    qb.getMany.mockResolvedValue([
+      { id: 'a', notice_id: 1, notice_type: 'Payment', status: 'Sending', project_id: 1, updated_on: fourDaysAgo },
+    ]);
+    const issues = await checker.check(7);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].title).toContain('stuck');
+    expect(issues[0].severity).toBe('critical');
+  });
+
+  it('does not flag Sending at just under the 3-day boundary', async () => {
+    const justUnder = new Date(Date.now() - (3 * 86400000 - 60000));
+    qb.getMany.mockResolvedValue([
+      { id: 'a', notice_id: 1, notice_type: 'Payment', status: 'Sending', project_id: 1, updated_on: justUnder },
+    ]);
+    expect(await checker.check(7)).toEqual([]);
   });
 
   it('returns [] when no unsent notices', async () => {
