@@ -56,6 +56,7 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
       await this.fixCsvUploadWarningColour();
       await this.deactivateAnnualAccountReviewChecks();
       await this.updatePaymentsToSubcontractorsWording();
+      await this.updateAccountReviewWordingPostBifola();
       this.logger.log('Compliance seeding complete');
     } catch (error) {
       this.logger.error(`Compliance seeding failed: ${error.message}`);
@@ -106,6 +107,33 @@ export class ComplianceSeederService implements OnApplicationBootstrap {
       this.logger.log(
         'pta_compliances: updated check 6 rule 10 wording to "confirmed or matched"',
       );
+    }
+  }
+
+  private async updateAccountReviewWordingPostBifola() {
+    // BIFOLA Act 2024 (from 1 July 2024): trustees no longer engage auditors
+    // for routine trust-account reviews (no TA5), and the closing-review
+    // requirement was removed too — QBCC only directs reviews case-by-case.
+    // Sync existing DB rows' content with the updated seed JSON wording for:
+    //  - PTA check 9 & RTA check 10 (Annual Account Review Reports, inactive)
+    //  - RTA check 11 (Close the Account — auditor paragraph removed)
+    const targetIds = [
+      '04aa733f-97b2-4b1e-b27f-19aadf5d68a4', // PTA check 9
+      'e850d4cf-3a77-418c-9b19-c9395c6c1ea1', // RTA check 10
+      '8d3f1bc8-0cd7-4fde-ae1e-239cb294e5bf', // RTA check 11
+    ];
+    for (const id of targetIds) {
+      const seedRow = (complianceChecksData as any[]).find(
+        (r) => r.id === id,
+      );
+      if (!seedRow) continue;
+      const row = await this.checksRepo.findOne({ where: { id } as any });
+      if (row && (row as any).content !== seedRow.content) {
+        await this.checksRepo.update(id, { content: seedRow.content } as any);
+        this.logger.log(
+          `compliance_checks: updated post-BIFOLA account-review wording for check ${seedRow.check_number}`,
+        );
+      }
     }
   }
 
