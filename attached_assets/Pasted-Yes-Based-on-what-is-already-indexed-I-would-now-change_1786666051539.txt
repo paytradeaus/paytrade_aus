@@ -1,0 +1,783 @@
+Yes. Based on what is already indexed, I would now change the strategy quite materially.
+
+**PayTrade does not need more SEO volume. It needs authority concentration.** The objective should be to make `paytrade.app` the best non-government source on the web for **Project Trust Accounts in Queensland**, while keeping `/project-trust-account-software` as the dominant commercial page.
+
+Google's own 2026 guidance on generative search supports this approach: GEO is essentially strong SEO plus genuinely useful, original, crawlable content. Google specifically advises against special “AI hacks”, excessive keyword variants and commodity content. ([Google for Developers][1])
+
+# The target structure
+
+I would build the site around **two enormous semantic anchors**:
+
+**Informational authority**
+
+`/project-trust-account`
+
+→ *Everything you need to know about Project Trust Accounts in Queensland.*
+
+**Commercial authority**
+
+`/project-trust-account-software`
+
+→ *The software for managing them.*
+
+Your commercial page is already very good and indexed clearly as “Project Trust Account Software”. ([Paytrade][2])
+
+The new informational page is the missing piece.
+
+---
+
+## 1. Build `/project-trust-account` first
+
+This is now the single highest-priority SEO task.
+
+### Page title
+
+**Project Trust Accounts Queensland: Complete 2026 Guide | PayTrade**
+
+### H1
+
+**Project Trust Accounts in Queensland**
+
+Immediately underneath:
+
+> A Project Trust Account (PTA) is a statutory trust account used for certain eligible Queensland construction contracts to protect progress payments owed to subcontractors. This guide explains when a PTA is required, how it works, who operates it, how payments must be handled and the records trustees need to maintain.
+
+Then put an extremely visible:
+
+**Current rules — reviewed 14 August 2026**
+
+And explain the present thresholds.
+
+The current Queensland Government position is that the framework applies to eligible Queensland Government contracts of **$1 million+** and private-sector, local-government, statutory-authority and government-owned-corporation contracts of **$10 million+**. The planned reductions to $3m and then $1m were paused. ([housing.qld.gov.au][3])
+
+This is an important current-information advantage.
+
+### The exact page structure
+
+I would have:
+
+**What is a Project Trust Account?**
+
+Short direct answer.
+
+**Why do Project Trust Accounts exist?**
+
+Explain protection of subcontractor payments. QBCC itself describes this as the purpose of the framework. ([QBCC][4])
+
+**Who needs a Project Trust Account in Queensland?**
+
+Current thresholds and eligibility.
+
+**Project Trust Account eligibility checker**
+
+Not legal advice — a simple interactive decision tree:
+
+Contract in Queensland?
+↓
+Type of contracting party?
+↓
+Contract value?
+↓
+Project trust work?
+↓
+Subcontractor engaged?
+↓
+Potential PTA requirement → verify using QBCC tool.
+
+That interactive tool could become extremely valuable for both links and search engagement.
+
+**How does a Project Trust Account work?**
+
+Create a very clear original diagram:
+
+`Principal / Developer`
+↓
+`Project Trust Account`
+↓
+`Subcontractors`
++
+`Head Contractor entitlement`
+
+QBCC says a PTA receives project payments and is the account from which subcontractors and the head contractor are paid. ([QBCC][4])
+
+**Who is the trustee?**
+
+**Who are the beneficiaries?**
+
+**How to open a Project Trust Account**
+
+**Approved financial institutions**
+
+**How payments through a PTA work**
+
+**What money can be deposited**
+
+**What withdrawals are permitted**
+
+**Payment claims**
+
+**Project Trust Account notices**
+
+**Trust ledgers**
+
+**Beneficiary records**
+
+**Record keeping**
+
+**Monthly reconciliation**
+
+**Retention Trust Accounts**
+
+**Project Trust Account vs Retention Trust Account**
+
+**Audits/reviews**
+
+**Common compliance mistakes**
+
+**Penalties and enforcement**
+
+Include the real QBCC prosecution where the Court imposed a $150,000 penalty after funds were transferred outside the prescribed PTA. Cite the original QBCC source directly. ([QBCC][5])
+
+**How Project Trust Account software helps**
+
+Only here do we transition commercially.
+
+Then:
+
+> Managing multiple projects, beneficiaries, claims, bank transactions, notices and reconciliations manually can become complex.
+
+→ **See Project Trust Account Software**
+
+And link to your existing commercial page.
+
+That separation is crucial.
+
+---
+
+# 2. Build a proper topic cluster underneath it
+
+I would create **about 12 canonical supporting guides**, not another 50 generic articles.
+
+| URL                                                 | Primary search intent                    |
+| --------------------------------------------------- | ---------------------------------------- |
+| `/project-trust-account`                            | project trust account                    |
+| `/project-trust-account/eligibility`                | when is a project trust account required |
+| `/project-trust-account/setup`                      | how to set up a project trust account    |
+| `/project-trust-account/payments`                   | project trust account payments           |
+| `/project-trust-account/notices`                    | project trust account notices            |
+| `/project-trust-account/record-keeping`             | project trust account record keeping     |
+| `/project-trust-account/reconciliation`             | project trust account reconciliation     |
+| `/project-trust-account/audit-review`               | project trust account audit/review       |
+| `/project-trust-account/penalties`                  | project trust account penalties          |
+| `/project-trust-account/closure`                    | closing project trust account            |
+| `/retention-trust-account`                          | retention trust account                  |
+| `/project-trust-account/project-vs-retention-trust` | project vs retention trust               |
+
+These are **knowledge pages**, not product landing pages.
+
+Then retain the commercial cluster you already have:
+
+`/project-trust-account-software`
+
+`/xero-project-trust-account-software`
+
+`/project-trust-account-reconciliation-software`
+
+`/project-trust-account-record-keeping-software`
+
+`/audit-ready-project-trust-account-software`
+
+`/retention-trust-account-software`
+
+`/compare/project-trust-account-software`
+
+The distinction becomes:
+
+**Knowledge**
+→ what / why / when / rules / compliance
+
+**Software**
+→ how to administer it efficiently
+
+**Comparison**
+→ which software should I buy?
+
+That dramatically reduces cannibalisation.
+
+---
+
+# 3. Change how the Community works
+
+This is probably the second most important change.
+
+Google is indexing a lot of PayTrade community content already. Recent community discussions are appearing in search within days. ([Paytrade][6])
+
+That's good.
+
+But don't allow the community to become your canonical knowledge base.
+
+I would change the content system so every new community article is automatically classified against the canonical topic map.
+
+For example:
+
+**Community question**
+
+> How often should I reconcile a Project Trust Account?
+
+The community page answers the specific question.
+
+But immediately underneath:
+
+> **Complete guide:** Project Trust Account Reconciliation
+
+→ `/project-trust-account/reconciliation`
+
+And the canonical reconciliation guide itself links to selected useful community discussions.
+
+### Very important
+
+Run every existing community URL through a content-quality process:
+
+**KEEP** — unique useful question.
+
+**UPDATE** — useful but factually outdated.
+
+**MERGE** — substantially duplicates another page.
+
+**NOINDEX** — low-value/near-duplicate generated content.
+
+Do **not** simply delete indexed pages en masse.
+
+And don't use canonical tags to point unrelated questions at a guide merely because they're about the same subject. Canonicals should represent genuinely duplicate/substantially equivalent content.
+
+---
+
+# 4. Make PayTrade unusually trustworthy
+
+This matters considerably because the topic concerns legislation, compliance and people's money.
+
+Every canonical guide should contain:
+
+**Last reviewed: 14 August 2026**
+
+**Sources**
+
+QBCC
+Queensland Government
+BIF Act
+BIF Regulation
+
+And ideally:
+
+**Reviewed by**
+
+A named qualified accountant, registered company auditor, construction lawyer or other genuine subject-matter professional where appropriate.
+
+Not a fictional editorial persona.
+
+Your biggest advantage should become:
+
+> **PayTrade doesn't merely talk about Project Trust Accounts. Every regulatory statement points back to its primary source.**
+
+The Queensland Government already independently lists Pay Trade among the available trust-account software products. That's an excellent existing authority signal. ([Housing Queensland][7])
+
+---
+
+# 5. Build a regulatory change system
+
+This could become a genuine moat.
+
+Create:
+
+`/project-trust-account/changes`
+
+### Queensland Project Trust Account Changes & Updates
+
+Maintain a chronological record:
+
+**2026**
+
+Current framework.
+
+**2025**
+
+Further rollout paused.
+
+**2024**
+
+Previous position.
+
+etc.
+
+Every canonical page then has:
+
+> **Current legislation status:** Reviewed 14 August 2026
+> See latest Project Trust Account changes →
+
+Because the rollout has changed, there are older pages around the web describing thresholds which no longer reflect the current position. Queensland's own current materials explicitly confirm that the later phases were paused. ([Housing Queensland][8])
+
+This gives PayTrade a reason to be revisited.
+
+---
+
+# 6. Internal linking needs to become deliberate
+
+Think of `/project-trust-account` as the sun.
+
+Everything should orbit it.
+
+For example:
+
+**Homepage**
+
+→ Project Trust Accounts
+→ Project Trust Account Software
+
+**Project Trust Account**
+
+→ Eligibility
+→ Setup
+→ Payments
+→ Notices
+→ Reconciliation
+→ Retention trusts
+→ Software
+
+**Eligibility**
+
+→ Project Trust Account
+
+→ Setup
+
+→ Software
+
+**Reconciliation**
+
+→ Project Trust Account
+
+→ Record Keeping
+
+→ Reconciliation Software
+
+**Community article**
+
+→ appropriate canonical guide
+
+→ commercial product only where relevant
+
+Google explicitly says it uses links both to discover content and as signals for understanding page relevance, and recommends meaningful anchor text rather than vague linking. ([Google for Developers][9])
+
+So use anchors such as:
+
+**project trust account eligibility**
+
+rather than:
+
+**click here**
+
+---
+
+# 7. Make the content exceptional rather than merely long
+
+I would **not** tell the content agent:
+
+> Produce 2,500 words.
+
+Google explicitly says there is no ideal length for AI-search visibility. ([Google for Developers][1])
+
+Instead give it a completion standard:
+
+> A Queensland head contractor should be able to land on this page knowing almost nothing about PTAs and leave understanding the subject and knowing where to get the official source.
+
+Use original assets:
+
+* eligibility decision tree
+* payment flow diagram
+* PTA vs RTA comparison
+* monthly reconciliation diagram
+* project trust lifecycle
+* worked payment examples
+* sample ledger screenshots
+* PayTrade screenshots where relevant
+* downloadable compliance checklist
+
+Google's latest AI-search guidance specifically encourages useful original content and relevant images/video, rather than commodity text. ([Google for Developers][1])
+
+This is where I think PayTrade can beat generic accounting/blog content.
+
+---
+
+# 8. GEO: engineer quotable facts
+
+For generative search, I would make each major page answer questions extremely clearly.
+
+For example:
+
+### What is a Project Trust Account?
+
+One concise paragraph.
+
+### When is a Project Trust Account required in Queensland?
+
+One concise paragraph containing current information and an official source.
+
+### Who owns the money in a Project Trust Account?
+
+Direct answer.
+
+### Can Xero manage a Project Trust Account?
+
+Direct answer, with nuance.
+
+### What is the difference between a Project Trust Account and Retention Trust Account?
+
+Direct comparison.
+
+These aren't keyword-stuffing devices.
+
+They're **high-quality answer units**.
+
+Google now describes AI Search as using retrieval plus query fan-out, meaning one user question may generate several related searches before sources are assembled. Building comprehensive topic coverage therefore matters more than simply repeating the head keyword. ([Google for Developers][1])
+
+---
+
+# 9. Strengthen the PayTrade entity itself
+
+You already have a good `/pay-trade-facts` page stating consistently that PayTrade is audit-first, Xero-connected Project Trust Account software. ([Paytrade][10])
+
+Keep that.
+
+Then make the same identity consistent across:
+
+homepage
+About
+LinkedIn
+Queensland Government listing
+software pages
+company profiles
+Xero listing if/when available
+press coverage
+guest articles
+
+I would actually approach the Queensland Government department and ask whether the existing Pay Trade description can be updated to the current, accurate proposition.
+
+Something more specific such as:
+
+> PayTrade is Xero-connected project and retention trust account administration software designed to manage trust ledgers, beneficiaries, claims, notices, reconciliation and audit records.
+
+Only if all of that accurately reflects the product.
+
+An independent Queensland Government page already connects **Pay Trade → trust-account software**, so sharpening that description could be particularly valuable. ([Housing Queensland][7])
+
+---
+
+# 10. Build external authority, not spammy backlinks
+
+I would put substantial effort here.
+
+Get genuine subject-matter references from:
+
+accounting practices
+registered company auditors
+construction lawyers
+construction consultants
+industry publications
+construction associations
+Xero ecosystem participants
+construction finance/bookkeeping firms
+
+The pitch isn't:
+
+> Please link to PayTrade.
+
+Instead jointly publish useful resources.
+
+For example:
+
+**The Accountant's Guide to Queensland Project Trust Accounts**
+
+Reviewed with an accounting practice.
+
+**Preparing a Project Trust Account for Review**
+
+Co-written with an auditor.
+
+**Project Trust Account Payment Risks**
+
+With a construction lawyer.
+
+They publish or reference it.
+
+PayTrade becomes a cited resource.
+
+That helps both ordinary search and AI systems because the entity is being corroborated outside `paytrade.app`.
+
+---
+
+# 11. Technical implementation
+
+I'd have the Replit agent make the following site-wide architecture changes.
+
+Use:
+
+**Organization structured data**
+
+on the core entity pages.
+
+**SoftwareApplication**
+
+on the actual PayTrade software/product pages. Google explicitly supports `SoftwareApplication` markup. ([Google for Developers][11])
+
+**Article**
+
+on substantial informational guides. ([Google for Developers][12])
+
+**BreadcrumbList**
+
+through the guide structure. ([Google for Developers][13])
+
+And make sure structured-data claims exactly match visible page content. Google specifically requires this. ([Google for Developers][14])
+
+I would **not spend much engineering time on FAQ schema**.
+
+FAQ sections themselves are valuable, but Google's FAQ rich-result treatment is now heavily restricted. The text matters more than trying to manufacture rich results.
+
+And one correction to something PayTrade is currently emphasising:
+
+### Don't treat `llms.txt` as a Google GEO lever.
+
+You can leave it there — other systems may choose to use it — but Google's 2026 documentation explicitly says **Google Search does not need or use special `llms.txt`/AI files to qualify for generative Search**. ([Google for Developers][1])
+
+Your engineering effort is much better spent on the content itself.
+
+---
+
+# 12. Then turn the LinkedIn series into an authority distribution engine
+
+The articles you've been producing should stop being isolated content.
+
+Every article should support one canonical PayTrade subject.
+
+For example:
+
+**LinkedIn**
+
+“Why Project Trust Account reconciliation is where compliance often breaks down”
+
+↓
+
+**PayTrade definitive guide**
+
+`/project-trust-account/reconciliation`
+
+↓
+
+**Commercial solution**
+
+`/project-trust-account-reconciliation-software`
+
+So:
+
+**Social authority → informational authority → commercial intent → signup/demo**
+
+rather than every post pointing at the homepage.
+
+---
+
+# 13. Build one original data property
+
+This could make the whole strategy much stronger.
+
+I'd consider something like:
+
+## Queensland Project Trust Account Monitor
+
+Using publicly available regulatory information.
+
+Show:
+
+number of registered PTAs
+trends over time
+contractors using them
+regional distributions where legitimately available
+enforcement actions
+regulatory changes
+software market information
+
+Then publish periodic:
+
+**Queensland Project Trust Account Report – Q3 2026**
+
+Now journalists, accountants, lawyers and AI systems have **PayTrade-originated facts to cite**.
+
+That's much more powerful than writing article #73 explaining what a trust account is.
+
+Google's current guidance explicitly prioritises **unique, non-commodity information** for generative search. ([Google for Developers][1])
+
+---
+
+# 14. Measure the topic, not one keyword
+
+The tracking dashboard should group searches into three families.
+
+### Informational
+
+`project trust account`
+`project trust accounts`
+`project trust account qld`
+`project trust account queensland`
+`what is a project trust account`
+`when is a project trust account required`
+`project trust account threshold`
+`project trust account rules`
+
+### Commercial
+
+`project trust account software`
+`qbcc trust account software`
+`trust accounting software queensland`
+`xero project trust account`
+`best project trust account software`
+
+### Supporting
+
+`project trust account reconciliation`
+`project trust account audit`
+`project trust account notice`
+`project trust account ledger`
+`retention trust account`
+
+Track:
+
+**Impressions**
+**Clicks**
+**Average position**
+**CTR**
+**Landing page**
+**Demo/sign-up conversions**
+**Informational → software-page transitions**
+
+And now, importantly, track the new **Google generative-AI Search Console performance reporting** as it becomes available to the property. Google's current documentation specifically identifies this as the measurement route for AI-search visibility. ([Google for Developers][1])
+
+---
+
+# What I would do in the next 90 days
+
+**Days 1–7**
+
+Build `/project-trust-account`.
+
+Audit all existing community pages against the canonical structure.
+
+Build the regulatory-source/change framework.
+
+Fix navigation, breadcrumbs and internal links.
+
+Implement schema.
+
+**Days 8–21**
+
+Create the 10–12 authoritative supporting guides.
+
+Add diagrams/tools to the pillar.
+
+Update relevant old community articles.
+
+Noindex/merge genuine low-value duplication.
+
+Push internal links throughout the existing site.
+
+**Days 22–45**
+
+Build the original eligibility tool.
+
+Build the Project Trust Account Monitor/data resource.
+
+Add expert reviewers.
+
+Start the professional-source/backlink programme.
+
+Connect every LinkedIn article to one canonical guide.
+
+**Days 46–90**
+
+Don't generate another pile of pages.
+
+Review Search Console.
+
+Find queries where PayTrade is sitting positions 4–20.
+
+Improve those **existing pages**.
+
+Add missing sections based on real searches.
+
+Acquire external references.
+
+Update regulatory information.
+
+Publish useful original research.
+
+Repeat.
+
+---
+
+## The ultimate site architecture
+
+I'd want Google and an AI system eventually to understand this almost automatically:
+
+**Queensland Project Trust Accounts**
+
+→ **PayTrade is an authoritative information source**
+
+↓
+
+**How they work**
+
+→ PayTrade guides
+
+↓
+
+**How to administer them**
+
+→ PayTrade software
+
+↓
+
+**Which software**
+
+→ PayTrade comparisons
+
+↓
+
+**Evidence PayTrade is legitimate**
+
+→ Queensland Government listing + external professional references
+
+↓
+
+**Evidence PayTrade knows the field**
+
+→ original data + expert-reviewed resources + current regulatory monitoring
+
+That is substantially stronger than chasing **“project trust account software”** alone.
+
+And importantly, **we're already starting halfway up the mountain**: the commercial page is indexed cleanly, the comparison pages are indexed, community pages are being crawled rapidly, the facts page exists, and Queensland Government already independently lists Pay Trade as a trust-account software provider. ([Paytrade][2])
+
+I would make **`/project-trust-account` + the canonical knowledge architecture the next major PayTrade build**, before creating any more broad community content. That is the move I think has the best chance of taking PayTrade from *“a software result for PTA searches”* to *“one of the web's recognised authorities on Queensland Project Trust Accounts.”*
+
+I can keep checking the core search terms and alert you when PayTrade materially changes position.
+
+[1]: https://developers.google.com/search/docs/fundamentals/ai-optimization-guide?utm_source=chatgpt.com "Google's Guide to Optimizing for Generative AI Features on ..."
+[2]: https://paytrade.app/project-trust-account-software?utm_source=chatgpt.com "Project Trust Account Software for Queensland Builders"
+[3]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/trust-account-framework?utm_source=chatgpt.com "Trust account framework"
+[4]: https://www.qbcc.qld.gov.au/running-your-business/trust-accounts "www.qbcc.qld.gov.au"
+[5]: https://www.qbcc.qld.gov.au/news/developer-fined-150000-first-prosecution-related-project-trust-accounts?utm_source=chatgpt.com "Developer fined $150000 in first prosecution related to ..."
+[6]: https://paytrade.app/community/discussions/notices/how-do-i-meet-qbcc-notice-requirements-for-project-trust-accounts/1a4c9618-b156-43b1-b8d4-797fd895726a?utm_source=chatgpt.com "How Do I Meet QBCC Notice Requirements for Project Trust ..."
+[7]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/assessed-trust-solutions "Assessed trust account software solutions | Department of Housing and Public Works"
+[8]: https://www.housing.qld.gov.au/initiatives/building-regulation-reform?utm_source=chatgpt.com "Building Reg Reno"
+[9]: https://developers.google.com/search/docs/crawling-indexing/links-crawlable?utm_source=chatgpt.com "SEO Link Best Practices for Google | Google Search Central"
+[10]: https://paytrade.app/pay-trade-facts?utm_source=chatgpt.com "PayTrade Facts: Project Trust Account Software for ..."
+[11]: https://developers.google.com/search/docs/appearance/structured-data/software-app?utm_source=chatgpt.com "Software App (SoftwareApplication) Schema | Google Search Central"
+[12]: https://developers.google.com/search/docs/appearance/structured-data/article?utm_source=chatgpt.com "Learn About Article Schema Markup | Google Search Central"
+[13]: https://developers.google.com/search/docs/appearance/structured-data/breadcrumb?utm_source=chatgpt.com "How To Add Breadcrumb (BreadcrumbList) Markup"
+[14]: https://developers.google.com/search/docs/appearance/structured-data/sd-policies?utm_source=chatgpt.com "General Structured Data Guidelines | Google Search Central"
