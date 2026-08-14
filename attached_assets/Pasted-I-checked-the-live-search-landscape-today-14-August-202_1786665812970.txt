@@ -1,0 +1,166 @@
+I checked the live search landscape today, **14 August 2026**, and the picture is quite encouraging. The most important distinction is that I would **not** treat “project trust software” as the main target phrase. The valuable search architecture should be built around **“project trust account”** and **“project trust account software.”**
+
+### Where PayTrade is now
+
+For the exact query **“project trust account software”**, PayTrade is doing very well. In the search results I can see, **BuildTrust is #1 and PayTrade’s dedicated `/project-trust-account-software` page is #2**, with another PayTrade comparison page immediately behind it. That is a very strong result, particularly given how recently much of this SEO work was published. ([Build Trust][1])
+
+I’d currently score the position roughly like this:
+
+| Keyword/topic                           | SEO strength | GEO/AI strength | Assessment               |
+| --------------------------------------- | -----------: | --------------: | ------------------------ |
+| **project trust account software**      |     **9/10** |        **9/10** | Excellent                |
+| **best project trust account software** |     **8/10** |        **9/10** | Very strong              |
+| **QBCC trust accounting software**      |     **7/10** |        **8/10** | Strong/growing           |
+| **project trust account**               |     **5/10** |        **6/10** | Biggest opportunity      |
+| **project trust software**              |   **2–3/10** |        **3/10** | Weak, but less important |
+
+Those scores are my assessment rather than Google Search Console data.
+
+## “Project trust account software” is working extremely well
+
+The dedicated page is almost textbook for the commercial query. Its H1 is **Project Trust Account Software**, the opening sentence clearly says PayTrade is “audit-first, Xero-connected project trust account software for Queensland construction businesses”, and the page then explains functionality, intended users, Xero, government listing, FAQs and related pages. Search engines have therefore got almost no ambiguity about what PayTrade is. ([Paytrade][2])
+
+Your comparison page is also particularly valuable for GEO because it explicitly answers the question an AI system is likely to receive:
+
+> “What is the best project trust account software in Queensland?”
+
+It gives alternatives, categories them, explains when PayTrade is appropriate, identifies differentiators and answers comparison questions. That structure is extremely suitable for retrieval and AI-generated answers. ([Paytrade][3])
+
+And there is a major external-authority advantage: the **Queensland Government itself lists Pay Trade as one of the available assessed trust-account software solutions**, alongside BuildTrust, Premier, Cheops, E2EFi and Bizprac. That is a very useful independent entity corroboration for both conventional SEO and GEO. ([Housing Queensland][4])
+
+## But “project trust account” is a completely different battle
+
+For the broad query **“project trust account”**, the results are currently dominated by QBCC, Queensland Government, Master Builders Queensland and major banks. ([QBCC][5])
+
+That makes sense: the search intent is primarily:
+
+**“What is a project trust account?”**
+
+rather than:
+
+**“What software should I use?”**
+
+So Google wants regulatory/educational authority first.
+
+PayTrade is getting plenty of individual community pages indexed around the subject — eligibility, payment processes, penalties, reconciliation, legislation and so on — which is useful long-tail coverage. ([Paytrade][6])
+
+But I think there is a missing piece.
+
+### PayTrade needs to own the canonical informational answer
+
+I would create or substantially strengthen a first-party page at something like:
+
+**`paytrade.app/project-trust-account`**
+
+with the title:
+
+**Project Trust Accounts Queensland: Complete Guide | PayTrade**
+
+and H1:
+
+**What Is a Project Trust Account?**
+
+That page should *not* primarily sell software.
+
+It should become a genuinely authoritative guide covering:
+
+**Definition → current thresholds → who needs one → how money moves → trustees → beneficiaries → bank account → ledgers → notices → reconciliation → retention trusts → audits → penalties → software → FAQs → legislation/QBCC sources.**
+
+Then internally link heavily from it to:
+
+`/project-trust-account-software`
+`/retention-trust-account-software`
+`/project-trust-account-reconciliation-software`
+`/audit-ready-project-trust-account-software`
+
+That gives you the classic funnel:
+
+**PROJECT TRUST ACCOUNT**
+↓
+“What is it / do I need one?”
+↓
+“How do I administer it?”
+↓
+**PROJECT TRUST ACCOUNT SOFTWARE**
+↓
+**PayTrade**
+
+That, in my view, is the biggest SEO opportunity on the whole site right now.
+
+## “Project trust software” is not something I'd chase aggressively
+
+The exact search **“project trust software”** currently produces a weak, poorly defined SERP; in my search the main result was actually a LinkedIn/QBCC discussion referring colloquially to “project trust software”, rather than a strong dedicated commercial category. ([LinkedIn][7])
+
+By contrast, **“project trust account software”** produces an unmistakable commercial software SERP, and PayTrade is already right near the top. ([Build Trust][1])
+
+So I would mention variants naturally:
+
+* project trust software
+* PTA software
+* trust account software
+* QBCC trust software
+* construction trust accounting software
+
+…but **do not create the site architecture around “project trust software.”**
+
+The canonical phrase should be:
+
+### **PROJECT TRUST ACCOUNT SOFTWARE**
+
+## GEO is actually becoming one of PayTrade's stronger areas
+
+There are several things I particularly like.
+
+The **PayTrade Facts** page gives an LLM a concise canonical definition of the company, its users, functionality, Xero relationship and regulatory context. ([Paytrade][8])
+
+Your major pages consistently repeat the same entity description rather than describing PayTrade differently everywhere. ([Paytrade][8])
+
+Your comparison content identifies the competitive category and explains PayTrade versus BuildTrust, Cabenet, E2EFi, Cheops, Premier and Bizprac. ([Paytrade][3])
+
+And critically, the Queensland Government independently connects **Pay Trade → trust account administration software → project trusts → retention trusts**, which gives an AI system a source other than PayTrade making that association. ([Housing Queensland][4])
+
+That last point is disproportionately valuable.
+
+## One thing I would watch
+
+There are **a lot** of community URLs now appearing in the index. Google is clearly crawling them aggressively — some posts published only days ago were crawled today. ([Paytrade][9])
+
+That's excellent for topical breadth, but I would make sure the community doesn't become hundreds of near-duplicate answers all competing with your main authoritative pages.
+
+I'd use the community for the long tail:
+
+**“How is interest handled in a project trust?”**
+**“When does a retention trust account apply?”**
+**“What happens if a beneficiary changes?”**
+
+But reserve the big-money entity queries for carefully curated pages:
+
+**Project Trust Account**
+**Project Trust Account Software**
+**Retention Trust Account**
+**Trust Account Software**
+**QBCC Trust Accounting Software**
+**Best Project Trust Account Software**
+**Xero Project Trust Account Software**
+
+### So the headline is:
+
+**PayTrade has already made substantial progress on “project trust account software”.** Seeing the dedicated PayTrade page effectively sitting alongside BuildTrust at the head of the search results is a very good outcome. ([Build Trust][1])
+
+The next big prize is **“project trust account” itself**.
+
+If we can move PayTrade from being perceived by search engines as **“one of the software products for Project Trust Accounts”** to also being recognised as **“one of the principal authoritative sources explaining Project Trust Accounts in Queensland,”** then the commercial pages underneath it should become even stronger.
+
+And that's exactly where I would focus the next **20–30 pages/articles/internal-linking changes** rather than producing more generic “software” pages.
+
+I can also periodically check these two searches and tell you when PayTrade moves above BuildTrust or materially improves for **“project trust account.”**
+
+[1]: https://buildtrust.com.au/features/manage-project-trust-account/?utm_source=chatgpt.com "Manage Project Trust Accounts QLD | PTA Accounting Software"
+[2]: https://paytrade.app/project-trust-account-software?utm_source=chatgpt.com "Project Trust Account Software for Queensland Builders"
+[3]: https://paytrade.app/compare/project-trust-account-software?utm_source=chatgpt.com "Best Project Trust Account Software Compared - Paytrade"
+[4]: https://www.housing.qld.gov.au/news-publications/legislation/building/trust-accounts/assessed-trust-solutions "Assessed trust account software solutions | Department of Housing and Public Works"
+[5]: https://www.qbcc.qld.gov.au/running-your-business/trust-accounts?utm_source=chatgpt.com "Trust accounts | Queensland Building and Construction ..."
+[6]: https://paytrade.app/community/discussions/software-subies/understanding-project-trust-accounts-under-the-bif-act-june-2026/00a158f5-24ae-4114-9d15-2850012b4b6d?utm_source=chatgpt.com "Community - Discussions - Understanding Project Trust Accounts ..."
+[7]: https://www.linkedin.com/posts/qbcc---queensland-building-and-construction-commission_a-developer-in-the-australian-property-sector-activity-7317743521753415680-eWz4?utm_source=chatgpt.com "Developer fined $150000 for PTA breaches in Queensland."
+[8]: https://paytrade.app/pay-trade-facts?utm_source=chatgpt.com "PayTrade Facts: Project Trust Account Software for ..."
+[9]: https://paytrade.app/community/discussions/project-trust/how-is-interest-handled-in-queensland-project-trust-accounts-august-2026/d391506a-5aa0-4965-ad51-3a48b8fe34ca?utm_source=chatgpt.com "How Is Interest Handled in Queensland Project Trust Accounts ..."
