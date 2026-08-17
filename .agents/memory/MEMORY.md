@@ -64,4 +64,5 @@
 - [Xero smart-create blank backfill](xero-smart-create-blank-backfill.md) — completeness gates must blank-fill address/email from the live Xero contact before hard-failing; mapped-to-existing branch copies nothing by default.
 - [Notice 'Sending' = delegated in-flight, not stuck](notice-sending-status.md) — QBCC delegated notices sit in Sending until PayTrade admin lodges them; monitors need a 72h grace before flagging.
 - [RTA/PTA compliance check parity](rta-pta-check-parity.md) — RTA & PTA checks are copy-paste twins; port every fix to both. Reconciliation checks anchor to last ENDED month, order by month_end_date.
+- [SEO internal-linking conventions](seo-internal-linking-conventions.md) — community post bodies render client-side (curl shows nothing); prod content batch edits must ship as committed idempotent SQL + backup table; cross-task route deps go in drift_reason.
 - [Sync-log resolve mutations need company scoping](sync-log-resolve-idor.md) — any mutation resolving a xero_sync_logs UUID must match the log company to headers.companyid or it is an IDOR.

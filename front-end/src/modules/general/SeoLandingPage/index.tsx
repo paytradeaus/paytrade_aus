@@ -21,6 +21,7 @@ import CompareCtaBlock, {
   isTrustAccountRelated,
 } from "@/components/SeoShared/CompareCtaBlock";
 import LastReviewed from "@/components/SeoShared/LastReviewed";
+import {
 
 interface SeoKeywordData {
   id: string;
@@ -200,6 +201,12 @@ export default function SeoLandingPage({
       </div>
 
       <div className={styles.landingPage}>
+        {isTrustAccountRelated(
+          keywordData.keyword,
+          keywordData.page_title,
+          (keywordData.tags || []).join(" ")
+        ) && <GuideCtaBanner />}
+
         {keywordData.page_content && (
           <div className={styles.contentSection}>
             {keywordData.updated_on && (
@@ -238,7 +245,18 @@ export default function SeoLandingPage({
           keywordData.keyword,
           keywordData.page_title,
           (keywordData.tags || []).join(" ")
-        ) && <CompareCtaBlock />}
+        ) && (
+          <>
+            <MoneyPageLinks
+              texts={[
+                keywordData.keyword,
+                keywordData.page_title,
+                (keywordData.tags || []).join(" "),
+              ]}
+            />
+            <CompareCtaBlock />
+          </>
+        )}
 
         <CtaCard keyword={keywordData.keyword} />
 
