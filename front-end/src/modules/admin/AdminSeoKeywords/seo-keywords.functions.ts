@@ -213,6 +213,28 @@ export async function adminGenerateAllSeoKeywordDrafts() {
   }
 }
 
+export async function adminMarkSeoKeywordsReviewed(ids: string[]) {
+  try {
+    const response = await apolloClient.mutate({
+      mutation: gql`
+        mutation AdminMarkSeoKeywordsReviewed($ids: [String!]!) {
+          adminMarkSeoKeywordsReviewed(ids: $ids) {
+            status
+            message
+            updatedCount
+          }
+        }
+      `,
+      variables: { ids },
+    });
+
+    return response?.data?.adminMarkSeoKeywordsReviewed;
+  } catch (error: any) {
+    console.log("adminMarkSeoKeywordsReviewed ~ error:", error);
+    return { status: "ERROR", message: error.message };
+  }
+}
+
 export async function adminDeleteSeoKeyword(id: string) {
   try {
     const response = await apolloClient.mutate({

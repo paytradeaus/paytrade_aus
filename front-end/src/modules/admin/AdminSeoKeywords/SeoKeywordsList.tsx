@@ -11,6 +11,7 @@ import {
   adminUpdateSeoKeyword,
   adminAddSeoKeyword,
   adminGenerateSeoKeywordDraft,
+  adminMarkSeoKeywordsReviewed,
 } from "./seo-keywords.functions";
 import { formatDate } from "@/utils";
 import { DD_MM_YYYY } from "@/shared/constant/identificationNumbers";
@@ -26,6 +27,7 @@ const seoKeywordsHeaders = [
   { dataKey: "page_title", title: "Page Title" },
   { dataKey: "status", title: "Status" },
   { dataKey: "created_on", title: "Created" },
+  { dataKey: "updated_on", title: "Last Reviewed" },
   { dataKey: "", title: "Actions", restrictSorting: true },
 ];
 
@@ -35,7 +37,19 @@ const seoKeywordsRenderData = [
   { key: "page_title" },
   { key: "status" },
   { key: "created_on" },
+  { key: "updated_on_display" },
 ];
+
+// Pages not reviewed within this window are flagged stale in the admin list
+// so the team knows which topic pages to re-review and bump.
+const STALE_REVIEW_DAYS = 90;
+
+function isStaleReview(updatedOn: string | null | undefined): boolean {
+  if (!updatedOn) return true;
+  const parsed = new Date(updatedOn);
+  if (isNaN(parsed.getTime())) return true;
+  return Date.now() - parsed.getTime() > STALE_REVIEW_DAYS * 24 * 60 * 60 * 1000;
+}
 
 export default function SeoKeywordsList() {
   const [keywords, setKeywords] = useState<any[]>([]);
@@ -360,6 +374,22 @@ export default function SeoKeywordsList() {
       displayByDefault: true,
     },
     {
+      label: "Mark Reviewed",
+      icon: "fa-light fa-clipboard-check",
+      onClick: async (row: any) => {
+        const result = await adminMarkSeoKeywordsReviewed([row.id]);
+        if (result?.status === "SUCCESS") {
+          showSuccessToast(
+            `"${row.keyword}" marked as reviewed — its Last reviewed date and sitemap entry now show today.`
+          );
+          fetchKeywords();
+        } else {
+          showErrorToast(result?.message || "Failed to mark as reviewed.");
+        }
+      },
+      displayByDefault: true,
+    },
+    {
       label: "Delete",
       icon: "fa-light fa-trash-can",
       onClick: (row: any) => {
@@ -382,6 +412,18 @@ export default function SeoKeywordsList() {
       (kw.page_title?.length > 60 ? "..." : ""),
     status: kw.status,
     created_on: formatDate(kw.created_on, DD_MM_YYYY),
+    updated_on: kw.updated_on,
+    updated_on_display: isStaleReview(kw.updated_on) ? (
+      <span title={`Not reviewed in the last ${STALE_REVIEW_DAYS} days`}>
+        {kw.updated_on ? formatDate(kw.updated_on, DD_MM_YYYY) : "Never"}{" "}
+        <i
+          className="fa-light fa-triangle-exclamation"
+          style={{ color: "#c2410c" }}
+        ></i>
+      </span>
+    ) : (
+      formatDate(kw.updated_on, DD_MM_YYYY)
+    ),
   }));
 
   return (

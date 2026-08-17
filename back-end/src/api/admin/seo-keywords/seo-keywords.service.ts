@@ -130,6 +130,25 @@ export class SeoKeywordsService {
     return await this.seoKeywordRepo.save(seoKeyword);
   }
 
+  /**
+   * Mark keywords as reviewed: bumps updated_on to now WITHOUT touching the
+   * content. Used by the admin freshness cycle so the public "Last reviewed"
+   * date and the sitemap lastModified reflect a genuine editorial re-check.
+   * Explicit set (not save()) because TypeORM skips the UPDATE when no
+   * columns changed, which would leave @UpdateDateColumn untouched.
+   */
+  async markReviewed(ids: string[]): Promise<number> {
+    const cleanIds = Array.from(new Set((ids || []).filter(Boolean)));
+    if (!cleanIds.length) return 0;
+    const result = await this.seoKeywordRepo
+      .createQueryBuilder()
+      .update()
+      .set({ updated_on: () => 'CURRENT_TIMESTAMP' })
+      .whereInIds(cleanIds)
+      .execute();
+    return result.affected || 0;
+  }
+
   async delete(id: string): Promise<boolean> {
     const result = await this.seoKeywordRepo.delete(id);
     return result.affected > 0;

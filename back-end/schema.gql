@@ -14719,6 +14719,14 @@ type Mutation {
     manageBlogCommentInput: ManageBlogCommentInput!
   ): ptBlogCommentsResponse!
 
+  """
+  Mark one or more SEO keywords as reviewed: bumps updated_on (public "Last reviewed" date and sitemap lastModified) without changing content.
+  """
+  adminMarkSeoKeywordsReviewed(
+    """IDs of the SEO keywords that were reviewed."""
+    ids: [String!]!
+  ): SeoKeywordReviewResponse!
+
   """Resets a user password and sends a notification email."""
   adminResetUserPassword(
     """ID of the user whose password will be reset."""
@@ -20754,6 +20762,12 @@ type SeoKeywordResponse {
   data: SeoKeywordType
   message: String
   status: String
+}
+
+type SeoKeywordReviewResponse {
+  message: String
+  status: String
+  updatedCount: Int
 }
 
 type SeoKeywordType {

@@ -67,6 +67,18 @@ export class SeoKeywordListResponse {
 }
 
 @ObjectType()
+export class SeoKeywordReviewResponse {
+  @Field({ nullable: true })
+  status?: string;
+
+  @Field({ nullable: true })
+  message?: string;
+
+  @Field(() => Int, { nullable: true })
+  updatedCount?: number;
+}
+
+@ObjectType()
 export class SeoKeywordDeleteResponse {
   @Field({ nullable: true })
   status?: string;

@@ -100,6 +100,8 @@ export default async function Page({
     name: keywordData.page_title,
     description: keywordData.meta_description,
     url: `${normalizedBaseUrl}topics/${keywordData.slug}`,
+    ...(keywordData.created_on && { datePublished: keywordData.created_on }),
+    ...(keywordData.updated_on && { dateModified: keywordData.updated_on }),
     publisher: {
       "@type": "Organization",
       name: "PayTrade",

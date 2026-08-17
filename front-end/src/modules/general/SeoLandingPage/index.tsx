@@ -20,6 +20,7 @@ import FeaturesSection from "@/components/HomeScreen/sections/FeaturesSection";
 import CompareCtaBlock, {
   isTrustAccountRelated,
 } from "@/components/SeoShared/CompareCtaBlock";
+import LastReviewed from "@/components/SeoShared/LastReviewed";
 
 interface SeoKeywordData {
   id: string;
@@ -30,6 +31,7 @@ interface SeoKeywordData {
   page_content: string | null;
   hero_image_url: string | null;
   tags: string[] | null;
+  updated_on?: string | null;
 }
 
 interface RelatedContentItem {
@@ -200,6 +202,9 @@ export default function SeoLandingPage({
       <div className={styles.landingPage}>
         {keywordData.page_content && (
           <div className={styles.contentSection}>
+            {keywordData.updated_on && (
+              <LastReviewed date={keywordData.updated_on} />
+            )}
             <div
               className={styles.content}
               dangerouslySetInnerHTML={{

@@ -16,6 +16,7 @@ import {
   SeoKeywordResponse,
   SeoKeywordListResponse,
   SeoKeywordDeleteResponse,
+  SeoKeywordReviewResponse,
 } from './response/seo-keyword.response';
 import {
   SeoKeywordPageResponse,
@@ -72,6 +73,40 @@ export class SeoKeywordsResolver {
     } catch (error) {
       this.logger.error(`Error updating SEO keyword: ${error.message}`);
       return framedResponse('ERROR', error.message);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.RESTRICTED_PORTAL_ADMIN, Role.PORTAL_ADMIN)
+  @Mutation(() => SeoKeywordReviewResponse, {
+    name: 'adminMarkSeoKeywordsReviewed',
+    description:
+      'Mark one or more SEO keywords as reviewed: bumps updated_on (public "Last reviewed" date and sitemap lastModified) without changing content.',
+  })
+  async adminMarkSeoKeywordsReviewed(
+    @Args('ids', {
+      type: () => [String],
+      description: 'IDs of the SEO keywords that were reviewed.',
+    })
+    ids: string[],
+  ): Promise<SeoKeywordReviewResponse> {
+    try {
+      const updatedCount = await this.seoKeywordsService.markReviewed(ids);
+      if (!updatedCount) {
+        return {
+          status: 'ERROR',
+          message: 'No matching SEO keywords found to mark as reviewed.',
+          updatedCount: 0,
+        };
+      }
+      return {
+        status: 'SUCCESS',
+        message: `Marked ${updatedCount} keyword(s) as reviewed.`,
+        updatedCount,
+      };
+    } catch (error) {
+      this.logger.error(`Error marking SEO keywords reviewed: ${error.message}`);
+      return { status: 'ERROR', message: error.message, updatedCount: 0 };
     }
   }
 
