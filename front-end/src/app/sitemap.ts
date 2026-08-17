@@ -187,6 +187,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}project-trust-account`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}project-trust-account-software`,
       lastModified: new Date(),
       changeFrequency: "monthly",

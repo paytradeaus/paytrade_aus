@@ -115,6 +115,40 @@ export function buildItemListSchema(input: {
   };
 }
 
+export function buildArticleSchema(input: {
+  headline: string;
+  description: string;
+  path: string;
+  datePublished: string;
+  dateModified: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: input.headline,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    mainEntityOfPage: absoluteUrl(input.path),
+    datePublished: input.datePublished,
+    dateModified: input.dateModified,
+    inLanguage: "en-AU",
+    author: {
+      "@type": "Organization",
+      name: "PayTrade",
+      url: BASE_URL,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "PayTrade",
+      url: BASE_URL,
+      logo: {
+        "@type": "ImageObject",
+        url: absoluteUrl("images/ogFavicon.png"),
+      },
+    },
+  };
+}
+
 export interface FaqItem {
   question: string;
   answer: string;
