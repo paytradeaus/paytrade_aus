@@ -8,6 +8,7 @@ import DisclaimerBox from "@/components/SeoShared/DisclaimerBox";
 import LastReviewed from "@/components/SeoShared/LastReviewed";
 import FAQAccordion from "@/components/SeoShared/FAQAccordion";
 import SourceNoteBox from "@/components/SeoShared/SourceNoteBox";
+import KeywordAlignedContent from "@/components/SeoShared/KeywordAlignedContent";
 import FinalCta from "@/components/HomeScreen/sections/FinalCta";
 import {
   absoluteUrl,
@@ -551,6 +552,8 @@ export default function Page() {
                   </li>
                 </ul>
               </section>
+
+              <KeywordAlignedContent keyword="project trust account" />
 
               <SourceNoteBox sources={sources} />
               <DisclaimerBox />
